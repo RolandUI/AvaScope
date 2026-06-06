@@ -13,6 +13,7 @@ public sealed class AvaScopeBridgeRuntime
 {
     private readonly ConcurrentDictionary<int, WeakReference<TopLevel>> _registeredTopLevels = new();
     private readonly SessionRegistry _sessionRegistry;
+    private LocalBridgeServer? _localServer;
 
     internal AvaScopeBridgeRuntime(
         SessionRegistry sessionRegistry,
@@ -29,6 +30,10 @@ public sealed class AvaScopeBridgeRuntime
     public SessionId SessionId => Session.Id;
 
     public BridgeTransportScope TransportScope { get; }
+
+    public string? LocalPipeName => _localServer?.PipeName;
+
+    public string? SessionManifestPath => _localServer?.ManifestPath;
 
     public IDisposable RegisterTopLevel(TopLevel topLevel)
     {
@@ -81,7 +86,15 @@ public sealed class AvaScopeBridgeRuntime
 
     internal CoreResult<SessionSnapshot> Close()
     {
+        _localServer?.Dispose();
+        _localServer = null;
+
         return _sessionRegistry.Close(SessionId);
+    }
+
+    internal void StartLocalServer()
+    {
+        _localServer ??= LocalBridgeServer.Start(this);
     }
 
     private IReadOnlyList<InspectableTopLevel> DiscoverTopLevels()

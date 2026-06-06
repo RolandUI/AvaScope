@@ -47,6 +47,7 @@ public static class AvaScopeBridge
                 sessionRegistry,
                 session,
                 BridgeTransportScope.LocalOnly);
+            _current.StartLocalServer();
 
             return _current;
         }

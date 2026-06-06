@@ -1,3 +1,6 @@
+using System.IO.Pipes;
+using System.Text;
+using System.Text.Json;
 using AvaScope.Bridge;
 using AvaScope.Core;
 using AvaScope.Protocol;
@@ -37,6 +40,46 @@ public sealed class AvaScopeBridgeTests : IDisposable
         Assert.Equal(SessionKinds.Runtime, runtime.Session.Kind);
         Assert.Equal("Sample app", runtime.Session.DisplayName);
         Assert.Equal(SessionLifecycleState.Active, registry.Get(runtime.SessionId).Value!.State);
+    }
+
+    [Fact]
+    public void ActivateCreatesAndDeactivateRemovesLocalSessionManifest()
+    {
+        var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Sample app"));
+
+        Assert.False(string.IsNullOrWhiteSpace(runtime.LocalPipeName));
+        Assert.False(string.IsNullOrWhiteSpace(runtime.SessionManifestPath));
+        Assert.True(File.Exists(runtime.SessionManifestPath));
+
+        var manifestJson = File.ReadAllText(runtime.SessionManifestPath);
+        var manifest = JsonSerializer.Deserialize<BridgeSessionManifest>(manifestJson);
+
+        Assert.NotNull(manifest);
+        Assert.Equal(runtime.SessionId, manifest.SessionId);
+        Assert.Equal(Environment.ProcessId, manifest.ProcessId);
+        Assert.Equal(runtime.LocalPipeName, manifest.PipeName);
+        Assert.Equal("Sample app", manifest.DisplayName);
+
+        var manifestPath = runtime.SessionManifestPath;
+        var result = AvaScopeBridge.Deactivate();
+
+        Assert.True(result.Success);
+        Assert.False(File.Exists(manifestPath));
+    }
+
+    [Fact]
+    public async Task LocalPipeServerRespondsToHealthRequest()
+    {
+        var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Sample app"));
+
+        var response = await SendBridgeRequestAsync(
+            runtime.LocalPipeName!,
+            new BridgeIpcRequest("request-1", BridgeIpcMethods.Health));
+
+        Assert.Equal("request-1", response.RequestId);
+        Assert.True(response.Success);
+        Assert.Null(response.Error);
+        Assert.Equal("avascope", response.GetValue<HealthResponse>()!.ServiceName);
     }
 
     [Fact]
@@ -81,5 +124,50 @@ public sealed class AvaScopeBridgeTests : IDisposable
             () => new BridgeActivationOptions(sessionKind: " "));
 
         Assert.Equal("sessionKind", exception.ParamName);
+    }
+
+    private static async Task<BridgeIpcResponse> SendBridgeRequestAsync(
+        string pipeName,
+        BridgeIpcRequest request)
+    {
+        await using var pipe = new NamedPipeClientStream(
+            ".",
+            pipeName,
+            PipeDirection.InOut,
+            PipeOptions.Asynchronous);
+
+        pipe.Connect(5000);
+
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var requestBytes = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(request) + Environment.NewLine);
+        await pipe.WriteAsync(requestBytes, timeout.Token);
+        await pipe.FlushAsync(timeout.Token);
+
+        var responseBytes = new List<byte>();
+        var buffer = new byte[1];
+
+        while (true)
+        {
+            var read = await pipe.ReadAsync(buffer, timeout.Token);
+            if (read == 0)
+            {
+                break;
+            }
+
+            if (buffer[0] == (byte)'\n')
+            {
+                break;
+            }
+
+            if (buffer[0] != (byte)'\r')
+            {
+                responseBytes.Add(buffer[0]);
+            }
+        }
+
+        var line = Encoding.UTF8.GetString(responseBytes.ToArray());
+        Assert.False(string.IsNullOrWhiteSpace(line));
+        return JsonSerializer.Deserialize<BridgeIpcResponse>(line)!
+            ?? throw new InvalidOperationException("Bridge IPC response was empty.");
     }
 }

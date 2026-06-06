@@ -31,7 +31,7 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Next Action
 
-Design and implement the local-only attach transport between `AvaScope.Mcp`/future CLI and an activated `AvaScope.Bridge` runtime so screenshot capture can be requested from outside the target app process.
+Implement the reusable local attach client that discovers bridge session manifests, connects to the activated bridge named pipe, and exposes the first MCP-side `attach_to_app`/runtime screenshot path.
 
 ## Latest Validation
 
@@ -42,6 +42,10 @@ Design and implement the local-only attach transport between `AvaScope.Mcp`/futu
 - `2026-06-06`: `dotnet test AvaScope.slnx --filter Core` passed with 9 tests.
 - `2026-06-06`: `dotnet test AvaScope.slnx --filter Mcp` passed with 4 tests.
 - `2026-06-06`: `dotnet test AvaScope.slnx --filter Bridge` passed with 8 tests.
+- `2026-06-06`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after M5 bridge IPC foundation.
+- `2026-06-06`: `dotnet test AvaScope.slnx --no-build --filter Protocol` passed with 13 tests.
+- `2026-06-06`: `dotnet test AvaScope.slnx --no-build --filter Bridge` passed with 13 tests.
+- `2026-06-06`: `dotnet test AvaScope.slnx --no-build` passed with 34 tests.
 - `2026-06-06`: `AvaScope.Protocol` package list checked; no package references found.
 - `2026-06-06`: `AvaScope.Core` package list checked; no package references found.
 - `2026-06-06`: `rg "Avalonia|ModelContextProtocol|Mcp|MCP" src\AvaScope.Protocol tests\AvaScope.Tests\Protocol` found no matches.
@@ -122,7 +126,11 @@ Design and implement the local-only attach transport between `AvaScope.Mcp`/futu
 - Deliverables: attach flow, screenshot request/response, generated image file output, sample validation.
 - Progress:
   - Done: in-process bridge screenshot capture for registered top-levels with PNG file output and structured success/error results.
-  - Remaining: local-only cross-process attach path from MCP/CLI to activated bridge runtime.
+  - Done: bridge activation now writes a local session manifest and starts a local-only named-pipe IPC server.
+  - Done: bridge IPC protocol models cover request, response, method names, and session manifest JSON shape.
+  - Done: bridge named-pipe health request is covered by a smoke test.
+  - Remaining: reusable MCP/CLI-side local attach client that discovers manifests and calls the bridge pipe.
+  - Remaining: cross-process `list_top_levels` and `screenshot` smoke coverage through the attach client.
 - Acceptance Criteria:
   - Screenshot output path is returned as structured data.
   - Failed capture returns a structured diagnostic error.
@@ -130,6 +138,7 @@ Design and implement the local-only attach transport between `AvaScope.Mcp`/futu
 - Validation:
   - screenshot smoke test against sample app
   - output file existence and non-empty image validation
+  - local IPC health smoke test
 
 ### M6 Tree Inspection Slice
 
@@ -183,6 +192,8 @@ Design and implement the local-only attach transport between `AvaScope.Mcp`/futu
 - `2026-06-06`: Use official Avalonia 12.0.4 packages for bridge work and manual `Avalonia.Headless` sessions for bridge smoke tests to avoid mixing xUnit v2 tests with `Avalonia.Headless.XUnit`'s xUnit v3 dependency.
 - `2026-06-06`: Bridge top-level discovery combines Avalonia lifetime discovery with explicit weak `RegisterTopLevel` registration because headless and non-desktop hosts may not populate `IClassicDesktopStyleApplicationLifetime.Windows`.
 - `2026-06-06`: Screenshot capture uses public Avalonia `RenderTargetBitmap.Render(Visual)` and stream-based `Bitmap.Save(Stream)` output; headless tests enable Skia-backed drawing so output files are non-empty.
+- `2026-06-06`: Bridge-local attach discovery uses temp session manifests plus local named pipes, keeping runtime control opt-in and local-only while allowing MCP/CLI adapters to remain thin clients.
+- `2026-06-06`: Bridge IPC uses newline-delimited UTF-8 JSON over named pipes with explicit request ids; the implementation uses byte-level pipe reads/writes for deterministic test behavior.
 
 ## Change Log
 
@@ -193,3 +204,4 @@ Design and implement the local-only attach transport between `AvaScope.Mcp`/futu
 - `2026-06-06`: Completed M3 minimal MCP adapter with stdio hosting, `health`, `list_sessions`, tool mapping tests, and stdio child-process smoke coverage; moved active focus to M4.
 - `2026-06-06`: Completed M4 opt-in bridge MVP with explicit activation/deactivation, local-only runtime scope, UI-thread top-level discovery, explicit top-level registration, and headless bridge smoke coverage; moved active focus to M5.
 - `2026-06-06`: Added M5 bridge-local screenshot capture with `ScreenshotResponse`, registered top-level lookup, PNG output, structured missing-top-level errors, and headless file validation; M5 remains in progress pending local attach transport.
+- `2026-06-06`: Added M5 bridge IPC foundation with local session manifests, named-pipe server startup/shutdown, IPC DTO JSON tests, manifest lifecycle validation, and pipe health smoke coverage; M5 remains in progress pending MCP/CLI attach client and cross-process screenshot validation.

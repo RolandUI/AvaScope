@@ -119,4 +119,62 @@ public sealed class ProtocolContractTests
         Assert.Equal(200, node["pixelHeight"]!.GetValue<int>());
         Assert.Equal(capturedAt, DateTimeOffset.Parse(node["capturedAt"]!.GetValue<string>(), CultureInfo.InvariantCulture));
     }
+
+    [Fact]
+    public void BridgeIpcRequestSerializesStableAttachShape()
+    {
+        var request = new BridgeIpcRequest(
+            "request-1",
+            BridgeIpcMethods.Screenshot,
+            "topLevel:abc",
+            "C:\\screenshots\\capture.png");
+
+        var json = JsonSerializer.Serialize(request);
+        var node = JsonNode.Parse(json)!;
+
+        Assert.Equal("request-1", node["requestId"]!.GetValue<string>());
+        Assert.Equal("screenshot", node["method"]!.GetValue<string>());
+        Assert.Equal("topLevel:abc", node["topLevelId"]!.GetValue<string>());
+        Assert.Equal("C:\\screenshots\\capture.png", node["outputPath"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public void BridgeIpcResponseRoundTripsStructuredValue()
+    {
+        var response = BridgeIpcResponse.Ok("request-1", HealthResponse.Current());
+
+        var json = JsonSerializer.Serialize(response);
+        var node = JsonNode.Parse(json)!;
+        var roundTripped = JsonSerializer.Deserialize<BridgeIpcResponse>(json);
+
+        Assert.Equal("request-1", node["requestId"]!.GetValue<string>());
+        Assert.True(node["success"]!.GetValue<bool>());
+        Assert.Equal("avascope", node["value"]!["serviceName"]!.GetValue<string>());
+
+        Assert.NotNull(roundTripped);
+        Assert.True(roundTripped.Success);
+        Assert.Null(roundTripped.Error);
+        Assert.Equal("avascope", roundTripped.GetValue<HealthResponse>()!.ServiceName);
+    }
+
+    [Fact]
+    public void BridgeSessionManifestSerializesStableAttachMetadata()
+    {
+        var createdAt = new DateTimeOffset(2026, 6, 6, 22, 0, 0, TimeSpan.Zero);
+        var manifest = new BridgeSessionManifest(
+            new SessionId("session-1"),
+            1234,
+            "avascope-1234-session-1",
+            createdAt,
+            "Sample app");
+
+        var json = JsonSerializer.Serialize(manifest);
+        var node = JsonNode.Parse(json)!;
+
+        Assert.Equal("session-1", node["sessionId"]!.GetValue<string>());
+        Assert.Equal(1234, node["processId"]!.GetValue<int>());
+        Assert.Equal("avascope-1234-session-1", node["pipeName"]!.GetValue<string>());
+        Assert.Equal("Sample app", node["displayName"]!.GetValue<string>());
+        Assert.Equal(createdAt, DateTimeOffset.Parse(node["createdAt"]!.GetValue<string>(), CultureInfo.InvariantCulture));
+    }
 }
