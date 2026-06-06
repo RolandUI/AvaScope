@@ -228,4 +228,42 @@ public sealed class ProtocolContractTests
         Assert.Equal("Sample app", node["session"]!["displayName"]!.GetValue<string>());
         Assert.Equal(createdAt, DateTimeOffset.Parse(node["session"]!["createdAt"]!.GetValue<string>(), CultureInfo.InvariantCulture));
     }
+
+    [Fact]
+    public void TreeResponseSerializesBoundedNodeShape()
+    {
+        var response = new TreeResponse(
+            new SessionId("session-1"),
+            "topLevel:abc",
+            TreeKinds.Visual,
+            2,
+            new TreeNodeSummary(
+                "visual:root",
+                "Avalonia.Controls.Window",
+                "MainWindow",
+                bounds: new NodeBounds(0, 0, 320, 200),
+                classes: ["root"],
+                children:
+                [
+                    new TreeNodeSummary(
+                        "visual:text",
+                        "Avalonia.Controls.TextBlock",
+                        "TitleText",
+                        "AvaScope")
+                ]));
+
+        var json = JsonSerializer.Serialize(response);
+        var node = JsonNode.Parse(json)!;
+
+        Assert.Equal("session-1", node["sessionId"]!.GetValue<string>());
+        Assert.Equal("topLevel:abc", node["topLevelId"]!.GetValue<string>());
+        Assert.Equal("visual", node["treeKind"]!.GetValue<string>());
+        Assert.Equal(2, node["depthLimit"]!.GetValue<int>());
+        Assert.Equal("visual:root", node["root"]!["nodeId"]!.GetValue<string>());
+        Assert.Equal("Avalonia.Controls.Window", node["root"]!["nodeType"]!.GetValue<string>());
+        Assert.Equal("MainWindow", node["root"]!["name"]!.GetValue<string>());
+        Assert.Equal(320, node["root"]!["bounds"]!["width"]!.GetValue<double>());
+        Assert.Equal("root", node["root"]!["classes"]![0]!.GetValue<string>());
+        Assert.Equal("AvaScope", node["root"]!["children"]![0]!["text"]!.GetValue<string>());
+    }
 }

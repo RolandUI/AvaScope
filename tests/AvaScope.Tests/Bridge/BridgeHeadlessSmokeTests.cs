@@ -6,6 +6,7 @@ using Avalonia.Threading;
 using AvaScope.Bridge;
 using AvaScope.Core;
 using AvaScope.Mcp;
+using AvaScope.Protocol;
 
 namespace AvaScope.Tests.Bridge;
 
@@ -117,7 +118,11 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                 Title = "AvaScope Pipe Sample",
                 Width = 360,
                 Height = 240,
-                Content = new TextBlock { Text = "AvaScope pipe" }
+                Content = new TextBlock
+                {
+                    Name = "PipeText",
+                    Text = "AvaScope pipe"
+                }
             };
 
             window.Show();
@@ -131,6 +136,38 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
             var topLevel = Assert.Single(topLevels.Value!.TopLevels);
             Assert.Equal("window", topLevel.Kind);
             Assert.Equal("AvaScope Pipe Sample", topLevel.Title);
+
+            var visualTree = await AvaScopeMcpTools.VisualTree(
+                client,
+                runtime.SessionId.Value,
+                topLevel.Id,
+                maxDepth: 8);
+
+            Assert.True(visualTree.Success, visualTree.Error?.Message);
+            Assert.Equal(TreeKinds.Visual, visualTree.Value!.TreeKind);
+            Assert.Equal(topLevel.Id, visualTree.Value.TopLevelId);
+            Assert.Contains("Window", visualTree.Value.Root.NodeType, StringComparison.Ordinal);
+            Assert.NotEmpty(visualTree.Value.Root.Children);
+            Assert.NotNull(FindNode(visualTree.Value.Root, node => node.Name == "PipeText"));
+
+            var depthLimitedVisualTree = await AvaScopeMcpTools.VisualTree(
+                client,
+                runtime.SessionId.Value,
+                topLevel.Id,
+                maxDepth: 0);
+
+            Assert.True(depthLimitedVisualTree.Success, depthLimitedVisualTree.Error?.Message);
+            Assert.Empty(depthLimitedVisualTree.Value!.Root.Children);
+
+            var logicalTree = await AvaScopeMcpTools.LogicalTree(
+                client,
+                runtime.SessionId.Value,
+                topLevel.Id,
+                maxDepth: 4);
+
+            Assert.True(logicalTree.Success, logicalTree.Error?.Message);
+            Assert.Equal(TreeKinds.Logical, logicalTree.Value!.TreeKind);
+            Assert.NotNull(FindNode(logicalTree.Value.Root, node => node.Text == "AvaScope pipe"));
 
             var screenshotPath = Path.Combine(
                 Path.GetTempPath(),
@@ -162,6 +199,27 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                 window.Close();
             }
         }, CancellationToken.None);
+    }
+
+    private static TreeNodeSummary? FindNode(
+        TreeNodeSummary node,
+        Func<TreeNodeSummary, bool> predicate)
+    {
+        if (predicate(node))
+        {
+            return node;
+        }
+
+        foreach (var child in node.Children)
+        {
+            var match = FindNode(child, predicate);
+            if (match is not null)
+            {
+                return match;
+            }
+        }
+
+        return null;
     }
 
     private sealed class BridgeHeadlessTestApplication : Application

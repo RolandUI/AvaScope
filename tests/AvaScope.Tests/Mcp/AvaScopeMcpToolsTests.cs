@@ -99,6 +99,21 @@ public sealed class AvaScopeMcpToolsTests
         Assert.Equal(CoreErrorCodes.InvalidBridgeRequest, result.Error!.Code);
     }
 
+    [Fact]
+    public async Task VisualTreeRejectsEmptySessionId()
+    {
+        var client = new LocalBridgeClient(CreateMissingManifestDirectory());
+
+        var result = await AvaScopeMcpTools.VisualTree(
+            client,
+            " ",
+            "topLevel:abc");
+
+        Assert.False(result.Success);
+        Assert.Null(result.Value);
+        Assert.Equal(CoreErrorCodes.InvalidBridgeRequest, result.Error!.Code);
+    }
+
     private static string CreateMissingManifestDirectory()
     {
         return Path.Combine(

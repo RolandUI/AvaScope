@@ -200,6 +200,8 @@ internal sealed class LocalBridgeServer : IDisposable
                 request.RequestId,
                 await _runtime.ListTopLevelsAsync(cancellationToken)),
             BridgeIpcMethods.Screenshot => await CaptureScreenshotAsync(request, cancellationToken),
+            BridgeIpcMethods.VisualTree => await GetTreeAsync(request, TreeKinds.Visual, cancellationToken),
+            BridgeIpcMethods.LogicalTree => await GetTreeAsync(request, TreeKinds.Logical, cancellationToken),
             _ => BridgeIpcResponse.Fail(
                 request.RequestId,
                 new ProtocolError("unknown_method", $"Bridge method '{request.Method}' is not supported."))
@@ -225,6 +227,38 @@ internal sealed class LocalBridgeServer : IDisposable
         }
 
         var result = await _runtime.CaptureScreenshotAsync(request.TopLevelId, request.OutputPath, cancellationToken);
+
+        return result.Success
+            ? BridgeIpcResponse.Ok(request.RequestId, result.Value)
+            : BridgeIpcResponse.Fail(
+                request.RequestId,
+                new ProtocolError(result.Error!.Code, result.Error.Message));
+    }
+
+    private async Task<BridgeIpcResponse> GetTreeAsync(
+        BridgeIpcRequest request,
+        string treeKind,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.TopLevelId))
+        {
+            return BridgeIpcResponse.Fail(
+                request.RequestId,
+                new ProtocolError("missing_top_level_id", "Tree requests require a top-level id."));
+        }
+
+        var result = treeKind switch
+        {
+            TreeKinds.Visual => await _runtime.GetVisualTreeAsync(
+                request.TopLevelId,
+                request.MaxDepth,
+                cancellationToken),
+            TreeKinds.Logical => await _runtime.GetLogicalTreeAsync(
+                request.TopLevelId,
+                request.MaxDepth,
+                cancellationToken),
+            _ => throw new ArgumentOutOfRangeException(nameof(treeKind), treeKind, "Unknown tree kind.")
+        };
 
         return result.Success
             ? BridgeIpcResponse.Ok(request.RequestId, result.Value)

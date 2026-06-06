@@ -127,6 +127,61 @@ public sealed class LocalBridgeClient
             cancellationToken);
     }
 
+    public Task<CoreResult<TreeResponse>> VisualTreeAsync(
+        SessionId sessionId,
+        string topLevelId,
+        int? maxDepth = null,
+        CancellationToken cancellationToken = default)
+    {
+        return TreeAsync(
+            sessionId,
+            topLevelId,
+            BridgeIpcMethods.VisualTree,
+            maxDepth,
+            cancellationToken);
+    }
+
+    public Task<CoreResult<TreeResponse>> LogicalTreeAsync(
+        SessionId sessionId,
+        string topLevelId,
+        int? maxDepth = null,
+        CancellationToken cancellationToken = default)
+    {
+        return TreeAsync(
+            sessionId,
+            topLevelId,
+            BridgeIpcMethods.LogicalTree,
+            maxDepth,
+            cancellationToken);
+    }
+
+    private async Task<CoreResult<TreeResponse>> TreeAsync(
+        SessionId sessionId,
+        string topLevelId,
+        string method,
+        int? maxDepth,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(sessionId);
+
+        if (string.IsNullOrWhiteSpace(topLevelId))
+        {
+            return CoreResult<TreeResponse>.Fail(
+                new CoreError(CoreErrorCodes.InvalidBridgeRequest, "Top-level id cannot be empty."));
+        }
+
+        var manifestResult = FindSingleManifest(null, sessionId);
+        if (!manifestResult.Success)
+        {
+            return CoreResult<TreeResponse>.Fail(manifestResult.Error!);
+        }
+
+        return await SendAsync<TreeResponse>(
+            manifestResult.Value!,
+            new BridgeIpcRequest(NewRequestId(), method, topLevelId, maxDepth: maxDepth),
+            cancellationToken);
+    }
+
     private CoreResult<BridgeSessionManifest> FindSingleManifest(int? processId, SessionId? sessionId)
     {
         var matches = ListSessionManifests()

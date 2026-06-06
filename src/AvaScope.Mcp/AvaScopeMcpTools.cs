@@ -121,6 +121,66 @@ public sealed class AvaScopeMcpTools
             cancellationToken));
     }
 
+    [McpServerTool(
+        Name = "visual_tree",
+        Title = "Visual tree",
+        ReadOnly = true,
+        Idempotent = true,
+        Destructive = false,
+        OpenWorld = false,
+        UseStructuredContent = true)]
+    [Description("Returns a bounded visual tree for an attached local AvaScope bridge session top-level.")]
+    public static async Task<ToolResult<TreeResponse>> VisualTree(
+        LocalBridgeClient bridgeClient,
+        string sessionId,
+        string topLevelId,
+        int? maxDepth = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(bridgeClient);
+
+        if (!TryParseRequiredSessionId(sessionId, out var parsedSessionId, out var error))
+        {
+            return ToolResult<TreeResponse>.Fail(error!);
+        }
+
+        return ToToolResult(await bridgeClient.VisualTreeAsync(
+            parsedSessionId!,
+            topLevelId,
+            maxDepth,
+            cancellationToken));
+    }
+
+    [McpServerTool(
+        Name = "logical_tree",
+        Title = "Logical tree",
+        ReadOnly = true,
+        Idempotent = true,
+        Destructive = false,
+        OpenWorld = false,
+        UseStructuredContent = true)]
+    [Description("Returns a bounded logical tree for an attached local AvaScope bridge session top-level.")]
+    public static async Task<ToolResult<TreeResponse>> LogicalTree(
+        LocalBridgeClient bridgeClient,
+        string sessionId,
+        string topLevelId,
+        int? maxDepth = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(bridgeClient);
+
+        if (!TryParseRequiredSessionId(sessionId, out var parsedSessionId, out var error))
+        {
+            return ToolResult<TreeResponse>.Fail(error!);
+        }
+
+        return ToToolResult(await bridgeClient.LogicalTreeAsync(
+            parsedSessionId!,
+            topLevelId,
+            maxDepth,
+            cancellationToken));
+    }
+
     private static SessionSummary ToProtocolSummary(SessionSnapshot session)
     {
         return new SessionSummary(

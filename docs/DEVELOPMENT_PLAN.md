@@ -31,7 +31,7 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Next Action
 
-Design and implement protocol DTOs plus bridge-side serialization for bounded visual tree inspection, starting with stable node ids, type/name/text metadata, bounds, and depth limits.
+Implement `find_nodes` over the bridge tree model with filters for type, name, automation id, and text, then expose it through the MCP/Core/pipe path.
 
 ## Latest Validation
 
@@ -56,6 +56,12 @@ Design and implement protocol DTOs plus bridge-side serialization for bounded vi
 - `2026-06-06`: `dotnet test AvaScope.slnx --no-build --filter Bridge` passed with 19 tests after MCP/Core/pipe screenshot validation.
 - `2026-06-06`: `dotnet test AvaScope.slnx --no-build --filter Mcp` passed with 9 tests after MCP/Core/pipe screenshot validation.
 - `2026-06-06`: `dotnet test AvaScope.slnx --no-build` passed with 44 tests.
+- `2026-06-06`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after M6 tree serialization slice.
+- `2026-06-06`: `dotnet test AvaScope.slnx --no-build --filter Protocol` passed with 16 tests.
+- `2026-06-06`: `dotnet test AvaScope.slnx --no-build --filter Core` passed with 14 tests.
+- `2026-06-06`: `dotnet test AvaScope.slnx --no-build --filter Mcp` passed with 10 tests.
+- `2026-06-06`: `dotnet test AvaScope.slnx --no-build --filter Bridge` passed with 20 tests.
+- `2026-06-06`: `dotnet test AvaScope.slnx --no-build` passed with 47 tests.
 - `2026-06-06`: `AvaScope.Protocol` package list checked; no package references found.
 - `2026-06-06`: `AvaScope.Core` package list checked; no package references found.
 - `2026-06-06`: `rg "Avalonia|ModelContextProtocol|Mcp|MCP" src\AvaScope.Protocol tests\AvaScope.Tests\Protocol` found no matches.
@@ -159,6 +165,13 @@ Design and implement protocol DTOs plus bridge-side serialization for bounded vi
 - Status: `In Progress`
 - Goal: expose visual and logical tree inspection with stable node identity.
 - Deliverables: tree serialization, depth limits, node metadata, basic find behavior.
+- Progress:
+  - Done: protocol DTOs for tree kind, node bounds, node summaries, and tree responses.
+  - Done: bridge visual/logical tree serialization using public Avalonia traversal APIs.
+  - Done: stable node ids within a session based on runtime object identity.
+  - Done: depth limits with default bounded output and explicit max depth input.
+  - Done: MCP/Core/named-pipe `visual_tree` and `logical_tree` tool path with headless validation.
+  - Remaining: `find_nodes` filters for type, name, automation id, text, and path-oriented result shape.
 - Acceptance Criteria:
   - Tree results are bounded by default.
   - Node IDs are stable within a session.
@@ -211,6 +224,8 @@ Design and implement protocol DTOs plus bridge-side serialization for bounded vi
 - `2026-06-06`: The reusable local attach client lives in `AvaScope.Core` so MCP and future CLI can share discovery/pipe behavior without referencing Avalonia bridge assemblies.
 - `2026-06-06`: `list_top_levels` and `screenshot` MCP tools were exposed in the attach-client slice, then validated by the MCP/Core/pipe screenshot smoke test before closing M5.
 - `2026-06-06`: Positive MCP/Core/pipe screenshot validation uses `HeadlessUnitTestSession.Dispatch(Func<Task>)`; awaiting the tool call from the headless UI dispatch context allows bridge server UI-thread work to complete without a manual pump loop.
+- `2026-06-06`: M6 tree inspection uses public Avalonia visual/logical traversal APIs (`GetVisualChildren`, `GetLogicalChildren`) and keeps serialization bounded with an explicit depth limit.
+- `2026-06-06`: Tree node ids are stable only within the active runtime session and are based on runtime object identity; no persisted cross-process identity guarantee is introduced in M6.
 
 ## Change Log
 
@@ -224,3 +239,4 @@ Design and implement protocol DTOs plus bridge-side serialization for bounded vi
 - `2026-06-06`: Added M5 bridge IPC foundation with local session manifests, named-pipe server startup/shutdown, IPC DTO JSON tests, manifest lifecycle validation, and pipe health smoke coverage; M5 remains in progress pending MCP/CLI attach client and cross-process screenshot validation.
 - `2026-06-06`: Added M5 reusable local attach client and MCP tool adapters for `attach_to_app`, `list_top_levels`, and `screenshot`; M5 remains in progress pending deterministic positive top-level/screenshot validation through the MCP/Core/pipe path.
 - `2026-06-06`: Completed M5 runtime screenshot slice with MCP/Core/named-pipe top-level listing and screenshot validation against a headless Avalonia window; moved active focus to M6.
+- `2026-06-06`: Added M6 bounded visual/logical tree serialization with protocol DTOs, bridge traversal, MCP/Core/pipe tools, and headless validation; M6 remains in progress pending `find_nodes`.

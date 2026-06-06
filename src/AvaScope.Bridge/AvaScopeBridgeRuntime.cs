@@ -1,16 +1,21 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.LogicalTree;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using AvaScope.Core;
 using AvaScope.Protocol;
 using System.Collections.Concurrent;
+using System.Runtime.CompilerServices;
 
 namespace AvaScope.Bridge;
 
 public sealed class AvaScopeBridgeRuntime
 {
+    private const int DefaultTreeDepth = 10;
+    private const int MaximumTreeDepth = 64;
     private readonly ConcurrentDictionary<int, WeakReference<TopLevel>> _registeredTopLevels = new();
     private readonly SessionRegistry _sessionRegistry;
     private LocalBridgeServer? _localServer;
@@ -81,6 +86,46 @@ public sealed class AvaScopeBridgeRuntime
 
         return Dispatcher.UIThread
             .InvokeAsync(() => CaptureScreenshot(topLevelId, outputPath), DispatcherPriority.Background, cancellationToken)
+            .GetTask();
+    }
+
+    public Task<CoreResult<TreeResponse>> GetVisualTreeAsync(
+        string topLevelId,
+        int? maxDepth = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(topLevelId))
+        {
+            throw new ArgumentException("Top-level id cannot be empty.", nameof(topLevelId));
+        }
+
+        if (Dispatcher.UIThread.CheckAccess())
+        {
+            return Task.FromResult(GetVisualTree(topLevelId, maxDepth));
+        }
+
+        return Dispatcher.UIThread
+            .InvokeAsync(() => GetVisualTree(topLevelId, maxDepth), DispatcherPriority.Background, cancellationToken)
+            .GetTask();
+    }
+
+    public Task<CoreResult<TreeResponse>> GetLogicalTreeAsync(
+        string topLevelId,
+        int? maxDepth = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(topLevelId))
+        {
+            throw new ArgumentException("Top-level id cannot be empty.", nameof(topLevelId));
+        }
+
+        if (Dispatcher.UIThread.CheckAccess())
+        {
+            return Task.FromResult(GetLogicalTree(topLevelId, maxDepth));
+        }
+
+        return Dispatcher.UIThread
+            .InvokeAsync(() => GetLogicalTree(topLevelId, maxDepth), DispatcherPriority.Background, cancellationToken)
             .GetTask();
     }
 
@@ -205,6 +250,152 @@ public sealed class AvaScopeBridgeRuntime
             return CoreResult<ScreenshotResponse>.Fail(
                 new CoreError(BridgeErrorCodes.ScreenshotCaptureFailed, exception.Message));
         }
+    }
+
+    private CoreResult<TreeResponse> GetVisualTree(string topLevelId, int? maxDepth)
+    {
+        Dispatcher.UIThread.VerifyAccess();
+
+        var topLevel = FindTopLevel(topLevelId);
+        if (topLevel is null)
+        {
+            return TopLevelNotFound<TreeResponse>(topLevelId);
+        }
+
+        var depthLimit = NormalizeDepthLimit(maxDepth);
+        if (!depthLimit.Success)
+        {
+            return CoreResult<TreeResponse>.Fail(depthLimit.Error!);
+        }
+
+        var normalizedDepth = depthLimit.Value;
+
+        return CoreResult<TreeResponse>.Ok(new TreeResponse(
+            SessionId,
+            topLevelId,
+            TreeKinds.Visual,
+            normalizedDepth,
+            SerializeVisualNode(topLevel, depth: 0, normalizedDepth)));
+    }
+
+    private CoreResult<TreeResponse> GetLogicalTree(string topLevelId, int? maxDepth)
+    {
+        Dispatcher.UIThread.VerifyAccess();
+
+        var topLevel = FindTopLevel(topLevelId);
+        if (topLevel is null)
+        {
+            return TopLevelNotFound<TreeResponse>(topLevelId);
+        }
+
+        var depthLimit = NormalizeDepthLimit(maxDepth);
+        if (!depthLimit.Success)
+        {
+            return CoreResult<TreeResponse>.Fail(depthLimit.Error!);
+        }
+
+        var normalizedDepth = depthLimit.Value;
+
+        return CoreResult<TreeResponse>.Ok(new TreeResponse(
+            SessionId,
+            topLevelId,
+            TreeKinds.Logical,
+            normalizedDepth,
+            SerializeLogicalNode(topLevel, depth: 0, normalizedDepth)));
+    }
+
+    private static CoreResult<int> NormalizeDepthLimit(int? maxDepth)
+    {
+        if (maxDepth is < 0)
+        {
+            return CoreResult<int>.Fail(new CoreError(
+                BridgeErrorCodes.InvalidTreeDepth,
+                "Tree depth limit cannot be negative."));
+        }
+
+        return CoreResult<int>.Ok(Math.Min(maxDepth ?? DefaultTreeDepth, MaximumTreeDepth));
+    }
+
+    private static CoreResult<T> TopLevelNotFound<T>(string topLevelId)
+    {
+        return CoreResult<T>.Fail(
+            new CoreError(BridgeErrorCodes.TopLevelNotFound, $"Top-level '{topLevelId}' was not found."));
+    }
+
+    private static TreeNodeSummary SerializeVisualNode(Visual visual, int depth, int maxDepth)
+    {
+        var children = depth >= maxDepth
+            ? Array.Empty<TreeNodeSummary>()
+            : visual.GetVisualChildren()
+                .Select(child => SerializeVisualNode(child, depth + 1, maxDepth))
+                .ToArray();
+
+        return CreateNodeSummary(visual, TreeKinds.Visual, children);
+    }
+
+    private static TreeNodeSummary SerializeLogicalNode(ILogical logical, int depth, int maxDepth)
+    {
+        var children = depth >= maxDepth
+            ? Array.Empty<TreeNodeSummary>()
+            : logical.GetLogicalChildren()
+                .Select(child => SerializeLogicalNode(child, depth + 1, maxDepth))
+                .ToArray();
+
+        return CreateNodeSummary(logical, TreeKinds.Logical, children);
+    }
+
+    private static TreeNodeSummary CreateNodeSummary(
+        object node,
+        string treeKind,
+        IReadOnlyList<TreeNodeSummary> children)
+    {
+        return new TreeNodeSummary(
+            $"{treeKind}:{RuntimeHelpers.GetHashCode(node):x}",
+            node.GetType().FullName ?? node.GetType().Name,
+            GetName(node),
+            GetText(node),
+            GetBounds(node),
+            GetClasses(node),
+            children);
+    }
+
+    private static string? GetName(object node)
+    {
+        return node is StyledElement styledElement && !string.IsNullOrWhiteSpace(styledElement.Name)
+            ? styledElement.Name
+            : null;
+    }
+
+    private static string? GetText(object node)
+    {
+        return node switch
+        {
+            TextBlock { Text: { } text } when !string.IsNullOrEmpty(text) => text,
+            TextBox { Text: { } text } when !string.IsNullOrEmpty(text) => text,
+            ContentControl { Content: string text } when !string.IsNullOrEmpty(text) => text,
+            _ => null
+        };
+    }
+
+    private static NodeBounds? GetBounds(object node)
+    {
+        if (node is not Visual visual)
+        {
+            return null;
+        }
+
+        return new NodeBounds(
+            visual.Bounds.X,
+            visual.Bounds.Y,
+            visual.Bounds.Width,
+            visual.Bounds.Height);
+    }
+
+    private static IReadOnlyList<string> GetClasses(object node)
+    {
+        return node is StyledElement styledElement
+            ? styledElement.Classes.ToArray()
+            : Array.Empty<string>();
     }
 
     private TopLevel? FindTopLevel(string topLevelId)

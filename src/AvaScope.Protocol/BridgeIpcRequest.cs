@@ -9,7 +9,8 @@ public sealed record BridgeIpcRequest
         string requestId,
         string method,
         string? topLevelId = null,
-        string? outputPath = null)
+        string? outputPath = null,
+        int? maxDepth = null)
     {
         if (string.IsNullOrWhiteSpace(requestId))
         {
@@ -25,6 +26,7 @@ public sealed record BridgeIpcRequest
         Method = method;
         TopLevelId = topLevelId;
         OutputPath = outputPath;
+        MaxDepth = maxDepth;
     }
 
     [JsonPropertyName("requestId")]
@@ -40,4 +42,8 @@ public sealed record BridgeIpcRequest
     [JsonPropertyName("outputPath")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? OutputPath { get; }
+
+    [JsonPropertyName("maxDepth")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? MaxDepth { get; }
 }

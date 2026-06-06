@@ -5,4 +5,6 @@ public static class BridgeIpcMethods
     public const string Health = "health";
     public const string ListTopLevels = "list_top_levels";
     public const string Screenshot = "screenshot";
+    public const string VisualTree = "visual_tree";
+    public const string LogicalTree = "logical_tree";
 }
