@@ -1,0 +1,12 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="12.0.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AvaScope.Core\AvaScope.Core.csproj" />
+    <ProjectReference Include="..\AvaScope.Protocol\AvaScope.Protocol.csproj" />
+  </ItemGroup>
+
+</Project>

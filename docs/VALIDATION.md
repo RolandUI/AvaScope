@@ -28,3 +28,9 @@ For MCP adapter work, also run:
 ```powershell
 dotnet test AvaScope.slnx --filter Mcp
 ```
+
+For Avalonia bridge work, also run:
+
+```powershell
+dotnet test AvaScope.slnx --filter Bridge
+```

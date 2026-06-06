@@ -23,24 +23,25 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `M4 Opt-in Bridge MVP`
+- `M5 Runtime Screenshot Slice`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-06`
-- Goal: provide an opt-in Avalonia 12 bridge package for runtime inspection.
+- Goal: capture screenshots from a running bridged Avalonia app.
 
 ## Next Action
 
-Verify current Avalonia 12 package/API shape, then add `AvaScope.Bridge` with explicit activation, local-only runtime state, and top-level/window discovery on `Dispatcher.UIThread`.
+Extend the bridge/runtime model with screenshot capture for registered top-levels, file output, structured success/error results, and headless image validation.
 
 ## Latest Validation
 
 - `2026-06-06`: `dotnet restore AvaScope.slnx` passed.
 - `2026-06-06`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors.
-- `2026-06-06`: `dotnet test AvaScope.slnx` passed with 20 tests.
+- `2026-06-06`: `dotnet test AvaScope.slnx` passed with 27 tests.
 - `2026-06-06`: `dotnet test AvaScope.slnx --filter Protocol` passed with 7 tests.
 - `2026-06-06`: `dotnet test AvaScope.slnx --filter Core` passed with 9 tests.
 - `2026-06-06`: `dotnet test AvaScope.slnx --filter Mcp` passed with 4 tests.
+- `2026-06-06`: `dotnet test AvaScope.slnx --filter Bridge` passed with 7 tests.
 - `2026-06-06`: `AvaScope.Protocol` package list checked; no package references found.
 - `2026-06-06`: `AvaScope.Core` package list checked; no package references found.
 - `2026-06-06`: `rg "Avalonia|ModelContextProtocol|Mcp|MCP" src\AvaScope.Protocol tests\AvaScope.Tests\Protocol` found no matches.
@@ -103,7 +104,7 @@ Verify current Avalonia 12 package/API shape, then add `AvaScope.Bridge` with ex
 
 ### M4 Opt-in Bridge MVP
 
-- Status: `In Progress`
+- Status: `Done`
 - Goal: provide an opt-in Avalonia 12 bridge package for runtime inspection.
 - Deliverables: bridge activation API, local-only transport boundary, top-level/window discovery.
 - Acceptance Criteria:
@@ -116,7 +117,7 @@ Verify current Avalonia 12 package/API shape, then add `AvaScope.Bridge` with ex
 
 ### M5 Runtime Screenshot Slice
 
-- Status: `Not Started`
+- Status: `In Progress`
 - Goal: capture screenshots from a running bridged Avalonia app.
 - Deliverables: attach flow, screenshot request/response, generated image file output, sample validation.
 - Acceptance Criteria:
@@ -176,6 +177,8 @@ Verify current Avalonia 12 package/API shape, then add `AvaScope.Bridge` with ex
 - `2026-06-06`: Protocol contracts use System.Text.Json attributes and remain independent from Avalonia runtime types and MCP SDK types.
 - `2026-06-06`: `AvaScope.Core` references `AvaScope.Protocol` for shared transport-neutral session ids and keeps its own core result/error model for adapter-independent behavior.
 - `2026-06-06`: Use official `ModelContextProtocol` 1.4.0 and `Microsoft.Extensions.Hosting` 10.0.8 for the initial stdio MCP adapter; official C# SDK docs recommend `AddMcpServer().WithStdioServerTransport().WithTools<T>()` for local stdio servers.
+- `2026-06-06`: Use official Avalonia 12.0.4 packages for bridge work and manual `Avalonia.Headless` sessions for bridge smoke tests to avoid mixing xUnit v2 tests with `Avalonia.Headless.XUnit`'s xUnit v3 dependency.
+- `2026-06-06`: Bridge top-level discovery combines Avalonia lifetime discovery with explicit weak `RegisterTopLevel` registration because headless and non-desktop hosts may not populate `IClassicDesktopStyleApplicationLifetime.Windows`.
 
 ## Change Log
 
@@ -184,3 +187,4 @@ Verify current Avalonia 12 package/API shape, then add `AvaScope.Bridge` with ex
 - `2026-06-06`: Completed M1 protocol contracts with session ids, protocol version metadata, health/list_sessions DTOs, tool result/error shapes, and JSON serialization tests; moved active focus to M2.
 - `2026-06-06`: Completed M2 core session model with registry, lifecycle transitions, structured errors, and unit tests; moved active focus to M3.
 - `2026-06-06`: Completed M3 minimal MCP adapter with stdio hosting, `health`, `list_sessions`, tool mapping tests, and stdio child-process smoke coverage; moved active focus to M4.
+- `2026-06-06`: Completed M4 opt-in bridge MVP with explicit activation/deactivation, local-only runtime scope, UI-thread top-level discovery, explicit top-level registration, and headless bridge smoke coverage; moved active focus to M5.
