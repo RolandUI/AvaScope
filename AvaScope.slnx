@@ -3,4 +3,7 @@
     <Project Path="src/AvaScope.Core/AvaScope.Core.csproj" />
     <Project Path="src/AvaScope.Protocol/AvaScope.Protocol.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/AvaScope.Tests/AvaScope.Tests.csproj" />
+  </Folder>
 </Solution>

@@ -23,27 +23,28 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `M0 Project Foundation`
+- `M1 Protocol Contracts`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-06`
-- Goal: establish the minimal tracked repository foundation that later vertical slices can build on.
+- Goal: define stable, transport-neutral request/response contracts.
 
 ## Next Action
 
-Complete `M0 Project Foundation` by adding common build settings, a test project, first protocol/core smoke tests, and a documented local validation command set.
+Implement session identifiers, protocol version metadata, initial request/result shapes, and JSON serialization tests without introducing Avalonia or MCP runtime dependencies into `AvaScope.Protocol`.
 
 ## Latest Validation
 
+- `2026-06-06`: `dotnet restore AvaScope.slnx` passed.
 - `2026-06-06`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors.
-- `2026-06-06`: `dotnet test AvaScope.slnx` passed; no test projects exist yet.
+- `2026-06-06`: `dotnet test AvaScope.slnx` passed with 2 tests.
 - `2026-06-06`: Markdown tracking fields checked for `Current Focus`, `Next Action`, `Status`, `Acceptance Criteria`, and `Validation`.
 
 ## Milestones
 
 ### M0 Project Foundation
 
-- Status: `In Progress`
+- Status: `Done`
 - Goal: create a clean .NET solution foundation for Avalonia 12-oriented development.
 - Deliverables: solution structure, source/test folders, shared build settings, test project, local validation command list.
 - Acceptance Criteria:
@@ -58,7 +59,7 @@ Complete `M0 Project Foundation` by adding common build settings, a test project
 
 ### M1 Protocol Contracts
 
-- Status: `Not Started`
+- Status: `In Progress`
 - Goal: define stable, transport-neutral request/response contracts.
 - Deliverables: session identifiers, protocol version model, core tool result shapes, JSON serialization tests.
 - Acceptance Criteria:
@@ -164,7 +165,9 @@ Complete `M0 Project Foundation` by adding common build settings, a test project
 - `2026-06-06`: Use milestone plus `Current Focus` and `Next Action` tracking instead of a sprint board or task ledger.
 - `2026-06-06`: Optimize delivery order for vertical slices: foundation, protocol, core, MCP, bridge, screenshot, tree, input, preview.
 - `2026-06-06`: Target Avalonia 12 with `net10.0` by default for Avalonia-facing projects.
+- `2026-06-06`: Use xUnit for the initial test foundation because the .NET template is available locally and keeps M0 validation simple.
 
 ## Change Log
 
 - `2026-06-06`: Initial development plan created with M0-M8 milestones, tracking rules, acceptance criteria, and validation commands.
+- `2026-06-06`: Completed M0 foundation with shared build settings, validation documentation, test project, and Protocol/Core smoke tests; moved active focus to M1.
