@@ -22,3 +22,9 @@ For core-only work, also run:
 ```powershell
 dotnet test AvaScope.slnx --filter Core
 ```
+
+For MCP adapter work, also run:
+
+```powershell
+dotnet test AvaScope.slnx --filter Mcp
+```

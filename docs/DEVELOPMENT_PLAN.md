@@ -23,23 +23,24 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `M3 Minimal MCP Adapter`
+- `M4 Opt-in Bridge MVP`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-06`
-- Goal: expose the first MCP surface as a thin adapter over protocol/core.
+- Goal: provide an opt-in Avalonia 12 bridge package for runtime inspection.
 
 ## Next Action
 
-Verify the current official MCP .NET SDK/API shape, then add `AvaScope.Mcp` with stdio hosting, health/version, and `list_sessions` backed by `AvaScope.Core`.
+Verify current Avalonia 12 package/API shape, then add `AvaScope.Bridge` with explicit activation, local-only runtime state, and top-level/window discovery on `Dispatcher.UIThread`.
 
 ## Latest Validation
 
 - `2026-06-06`: `dotnet restore AvaScope.slnx` passed.
 - `2026-06-06`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors.
-- `2026-06-06`: `dotnet test AvaScope.slnx` passed with 16 tests.
+- `2026-06-06`: `dotnet test AvaScope.slnx` passed with 20 tests.
 - `2026-06-06`: `dotnet test AvaScope.slnx --filter Protocol` passed with 7 tests.
 - `2026-06-06`: `dotnet test AvaScope.slnx --filter Core` passed with 9 tests.
+- `2026-06-06`: `dotnet test AvaScope.slnx --filter Mcp` passed with 4 tests.
 - `2026-06-06`: `AvaScope.Protocol` package list checked; no package references found.
 - `2026-06-06`: `AvaScope.Core` package list checked; no package references found.
 - `2026-06-06`: `rg "Avalonia|ModelContextProtocol|Mcp|MCP" src\AvaScope.Protocol tests\AvaScope.Tests\Protocol` found no matches.
@@ -89,7 +90,7 @@ Verify the current official MCP .NET SDK/API shape, then add `AvaScope.Mcp` with
 
 ### M3 Minimal MCP Adapter
 
-- Status: `In Progress`
+- Status: `Done`
 - Goal: expose the first MCP surface as a thin adapter over protocol/core.
 - Deliverables: stdio MCP server, health/version tool, `list_sessions` tool.
 - Acceptance Criteria:
@@ -102,7 +103,7 @@ Verify the current official MCP .NET SDK/API shape, then add `AvaScope.Mcp` with
 
 ### M4 Opt-in Bridge MVP
 
-- Status: `Not Started`
+- Status: `In Progress`
 - Goal: provide an opt-in Avalonia 12 bridge package for runtime inspection.
 - Deliverables: bridge activation API, local-only transport boundary, top-level/window discovery.
 - Acceptance Criteria:
@@ -174,6 +175,7 @@ Verify the current official MCP .NET SDK/API shape, then add `AvaScope.Mcp` with
 - `2026-06-06`: Use xUnit for the initial test foundation because the .NET template is available locally and keeps M0 validation simple.
 - `2026-06-06`: Protocol contracts use System.Text.Json attributes and remain independent from Avalonia runtime types and MCP SDK types.
 - `2026-06-06`: `AvaScope.Core` references `AvaScope.Protocol` for shared transport-neutral session ids and keeps its own core result/error model for adapter-independent behavior.
+- `2026-06-06`: Use official `ModelContextProtocol` 1.4.0 and `Microsoft.Extensions.Hosting` 10.0.8 for the initial stdio MCP adapter; official C# SDK docs recommend `AddMcpServer().WithStdioServerTransport().WithTools<T>()` for local stdio servers.
 
 ## Change Log
 
@@ -181,3 +183,4 @@ Verify the current official MCP .NET SDK/API shape, then add `AvaScope.Mcp` with
 - `2026-06-06`: Completed M0 foundation with shared build settings, validation documentation, test project, and Protocol/Core smoke tests; moved active focus to M1.
 - `2026-06-06`: Completed M1 protocol contracts with session ids, protocol version metadata, health/list_sessions DTOs, tool result/error shapes, and JSON serialization tests; moved active focus to M2.
 - `2026-06-06`: Completed M2 core session model with registry, lifecycle transitions, structured errors, and unit tests; moved active focus to M3.
+- `2026-06-06`: Completed M3 minimal MCP adapter with stdio hosting, `health`, `list_sessions`, tool mapping tests, and stdio child-process smoke coverage; moved active focus to M4.

@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/AvaScope.Core/AvaScope.Core.csproj" />
+    <Project Path="src/AvaScope.Mcp/AvaScope.Mcp.csproj" />
     <Project Path="src/AvaScope.Protocol/AvaScope.Protocol.csproj" />
   </Folder>
   <Folder Name="/tests/">

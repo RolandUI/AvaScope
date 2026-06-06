@@ -1,0 +1,37 @@
+using ModelContextProtocol.Client;
+
+namespace AvaScope.Tests.Mcp;
+
+public sealed class McpStdioSmokeTests
+{
+    [Fact]
+    public async Task ServerStartsOverStdioAndListsInitialTools()
+    {
+        var serverAssembly = Path.Combine(AppContext.BaseDirectory, "AvaScope.Mcp.dll");
+        Assert.True(File.Exists(serverAssembly), $"Expected MCP server assembly at {serverAssembly}.");
+
+        var stderr = new List<string>();
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+        var environment = StdioClientTransportOptions.GetDefaultEnvironmentVariables();
+
+        await using var client = await McpClient.CreateAsync(
+            new StdioClientTransport(new StdioClientTransportOptions
+            {
+                Name = "AvaScope",
+                Command = "dotnet",
+                Arguments = [serverAssembly],
+                WorkingDirectory = AppContext.BaseDirectory,
+                InheritEnvironmentVariables = false,
+                EnvironmentVariables = environment,
+                ShutdownTimeout = TimeSpan.FromSeconds(5),
+                StandardErrorLines = stderr.Add
+            }),
+            cancellationToken: cancellation.Token);
+
+        var tools = await client.ListToolsAsync(cancellationToken: cancellation.Token);
+        var toolNames = tools.Select(static tool => tool.Name).ToArray();
+
+        Assert.Contains("health", toolNames);
+        Assert.Contains("list_sessions", toolNames);
+    }
+}
