@@ -96,4 +96,27 @@ public sealed class ProtocolContractTests
         Assert.Empty(deserialized.Value.Sessions);
         Assert.Null(deserialized.Error);
     }
+
+    [Fact]
+    public void ScreenshotResponseSerializesStableOutputShape()
+    {
+        var capturedAt = new DateTimeOffset(2026, 6, 6, 21, 0, 0, TimeSpan.Zero);
+        var response = new ScreenshotResponse(
+            new SessionId("session-1"),
+            "topLevel:abc",
+            "C:\\screenshots\\capture.png",
+            320,
+            200,
+            capturedAt);
+
+        var json = JsonSerializer.Serialize(response);
+        var node = JsonNode.Parse(json)!;
+
+        Assert.Equal("session-1", node["sessionId"]!.GetValue<string>());
+        Assert.Equal("topLevel:abc", node["topLevelId"]!.GetValue<string>());
+        Assert.Equal("C:\\screenshots\\capture.png", node["filePath"]!.GetValue<string>());
+        Assert.Equal(320, node["pixelWidth"]!.GetValue<int>());
+        Assert.Equal(200, node["pixelHeight"]!.GetValue<int>());
+        Assert.Equal(capturedAt, DateTimeOffset.Parse(node["capturedAt"]!.GetValue<string>(), CultureInfo.InvariantCulture));
+    }
 }

@@ -31,17 +31,17 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Next Action
 
-Extend the bridge/runtime model with screenshot capture for registered top-levels, file output, structured success/error results, and headless image validation.
+Design and implement the local-only attach transport between `AvaScope.Mcp`/future CLI and an activated `AvaScope.Bridge` runtime so screenshot capture can be requested from outside the target app process.
 
 ## Latest Validation
 
 - `2026-06-06`: `dotnet restore AvaScope.slnx` passed.
 - `2026-06-06`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors.
-- `2026-06-06`: `dotnet test AvaScope.slnx` passed with 27 tests.
-- `2026-06-06`: `dotnet test AvaScope.slnx --filter Protocol` passed with 7 tests.
+- `2026-06-06`: `dotnet test AvaScope.slnx` passed with 29 tests.
+- `2026-06-06`: `dotnet test AvaScope.slnx --filter Protocol` passed with 10 tests.
 - `2026-06-06`: `dotnet test AvaScope.slnx --filter Core` passed with 9 tests.
 - `2026-06-06`: `dotnet test AvaScope.slnx --filter Mcp` passed with 4 tests.
-- `2026-06-06`: `dotnet test AvaScope.slnx --filter Bridge` passed with 7 tests.
+- `2026-06-06`: `dotnet test AvaScope.slnx --filter Bridge` passed with 8 tests.
 - `2026-06-06`: `AvaScope.Protocol` package list checked; no package references found.
 - `2026-06-06`: `AvaScope.Core` package list checked; no package references found.
 - `2026-06-06`: `rg "Avalonia|ModelContextProtocol|Mcp|MCP" src\AvaScope.Protocol tests\AvaScope.Tests\Protocol` found no matches.
@@ -120,6 +120,9 @@ Extend the bridge/runtime model with screenshot capture for registered top-level
 - Status: `In Progress`
 - Goal: capture screenshots from a running bridged Avalonia app.
 - Deliverables: attach flow, screenshot request/response, generated image file output, sample validation.
+- Progress:
+  - Done: in-process bridge screenshot capture for registered top-levels with PNG file output and structured success/error results.
+  - Remaining: local-only cross-process attach path from MCP/CLI to activated bridge runtime.
 - Acceptance Criteria:
   - Screenshot output path is returned as structured data.
   - Failed capture returns a structured diagnostic error.
@@ -179,6 +182,7 @@ Extend the bridge/runtime model with screenshot capture for registered top-level
 - `2026-06-06`: Use official `ModelContextProtocol` 1.4.0 and `Microsoft.Extensions.Hosting` 10.0.8 for the initial stdio MCP adapter; official C# SDK docs recommend `AddMcpServer().WithStdioServerTransport().WithTools<T>()` for local stdio servers.
 - `2026-06-06`: Use official Avalonia 12.0.4 packages for bridge work and manual `Avalonia.Headless` sessions for bridge smoke tests to avoid mixing xUnit v2 tests with `Avalonia.Headless.XUnit`'s xUnit v3 dependency.
 - `2026-06-06`: Bridge top-level discovery combines Avalonia lifetime discovery with explicit weak `RegisterTopLevel` registration because headless and non-desktop hosts may not populate `IClassicDesktopStyleApplicationLifetime.Windows`.
+- `2026-06-06`: Screenshot capture uses public Avalonia `RenderTargetBitmap.Render(Visual)` and stream-based `Bitmap.Save(Stream)` output; headless tests enable Skia-backed drawing so output files are non-empty.
 
 ## Change Log
 
@@ -188,3 +192,4 @@ Extend the bridge/runtime model with screenshot capture for registered top-level
 - `2026-06-06`: Completed M2 core session model with registry, lifecycle transitions, structured errors, and unit tests; moved active focus to M3.
 - `2026-06-06`: Completed M3 minimal MCP adapter with stdio hosting, `health`, `list_sessions`, tool mapping tests, and stdio child-process smoke coverage; moved active focus to M4.
 - `2026-06-06`: Completed M4 opt-in bridge MVP with explicit activation/deactivation, local-only runtime scope, UI-thread top-level discovery, explicit top-level registration, and headless bridge smoke coverage; moved active focus to M5.
+- `2026-06-06`: Added M5 bridge-local screenshot capture with `ScreenshotResponse`, registered top-level lookup, PNG output, structured missing-top-level errors, and headless file validation; M5 remains in progress pending local attach transport.

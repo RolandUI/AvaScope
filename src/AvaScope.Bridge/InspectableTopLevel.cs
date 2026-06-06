@@ -65,7 +65,7 @@ public sealed record InspectableTopLevel
             false);
     }
 
-    private static string CreateId(TopLevel topLevel)
+    internal static string CreateId(TopLevel topLevel)
     {
         return $"topLevel:{GetRuntimeId(topLevel):x}";
     }

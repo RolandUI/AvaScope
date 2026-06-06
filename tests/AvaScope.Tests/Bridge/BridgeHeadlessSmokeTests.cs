@@ -50,12 +50,70 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
             Assert.True(topLevel.RenderScaling > 0);
             Assert.StartsWith("topLevel:", topLevel.Id, StringComparison.Ordinal);
 
+            var screenshotPath = Path.Combine(
+                Path.GetTempPath(),
+                "AvaScope.Tests",
+                $"{Guid.NewGuid():N}.png");
+
+            try
+            {
+                var screenshot = runtime.CaptureScreenshotAsync(topLevel.Id, screenshotPath).GetAwaiter().GetResult();
+
+                Assert.True(screenshot.Success, screenshot.Error?.Message);
+                Assert.Equal(runtime.SessionId, screenshot.Value!.SessionId);
+                Assert.Equal(topLevel.Id, screenshot.Value.TopLevelId);
+                Assert.Equal(Path.GetFullPath(screenshotPath), screenshot.Value.FilePath);
+                Assert.True(screenshot.Value.PixelWidth > 0);
+                Assert.True(screenshot.Value.PixelHeight > 0);
+                Assert.True(File.Exists(screenshot.Value.FilePath));
+                Assert.True(new FileInfo(screenshot.Value.FilePath).Length > 0);
+            }
+            finally
+            {
+                if (File.Exists(screenshotPath))
+                {
+                    File.Delete(screenshotPath);
+                }
+            }
+
             window.Close();
+        }, CancellationToken.None);
+    }
+
+    [Fact]
+    public async Task ScreenshotCaptureForMissingTopLevelReturnsStructuredError()
+    {
+        using var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessTestApplication));
+
+        await session.Dispatch(() =>
+        {
+            var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Headless sample"));
+            var screenshotPath = Path.Combine(
+                Path.GetTempPath(),
+                "AvaScope.Tests",
+                $"{Guid.NewGuid():N}.png");
+
+            var result = runtime.CaptureScreenshotAsync("topLevel:missing", screenshotPath).GetAwaiter().GetResult();
+
+            Assert.False(result.Success);
+            Assert.Null(result.Value);
+            Assert.Equal(BridgeErrorCodes.TopLevelNotFound, result.Error!.Code);
+            Assert.False(File.Exists(screenshotPath));
         }, CancellationToken.None);
     }
 
     private sealed class BridgeHeadlessTestApplication : Application
     {
+        public static AppBuilder BuildAvaloniaApp()
+        {
+            return AppBuilder.Configure<BridgeHeadlessTestApplication>()
+                .UseSkia()
+                .UseHeadless(new AvaloniaHeadlessPlatformOptions
+                {
+                    UseHeadlessDrawing = false
+                });
+        }
+
         public override void Initialize()
         {
             Styles.Add(new FluentTheme());
