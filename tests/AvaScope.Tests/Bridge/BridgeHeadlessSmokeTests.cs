@@ -1,4 +1,5 @@
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Themes.Fluent;
@@ -113,16 +114,19 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
         await session.Dispatch(async () =>
         {
             var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Headless pipe sample"));
+            var textBlock = new TextBlock
+            {
+                Name = "PipeText",
+                Text = "AvaScope pipe"
+            };
+            AutomationProperties.SetAutomationId(textBlock, "pipe-text");
+
             var window = new Window
             {
                 Title = "AvaScope Pipe Sample",
                 Width = 360,
                 Height = 240,
-                Content = new TextBlock
-                {
-                    Name = "PipeText",
-                    Text = "AvaScope pipe"
-                }
+                Content = textBlock
             };
 
             window.Show();
@@ -168,6 +172,48 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
             Assert.True(logicalTree.Success, logicalTree.Error?.Message);
             Assert.Equal(TreeKinds.Logical, logicalTree.Value!.TreeKind);
             Assert.NotNull(FindNode(logicalTree.Value.Root, node => node.Text == "AvaScope pipe"));
+
+            var byType = await AvaScopeMcpTools.FindNodes(
+                client,
+                runtime.SessionId.Value,
+                topLevel.Id,
+                TreeKinds.Visual,
+                nodeType: "TextBlock",
+                maxDepth: 8);
+            Assert.True(byType.Success, byType.Error?.Message);
+            Assert.Single(byType.Value!.Matches);
+
+            var byName = await AvaScopeMcpTools.FindNodes(
+                client,
+                runtime.SessionId.Value,
+                topLevel.Id,
+                TreeKinds.Visual,
+                name: "PipeText",
+                maxDepth: 8);
+            Assert.True(byName.Success, byName.Error?.Message);
+            Assert.Equal("PipeText", Assert.Single(byName.Value!.Matches).Node.Name);
+
+            var byAutomationId = await AvaScopeMcpTools.FindNodes(
+                client,
+                runtime.SessionId.Value,
+                topLevel.Id,
+                TreeKinds.Visual,
+                automationId: "pipe-text",
+                maxDepth: 8);
+            Assert.True(byAutomationId.Success, byAutomationId.Error?.Message);
+            var automationMatch = Assert.Single(byAutomationId.Value!.Matches);
+            Assert.Equal("pipe-text", automationMatch.Node.AutomationId);
+            Assert.True(automationMatch.Path.Count >= 2);
+
+            var byText = await AvaScopeMcpTools.FindNodes(
+                client,
+                runtime.SessionId.Value,
+                topLevel.Id,
+                TreeKinds.Logical,
+                text: "AvaScope pipe",
+                maxDepth: 4);
+            Assert.True(byText.Success, byText.Error?.Message);
+            Assert.Equal("AvaScope pipe", Assert.Single(byText.Value!.Matches).Node.Text);
 
             var screenshotPath = Path.Combine(
                 Path.GetTempPath(),

@@ -248,8 +248,9 @@ public sealed class ProtocolContractTests
                     new TreeNodeSummary(
                         "visual:text",
                         "Avalonia.Controls.TextBlock",
-                        "TitleText",
-                        "AvaScope")
+                        name: "TitleText",
+                        automationId: "title-text",
+                        text: "AvaScope")
                 ]));
 
         var json = JsonSerializer.Serialize(response);
@@ -264,6 +265,41 @@ public sealed class ProtocolContractTests
         Assert.Equal("MainWindow", node["root"]!["name"]!.GetValue<string>());
         Assert.Equal(320, node["root"]!["bounds"]!["width"]!.GetValue<double>());
         Assert.Equal("root", node["root"]!["classes"]![0]!.GetValue<string>());
+        Assert.Equal("title-text", node["root"]!["children"]![0]!["automationId"]!.GetValue<string>());
         Assert.Equal("AvaScope", node["root"]!["children"]![0]!["text"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public void FindNodesResponseSerializesMatchesAndPaths()
+    {
+        var response = new FindNodesResponse(
+            new SessionId("session-1"),
+            "topLevel:abc",
+            TreeKinds.Visual,
+            4,
+            [
+                new FindNodeMatch(
+                    new TreeNodeSummary(
+                        "visual:text",
+                        "Avalonia.Controls.TextBlock",
+                        name: "TitleText",
+                        automationId: "title-text",
+                        text: "AvaScope"),
+                    ["visual:root", "visual:text"])
+            ]);
+
+        var json = JsonSerializer.Serialize(response);
+        var node = JsonNode.Parse(json)!;
+
+        Assert.Equal("session-1", node["sessionId"]!.GetValue<string>());
+        Assert.Equal("topLevel:abc", node["topLevelId"]!.GetValue<string>());
+        Assert.Equal("visual", node["treeKind"]!.GetValue<string>());
+        Assert.Equal(4, node["depthLimit"]!.GetValue<int>());
+        Assert.Equal("visual:text", node["matches"]![0]!["node"]!["nodeId"]!.GetValue<string>());
+        Assert.Equal("TitleText", node["matches"]![0]!["node"]!["name"]!.GetValue<string>());
+        Assert.Equal("title-text", node["matches"]![0]!["node"]!["automationId"]!.GetValue<string>());
+        Assert.Equal("AvaScope", node["matches"]![0]!["node"]!["text"]!.GetValue<string>());
+        Assert.Equal("visual:root", node["matches"]![0]!["path"]![0]!.GetValue<string>());
+        Assert.Equal("visual:text", node["matches"]![0]!["path"]![1]!.GetValue<string>());
     }
 }

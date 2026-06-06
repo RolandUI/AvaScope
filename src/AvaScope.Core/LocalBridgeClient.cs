@@ -155,6 +155,63 @@ public sealed class LocalBridgeClient
             cancellationToken);
     }
 
+    public async Task<CoreResult<FindNodesResponse>> FindNodesAsync(
+        SessionId sessionId,
+        string topLevelId,
+        string treeKind,
+        string? nodeType = null,
+        string? name = null,
+        string? automationId = null,
+        string? text = null,
+        int? maxDepth = null,
+        int? maxResults = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(sessionId);
+
+        if (string.IsNullOrWhiteSpace(topLevelId))
+        {
+            return CoreResult<FindNodesResponse>.Fail(
+                new CoreError(CoreErrorCodes.InvalidBridgeRequest, "Top-level id cannot be empty."));
+        }
+
+        if (string.IsNullOrWhiteSpace(treeKind))
+        {
+            return CoreResult<FindNodesResponse>.Fail(
+                new CoreError(CoreErrorCodes.InvalidBridgeRequest, "Tree kind cannot be empty."));
+        }
+
+        if (string.IsNullOrWhiteSpace(nodeType)
+            && string.IsNullOrWhiteSpace(name)
+            && string.IsNullOrWhiteSpace(automationId)
+            && string.IsNullOrWhiteSpace(text))
+        {
+            return CoreResult<FindNodesResponse>.Fail(
+                new CoreError(CoreErrorCodes.InvalidBridgeRequest, "At least one find filter is required."));
+        }
+
+        var manifestResult = FindSingleManifest(null, sessionId);
+        if (!manifestResult.Success)
+        {
+            return CoreResult<FindNodesResponse>.Fail(manifestResult.Error!);
+        }
+
+        return await SendAsync<FindNodesResponse>(
+            manifestResult.Value!,
+            new BridgeIpcRequest(
+                NewRequestId(),
+                BridgeIpcMethods.FindNodes,
+                topLevelId,
+                maxDepth: maxDepth,
+                treeKind: treeKind,
+                nodeType: nodeType,
+                name: name,
+                automationId: automationId,
+                text: text,
+                maxResults: maxResults),
+            cancellationToken);
+    }
+
     private async Task<CoreResult<TreeResponse>> TreeAsync(
         SessionId sessionId,
         string topLevelId,

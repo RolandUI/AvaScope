@@ -10,7 +10,13 @@ public sealed record BridgeIpcRequest
         string method,
         string? topLevelId = null,
         string? outputPath = null,
-        int? maxDepth = null)
+        int? maxDepth = null,
+        string? treeKind = null,
+        string? nodeType = null,
+        string? name = null,
+        string? automationId = null,
+        string? text = null,
+        int? maxResults = null)
     {
         if (string.IsNullOrWhiteSpace(requestId))
         {
@@ -27,6 +33,12 @@ public sealed record BridgeIpcRequest
         TopLevelId = topLevelId;
         OutputPath = outputPath;
         MaxDepth = maxDepth;
+        TreeKind = treeKind;
+        NodeType = nodeType;
+        Name = name;
+        AutomationId = automationId;
+        Text = text;
+        MaxResults = maxResults;
     }
 
     [JsonPropertyName("requestId")]
@@ -46,4 +58,28 @@ public sealed record BridgeIpcRequest
     [JsonPropertyName("maxDepth")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public int? MaxDepth { get; }
+
+    [JsonPropertyName("treeKind")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? TreeKind { get; }
+
+    [JsonPropertyName("nodeType")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? NodeType { get; }
+
+    [JsonPropertyName("name")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Name { get; }
+
+    [JsonPropertyName("automationId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? AutomationId { get; }
+
+    [JsonPropertyName("text")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Text { get; }
+
+    [JsonPropertyName("maxResults")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? MaxResults { get; }
 }

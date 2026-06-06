@@ -114,6 +114,21 @@ public sealed class AvaScopeMcpToolsTests
         Assert.Equal(CoreErrorCodes.InvalidBridgeRequest, result.Error!.Code);
     }
 
+    [Fact]
+    public async Task FindNodesRejectsMissingFilters()
+    {
+        var client = new LocalBridgeClient(CreateMissingManifestDirectory());
+
+        var result = await AvaScopeMcpTools.FindNodes(
+            client,
+            "session-1",
+            "topLevel:abc");
+
+        Assert.False(result.Success);
+        Assert.Null(result.Value);
+        Assert.Equal(CoreErrorCodes.InvalidBridgeRequest, result.Error!.Code);
+    }
+
     private static string CreateMissingManifestDirectory()
     {
         return Path.Combine(

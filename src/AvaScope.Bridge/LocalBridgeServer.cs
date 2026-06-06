@@ -202,6 +202,7 @@ internal sealed class LocalBridgeServer : IDisposable
             BridgeIpcMethods.Screenshot => await CaptureScreenshotAsync(request, cancellationToken),
             BridgeIpcMethods.VisualTree => await GetTreeAsync(request, TreeKinds.Visual, cancellationToken),
             BridgeIpcMethods.LogicalTree => await GetTreeAsync(request, TreeKinds.Logical, cancellationToken),
+            BridgeIpcMethods.FindNodes => await FindNodesAsync(request, cancellationToken),
             _ => BridgeIpcResponse.Fail(
                 request.RequestId,
                 new ProtocolError("unknown_method", $"Bridge method '{request.Method}' is not supported."))
@@ -259,6 +260,42 @@ internal sealed class LocalBridgeServer : IDisposable
                 cancellationToken),
             _ => throw new ArgumentOutOfRangeException(nameof(treeKind), treeKind, "Unknown tree kind.")
         };
+
+        return result.Success
+            ? BridgeIpcResponse.Ok(request.RequestId, result.Value)
+            : BridgeIpcResponse.Fail(
+                request.RequestId,
+                new ProtocolError(result.Error!.Code, result.Error.Message));
+    }
+
+    private async Task<BridgeIpcResponse> FindNodesAsync(
+        BridgeIpcRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.TopLevelId))
+        {
+            return BridgeIpcResponse.Fail(
+                request.RequestId,
+                new ProtocolError("missing_top_level_id", "Find requests require a top-level id."));
+        }
+
+        if (string.IsNullOrWhiteSpace(request.TreeKind))
+        {
+            return BridgeIpcResponse.Fail(
+                request.RequestId,
+                new ProtocolError(BridgeErrorCodes.InvalidFindRequest, "Find requests require a tree kind."));
+        }
+
+        var result = await _runtime.FindNodesAsync(
+            request.TopLevelId,
+            request.TreeKind,
+            request.NodeType,
+            request.Name,
+            request.AutomationId,
+            request.Text,
+            request.MaxDepth,
+            request.MaxResults,
+            cancellationToken);
 
         return result.Success
             ? BridgeIpcResponse.Ok(request.RequestId, result.Value)

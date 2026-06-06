@@ -181,6 +181,48 @@ public sealed class AvaScopeMcpTools
             cancellationToken));
     }
 
+    [McpServerTool(
+        Name = "find_nodes",
+        Title = "Find nodes",
+        ReadOnly = true,
+        Idempotent = true,
+        Destructive = false,
+        OpenWorld = false,
+        UseStructuredContent = true)]
+    [Description("Finds nodes in a bounded visual or logical tree by type, name, automation id, or text.")]
+    public static async Task<ToolResult<FindNodesResponse>> FindNodes(
+        LocalBridgeClient bridgeClient,
+        string sessionId,
+        string topLevelId,
+        string treeKind = TreeKinds.Visual,
+        string? nodeType = null,
+        string? name = null,
+        string? automationId = null,
+        string? text = null,
+        int? maxDepth = null,
+        int? maxResults = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(bridgeClient);
+
+        if (!TryParseRequiredSessionId(sessionId, out var parsedSessionId, out var error))
+        {
+            return ToolResult<FindNodesResponse>.Fail(error!);
+        }
+
+        return ToToolResult(await bridgeClient.FindNodesAsync(
+            parsedSessionId!,
+            topLevelId,
+            treeKind,
+            nodeType,
+            name,
+            automationId,
+            text,
+            maxDepth,
+            maxResults,
+            cancellationToken));
+    }
+
     private static SessionSummary ToProtocolSummary(SessionSnapshot session)
     {
         return new SessionSummary(

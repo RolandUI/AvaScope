@@ -7,4 +7,5 @@ public static class BridgeIpcMethods
     public const string Screenshot = "screenshot";
     public const string VisualTree = "visual_tree";
     public const string LogicalTree = "logical_tree";
+    public const string FindNodes = "find_nodes";
 }

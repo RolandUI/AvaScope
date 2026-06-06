@@ -99,4 +99,18 @@ public sealed class LocalBridgeClientTests : IDisposable
         Assert.False(result.Success);
         Assert.Equal(CoreErrorCodes.InvalidBridgeRequest, result.Error!.Code);
     }
+
+    [Fact]
+    public async Task FindNodesRejectsMissingFiltersBeforeIpc()
+    {
+        var client = new LocalBridgeClient(_manifestDirectory);
+
+        var result = await client.FindNodesAsync(
+            new SessionId("session-1"),
+            "topLevel:abc",
+            TreeKinds.Visual);
+
+        Assert.False(result.Success);
+        Assert.Equal(CoreErrorCodes.InvalidBridgeRequest, result.Error!.Code);
+    }
 }

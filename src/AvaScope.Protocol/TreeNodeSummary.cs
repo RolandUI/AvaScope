@@ -9,6 +9,7 @@ public sealed record TreeNodeSummary
         string nodeId,
         string nodeType,
         string? name = null,
+        string? automationId = null,
         string? text = null,
         NodeBounds? bounds = null,
         IReadOnlyList<string>? classes = null,
@@ -27,6 +28,7 @@ public sealed record TreeNodeSummary
         NodeId = nodeId;
         NodeType = nodeType;
         Name = name;
+        AutomationId = automationId;
         Text = text;
         Bounds = bounds;
         Classes = classes ?? Array.Empty<string>();
@@ -42,6 +44,10 @@ public sealed record TreeNodeSummary
     [JsonPropertyName("name")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Name { get; }
+
+    [JsonPropertyName("automationId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? AutomationId { get; }
 
     [JsonPropertyName("text")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

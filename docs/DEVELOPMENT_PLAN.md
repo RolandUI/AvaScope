@@ -23,15 +23,15 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `M6 Tree Inspection Slice`
+- `M7 Input Slice`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-06`
-- Goal: expose bounded visual and logical tree inspection with stable node identity.
+- Goal: send basic local-only input to a running bridged Avalonia app.
 
 ## Next Action
 
-Implement `find_nodes` over the bridge tree model with filters for type, name, automation id, and text, then expose it through the MCP/Core/pipe path.
+Design and implement the first local-only input request shape, starting with pointer move/click targeting by top-level and coordinates, then validate it against a headless Avalonia sample.
 
 ## Latest Validation
 
@@ -62,6 +62,12 @@ Implement `find_nodes` over the bridge tree model with filters for type, name, a
 - `2026-06-06`: `dotnet test AvaScope.slnx --no-build --filter Mcp` passed with 10 tests.
 - `2026-06-06`: `dotnet test AvaScope.slnx --no-build --filter Bridge` passed with 20 tests.
 - `2026-06-06`: `dotnet test AvaScope.slnx --no-build` passed with 47 tests.
+- `2026-06-06`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after M6 `find_nodes` slice.
+- `2026-06-06`: `dotnet test AvaScope.slnx --no-build --filter Protocol` passed with 17 tests.
+- `2026-06-06`: `dotnet test AvaScope.slnx --no-build --filter Core` passed with 15 tests.
+- `2026-06-06`: `dotnet test AvaScope.slnx --no-build --filter Mcp` passed with 11 tests.
+- `2026-06-06`: `dotnet test AvaScope.slnx --no-build --filter Bridge` passed with 21 tests.
+- `2026-06-06`: `dotnet test AvaScope.slnx --no-build` passed with 50 tests.
 - `2026-06-06`: `AvaScope.Protocol` package list checked; no package references found.
 - `2026-06-06`: `AvaScope.Core` package list checked; no package references found.
 - `2026-06-06`: `rg "Avalonia|ModelContextProtocol|Mcp|MCP" src\AvaScope.Protocol tests\AvaScope.Tests\Protocol` found no matches.
@@ -162,7 +168,7 @@ Implement `find_nodes` over the bridge tree model with filters for type, name, a
 
 ### M6 Tree Inspection Slice
 
-- Status: `In Progress`
+- Status: `Done`
 - Goal: expose visual and logical tree inspection with stable node identity.
 - Deliverables: tree serialization, depth limits, node metadata, basic find behavior.
 - Progress:
@@ -171,7 +177,7 @@ Implement `find_nodes` over the bridge tree model with filters for type, name, a
   - Done: stable node ids within a session based on runtime object identity.
   - Done: depth limits with default bounded output and explicit max depth input.
   - Done: MCP/Core/named-pipe `visual_tree` and `logical_tree` tool path with headless validation.
-  - Remaining: `find_nodes` filters for type, name, automation id, text, and path-oriented result shape.
+  - Done: `find_nodes` filters by type, name, automation id, and text, returning matched nodes with root-to-node path ids.
 - Acceptance Criteria:
   - Tree results are bounded by default.
   - Node IDs are stable within a session.
@@ -182,7 +188,7 @@ Implement `find_nodes` over the bridge tree model with filters for type, name, a
 
 ### M7 Input Slice
 
-- Status: `Not Started`
+- Status: `In Progress`
 - Goal: send basic local-only input to a running bridged Avalonia app.
 - Deliverables: click, pointer move, key text commands, safety checks.
 - Acceptance Criteria:
@@ -226,6 +232,7 @@ Implement `find_nodes` over the bridge tree model with filters for type, name, a
 - `2026-06-06`: Positive MCP/Core/pipe screenshot validation uses `HeadlessUnitTestSession.Dispatch(Func<Task>)`; awaiting the tool call from the headless UI dispatch context allows bridge server UI-thread work to complete without a manual pump loop.
 - `2026-06-06`: M6 tree inspection uses public Avalonia visual/logical traversal APIs (`GetVisualChildren`, `GetLogicalChildren`) and keeps serialization bounded with an explicit depth limit.
 - `2026-06-06`: Tree node ids are stable only within the active runtime session and are based on runtime object identity; no persisted cross-process identity guarantee is introduced in M6.
+- `2026-06-06`: `find_nodes` searches the already bounded tree model and requires at least one filter so accidental unbounded discovery is avoided; type/text use case-insensitive contains matching, name/automation id use case-insensitive exact matching.
 
 ## Change Log
 
@@ -240,3 +247,4 @@ Implement `find_nodes` over the bridge tree model with filters for type, name, a
 - `2026-06-06`: Added M5 reusable local attach client and MCP tool adapters for `attach_to_app`, `list_top_levels`, and `screenshot`; M5 remains in progress pending deterministic positive top-level/screenshot validation through the MCP/Core/pipe path.
 - `2026-06-06`: Completed M5 runtime screenshot slice with MCP/Core/named-pipe top-level listing and screenshot validation against a headless Avalonia window; moved active focus to M6.
 - `2026-06-06`: Added M6 bounded visual/logical tree serialization with protocol DTOs, bridge traversal, MCP/Core/pipe tools, and headless validation; M6 remains in progress pending `find_nodes`.
+- `2026-06-06`: Completed M6 tree inspection slice with `find_nodes` filters for type, name, automation id, and text plus path-oriented match results; moved active focus to M7.

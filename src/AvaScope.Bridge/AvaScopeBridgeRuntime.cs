@@ -1,4 +1,5 @@
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.LogicalTree;
@@ -15,7 +16,9 @@ namespace AvaScope.Bridge;
 public sealed class AvaScopeBridgeRuntime
 {
     private const int DefaultTreeDepth = 10;
+    private const int DefaultFindResultLimit = 100;
     private const int MaximumTreeDepth = 64;
+    private const int MaximumFindResultLimit = 1000;
     private readonly ConcurrentDictionary<int, WeakReference<TopLevel>> _registeredTopLevels = new();
     private readonly SessionRegistry _sessionRegistry;
     private LocalBridgeServer? _localServer;
@@ -126,6 +129,56 @@ public sealed class AvaScopeBridgeRuntime
 
         return Dispatcher.UIThread
             .InvokeAsync(() => GetLogicalTree(topLevelId, maxDepth), DispatcherPriority.Background, cancellationToken)
+            .GetTask();
+    }
+
+    public Task<CoreResult<FindNodesResponse>> FindNodesAsync(
+        string topLevelId,
+        string treeKind,
+        string? nodeType = null,
+        string? name = null,
+        string? automationId = null,
+        string? text = null,
+        int? maxDepth = null,
+        int? maxResults = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(topLevelId))
+        {
+            throw new ArgumentException("Top-level id cannot be empty.", nameof(topLevelId));
+        }
+
+        if (string.IsNullOrWhiteSpace(treeKind))
+        {
+            throw new ArgumentException("Tree kind cannot be empty.", nameof(treeKind));
+        }
+
+        if (Dispatcher.UIThread.CheckAccess())
+        {
+            return Task.FromResult(FindNodes(
+                topLevelId,
+                treeKind,
+                nodeType,
+                name,
+                automationId,
+                text,
+                maxDepth,
+                maxResults));
+        }
+
+        return Dispatcher.UIThread
+            .InvokeAsync(
+                () => FindNodes(
+                    topLevelId,
+                    treeKind,
+                    nodeType,
+                    name,
+                    automationId,
+                    text,
+                    maxDepth,
+                    maxResults),
+                DispatcherPriority.Background,
+                cancellationToken)
             .GetTask();
     }
 
@@ -304,6 +357,63 @@ public sealed class AvaScopeBridgeRuntime
             SerializeLogicalNode(topLevel, depth: 0, normalizedDepth)));
     }
 
+    private CoreResult<FindNodesResponse> FindNodes(
+        string topLevelId,
+        string treeKind,
+        string? nodeType,
+        string? name,
+        string? automationId,
+        string? text,
+        int? maxDepth,
+        int? maxResults)
+    {
+        Dispatcher.UIThread.VerifyAccess();
+
+        if (string.IsNullOrWhiteSpace(nodeType)
+            && string.IsNullOrWhiteSpace(name)
+            && string.IsNullOrWhiteSpace(automationId)
+            && string.IsNullOrWhiteSpace(text))
+        {
+            return InvalidFindRequest("At least one find filter is required.");
+        }
+
+        var resultLimit = NormalizeResultLimit(maxResults);
+        if (!resultLimit.Success)
+        {
+            return CoreResult<FindNodesResponse>.Fail(resultLimit.Error!);
+        }
+
+        var treeResult = treeKind switch
+        {
+            TreeKinds.Visual => GetVisualTree(topLevelId, maxDepth),
+            TreeKinds.Logical => GetLogicalTree(topLevelId, maxDepth),
+            _ => InvalidTreeKind(topLevelId, treeKind)
+        };
+
+        if (!treeResult.Success)
+        {
+            return CoreResult<FindNodesResponse>.Fail(treeResult.Error!);
+        }
+
+        var matches = new List<FindNodeMatch>();
+        CollectMatches(
+            treeResult.Value!.Root,
+            nodeType,
+            name,
+            automationId,
+            text,
+            new List<string>(),
+            matches,
+            resultLimit.Value);
+
+        return CoreResult<FindNodesResponse>.Ok(new FindNodesResponse(
+            SessionId,
+            topLevelId,
+            treeKind,
+            treeResult.Value.DepthLimit,
+            matches));
+    }
+
     private static CoreResult<int> NormalizeDepthLimit(int? maxDepth)
     {
         if (maxDepth is < 0)
@@ -314,6 +424,90 @@ public sealed class AvaScopeBridgeRuntime
         }
 
         return CoreResult<int>.Ok(Math.Min(maxDepth ?? DefaultTreeDepth, MaximumTreeDepth));
+    }
+
+    private static CoreResult<int> NormalizeResultLimit(int? maxResults)
+    {
+        if (maxResults is < 1)
+        {
+            return CoreResult<int>.Fail(new CoreError(
+                BridgeErrorCodes.InvalidFindRequest,
+                "Find result limit must be positive."));
+        }
+
+        return CoreResult<int>.Ok(Math.Min(maxResults ?? DefaultFindResultLimit, MaximumFindResultLimit));
+    }
+
+    private static CoreResult<FindNodesResponse> InvalidFindRequest(string message)
+    {
+        return CoreResult<FindNodesResponse>.Fail(new CoreError(BridgeErrorCodes.InvalidFindRequest, message));
+    }
+
+    private static CoreResult<TreeResponse> InvalidTreeKind(string topLevelId, string treeKind)
+    {
+        return CoreResult<TreeResponse>.Fail(new CoreError(
+            BridgeErrorCodes.InvalidFindRequest,
+            $"Tree kind '{treeKind}' is not supported for top-level '{topLevelId}'."));
+    }
+
+    private static void CollectMatches(
+        TreeNodeSummary node,
+        string? nodeType,
+        string? name,
+        string? automationId,
+        string? text,
+        List<string> path,
+        List<FindNodeMatch> matches,
+        int maxResults)
+    {
+        if (matches.Count >= maxResults)
+        {
+            return;
+        }
+
+        path.Add(node.NodeId);
+
+        if (Matches(node, nodeType, name, automationId, text))
+        {
+            matches.Add(new FindNodeMatch(node, path.ToArray()));
+        }
+
+        foreach (var child in node.Children)
+        {
+            CollectMatches(child, nodeType, name, automationId, text, path, matches, maxResults);
+            if (matches.Count >= maxResults)
+            {
+                break;
+            }
+        }
+
+        path.RemoveAt(path.Count - 1);
+    }
+
+    private static bool Matches(
+        TreeNodeSummary node,
+        string? nodeType,
+        string? name,
+        string? automationId,
+        string? text)
+    {
+        return MatchesContains(node.NodeType, nodeType)
+            && MatchesEquals(node.Name, name)
+            && MatchesEquals(node.AutomationId, automationId)
+            && MatchesContains(node.Text, text);
+    }
+
+    private static bool MatchesContains(string? value, string? filter)
+    {
+        return string.IsNullOrWhiteSpace(filter)
+            || (!string.IsNullOrWhiteSpace(value)
+                && value.Contains(filter, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool MatchesEquals(string? value, string? filter)
+    {
+        return string.IsNullOrWhiteSpace(filter)
+            || string.Equals(value, filter, StringComparison.OrdinalIgnoreCase);
     }
 
     private static CoreResult<T> TopLevelNotFound<T>(string topLevelId)
@@ -353,6 +547,7 @@ public sealed class AvaScopeBridgeRuntime
             $"{treeKind}:{RuntimeHelpers.GetHashCode(node):x}",
             node.GetType().FullName ?? node.GetType().Name,
             GetName(node),
+            GetAutomationId(node),
             GetText(node),
             GetBounds(node),
             GetClasses(node),
@@ -363,6 +558,13 @@ public sealed class AvaScopeBridgeRuntime
     {
         return node is StyledElement styledElement && !string.IsNullOrWhiteSpace(styledElement.Name)
             ? styledElement.Name
+            : null;
+    }
+
+    private static string? GetAutomationId(object node)
+    {
+        return node is StyledElement styledElement
+            ? AutomationProperties.GetAutomationId(styledElement)
             : null;
     }
 
