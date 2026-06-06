@@ -212,6 +212,48 @@ public sealed class LocalBridgeClient
             cancellationToken);
     }
 
+    public async Task<CoreResult<InputResponse>> InputAsync(
+        SessionId sessionId,
+        string topLevelId,
+        string action,
+        double? x = null,
+        double? y = null,
+        string? inputText = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(sessionId);
+
+        if (string.IsNullOrWhiteSpace(topLevelId))
+        {
+            return CoreResult<InputResponse>.Fail(
+                new CoreError(CoreErrorCodes.InvalidBridgeRequest, "Top-level id cannot be empty."));
+        }
+
+        if (string.IsNullOrWhiteSpace(action))
+        {
+            return CoreResult<InputResponse>.Fail(
+                new CoreError(CoreErrorCodes.InvalidBridgeRequest, "Input action cannot be empty."));
+        }
+
+        var manifestResult = FindSingleManifest(null, sessionId);
+        if (!manifestResult.Success)
+        {
+            return CoreResult<InputResponse>.Fail(manifestResult.Error!);
+        }
+
+        return await SendAsync<InputResponse>(
+            manifestResult.Value!,
+            new BridgeIpcRequest(
+                NewRequestId(),
+                BridgeIpcMethods.Input,
+                topLevelId,
+                action: action,
+                x: x,
+                y: y,
+                inputText: inputText),
+            cancellationToken);
+    }
+
     private async Task<CoreResult<TreeResponse>> TreeAsync(
         SessionId sessionId,
         string topLevelId,

@@ -113,4 +113,18 @@ public sealed class LocalBridgeClientTests : IDisposable
         Assert.False(result.Success);
         Assert.Equal(CoreErrorCodes.InvalidBridgeRequest, result.Error!.Code);
     }
+
+    [Fact]
+    public async Task InputRejectsEmptyActionBeforeIpc()
+    {
+        var client = new LocalBridgeClient(_manifestDirectory);
+
+        var result = await client.InputAsync(
+            new SessionId("session-1"),
+            "topLevel:abc",
+            " ");
+
+        Assert.False(result.Success);
+        Assert.Equal(CoreErrorCodes.InvalidBridgeRequest, result.Error!.Code);
+    }
 }

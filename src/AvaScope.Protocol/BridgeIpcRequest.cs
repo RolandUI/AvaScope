@@ -16,7 +16,11 @@ public sealed record BridgeIpcRequest
         string? name = null,
         string? automationId = null,
         string? text = null,
-        int? maxResults = null)
+        int? maxResults = null,
+        string? action = null,
+        double? x = null,
+        double? y = null,
+        string? inputText = null)
     {
         if (string.IsNullOrWhiteSpace(requestId))
         {
@@ -39,6 +43,10 @@ public sealed record BridgeIpcRequest
         AutomationId = automationId;
         Text = text;
         MaxResults = maxResults;
+        Action = action;
+        X = x;
+        Y = y;
+        InputText = inputText;
     }
 
     [JsonPropertyName("requestId")]
@@ -82,4 +90,20 @@ public sealed record BridgeIpcRequest
     [JsonPropertyName("maxResults")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public int? MaxResults { get; }
+
+    [JsonPropertyName("action")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Action { get; }
+
+    [JsonPropertyName("x")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public double? X { get; }
+
+    [JsonPropertyName("y")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public double? Y { get; }
+
+    [JsonPropertyName("inputText")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? InputText { get; }
 }

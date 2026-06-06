@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Headless;
+using Avalonia.Input;
 using Avalonia.Themes.Fluent;
 using Avalonia.Threading;
 using AvaScope.Bridge;
@@ -244,6 +245,98 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
 
                 window.Close();
             }
+        }, CancellationToken.None);
+    }
+
+    [Fact]
+    public async Task McpInputClicksButtonAndTypesTextThroughLocalBridgePipe()
+    {
+        using var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessTestApplication));
+
+        await session.Dispatch(async () =>
+        {
+            var clicked = 0;
+            var button = new Button
+            {
+                Name = "ClickTarget",
+                Content = "Click",
+                Width = 120,
+                Height = 40
+            };
+            button.Click += (_, _) => clicked++;
+
+            var textBox = new TextBox
+            {
+                Name = "TextTarget",
+                Width = 160
+            };
+
+            var window = new Window
+            {
+                Title = "AvaScope Input Sample",
+                Width = 360,
+                Height = 240,
+                Content = new StackPanel
+                {
+                    Children =
+                    {
+                        button,
+                        textBox
+                    }
+                }
+            };
+
+            var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Headless input sample"));
+            window.Show();
+            using var registration = runtime.RegisterTopLevel(window);
+            Dispatcher.UIThread.RunJobs();
+
+            var client = new LocalBridgeClient(Path.GetDirectoryName(runtime.SessionManifestPath)!);
+            var topLevel = Assert.Single(await runtime.ListTopLevelsAsync());
+            var buttonCenter = button.TranslatePoint(
+                new Point(button.Bounds.Width / 2, button.Bounds.Height / 2),
+                window);
+
+            Assert.NotNull(buttonCenter);
+
+            var move = await AvaScopeMcpTools.Input(
+                client,
+                runtime.SessionId.Value,
+                topLevel.Id,
+                InputActions.PointerMove,
+                buttonCenter.Value.X,
+                buttonCenter.Value.Y);
+
+            Assert.True(move.Success, move.Error?.Message);
+            Assert.True(move.Value!.Handled);
+            Assert.False(string.IsNullOrWhiteSpace(move.Value.TargetNodeId));
+
+            var click = await AvaScopeMcpTools.Input(
+                client,
+                runtime.SessionId.Value,
+                topLevel.Id,
+                InputActions.Click,
+                buttonCenter.Value.X,
+                buttonCenter.Value.Y);
+
+            Assert.True(click.Success, click.Error?.Message);
+            Assert.True(click.Value!.Handled);
+            Assert.Equal(1, clicked);
+
+            Assert.True(textBox.Focus(NavigationMethod.Pointer));
+
+            var keyText = await AvaScopeMcpTools.Input(
+                client,
+                runtime.SessionId.Value,
+                topLevel.Id,
+                InputActions.KeyText,
+                inputText: "abc");
+
+            Assert.True(keyText.Success, keyText.Error?.Message);
+            Assert.True(keyText.Value!.Handled);
+            Assert.Equal("abc", textBox.Text);
+
+            window.Close();
         }, CancellationToken.None);
     }
 

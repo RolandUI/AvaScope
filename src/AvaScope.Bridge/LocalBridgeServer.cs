@@ -203,6 +203,7 @@ internal sealed class LocalBridgeServer : IDisposable
             BridgeIpcMethods.VisualTree => await GetTreeAsync(request, TreeKinds.Visual, cancellationToken),
             BridgeIpcMethods.LogicalTree => await GetTreeAsync(request, TreeKinds.Logical, cancellationToken),
             BridgeIpcMethods.FindNodes => await FindNodesAsync(request, cancellationToken),
+            BridgeIpcMethods.Input => await InputAsync(request, cancellationToken),
             _ => BridgeIpcResponse.Fail(
                 request.RequestId,
                 new ProtocolError("unknown_method", $"Bridge method '{request.Method}' is not supported."))
@@ -295,6 +296,39 @@ internal sealed class LocalBridgeServer : IDisposable
             request.Text,
             request.MaxDepth,
             request.MaxResults,
+            cancellationToken);
+
+        return result.Success
+            ? BridgeIpcResponse.Ok(request.RequestId, result.Value)
+            : BridgeIpcResponse.Fail(
+                request.RequestId,
+                new ProtocolError(result.Error!.Code, result.Error.Message));
+    }
+
+    private async Task<BridgeIpcResponse> InputAsync(
+        BridgeIpcRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.TopLevelId))
+        {
+            return BridgeIpcResponse.Fail(
+                request.RequestId,
+                new ProtocolError("missing_top_level_id", "Input requests require a top-level id."));
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Action))
+        {
+            return BridgeIpcResponse.Fail(
+                request.RequestId,
+                new ProtocolError(BridgeErrorCodes.InvalidInputRequest, "Input requests require an action."));
+        }
+
+        var result = await _runtime.InputAsync(
+            request.TopLevelId,
+            request.Action,
+            request.X,
+            request.Y,
+            request.InputText,
             cancellationToken);
 
         return result.Success

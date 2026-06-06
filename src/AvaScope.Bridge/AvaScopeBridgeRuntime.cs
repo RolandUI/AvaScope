@@ -2,6 +2,8 @@ using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
@@ -177,6 +179,37 @@ public sealed class AvaScopeBridgeRuntime
                     text,
                     maxDepth,
                     maxResults),
+                DispatcherPriority.Background,
+                cancellationToken)
+            .GetTask();
+    }
+
+    public Task<CoreResult<InputResponse>> InputAsync(
+        string topLevelId,
+        string action,
+        double? x = null,
+        double? y = null,
+        string? inputText = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(topLevelId))
+        {
+            throw new ArgumentException("Top-level id cannot be empty.", nameof(topLevelId));
+        }
+
+        if (string.IsNullOrWhiteSpace(action))
+        {
+            throw new ArgumentException("Input action cannot be empty.", nameof(action));
+        }
+
+        if (Dispatcher.UIThread.CheckAccess())
+        {
+            return Task.FromResult(Input(topLevelId, action, x, y, inputText));
+        }
+
+        return Dispatcher.UIThread
+            .InvokeAsync(
+                () => Input(topLevelId, action, x, y, inputText),
                 DispatcherPriority.Background,
                 cancellationToken)
             .GetTask();
@@ -414,6 +447,122 @@ public sealed class AvaScopeBridgeRuntime
             matches));
     }
 
+    private CoreResult<InputResponse> Input(
+        string topLevelId,
+        string action,
+        double? x,
+        double? y,
+        string? inputText)
+    {
+        Dispatcher.UIThread.VerifyAccess();
+
+        var topLevel = FindTopLevel(topLevelId);
+        if (topLevel is null)
+        {
+            return TopLevelNotFound<InputResponse>(topLevelId);
+        }
+
+        return action switch
+        {
+            InputActions.PointerMove => PointerMove(topLevel, topLevelId, x, y),
+            InputActions.Click => Click(topLevel, topLevelId, x, y),
+            InputActions.KeyText => KeyText(topLevel, topLevelId, inputText),
+            _ => CoreResult<InputResponse>.Fail(new CoreError(
+                BridgeErrorCodes.UnsupportedInputAction,
+                $"Input action '{action}' is not supported."))
+        };
+    }
+
+    private CoreResult<InputResponse> PointerMove(TopLevel topLevel, string topLevelId, double? x, double? y)
+    {
+        var point = GetInputPoint(x, y);
+        if (!point.Success)
+        {
+            return CoreResult<InputResponse>.Fail(point.Error!);
+        }
+
+        var target = topLevel.GetVisualAt(point.Value);
+
+        return CoreResult<InputResponse>.Ok(new InputResponse(
+            SessionId,
+            topLevelId,
+            InputActions.PointerMove,
+            handled: target is not null,
+            DateTimeOffset.UtcNow,
+            target is null ? null : CreateNodeId(target, TreeKinds.Visual)));
+    }
+
+    private CoreResult<InputResponse> Click(TopLevel topLevel, string topLevelId, double? x, double? y)
+    {
+        var point = GetInputPoint(x, y);
+        if (!point.Success)
+        {
+            return CoreResult<InputResponse>.Fail(point.Error!);
+        }
+
+        var target = topLevel.GetVisualAt(point.Value);
+        var button = target as Button ?? target?.FindAncestorOfType<Button>();
+        if (button is null)
+        {
+            return CoreResult<InputResponse>.Fail(new CoreError(
+                BridgeErrorCodes.UnsupportedInputAction,
+                "Click MVP currently supports Button targets only."));
+        }
+
+        button.Focus(NavigationMethod.Pointer);
+        button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, button));
+
+        return CoreResult<InputResponse>.Ok(new InputResponse(
+            SessionId,
+            topLevelId,
+            InputActions.Click,
+            handled: true,
+            DateTimeOffset.UtcNow,
+            CreateNodeId(button, TreeKinds.Visual)));
+    }
+
+    private CoreResult<InputResponse> KeyText(TopLevel topLevel, string topLevelId, string? inputText)
+    {
+        if (string.IsNullOrEmpty(inputText))
+        {
+            return CoreResult<InputResponse>.Fail(new CoreError(
+                BridgeErrorCodes.InvalidInputRequest,
+                "Text input requires non-empty input text."));
+        }
+
+        if (topLevel.FocusManager?.GetFocusedElement() is not TextBox textBox)
+        {
+            return CoreResult<InputResponse>.Fail(new CoreError(
+                BridgeErrorCodes.UnsupportedInputAction,
+                "Text input MVP currently requires a focused TextBox target."));
+        }
+
+        var currentText = textBox.Text ?? string.Empty;
+        var caretIndex = Math.Clamp(textBox.CaretIndex, 0, currentText.Length);
+        textBox.Text = currentText.Insert(caretIndex, inputText);
+        textBox.CaretIndex = caretIndex + inputText.Length;
+
+        return CoreResult<InputResponse>.Ok(new InputResponse(
+            SessionId,
+            topLevelId,
+            InputActions.KeyText,
+            handled: true,
+            DateTimeOffset.UtcNow,
+            CreateNodeId(textBox, TreeKinds.Visual)));
+    }
+
+    private static CoreResult<Point> GetInputPoint(double? x, double? y)
+    {
+        if (x is null || y is null)
+        {
+            return CoreResult<Point>.Fail(new CoreError(
+                BridgeErrorCodes.InvalidInputRequest,
+                "Pointer input requires x and y coordinates."));
+        }
+
+        return CoreResult<Point>.Ok(new Point(x.Value, y.Value));
+    }
+
     private static CoreResult<int> NormalizeDepthLimit(int? maxDepth)
     {
         if (maxDepth is < 0)
@@ -544,7 +693,7 @@ public sealed class AvaScopeBridgeRuntime
         IReadOnlyList<TreeNodeSummary> children)
     {
         return new TreeNodeSummary(
-            $"{treeKind}:{RuntimeHelpers.GetHashCode(node):x}",
+            CreateNodeId(node, treeKind),
             node.GetType().FullName ?? node.GetType().Name,
             GetName(node),
             GetAutomationId(node),
@@ -552,6 +701,11 @@ public sealed class AvaScopeBridgeRuntime
             GetBounds(node),
             GetClasses(node),
             children);
+    }
+
+    private static string CreateNodeId(object node, string treeKind)
+    {
+        return $"{treeKind}:{RuntimeHelpers.GetHashCode(node):x}";
     }
 
     private static string? GetName(object node)

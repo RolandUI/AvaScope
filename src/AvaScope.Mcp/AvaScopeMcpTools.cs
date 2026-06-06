@@ -223,6 +223,42 @@ public sealed class AvaScopeMcpTools
             cancellationToken));
     }
 
+    [McpServerTool(
+        Name = "input",
+        Title = "Input",
+        ReadOnly = false,
+        Idempotent = false,
+        Destructive = false,
+        OpenWorld = false,
+        UseStructuredContent = true)]
+    [Description("Sends a local-only input command to an attached AvaScope bridge session.")]
+    public static async Task<ToolResult<InputResponse>> Input(
+        LocalBridgeClient bridgeClient,
+        string sessionId,
+        string topLevelId,
+        string action,
+        double? x = null,
+        double? y = null,
+        string? inputText = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(bridgeClient);
+
+        if (!TryParseRequiredSessionId(sessionId, out var parsedSessionId, out var error))
+        {
+            return ToolResult<InputResponse>.Fail(error!);
+        }
+
+        return ToToolResult(await bridgeClient.InputAsync(
+            parsedSessionId!,
+            topLevelId,
+            action,
+            x,
+            y,
+            inputText,
+            cancellationToken));
+    }
+
     private static SessionSummary ToProtocolSummary(SessionSnapshot session)
     {
         return new SessionSummary(

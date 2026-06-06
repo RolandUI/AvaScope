@@ -31,7 +31,7 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Next Action
 
-Design and implement the first local-only input request shape, starting with pointer move/click targeting by top-level and coordinates, then validate it against a headless Avalonia sample.
+Replace the current pointer-move target lookup with real routed/raw pointer move injection or document the platform limitation with a structured unsupported result; keep the existing Button click and focused TextBox key-text path intact.
 
 ## Latest Validation
 
@@ -68,6 +68,12 @@ Design and implement the first local-only input request shape, starting with poi
 - `2026-06-06`: `dotnet test AvaScope.slnx --no-build --filter Mcp` passed with 11 tests.
 - `2026-06-06`: `dotnet test AvaScope.slnx --no-build --filter Bridge` passed with 21 tests.
 - `2026-06-06`: `dotnet test AvaScope.slnx --no-build` passed with 50 tests.
+- `2026-06-06`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after M7 input MVP slice.
+- `2026-06-06`: `dotnet test AvaScope.slnx --no-build --filter Protocol` passed with 18 tests.
+- `2026-06-06`: `dotnet test AvaScope.slnx --no-build --filter Core` passed with 16 tests.
+- `2026-06-06`: `dotnet test AvaScope.slnx --no-build --filter Mcp` passed with 13 tests.
+- `2026-06-06`: `dotnet test AvaScope.slnx --no-build --filter Bridge` passed with 23 tests.
+- `2026-06-06`: `dotnet test AvaScope.slnx --no-build` passed with 54 tests.
 - `2026-06-06`: `AvaScope.Protocol` package list checked; no package references found.
 - `2026-06-06`: `AvaScope.Core` package list checked; no package references found.
 - `2026-06-06`: `rg "Avalonia|ModelContextProtocol|Mcp|MCP" src\AvaScope.Protocol tests\AvaScope.Tests\Protocol` found no matches.
@@ -191,6 +197,13 @@ Design and implement the first local-only input request shape, starting with poi
 - Status: `In Progress`
 - Goal: send basic local-only input to a running bridged Avalonia app.
 - Deliverables: click, pointer move, key text commands, safety checks.
+- Progress:
+  - Done: protocol `InputResponse`, `InputActions`, and IPC request fields for local input.
+  - Done: MCP/Core/named-pipe `input` tool path.
+  - Done: Button click MVP via hit-test and routed `Button.ClickEvent`.
+  - Done: key text MVP for a focused `TextBox`.
+  - Done: pointer move currently resolves the visual target at coordinates and returns a structured response.
+  - Remaining: real routed/raw pointer move event injection or explicit limitation handling.
 - Acceptance Criteria:
   - Input targets must resolve to an active local session.
   - Unsupported input returns structured diagnostics.
@@ -233,6 +246,7 @@ Design and implement the first local-only input request shape, starting with poi
 - `2026-06-06`: M6 tree inspection uses public Avalonia visual/logical traversal APIs (`GetVisualChildren`, `GetLogicalChildren`) and keeps serialization bounded with an explicit depth limit.
 - `2026-06-06`: Tree node ids are stable only within the active runtime session and are based on runtime object identity; no persisted cross-process identity guarantee is introduced in M6.
 - `2026-06-06`: `find_nodes` searches the already bounded tree model and requires at least one filter so accidental unbounded discovery is avoided; type/text use case-insensitive contains matching, name/automation id use case-insensitive exact matching.
+- `2026-06-06`: M7 input MVP deliberately starts with safe local-only operations: Button click is implemented through hit-test plus routed click event, key text mutates a focused `TextBox`, and pointer move is still tracked separately because generic routed/raw pointer injection needs a more precise platform strategy.
 
 ## Change Log
 
@@ -248,3 +262,4 @@ Design and implement the first local-only input request shape, starting with poi
 - `2026-06-06`: Completed M5 runtime screenshot slice with MCP/Core/named-pipe top-level listing and screenshot validation against a headless Avalonia window; moved active focus to M6.
 - `2026-06-06`: Added M6 bounded visual/logical tree serialization with protocol DTOs, bridge traversal, MCP/Core/pipe tools, and headless validation; M6 remains in progress pending `find_nodes`.
 - `2026-06-06`: Completed M6 tree inspection slice with `find_nodes` filters for type, name, automation id, and text plus path-oriented match results; moved active focus to M7.
+- `2026-06-06`: Added M7 input MVP protocol, bridge, Core, and MCP path with headless validation for pointer target lookup, Button click, and focused TextBox key text; M7 remains in progress pending real pointer move injection or explicit limitation handling.

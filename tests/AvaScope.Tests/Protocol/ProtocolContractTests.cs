@@ -302,4 +302,27 @@ public sealed class ProtocolContractTests
         Assert.Equal("visual:root", node["matches"]![0]!["path"]![0]!.GetValue<string>());
         Assert.Equal("visual:text", node["matches"]![0]!["path"]![1]!.GetValue<string>());
     }
+
+    [Fact]
+    public void InputResponseSerializesStableShape()
+    {
+        var executedAt = new DateTimeOffset(2026, 6, 7, 0, 0, 0, TimeSpan.Zero);
+        var response = new InputResponse(
+            new SessionId("session-1"),
+            "topLevel:abc",
+            InputActions.Click,
+            handled: true,
+            executedAt,
+            "visual:button");
+
+        var json = JsonSerializer.Serialize(response);
+        var node = JsonNode.Parse(json)!;
+
+        Assert.Equal("session-1", node["sessionId"]!.GetValue<string>());
+        Assert.Equal("topLevel:abc", node["topLevelId"]!.GetValue<string>());
+        Assert.Equal("click", node["action"]!.GetValue<string>());
+        Assert.True(node["handled"]!.GetValue<bool>());
+        Assert.Equal("visual:button", node["targetNodeId"]!.GetValue<string>());
+        Assert.Equal(executedAt, DateTimeOffset.Parse(node["executedAt"]!.GetValue<string>(), CultureInfo.InvariantCulture));
+    }
 }
