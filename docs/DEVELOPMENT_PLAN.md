@@ -23,24 +23,27 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `M2 Core Session Model`
+- `M3 Minimal MCP Adapter`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-06`
-- Goal: implement reusable session lifecycle behavior outside MCP.
+- Goal: expose the first MCP surface as a thin adapter over protocol/core.
 
 ## Next Action
 
-Implement the core session registry, lifecycle state transitions, structured errors, and unit tests while keeping `AvaScope.Core` transport-neutral.
+Verify the current official MCP .NET SDK/API shape, then add `AvaScope.Mcp` with stdio hosting, health/version, and `list_sessions` backed by `AvaScope.Core`.
 
 ## Latest Validation
 
 - `2026-06-06`: `dotnet restore AvaScope.slnx` passed.
 - `2026-06-06`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors.
-- `2026-06-06`: `dotnet test AvaScope.slnx` passed with 8 tests.
+- `2026-06-06`: `dotnet test AvaScope.slnx` passed with 16 tests.
 - `2026-06-06`: `dotnet test AvaScope.slnx --filter Protocol` passed with 7 tests.
+- `2026-06-06`: `dotnet test AvaScope.slnx --filter Core` passed with 9 tests.
 - `2026-06-06`: `AvaScope.Protocol` package list checked; no package references found.
+- `2026-06-06`: `AvaScope.Core` package list checked; no package references found.
 - `2026-06-06`: `rg "Avalonia|ModelContextProtocol|Mcp|MCP" src\AvaScope.Protocol tests\AvaScope.Tests\Protocol` found no matches.
+- `2026-06-06`: `rg "Avalonia|ModelContextProtocol|Mcp|MCP" src\AvaScope.Core tests\AvaScope.Tests\Core` found no matches.
 - `2026-06-06`: Markdown tracking fields checked for `Current Focus`, `Next Action`, `Status`, `Acceptance Criteria`, and `Validation`.
 
 ## Milestones
@@ -74,7 +77,7 @@ Implement the core session registry, lifecycle state transitions, structured err
 
 ### M2 Core Session Model
 
-- Status: `In Progress`
+- Status: `Done`
 - Goal: implement reusable session lifecycle behavior outside MCP.
 - Deliverables: session registry, session IDs, lifecycle state, error model, unit tests.
 - Acceptance Criteria:
@@ -86,7 +89,7 @@ Implement the core session registry, lifecycle state transitions, structured err
 
 ### M3 Minimal MCP Adapter
 
-- Status: `Not Started`
+- Status: `In Progress`
 - Goal: expose the first MCP surface as a thin adapter over protocol/core.
 - Deliverables: stdio MCP server, health/version tool, `list_sessions` tool.
 - Acceptance Criteria:
@@ -170,9 +173,11 @@ Implement the core session registry, lifecycle state transitions, structured err
 - `2026-06-06`: Target Avalonia 12 with `net10.0` by default for Avalonia-facing projects.
 - `2026-06-06`: Use xUnit for the initial test foundation because the .NET template is available locally and keeps M0 validation simple.
 - `2026-06-06`: Protocol contracts use System.Text.Json attributes and remain independent from Avalonia runtime types and MCP SDK types.
+- `2026-06-06`: `AvaScope.Core` references `AvaScope.Protocol` for shared transport-neutral session ids and keeps its own core result/error model for adapter-independent behavior.
 
 ## Change Log
 
 - `2026-06-06`: Initial development plan created with M0-M8 milestones, tracking rules, acceptance criteria, and validation commands.
 - `2026-06-06`: Completed M0 foundation with shared build settings, validation documentation, test project, and Protocol/Core smoke tests; moved active focus to M1.
 - `2026-06-06`: Completed M1 protocol contracts with session ids, protocol version metadata, health/list_sessions DTOs, tool result/error shapes, and JSON serialization tests; moved active focus to M2.
+- `2026-06-06`: Completed M2 core session model with registry, lifecycle transitions, structured errors, and unit tests; moved active focus to M3.
