@@ -23,21 +23,24 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `M1 Protocol Contracts`
+- `M2 Core Session Model`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-06`
-- Goal: define stable, transport-neutral request/response contracts.
+- Goal: implement reusable session lifecycle behavior outside MCP.
 
 ## Next Action
 
-Implement session identifiers, protocol version metadata, initial request/result shapes, and JSON serialization tests without introducing Avalonia or MCP runtime dependencies into `AvaScope.Protocol`.
+Implement the core session registry, lifecycle state transitions, structured errors, and unit tests while keeping `AvaScope.Core` transport-neutral.
 
 ## Latest Validation
 
 - `2026-06-06`: `dotnet restore AvaScope.slnx` passed.
 - `2026-06-06`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors.
-- `2026-06-06`: `dotnet test AvaScope.slnx` passed with 2 tests.
+- `2026-06-06`: `dotnet test AvaScope.slnx` passed with 8 tests.
+- `2026-06-06`: `dotnet test AvaScope.slnx --filter Protocol` passed with 7 tests.
+- `2026-06-06`: `AvaScope.Protocol` package list checked; no package references found.
+- `2026-06-06`: `rg "Avalonia|ModelContextProtocol|Mcp|MCP" src\AvaScope.Protocol tests\AvaScope.Tests\Protocol` found no matches.
 - `2026-06-06`: Markdown tracking fields checked for `Current Focus`, `Next Action`, `Status`, `Acceptance Criteria`, and `Validation`.
 
 ## Milestones
@@ -59,7 +62,7 @@ Implement session identifiers, protocol version metadata, initial request/result
 
 ### M1 Protocol Contracts
 
-- Status: `In Progress`
+- Status: `Done`
 - Goal: define stable, transport-neutral request/response contracts.
 - Deliverables: session identifiers, protocol version model, core tool result shapes, JSON serialization tests.
 - Acceptance Criteria:
@@ -71,7 +74,7 @@ Implement session identifiers, protocol version metadata, initial request/result
 
 ### M2 Core Session Model
 
-- Status: `Not Started`
+- Status: `In Progress`
 - Goal: implement reusable session lifecycle behavior outside MCP.
 - Deliverables: session registry, session IDs, lifecycle state, error model, unit tests.
 - Acceptance Criteria:
@@ -166,8 +169,10 @@ Implement session identifiers, protocol version metadata, initial request/result
 - `2026-06-06`: Optimize delivery order for vertical slices: foundation, protocol, core, MCP, bridge, screenshot, tree, input, preview.
 - `2026-06-06`: Target Avalonia 12 with `net10.0` by default for Avalonia-facing projects.
 - `2026-06-06`: Use xUnit for the initial test foundation because the .NET template is available locally and keeps M0 validation simple.
+- `2026-06-06`: Protocol contracts use System.Text.Json attributes and remain independent from Avalonia runtime types and MCP SDK types.
 
 ## Change Log
 
 - `2026-06-06`: Initial development plan created with M0-M8 milestones, tracking rules, acceptance criteria, and validation commands.
 - `2026-06-06`: Completed M0 foundation with shared build settings, validation documentation, test project, and Protocol/Core smoke tests; moved active focus to M1.
+- `2026-06-06`: Completed M1 protocol contracts with session ids, protocol version metadata, health/list_sessions DTOs, tool result/error shapes, and JSON serialization tests; moved active focus to M2.
