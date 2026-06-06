@@ -77,12 +77,12 @@ internal sealed class LocalBridgeServer : IDisposable
     {
         ArgumentNullException.ThrowIfNull(sessionId);
 
-        return Path.Combine(GetManifestDirectory(), $"{sessionId.Value}.json");
+        return BridgeSessionManifest.GetDefaultPath(sessionId);
     }
 
     public static string GetManifestDirectory()
     {
-        return Path.Combine(Path.GetTempPath(), "AvaScope", "sessions");
+        return BridgeSessionManifest.GetDefaultDirectory();
     }
 
     private async Task RunAsync(CancellationToken cancellationToken)

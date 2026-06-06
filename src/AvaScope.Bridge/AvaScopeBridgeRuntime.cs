@@ -46,7 +46,7 @@ public sealed class AvaScopeBridgeRuntime
         return new TopLevelRegistration(_registeredTopLevels, key);
     }
 
-    public Task<IReadOnlyList<InspectableTopLevel>> ListTopLevelsAsync(CancellationToken cancellationToken = default)
+    public Task<IReadOnlyList<TopLevelSummary>> ListTopLevelsAsync(CancellationToken cancellationToken = default)
     {
         if (Dispatcher.UIThread.CheckAccess())
         {
@@ -97,11 +97,11 @@ public sealed class AvaScopeBridgeRuntime
         _localServer ??= LocalBridgeServer.Start(this);
     }
 
-    private IReadOnlyList<InspectableTopLevel> DiscoverTopLevels()
+    private IReadOnlyList<TopLevelSummary> DiscoverTopLevels()
     {
         Dispatcher.UIThread.VerifyAccess();
 
-        var discovered = new List<InspectableTopLevel>();
+        var discovered = new List<TopLevelSummary>();
         var seen = new HashSet<string>(StringComparer.Ordinal);
 
         foreach (var topLevel in DiscoverLifetimeTopLevels())
@@ -123,7 +123,7 @@ public sealed class AvaScopeBridgeRuntime
         return discovered;
     }
 
-    private static IReadOnlyList<InspectableTopLevel> DiscoverLifetimeTopLevels()
+    private static IReadOnlyList<TopLevelSummary> DiscoverLifetimeTopLevels()
     {
         return Application.Current?.ApplicationLifetime switch
         {
@@ -131,13 +131,13 @@ public sealed class AvaScopeBridgeRuntime
                 .Select(static window => InspectableTopLevel.FromWindow(window))
                 .ToArray(),
             ISingleViewApplicationLifetime { MainView: { } mainView } => DiscoverSingleViewTopLevel(mainView),
-            _ => Array.Empty<InspectableTopLevel>()
+            _ => Array.Empty<TopLevelSummary>()
         };
     }
 
-    private IReadOnlyList<InspectableTopLevel> DiscoverRegisteredTopLevels()
+    private IReadOnlyList<TopLevelSummary> DiscoverRegisteredTopLevels()
     {
-        var topLevels = new List<InspectableTopLevel>();
+        var topLevels = new List<TopLevelSummary>();
 
         foreach (var (key, weakReference) in _registeredTopLevels)
         {
@@ -254,12 +254,12 @@ public sealed class AvaScopeBridgeRuntime
         return topLevel.RenderScaling > 0 ? topLevel.RenderScaling : 1;
     }
 
-    private static IReadOnlyList<InspectableTopLevel> DiscoverSingleViewTopLevel(Control mainView)
+    private static IReadOnlyList<TopLevelSummary> DiscoverSingleViewTopLevel(Control mainView)
     {
         var topLevel = TopLevel.GetTopLevel(mainView);
 
         return topLevel is null
-            ? Array.Empty<InspectableTopLevel>()
+            ? Array.Empty<TopLevelSummary>()
             : [InspectableTopLevel.FromTopLevel(topLevel, "singleView")];
     }
 

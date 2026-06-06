@@ -4,6 +4,9 @@ namespace AvaScope.Protocol;
 
 public sealed record BridgeSessionManifest
 {
+    private const string RootDirectoryName = "AvaScope";
+    private const string SessionDirectoryName = "sessions";
+
     [JsonConstructor]
     public BridgeSessionManifest(
         SessionId sessionId,
@@ -45,4 +48,16 @@ public sealed record BridgeSessionManifest
     [JsonPropertyName("displayName")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? DisplayName { get; }
+
+    public static string GetDefaultDirectory()
+    {
+        return Path.Combine(Path.GetTempPath(), RootDirectoryName, SessionDirectoryName);
+    }
+
+    public static string GetDefaultPath(SessionId sessionId)
+    {
+        ArgumentNullException.ThrowIfNull(sessionId);
+
+        return Path.Combine(GetDefaultDirectory(), $"{sessionId.Value}.json");
+    }
 }

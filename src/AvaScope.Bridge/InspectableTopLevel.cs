@@ -1,47 +1,16 @@
 using System.Runtime.CompilerServices;
 using Avalonia.Controls;
+using AvaScope.Protocol;
 
 namespace AvaScope.Bridge;
 
-public sealed record InspectableTopLevel
+internal static class InspectableTopLevel
 {
-    private InspectableTopLevel(
-        string id,
-        string kind,
-        string? title,
-        double width,
-        double height,
-        double renderScaling,
-        bool isActive)
-    {
-        Id = id;
-        Kind = kind;
-        Title = title;
-        Width = width;
-        Height = height;
-        RenderScaling = renderScaling;
-        IsActive = isActive;
-    }
-
-    public string Id { get; }
-
-    public string Kind { get; }
-
-    public string? Title { get; }
-
-    public double Width { get; }
-
-    public double Height { get; }
-
-    public double RenderScaling { get; }
-
-    public bool IsActive { get; }
-
-    internal static InspectableTopLevel FromWindow(Window window)
+    internal static TopLevelSummary FromWindow(Window window)
     {
         ArgumentNullException.ThrowIfNull(window);
 
-        return new InspectableTopLevel(
+        return new TopLevelSummary(
             CreateId(window),
             "window",
             window.Title,
@@ -51,11 +20,11 @@ public sealed record InspectableTopLevel
             window.IsActive);
     }
 
-    internal static InspectableTopLevel FromTopLevel(TopLevel topLevel, string kind)
+    internal static TopLevelSummary FromTopLevel(TopLevel topLevel, string kind)
     {
         ArgumentNullException.ThrowIfNull(topLevel);
 
-        return new InspectableTopLevel(
+        return new TopLevelSummary(
             CreateId(topLevel),
             kind,
             null,

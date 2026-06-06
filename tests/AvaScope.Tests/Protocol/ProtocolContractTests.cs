@@ -177,4 +177,55 @@ public sealed class ProtocolContractTests
         Assert.Equal("Sample app", node["displayName"]!.GetValue<string>());
         Assert.Equal(createdAt, DateTimeOffset.Parse(node["createdAt"]!.GetValue<string>(), CultureInfo.InvariantCulture));
     }
+
+    [Fact]
+    public void TopLevelListResponseSerializesStableShape()
+    {
+        var response = new ListTopLevelsResponse(
+        [
+            new TopLevelSummary(
+                "topLevel:abc",
+                "window",
+                "Main",
+                1440,
+                900,
+                1.25,
+                true)
+        ]);
+
+        var json = JsonSerializer.Serialize(response);
+        var node = JsonNode.Parse(json)!;
+
+        Assert.Equal("topLevel:abc", node["topLevels"]![0]!["id"]!.GetValue<string>());
+        Assert.Equal("window", node["topLevels"]![0]!["kind"]!.GetValue<string>());
+        Assert.Equal("Main", node["topLevels"]![0]!["title"]!.GetValue<string>());
+        Assert.Equal(1440, node["topLevels"]![0]!["width"]!.GetValue<double>());
+        Assert.Equal(900, node["topLevels"]![0]!["height"]!.GetValue<double>());
+        Assert.Equal(1.25, node["topLevels"]![0]!["renderScaling"]!.GetValue<double>());
+        Assert.True(node["topLevels"]![0]!["isActive"]!.GetValue<bool>());
+    }
+
+    [Fact]
+    public void AttachToAppResponseSerializesSessionSummary()
+    {
+        var createdAt = new DateTimeOffset(2026, 6, 6, 23, 0, 0, TimeSpan.Zero);
+        var response = new AttachToAppResponse(
+            new SessionSummary(
+                new SessionId("session-1"),
+                SessionKinds.Runtime,
+                SessionStates.Active,
+                createdAt,
+                "Sample app"),
+            1234);
+
+        var json = JsonSerializer.Serialize(response);
+        var node = JsonNode.Parse(json)!;
+
+        Assert.Equal(1234, node["processId"]!.GetValue<int>());
+        Assert.Equal("session-1", node["session"]!["sessionId"]!.GetValue<string>());
+        Assert.Equal("runtime", node["session"]!["kind"]!.GetValue<string>());
+        Assert.Equal("active", node["session"]!["state"]!.GetValue<string>());
+        Assert.Equal("Sample app", node["session"]!["displayName"]!.GetValue<string>());
+        Assert.Equal(createdAt, DateTimeOffset.Parse(node["session"]!["createdAt"]!.GetValue<string>(), CultureInfo.InvariantCulture));
+    }
 }

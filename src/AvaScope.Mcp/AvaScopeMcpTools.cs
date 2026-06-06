@@ -42,6 +42,85 @@ public sealed class AvaScopeMcpTools
         return ToolResult<ListSessionsResponse>.Ok(new ListSessionsResponse(sessions));
     }
 
+    [McpServerTool(
+        Name = "attach_to_app",
+        Title = "Attach to app",
+        ReadOnly = true,
+        Idempotent = true,
+        Destructive = false,
+        OpenWorld = false,
+        UseStructuredContent = true)]
+    [Description("Attaches to one active local AvaScope bridge session by process id or session id.")]
+    public static async Task<ToolResult<AttachToAppResponse>> AttachToApp(
+        LocalBridgeClient bridgeClient,
+        int? processId = null,
+        string? sessionId = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(bridgeClient);
+
+        if (!TryParseOptionalSessionId(sessionId, out var parsedSessionId, out var error))
+        {
+            return ToolResult<AttachToAppResponse>.Fail(error!);
+        }
+
+        return ToToolResult(await bridgeClient.AttachToAppAsync(processId, parsedSessionId, cancellationToken));
+    }
+
+    [McpServerTool(
+        Name = "list_top_levels",
+        Title = "List top levels",
+        ReadOnly = true,
+        Idempotent = true,
+        Destructive = false,
+        OpenWorld = false,
+        UseStructuredContent = true)]
+    [Description("Lists top-level windows/views for an attached local AvaScope bridge session.")]
+    public static async Task<ToolResult<ListTopLevelsResponse>> ListTopLevels(
+        LocalBridgeClient bridgeClient,
+        string sessionId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(bridgeClient);
+
+        if (!TryParseRequiredSessionId(sessionId, out var parsedSessionId, out var error))
+        {
+            return ToolResult<ListTopLevelsResponse>.Fail(error!);
+        }
+
+        return ToToolResult(await bridgeClient.ListTopLevelsAsync(parsedSessionId!, cancellationToken));
+    }
+
+    [McpServerTool(
+        Name = "screenshot",
+        Title = "Screenshot",
+        ReadOnly = true,
+        Idempotent = false,
+        Destructive = false,
+        OpenWorld = false,
+        UseStructuredContent = true)]
+    [Description("Captures a screenshot from an attached local AvaScope bridge session to a local output file.")]
+    public static async Task<ToolResult<ScreenshotResponse>> Screenshot(
+        LocalBridgeClient bridgeClient,
+        string sessionId,
+        string topLevelId,
+        string outputPath,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(bridgeClient);
+
+        if (!TryParseRequiredSessionId(sessionId, out var parsedSessionId, out var error))
+        {
+            return ToolResult<ScreenshotResponse>.Fail(error!);
+        }
+
+        return ToToolResult(await bridgeClient.CaptureScreenshotAsync(
+            parsedSessionId!,
+            topLevelId,
+            outputPath,
+            cancellationToken));
+    }
+
     private static SessionSummary ToProtocolSummary(SessionSnapshot session)
     {
         return new SessionSummary(
@@ -62,5 +141,66 @@ public sealed class AvaScopeMcpTools
             SessionLifecycleState.Failed => SessionStates.Failed,
             _ => throw new ArgumentOutOfRangeException(nameof(state), state, "Unknown session state.")
         };
+    }
+
+    private static ToolResult<T> ToToolResult<T>(CoreResult<T> result)
+    {
+        return result.Success
+            ? ToolResult<T>.Ok(result.Value!)
+            : ToolResult<T>.Fail(new ProtocolError(result.Error!.Code, result.Error.Message));
+    }
+
+    private static bool TryParseOptionalSessionId(
+        string? sessionId,
+        out SessionId? parsedSessionId,
+        out ProtocolError? error)
+    {
+        parsedSessionId = null;
+        error = null;
+
+        if (string.IsNullOrWhiteSpace(sessionId))
+        {
+            return true;
+        }
+
+        return TryCreateSessionId(sessionId, out parsedSessionId, out error);
+    }
+
+    private static bool TryParseRequiredSessionId(
+        string sessionId,
+        out SessionId? parsedSessionId,
+        out ProtocolError? error)
+    {
+        parsedSessionId = null;
+        error = null;
+
+        return string.IsNullOrWhiteSpace(sessionId)
+            ? FailSessionId("Session id is required.", out error)
+            : TryCreateSessionId(sessionId, out parsedSessionId, out error);
+    }
+
+    private static bool TryCreateSessionId(
+        string sessionId,
+        out SessionId? parsedSessionId,
+        out ProtocolError? error)
+    {
+        try
+        {
+            parsedSessionId = new SessionId(sessionId);
+            error = null;
+            return true;
+        }
+        catch (ArgumentException exception)
+        {
+            parsedSessionId = null;
+            error = new ProtocolError(CoreErrorCodes.InvalidBridgeRequest, exception.Message);
+            return false;
+        }
+    }
+
+    private static bool FailSessionId(string message, out ProtocolError error)
+    {
+        error = new ProtocolError(CoreErrorCodes.InvalidBridgeRequest, message);
+        return false;
     }
 }

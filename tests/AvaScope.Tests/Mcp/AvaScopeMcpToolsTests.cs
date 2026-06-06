@@ -58,4 +58,52 @@ public sealed class AvaScopeMcpToolsTests
                 Assert.Equal("Preview", session.DisplayName);
             });
     }
+
+    [Fact]
+    public async Task AttachToAppReturnsStructuredErrorWhenNoBridgeSessionExists()
+    {
+        var client = new LocalBridgeClient(CreateMissingManifestDirectory());
+
+        var result = await AvaScopeMcpTools.AttachToApp(client, processId: Environment.ProcessId);
+
+        Assert.False(result.Success);
+        Assert.Null(result.Value);
+        Assert.Equal(CoreErrorCodes.BridgeSessionNotFound, result.Error!.Code);
+    }
+
+    [Fact]
+    public async Task ListTopLevelsRejectsEmptySessionId()
+    {
+        var client = new LocalBridgeClient(CreateMissingManifestDirectory());
+
+        var result = await AvaScopeMcpTools.ListTopLevels(client, " ");
+
+        Assert.False(result.Success);
+        Assert.Null(result.Value);
+        Assert.Equal(CoreErrorCodes.InvalidBridgeRequest, result.Error!.Code);
+    }
+
+    [Fact]
+    public async Task ScreenshotRejectsEmptySessionId()
+    {
+        var client = new LocalBridgeClient(CreateMissingManifestDirectory());
+
+        var result = await AvaScopeMcpTools.Screenshot(
+            client,
+            " ",
+            "topLevel:abc",
+            "capture.png");
+
+        Assert.False(result.Success);
+        Assert.Null(result.Value);
+        Assert.Equal(CoreErrorCodes.InvalidBridgeRequest, result.Error!.Code);
+    }
+
+    private static string CreateMissingManifestDirectory()
+    {
+        return Path.Combine(
+            Path.GetTempPath(),
+            "AvaScope.Tests",
+            $"missing-manifests-{Guid.NewGuid():N}");
+    }
 }
