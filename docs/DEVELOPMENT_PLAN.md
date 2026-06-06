@@ -23,15 +23,15 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `M5 Runtime Screenshot Slice`
+- `M6 Tree Inspection Slice`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-06`
-- Goal: capture screenshots from a running bridged Avalonia app.
+- Goal: expose bounded visual and logical tree inspection with stable node identity.
 
 ## Next Action
 
-Implement a deterministic integration strategy for positive `list_top_levels` and `screenshot` validation through `AvaScope.Mcp` -> `LocalBridgeClient` -> named pipe -> `AvaScope.Bridge` without deadlocking the Avalonia UI dispatcher.
+Design and implement protocol DTOs plus bridge-side serialization for bounded visual tree inspection, starting with stable node ids, type/name/text metadata, bounds, and depth limits.
 
 ## Latest Validation
 
@@ -52,6 +52,10 @@ Implement a deterministic integration strategy for positive `list_top_levels` an
 - `2026-06-06`: `dotnet test AvaScope.slnx --no-build --filter Mcp` passed with 8 tests.
 - `2026-06-06`: `dotnet test AvaScope.slnx --no-build --filter Bridge` passed with 18 tests.
 - `2026-06-06`: `dotnet test AvaScope.slnx --no-build` passed with 43 tests.
+- `2026-06-06`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after M5 completion.
+- `2026-06-06`: `dotnet test AvaScope.slnx --no-build --filter Bridge` passed with 19 tests after MCP/Core/pipe screenshot validation.
+- `2026-06-06`: `dotnet test AvaScope.slnx --no-build --filter Mcp` passed with 9 tests after MCP/Core/pipe screenshot validation.
+- `2026-06-06`: `dotnet test AvaScope.slnx --no-build` passed with 44 tests.
 - `2026-06-06`: `AvaScope.Protocol` package list checked; no package references found.
 - `2026-06-06`: `AvaScope.Core` package list checked; no package references found.
 - `2026-06-06`: `rg "Avalonia|ModelContextProtocol|Mcp|MCP" src\AvaScope.Protocol tests\AvaScope.Tests\Protocol` found no matches.
@@ -127,7 +131,7 @@ Implement a deterministic integration strategy for positive `list_top_levels` an
 
 ### M5 Runtime Screenshot Slice
 
-- Status: `In Progress`
+- Status: `Done`
 - Goal: capture screenshots from a running bridged Avalonia app.
 - Deliverables: attach flow, screenshot request/response, generated image file output, sample validation.
 - Progress:
@@ -138,7 +142,7 @@ Implement a deterministic integration strategy for positive `list_top_levels` an
   - Done: reusable `LocalBridgeClient` discovers live bridge session manifests and calls the bridge pipe without Avalonia or MCP dependencies.
   - Done: MCP adapter exposes `attach_to_app`, `list_top_levels`, and `screenshot` as thin tool methods over `LocalBridgeClient`.
   - Done: positive attach validation covers manifest discovery plus pipe `health`; negative tool validation covers invalid and missing-session paths.
-  - Remaining: deterministic positive `list_top_levels` and `screenshot` validation through the MCP/Core/pipe path with Avalonia UI dispatcher pumping.
+  - Done: positive `list_top_levels` and `screenshot` validation covers MCP tool -> Core client -> named pipe -> Bridge -> Avalonia UI thread -> PNG output.
 - Acceptance Criteria:
   - Screenshot output path is returned as structured data.
   - Failed capture returns a structured diagnostic error.
@@ -148,10 +152,11 @@ Implement a deterministic integration strategy for positive `list_top_levels` an
   - output file existence and non-empty image validation
   - local IPC health smoke test
   - MCP attach smoke test through local bridge manifest and pipe health
+  - MCP/Core/pipe screenshot smoke test against a headless Avalonia window
 
 ### M6 Tree Inspection Slice
 
-- Status: `Not Started`
+- Status: `In Progress`
 - Goal: expose visual and logical tree inspection with stable node identity.
 - Deliverables: tree serialization, depth limits, node metadata, basic find behavior.
 - Acceptance Criteria:
@@ -204,7 +209,8 @@ Implement a deterministic integration strategy for positive `list_top_levels` an
 - `2026-06-06`: Bridge-local attach discovery uses temp session manifests plus local named pipes, keeping runtime control opt-in and local-only while allowing MCP/CLI adapters to remain thin clients.
 - `2026-06-06`: Bridge IPC uses newline-delimited UTF-8 JSON over named pipes with explicit request ids; the implementation uses byte-level pipe reads/writes for deterministic test behavior.
 - `2026-06-06`: The reusable local attach client lives in `AvaScope.Core` so MCP and future CLI can share discovery/pipe behavior without referencing Avalonia bridge assemblies.
-- `2026-06-06`: `list_top_levels` and `screenshot` MCP tools are exposed before positive UI-thread pipe validation is complete; they remain backed by the same bridge IPC handlers and are tracked as M5 remaining validation work.
+- `2026-06-06`: `list_top_levels` and `screenshot` MCP tools were exposed in the attach-client slice, then validated by the MCP/Core/pipe screenshot smoke test before closing M5.
+- `2026-06-06`: Positive MCP/Core/pipe screenshot validation uses `HeadlessUnitTestSession.Dispatch(Func<Task>)`; awaiting the tool call from the headless UI dispatch context allows bridge server UI-thread work to complete without a manual pump loop.
 
 ## Change Log
 
@@ -217,3 +223,4 @@ Implement a deterministic integration strategy for positive `list_top_levels` an
 - `2026-06-06`: Added M5 bridge-local screenshot capture with `ScreenshotResponse`, registered top-level lookup, PNG output, structured missing-top-level errors, and headless file validation; M5 remains in progress pending local attach transport.
 - `2026-06-06`: Added M5 bridge IPC foundation with local session manifests, named-pipe server startup/shutdown, IPC DTO JSON tests, manifest lifecycle validation, and pipe health smoke coverage; M5 remains in progress pending MCP/CLI attach client and cross-process screenshot validation.
 - `2026-06-06`: Added M5 reusable local attach client and MCP tool adapters for `attach_to_app`, `list_top_levels`, and `screenshot`; M5 remains in progress pending deterministic positive top-level/screenshot validation through the MCP/Core/pipe path.
+- `2026-06-06`: Completed M5 runtime screenshot slice with MCP/Core/named-pipe top-level listing and screenshot validation against a headless Avalonia window; moved active focus to M6.
