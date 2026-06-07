@@ -263,6 +263,180 @@ public sealed class PreviewHostSmokeTests
         }
     }
 
+    [Fact]
+    public async Task PreviewHostLoadsCompiledAppResourcesBeforeProjectView()
+    {
+        var hostAssembly = Path.Combine(AppContext.BaseDirectory, "AvaScope.PreviewHost.dll");
+        Assert.True(File.Exists(hostAssembly), $"Expected preview host assembly at {hostAssembly}.");
+
+        var testRoot = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(testRoot);
+
+        var projectPath = Path.Combine(testRoot, "AppResourcePreviewSample.csproj");
+        var appPath = Path.Combine(testRoot, "App.axaml");
+        var appCodeBehindPath = Path.Combine(testRoot, "App.axaml.cs");
+        var viewsDirectory = Path.Combine(testRoot, "Views");
+        Directory.CreateDirectory(viewsDirectory);
+
+        var viewPath = Path.Combine(viewsDirectory, "ResourceView.axaml");
+        var codeBehindPath = Path.Combine(viewsDirectory, "ResourceView.axaml.cs");
+        var requestPath = Path.Combine(testRoot, "request.json");
+        var outputPath = Path.Combine(testRoot, "preview.png");
+
+        await File.WriteAllTextAsync(projectPath, """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <Nullable>enable</Nullable>
+              </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="Avalonia" Version="12.0.4" />
+              </ItemGroup>
+            </Project>
+            """);
+
+        await File.WriteAllTextAsync(appPath, """
+            <Application xmlns="https://github.com/avaloniaui"
+                         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                         x:Class="AppResourcePreviewSample.App">
+              <Application.Resources>
+                <SolidColorBrush x:Key="PreviewAccentBrush" Color="#FF225588" />
+              </Application.Resources>
+            </Application>
+            """);
+
+        await File.WriteAllTextAsync(appCodeBehindPath, """
+            using Avalonia;
+            using Avalonia.Markup.Xaml;
+
+            namespace AppResourcePreviewSample;
+
+            public partial class App : Application
+            {
+                public override void Initialize()
+                {
+                    AvaloniaXamlLoader.Load(this);
+                }
+            }
+            """);
+
+        await File.WriteAllTextAsync(viewPath, """
+            <UserControl xmlns="https://github.com/avaloniaui"
+                         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                         x:Class="AppResourcePreviewSample.Views.ResourceView">
+              <Border Background="{StaticResource PreviewAccentBrush}" Padding="8">
+                <TextBlock Text="App resource preview" />
+              </Border>
+            </UserControl>
+            """);
+
+        await File.WriteAllTextAsync(codeBehindPath, """
+            using Avalonia.Controls;
+
+            namespace AppResourcePreviewSample.Views;
+
+            public partial class ResourceView : UserControl
+            {
+                public ResourceView()
+                {
+                    InitializeComponent();
+                }
+            }
+            """);
+
+        var request = new PreviewRequest(
+            outputPath,
+            width: 280,
+            height: 180,
+            dpi: 96,
+            projectPath: projectPath,
+            viewPath: Path.Combine("Views", "ResourceView.axaml"),
+            themeVariant: "light");
+
+        await File.WriteAllTextAsync(requestPath, JsonSerializer.Serialize(request, JsonOptions));
+
+        try
+        {
+            var result = await RunPreviewHostAsync(hostAssembly, requestPath, expectedExitCode: 0);
+
+            Assert.NotNull(result);
+            Assert.True(result.Success, result.Error?.Message);
+            Assert.Equal(Path.GetFullPath(projectPath), result.Value!.ProjectPath);
+            Assert.Equal(Path.GetFullPath(viewPath), result.Value.ViewPath);
+            Assert.Equal(Path.GetFullPath(outputPath), result.Value.FilePath);
+            Assert.Equal(280, result.Value.PixelWidth);
+            Assert.Equal(180, result.Value.PixelHeight);
+            Assert.True(File.Exists(result.Value.FilePath));
+            Assert.True(new FileInfo(result.Value.FilePath).Length > 0);
+        }
+        finally
+        {
+            await DeleteDirectoryWithRetryAsync(testRoot);
+        }
+    }
+
+    [Fact]
+    public async Task PreviewHostReturnsStructuredErrorWhenAppResourceRootIsNotApplication()
+    {
+        var hostAssembly = Path.Combine(AppContext.BaseDirectory, "AvaScope.PreviewHost.dll");
+        Assert.True(File.Exists(hostAssembly), $"Expected preview host assembly at {hostAssembly}.");
+
+        var testRoot = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(testRoot);
+
+        var projectPath = Path.Combine(testRoot, "BrokenAppResourceSample.csproj");
+        var appPath = Path.Combine(testRoot, "App.axaml");
+        var viewPath = Path.Combine(testRoot, "MainView.axaml");
+        var requestPath = Path.Combine(testRoot, "request.json");
+        var outputPath = Path.Combine(testRoot, "preview.png");
+
+        await File.WriteAllTextAsync(projectPath, """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+              </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="Avalonia" Version="12.0.4" />
+              </ItemGroup>
+            </Project>
+            """);
+
+        await File.WriteAllTextAsync(appPath, """
+            <UserControl xmlns="https://github.com/avaloniaui" />
+            """);
+
+        await File.WriteAllTextAsync(viewPath, """
+            <UserControl xmlns="https://github.com/avaloniaui">
+              <TextBlock Text="Should not render" />
+            </UserControl>
+            """);
+
+        var request = new PreviewRequest(
+            outputPath,
+            width: 240,
+            height: 160,
+            dpi: 96,
+            projectPath: projectPath,
+            viewPath: "MainView.axaml");
+
+        await File.WriteAllTextAsync(requestPath, JsonSerializer.Serialize(request, JsonOptions));
+
+        try
+        {
+            var result = await RunPreviewHostAsync(hostAssembly, requestPath, expectedExitCode: 1);
+
+            Assert.NotNull(result);
+            Assert.False(result.Success);
+            Assert.Equal("preview_render_failed", result.Error!.Code);
+            Assert.Contains("App.axaml", result.Error.Message, StringComparison.Ordinal);
+            Assert.False(File.Exists(outputPath));
+        }
+        finally
+        {
+            await DeleteDirectoryWithRetryAsync(testRoot);
+        }
+    }
+
     private static async Task DeleteDirectoryWithRetryAsync(string path)
     {
         for (var attempt = 0; attempt < 10; attempt++)
@@ -308,7 +482,9 @@ public sealed class PreviewHostSmokeTests
         var stdout = await stdoutTask;
         var stderr = await stderrTask;
 
-        Assert.Equal(expectedExitCode, process.ExitCode);
+        Assert.True(
+            process.ExitCode == expectedExitCode,
+            $"Expected exit code {expectedExitCode}, got {process.ExitCode}.{Environment.NewLine}stdout: {stdout}{Environment.NewLine}stderr: {stderr}");
         Assert.True(string.IsNullOrWhiteSpace(stderr), stderr);
 
         return JsonSerializer.Deserialize<ToolResult<PreviewResponse>>(stdout, JsonOptions);

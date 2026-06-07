@@ -23,15 +23,15 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `M14 Preview App Resource Scope`
+- `M15 Preview Diagnostics Expansion`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-07`
-- Goal: load app-level resources in the isolated preview host before moving toward reload and richer preview sessions.
+- Goal: expand diagnostics beyond bridge state to include preview host readiness and recent preview failure surfaces.
 
 ## Next Action
 
-Implement a small preview-host slice that detects and loads compiled `App.axaml` resources for project previews, validates resource-backed view rendering, and keeps user code isolated in `AvaScope.PreviewHost`.
+Add preview-host diagnostics to the existing diagnostics surface: host assembly path/existence, protocol version, isolated process capability, and structured readiness errors without loading user project code.
 
 ## Latest Validation
 
@@ -118,6 +118,9 @@ Implement a small preview-host slice that detects and loads compiled `App.axaml`
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter Core` passed with 22 tests.
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter Mcp` passed with 21 tests.
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 79 tests.
+- `2026-06-07`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after M14 preview App.axaml resource loading.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewHost` passed with 10 tests.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 81 tests.
 
 ## Milestones
 
@@ -369,13 +372,15 @@ Implement a small preview-host slice that detects and loads compiled `App.axaml`
 
 ### M14 Preview App Resource Scope
 
-- Status: `In Progress`
+- Status: `Done`
 - Goal: improve project preview fidelity by loading compiled app-level resources before view rendering.
 - Deliverables: preview host app resource discovery/loading, resource-backed render smoke test, structured diagnostics for missing/failed app resource loading.
 - Progress:
-  - Pending: inspect current preview host compiled-resource loading path and choose the smallest app-resource hook.
-  - Pending: load compiled `App.axaml` resources for project previews when present.
-  - Pending: validate a view that resolves a brush/style from app resources.
+  - Done: inspected Avalonia 12 resource/API docs and current compiled preview loading path.
+  - Done: PreviewHost detects project-root `App.axaml`, loads it from the compiled project assembly through `avares://`, and copies top-level `Application.Resources` entries into the active PreviewHost application before loading the view.
+  - Done: resource-backed smoke test validates a compiled project view resolving a `StaticResource` brush from `App.axaml`.
+  - Done: missing `App.axaml` remains non-breaking for existing standalone and resource-free project previews.
+  - Done: invalid/non-Application `App.axaml` returns structured `preview_render_failed` output.
 - Acceptance Criteria:
   - App-level resources are loaded inside the isolated preview host process, not MCP or CLI.
   - A project preview can render a compiled view that depends on `App.axaml` resources.
@@ -384,6 +389,27 @@ Implement a small preview-host slice that detects and loads compiled `App.axaml`
 - Validation:
   - `dotnet build AvaScope.slnx`
   - `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewHost`
+  - `dotnet test AvaScope.slnx --no-build`
+
+### M15 Preview Diagnostics Expansion
+
+- Status: `In Progress`
+- Goal: report preview-host readiness in the existing diagnostics tool without launching user project code.
+- Deliverables: preview host diagnostic DTO, Core diagnostics population, MCP diagnostics coverage, tests.
+- Progress:
+  - Pending: define preview host diagnostic shape without coupling to MCP internals.
+  - Pending: report host assembly path, existence, service/protocol version, isolation mode, and readiness status.
+  - Pending: preserve current bridge diagnostics behavior and add tests for missing-host and available-host cases.
+- Acceptance Criteria:
+  - Diagnostics can tell an agent whether the preview host executable is present before a preview request.
+  - Preview diagnostics do not build or load user projects.
+  - The existing `diagnostics` MCP tool remains a thin adapter over Core.
+  - Missing preview host state is returned as structured diagnostic data.
+- Validation:
+  - `dotnet build AvaScope.slnx`
+  - `dotnet test AvaScope.slnx --no-build --filter Protocol`
+  - `dotnet test AvaScope.slnx --no-build --filter Core`
+  - `dotnet test AvaScope.slnx --no-build --filter Mcp`
   - `dotnet test AvaScope.slnx --no-build`
 
 ## Decision Log
@@ -426,6 +452,8 @@ Implement a small preview-host slice that detects and loads compiled `App.axaml`
 - `2026-06-07`: Diagnostics is the next P0 hardening slice because current operations return per-tool errors, but there is no aggregate health/version/session surface for agents to inspect before choosing a workflow.
 - `2026-06-07`: The first diagnostics slice reports current health and structured unavailable states only; binding, layout, resource, and historical last-error streams remain future diagnostics work until those signals exist.
 - `2026-06-07`: M14 targets preview app resources before reload because persistent/reloadable preview sessions should reuse a preview path that already handles app-level resources predictably.
+- `2026-06-07`: M14 copies top-level resource entries from the loaded project `Application.Resources` instead of reparenting the resource dictionary, because Avalonia resource dictionaries are owned by a parent once loaded.
+- `2026-06-07`: M15 expands diagnostics to preview-host readiness before reload work so agents can distinguish missing preview infrastructure from project/render failures.
 
 ## Change Log
 
@@ -453,3 +481,4 @@ Implement a small preview-host slice that detects and loads compiled `App.axaml`
 - `2026-06-07`: Added post-MVP gap audit and selected runtime `close_session` lifecycle support as the next hardening slice.
 - `2026-06-07`: Completed M12 close-session hardening with bridge IPC, Core client, MCP tool, manifest cleanup validation, and PreviewHost cleanup retry hardening; added M13 diagnostics surface as the active focus.
 - `2026-06-07`: Completed M13 diagnostics surface with protocol DTOs, Core bridge diagnostics, MCP `diagnostics`, unavailable-state handling, and focused tests; added M14 preview app resource scope as the active focus.
+- `2026-06-07`: Completed M14 preview app resource scope with compiled `App.axaml` resource loading, resource-backed render validation, structured invalid-app-resource errors, and README updates; added M15 preview diagnostics expansion as the active focus.

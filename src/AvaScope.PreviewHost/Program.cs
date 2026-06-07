@@ -102,6 +102,8 @@ internal static class Program
             Directory.CreateDirectory(outputDirectory);
         }
 
+        LoadProjectApplicationResources(fullProjectPath);
+
         var window = new Window
         {
             Width = request.Width,
@@ -281,6 +283,55 @@ internal static class Program
             designMode: true);
         return loaded as Control
             ?? throw new NotSupportedException("Preview view XAML must load to an Avalonia Control.");
+    }
+
+    private static void LoadProjectApplicationResources(string? fullProjectPath)
+    {
+        if (fullProjectPath is null)
+        {
+            return;
+        }
+
+        var projectDirectory = Path.GetDirectoryName(fullProjectPath) ?? Environment.CurrentDirectory;
+        var appXamlPath = Path.Combine(projectDirectory, "App.axaml");
+        if (!File.Exists(appXamlPath))
+        {
+            return;
+        }
+
+        var projectAssemblyPath = FindProjectAssemblyPath(fullProjectPath);
+        if (projectAssemblyPath is null)
+        {
+            return;
+        }
+
+        var assembly = Assembly.LoadFrom(projectAssemblyPath);
+        var appUri = new Uri($"avares://{assembly.GetName().Name}/App.axaml");
+
+        Application projectApplication;
+        try
+        {
+            projectApplication = AvaloniaXamlLoader.Load(appUri, appUri) as Application
+                ?? throw new NotSupportedException("Preview project App.axaml must load to an Avalonia Application.");
+        }
+        catch (XamlLoadException exception)
+        {
+            throw new InvalidOperationException($"Preview project App.axaml could not be loaded: {exception.Message}", exception);
+        }
+
+        MergeProjectApplication(projectApplication);
+    }
+
+    private static void MergeProjectApplication(Application projectApplication)
+    {
+        var hostApplication = Application.Current
+            ?? throw new InvalidOperationException("Preview host application was not initialized.");
+
+        // Resource dictionaries are parented by Avalonia, so copy entries instead of reusing the dictionary instance.
+        foreach (var resource in projectApplication.Resources.ToArray())
+        {
+            hostApplication.Resources[resource.Key] = resource.Value;
+        }
     }
 
     private static Control? TryLoadCompiledProjectView(string fullProjectPath, string fullViewPath)

@@ -20,7 +20,7 @@ Status: first bridge diagnostics slice complete; richer preview/build/binding/la
 
 `diagnostics` is listed in the intended MCP tool shape. The first slice now reports service health, local bridge manifest path, process id, named-pipe transport, protocol health, stale manifests, invalid manifests, and unavailable IPC states. Current errors are still structured per operation; there is no historical last-error stream yet.
 
-Next slice: add preview/build/resource diagnostics when preview host resource scope is expanded.
+Next slice: add preview-host readiness diagnostics now that preview host resource scope has expanded.
 
 ## P1 Gaps
 
@@ -32,9 +32,11 @@ Next slice: keep one-shot preview stable first; add persistent preview only afte
 
 ### Preview Resource Scope
 
-PreviewHost can build a project and load a compiled view resource through `avares://`, but full `App.axaml` orchestration, app-level resources, culture variants, design data, and richer diagnostics are still limited.
+Status: first app-resource slice complete; full design-time parity remains open.
 
-Next slice: load app resources explicitly or document a supported project pattern before claiming full design-time parity.
+PreviewHost can build a project, load a compiled view resource through `avares://`, and copy top-level resource entries from compiled project-root `App.axaml` into the isolated preview host application. Full `App.axaml` orchestration, merged dictionaries, app styles, culture variants, design data, and richer diagnostics are still limited.
+
+Next slice: add preview-host readiness diagnostics before persistent reload work.
 
 ### Input Coverage
 
@@ -58,4 +60,4 @@ Next slice: add CI only after the local validation path is stable enough to avoi
 
 ## Selected Next Slice
 
-Implement preview app resource loading next. The P0 lifecycle and first diagnostics slices are complete; loading compiled `App.axaml` resources is the next small P1 preview-fidelity slice before persistent reload work.
+Implement preview diagnostics expansion next. The P0 lifecycle/bridge diagnostics and first app-resource preview slices are complete; agents now need structured preview-host readiness before distinguishing infrastructure failures from project/render failures.

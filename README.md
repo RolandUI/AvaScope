@@ -77,9 +77,11 @@ Implemented tools:
 - `logical_tree`
 - `find_nodes`
 - `input`
+- `close_session`
+- `diagnostics`
 - `preview_axaml`
 
-Planned but not implemented yet: `close_session`, `reload`, and `diagnostics`.
+Planned but not implemented yet: `reload`.
 
 ## Runtime Bridge
 
@@ -107,6 +109,7 @@ Preview rendering is isolated in `AvaScope.PreviewHost`, launched as a child pro
 - accepts a JSON `PreviewRequest`;
 - optionally runs `dotnet build` for the requested `.csproj`;
 - loads compiled Avalonia resource XAML through `avares://` when possible;
+- loads compiled top-level `Application.Resources` entries from `App.axaml` when present;
 - falls back to standalone runtime `.axaml` loading;
 - renders through headless Skia;
 - writes a PNG and structured JSON result.
@@ -114,7 +117,7 @@ Preview rendering is isolated in `AvaScope.PreviewHost`, launched as a child pro
 Current preview limitations:
 
 - no hot reload or persistent preview sessions yet;
-- no full `App.axaml` resource orchestration beyond what the compiled view can resolve;
+- no full `App.axaml` orchestration yet; merged dictionaries, app styles, design data, and startup logic remain limited;
 - no culture/design-data variants yet;
 - build output probing assumes the default `bin\Debug\<tfm>\<ProjectName>.dll` shape.
 
