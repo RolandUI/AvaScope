@@ -23,15 +23,15 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `M11 Documentation and Release Readiness`
+- `M12 Post-MVP Hardening`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-07`
-- Goal: make the implemented AvaScope workflows discoverable, reproducible, and ready for local use.
+- Goal: close the highest-risk gaps after the first usable bridge, preview, MCP, and CLI workflow set.
 
 ## Next Action
 
-Add concise repository documentation for bridge activation, MCP tools, CLI usage, preview host behavior, validation commands, and current safety boundaries.
+Run a focused gap audit against the product goals and choose the next vertical slice; prioritize implemented-but-undocumented limits, missing structured diagnostics, `close_session`, `reload`, or package/release readiness.
 
 ## Latest Validation
 
@@ -101,6 +101,9 @@ Add concise repository documentation for bridge activation, MCP tools, CLI usage
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 64 tests.
 - `2026-06-07`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after M10 CLI integration.
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli` passed with 13 tests.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 67 tests.
+- `2026-06-07`: Markdown tracking/status fields checked after M11 documentation update.
+- `2026-06-07`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after M11 documentation update.
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 67 tests.
 
 ## Milestones
@@ -293,9 +296,12 @@ Add concise repository documentation for bridge activation, MCP tools, CLI usage
 
 ### M11 Documentation and Release Readiness
 
-- Status: `In Progress`
+- Status: `Done`
 - Goal: document the current usable workflows and harden local validation for handoff.
 - Deliverables: README usage guide, architecture/safety summary, validation command checklist, current limitations.
+- Progress:
+  - Done: README documents project layout, build/test commands, CLI usage, MCP tools, bridge activation, preview behavior, safety boundaries, and current limitations.
+  - Done: validation guide includes PreviewHost and CLI targeted test commands.
 - Acceptance Criteria:
   - A new agent or developer can run MCP, CLI preview, and bridge workflows from documented commands.
   - Documentation states the current isolation and local-only safety boundaries.
@@ -304,6 +310,19 @@ Add concise repository documentation for bridge activation, MCP tools, CLI usage
   - Markdown tracking/status check
   - `dotnet build AvaScope.slnx`
   - `dotnet test AvaScope.slnx --no-build`
+
+### M12 Post-MVP Hardening
+
+- Status: `In Progress`
+- Goal: audit and close the highest-risk gaps in the first usable AvaScope workflow set.
+- Deliverables: prioritized gap list, next vertical hardening slice, validation updates.
+- Acceptance Criteria:
+  - Gaps are ranked by user impact and architectural risk.
+  - The next slice is small enough to validate and commit independently.
+  - Any new behavior remains covered by focused tests or explicit validation notes.
+- Validation:
+  - audit notes in this plan or a dedicated docs file
+  - relevant targeted test command for the selected slice
 
 ## Decision Log
 
@@ -338,6 +357,8 @@ Add concise repository documentation for bridge activation, MCP tools, CLI usage
 - `2026-06-07`: Added M10 for local CLI workflows after preview host and MCP preview integration.
 - `2026-06-07`: `avascope mcp` is a process handoff to the colocated MCP server assembly rather than a second in-process MCP host, keeping one canonical MCP implementation.
 - `2026-06-07`: Added M11 because the implemented bridge/MCP/CLI/preview workflows now need repository-level usage documentation before broader hardening.
+- `2026-06-07`: README intentionally documents current limitations for input, preview resources, hot reload, and diagnostics so users do not assume full DevTools parity yet.
+- `2026-06-07`: Added M12 to continue with explicit post-MVP hardening rather than broad untracked expansion.
 
 ## Change Log
 
@@ -361,3 +382,4 @@ Add concise repository documentation for bridge activation, MCP tools, CLI usage
 - `2026-06-07`: Completed M8 preview host slice with compiled Avalonia project resource and code-behind smoke rendering; added M9 preview adapter integration as the active focus.
 - `2026-06-07`: Completed M9 preview adapter integration with Core `PreviewHostClient`, MCP `preview_axaml`, process smoke coverage, and stdio tool-list validation; added M10 CLI integration as the active focus.
 - `2026-06-07`: Completed M10 CLI integration with `avascope preview`, `avascope mcp`, process smoke coverage, and structured invalid-argument errors; added M11 documentation and release readiness as the active focus.
+- `2026-06-07`: Completed M11 documentation and release-readiness slice with README usage documentation and validation guide updates; added M12 post-MVP hardening as the active focus.

@@ -34,3 +34,15 @@ For Avalonia bridge work, also run:
 ```powershell
 dotnet test AvaScope.slnx --filter Bridge
 ```
+
+For preview host work, also run:
+
+```powershell
+dotnet test AvaScope.slnx --filter FullyQualifiedName~PreviewHost
+```
+
+For CLI work, also run:
+
+```powershell
+dotnet test AvaScope.slnx --filter FullyQualifiedName~Cli
+```
