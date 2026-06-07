@@ -1,5 +1,12 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>AvaScope.Bridge</PackageId>
+    <Description>Opt-in local-only runtime inspection bridge for Avalonia applications.</Description>
+    <PackageTags>avalonia;inspection;bridge;automation;mcp</PackageTags>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="Avalonia" Version="12.0.4" />
   </ItemGroup>

@@ -1,4 +1,11 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>AvaScope.Core</PackageId>
+    <Description>Reusable AvaScope session, local bridge, and preview host client logic.</Description>
+    <PackageTags>avalonia;inspection;automation;preview;mcp</PackageTags>
+  </PropertyGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\AvaScope.Protocol\AvaScope.Protocol.csproj" />
   </ItemGroup>

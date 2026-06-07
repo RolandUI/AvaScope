@@ -23,15 +23,15 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `M20 Packaging Metadata Slice`
+- `M21 CI Validation Slice`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-07`
-- Goal: add minimal package metadata and local pack validation without publishing artifacts.
+- Goal: add repository CI validation for build, tests, and local package creation without publishing.
 
 ## Next Action
 
-Audit current project packability and add conservative metadata for packable AvaScope artifacts, then validate local `dotnet pack` output.
+Add a GitHub Actions workflow that installs the required .NET SDK, restores, builds, tests, and locally packs library artifacts without pushing or publishing anything.
 
 ## Latest Validation
 
@@ -149,6 +149,13 @@ Audit current project packability and add conservative metadata for packable Ava
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter Bridge` passed with 36 tests.
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter Mcp` passed with 28 tests.
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 101 tests after PreviewHost cleanup lock hardening.
+- `2026-06-07`: `dotnet build AvaScope.slnx -c Release` passed with 0 warnings and 0 errors after M20 package metadata.
+- `2026-06-07`: `dotnet pack src\AvaScope.Protocol\AvaScope.Protocol.csproj -c Release --no-build --output artifacts\packages` created `AvaScope.Protocol.0.1.0.nupkg`.
+- `2026-06-07`: `dotnet pack src\AvaScope.Core\AvaScope.Core.csproj -c Release --no-build --output artifacts\packages` created `AvaScope.Core.0.1.0.nupkg`.
+- `2026-06-07`: `dotnet pack src\AvaScope.Bridge\AvaScope.Bridge.csproj -c Release --no-build --output artifacts\packages` created `AvaScope.Bridge.0.1.0.nupkg`.
+- `2026-06-07`: Package metadata inspected from `.nuspec`; Bridge declares dependencies on `AvaScope.Core`, `AvaScope.Protocol`, and `Avalonia` 12.0.4, and includes `README.md`.
+- `2026-06-07`: `dotnet pack` for `AvaScope.Mcp`, `AvaScope.Cli`, and `AvaScope.PreviewHost` completed as no-op because those projects are explicitly `IsPackable=false`.
+- `2026-06-07`: `git check-ignore -v artifacts\packages\AvaScope.Bridge.0.1.0.nupkg` confirmed package artifacts are ignored by `.gitignore`.
 
 ## Milestones
 
@@ -542,13 +549,16 @@ Audit current project packability and add conservative metadata for packable Ava
 
 ### M20 Packaging Metadata Slice
 
-- Status: `In Progress`
+- Status: `Done`
 - Goal: prepare local package artifacts without introducing publishing or CI yet.
 - Deliverables: package metadata for packable projects, local output folder convention, pack validation commands, docs/tracking update.
 - Progress:
-  - Pending: audit which projects should be packable in the first package slice.
-  - Pending: add conservative package metadata and opt-out settings for non-package projects if needed.
-  - Pending: validate local `dotnet pack` output and ensure no generated package artifacts are committed.
+  - Done: selected `AvaScope.Protocol`, `AvaScope.Core`, and `AvaScope.Bridge` as the first packable library projects.
+  - Done: added shared version/authors/product/repository/readme metadata.
+  - Done: added package ids, descriptions, and tags for the three library packages.
+  - Done: marked `AvaScope.Mcp`, `AvaScope.Cli`, and `AvaScope.PreviewHost` explicitly non-packable for this slice.
+  - Done: added ignored `artifacts/` package output convention.
+  - Done: validated Release build, package creation, `.nuspec` metadata, readme inclusion, dependencies, and ignored artifacts.
 - Acceptance Criteria:
   - `AvaScope.Bridge` can produce a local NuGet package with explicit package id, version, description, tags, and repository metadata.
   - `AvaScope.Cli` and `AvaScope.Mcp` packaging posture is explicit, even if final tool/executable packaging remains a later slice.
@@ -558,6 +568,26 @@ Audit current project packability and add conservative metadata for packable Ava
   - `dotnet build AvaScope.slnx`
   - `dotnet pack src/AvaScope.Bridge/AvaScope.Bridge.csproj --no-build --output artifacts/packages`
   - packaging metadata inspection
+  - `git status --short`
+
+### M21 CI Validation Slice
+
+- Status: `In Progress`
+- Goal: make the documented local validation path run in CI without release publishing.
+- Deliverables: GitHub Actions workflow, CI command list, documentation/tracking updates.
+- Progress:
+  - Pending: add a workflow using .NET 10 SDK setup.
+  - Pending: run restore, Release build, full tests, and local pack validation for library packages.
+  - Pending: keep workflow local-validation only, with no package push, release creation, or credentials.
+- Acceptance Criteria:
+  - CI runs on pull requests and pushes to the main development branches.
+  - CI uses `dotnet restore`, `dotnet build -c Release --no-restore`, `dotnet test -c Release --no-build`, and local `dotnet pack` commands.
+  - Generated packages stay CI artifacts or workspace outputs only and are not published to a feed.
+  - Workflow does not require secrets.
+- Validation:
+  - `dotnet build AvaScope.slnx`
+  - `dotnet test AvaScope.slnx --no-build`
+  - YAML/manual command inspection
   - `git status --short`
 
 ## Decision Log
@@ -613,6 +643,8 @@ Audit current project packability and add conservative metadata for packable Ava
 - `2026-06-07`: M19 keeps preview `reload` success responses compatible and treats runtime bridge reload as an explicit local health check plus unsupported diagnostic, not hot reload.
 - `2026-06-07`: PreviewHost smoke-test cleanup is best-effort after assertions pass because Windows can transiently hold built sample project files after child-process exit.
 - `2026-06-07`: M20 starts package metadata with `AvaScope.Bridge` first because it is the opt-in user-facing library package; executable/tool packaging for CLI/MCP can stay explicit until a later release workflow slice.
+- `2026-06-07`: M20 packages `AvaScope.Protocol` and `AvaScope.Core` alongside `AvaScope.Bridge` so the bridge package has resolvable local package dependencies.
+- `2026-06-07`: M21 targets CI before publishing or installer work because local build/test/pack validation is now stable enough to automate without credentials.
 
 ## Change Log
 
@@ -646,3 +678,4 @@ Audit current project packability and add conservative metadata for packable Ava
 - `2026-06-07`: Completed M17 preview reload MVP with Core preview session re-rendering, MCP `reload`, session state recovery/failure handling, README updates, and full-suite validation; added M18 input press/release slice as the active focus.
 - `2026-06-07`: Completed M18 input press/release with stable action constants, Avalonia routed pointer press/release events, active pointer reuse, headless bridge validation, README/gap updates, and full-suite validation; added M19 runtime reload contract as the active focus.
 - `2026-06-07`: Completed M19 runtime reload contract with preview-compatible reload responses, explicit active-runtime unsupported diagnostics, PreviewHost cleanup hardening, README/gap updates, and full-suite validation; added M20 packaging metadata as the active focus.
+- `2026-06-07`: Completed M20 packaging metadata with local library packages for Protocol/Core/Bridge, explicit non-packable executable projects, ignored package artifacts, README updates, and local pack validation; added M21 CI validation as the active focus.

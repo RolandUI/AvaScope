@@ -54,16 +54,18 @@ Next slice: defer broader input until runtime reload semantics and packaging/CI 
 
 ### Packaging And Release
 
-The solution builds and tests locally, but there is no packaging, version stamping, NuGet package metadata, or release artifact workflow for `AvaScope.Bridge`, `AvaScope.Mcp`, or `AvaScope.Cli`.
+Status: first library package metadata slice complete; executable/tool packaging and release workflow remain open.
 
-Next slice: add package metadata and local pack validation without publishing artifacts.
+`AvaScope.Protocol`, `AvaScope.Core`, and `AvaScope.Bridge` now have package ids, version metadata, descriptions, tags, repository metadata, README inclusion, and local `dotnet pack` validation into ignored `artifacts/packages`. `AvaScope.Mcp`, `AvaScope.Cli`, and `AvaScope.PreviewHost` are explicitly marked not packable in this slice.
+
+Next slice: add CI validation before broader release automation.
 
 ### CI Workflow
 
 Validation commands are documented, but there is no GitHub Actions workflow yet.
 
-Next slice: add CI only after the local validation path is stable enough to avoid noisy failures.
+Next slice: add a GitHub Actions workflow for restore/build/test and local pack validation without publishing.
 
 ## Selected Next Slice
 
-Add package metadata and local pack validation next. Runtime reload ambiguity is resolved, so packaging is the next concrete release-readiness gap.
+Add CI validation next. Library package metadata and local pack validation are now in place.

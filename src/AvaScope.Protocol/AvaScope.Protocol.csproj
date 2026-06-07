@@ -1,3 +1,10 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>AvaScope.Protocol</PackageId>
+    <Description>Transport-neutral AvaScope protocol DTOs and stable JSON contracts.</Description>
+    <PackageTags>avalonia;inspection;protocol;automation;mcp</PackageTags>
+  </PropertyGroup>
+
 </Project>

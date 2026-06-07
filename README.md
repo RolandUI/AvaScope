@@ -42,6 +42,17 @@ dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewHost
 dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli
 ```
 
+Local package validation:
+
+```powershell
+dotnet build AvaScope.slnx -c Release
+dotnet pack .\src\AvaScope.Protocol\AvaScope.Protocol.csproj -c Release --no-build --output .\artifacts\packages
+dotnet pack .\src\AvaScope.Core\AvaScope.Core.csproj -c Release --no-build --output .\artifacts\packages
+dotnet pack .\src\AvaScope.Bridge\AvaScope.Bridge.csproj -c Release --no-build --output .\artifacts\packages
+```
+
+The first package slice produces local NuGet packages for `AvaScope.Protocol`, `AvaScope.Core`, and `AvaScope.Bridge`. `AvaScope.Mcp`, `AvaScope.Cli`, and `AvaScope.PreviewHost` are explicitly not packable yet; executable/tool packaging remains a later release workflow.
+
 ## CLI
 
 Build first, then run the CLI assembly from the build output:
@@ -85,7 +96,7 @@ Implemented tools:
 - `close_preview_session`
 - `reload`
 
-Planned but not implemented yet: runtime hot reload, keyboard key events, focus targeting, drag/drop, packaging, and CI.
+Planned but not implemented yet: runtime hot reload, keyboard key events, focus targeting, drag/drop, executable/tool packaging, and CI.
 
 `diagnostics` reports AvaScope service metadata, local bridge manifest/pipe health, stale or invalid bridge manifests, and preview host readiness without building or loading user projects.
 
