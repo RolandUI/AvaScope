@@ -23,15 +23,15 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `M45 Preview App DataTemplates Scope Slice`
+- `M46 Getting Started Sample Slice`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-07`
-- Goal: improve preview-host app-level data-template parity without running app startup hooks.
+- Goal: make the first external-developer workflow runnable from a repository sample.
 
 ## Next Action
 
-Add project `Application.DataTemplates` transfer to the PreviewHost render path and validate with a tiny compiled data-template sample.
+Add a tiny Avalonia sample app plus getting-started documentation that validates preview rendering and opt-in local bridge activation.
 
 ## Latest Validation
 
@@ -256,6 +256,11 @@ Add project `Application.DataTemplates` transfer to the PreviewHost render path 
 - `2026-06-07`: Official Avalonia application lifetime docs checked for `ApplicationLifetime`, design mode null lifetime behavior, and manual lifetime management before M44 startup boundary decision.
 - `2026-06-07`: Markdown tracking/status reviewed after M44 App startup boundary audit.
 - `2026-06-07`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after M44 App startup boundary audit.
+- `2026-06-07`: Official Avalonia Application/DataTemplates documentation checked before M45 app-level data-template transfer.
+- `2026-06-07`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after M45 app-level data-template implementation.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewHostAppliesCompiledAppDataTemplatesBeforeProjectView` passed with 1 test.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewHost` passed with 22 tests.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 168 tests after M45 app-level data-template implementation.
 
 ## Milestones
 
@@ -1210,13 +1215,15 @@ Add project `Application.DataTemplates` transfer to the PreviewHost render path 
 
 ### M45 Preview App DataTemplates Scope Slice
 
-- Status: `In Progress`
+- Status: `Done`
 - Goal: improve preview-host app-level data-template parity without running app startup hooks.
 - Deliverables: transfer project `Application.DataTemplates` into the PreviewHost render scope, tiny compiled data-template sample, README/tracking update.
 - Progress:
-  - Pending: audit current data-template behavior after project `Application.Initialize()`.
-  - Pending: implement the smallest safe transfer path for app-level data templates.
-  - Pending: add render validation for a view whose content relies on an app-level data template.
+  - Done: checked official Avalonia `Application.DataTemplates` and data-template resolution documentation.
+  - Done: transferred project app-level data templates from `App.axaml` into the preview window `DataTemplates` scope.
+  - Done: kept project app lifetime startup hooks deferred; the sample `OnFrameworkInitializationCompleted` would fail if invoked.
+  - Done: added pixel render validation for a view whose content relies on an app-level data template.
+  - Done: updated README and gap audit with the supported boundary.
 - Acceptance Criteria:
   - PreviewHost applies app-level data templates from project `App.axaml` without running app lifetime startup hooks.
   - The behavior remains isolated in `AvaScope.PreviewHost`.
@@ -1225,6 +1232,27 @@ Add project `Application.DataTemplates` transfer to the PreviewHost render path 
 - Validation:
   - `dotnet build AvaScope.slnx`
   - targeted PreviewHost tests
+  - `dotnet test AvaScope.slnx --no-build`
+
+### M46 Getting Started Sample Slice
+
+- Status: `In Progress`
+- Goal: make the first external-developer workflow runnable from a repository sample.
+- Deliverables: tiny Avalonia sample app, documented preview command, documented bridge activation/run command, validation notes.
+- Progress:
+  - Pending: inspect solution/sample conventions and choose the smallest sample layout.
+  - Pending: add a sample app that targets `net10.0`, Avalonia 12.x, and references the local AvaScope bridge.
+  - Pending: document the sample preview and runtime bridge workflow in README or a focused sample README.
+  - Pending: validate the documented preview path and solution build/test impact.
+- Acceptance Criteria:
+  - A new developer can run a documented command against the sample and receive a preview PNG.
+  - The sample demonstrates explicit opt-in bridge activation without enabling remote inspection.
+  - The sample stays outside production packages unless intentionally referenced.
+  - Documentation states the sample's purpose and current runtime/preview limitations.
+- Validation:
+  - `dotnet build AvaScope.slnx`
+  - documented sample preview command
+  - targeted sample or CLI validation if applicable
   - `dotnet test AvaScope.slnx --no-build`
 
 ## Decision Log
@@ -1334,6 +1362,8 @@ Add project `Application.DataTemplates` transfer to the PreviewHost render path 
 - `2026-06-07`: M44 starts with an App startup/lifecycle audit because running broader startup hooks can trigger user side effects and should be bounded before implementation.
 - `2026-06-07`: M44 explicitly defers running project `OnFrameworkInitializationCompleted` and lifetime startup hooks in preview because Avalonia design-mode lifetimes can be null and normal desktop startup commonly creates windows or services outside the requested preview view.
 - `2026-06-07`: M45 targets app-level `DataTemplates` next because they improve preview parity through loaded `App.axaml` composition without invoking broader app startup side effects.
+- `2026-06-07`: M45 transfers project `Application.DataTemplates` into the preview `Window.DataTemplates` scope instead of the host application global scope, keeping templates limited to the single isolated render.
+- `2026-06-07`: M46 targets a getting-started sample because App.axaml preview parity now covers resources, styles, includes, theme dictionaries, culture, design data, and data templates, while external users still lack a runnable first workflow in the repository.
 
 ## Change Log
 
@@ -1392,3 +1422,4 @@ Add project `Application.DataTemplates` transfer to the PreviewHost render path 
 - `2026-06-07`: Completed M42 preview design data contract audit with project-owned design-data type boundary selection, non-goal documentation, README/gap updates, and build validation; added M43 preview design data type slice as the active focus.
 - `2026-06-07`: Completed M43 preview design data type slice with `designDataType` protocol/CLI/MCP propagation, PreviewHost root DataContext assignment, typed-binding render coverage, invalid type diagnostics, README/gap updates, and full-suite validation; added M44 preview App startup boundary audit as the active focus.
 - `2026-06-07`: Completed M44 preview App startup boundary audit with explicit lifecycle-hook deferral, startup non-goals, official Avalonia lifetime source review, README/gap updates, and build validation; added M45 preview App DataTemplates scope as the active focus.
+- `2026-06-07`: Completed M45 preview App DataTemplates scope with preview-window data-template transfer, pixel-validated compiled App.axaml template coverage, README/gap updates, and full-suite validation; added M46 getting-started sample as the active focus.

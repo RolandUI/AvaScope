@@ -50,17 +50,25 @@ Completed slice: runtime reload no longer falls through to a misleading preview 
 
 ### Preview Resource Scope
 
-Status: first app-resource, app-style, resource-include, theme-dictionary, style-include, culture-variant, and project-owned design-data type slices complete; full design-time parity remains open.
+Status: first app-resource, app-style, app-data-template, resource-include, theme-dictionary, style-include, culture-variant, and project-owned design-data type slices complete; full design-time parity remains open.
 
-PreviewHost can build a project, load a compiled view resource through `avares://`, copy top-level resource entries, merged resource dictionaries, and theme dictionaries from compiled project-root `App.axaml`, instantiate the project `Application` inside the isolated preview host process, apply direct or included `Application.Styles` to the preview window style scope, apply a requested culture inside the child render process, and assign a project-owned design-data type as the root preview `DataContext`. It intentionally does not run project app startup/lifetime hooks such as `OnFrameworkInitializationCompleted`; full `App.axaml` startup orchestration and richer diagnostics are still limited.
+PreviewHost can build a project, load a compiled view resource through `avares://`, copy top-level resource entries, merged resource dictionaries, and theme dictionaries from compiled project-root `App.axaml`, instantiate the project `Application` inside the isolated preview host process, apply direct or included `Application.Styles` and `Application.DataTemplates` to the preview window scope, apply a requested culture inside the child render process, and assign a project-owned design-data type as the root preview `DataContext`. It intentionally does not run project app startup/lifetime hooks such as `OnFrameworkInitializationCompleted`; full `App.axaml` startup orchestration and richer diagnostics are still limited.
 
-Completed slice: project-root compiled `App.axaml` top-level resources, merged resource dictionaries, theme dictionaries, direct app-level styles, app-level `StyleInclude` entries, culture-sensitive view loading, and typed-binding design-data `DataContext` assignment are validated before rendering the preview view.
+Completed slice: project-root compiled `App.axaml` top-level resources, merged resource dictionaries, theme dictionaries, direct app-level styles, app-level `StyleInclude` entries, app-level data templates, culture-sensitive view loading, and typed-binding design-data `DataContext` assignment are validated before rendering the preview view.
 
 Design-data boundary: AvaScope supports a project-owned public parameterless `designDataType`, loaded from the built project assembly and assigned to the root preview control inside `AvaScope.PreviewHost`. JSON object injection, dependency injection, remote data, and long-lived design-data state remain out of scope.
 
 App startup boundary: project `Application.Initialize()` can run in the isolated PreviewHost process so compiled App.axaml composition is available, but project lifetime startup is explicitly deferred. AvaScope will not create a fake desktop lifetime, invoke project `OnFrameworkInitializationCompleted`, create the project's `MainWindow`, start application services, or keep a long-lived user app process for the current public-alpha preview boundary.
 
-Next slice: implement app-level `DataTemplates` transfer without running project startup hooks.
+Next slice: move from preview parity to public-alpha onboarding with a getting-started sample that exercises preview and runtime bridge workflows.
+
+### Getting Started Sample
+
+Status: not started.
+
+The README documents command shapes, but the repository does not yet include a small Avalonia app that an external developer can build, preview, run with the opt-in bridge, and inspect locally. This is a public-alpha adoption gap because it makes the first successful workflow depend on a user's own app structure.
+
+Next slice: add a tiny sample app plus focused getting-started documentation and validate the documented preview path.
 
 ### Input Coverage
 
@@ -94,4 +102,4 @@ Next slice: CI can later add publish/upload artifacts, self-contained outputs, o
 
 ## Selected Next Slice
 
-Implement app-level `DataTemplates` transfer next. Project app startup/lifecycle hooks are explicitly deferred for public alpha, so the next preview parity slice should stay within App.axaml composition that can be copied into the isolated PreviewHost render scope.
+Add a getting-started sample next. Preview App startup hooks are explicitly deferred and App.axaml resources/styles/theme dictionaries/data templates now have coverage, so the highest-impact public-alpha gap is a runnable sample workflow for new users.

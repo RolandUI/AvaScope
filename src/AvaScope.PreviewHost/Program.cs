@@ -4,6 +4,7 @@ using System.Reflection;
 using System.Text.Json;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Templates;
 using Avalonia.Headless;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
@@ -105,7 +106,7 @@ internal static class Program
         }
 
         var designData = CreateDesignData(fullProjectPath, request.DesignDataType);
-        var projectStyles = LoadProjectApplicationResources(fullProjectPath);
+        var projectApplicationScope = LoadProjectApplicationScope(fullProjectPath);
         var content = LoadContent(fullProjectPath, fullViewPath);
         if (designData is not null)
         {
@@ -119,9 +120,13 @@ internal static class Program
             Background = Brushes.White,
             Content = content
         };
-        foreach (var style in projectStyles)
+        foreach (var style in projectApplicationScope.Styles)
         {
             window.Styles.Add(style);
+        }
+        foreach (var dataTemplate in projectApplicationScope.DataTemplates)
+        {
+            window.DataTemplates.Add(dataTemplate);
         }
 
         window.RequestedThemeVariant = ResolveThemeVariant(request.ThemeVariant);
@@ -372,24 +377,24 @@ internal static class Program
         return simpleNameMatches.Length == 1 ? simpleNameMatches[0] : null;
     }
 
-    private static IReadOnlyList<IStyle> LoadProjectApplicationResources(string? fullProjectPath)
+    private static ProjectApplicationScope LoadProjectApplicationScope(string? fullProjectPath)
     {
         if (fullProjectPath is null)
         {
-            return [];
+            return ProjectApplicationScope.Empty;
         }
 
         var projectDirectory = Path.GetDirectoryName(fullProjectPath) ?? Environment.CurrentDirectory;
         var appXamlPath = Path.Combine(projectDirectory, "App.axaml");
         if (!File.Exists(appXamlPath))
         {
-            return [];
+            return ProjectApplicationScope.Empty;
         }
 
         var projectAssemblyPath = FindProjectAssemblyPath(fullProjectPath);
         if (projectAssemblyPath is null)
         {
-            return [];
+            return ProjectApplicationScope.Empty;
         }
 
         var assembly = Assembly.LoadFrom(projectAssemblyPath);
@@ -427,7 +432,7 @@ internal static class Program
         return application;
     }
 
-    private static IReadOnlyList<IStyle> MergeProjectApplication(Application projectApplication)
+    private static ProjectApplicationScope MergeProjectApplication(Application projectApplication)
     {
         var hostApplication = Application.Current
             ?? throw new InvalidOperationException("Preview host application was not initialized.");
@@ -456,7 +461,13 @@ internal static class Program
             projectApplication.Styles.Remove(style);
         }
 
-        return styles;
+        var dataTemplates = projectApplication.DataTemplates.ToArray();
+        foreach (var dataTemplate in dataTemplates)
+        {
+            projectApplication.DataTemplates.Remove(dataTemplate);
+        }
+
+        return new ProjectApplicationScope(styles, dataTemplates);
     }
 
     private static Control? TryLoadCompiledProjectView(string fullProjectPath, string fullViewPath)
@@ -521,5 +532,12 @@ internal static class Program
     private static void WriteResult(ToolResult<PreviewResponse> result)
     {
         Console.WriteLine(JsonSerializer.Serialize(result, JsonOptions));
+    }
+
+    private sealed record ProjectApplicationScope(
+        IReadOnlyList<IStyle> Styles,
+        IReadOnlyList<IDataTemplate> DataTemplates)
+    {
+        public static ProjectApplicationScope Empty { get; } = new([], []);
     }
 }
