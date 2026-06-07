@@ -482,14 +482,41 @@ public sealed class AvaScopeBridgeRuntime
         }
 
         var target = topLevel.GetVisualAt(point.Value);
+        if (target is null)
+        {
+            return CoreResult<InputResponse>.Ok(new InputResponse(
+                SessionId,
+                topLevelId,
+                InputActions.PointerMove,
+                handled: false,
+                DateTimeOffset.UtcNow));
+        }
+
+        var inputTarget = target as InputElement ?? target.FindAncestorOfType<InputElement>();
+        if (inputTarget is null)
+        {
+            return CoreResult<InputResponse>.Fail(new CoreError(
+                BridgeErrorCodes.UnsupportedInputAction,
+                "Pointer move target is not an input element."));
+        }
+
+        inputTarget.RaiseEvent(new PointerEventArgs(
+            InputElement.PointerMovedEvent,
+            inputTarget,
+            new Pointer(Pointer.GetNextFreeId(), PointerType.Mouse, isPrimary: true),
+            topLevel,
+            point.Value,
+            (ulong)Environment.TickCount64,
+            PointerPointProperties.None,
+            KeyModifiers.None));
 
         return CoreResult<InputResponse>.Ok(new InputResponse(
             SessionId,
             topLevelId,
             InputActions.PointerMove,
-            handled: target is not null,
+            handled: true,
             DateTimeOffset.UtcNow,
-            target is null ? null : CreateNodeId(target, TreeKinds.Visual)));
+            CreateNodeId(inputTarget, TreeKinds.Visual)));
     }
 
     private CoreResult<InputResponse> Click(TopLevel topLevel, string topLevelId, double? x, double? y)

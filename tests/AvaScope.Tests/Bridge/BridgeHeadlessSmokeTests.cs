@@ -256,6 +256,7 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
         await session.Dispatch(async () =>
         {
             var clicked = 0;
+            var pointerMoved = 0;
             var button = new Button
             {
                 Name = "ClickTarget",
@@ -264,6 +265,7 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                 Height = 40
             };
             button.Click += (_, _) => clicked++;
+            button.PointerMoved += (_, _) => pointerMoved++;
 
             var textBox = new TextBox
             {
@@ -310,6 +312,7 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
             Assert.True(move.Success, move.Error?.Message);
             Assert.True(move.Value!.Handled);
             Assert.False(string.IsNullOrWhiteSpace(move.Value.TargetNodeId));
+            Assert.Equal(1, pointerMoved);
 
             var click = await AvaScopeMcpTools.Input(
                 client,
@@ -335,6 +338,15 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
             Assert.True(keyText.Success, keyText.Error?.Message);
             Assert.True(keyText.Value!.Handled);
             Assert.Equal("abc", textBox.Text);
+
+            var unsupported = await AvaScopeMcpTools.Input(
+                client,
+                runtime.SessionId.Value,
+                topLevel.Id,
+                "drag");
+
+            Assert.False(unsupported.Success);
+            Assert.Equal(BridgeErrorCodes.UnsupportedInputAction, unsupported.Error!.Code);
 
             window.Close();
         }, CancellationToken.None);

@@ -23,15 +23,15 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `M7 Input Slice`
+- `M8 Preview Host Slice`
 - Status: `In Progress`
 - Owner: autonomous agent
-- Started: `2026-06-06`
-- Goal: send basic local-only input to a running bridged Avalonia app.
+- Started: `2026-06-07`
+- Goal: render a `.axaml` view from a project in an isolated preview process.
 
 ## Next Action
 
-Replace the current pointer-move target lookup with real routed/raw pointer move injection or document the platform limitation with a structured unsupported result; keep the existing Button click and focused TextBox key-text path intact.
+Inspect the existing solution boundaries and scaffold the first M8 vertical slice: `AvaScope.PreviewHost` process entrypoint, preview request/response contracts, and a headless-render smoke path that can be validated against a tiny Avalonia view.
 
 ## Latest Validation
 
@@ -79,6 +79,9 @@ Replace the current pointer-move target lookup with real routed/raw pointer move
 - `2026-06-06`: `rg "Avalonia|ModelContextProtocol|Mcp|MCP" src\AvaScope.Protocol tests\AvaScope.Tests\Protocol` found no matches.
 - `2026-06-06`: `rg "Avalonia|ModelContextProtocol|Mcp|MCP" src\AvaScope.Core tests\AvaScope.Tests\Core` found no matches.
 - `2026-06-06`: Markdown tracking fields checked for `Current Focus`, `Next Action`, `Status`, `Acceptance Criteria`, and `Validation`.
+- `2026-06-07`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after M7 routed pointer move completion.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter Bridge` passed with 23 tests.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 54 tests.
 
 ## Milestones
 
@@ -194,7 +197,7 @@ Replace the current pointer-move target lookup with real routed/raw pointer move
 
 ### M7 Input Slice
 
-- Status: `In Progress`
+- Status: `Done`
 - Goal: send basic local-only input to a running bridged Avalonia app.
 - Deliverables: click, pointer move, key text commands, safety checks.
 - Progress:
@@ -202,8 +205,8 @@ Replace the current pointer-move target lookup with real routed/raw pointer move
   - Done: MCP/Core/named-pipe `input` tool path.
   - Done: Button click MVP via hit-test and routed `Button.ClickEvent`.
   - Done: key text MVP for a focused `TextBox`.
-  - Done: pointer move currently resolves the visual target at coordinates and returns a structured response.
-  - Remaining: real routed/raw pointer move event injection or explicit limitation handling.
+  - Done: pointer move raises a public Avalonia 12 routed `PointerMovedEvent` on the hit-tested input target.
+  - Done: unsupported input actions return structured diagnostics through the MCP/Core/named-pipe path.
 - Acceptance Criteria:
   - Input targets must resolve to an active local session.
   - Unsupported input returns structured diagnostics.
@@ -214,9 +217,13 @@ Replace the current pointer-move target lookup with real routed/raw pointer move
 
 ### M8 Preview Host Slice
 
-- Status: `Not Started`
+- Status: `In Progress`
 - Goal: render a `.axaml` view from a project in an isolated preview process.
 - Deliverables: preview host process, project/view selection, headless Skia rendering, basic variants.
+- Progress:
+  - Pending: preview host project and process entrypoint.
+  - Pending: preview request/response contracts.
+  - Pending: headless render smoke validation against a tiny Avalonia 12 view.
 - Acceptance Criteria:
   - User application code runs outside the MCP server process.
   - Preview supports width, height, DPI, and theme inputs.
@@ -247,6 +254,7 @@ Replace the current pointer-move target lookup with real routed/raw pointer move
 - `2026-06-06`: Tree node ids are stable only within the active runtime session and are based on runtime object identity; no persisted cross-process identity guarantee is introduced in M6.
 - `2026-06-06`: `find_nodes` searches the already bounded tree model and requires at least one filter so accidental unbounded discovery is avoided; type/text use case-insensitive contains matching, name/automation id use case-insensitive exact matching.
 - `2026-06-06`: M7 input MVP deliberately starts with safe local-only operations: Button click is implemented through hit-test plus routed click event, key text mutates a focused `TextBox`, and pointer move is still tracked separately because generic routed/raw pointer injection needs a more precise platform strategy.
+- `2026-06-07`: M7 pointer move uses public Avalonia 12 `PointerEventArgs` plus `InputElement.PointerMovedEvent` on the hit-tested input target instead of raw `IInputManager` injection because `TopLevel.InputRoot` is not public; this keeps the bridge off private runtime hooks.
 
 ## Change Log
 
@@ -263,3 +271,4 @@ Replace the current pointer-move target lookup with real routed/raw pointer move
 - `2026-06-06`: Added M6 bounded visual/logical tree serialization with protocol DTOs, bridge traversal, MCP/Core/pipe tools, and headless validation; M6 remains in progress pending `find_nodes`.
 - `2026-06-06`: Completed M6 tree inspection slice with `find_nodes` filters for type, name, automation id, and text plus path-oriented match results; moved active focus to M7.
 - `2026-06-06`: Added M7 input MVP protocol, bridge, Core, and MCP path with headless validation for pointer target lookup, Button click, and focused TextBox key text; M7 remains in progress pending real pointer move injection or explicit limitation handling.
+- `2026-06-07`: Completed M7 input slice with routed pointer move, Button click, focused TextBox key text, and unsupported input diagnostics; moved active focus to M8.
