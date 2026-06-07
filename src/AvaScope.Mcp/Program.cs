@@ -14,6 +14,7 @@ builder.Logging.AddConsole(consoleLogOptions =>
 
 builder.Services.AddSingleton<SessionRegistry>();
 builder.Services.AddSingleton<LocalBridgeClient>();
+builder.Services.AddSingleton<PreviewHostClient>();
 builder.Services
     .AddMcpServer()
     .WithStdioServerTransport()

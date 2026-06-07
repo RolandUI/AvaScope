@@ -23,15 +23,15 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `M9 Preview Adapter Integration`
+- `M10 CLI Integration`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-07`
-- Goal: expose the isolated preview host through reusable Core and MCP adapter surfaces.
+- Goal: expose AvaScope preview and server workflows through a local `avascope` command.
 
 ## Next Action
 
-Add a reusable Core preview host client that writes `PreviewRequest` JSON, launches `AvaScope.PreviewHost` as a child process, parses `ToolResult<PreviewResponse>`, and keeps user project code outside the MCP server process.
+Add `AvaScope.Cli` with an `avascope preview <project> --view <axaml> --out <png> --width <w> --height <h> [--dpi <dpi>] [--theme light|dark]` command backed by `PreviewHostClient`.
 
 ## Latest Validation
 
@@ -95,6 +95,10 @@ Add a reusable Core preview host client that writes `PreviewRequest` JSON, launc
 - `2026-06-07`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after M8 compiled project resource loading.
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewHost` passed with 4 tests.
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 60 tests.
+- `2026-06-07`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after M9 preview adapter integration.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter Core` passed with 18 tests.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter Mcp` passed with 15 tests.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 64 tests.
 
 ## Milestones
 
@@ -251,9 +255,13 @@ Add a reusable Core preview host client that writes `PreviewRequest` JSON, launc
 
 ### M9 Preview Adapter Integration
 
-- Status: `In Progress`
+- Status: `Done`
 - Goal: expose preview rendering through adapter surfaces without moving preview execution into MCP.
 - Deliverables: reusable Core preview host client, MCP `preview_axaml` tool, structured process diagnostics.
+- Progress:
+  - Done: Core `PreviewHostClient` writes `PreviewRequest` JSON, launches the preview host child process, parses `ToolResult<PreviewResponse>`, and maps structured errors.
+  - Done: MCP `preview_axaml` tool is a thin adapter over `PreviewHostClient`.
+  - Done: MCP stdio tool list includes `preview_axaml`.
 - Acceptance Criteria:
   - Core can launch `AvaScope.PreviewHost` as a child process and parse structured preview results.
   - MCP exposes preview rendering as a thin adapter over the Core preview client.
@@ -261,6 +269,19 @@ Add a reusable Core preview host client that writes `PreviewRequest` JSON, launc
 - Validation:
   - Core preview client process smoke test
   - MCP `preview_axaml` smoke test with PNG output validation
+
+### M10 CLI Integration
+
+- Status: `In Progress`
+- Goal: provide a local `avascope` command for developer workflows.
+- Deliverables: CLI project, preview command, MCP server command handoff or documented invocation path.
+- Acceptance Criteria:
+  - CLI can render a preview through `PreviewHostClient` without loading user project code in the CLI process.
+  - CLI returns non-zero exit codes and concise structured errors for invalid requests.
+  - CLI project builds with the solution and has focused process-level tests.
+- Validation:
+  - CLI preview smoke test with PNG output validation
+  - CLI invalid argument/error test
 
 ## Decision Log
 
@@ -291,6 +312,8 @@ Add a reusable Core preview host client that writes `PreviewRequest` JSON, launc
 - `2026-06-07`: M8 build preparation currently uses `dotnet build` inside the preview host child process as the isolation boundary; this validates project compilation and keeps build failures structured, but it does not yet load compiled project assemblies/resources into the render path.
 - `2026-06-07`: M8 compiled view loading uses the built project assembly plus `avares://<AssemblyName>/<ViewPath>` first, then falls back to standalone runtime XAML loading; this keeps real project code execution inside `AvaScope.PreviewHost`.
 - `2026-06-07`: Added M9 to continue after the initial M0-M8 plan by wiring the completed preview host through Core and MCP adapters.
+- `2026-06-07`: MCP references `AvaScope.PreviewHost` only to place the host assembly beside the MCP server output; rendering still goes through `PreviewHostClient` and a child process.
+- `2026-06-07`: Added M10 for local CLI workflows after preview host and MCP preview integration.
 
 ## Change Log
 
@@ -312,3 +335,4 @@ Add a reusable Core preview host client that writes `PreviewRequest` JSON, launc
 - `2026-06-07`: Added M8 project-aware path resolution for `.csproj` plus relative view paths with process smoke coverage; M8 remains in progress pending MSBuild/design-time build support.
 - `2026-06-07`: Added M8 project build boundary in the preview host child process with structured build failure diagnostics; M8 remains in progress pending compiled project assembly/resource loading.
 - `2026-06-07`: Completed M8 preview host slice with compiled Avalonia project resource and code-behind smoke rendering; added M9 preview adapter integration as the active focus.
+- `2026-06-07`: Completed M9 preview adapter integration with Core `PreviewHostClient`, MCP `preview_axaml`, process smoke coverage, and stdio tool-list validation; added M10 CLI integration as the active focus.

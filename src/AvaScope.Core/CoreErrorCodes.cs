@@ -8,4 +8,7 @@ public static class CoreErrorCodes
     public const string BridgeIpcFailed = "bridge_ipc_failed";
     public const string BridgeIpcUnavailable = "bridge_ipc_unavailable";
     public const string InvalidBridgeRequest = "invalid_bridge_request";
+    public const string InvalidPreviewRequest = "invalid_preview_request";
+    public const string PreviewHostFailed = "preview_host_failed";
+    public const string PreviewHostUnavailable = "preview_host_unavailable";
 }

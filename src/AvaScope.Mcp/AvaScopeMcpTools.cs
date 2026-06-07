@@ -259,6 +259,50 @@ public sealed class AvaScopeMcpTools
             cancellationToken));
     }
 
+    [McpServerTool(
+        Name = "preview_axaml",
+        Title = "Preview AXAML",
+        ReadOnly = false,
+        Idempotent = false,
+        Destructive = false,
+        OpenWorld = false,
+        UseStructuredContent = true)]
+    [Description("Renders an Avalonia .axaml preview through the isolated AvaScope preview host child process.")]
+    public static async Task<ToolResult<PreviewResponse>> PreviewAxaml(
+        PreviewHostClient previewHostClient,
+        string outputPath,
+        double width,
+        double height,
+        double dpi = 96,
+        string? projectPath = null,
+        string? viewPath = null,
+        string? themeVariant = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(previewHostClient);
+
+        PreviewRequest request;
+        try
+        {
+            request = new PreviewRequest(
+                outputPath,
+                width,
+                height,
+                dpi,
+                projectPath,
+                viewPath,
+                themeVariant);
+        }
+        catch (Exception exception) when (exception is ArgumentException or ArgumentOutOfRangeException)
+        {
+            return ToolResult<PreviewResponse>.Fail(new ProtocolError(
+                CoreErrorCodes.InvalidPreviewRequest,
+                exception.Message));
+        }
+
+        return ToToolResult(await previewHostClient.RenderAsync(request, cancellationToken));
+    }
+
     private static SessionSummary ToProtocolSummary(SessionSnapshot session)
     {
         return new SessionSummary(

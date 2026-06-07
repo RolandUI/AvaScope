@@ -147,6 +147,69 @@ public sealed class AvaScopeMcpToolsTests
         Assert.Equal(CoreErrorCodes.InvalidBridgeRequest, result.Error!.Code);
     }
 
+    [Fact]
+    public async Task PreviewAxamlRejectsInvalidDimensions()
+    {
+        var client = new PreviewHostClient(Path.Combine(AppContext.BaseDirectory, "AvaScope.PreviewHost.dll"));
+
+        var result = await AvaScopeMcpTools.PreviewAxaml(
+            client,
+            "preview.png",
+            width: 0,
+            height: 100);
+
+        Assert.False(result.Success);
+        Assert.Null(result.Value);
+        Assert.Equal(CoreErrorCodes.InvalidPreviewRequest, result.Error!.Code);
+    }
+
+    [Fact]
+    public async Task PreviewAxamlRendersThroughPreviewHostClient()
+    {
+        var testRoot = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(testRoot);
+
+        var hostAssembly = Path.Combine(AppContext.BaseDirectory, "AvaScope.PreviewHost.dll");
+        var viewPath = Path.Combine(testRoot, "McpPreview.axaml");
+        var outputPath = Path.Combine(testRoot, "preview.png");
+
+        await File.WriteAllTextAsync(viewPath, """
+            <UserControl xmlns="https://github.com/avaloniaui">
+              <Border Background="#FFFFFFFF">
+                <TextBlock Text="MCP preview smoke" />
+              </Border>
+            </UserControl>
+            """);
+
+        try
+        {
+            var client = new PreviewHostClient(hostAssembly);
+
+            var result = await AvaScopeMcpTools.PreviewAxaml(
+                client,
+                outputPath,
+                width: 320,
+                height: 180,
+                dpi: 96,
+                viewPath: viewPath,
+                themeVariant: "light");
+
+            Assert.True(result.Success, result.Error?.Message);
+            Assert.Equal(Path.GetFullPath(outputPath), result.Value!.FilePath);
+            Assert.Equal(320, result.Value.PixelWidth);
+            Assert.Equal(180, result.Value.PixelHeight);
+            Assert.True(File.Exists(result.Value.FilePath));
+            Assert.True(new FileInfo(result.Value.FilePath).Length > 0);
+        }
+        finally
+        {
+            if (Directory.Exists(testRoot))
+            {
+                Directory.Delete(testRoot, recursive: true);
+            }
+        }
+    }
+
     private static string CreateMissingManifestDirectory()
     {
         return Path.Combine(
