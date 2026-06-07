@@ -231,7 +231,7 @@ Preview session tools store the original preview request plus the latest render 
 Current preview limitations:
 
 - no hot reload or persistent live preview host process yet;
-- no full `App.axaml` orchestration yet; startup logic remains limited;
+- no project app startup/lifetime hook execution; `OnFrameworkInitializationCompleted`, project `MainWindow` creation, and app startup services are intentionally deferred;
 - no JSON object injection, dependency injection, remote design data, or long-lived design-data state;
 - build output probing assumes the default `bin\Debug\<tfm>\<ProjectName>.dll` shape.
 

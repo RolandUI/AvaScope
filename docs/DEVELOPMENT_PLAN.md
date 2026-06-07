@@ -23,15 +23,15 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `M44 Preview App Startup Boundary Audit Slice`
+- `M45 Preview App DataTemplates Scope Slice`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-07`
-- Goal: define the next safe App startup/lifecycle preview boundary.
+- Goal: improve preview-host app-level data-template parity without running app startup hooks.
 
 ## Next Action
 
-Audit current App startup behavior in PreviewHost and decide whether a safe, testable subset of application startup or lifetime hooks should be added.
+Add project `Application.DataTemplates` transfer to the PreviewHost render path and validate with a tiny compiled data-template sample.
 
 ## Latest Validation
 
@@ -253,6 +253,9 @@ Audit current App startup behavior in PreviewHost and decide whether a safe, tes
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewHostAppliesProjectDesignDataTypeAsRootDataContext` passed with 1 test.
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewHostReturnsStructuredErrorWhenDesignDataTypeIsMissing` passed with 1 test.
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 167 tests after M43 preview design-data type slice.
+- `2026-06-07`: Official Avalonia application lifetime docs checked for `ApplicationLifetime`, design mode null lifetime behavior, and manual lifetime management before M44 startup boundary decision.
+- `2026-06-07`: Markdown tracking/status reviewed after M44 App startup boundary audit.
+- `2026-06-07`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after M44 App startup boundary audit.
 
 ## Milestones
 
@@ -1186,13 +1189,15 @@ Audit current App startup behavior in PreviewHost and decide whether a safe, tes
 
 ### M44 Preview App Startup Boundary Audit Slice
 
-- Status: `In Progress`
+- Status: `Done`
 - Goal: define the next safe App startup/lifecycle preview boundary.
 - Deliverables: audit of current `Application.Initialize()` and lifetime behavior, selected startup/lifecycle boundary or explicit deferral, acceptance criteria for first implementation slice, README/tracking update.
 - Progress:
-  - Pending: audit current PreviewHost app creation, resource merge, style transfer, and window construction order.
-  - Pending: identify which startup/lifetime hooks are safe to run in isolated preview without pretending to launch the real app.
-  - Pending: record the selected boundary and non-goals before code changes.
+  - Done: audited current PreviewHost app creation, resource merge, style transfer, design-data creation, view loading, and window construction order.
+  - Done: checked official Avalonia application lifetime documentation before deciding the boundary.
+  - Done: selected explicit deferral for running project app startup/lifecycle hooks such as `OnFrameworkInitializationCompleted`.
+  - Done: recorded non-goals: no fake desktop lifetime, no project `MainWindow` creation, no automatic app startup services, no long-lived app process.
+  - Done: selected app-level `DataTemplates` transfer as the next safer preview parity slice.
 - Acceptance Criteria:
   - The plan documents whether startup/lifecycle orchestration will be implemented or deferred.
   - The decision keeps user app startup effects isolated in `AvaScope.PreviewHost`.
@@ -1202,6 +1207,25 @@ Audit current App startup behavior in PreviewHost and decide whether a safe, tes
   - Markdown tracking/status review
   - `dotnet build AvaScope.slnx`
   - `git status --short`
+
+### M45 Preview App DataTemplates Scope Slice
+
+- Status: `In Progress`
+- Goal: improve preview-host app-level data-template parity without running app startup hooks.
+- Deliverables: transfer project `Application.DataTemplates` into the PreviewHost render scope, tiny compiled data-template sample, README/tracking update.
+- Progress:
+  - Pending: audit current data-template behavior after project `Application.Initialize()`.
+  - Pending: implement the smallest safe transfer path for app-level data templates.
+  - Pending: add render validation for a view whose content relies on an app-level data template.
+- Acceptance Criteria:
+  - PreviewHost applies app-level data templates from project `App.axaml` without running app lifetime startup hooks.
+  - The behavior remains isolated in `AvaScope.PreviewHost`.
+  - Tests validate rendered output for one app-level data-template scenario.
+  - README/gap audit document the supported boundary and remaining startup limitations.
+- Validation:
+  - `dotnet build AvaScope.slnx`
+  - targeted PreviewHost tests
+  - `dotnet test AvaScope.slnx --no-build`
 
 ## Decision Log
 
@@ -1308,6 +1332,8 @@ Audit current App startup behavior in PreviewHost and decide whether a safe, tes
 - `2026-06-07`: M43 will assign design data as the loaded root control `DataContext` inside the PreviewHost child process, keeping Core and MCP limited to transport-neutral metadata.
 - `2026-06-07`: M43 supports typed-binding design data by assigning a project-owned public parameterless type as root `DataContext`; JSON injection, DI, remote data, and persisted design-data objects remain out of scope.
 - `2026-06-07`: M44 starts with an App startup/lifecycle audit because running broader startup hooks can trigger user side effects and should be bounded before implementation.
+- `2026-06-07`: M44 explicitly defers running project `OnFrameworkInitializationCompleted` and lifetime startup hooks in preview because Avalonia design-mode lifetimes can be null and normal desktop startup commonly creates windows or services outside the requested preview view.
+- `2026-06-07`: M45 targets app-level `DataTemplates` next because they improve preview parity through loaded `App.axaml` composition without invoking broader app startup side effects.
 
 ## Change Log
 
@@ -1365,3 +1391,4 @@ Audit current App startup behavior in PreviewHost and decide whether a safe, tes
 - `2026-06-07`: Completed M41 preview culture variant contract with protocol/CLI/MCP propagation, PreviewHost culture application, pixel-validated culture render coverage, README/gap updates, and full-suite validation; added M42 preview design data contract audit as the active focus.
 - `2026-06-07`: Completed M42 preview design data contract audit with project-owned design-data type boundary selection, non-goal documentation, README/gap updates, and build validation; added M43 preview design data type slice as the active focus.
 - `2026-06-07`: Completed M43 preview design data type slice with `designDataType` protocol/CLI/MCP propagation, PreviewHost root DataContext assignment, typed-binding render coverage, invalid type diagnostics, README/gap updates, and full-suite validation; added M44 preview App startup boundary audit as the active focus.
+- `2026-06-07`: Completed M44 preview App startup boundary audit with explicit lifecycle-hook deferral, startup non-goals, official Avalonia lifetime source review, README/gap updates, and build validation; added M45 preview App DataTemplates scope as the active focus.
