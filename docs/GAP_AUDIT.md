@@ -8,15 +8,19 @@ This audit ranks the highest-risk gaps after the first usable bridge, preview ho
 
 ### Runtime Session Close
 
-`close_session` is listed in the intended MCP tool shape, but the current runtime bridge IPC does not expose a safe close handshake. The bridge can deactivate in-process, but a remote local client cannot yet request closure without risking pipe teardown before a structured response is written.
+Status: first slice complete.
 
-Next slice: design and implement a close handshake that returns a structured close response, removes the local manifest, and shuts down the bridge server without deadlocking the server task.
+`close_session` is listed in the intended MCP tool shape. Before M12, runtime bridge IPC did not expose a safe close handshake: the bridge could deactivate in-process, but a remote local client could not request closure without risking pipe teardown before a structured response was written.
+
+Completed slice: bridge IPC now returns a structured close response, removes the local manifest, and shuts down the bridge server after the response is flushed.
 
 ### Diagnostics Tool
 
-`diagnostics` is listed in the intended MCP tool shape, but there is no tool yet for bridge, preview, build, binding, layout, or resource diagnostics. Current errors are structured per operation, but there is no aggregate diagnostic surface.
+Status: first bridge diagnostics slice complete; richer preview/build/binding/layout/resource diagnostics remain open.
 
-Next slice: start with preview/bridge health diagnostics that report version, process, transport, manifest path, and last structured error where available.
+`diagnostics` is listed in the intended MCP tool shape. The first slice now reports service health, local bridge manifest path, process id, named-pipe transport, protocol health, stale manifests, invalid manifests, and unavailable IPC states. Current errors are still structured per operation; there is no historical last-error stream yet.
+
+Next slice: add preview/build/resource diagnostics when preview host resource scope is expanded.
 
 ## P1 Gaps
 
@@ -54,4 +58,4 @@ Next slice: add CI only after the local validation path is stable enough to avoi
 
 ## Selected Next Slice
 
-Implement the first diagnostics surface next. Runtime `close_session` lifecycle support is complete; diagnostics is the remaining P0 gap that lets agents inspect local bridge/preview health, version, process, transport, manifest, and structured unavailable-state data before choosing a workflow.
+Implement preview app resource loading next. The P0 lifecycle and first diagnostics slices are complete; loading compiled `App.axaml` resources is the next small P1 preview-fidelity slice before persistent reload work.

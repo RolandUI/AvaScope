@@ -57,6 +57,52 @@ public sealed class ProtocolContractTests
     }
 
     [Fact]
+    public void DiagnosticsResponseSerializesBridgeSessionsAndIssues()
+    {
+        var generatedAt = new DateTimeOffset(2026, 6, 7, 3, 0, 0, TimeSpan.Zero);
+        var createdAt = generatedAt.AddMinutes(-10);
+        var manifestPath = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", "session-1.json");
+        var response = new DiagnosticsResponse(
+            HealthResponse.Current(),
+            generatedAt,
+            Path.GetDirectoryName(manifestPath)!,
+            [
+                new BridgeSessionDiagnostic(
+                    DiagnosticStatuses.Available,
+                    manifestPath,
+                    new SessionSummary(
+                        new SessionId("session-1"),
+                        SessionKinds.Runtime,
+                        SessionStates.Active,
+                        createdAt,
+                        "Sample app"),
+                    1234,
+                    DiagnosticTransportKinds.NamedPipe,
+                    "avascope-1234-session-1",
+                    HealthResponse.Current())
+            ],
+            [
+                new ProtocolError("bridge_session_not_found", "No bridge session matched.")
+            ]);
+
+        var json = JsonSerializer.Serialize(response);
+        var node = JsonNode.Parse(json)!;
+
+        Assert.Equal("avascope", node["service"]!["serviceName"]!.GetValue<string>());
+        Assert.Equal(1, node["service"]!["protocolVersion"]!["major"]!.GetValue<int>());
+        Assert.Equal(Path.GetFullPath(Path.GetDirectoryName(manifestPath)!), node["manifestDirectory"]!.GetValue<string>());
+        Assert.Equal(generatedAt, DateTimeOffset.Parse(node["generatedAt"]!.GetValue<string>(), CultureInfo.InvariantCulture));
+        Assert.Equal(DiagnosticStatuses.Available, node["bridgeSessions"]![0]!["status"]!.GetValue<string>());
+        Assert.Equal(Path.GetFullPath(manifestPath), node["bridgeSessions"]![0]!["manifestPath"]!.GetValue<string>());
+        Assert.Equal("session-1", node["bridgeSessions"]![0]!["session"]!["sessionId"]!.GetValue<string>());
+        Assert.Equal(1234, node["bridgeSessions"]![0]!["processId"]!.GetValue<int>());
+        Assert.Equal(DiagnosticTransportKinds.NamedPipe, node["bridgeSessions"]![0]!["transport"]!.GetValue<string>());
+        Assert.Equal("avascope-1234-session-1", node["bridgeSessions"]![0]!["pipeName"]!.GetValue<string>());
+        Assert.Equal("avascope", node["bridgeSessions"]![0]!["health"]!["serviceName"]!.GetValue<string>());
+        Assert.Equal("bridge_session_not_found", node["issues"]![0]!["code"]!.GetValue<string>());
+    }
+
+    [Fact]
     public void ListSessionsResponseSerializesBoundedSummaryShape()
     {
         var createdAt = new DateTimeOffset(2026, 6, 6, 18, 30, 0, TimeSpan.Zero);

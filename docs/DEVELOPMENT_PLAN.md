@@ -23,15 +23,15 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `M13 Diagnostics Surface`
+- `M14 Preview App Resource Scope`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-07`
-- Goal: add the first aggregate diagnostic surface for local bridge and preview workflows.
+- Goal: load app-level resources in the isolated preview host before moving toward reload and richer preview sessions.
 
 ## Next Action
 
-Define the first diagnostics protocol shape, then implement a minimal `diagnostics` path that reports local bridge session health, transport metadata, version/process details, and structured unavailable-state errors.
+Implement a small preview-host slice that detects and loads compiled `App.axaml` resources for project previews, validates resource-backed view rendering, and keeps user code isolated in `AvaScope.PreviewHost`.
 
 ## Latest Validation
 
@@ -113,6 +113,11 @@ Define the first diagnostics protocol shape, then implement a minimal `diagnosti
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter Mcp` passed with 18 tests.
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter PreviewHost` passed with 8 tests after temp-directory cleanup retry hardening.
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 72 tests.
+- `2026-06-07`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after M13 diagnostics implementation.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter Protocol` passed with 22 tests.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter Core` passed with 22 tests.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter Mcp` passed with 21 tests.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 79 tests.
 
 ## Milestones
 
@@ -341,13 +346,15 @@ Define the first diagnostics protocol shape, then implement a minimal `diagnosti
 
 ### M13 Diagnostics Surface
 
-- Status: `In Progress`
+- Status: `Done`
 - Goal: provide the first aggregate diagnostics surface without coupling MCP schemas to bridge or preview internals.
 - Deliverables: diagnostics protocol DTOs, local bridge diagnostics path, MCP `diagnostics` tool, focused tests.
 - Progress:
-  - Pending: define transport-neutral diagnostics response model and source names.
-  - Pending: expose local bridge session health, process id, transport, manifest path, and version metadata.
-  - Pending: add MCP `diagnostics` adapter and unavailable-session diagnostics.
+  - Done: transport-neutral diagnostics response DTOs cover service health, manifest directory, bounded bridge session diagnostics, and structured issues.
+  - Done: local bridge diagnostics reports manifest path, process id, named-pipe transport, pipe name, protocol health, stale manifests, invalid manifests, and unavailable IPC errors.
+  - Done: MCP exposes `diagnostics` as a thin adapter over `LocalBridgeClient.DiagnosticsAsync`.
+  - Done: missing/stale/unavailable states return structured diagnostic data instead of throwing.
+  - Done: tests cover protocol serialization, Core missing/stale/invalid/limit behavior, MCP unavailable-state behavior, MCP bridge health, and stdio tool listing.
 - Acceptance Criteria:
   - Diagnostics are bounded, structured, and transport-neutral.
   - Missing or stale sessions return structured diagnostic data rather than throwing.
@@ -358,6 +365,25 @@ Define the first diagnostics protocol shape, then implement a minimal `diagnosti
   - `dotnet test AvaScope.slnx --no-build --filter Protocol`
   - `dotnet test AvaScope.slnx --no-build --filter Core`
   - `dotnet test AvaScope.slnx --no-build --filter Mcp`
+  - `dotnet test AvaScope.slnx --no-build`
+
+### M14 Preview App Resource Scope
+
+- Status: `In Progress`
+- Goal: improve project preview fidelity by loading compiled app-level resources before view rendering.
+- Deliverables: preview host app resource discovery/loading, resource-backed render smoke test, structured diagnostics for missing/failed app resource loading.
+- Progress:
+  - Pending: inspect current preview host compiled-resource loading path and choose the smallest app-resource hook.
+  - Pending: load compiled `App.axaml` resources for project previews when present.
+  - Pending: validate a view that resolves a brush/style from app resources.
+- Acceptance Criteria:
+  - App-level resources are loaded inside the isolated preview host process, not MCP or CLI.
+  - A project preview can render a compiled view that depends on `App.axaml` resources.
+  - Missing app resources do not break standalone or resource-free previews.
+  - Failures return structured preview diagnostics without overclaiming full design-time parity.
+- Validation:
+  - `dotnet build AvaScope.slnx`
+  - `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewHost`
   - `dotnet test AvaScope.slnx --no-build`
 
 ## Decision Log
@@ -398,6 +424,8 @@ Define the first diagnostics protocol shape, then implement a minimal `diagnosti
 - `2026-06-07`: Runtime `close_session` is the next hardening slice because stale local bridge sessions/manifests directly affect repeated agent workflows and the tool name is already part of the target MCP shape.
 - `2026-06-07`: Runtime `close_session` uses a two-phase bridge IPC close handshake: the session registry is closed before the structured response is flushed, and the bridge server/manifest are stopped afterward on a background task to avoid pipe teardown before the client receives the result.
 - `2026-06-07`: Diagnostics is the next P0 hardening slice because current operations return per-tool errors, but there is no aggregate health/version/session surface for agents to inspect before choosing a workflow.
+- `2026-06-07`: The first diagnostics slice reports current health and structured unavailable states only; binding, layout, resource, and historical last-error streams remain future diagnostics work until those signals exist.
+- `2026-06-07`: M14 targets preview app resources before reload because persistent/reloadable preview sessions should reuse a preview path that already handles app-level resources predictably.
 
 ## Change Log
 
@@ -424,3 +452,4 @@ Define the first diagnostics protocol shape, then implement a minimal `diagnosti
 - `2026-06-07`: Completed M11 documentation and release-readiness slice with README usage documentation and validation guide updates; added M12 post-MVP hardening as the active focus.
 - `2026-06-07`: Added post-MVP gap audit and selected runtime `close_session` lifecycle support as the next hardening slice.
 - `2026-06-07`: Completed M12 close-session hardening with bridge IPC, Core client, MCP tool, manifest cleanup validation, and PreviewHost cleanup retry hardening; added M13 diagnostics surface as the active focus.
+- `2026-06-07`: Completed M13 diagnostics surface with protocol DTOs, Core bridge diagnostics, MCP `diagnostics`, unavailable-state handling, and focused tests; added M14 preview app resource scope as the active focus.

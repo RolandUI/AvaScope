@@ -9,6 +9,7 @@ namespace AvaScope.Core;
 public sealed class LocalBridgeClient
 {
     private const int MaxMessageBytes = 1024 * 1024;
+    private const int MaxDiagnosticsSessions = 100;
     private readonly TimeSpan _operationTimeout;
 
     public LocalBridgeClient()
@@ -272,6 +273,57 @@ public sealed class LocalBridgeClient
             cancellationToken);
     }
 
+    public async Task<CoreResult<DiagnosticsResponse>> DiagnosticsAsync(
+        int? processId = null,
+        SessionId? sessionId = null,
+        int maxSessions = 50,
+        CancellationToken cancellationToken = default)
+    {
+        if (maxSessions is < 1 or > MaxDiagnosticsSessions)
+        {
+            return CoreResult<DiagnosticsResponse>.Fail(new CoreError(
+                CoreErrorCodes.InvalidBridgeRequest,
+                $"Diagnostics session limit must be between 1 and {MaxDiagnosticsSessions}."));
+        }
+
+        var records = EnumerateDiagnosticManifests()
+            .Where(record => MatchesDiagnosticFilters(record.Manifest, processId, sessionId))
+            .OrderBy(record => record.Manifest?.CreatedAt ?? DateTimeOffset.MaxValue)
+            .ThenBy(record => record.Path, StringComparer.Ordinal)
+            .ToArray();
+
+        var issues = new List<ProtocolError>();
+        var selectedRecords = records.Take(maxSessions).ToArray();
+
+        if (records.Length > maxSessions)
+        {
+            issues.Add(new ProtocolError(
+                CoreErrorCodes.DiagnosticsTruncated,
+                $"Diagnostics were limited to {maxSessions} bridge session manifests."));
+        }
+
+        var bridgeSessions = new List<BridgeSessionDiagnostic>(selectedRecords.Length);
+        foreach (var record in selectedRecords)
+        {
+            var diagnostic = await CreateDiagnosticAsync(record, cancellationToken);
+            bridgeSessions.Add(diagnostic);
+        }
+
+        if (bridgeSessions.Count == 0 && (processId is not null || sessionId is not null))
+        {
+            issues.Add(new ProtocolError(
+                CoreErrorCodes.BridgeSessionNotFound,
+                "No AvaScope bridge session manifest matched the requested diagnostics filters."));
+        }
+
+        return CoreResult<DiagnosticsResponse>.Ok(new DiagnosticsResponse(
+            HealthResponse.Current(),
+            DateTimeOffset.UtcNow,
+            ManifestDirectory,
+            bridgeSessions,
+            issues));
+    }
+
     private async Task<CoreResult<TreeResponse>> TreeAsync(
         SessionId sessionId,
         string topLevelId,
@@ -316,6 +368,60 @@ public sealed class LocalBridgeClient
                 CoreErrorCodes.MultipleBridgeSessions,
                 "Multiple active AvaScope bridge sessions matched the requested filters. Specify a process id or session id."))
         };
+    }
+
+    private async Task<BridgeSessionDiagnostic> CreateDiagnosticAsync(
+        DiagnosticManifestRecord record,
+        CancellationToken cancellationToken)
+    {
+        if (record.Manifest is null)
+        {
+            return new BridgeSessionDiagnostic(
+                DiagnosticStatuses.Invalid,
+                record.Path,
+                error: record.Error);
+        }
+
+        var manifest = record.Manifest;
+        if (!IsProcessAlive(manifest.ProcessId))
+        {
+            return new BridgeSessionDiagnostic(
+                DiagnosticStatuses.Stale,
+                record.Path,
+                ToSessionSummary(manifest, SessionStates.Failed),
+                manifest.ProcessId,
+                DiagnosticTransportKinds.NamedPipe,
+                manifest.PipeName,
+                error: new ProtocolError(
+                    CoreErrorCodes.BridgeIpcUnavailable,
+                    "The process recorded by the AvaScope bridge manifest is not running."));
+        }
+
+        var healthResult = await SendAsync<HealthResponse>(
+            manifest,
+            new BridgeIpcRequest(NewRequestId(), BridgeIpcMethods.Health),
+            cancellationToken);
+
+        if (!healthResult.Success)
+        {
+            return new BridgeSessionDiagnostic(
+                DiagnosticStatuses.Unavailable,
+                record.Path,
+                ToSessionSummary(manifest, SessionStates.Failed),
+                manifest.ProcessId,
+                DiagnosticTransportKinds.NamedPipe,
+                manifest.PipeName,
+                error: ToProtocolError(healthResult.Error!));
+        }
+
+        return new BridgeSessionDiagnostic(
+            DiagnosticStatuses.Available,
+            record.Path,
+            ToSessionSummary(manifest),
+            manifest.ProcessId,
+            DiagnosticTransportKinds.NamedPipe,
+            manifest.PipeName,
+            healthResult.Value);
     }
 
     private async Task<CoreResult<T>> SendAsync<T>(
@@ -421,6 +527,46 @@ public sealed class LocalBridgeClient
         return Encoding.UTF8.GetString(responseBytes.ToArray());
     }
 
+    private IReadOnlyList<DiagnosticManifestRecord> EnumerateDiagnosticManifests()
+    {
+        if (!Directory.Exists(ManifestDirectory))
+        {
+            return [];
+        }
+
+        return Directory.EnumerateFiles(ManifestDirectory, "*.json")
+            .Select(ReadDiagnosticManifest)
+            .ToArray();
+    }
+
+    private static DiagnosticManifestRecord ReadDiagnosticManifest(string path)
+    {
+        var fullPath = Path.GetFullPath(path);
+
+        try
+        {
+            var manifest = JsonSerializer.Deserialize<BridgeSessionManifest>(File.ReadAllText(fullPath, Encoding.UTF8));
+            if (manifest is null)
+            {
+                return new DiagnosticManifestRecord(
+                    fullPath,
+                    null,
+                    new ProtocolError(CoreErrorCodes.BridgeManifestInvalid, "Bridge session manifest payload was empty."));
+            }
+
+            return new DiagnosticManifestRecord(fullPath, manifest, null);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException or ArgumentException)
+        {
+            return new DiagnosticManifestRecord(
+                fullPath,
+                null,
+                new ProtocolError(
+                    CoreErrorCodes.BridgeManifestInvalid,
+                    $"Bridge session manifest could not be read: {exception.Message}"));
+        }
+    }
+
     private static BridgeSessionManifest? TryReadManifest(string path)
     {
         try
@@ -431,6 +577,20 @@ public sealed class LocalBridgeClient
         {
             return null;
         }
+    }
+
+    private static bool MatchesDiagnosticFilters(
+        BridgeSessionManifest? manifest,
+        int? processId,
+        SessionId? sessionId)
+    {
+        if (manifest is null)
+        {
+            return processId is null && sessionId is null;
+        }
+
+        return (processId is null || manifest.ProcessId == processId.Value)
+            && (sessionId is null || manifest.SessionId == sessionId);
     }
 
     private static bool IsProcessAlive(int processId)
@@ -452,16 +612,31 @@ public sealed class LocalBridgeClient
 
     private static SessionSummary ToSessionSummary(BridgeSessionManifest manifest)
     {
+        return ToSessionSummary(manifest, SessionStates.Active);
+    }
+
+    private static SessionSummary ToSessionSummary(BridgeSessionManifest manifest, string state)
+    {
         return new SessionSummary(
             manifest.SessionId,
             SessionKinds.Runtime,
-            SessionStates.Active,
+            state,
             manifest.CreatedAt,
             manifest.DisplayName);
+    }
+
+    private static ProtocolError ToProtocolError(CoreError error)
+    {
+        return new ProtocolError(error.Code, error.Message);
     }
 
     private static string NewRequestId()
     {
         return Guid.NewGuid().ToString("n");
     }
+
+    private sealed record DiagnosticManifestRecord(
+        string Path,
+        BridgeSessionManifest? Manifest,
+        ProtocolError? Error);
 }

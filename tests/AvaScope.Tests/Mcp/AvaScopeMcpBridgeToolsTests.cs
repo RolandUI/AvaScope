@@ -56,6 +56,32 @@ public sealed class AvaScopeMcpBridgeToolsTests : IDisposable
         Assert.False(File.Exists(manifestPath));
     }
 
+    [Fact]
+    public async Task DiagnosticsUsesLocalBridgeManifestAndPipeHealth()
+    {
+        var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Sample app"));
+        var manifestPath = runtime.SessionManifestPath!;
+        var client = new LocalBridgeClient(Path.GetDirectoryName(manifestPath)!);
+
+        var result = await AvaScopeMcpTools.Diagnostics(client, sessionId: runtime.SessionId.Value);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Null(result.Error);
+        Assert.Equal("avascope", result.Value!.Service.ServiceName);
+        Assert.Empty(result.Value.Issues);
+        var bridge = Assert.Single(result.Value.BridgeSessions);
+        Assert.Equal(DiagnosticStatuses.Available, bridge.Status);
+        Assert.Equal(Path.GetFullPath(manifestPath), bridge.ManifestPath);
+        Assert.Equal(runtime.SessionId, bridge.Session!.SessionId);
+        Assert.Equal(SessionStates.Active, bridge.Session.State);
+        Assert.Equal("Sample app", bridge.Session.DisplayName);
+        Assert.Equal(Environment.ProcessId, bridge.ProcessId);
+        Assert.Equal(DiagnosticTransportKinds.NamedPipe, bridge.Transport);
+        Assert.Equal(runtime.LocalPipeName, bridge.PipeName);
+        Assert.Equal("avascope", bridge.Health!.ServiceName);
+        Assert.Null(bridge.Error);
+    }
+
     private static async Task WaitForAsync(Func<bool> predicate)
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));

@@ -284,6 +284,36 @@ public sealed class AvaScopeMcpTools
     }
 
     [McpServerTool(
+        Name = "diagnostics",
+        Title = "Diagnostics",
+        ReadOnly = true,
+        Idempotent = true,
+        Destructive = false,
+        OpenWorld = false,
+        UseStructuredContent = true)]
+    [Description("Returns bounded local AvaScope diagnostics for bridge sessions, manifests, transport, and protocol health.")]
+    public static async Task<ToolResult<DiagnosticsResponse>> Diagnostics(
+        LocalBridgeClient bridgeClient,
+        int? processId = null,
+        string? sessionId = null,
+        int maxSessions = 50,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(bridgeClient);
+
+        if (!TryParseOptionalSessionId(sessionId, out var parsedSessionId, out var error))
+        {
+            return ToolResult<DiagnosticsResponse>.Fail(error!);
+        }
+
+        return ToToolResult(await bridgeClient.DiagnosticsAsync(
+            processId,
+            parsedSessionId,
+            maxSessions,
+            cancellationToken));
+    }
+
+    [McpServerTool(
         Name = "preview_axaml",
         Title = "Preview AXAML",
         ReadOnly = false,
