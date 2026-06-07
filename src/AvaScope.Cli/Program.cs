@@ -29,6 +29,7 @@ internal static class Program
             "inspect-node" => await InspectNode(args[1..]),
             "find-nodes" => await FindNodes(args[1..]),
             "input" => await Input(args[1..]),
+            "close-session" => await CloseSession(args[1..]),
             "mcp" => await Mcp(),
             _ => UnknownCommand(args[0])
         };
@@ -355,6 +356,27 @@ internal static class Program
         return result.Success ? 0 : 1;
     }
 
+    private static async Task<int> CloseSession(string[] args)
+    {
+        var options = ParseOptions(args, GetCloseSessionUsage());
+        if (!options.Success)
+        {
+            WriteFailure(InvalidCliArguments, options.Error!);
+            return 2;
+        }
+
+        if (!ValidateOptions(options.Values, GetCloseSessionUsage(), "session")
+            || !TryReadRequiredSessionId(options.Values, GetCloseSessionUsage(), out var sessionId))
+        {
+            return 2;
+        }
+
+        var result = await new LocalBridgeClient().CloseSessionAsync(sessionId!);
+        WriteResult(result);
+
+        return result.Success ? 0 : 1;
+    }
+
     private static async Task<int> Screenshot(string[] args)
     {
         var options = ParseOptions(args, GetScreenshotUsage());
@@ -614,7 +636,7 @@ internal static class Program
 
     private static string GetUsage()
     {
-        return "Usage: avascope mcp | avascope attach [--process <pid>] [--session <session-id>] | avascope list-top-levels --session <session-id> | avascope visual-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] | avascope logical-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] | avascope inspect-node --session <session-id> --top-level <top-level-id> --node <node-id> [--tree-kind visual|logical] | avascope find-nodes --session <session-id> --top-level <top-level-id> [--tree-kind visual|logical] [--type <type>] [--name <name>] [--automation-id <id>] [--text <text>] [--max-depth <n>] [--max-results <n>] | avascope input --session <session-id> --top-level <top-level-id> --action <action> [--x <x>] [--y <y>] [--text <text>] [--target-node <node-id>] [--key <key>] [--modifiers <modifiers>] | avascope screenshot --session <session-id> --top-level <top-level-id> --out <screenshot.png> | avascope preview <project.csproj> --view <view.axaml> --out <preview.png> --width <width> --height <height> [--dpi <dpi>] [--theme light|dark]";
+        return "Usage: avascope mcp | avascope attach [--process <pid>] [--session <session-id>] | avascope list-top-levels --session <session-id> | avascope visual-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] | avascope logical-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] | avascope inspect-node --session <session-id> --top-level <top-level-id> --node <node-id> [--tree-kind visual|logical] | avascope find-nodes --session <session-id> --top-level <top-level-id> [--tree-kind visual|logical] [--type <type>] [--name <name>] [--automation-id <id>] [--text <text>] [--max-depth <n>] [--max-results <n>] | avascope input --session <session-id> --top-level <top-level-id> --action <action> [--x <x>] [--y <y>] [--text <text>] [--target-node <node-id>] [--key <key>] [--modifiers <modifiers>] | avascope close-session --session <session-id> | avascope screenshot --session <session-id> --top-level <top-level-id> --out <screenshot.png> | avascope preview <project.csproj> --view <view.axaml> --out <preview.png> --width <width> --height <height> [--dpi <dpi>] [--theme light|dark]";
     }
 
     private static string GetPreviewUsage()
@@ -655,6 +677,11 @@ internal static class Program
     private static string GetInputUsage()
     {
         return "Usage: avascope input --session <session-id> --top-level <top-level-id> --action <action> [--x <x>] [--y <y>] [--text <text>] [--target-node <node-id>] [--key <key>] [--modifiers <modifiers>]";
+    }
+
+    private static string GetCloseSessionUsage()
+    {
+        return "Usage: avascope close-session --session <session-id>";
     }
 
     private static string GetScreenshotUsage()

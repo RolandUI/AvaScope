@@ -23,15 +23,15 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `M33 CLI Runtime Close Session Slice`
+- `M34 CLI Runtime Diagnostics Slice`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-07`
-- Goal: expose runtime bridge session closure from the `avascope` CLI.
+- Goal: expose bounded runtime diagnostics from the `avascope` CLI.
 
 ## Next Action
 
-Add a `close-session` CLI command over `LocalBridgeClient.CloseSessionAsync`, keeping structured JSON output and deterministic session id validation.
+Add a `diagnostics` CLI command over `LocalBridgeClient.DiagnosticsAsync`, with process/session filters and max-session validation.
 
 ## Latest Validation
 
@@ -213,6 +213,9 @@ Add a `close-session` CLI command over `LocalBridgeClient.CloseSessionAsync`, ke
 - `2026-06-07`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after M32 CLI `input` implementation.
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli` passed with 63 tests, including fake bridge pipe success paths for `input`.
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 147 tests after M32 CLI runtime input workflow.
+- `2026-06-07`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after M33 CLI `close-session` implementation.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli` passed with 66 tests, including fake bridge pipe success paths for `close-session`.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 150 tests after M33 CLI close-session workflow.
 
 ## Milestones
 
@@ -914,17 +917,36 @@ Add a `close-session` CLI command over `LocalBridgeClient.CloseSessionAsync`, ke
 
 ### M33 CLI Runtime Close Session Slice
 
-- Status: `In Progress`
+- Status: `Done`
 - Goal: expose runtime bridge session closure from the `avascope` CLI.
 - Deliverables: `close-session` CLI command over `LocalBridgeClient.CloseSessionAsync`, structured JSON output, deterministic argument validation, README/tracking update.
 - Progress:
-  - Pending: add `close-session --session <session-id>`.
-  - Pending: add fake bridge success and no-session failure tests.
-  - Pending: document that the command closes the local bridge session and removes its manifest through the bridge.
+  - Done: added `close-session --session <session-id>`.
+  - Done: added fake bridge success, no-session failure, and missing-session argument tests.
+  - Done: README documents that the command closes an active local bridge session.
 - Acceptance Criteria:
   - CLI can request closure of an attached runtime bridge session id.
   - CLI rejects missing or invalid session ids deterministically.
   - Tests cover fake bridge success and structured failure paths.
+  - README documents command shape.
+- Validation:
+  - `dotnet build AvaScope.slnx`
+  - `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli`
+  - `dotnet test AvaScope.slnx --no-build`
+
+### M34 CLI Runtime Diagnostics Slice
+
+- Status: `In Progress`
+- Goal: expose bounded runtime diagnostics from the `avascope` CLI.
+- Deliverables: `diagnostics` CLI command over `LocalBridgeClient.DiagnosticsAsync`, process/session filters, max-session validation, structured JSON output, README/tracking update.
+- Progress:
+  - Pending: add `diagnostics [--process <pid>] [--session <session-id>] [--max-sessions <n>]`.
+  - Pending: include preview host diagnostics from `PreviewHostClient.GetDiagnostics()`.
+  - Pending: add deterministic argument and no-match tests.
+- Acceptance Criteria:
+  - CLI can return runtime diagnostics with optional process/session filters.
+  - CLI rejects invalid process ids, session ids, and max-session values deterministically.
+  - Tests cover success and structured issue paths without requiring a live Avalonia bridge.
   - README documents command shape.
 - Validation:
   - `dotnet build AvaScope.slnx`
@@ -1015,6 +1037,8 @@ Add a `close-session` CLI command over `LocalBridgeClient.CloseSessionAsync`, ke
 - `2026-06-07`: M32 targets CLI input next because attach, screenshot, tree, inspect, and find now cover read-side runtime inspection, leaving local-only control as the next core runtime workflow.
 - `2026-06-07`: M32 validates input actions in the CLI before calling Core so unsupported or under-specified local control requests fail as deterministic CLI argument errors.
 - `2026-06-07`: M33 targets CLI close-session next because runtime input introduces local control, and operators need a direct CLI way to close bridge sessions.
+- `2026-06-07`: M33 keeps close-session as a separate slice from diagnostics/reload because it is the only runtime CLI command that intentionally changes bridge session lifecycle.
+- `2026-06-07`: M34 targets CLI diagnostics next because attach/inspection/control/close paths now exist, and diagnostics makes bridge manifest and preview-host readiness visible from the CLI.
 
 ## Change Log
 
@@ -1061,3 +1085,4 @@ Add a `close-session` CLI command over `LocalBridgeClient.CloseSessionAsync`, ke
 - `2026-06-07`: Completed M30 CLI runtime node detail with `inspect-node`, default visual tree kind, explicit logical tree kind support, fake bridge pipe success tests, README updates, and full-suite validation; added M31 CLI find nodes as the active focus.
 - `2026-06-07`: Completed M31 CLI runtime find nodes with filter validation, depth/result limit validation, fake bridge pipe success tests, README updates, and full-suite validation; added M32 CLI runtime input as the active focus.
 - `2026-06-07`: Completed M32 CLI runtime input with local-only action validation, click/key/focus fake bridge pipe success tests, README updates, and full-suite validation; added M33 CLI close session as the active focus.
+- `2026-06-07`: Completed M33 CLI close session with structured `close-session`, fake bridge pipe success tests, README updates, and full-suite validation; added M34 CLI diagnostics as the active focus.
