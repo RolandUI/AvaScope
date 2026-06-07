@@ -207,6 +207,74 @@ public sealed class AvaScopeMcpToolsTests
     }
 
     [Fact]
+    public async Task CreatePreviewSessionRejectsInvalidDimensions()
+    {
+        var previewSessions = CreatePreviewSessionRegistryWithMissingHost();
+
+        var result = await AvaScopeMcpTools.CreatePreviewSession(
+            previewSessions,
+            "preview.png",
+            width: 0,
+            height: 100);
+
+        Assert.False(result.Success);
+        Assert.Null(result.Value);
+        Assert.Equal(CoreErrorCodes.InvalidPreviewRequest, result.Error!.Code);
+    }
+
+    [Fact]
+    public async Task PreviewSessionToolsCreateListAndCloseSessionRecord()
+    {
+        var sessionRegistry = new SessionRegistry();
+        var previewSessions = CreatePreviewSessionRegistryWithMissingHost(sessionRegistry);
+
+        var created = await AvaScopeMcpTools.CreatePreviewSession(
+            previewSessions,
+            Path.Combine(Path.GetTempPath(), "AvaScope.Tests", "missing-preview.png"),
+            width: 120,
+            height: 80,
+            displayName: "Broken preview");
+
+        Assert.True(created.Success, created.Error?.Message);
+        Assert.Equal(SessionKinds.Preview, created.Value!.Session.Kind);
+        Assert.Equal(SessionStates.Failed, created.Value.Session.State);
+        Assert.Equal("Broken preview", created.Value.Session.DisplayName);
+        Assert.False(created.Value.LastRender.Success);
+        Assert.Equal(CoreErrorCodes.PreviewHostUnavailable, created.Value.LastRender.Error!.Code);
+
+        var listed = AvaScopeMcpTools.ListPreviewSessions(previewSessions);
+
+        Assert.True(listed.Success);
+        var preview = Assert.Single(listed.Value!.Sessions);
+        Assert.Equal(created.Value.Session.SessionId, preview.Session.SessionId);
+
+        var allSessions = AvaScopeMcpTools.ListSessions(sessionRegistry);
+
+        Assert.Contains(
+            allSessions.Value!.Sessions,
+            session => session.SessionId == created.Value.Session.SessionId
+                && session.Kind == SessionKinds.Preview
+                && session.State == SessionStates.Failed);
+
+        var closed = AvaScopeMcpTools.ClosePreviewSession(previewSessions, created.Value.Session.SessionId.Value);
+
+        Assert.True(closed.Success, closed.Error?.Message);
+        Assert.Equal(SessionStates.Closed, closed.Value!.Session.State);
+    }
+
+    [Fact]
+    public void ClosePreviewSessionRejectsEmptySessionId()
+    {
+        var previewSessions = CreatePreviewSessionRegistryWithMissingHost();
+
+        var result = AvaScopeMcpTools.ClosePreviewSession(previewSessions, " ");
+
+        Assert.False(result.Success);
+        Assert.Null(result.Value);
+        Assert.Equal(CoreErrorCodes.InvalidBridgeRequest, result.Error!.Code);
+    }
+
+    [Fact]
     public async Task PreviewAxamlRendersThroughPreviewHostClient()
     {
         var testRoot = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));
@@ -264,5 +332,16 @@ public sealed class AvaScopeMcpToolsTests
     private static PreviewHostClient CreatePreviewHostClient()
     {
         return new PreviewHostClient(Path.Combine(AppContext.BaseDirectory, "AvaScope.PreviewHost.dll"));
+    }
+
+    private static PreviewSessionRegistry CreatePreviewSessionRegistryWithMissingHost(
+        SessionRegistry? sessionRegistry = null)
+    {
+        return new PreviewSessionRegistry(
+            sessionRegistry ?? new SessionRegistry(),
+            new PreviewHostClient(Path.Combine(
+                Path.GetTempPath(),
+                "AvaScope.Tests",
+                $"missing-preview-host-{Guid.NewGuid():N}.dll")));
     }
 }

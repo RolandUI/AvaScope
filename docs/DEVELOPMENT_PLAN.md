@@ -23,15 +23,15 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `M16 Preview Reload Foundation`
+- `M17 Preview Reload MVP`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-07`
-- Goal: introduce the smallest persistent preview-session foundation needed for future reload support.
+- Goal: implement the first real preview `reload` flow on top of persisted preview session metadata.
 
 ## Next Action
 
-Design and implement a minimal transport-neutral preview session model that can create/list/close preview sessions without hot reload yet, so `reload` can be added as a vertical slice instead of a broad rewrite.
+Implement `reload` for preview sessions by re-running the stored `PreviewRequest` through `AvaScope.PreviewHost`, updating the latest render result, and exposing the path through Core and MCP with focused tests.
 
 ## Latest Validation
 
@@ -127,6 +127,11 @@ Design and implement a minimal transport-neutral preview session model that can 
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter Mcp` passed with 21 tests.
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewHost` passed with 13 tests.
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 84 tests.
+- `2026-06-07`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after M16 preview reload foundation.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter Protocol` passed with 23 tests.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter Core` passed with 28 tests.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter Mcp` passed with 24 tests.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 91 tests.
 
 ## Milestones
 
@@ -423,18 +428,43 @@ Design and implement a minimal transport-neutral preview session model that can 
 
 ### M16 Preview Reload Foundation
 
-- Status: `In Progress`
+- Status: `Done`
 - Goal: create the minimal persistent preview-session model required before implementing `reload`.
 - Deliverables: preview session DTOs, Core preview session registry flow, MCP list/close integration for preview sessions where applicable, tests.
 - Progress:
-  - Pending: define what a preview session means without keeping user code loaded in MCP.
-  - Pending: add transport-neutral preview session metadata for request, output, created time, and last render result.
-  - Pending: expose create/list/close preview session behavior before adding actual reload.
+  - Done: defined preview sessions as metadata records containing the original request and latest render result, not live user-code processes.
+  - Done: added protocol `PreviewSessionSummary` and `ListPreviewSessionsResponse` DTOs.
+  - Done: added Core `PreviewSessionRegistry` with create/list/close behavior sharing lifecycle state through `SessionRegistry`.
+  - Done: `create_preview_session` performs an initial isolated render through `AvaScope.PreviewHost` and stores success or failure as `lastRender`.
+  - Done: `list_preview_sessions` and `close_preview_session` expose preview session lifecycle through MCP.
+  - Done: `list_sessions` sees preview session lifecycle through the shared `SessionRegistry`.
+  - Done: tests cover protocol serialization, Core successful and failed create flows, close errors, MCP create/list/close behavior, and stdio tool discovery.
 - Acceptance Criteria:
   - Preview session state remains outside MCP-specific tool schemas.
   - User project code still only runs in `AvaScope.PreviewHost`.
   - The first foundation slice does not claim hot reload until a reload command is implemented and validated.
   - Existing one-shot `preview_axaml` behavior remains compatible.
+- Validation:
+  - `dotnet build AvaScope.slnx`
+  - `dotnet test AvaScope.slnx --no-build --filter Protocol`
+  - `dotnet test AvaScope.slnx --no-build --filter Core`
+  - `dotnet test AvaScope.slnx --no-build --filter Mcp`
+  - `dotnet test AvaScope.slnx --no-build`
+
+### M17 Preview Reload MVP
+
+- Status: `In Progress`
+- Goal: re-render an existing preview session from its stored request.
+- Deliverables: Core reload method, MCP `reload` tool for preview sessions, updated preview session metadata, tests.
+- Progress:
+  - Pending: update `PreviewSessionRegistry` so reload reuses the stored `PreviewRequest` and replaces `lastRender`.
+  - Pending: expose MCP `reload` for preview session ids.
+  - Pending: validate successful reload and failed reload metadata updates.
+- Acceptance Criteria:
+  - Reload does not keep user code loaded in MCP.
+  - Reload updates the existing preview session record rather than creating a new session.
+  - Reload returns structured success or failure through the same preview session summary shape.
+  - Unsupported runtime-session reload remains explicit and does not silently target bridge sessions.
 - Validation:
   - `dotnet build AvaScope.slnx`
   - `dotnet test AvaScope.slnx --no-build --filter Protocol`
@@ -486,6 +516,8 @@ Design and implement a minimal transport-neutral preview session model that can 
 - `2026-06-07`: M15 expands diagnostics to preview-host readiness before reload work so agents can distinguish missing preview infrastructure from project/render failures.
 - `2026-06-07`: M15 preview diagnostics deliberately checks only host readiness and does not launch `AvaScope.PreviewHost`, build projects, or load user XAML; render/project diagnostics remain tied to actual preview requests.
 - `2026-06-07`: M16 starts with preview-session metadata before implementing `reload`, because reload needs a stable persisted request/result boundary that does not keep user code inside MCP.
+- `2026-06-07`: M16 preview sessions are metadata records, not persistent Avalonia preview processes; this keeps user project code execution isolated in one-shot `AvaScope.PreviewHost` child processes while still giving reload a stable request/result target.
+- `2026-06-07`: M17 will implement reload only for preview sessions first; runtime bridge reload remains separate because it needs different lifecycle and safety semantics.
 
 ## Change Log
 
@@ -515,3 +547,4 @@ Design and implement a minimal transport-neutral preview session model that can 
 - `2026-06-07`: Completed M13 diagnostics surface with protocol DTOs, Core bridge diagnostics, MCP `diagnostics`, unavailable-state handling, and focused tests; added M14 preview app resource scope as the active focus.
 - `2026-06-07`: Completed M14 preview app resource scope with compiled `App.axaml` resource loading, resource-backed render validation, structured invalid-app-resource errors, and README updates; added M15 preview diagnostics expansion as the active focus.
 - `2026-06-07`: Completed M15 preview diagnostics expansion with preview-host readiness diagnostics, MCP diagnostics composition, build-server isolation hardening, README updates, and full-suite validation; added M16 preview reload foundation as the active focus.
+- `2026-06-07`: Completed M16 preview reload foundation with preview session metadata, Core create/list/close lifecycle, MCP preview session tools, README updates, and full-suite validation; added M17 preview reload MVP as the active focus.

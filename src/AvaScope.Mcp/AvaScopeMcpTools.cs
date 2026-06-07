@@ -360,6 +360,94 @@ public sealed class AvaScopeMcpTools
         return ToToolResult(await previewHostClient.RenderAsync(request, cancellationToken));
     }
 
+    [McpServerTool(
+        Name = "create_preview_session",
+        Title = "Create preview session",
+        ReadOnly = false,
+        Idempotent = false,
+        Destructive = false,
+        OpenWorld = false,
+        UseStructuredContent = true)]
+    [Description("Creates a persistent AvaScope preview session record and stores the initial isolated preview render result.")]
+    public static async Task<ToolResult<PreviewSessionSummary>> CreatePreviewSession(
+        PreviewSessionRegistry previewSessions,
+        string outputPath,
+        double width,
+        double height,
+        double dpi = 96,
+        string? projectPath = null,
+        string? viewPath = null,
+        string? themeVariant = null,
+        string? displayName = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(previewSessions);
+
+        PreviewRequest request;
+        try
+        {
+            request = new PreviewRequest(
+                outputPath,
+                width,
+                height,
+                dpi,
+                projectPath,
+                viewPath,
+                themeVariant);
+        }
+        catch (Exception exception) when (exception is ArgumentException or ArgumentOutOfRangeException)
+        {
+            return ToolResult<PreviewSessionSummary>.Fail(new ProtocolError(
+                CoreErrorCodes.InvalidPreviewRequest,
+                exception.Message));
+        }
+
+        return ToToolResult(await previewSessions.CreateAsync(
+            request,
+            displayName,
+            cancellationToken));
+    }
+
+    [McpServerTool(
+        Name = "list_preview_sessions",
+        Title = "List preview sessions",
+        ReadOnly = true,
+        Idempotent = true,
+        Destructive = false,
+        OpenWorld = false,
+        UseStructuredContent = true)]
+    [Description("Lists AvaScope preview session records with their original request and latest render result.")]
+    public static ToolResult<ListPreviewSessionsResponse> ListPreviewSessions(
+        PreviewSessionRegistry previewSessions)
+    {
+        ArgumentNullException.ThrowIfNull(previewSessions);
+
+        return ToolResult<ListPreviewSessionsResponse>.Ok(new ListPreviewSessionsResponse(previewSessions.List()));
+    }
+
+    [McpServerTool(
+        Name = "close_preview_session",
+        Title = "Close preview session",
+        ReadOnly = false,
+        Idempotent = true,
+        Destructive = false,
+        OpenWorld = false,
+        UseStructuredContent = true)]
+    [Description("Closes a persistent AvaScope preview session record without affecting runtime bridge sessions.")]
+    public static ToolResult<PreviewSessionSummary> ClosePreviewSession(
+        PreviewSessionRegistry previewSessions,
+        string sessionId)
+    {
+        ArgumentNullException.ThrowIfNull(previewSessions);
+
+        if (!TryParseRequiredSessionId(sessionId, out var parsedSessionId, out var error))
+        {
+            return ToolResult<PreviewSessionSummary>.Fail(error!);
+        }
+
+        return ToToolResult(previewSessions.Close(parsedSessionId!));
+    }
+
     private static SessionSummary ToProtocolSummary(SessionSnapshot session)
     {
         return new SessionSummary(

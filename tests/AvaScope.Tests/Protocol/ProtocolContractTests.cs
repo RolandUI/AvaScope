@@ -433,6 +433,54 @@ public sealed class ProtocolContractTests
     }
 
     [Fact]
+    public void PreviewSessionSummarySerializesRequestAndLastRender()
+    {
+        var createdAt = new DateTimeOffset(2026, 6, 7, 4, 0, 0, TimeSpan.Zero);
+        var updatedAt = createdAt.AddSeconds(5);
+        var response = new ListPreviewSessionsResponse(
+        [
+            new PreviewSessionSummary(
+                new SessionSummary(
+                    new SessionId("preview-1"),
+                    SessionKinds.Preview,
+                    SessionStates.Active,
+                    createdAt,
+                    "Views\\MainView.axaml"),
+                new PreviewRequest(
+                    "C:\\previews\\main.png",
+                    1440,
+                    900,
+                    96,
+                    "C:\\apps\\Sample\\Sample.csproj",
+                    "Views\\MainView.axaml",
+                    "light"),
+                ToolResult<PreviewResponse>.Ok(new PreviewResponse(
+                    "C:\\previews\\main.png",
+                    1440,
+                    900,
+                    96,
+                    updatedAt,
+                    "C:\\apps\\Sample\\Sample.csproj",
+                    "Views\\MainView.axaml",
+                    "light")),
+                updatedAt)
+        ]);
+
+        var json = JsonSerializer.Serialize(response);
+        var node = JsonNode.Parse(json)!;
+        var session = node["sessions"]![0]!;
+
+        Assert.Equal("preview-1", session["session"]!["sessionId"]!.GetValue<string>());
+        Assert.Equal("preview", session["session"]!["kind"]!.GetValue<string>());
+        Assert.Equal("active", session["session"]!["state"]!.GetValue<string>());
+        Assert.Equal("C:\\previews\\main.png", session["request"]!["outputPath"]!.GetValue<string>());
+        Assert.Equal("Views\\MainView.axaml", session["request"]!["viewPath"]!.GetValue<string>());
+        Assert.True(session["lastRender"]!["success"]!.GetValue<bool>());
+        Assert.Equal("C:\\previews\\main.png", session["lastRender"]!["value"]!["filePath"]!.GetValue<string>());
+        Assert.Equal(updatedAt, DateTimeOffset.Parse(session["updatedAt"]!.GetValue<string>(), CultureInfo.InvariantCulture));
+    }
+
+    [Fact]
     public void CloseSessionResponseSerializesSessionSummary()
     {
         var createdAt = new DateTimeOffset(2026, 6, 7, 2, 0, 0, TimeSpan.Zero);

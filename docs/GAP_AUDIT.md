@@ -26,9 +26,11 @@ Completed slice: preview-host readiness diagnostics now report host assembly pat
 
 ### Reload And Hot Preview
 
-`reload` is listed in the intended MCP tool shape, but preview sessions are one-shot child process executions. There is no persistent preview session or reload path yet.
+Status: preview-session foundation complete; real reload remains open.
 
-Next slice: add the smallest persistent preview-session foundation before implementing actual reload.
+`reload` is listed in the intended MCP tool shape. Preview sessions now persist the original request plus latest render result as Core metadata, while user code still runs only in one-shot preview host child processes. There is not yet a command that re-renders an existing preview session.
+
+Next slice: implement preview-session `reload` by re-running the stored request and updating the existing session metadata.
 
 ### Preview Resource Scope
 
@@ -62,4 +64,4 @@ Next slice: add CI only after the local validation path is stable enough to avoi
 
 ## Selected Next Slice
 
-Implement preview reload foundation next. The P0 lifecycle/diagnostics and first preview resource/preview-host readiness slices are complete; `reload` now needs stable preview-session metadata before a real reload command can be validated.
+Implement preview reload MVP next. The P0 lifecycle/diagnostics, first preview resource/readiness slices, and preview-session metadata foundation are complete; `reload` can now be added as a narrow re-render of an existing preview session.

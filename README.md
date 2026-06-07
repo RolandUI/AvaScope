@@ -80,6 +80,9 @@ Implemented tools:
 - `close_session`
 - `diagnostics`
 - `preview_axaml`
+- `create_preview_session`
+- `list_preview_sessions`
+- `close_preview_session`
 
 Planned but not implemented yet: `reload`.
 
@@ -115,6 +118,8 @@ Preview rendering is isolated in `AvaScope.PreviewHost`, launched as a child pro
 - falls back to standalone runtime `.axaml` loading;
 - renders through headless Skia;
 - writes a PNG and structured JSON result.
+
+Preview session tools store the original preview request plus the latest render result as Core metadata. They do not keep user project code loaded inside MCP; each render still goes through `AvaScope.PreviewHost`.
 
 Current preview limitations:
 
