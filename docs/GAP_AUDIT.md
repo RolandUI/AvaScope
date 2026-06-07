@@ -50,15 +50,15 @@ Completed slice: runtime reload no longer falls through to a misleading preview 
 
 ### Preview Resource Scope
 
-Status: first app-resource, app-style, resource-include, theme-dictionary, style-include, and culture-variant slices complete; full design-time parity remains open.
+Status: first app-resource, app-style, resource-include, theme-dictionary, style-include, culture-variant, and project-owned design-data type slices complete; full design-time parity remains open.
 
-PreviewHost can build a project, load a compiled view resource through `avares://`, copy top-level resource entries, merged resource dictionaries, and theme dictionaries from compiled project-root `App.axaml`, instantiate the project `Application` inside the isolated preview host process, apply direct or included `Application.Styles` to the preview window style scope, and apply a requested culture inside the child render process. Full `App.axaml` orchestration, design data, and richer diagnostics are still limited.
+PreviewHost can build a project, load a compiled view resource through `avares://`, copy top-level resource entries, merged resource dictionaries, and theme dictionaries from compiled project-root `App.axaml`, instantiate the project `Application` inside the isolated preview host process, apply direct or included `Application.Styles` to the preview window style scope, apply a requested culture inside the child render process, and assign a project-owned design-data type as the root preview `DataContext`. Full `App.axaml` startup orchestration and richer diagnostics are still limited.
 
-Completed slice: project-root compiled `App.axaml` top-level resources, merged resource dictionaries, theme dictionaries, direct app-level styles, app-level `StyleInclude` entries, and culture-sensitive view loading are validated before rendering the preview view.
+Completed slice: project-root compiled `App.axaml` top-level resources, merged resource dictionaries, theme dictionaries, direct app-level styles, app-level `StyleInclude` entries, culture-sensitive view loading, and typed-binding design-data `DataContext` assignment are validated before rendering the preview view.
 
-Design-data audit result: the current preview path does not set `DataContext` and has no design-data request field. The selected first boundary is a project-owned public parameterless design-data type, loaded from the built project assembly and assigned to the root preview control inside `AvaScope.PreviewHost`. JSON object injection, dependency injection, remote data, and long-lived design-data state are out of scope for the first implementation slice.
+Design-data boundary: AvaScope supports a project-owned public parameterless `designDataType`, loaded from the built project assembly and assigned to the root preview control inside `AvaScope.PreviewHost`. JSON object injection, dependency injection, remote data, and long-lived design-data state remain out of scope.
 
-Next slice: implement the project-owned `designDataType` preview contract.
+Next slice: audit App startup/lifecycle orchestration boundaries.
 
 ### Input Coverage
 
@@ -92,4 +92,4 @@ Next slice: CI can later add publish/upload artifacts, self-contained outputs, o
 
 ## Selected Next Slice
 
-Implement project-owned `designDataType` next. App-level resources, styles, includes, theme dictionaries, and culture variants are covered, and the audit selected root `DataContext` assignment inside the isolated PreviewHost child process as the smallest safe design-data boundary.
+Audit App startup/lifecycle orchestration next. App-level resources, styles, includes, theme dictionaries, culture variants, and project-owned design data are covered; the next gap is whether any safe subset of application startup or lifetime hooks should run during isolated previews.

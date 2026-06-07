@@ -23,6 +23,7 @@ public sealed class CliSmokeTests
 
         var projectPath = Path.Combine(testRoot, "CliPreviewSample.csproj");
         var viewPath = Path.Combine(testRoot, "MainView.axaml");
+        var designDataPath = Path.Combine(testRoot, "PreviewDesignData.cs");
         var outputPath = Path.Combine(testRoot, "preview.png");
 
         await File.WriteAllTextAsync(projectPath, """
@@ -39,6 +40,15 @@ public sealed class CliSmokeTests
                 <TextBlock Text="CLI preview smoke" />
               </Border>
             </UserControl>
+            """);
+
+        await File.WriteAllTextAsync(designDataPath, """
+            namespace CliPreviewSample;
+
+            public sealed class PreviewDesignData
+            {
+                public string Title { get; } = "CLI design data";
+            }
             """);
 
         try
@@ -58,7 +68,9 @@ public sealed class CliSmokeTests
                 "--theme",
                 "light",
                 "--culture",
-                "ja-JP");
+                "ja-JP",
+                "--design-data-type",
+                "CliPreviewSample.PreviewDesignData");
 
             Assert.Equal(0, result.ExitCode);
             Assert.True(string.IsNullOrWhiteSpace(result.StandardError), result.StandardError);
@@ -70,6 +82,7 @@ public sealed class CliSmokeTests
             Assert.Equal(220, payload.Value.PixelWidth);
             Assert.Equal(140, payload.Value.PixelHeight);
             Assert.Equal("ja-JP", payload.Value.Culture);
+            Assert.Equal("CliPreviewSample.PreviewDesignData", payload.Value.DesignDataType);
             Assert.True(File.Exists(payload.Value.FilePath));
             Assert.True(new FileInfo(payload.Value.FilePath).Length > 0);
         }

@@ -104,14 +104,20 @@ internal static class Program
             Directory.CreateDirectory(outputDirectory);
         }
 
+        var designData = CreateDesignData(fullProjectPath, request.DesignDataType);
         var projectStyles = LoadProjectApplicationResources(fullProjectPath);
+        var content = LoadContent(fullProjectPath, fullViewPath);
+        if (designData is not null)
+        {
+            content.DataContext = designData;
+        }
 
         var window = new Window
         {
             Width = request.Width,
             Height = request.Height,
             Background = Brushes.White,
-            Content = LoadContent(fullProjectPath, fullViewPath)
+            Content = content
         };
         foreach (var style in projectStyles)
         {
@@ -147,7 +153,8 @@ internal static class Program
             fullProjectPath,
             fullViewPath,
             request.ThemeVariant,
-            request.Culture));
+            request.Culture,
+            request.DesignDataType));
     }
 
     private static void ApplyCulture(string? cultureName)
@@ -303,6 +310,66 @@ internal static class Program
             designMode: true);
         return loaded as Control
             ?? throw new NotSupportedException("Preview view XAML must load to an Avalonia Control.");
+    }
+
+    private static object? CreateDesignData(string? fullProjectPath, string? designDataType)
+    {
+        if (designDataType is null)
+        {
+            return null;
+        }
+
+        if (fullProjectPath is null)
+        {
+            throw new ArgumentException("Design data type requires a project path.", nameof(designDataType));
+        }
+
+        var projectAssemblyPath = FindProjectAssemblyPath(fullProjectPath)
+            ?? throw new ArgumentException("Design data type requires a built project assembly.", nameof(designDataType));
+        var assembly = Assembly.LoadFrom(projectAssemblyPath);
+        var type = FindDesignDataType(assembly, designDataType);
+        if (type is null)
+        {
+            throw new ArgumentException($"Design data type '{designDataType}' was not found in the preview project assembly.", nameof(designDataType));
+        }
+
+        if (type.IsAbstract || type.IsInterface)
+        {
+            throw new ArgumentException($"Design data type '{designDataType}' must be concrete.", nameof(designDataType));
+        }
+
+        if (!type.IsPublic && !type.IsNestedPublic)
+        {
+            throw new ArgumentException($"Design data type '{designDataType}' must be public.", nameof(designDataType));
+        }
+
+        if (type.GetConstructor(Type.EmptyTypes) is null)
+        {
+            throw new ArgumentException($"Design data type '{designDataType}' must have a public parameterless constructor.", nameof(designDataType));
+        }
+
+        try
+        {
+            return Activator.CreateInstance(type);
+        }
+        catch (Exception exception) when (exception is TargetInvocationException or MemberAccessException)
+        {
+            throw new InvalidOperationException($"Design data type '{designDataType}' could not be constructed: {exception.Message}", exception);
+        }
+    }
+
+    private static Type? FindDesignDataType(Assembly assembly, string designDataType)
+    {
+        var fullNameMatch = assembly.GetType(designDataType, throwOnError: false, ignoreCase: false);
+        if (fullNameMatch is not null)
+        {
+            return fullNameMatch;
+        }
+
+        var simpleNameMatches = assembly.GetTypes()
+            .Where(type => string.Equals(type.Name, designDataType, StringComparison.Ordinal))
+            .ToArray();
+        return simpleNameMatches.Length == 1 ? simpleNameMatches[0] : null;
     }
 
     private static IReadOnlyList<IStyle> LoadProjectApplicationResources(string? fullProjectPath)

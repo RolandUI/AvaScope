@@ -14,7 +14,8 @@ public sealed record PreviewResponse
         string? projectPath = null,
         string? viewPath = null,
         string? themeVariant = null,
-        string? culture = null)
+        string? culture = null,
+        string? designDataType = null)
     {
         if (string.IsNullOrWhiteSpace(filePath))
         {
@@ -45,6 +46,7 @@ public sealed record PreviewResponse
         ViewPath = string.IsNullOrWhiteSpace(viewPath) ? null : viewPath;
         ThemeVariant = string.IsNullOrWhiteSpace(themeVariant) ? null : themeVariant;
         Culture = string.IsNullOrWhiteSpace(culture) ? null : culture;
+        DesignDataType = string.IsNullOrWhiteSpace(designDataType) ? null : designDataType;
     }
 
     [JsonPropertyName("filePath")]
@@ -77,4 +79,8 @@ public sealed record PreviewResponse
     [JsonPropertyName("culture")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Culture { get; }
+
+    [JsonPropertyName("designDataType")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? DesignDataType { get; }
 }

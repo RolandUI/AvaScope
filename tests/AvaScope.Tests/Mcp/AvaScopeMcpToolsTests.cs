@@ -357,8 +357,27 @@ public sealed class AvaScopeMcpToolsTests
         Directory.CreateDirectory(testRoot);
 
         var hostAssembly = Path.Combine(AppContext.BaseDirectory, "AvaScope.PreviewHost.dll");
+        var projectPath = Path.Combine(testRoot, "McpPreviewSample.csproj");
+        var designDataPath = Path.Combine(testRoot, "PreviewDesignData.cs");
         var viewPath = Path.Combine(testRoot, "McpPreview.axaml");
         var outputPath = Path.Combine(testRoot, "preview.png");
+
+        await File.WriteAllTextAsync(projectPath, """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+              </PropertyGroup>
+            </Project>
+            """);
+
+        await File.WriteAllTextAsync(designDataPath, """
+            namespace McpPreviewSample;
+
+            public sealed class PreviewDesignData
+            {
+                public string Title { get; } = "MCP design data";
+            }
+            """);
 
         await File.WriteAllTextAsync(viewPath, """
             <UserControl xmlns="https://github.com/avaloniaui">
@@ -378,15 +397,18 @@ public sealed class AvaScopeMcpToolsTests
                 width: 320,
                 height: 180,
                 dpi: 96,
+                projectPath: projectPath,
                 viewPath: viewPath,
                 themeVariant: "light",
-                culture: "ja-JP");
+                culture: "ja-JP",
+                designDataType: "McpPreviewSample.PreviewDesignData");
 
             Assert.True(result.Success, result.Error?.Message);
             Assert.Equal(Path.GetFullPath(outputPath), result.Value!.FilePath);
             Assert.Equal(320, result.Value.PixelWidth);
             Assert.Equal(180, result.Value.PixelHeight);
             Assert.Equal("ja-JP", result.Value.Culture);
+            Assert.Equal("McpPreviewSample.PreviewDesignData", result.Value.DesignDataType);
             Assert.True(File.Exists(result.Value.FilePath));
             Assert.True(new FileInfo(result.Value.FilePath).Length > 0);
         }

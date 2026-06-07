@@ -74,7 +74,7 @@ CI validation runs restore, Release build, Release test, local library pack, loc
 Build first, then run the CLI assembly from the build output:
 
 ```powershell
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll preview path\to\App.csproj --view Views\MainView.axaml --out .\preview.png --width 1440 --height 900 --dpi 96 --theme light --culture ja-JP
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll preview path\to\App.csproj --view Views\MainView.axaml --out .\preview.png --width 1440 --height 900 --dpi 96 --theme light --culture ja-JP --design-data-type MyApp.Design.PreviewData
 ```
 
 The command writes a structured JSON `ToolResult<PreviewResponse>` to stdout. On success, `value.filePath` points to the generated PNG.
@@ -184,7 +184,7 @@ Implemented tools:
 - `close_preview_session`
 - `reload`
 
-Planned but not implemented yet: runtime hot reload, keyboard key events, focus targeting, drag/drop, cross-platform executable artifacts, self-contained artifacts, and publishing automation.
+Planned but not implemented yet: runtime hot reload, drag/drop, full preview startup orchestration, self-contained artifacts, and publishing automation.
 
 `diagnostics` reports AvaScope service metadata, local bridge manifest/pipe health, stale or invalid bridge manifests, and preview host readiness without building or loading user projects.
 
@@ -220,6 +220,7 @@ Preview rendering is isolated in `AvaScope.PreviewHost`, launched as a child pro
 - loads compiled top-level `Application.Resources`, resource merged dictionaries, theme dictionaries, and direct or included `Application.Styles` from `App.axaml` when present;
 - falls back to standalone runtime `.axaml` loading;
 - applies requested theme and culture variants inside the isolated render process;
+- optionally instantiates a project-owned public parameterless design-data type and assigns it as the root control `DataContext`;
 - renders through headless Skia;
 - writes a PNG and structured JSON result.
 
@@ -231,7 +232,7 @@ Current preview limitations:
 
 - no hot reload or persistent live preview host process yet;
 - no full `App.axaml` orchestration yet; startup logic remains limited;
-- no design-data variants yet; the planned first boundary is a project-owned design-data type instantiated inside `AvaScope.PreviewHost`;
+- no JSON object injection, dependency injection, remote design data, or long-lived design-data state;
 - build output probing assumes the default `bin\Debug\<tfm>\<ProjectName>.dll` shape.
 
 ## Safety Boundaries

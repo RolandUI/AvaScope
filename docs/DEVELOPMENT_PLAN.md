@@ -23,15 +23,15 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `M43 Preview Design Data Type Slice`
+- `M44 Preview App Startup Boundary Audit Slice`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-07`
-- Goal: implement the first explicit project-owned design-data boundary.
+- Goal: define the next safe App startup/lifecycle preview boundary.
 
 ## Next Action
 
-Add a `designDataType` preview contract field, instantiate that project-owned type inside `AvaScope.PreviewHost`, assign it as the root control `DataContext`, and validate with a typed binding sample.
+Audit current App startup behavior in PreviewHost and decide whether a safe, testable subset of application startup or lifetime hooks should be added.
 
 ## Latest Validation
 
@@ -246,6 +246,13 @@ Add a `designDataType` preview contract field, instantiate that project-owned ty
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 165 tests after M41 preview culture contract.
 - `2026-06-07`: Markdown tracking/status reviewed after M42 design-data contract audit.
 - `2026-06-07`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after M42 design-data contract audit.
+- `2026-06-07`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after M43 design-data type implementation.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter Protocol` passed with 27 tests.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewCommandRendersAxamlThroughPreviewHostClient` passed with 1 test.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewAxamlRendersThroughPreviewHostClient` passed with 1 test.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewHostAppliesProjectDesignDataTypeAsRootDataContext` passed with 1 test.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewHostReturnsStructuredErrorWhenDesignDataTypeIsMissing` passed with 1 test.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 167 tests after M43 preview design-data type slice.
 
 ## Milestones
 
@@ -386,7 +393,7 @@ Add a `designDataType` preview contract field, instantiate that project-owned ty
 - Deliverables: preview host process, project/view selection, headless Skia rendering, basic variants.
 - Progress:
   - Done: `AvaScope.PreviewHost` console process entrypoint accepts a JSON `PreviewRequest` file and writes a structured `ToolResult<PreviewResponse>` to stdout.
-  - Done: `PreviewRequest` and `PreviewResponse` protocol DTOs cover output path, width, height, DPI, theme variant, culture, project path, and view path.
+  - Done: `PreviewRequest` and `PreviewResponse` protocol DTOs cover output path, width, height, DPI, theme variant, culture, design-data type, project path, and view path.
   - Done: headless Skia render smoke path loads a standalone `.axaml` control with the official Avalonia runtime XAML loader and writes a PNG file.
   - Done: process-level smoke test validates child process isolation, structured JSON output, PNG existence, dimensions, and non-empty output.
   - Done: project-aware `.csproj` validation resolves relative view paths from the project directory and returns absolute project/view paths in the response.
@@ -424,7 +431,7 @@ Add a `designDataType` preview contract field, instantiate that project-owned ty
 - Deliverables: CLI project, preview command, MCP server command handoff or documented invocation path.
 - Progress:
   - Done: `AvaScope.Cli` builds as `avascope`.
-  - Done: `avascope preview <project.csproj> --view <view.axaml> --out <preview.png> --width <w> --height <h> [--dpi <dpi>] [--theme light|dark] [--culture <culture>]` renders through `PreviewHostClient`.
+  - Done: `avascope preview <project.csproj> --view <view.axaml> --out <preview.png> --width <w> --height <h> [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>]` renders through `PreviewHostClient`.
   - Done: `avascope mcp` starts the MCP server assembly colocated with the CLI output.
   - Done: CLI invalid arguments return non-zero exit codes and structured JSON errors.
 - Acceptance Criteria:
@@ -1157,14 +1164,16 @@ Add a `designDataType` preview contract field, instantiate that project-owned ty
 
 ### M43 Preview Design Data Type Slice
 
-- Status: `In Progress`
+- Status: `Done`
 - Goal: implement the first explicit project-owned design-data boundary.
 - Deliverables: `designDataType` DTO field, CLI/MCP argument propagation, PreviewHost type instantiation and root `DataContext` assignment, typed-binding render test, README/tracking update.
 - Progress:
-  - Pending: add nullable transport-neutral `designDataType` fields to preview request/response contracts.
-  - Pending: propagate `designDataType` through CLI `preview`, MCP `preview_axaml`, and MCP `create_preview_session`.
-  - Pending: instantiate the named project type inside `AvaScope.PreviewHost` and assign it to the loaded root control `DataContext`.
-  - Pending: validate with a tiny project using typed bindings against the design-data type.
+  - Done: added nullable transport-neutral `designDataType` fields to preview request/response contracts.
+  - Done: propagated `designDataType` through CLI `preview`, MCP `preview_axaml`, and MCP `create_preview_session`.
+  - Done: instantiated the named project type inside `AvaScope.PreviewHost` and assigned it to the loaded root control `DataContext`.
+  - Done: validated with a tiny project using `x:DataType` and `{CompiledBinding}` against the design-data type.
+  - Done: added structured invalid design-data type diagnostics.
+  - Done: README and gap audit document support and remaining non-goals.
 - Acceptance Criteria:
   - Design data is available only for project-backed previews with a built project assembly.
   - The design-data type must be project-owned, concrete, and constructible with a public parameterless constructor.
@@ -1174,6 +1183,25 @@ Add a `designDataType` preview contract field, instantiate that project-owned ty
   - `dotnet build AvaScope.slnx`
   - targeted Protocol/CLI/MCP/PreviewHost tests
   - `dotnet test AvaScope.slnx --no-build`
+
+### M44 Preview App Startup Boundary Audit Slice
+
+- Status: `In Progress`
+- Goal: define the next safe App startup/lifecycle preview boundary.
+- Deliverables: audit of current `Application.Initialize()` and lifetime behavior, selected startup/lifecycle boundary or explicit deferral, acceptance criteria for first implementation slice, README/tracking update.
+- Progress:
+  - Pending: audit current PreviewHost app creation, resource merge, style transfer, and window construction order.
+  - Pending: identify which startup/lifetime hooks are safe to run in isolated preview without pretending to launch the real app.
+  - Pending: record the selected boundary and non-goals before code changes.
+- Acceptance Criteria:
+  - The plan documents whether startup/lifecycle orchestration will be implemented or deferred.
+  - The decision keeps user app startup effects isolated in `AvaScope.PreviewHost`.
+  - The next implementation slice has concrete tests and validation commands, or the gap is explicitly deferred.
+  - README/gap audit remain aligned with the selected boundary.
+- Validation:
+  - Markdown tracking/status review
+  - `dotnet build AvaScope.slnx`
+  - `git status --short`
 
 ## Decision Log
 
@@ -1278,6 +1306,8 @@ Add a `designDataType` preview contract field, instantiate that project-owned ty
 - `2026-06-07`: M42 starts with a design-data contract audit because generic design data can imply arbitrary user-code construction and should not be guessed without an explicit boundary.
 - `2026-06-07`: M42 selects project-owned public parameterless design-data type loading as the first design-data boundary; JSON object injection, dependency injection, remote data, and long-lived state stay out of scope.
 - `2026-06-07`: M43 will assign design data as the loaded root control `DataContext` inside the PreviewHost child process, keeping Core and MCP limited to transport-neutral metadata.
+- `2026-06-07`: M43 supports typed-binding design data by assigning a project-owned public parameterless type as root `DataContext`; JSON injection, DI, remote data, and persisted design-data objects remain out of scope.
+- `2026-06-07`: M44 starts with an App startup/lifecycle audit because running broader startup hooks can trigger user side effects and should be bounded before implementation.
 
 ## Change Log
 
@@ -1334,3 +1364,4 @@ Add a `designDataType` preview contract field, instantiate that project-owned ty
 - `2026-06-07`: Completed M40 preview style include scope with pixel-validated StyleInclude smoke coverage, README/gap updates, and full-suite validation; added M41 preview culture variant contract as the active focus.
 - `2026-06-07`: Completed M41 preview culture variant contract with protocol/CLI/MCP propagation, PreviewHost culture application, pixel-validated culture render coverage, README/gap updates, and full-suite validation; added M42 preview design data contract audit as the active focus.
 - `2026-06-07`: Completed M42 preview design data contract audit with project-owned design-data type boundary selection, non-goal documentation, README/gap updates, and build validation; added M43 preview design data type slice as the active focus.
+- `2026-06-07`: Completed M43 preview design data type slice with `designDataType` protocol/CLI/MCP propagation, PreviewHost root DataContext assignment, typed-binding render coverage, invalid type diagnostics, README/gap updates, and full-suite validation; added M44 preview App startup boundary audit as the active focus.

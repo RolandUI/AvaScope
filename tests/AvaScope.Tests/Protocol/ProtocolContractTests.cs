@@ -481,7 +481,8 @@ public sealed class ProtocolContractTests
             "C:\\apps\\Sample\\Sample.csproj",
             "Views\\MainView.axaml",
             "dark",
-            "ja-JP");
+            "ja-JP",
+            "Sample.PreviewDesignData");
 
         var json = JsonSerializer.Serialize(request);
         var node = JsonNode.Parse(json)!;
@@ -494,6 +495,7 @@ public sealed class ProtocolContractTests
         Assert.Equal("Views\\MainView.axaml", node["viewPath"]!.GetValue<string>());
         Assert.Equal("dark", node["themeVariant"]!.GetValue<string>());
         Assert.Equal("ja-JP", node["culture"]!.GetValue<string>());
+        Assert.Equal("Sample.PreviewDesignData", node["designDataType"]!.GetValue<string>());
     }
 
     [Fact]
@@ -509,7 +511,8 @@ public sealed class ProtocolContractTests
             "C:\\apps\\Sample\\Sample.csproj",
             "Views\\MainView.axaml",
             "light",
-            "ja-JP");
+            "ja-JP",
+            "Sample.PreviewDesignData");
 
         var json = JsonSerializer.Serialize(response);
         var node = JsonNode.Parse(json)!;
@@ -523,6 +526,7 @@ public sealed class ProtocolContractTests
         Assert.Equal("Views\\MainView.axaml", node["viewPath"]!.GetValue<string>());
         Assert.Equal("light", node["themeVariant"]!.GetValue<string>());
         Assert.Equal("ja-JP", node["culture"]!.GetValue<string>());
+        Assert.Equal("Sample.PreviewDesignData", node["designDataType"]!.GetValue<string>());
     }
 
     [Fact]
@@ -547,7 +551,8 @@ public sealed class ProtocolContractTests
                     "C:\\apps\\Sample\\Sample.csproj",
                     "Views\\MainView.axaml",
                     "light",
-                    "ja-JP"),
+                    "ja-JP",
+                    "Sample.PreviewDesignData"),
                 ToolResult<PreviewResponse>.Ok(new PreviewResponse(
                     "C:\\previews\\main.png",
                     1440,
@@ -557,7 +562,8 @@ public sealed class ProtocolContractTests
                     "C:\\apps\\Sample\\Sample.csproj",
                     "Views\\MainView.axaml",
                     "light",
-                    "ja-JP")),
+                    "ja-JP",
+                    "Sample.PreviewDesignData")),
                 updatedAt)
         ]);
 
@@ -571,9 +577,11 @@ public sealed class ProtocolContractTests
         Assert.Equal("C:\\previews\\main.png", session["request"]!["outputPath"]!.GetValue<string>());
         Assert.Equal("Views\\MainView.axaml", session["request"]!["viewPath"]!.GetValue<string>());
         Assert.Equal("ja-JP", session["request"]!["culture"]!.GetValue<string>());
+        Assert.Equal("Sample.PreviewDesignData", session["request"]!["designDataType"]!.GetValue<string>());
         Assert.True(session["lastRender"]!["success"]!.GetValue<bool>());
         Assert.Equal("C:\\previews\\main.png", session["lastRender"]!["value"]!["filePath"]!.GetValue<string>());
         Assert.Equal("ja-JP", session["lastRender"]!["value"]!["culture"]!.GetValue<string>());
+        Assert.Equal("Sample.PreviewDesignData", session["lastRender"]!["value"]!["designDataType"]!.GetValue<string>());
         Assert.Equal(updatedAt, DateTimeOffset.Parse(session["updatedAt"]!.GetValue<string>(), CultureInfo.InvariantCulture));
     }
 
