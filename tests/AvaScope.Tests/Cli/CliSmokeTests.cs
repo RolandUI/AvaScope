@@ -96,6 +96,74 @@ public sealed class CliSmokeTests
     }
 
     [Fact]
+    public async Task PreviewCommandResolvesRelativeProjectAndOutputPathsFromCallerWorkingDirectory()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var testRoot = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));
+        var sampleDirectory = Path.Combine(testRoot, "Sample");
+        var viewsDirectory = Path.Combine(sampleDirectory, "Views");
+        Directory.CreateDirectory(viewsDirectory);
+
+        var projectPath = Path.Combine(sampleDirectory, "RelativePreviewSample.csproj");
+        var viewPath = Path.Combine(viewsDirectory, "MainView.axaml");
+        var outputPath = Path.Combine(testRoot, "artifacts", "relative-preview.png");
+
+        await File.WriteAllTextAsync(projectPath, """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+              </PropertyGroup>
+            </Project>
+            """);
+
+        await File.WriteAllTextAsync(viewPath, """
+            <UserControl xmlns="https://github.com/avaloniaui">
+              <Border Background="#FFFFFFFF">
+                <TextBlock Text="Relative CLI preview smoke" />
+              </Border>
+            </UserControl>
+            """);
+
+        try
+        {
+            var result = await RunCliAsyncFromDirectory(
+                testRoot,
+                cliAssembly,
+                "preview",
+                Path.Combine("Sample", "RelativePreviewSample.csproj"),
+                "--view",
+                Path.Combine("Views", "MainView.axaml"),
+                "--out",
+                Path.Combine("artifacts", "relative-preview.png"),
+                "--width",
+                "220",
+                "--height",
+                "140");
+
+            Assert.Equal(0, result.ExitCode);
+            Assert.True(string.IsNullOrWhiteSpace(result.StandardError), result.StandardError);
+
+            var payload = JsonSerializer.Deserialize<ToolResult<PreviewResponse>>(result.StandardOutput, JsonOptions);
+            Assert.NotNull(payload);
+            Assert.True(payload.Success, payload.Error?.Message);
+            Assert.Equal(Path.GetFullPath(outputPath), payload.Value!.FilePath);
+            Assert.Equal(Path.GetFullPath(projectPath), payload.Value.ProjectPath);
+            Assert.Equal(Path.GetFullPath(viewPath), payload.Value.ViewPath);
+            Assert.True(File.Exists(payload.Value.FilePath));
+            Assert.True(new FileInfo(payload.Value.FilePath).Length > 0);
+        }
+        finally
+        {
+            if (Directory.Exists(testRoot))
+            {
+                Directory.Delete(testRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
     public async Task PreviewCommandReturnsStructuredErrorForInvalidArguments()
     {
         var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
@@ -1469,12 +1537,20 @@ public sealed class CliSmokeTests
 
     private static async Task<CliResult> RunCliAsync(string cliAssembly, params string[] arguments)
     {
+        return await RunCliAsyncFromDirectory(AppContext.BaseDirectory, cliAssembly, arguments);
+    }
+
+    private static async Task<CliResult> RunCliAsyncFromDirectory(
+        string workingDirectory,
+        string cliAssembly,
+        params string[] arguments)
+    {
         using var process = new Process
         {
             StartInfo = new ProcessStartInfo
             {
                 FileName = "dotnet",
-                WorkingDirectory = AppContext.BaseDirectory,
+                WorkingDirectory = workingDirectory,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 UseShellExecute = false

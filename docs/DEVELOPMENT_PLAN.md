@@ -23,15 +23,15 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `M46 Getting Started Sample Slice`
+- `M47 Public Alpha Release Validation Refresh`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-07`
-- Goal: make the first external-developer workflow runnable from a repository sample.
+- Goal: revalidate release artifacts after the sample and CLI workflow stabilization changes.
 
 ## Next Action
 
-Add a tiny Avalonia sample app plus getting-started documentation that validates preview rendering and opt-in local bridge activation.
+Run Release build/test/pack plus executable packaging and artifact verification, then update release-readiness tracking with the result.
 
 ## Latest Validation
 
@@ -261,6 +261,12 @@ Add a tiny Avalonia sample app plus getting-started documentation that validates
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewHostAppliesCompiledAppDataTemplatesBeforeProjectView` passed with 1 test.
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewHost` passed with 22 tests.
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 168 tests after M45 app-level data-template implementation.
+- `2026-06-07`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after adding `samples/AvaScope.GettingStartedApp`.
+- `2026-06-07`: Documented sample preview command passed and rendered `artifacts\samples\getting-started-preview.png` at 720x420.
+- `2026-06-07`: `git check-ignore -v artifacts\samples\getting-started-preview.png` confirmed the generated sample preview artifact is ignored.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewCommandResolvesRelativeProjectAndOutputPathsFromCallerWorkingDirectory` passed with 1 test.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli` passed with 75 tests after CLI preview path normalization.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 169 tests after M46 getting-started sample and CLI path normalization.
 
 ## Milestones
 
@@ -1236,14 +1242,17 @@ Add a tiny Avalonia sample app plus getting-started documentation that validates
 
 ### M46 Getting Started Sample Slice
 
-- Status: `In Progress`
+- Status: `Done`
 - Goal: make the first external-developer workflow runnable from a repository sample.
 - Deliverables: tiny Avalonia sample app, documented preview command, documented bridge activation/run command, validation notes.
 - Progress:
-  - Pending: inspect solution/sample conventions and choose the smallest sample layout.
-  - Pending: add a sample app that targets `net10.0`, Avalonia 12.x, and references the local AvaScope bridge.
-  - Pending: document the sample preview and runtime bridge workflow in README or a focused sample README.
-  - Pending: validate the documented preview path and solution build/test impact.
+  - Done: inspected solution/sample conventions and added a `/samples/` solution folder.
+  - Done: added `samples/AvaScope.GettingStartedApp`, targeting `net10.0`, Avalonia 12.0.4, and local `AvaScope.Bridge`.
+  - Done: added `App.axaml` resources/data templates, preview design data, a previewable `MainView`, and a runtime `MainWindow`.
+  - Done: gated sample bridge activation behind `AVASCOPE_SAMPLE_BRIDGE=1` or `true`.
+  - Done: documented sample preview and runtime bridge workflows in root README and sample README.
+  - Done: fixed CLI preview relative project/output path normalization discovered by the documented sample command.
+  - Done: validated the documented sample preview command, generated ignored PNG output, CLI regression test, and full suite.
 - Acceptance Criteria:
   - A new developer can run a documented command against the sample and receive a preview PNG.
   - The sample demonstrates explicit opt-in bridge activation without enabling remote inspection.
@@ -1254,6 +1263,28 @@ Add a tiny Avalonia sample app plus getting-started documentation that validates
   - documented sample preview command
   - targeted sample or CLI validation if applicable
   - `dotnet test AvaScope.slnx --no-build`
+
+### M47 Public Alpha Release Validation Refresh
+
+- Status: `In Progress`
+- Goal: revalidate release artifacts after the sample and CLI workflow stabilization changes.
+- Deliverables: Release build/test validation, local NuGet package validation, executable ZIP validation, artifact manifest verification, README/tracking update if release commands need adjustment.
+- Progress:
+  - Pending: run Release build for the expanded solution.
+  - Pending: run Release tests after the sample and CLI path normalization changes.
+  - Pending: run local package and executable artifact creation scripts.
+  - Pending: run artifact verification and inspect whether the sample changes affected package scope.
+- Acceptance Criteria:
+  - Release build succeeds for the full solution including the sample project.
+  - Release tests pass.
+  - Library packages and executable ZIP artifacts are created and verified.
+  - Sample app remains outside package artifacts unless explicitly intended.
+- Validation:
+  - `dotnet build AvaScope.slnx -c Release`
+  - `dotnet test AvaScope.slnx -c Release --no-build`
+  - `dotnet pack` for packable libraries
+  - `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\package-executables.ps1`
+  - `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\verify-artifacts.ps1`
 
 ## Decision Log
 
@@ -1364,6 +1395,10 @@ Add a tiny Avalonia sample app plus getting-started documentation that validates
 - `2026-06-07`: M45 targets app-level `DataTemplates` next because they improve preview parity through loaded `App.axaml` composition without invoking broader app startup side effects.
 - `2026-06-07`: M45 transfers project `Application.DataTemplates` into the preview `Window.DataTemplates` scope instead of the host application global scope, keeping templates limited to the single isolated render.
 - `2026-06-07`: M46 targets a getting-started sample because App.axaml preview parity now covers resources, styles, includes, theme dictionaries, culture, design data, and data templates, while external users still lack a runnable first workflow in the repository.
+- `2026-06-07`: M46 keeps the sample project `IsPackable=false` and under `/samples/` so solution builds validate it without changing public package contents.
+- `2026-06-07`: M46 gates sample bridge activation behind `AVASCOPE_SAMPLE_BRIDGE` so the sample demonstrates explicit opt-in local inspection rather than always enabling a bridge.
+- `2026-06-07`: CLI preview now normalizes project and output paths from the caller working directory before launching `AvaScope.PreviewHost`; view paths remain project-relative unless the user supplies an absolute path.
+- `2026-06-07`: M47 targets Release validation next because the expanded solution and CLI path change should be checked against public-alpha packaging workflows before more feature work.
 
 ## Change Log
 
@@ -1423,3 +1458,4 @@ Add a tiny Avalonia sample app plus getting-started documentation that validates
 - `2026-06-07`: Completed M43 preview design data type slice with `designDataType` protocol/CLI/MCP propagation, PreviewHost root DataContext assignment, typed-binding render coverage, invalid type diagnostics, README/gap updates, and full-suite validation; added M44 preview App startup boundary audit as the active focus.
 - `2026-06-07`: Completed M44 preview App startup boundary audit with explicit lifecycle-hook deferral, startup non-goals, official Avalonia lifetime source review, README/gap updates, and build validation; added M45 preview App DataTemplates scope as the active focus.
 - `2026-06-07`: Completed M45 preview App DataTemplates scope with preview-window data-template transfer, pixel-validated compiled App.axaml template coverage, README/gap updates, and full-suite validation; added M46 getting-started sample as the active focus.
+- `2026-06-07`: Completed M46 getting-started sample with `samples/AvaScope.GettingStartedApp`, documented preview/runtime bridge commands, CLI relative preview path normalization, ignored PNG validation, README/gap updates, and full-suite validation; added M47 public-alpha Release validation refresh as the active focus.

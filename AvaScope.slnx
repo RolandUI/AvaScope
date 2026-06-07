@@ -7,6 +7,9 @@
     <Project Path="src/AvaScope.PreviewHost/AvaScope.PreviewHost.csproj" />
     <Project Path="src/AvaScope.Protocol/AvaScope.Protocol.csproj" />
   </Folder>
+  <Folder Name="/samples/">
+    <Project Path="samples/AvaScope.GettingStartedApp/AvaScope.GettingStartedApp.csproj" />
+  </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/AvaScope.Tests/AvaScope.Tests.csproj" />
   </Folder>

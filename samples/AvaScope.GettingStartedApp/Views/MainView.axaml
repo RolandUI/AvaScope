@@ -1,0 +1,36 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="using:AvaScope.GettingStartedApp"
+             x:Class="AvaScope.GettingStartedApp.Views.MainView"
+             x:DataType="local:SamplePreviewData">
+  <Grid Background="{DynamicResource SampleWindowBrush}"
+        RowDefinitions="Auto,Auto,*"
+        RowSpacing="18"
+        Margin="24">
+    <StackPanel Spacing="6">
+      <TextBlock Text="{CompiledBinding Heading}"
+                 FontSize="28"
+                 FontWeight="SemiBold" />
+      <TextBlock Text="{CompiledBinding Summary}"
+                 TextWrapping="Wrap"
+                 Opacity="0.78" />
+    </StackPanel>
+
+    <ContentControl Grid.Row="1"
+                    Content="{CompiledBinding Status}" />
+
+    <Border Grid.Row="2"
+            BorderBrush="#33000000"
+            BorderThickness="1"
+            CornerRadius="6"
+            Padding="14">
+      <StackPanel Spacing="6">
+        <TextBlock Text="Preview command covers App.axaml resources and data templates."
+                   FontWeight="SemiBold" />
+        <TextBlock Text="Runtime bridge commands can list this window and capture screenshots after explicit activation."
+                   TextWrapping="Wrap"
+                   Opacity="0.72" />
+      </StackPanel>
+    </Border>
+  </Grid>
+</UserControl>

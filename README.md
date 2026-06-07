@@ -12,6 +12,7 @@ AvaScope is a generic Avalonia inspection, preview, and automation stack for age
 - Isolated preview host process for `.axaml` rendering.
 - MCP stdio server with structured tools.
 - `avascope` CLI with preview and MCP handoff commands.
+- Getting-started sample app for the first preview and bridge workflow.
 
 ## Project Layout
 
@@ -21,6 +22,7 @@ AvaScope is a generic Avalonia inspection, preview, and automation stack for age
 - `src/AvaScope.PreviewHost`: child process that builds/loads views and renders previews.
 - `src/AvaScope.Mcp`: stdio MCP adapter over Core.
 - `src/AvaScope.Cli`: local `avascope` command.
+- `samples/AvaScope.GettingStartedApp`: tiny Avalonia app for first preview and bridge workflows.
 - `tests/AvaScope.Tests`: protocol, core, MCP, bridge, preview host, and CLI tests.
 
 ## Build And Test
@@ -68,6 +70,33 @@ The executable package slice produces framework-dependent publish artifacts such
 The default executable package targets are `win-x64` and `linux-x64`. Pass `-RuntimeIdentifiers win-x64` or `-ExecutableRuntimeIdentifiers win-x64` to the package and verify scripts when validating a narrower local artifact set.
 
 CI validation runs restore, Release build, Release test, local library pack, local executable package, and artifact verification commands in GitHub Actions on pushes and pull requests. It does not publish packages or require secrets.
+
+## Getting Started Sample
+
+The repository includes a tiny Avalonia 12 sample app at `samples\AvaScope.GettingStartedApp`.
+
+Build AvaScope and render the sample preview:
+
+```powershell
+dotnet build AvaScope.slnx
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll preview .\samples\AvaScope.GettingStartedApp\AvaScope.GettingStartedApp.csproj --view Views\MainView.axaml --out .\artifacts\samples\getting-started-preview.png --width 720 --height 420 --theme light --design-data-type AvaScope.GettingStartedApp.SamplePreviewData
+```
+
+Run the sample with the opt-in local bridge enabled:
+
+```powershell
+$env:AVASCOPE_SAMPLE_BRIDGE = "1"
+dotnet run --project .\samples\AvaScope.GettingStartedApp\AvaScope.GettingStartedApp.csproj
+```
+
+In another terminal, inspect local bridge sessions and use the reported session id with runtime commands:
+
+```powershell
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll diagnostics --max-sessions 10
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll list-top-levels --session <session-id>
+```
+
+The bridge is not enabled unless `AVASCOPE_SAMPLE_BRIDGE` is set to `1` or `true`.
 
 ## CLI
 

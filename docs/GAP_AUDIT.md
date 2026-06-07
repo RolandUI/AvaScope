@@ -64,11 +64,13 @@ Next slice: move from preview parity to public-alpha onboarding with a getting-s
 
 ### Getting Started Sample
 
-Status: not started.
+Status: first slice complete.
 
-The README documents command shapes, but the repository does not yet include a small Avalonia app that an external developer can build, preview, run with the opt-in bridge, and inspect locally. This is a public-alpha adoption gap because it makes the first successful workflow depend on a user's own app structure.
+The repository now includes `samples/AvaScope.GettingStartedApp`, a small Avalonia 12 app that an external developer can build, preview, run with the opt-in bridge, and inspect locally. The sample is part of the solution build and is marked `IsPackable=false`.
 
-Next slice: add a tiny sample app plus focused getting-started documentation and validate the documented preview path.
+Completed slice: the documented CLI preview command renders `Views/MainView.axaml` to an ignored PNG artifact using project `App.axaml` resources/data templates and a public design-data type. The sample bridge is disabled unless `AVASCOPE_SAMPLE_BRIDGE` is set to `1` or `true`.
+
+Next slice: refresh Release build/test/pack validation after the sample and CLI path normalization changes.
 
 ### Input Coverage
 
@@ -102,4 +104,4 @@ Next slice: CI can later add publish/upload artifacts, self-contained outputs, o
 
 ## Selected Next Slice
 
-Add a getting-started sample next. Preview App startup hooks are explicitly deferred and App.axaml resources/styles/theme dictionaries/data templates now have coverage, so the highest-impact public-alpha gap is a runnable sample workflow for new users.
+Refresh public-alpha Release validation next. The repository now has a runnable getting-started sample, so the next risk is making sure the expanded solution still passes Release build/test/pack and artifact verification workflows.

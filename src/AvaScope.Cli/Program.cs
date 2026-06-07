@@ -104,6 +104,8 @@ internal static class Program
         PreviewRequest request;
         try
         {
+            projectPath = Path.GetFullPath(projectPath);
+            outputPath = Path.GetFullPath(outputPath);
             request = new PreviewRequest(
                 outputPath,
                 width,
@@ -115,7 +117,7 @@ internal static class Program
                 options.Values.GetValueOrDefault("culture"),
                 options.Values.GetValueOrDefault("design-data-type"));
         }
-        catch (Exception exception) when (exception is ArgumentException or ArgumentOutOfRangeException)
+        catch (Exception exception) when (exception is ArgumentException or ArgumentOutOfRangeException or PathTooLongException)
         {
             WriteFailure(CoreErrorCodes.InvalidPreviewRequest, exception.Message);
             return 2;
