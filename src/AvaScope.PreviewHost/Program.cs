@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.Reflection;
 using System.Text.Json;
 using Avalonia;
@@ -90,6 +91,7 @@ internal static class Program
         var fullOutputPath = Path.GetFullPath(request.OutputPath);
         var fullProjectPath = ResolveProjectPath(request.ProjectPath);
         var fullViewPath = ResolveViewPath(request.ViewPath, fullProjectPath);
+        ApplyCulture(request.Culture);
         var buildError = BuildProject(fullProjectPath);
         if (buildError is not null)
         {
@@ -144,7 +146,20 @@ internal static class Program
             DateTimeOffset.UtcNow,
             fullProjectPath,
             fullViewPath,
-            request.ThemeVariant));
+            request.ThemeVariant,
+            request.Culture));
+    }
+
+    private static void ApplyCulture(string? cultureName)
+    {
+        if (cultureName is null)
+        {
+            return;
+        }
+
+        var culture = CultureInfo.GetCultureInfo(cultureName);
+        CultureInfo.CurrentCulture = culture;
+        CultureInfo.CurrentUICulture = culture;
     }
 
     private static string? ResolveProjectPath(string? projectPath)

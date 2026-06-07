@@ -13,7 +13,8 @@ public sealed record PreviewResponse
         DateTimeOffset renderedAt,
         string? projectPath = null,
         string? viewPath = null,
-        string? themeVariant = null)
+        string? themeVariant = null,
+        string? culture = null)
     {
         if (string.IsNullOrWhiteSpace(filePath))
         {
@@ -43,6 +44,7 @@ public sealed record PreviewResponse
         ProjectPath = string.IsNullOrWhiteSpace(projectPath) ? null : projectPath;
         ViewPath = string.IsNullOrWhiteSpace(viewPath) ? null : viewPath;
         ThemeVariant = string.IsNullOrWhiteSpace(themeVariant) ? null : themeVariant;
+        Culture = string.IsNullOrWhiteSpace(culture) ? null : culture;
     }
 
     [JsonPropertyName("filePath")]
@@ -71,4 +73,8 @@ public sealed record PreviewResponse
     [JsonPropertyName("themeVariant")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? ThemeVariant { get; }
+
+    [JsonPropertyName("culture")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Culture { get; }
 }

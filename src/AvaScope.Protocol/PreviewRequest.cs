@@ -12,7 +12,8 @@ public sealed record PreviewRequest
         double dpi,
         string? projectPath = null,
         string? viewPath = null,
-        string? themeVariant = null)
+        string? themeVariant = null,
+        string? culture = null)
     {
         if (string.IsNullOrWhiteSpace(outputPath))
         {
@@ -41,6 +42,7 @@ public sealed record PreviewRequest
         ProjectPath = string.IsNullOrWhiteSpace(projectPath) ? null : projectPath;
         ViewPath = string.IsNullOrWhiteSpace(viewPath) ? null : viewPath;
         ThemeVariant = string.IsNullOrWhiteSpace(themeVariant) ? null : themeVariant;
+        Culture = string.IsNullOrWhiteSpace(culture) ? null : culture;
     }
 
     [JsonPropertyName("outputPath")]
@@ -66,4 +68,8 @@ public sealed record PreviewRequest
     [JsonPropertyName("themeVariant")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? ThemeVariant { get; }
+
+    [JsonPropertyName("culture")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Culture { get; }
 }

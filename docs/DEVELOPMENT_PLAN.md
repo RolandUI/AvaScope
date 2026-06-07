@@ -23,15 +23,15 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `M41 Preview Culture Variant Contract Slice`
+- `M42 Preview Design Data Contract Audit Slice`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-07`
-- Goal: add explicit culture selection to preview rendering.
+- Goal: define the next safe design-data preview boundary.
 
 ## Next Action
 
-Add a transport-neutral preview culture field, apply it inside the isolated preview host during render, and validate with a tiny culture-sensitive project.
+Audit current preview data-context/design-data gaps, choose the smallest safe contract, and update the plan before implementation.
 
 ## Latest Validation
 
@@ -238,6 +238,12 @@ Add a transport-neutral preview culture field, apply it inside the isolated prev
 - `2026-06-07`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after M40 app style include coverage.
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewHostSmokeTests` passed with 10 tests.
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 164 tests after M40 preview style include scope.
+- `2026-06-07`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after M41 preview culture contract.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter Protocol` passed with 27 tests.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewHostAppliesRequestedCultureBeforeProjectViewLoading` passed with 1 test.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewCommandRendersAxamlThroughPreviewHostClient` passed with 1 test.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewAxamlRendersThroughPreviewHostClient` passed with 1 test.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 165 tests after M41 preview culture contract.
 
 ## Milestones
 
@@ -378,7 +384,7 @@ Add a transport-neutral preview culture field, apply it inside the isolated prev
 - Deliverables: preview host process, project/view selection, headless Skia rendering, basic variants.
 - Progress:
   - Done: `AvaScope.PreviewHost` console process entrypoint accepts a JSON `PreviewRequest` file and writes a structured `ToolResult<PreviewResponse>` to stdout.
-  - Done: `PreviewRequest` and `PreviewResponse` protocol DTOs cover output path, width, height, DPI, theme variant, project path, and view path.
+  - Done: `PreviewRequest` and `PreviewResponse` protocol DTOs cover output path, width, height, DPI, theme variant, culture, project path, and view path.
   - Done: headless Skia render smoke path loads a standalone `.axaml` control with the official Avalonia runtime XAML loader and writes a PNG file.
   - Done: process-level smoke test validates child process isolation, structured JSON output, PNG existence, dimensions, and non-empty output.
   - Done: project-aware `.csproj` validation resolves relative view paths from the project directory and returns absolute project/view paths in the response.
@@ -386,7 +392,7 @@ Add a transport-neutral preview culture field, apply it inside the isolated prev
   - Done: built project assembly loading resolves compiled Avalonia resource XAML through `avares://` and validates a code-behind-backed `UserControl` smoke render.
 - Acceptance Criteria:
   - User application code runs outside the MCP server process.
-  - Preview supports width, height, DPI, and theme inputs.
+  - Preview supports width, height, DPI, theme, and culture inputs.
   - Render output is returned as a file path with structured diagnostics.
 - Validation:
   - preview smoke test against sample Avalonia 12 project
@@ -416,7 +422,7 @@ Add a transport-neutral preview culture field, apply it inside the isolated prev
 - Deliverables: CLI project, preview command, MCP server command handoff or documented invocation path.
 - Progress:
   - Done: `AvaScope.Cli` builds as `avascope`.
-  - Done: `avascope preview <project.csproj> --view <view.axaml> --out <preview.png> --width <w> --height <h> [--dpi <dpi>] [--theme light|dark]` renders through `PreviewHostClient`.
+  - Done: `avascope preview <project.csproj> --view <view.axaml> --out <preview.png> --width <w> --height <h> [--dpi <dpi>] [--theme light|dark] [--culture <culture>]` renders through `PreviewHostClient`.
   - Done: `avascope mcp` starts the MCP server assembly colocated with the CLI output.
   - Done: CLI invalid arguments return non-zero exit codes and structured JSON errors.
 - Acceptance Criteria:
@@ -1107,13 +1113,15 @@ Add a transport-neutral preview culture field, apply it inside the isolated prev
 
 ### M41 Preview Culture Variant Contract Slice
 
-- Status: `In Progress`
+- Status: `Done`
 - Goal: add explicit culture selection to preview rendering.
 - Deliverables: preview culture DTO field, CLI/MCP argument propagation, preview-host culture application, tiny culture-sensitive render test, README/tracking update.
 - Progress:
-  - Pending: add a nullable transport-neutral culture field to preview request/response contracts.
-  - Pending: apply the requested culture inside the isolated preview host render boundary.
-  - Pending: add validation proving culture-sensitive preview output changes as requested.
+  - Done: added nullable transport-neutral `culture` fields to preview request/response contracts.
+  - Done: propagated preview culture through CLI `preview`, MCP `preview_axaml`, and MCP `create_preview_session`.
+  - Done: applied requested culture inside the isolated preview host render boundary.
+  - Done: added protocol, CLI, MCP, and pixel-validated PreviewHost coverage proving culture-sensitive output changes as requested.
+  - Done: README and gap audit document culture variant support and remaining design-data limitations.
 - Acceptance Criteria:
   - Preview requests can specify a culture without coupling protocol contracts to Avalonia runtime types.
   - PreviewHost applies the culture only inside the child render process.
@@ -1123,6 +1131,25 @@ Add a transport-neutral preview culture field, apply it inside the isolated prev
   - `dotnet build AvaScope.slnx`
   - targeted Protocol/Core/MCP/CLI/PreviewHost tests as touched
   - `dotnet test AvaScope.slnx --no-build`
+
+### M42 Preview Design Data Contract Audit Slice
+
+- Status: `In Progress`
+- Goal: define the next safe design-data preview boundary.
+- Deliverables: design-data gap audit, smallest proposed contract, acceptance criteria for first implementation slice, README/tracking update.
+- Progress:
+  - Pending: audit current preview data-context and design-data behavior.
+  - Pending: decide whether the first design-data slice is explicit unsupported diagnostics, JSON data-context injection, or project-owned design-data loading.
+  - Pending: record the chosen implementation boundary before code changes.
+- Acceptance Criteria:
+  - The plan documents the selected design-data boundary and non-goals.
+  - The decision keeps user code execution isolated in `AvaScope.PreviewHost`.
+  - The next implementation slice has concrete tests and validation commands.
+  - README/gap audit remain aligned with the selected boundary.
+- Validation:
+  - Markdown tracking/status review
+  - `dotnet build AvaScope.slnx`
+  - `git status --short`
 
 ## Decision Log
 
@@ -1223,6 +1250,8 @@ Add a transport-neutral preview culture field, apply it inside the isolated prev
 - `2026-06-07`: M40 targets `StyleInclude` next because direct app styles, resource includes, and theme dictionaries are covered, while included app styles remain unverified.
 - `2026-06-07`: M40 records `StyleInclude` as a coverage slice because the existing project app style transfer already handles compiled style includes; no PreviewHost code change was required.
 - `2026-06-07`: M41 targets an explicit culture variant contract next because App.axaml resource/style parity is now covered enough to move to design-time preview variants.
+- `2026-06-07`: M41 keeps culture as a transport-neutral string in Protocol and applies it through `CultureInfo` only inside the isolated PreviewHost render process.
+- `2026-06-07`: M42 starts with a design-data contract audit because generic design data can imply arbitrary user-code construction and should not be guessed without an explicit boundary.
 
 ## Change Log
 
@@ -1277,3 +1306,4 @@ Add a transport-neutral preview culture field, apply it inside the isolated prev
 - `2026-06-07`: Completed M38 preview resource include scope with App.axaml merged resource dictionary transfer, pixel-validated ResourceInclude smoke coverage, README updates, and full-suite validation; added M39 preview theme dictionary variant scope as the active focus.
 - `2026-06-07`: Completed M39 preview theme dictionary variant scope with App.axaml theme dictionary transfer, pixel-validated light/dark theme resource smoke coverage, README/gap updates, and full-suite validation; added M40 preview style include scope as the active focus.
 - `2026-06-07`: Completed M40 preview style include scope with pixel-validated StyleInclude smoke coverage, README/gap updates, and full-suite validation; added M41 preview culture variant contract as the active focus.
+- `2026-06-07`: Completed M41 preview culture variant contract with protocol/CLI/MCP propagation, PreviewHost culture application, pixel-validated culture render coverage, README/gap updates, and full-suite validation; added M42 preview design data contract audit as the active focus.

@@ -56,7 +56,9 @@ public sealed class CliSmokeTests
                 "--height",
                 "140",
                 "--theme",
-                "light");
+                "light",
+                "--culture",
+                "ja-JP");
 
             Assert.Equal(0, result.ExitCode);
             Assert.True(string.IsNullOrWhiteSpace(result.StandardError), result.StandardError);
@@ -67,6 +69,7 @@ public sealed class CliSmokeTests
             Assert.Equal(Path.GetFullPath(outputPath), payload.Value!.FilePath);
             Assert.Equal(220, payload.Value.PixelWidth);
             Assert.Equal(140, payload.Value.PixelHeight);
+            Assert.Equal("ja-JP", payload.Value.Culture);
             Assert.True(File.Exists(payload.Value.FilePath));
             Assert.True(new FileInfo(payload.Value.FilePath).Length > 0);
         }

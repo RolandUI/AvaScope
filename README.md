@@ -74,7 +74,7 @@ CI validation runs restore, Release build, Release test, local library pack, loc
 Build first, then run the CLI assembly from the build output:
 
 ```powershell
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll preview path\to\App.csproj --view Views\MainView.axaml --out .\preview.png --width 1440 --height 900 --dpi 96 --theme light
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll preview path\to\App.csproj --view Views\MainView.axaml --out .\preview.png --width 1440 --height 900 --dpi 96 --theme light --culture ja-JP
 ```
 
 The command writes a structured JSON `ToolResult<PreviewResponse>` to stdout. On success, `value.filePath` points to the generated PNG.
@@ -219,6 +219,7 @@ Preview rendering is isolated in `AvaScope.PreviewHost`, launched as a child pro
 - loads compiled Avalonia resource XAML through `avares://` when possible;
 - loads compiled top-level `Application.Resources`, resource merged dictionaries, theme dictionaries, and direct or included `Application.Styles` from `App.axaml` when present;
 - falls back to standalone runtime `.axaml` loading;
+- applies requested theme and culture variants inside the isolated render process;
 - renders through headless Skia;
 - writes a PNG and structured JSON result.
 
@@ -230,7 +231,7 @@ Current preview limitations:
 
 - no hot reload or persistent live preview host process yet;
 - no full `App.axaml` orchestration yet; startup logic remains limited;
-- no culture/design-data variants yet;
+- no design-data variants yet;
 - build output probing assumes the default `bin\Debug\<tfm>\<ProjectName>.dll` shape.
 
 ## Safety Boundaries

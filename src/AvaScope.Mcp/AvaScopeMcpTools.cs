@@ -372,6 +372,7 @@ public sealed class AvaScopeMcpTools
         string? projectPath = null,
         string? viewPath = null,
         string? themeVariant = null,
+        string? culture = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(previewHostClient);
@@ -386,7 +387,8 @@ public sealed class AvaScopeMcpTools
                 dpi,
                 projectPath,
                 viewPath,
-                themeVariant);
+                themeVariant,
+                culture);
         }
         catch (Exception exception) when (exception is ArgumentException or ArgumentOutOfRangeException)
         {
@@ -416,6 +418,7 @@ public sealed class AvaScopeMcpTools
         string? projectPath = null,
         string? viewPath = null,
         string? themeVariant = null,
+        string? culture = null,
         string? displayName = null,
         CancellationToken cancellationToken = default)
     {
@@ -431,7 +434,8 @@ public sealed class AvaScopeMcpTools
                 dpi,
                 projectPath,
                 viewPath,
-                themeVariant);
+                themeVariant,
+                culture);
         }
         catch (Exception exception) when (exception is ArgumentException or ArgumentOutOfRangeException)
         {

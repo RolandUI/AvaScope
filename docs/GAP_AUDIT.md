@@ -50,13 +50,13 @@ Completed slice: runtime reload no longer falls through to a misleading preview 
 
 ### Preview Resource Scope
 
-Status: first app-resource, app-style, resource-include, theme-dictionary, and style-include slices complete; full design-time parity remains open.
+Status: first app-resource, app-style, resource-include, theme-dictionary, style-include, and culture-variant slices complete; full design-time parity remains open.
 
-PreviewHost can build a project, load a compiled view resource through `avares://`, copy top-level resource entries, merged resource dictionaries, and theme dictionaries from compiled project-root `App.axaml`, instantiate the project `Application` inside the isolated preview host process, and apply direct or included `Application.Styles` to the preview window style scope. Full `App.axaml` orchestration, culture variants, design data, and richer diagnostics are still limited.
+PreviewHost can build a project, load a compiled view resource through `avares://`, copy top-level resource entries, merged resource dictionaries, and theme dictionaries from compiled project-root `App.axaml`, instantiate the project `Application` inside the isolated preview host process, apply direct or included `Application.Styles` to the preview window style scope, and apply a requested culture inside the child render process. Full `App.axaml` orchestration, design data, and richer diagnostics are still limited.
 
-Completed slice: project-root compiled `App.axaml` top-level resources, merged resource dictionaries, theme dictionaries, direct app-level styles, and app-level `StyleInclude` entries are loaded before rendering the preview view.
+Completed slice: project-root compiled `App.axaml` top-level resources, merged resource dictionaries, theme dictionaries, direct app-level styles, app-level `StyleInclude` entries, and culture-sensitive view loading are validated before rendering the preview view.
 
-Next slice: add a small explicit culture variant contract for preview rendering.
+Next slice: audit a small explicit design-data contract for preview rendering.
 
 ### Input Coverage
 
@@ -90,4 +90,4 @@ Next slice: CI can later add publish/upload artifacts, self-contained outputs, o
 
 ## Selected Next Slice
 
-Add preview theme dictionary variant scope next. App-level resources, direct styles, and resource includes are covered, so the next vertical slice should validate light/dark theme dictionary behavior without claiming full design-time hot reload.
+Audit preview design-data scope next. App-level resources, styles, includes, theme dictionaries, and culture variants are covered, so the next vertical slice should define the smallest safe design-data boundary without loading arbitrary long-lived user state into MCP.

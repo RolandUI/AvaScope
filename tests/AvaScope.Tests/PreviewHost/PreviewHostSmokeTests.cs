@@ -853,6 +853,91 @@ public sealed class PreviewHostSmokeTests
     }
 
     [Fact]
+    public async Task PreviewHostAppliesRequestedCultureBeforeProjectViewLoading()
+    {
+        var hostAssembly = Path.Combine(AppContext.BaseDirectory, "AvaScope.PreviewHost.dll");
+        Assert.True(File.Exists(hostAssembly), $"Expected preview host assembly at {hostAssembly}.");
+
+        var testRoot = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(testRoot);
+
+        var projectPath = Path.Combine(testRoot, "CulturePreviewSample.csproj");
+        var viewPath = Path.Combine(testRoot, "CultureView.axaml");
+        var codeBehindPath = Path.Combine(testRoot, "CultureView.axaml.cs");
+        var requestPath = Path.Combine(testRoot, "request.json");
+        var outputPath = Path.Combine(testRoot, "preview.png");
+
+        await File.WriteAllTextAsync(projectPath, """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <Nullable>enable</Nullable>
+              </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="Avalonia" Version="12.0.4" />
+              </ItemGroup>
+            </Project>
+            """);
+
+        await File.WriteAllTextAsync(viewPath, """
+            <UserControl xmlns="https://github.com/avaloniaui"
+                         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                         x:Class="CulturePreviewSample.CultureView" />
+            """);
+
+        await File.WriteAllTextAsync(codeBehindPath, """
+            using System.Globalization;
+            using Avalonia.Controls;
+            using Avalonia.Media;
+
+            namespace CulturePreviewSample;
+
+            public partial class CultureView : UserControl
+            {
+                public CultureView()
+                {
+                    InitializeComponent();
+                    var color = CultureInfo.CurrentCulture.Name == "ja-JP"
+                        ? Color.FromArgb(0xFF, 0x0E, 0x7C, 0x7B)
+                        : Color.FromArgb(0xFF, 0xE4, 0x57, 0x2E);
+                    Content = new Border
+                    {
+                        Width = 220,
+                        Height = 140,
+                        Background = new SolidColorBrush(color)
+                    };
+                }
+            }
+            """);
+
+        var request = new PreviewRequest(
+            outputPath,
+            width: 220,
+            height: 140,
+            dpi: 96,
+            projectPath: projectPath,
+            viewPath: "CultureView.axaml",
+            themeVariant: "light",
+            culture: "ja-JP");
+
+        await File.WriteAllTextAsync(requestPath, JsonSerializer.Serialize(request, JsonOptions));
+
+        try
+        {
+            var result = await RunPreviewHostAsync(hostAssembly, requestPath, expectedExitCode: 0);
+
+            Assert.NotNull(result);
+            Assert.True(result.Success, result.Error?.Message);
+            Assert.Equal("ja-JP", result.Value!.Culture);
+            AssertCenterPixel(outputPath, red: 0x0E, green: 0x7C, blue: 0x7B);
+        }
+        finally
+        {
+            await DeleteDirectoryWithRetryAsync(testRoot);
+        }
+    }
+
+    [Fact]
     public async Task PreviewHostReturnsStructuredErrorWhenAppResourceRootIsNotApplication()
     {
         var hostAssembly = Path.Combine(AppContext.BaseDirectory, "AvaScope.PreviewHost.dll");

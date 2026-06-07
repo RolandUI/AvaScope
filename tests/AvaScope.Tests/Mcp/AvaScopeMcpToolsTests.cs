@@ -379,12 +379,14 @@ public sealed class AvaScopeMcpToolsTests
                 height: 180,
                 dpi: 96,
                 viewPath: viewPath,
-                themeVariant: "light");
+                themeVariant: "light",
+                culture: "ja-JP");
 
             Assert.True(result.Success, result.Error?.Message);
             Assert.Equal(Path.GetFullPath(outputPath), result.Value!.FilePath);
             Assert.Equal(320, result.Value.PixelWidth);
             Assert.Equal(180, result.Value.PixelHeight);
+            Assert.Equal("ja-JP", result.Value.Culture);
             Assert.True(File.Exists(result.Value.FilePath));
             Assert.True(new FileInfo(result.Value.FilePath).Length > 0);
         }
