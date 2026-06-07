@@ -37,7 +37,8 @@ internal sealed class LocalBridgeServer : IDisposable
             Environment.ProcessId,
             pipeName,
             runtime.Session.CreatedAt,
-            runtime.Session.DisplayName);
+            runtime.Session.DisplayName,
+            ToProtocolTransportScope(runtime.TransportScope));
 
         Directory.CreateDirectory(Path.GetDirectoryName(manifestPath)!);
         File.WriteAllText(manifestPath, JsonSerializer.Serialize(manifest), Encoding.UTF8);
@@ -137,7 +138,16 @@ internal sealed class LocalBridgeServer : IDisposable
             PipeDirection.InOut,
             4,
             PipeTransmissionMode.Byte,
-            PipeOptions.Asynchronous);
+            PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
+    }
+
+    private static string ToProtocolTransportScope(BridgeTransportScope transportScope)
+    {
+        return transportScope switch
+        {
+            BridgeTransportScope.LocalOnly => BridgeTransportScopes.LocalOnly,
+            _ => throw new ArgumentOutOfRangeException(nameof(transportScope), transportScope, "Unknown bridge transport scope.")
+        };
     }
 
     private async Task HandleConnectionAsync(NamedPipeServerStream pipe, CancellationToken cancellationToken)

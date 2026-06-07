@@ -249,8 +249,28 @@ public sealed class ProtocolContractTests
         Assert.Equal("session-1", node["sessionId"]!.GetValue<string>());
         Assert.Equal(1234, node["processId"]!.GetValue<int>());
         Assert.Equal("avascope-1234-session-1", node["pipeName"]!.GetValue<string>());
+        Assert.Equal(BridgeTransportScopes.LocalOnly, node["transportScope"]!.GetValue<string>());
         Assert.Equal("Sample app", node["displayName"]!.GetValue<string>());
         Assert.Equal(createdAt, DateTimeOffset.Parse(node["createdAt"]!.GetValue<string>(), CultureInfo.InvariantCulture));
+    }
+
+    [Fact]
+    public void BridgeSessionManifestDefaultsMissingTransportScopeToLocalOnly()
+    {
+        var json = """
+            {
+              "sessionId": "session-1",
+              "processId": 1234,
+              "pipeName": "avascope-1234-session-1",
+              "createdAt": "2026-06-06T22:00:00+00:00",
+              "displayName": "Legacy app"
+            }
+            """;
+
+        var manifest = JsonSerializer.Deserialize<BridgeSessionManifest>(json);
+
+        Assert.NotNull(manifest);
+        Assert.Equal(BridgeTransportScopes.LocalOnly, manifest.TransportScope);
     }
 
     [Fact]

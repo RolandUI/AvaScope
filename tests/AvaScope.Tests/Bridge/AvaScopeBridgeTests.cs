@@ -58,6 +58,7 @@ public sealed class AvaScopeBridgeTests : IDisposable
         Assert.Equal(runtime.SessionId, manifest.SessionId);
         Assert.Equal(Environment.ProcessId, manifest.ProcessId);
         Assert.Equal(runtime.LocalPipeName, manifest.PipeName);
+        Assert.Equal(BridgeTransportScopes.LocalOnly, manifest.TransportScope);
         Assert.Equal("Sample app", manifest.DisplayName);
 
         var manifestPath = runtime.SessionManifestPath;

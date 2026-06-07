@@ -13,7 +13,8 @@ public sealed record BridgeSessionManifest
         int processId,
         string pipeName,
         DateTimeOffset createdAt,
-        string? displayName = null)
+        string? displayName = null,
+        string? transportScope = null)
     {
         SessionId = sessionId ?? throw new ArgumentNullException(nameof(sessionId));
 
@@ -31,6 +32,16 @@ public sealed record BridgeSessionManifest
         PipeName = pipeName;
         CreatedAt = createdAt;
         DisplayName = displayName;
+        TransportScope = string.IsNullOrWhiteSpace(transportScope)
+            ? BridgeTransportScopes.LocalOnly
+            : transportScope;
+
+        if (!string.Equals(TransportScope, BridgeTransportScopes.LocalOnly, StringComparison.Ordinal))
+        {
+            throw new ArgumentException(
+                $"Bridge transport scope '{TransportScope}' is not supported.",
+                nameof(transportScope));
+        }
     }
 
     [JsonPropertyName("sessionId")]
@@ -48,6 +59,9 @@ public sealed record BridgeSessionManifest
     [JsonPropertyName("displayName")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? DisplayName { get; }
+
+    [JsonPropertyName("transportScope")]
+    public string TransportScope { get; }
 
     public static string GetDefaultDirectory()
     {

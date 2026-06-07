@@ -15,6 +15,8 @@ $env:AVASCOPE_SAMPLE_BRIDGE = "1"
 dotnet run --project .\samples\AvaScope.GettingStartedApp\AvaScope.GettingStartedApp.csproj
 ```
 
+The sample bridge is disabled by default. When enabled, it writes a local-only session manifest and serves AvaScope requests through a current-user local named pipe; it does not open a network listener.
+
 In another terminal, inspect active local bridge sessions:
 
 ```powershell

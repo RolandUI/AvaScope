@@ -232,6 +232,14 @@ using var registration = runtime.RegisterTopLevel(window);
 
 The bridge currently uses local session manifests and local named pipes. It does not expose unauthenticated remote inspection.
 
+Runtime safety boundary:
+
+- The bridge is inactive until the host app calls `AvaScopeBridge.Activate(...)`.
+- Session manifests are local discovery metadata and include `transportScope: "local_only"`.
+- Bridge IPC uses local named pipes; the server is created with current-user-only pipe access where the platform supports it.
+- CLI and MCP runtime commands only attach to active local manifests and do not open network listeners.
+- Runtime control remains intentionally narrow and non-destructive for public alpha.
+
 Runtime input support is intentionally narrow:
 
 - `pointer_move` raises a routed Avalonia `PointerMovedEvent` on the hit-tested input target.

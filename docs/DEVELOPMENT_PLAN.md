@@ -23,15 +23,15 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `M49 Runtime Safety Boundary Audit Slice`
+- `M50 Public Alpha Completion Audit Slice`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-07`
-- Goal: harden and document public-alpha runtime bridge safety boundaries.
+- Goal: verify whether the repository satisfies the full public-alpha objective.
 
 ## Next Action
 
-Audit bridge activation, local transport, and runtime control defaults; add missing tests or documentation for any safety gap found.
+Audit the full objective requirement by requirement against current code, docs, tests, packages, sample workflow, and git state; fix or track any remaining gap before marking the goal complete.
 
 ## Latest Validation
 
@@ -280,6 +280,9 @@ Audit bridge activation, local transport, and runtime control defaults; add miss
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewHostReturnsStructuredErrorWhenProjectBuildFails` passed with 1 test.
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewCommandPreservesPreviewFailureDetails` passed with 1 test.
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 171 tests after M48 preview failure diagnostics details.
+- `2026-06-07`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after M49 runtime safety boundary implementation.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter "FullyQualifiedName~BridgeSessionManifest|FullyQualifiedName~ActivateCreatesAndDeactivateRemovesLocalSessionManifest|FullyQualifiedName~LocalPipeServerRespondsToHealthRequest|FullyQualifiedName~DiagnosticsReportsInvalidAndStaleManifestsWithoutThrowing"` passed with 5 tests.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 172 tests after M49 runtime safety boundary implementation.
 
 ## Milestones
 
@@ -1325,14 +1328,16 @@ Audit bridge activation, local transport, and runtime control defaults; add miss
 
 ### M49 Runtime Safety Boundary Audit Slice
 
-- Status: `In Progress`
+- Status: `Done`
 - Goal: harden and document public-alpha runtime bridge safety boundaries.
 - Deliverables: bridge activation/local transport audit, missing safety tests or docs, explicit non-goals for runtime control, tracking update.
 - Progress:
-  - Pending: inspect bridge activation defaults, local manifest creation, named-pipe transport, and CLI/MCP runtime control surfaces.
-  - Pending: verify local-only behavior is enforced by implementation, tests, and documentation.
-  - Pending: add missing tests or documentation for any safety gap found.
-  - Pending: validate build/tests and update public-alpha gap audit.
+  - Done: inspected bridge activation defaults, local manifest creation, named-pipe transport, and CLI/MCP runtime control surfaces.
+  - Done: added explicit `transportScope: "local_only"` to bridge session manifests with backward-compatible missing-scope deserialization.
+  - Done: created local named-pipe servers with `PipeOptions.CurrentUserOnly` in addition to asynchronous byte-mode operation.
+  - Done: treated unsupported transport scopes as invalid manifests in diagnostics instead of attachable sessions.
+  - Done: documented opt-in activation, local-only manifests, current-user named pipe access, no network listeners, and narrow runtime control in README/sample README.
+  - Done: validated protocol, bridge, core diagnostics, and full suite.
 - Acceptance Criteria:
   - Bridge remains opt-in and local-only by default.
   - Runtime input/control limitations are documented in public docs.
@@ -1342,6 +1347,29 @@ Audit bridge activation, local transport, and runtime control defaults; add miss
   - `dotnet build AvaScope.slnx`
   - focused Bridge/Core/CLI safety tests if code changes are needed
   - `dotnet test AvaScope.slnx --no-build`
+
+### M50 Public Alpha Completion Audit Slice
+
+- Status: `In Progress`
+- Goal: verify whether the repository satisfies the full public-alpha objective.
+- Deliverables: requirement-by-requirement completion audit, final gap fixes or explicit deferrals, final build/test/pack validation, clean committed worktree.
+- Progress:
+  - Pending: derive public-alpha requirements from the active goal, README, development plan, and gap audit.
+  - Pending: inspect authoritative evidence for each requirement: code, tests, docs, release artifacts, sample output, and git state.
+  - Pending: fix any remaining gap that blocks the public-alpha objective, or record a scoped deferral if it is not public-alpha blocking.
+  - Pending: run final validation commands and update tracking.
+- Acceptance Criteria:
+  - Every explicit public-alpha requirement has current evidence or a tracked non-blocking deferral.
+  - Final validation includes build, test, release pack/executable verification, and getting-started sample preview smoke.
+  - `docs/DEVELOPMENT_PLAN.md` and `docs/GAP_AUDIT.md` reflect the final status.
+  - Worktree is clean after commit.
+- Validation:
+  - `dotnet build AvaScope.slnx`
+  - `dotnet test AvaScope.slnx --no-build`
+  - `dotnet build AvaScope.slnx -c Release`
+  - `dotnet test AvaScope.slnx -c Release --no-build`
+  - release pack/executable verify commands
+  - documented sample preview command
 
 ## Decision Log
 
@@ -1461,6 +1489,9 @@ Audit bridge activation, local transport, and runtime control defaults; add miss
 - `2026-06-07`: M48 uses optional `ProtocolError.details` and `CoreError.Details` rather than changing success/failure result envelopes; preview clients can ignore details and still parse the same `code/message` shape.
 - `2026-06-07`: M48 keeps build logs bounded by using the existing trimmed output tail for `error.details.outputTail`; unbounded build logs remain out of the protocol.
 - `2026-06-07`: M49 targets runtime safety boundaries next because public-alpha bridge control should be re-audited after preview diagnostics and release validation work.
+- `2026-06-07`: M49 records bridge transport scope in session manifests as `local_only`; unsupported manifest scopes are invalid discovery records, not attachable sessions.
+- `2026-06-07`: M49 uses `PipeOptions.CurrentUserOnly` for local bridge named-pipe servers where supported by .NET, keeping runtime IPC scoped to the current local user rather than relying only on manifest obscurity.
+- `2026-06-07`: M50 is the completion gate for the thread goal; do not mark the goal complete until the audit proves every public-alpha requirement with current evidence.
 
 ## Change Log
 
@@ -1523,3 +1554,4 @@ Audit bridge activation, local transport, and runtime control defaults; add miss
 - `2026-06-07`: Completed M46 getting-started sample with `samples/AvaScope.GettingStartedApp`, documented preview/runtime bridge commands, CLI relative preview path normalization, ignored PNG validation, README/gap updates, and full-suite validation; added M47 public-alpha Release validation refresh as the active focus.
 - `2026-06-07`: Completed M47 public-alpha Release validation refresh with Release build/test, library pack, executable ZIP packaging, artifact manifest verification, packaged CLI sample preview smoke, gap/tracking updates, and sample exclusion from release artifacts; added M48 preview failure diagnostics detail as the active focus.
 - `2026-06-07`: Completed M48 preview failure diagnostics detail with bounded `error.details` for preview build/render failures, Core/CLI/MCP/session details preservation, protocol/PreviewHost/CLI tests, README/gap updates, and full-suite validation; added M49 runtime safety boundary audit as the active focus.
+- `2026-06-07`: Completed M49 runtime safety boundary audit with explicit local-only manifest scope, current-user local pipe server option, unsupported transport manifest diagnostics, README/sample README safety documentation, focused tests, and full-suite validation; added M50 public-alpha completion audit as the active focus.

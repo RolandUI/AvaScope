@@ -14,6 +14,14 @@ Status: first slice complete.
 
 Completed slice: bridge IPC now returns a structured close response, removes the local manifest, and shuts down the bridge server after the response is flushed.
 
+### Runtime Safety Boundary
+
+Status: public-alpha safety boundary slice complete.
+
+Runtime bridge activation remains explicit and opt-in through `AvaScopeBridge.Activate(...)`. Active bridge manifests now include `transportScope: "local_only"` so discovery metadata records the intended boundary directly. The bridge IPC server uses local named pipes with current-user-only pipe access where the platform supports it, and unsupported manifest transport scopes are treated as invalid diagnostics rather than attachable sessions.
+
+Completed slice: protocol, bridge, and core diagnostics tests cover local-only manifest scope, legacy manifest compatibility, current local pipe health, and invalid unsupported transport manifests. README and sample README document that the bridge does not open network listeners and that runtime control remains narrow for public alpha.
+
 ### Diagnostics Tool
 
 Status: first bridge diagnostics slice and preview failure details slice complete; richer binding/layout/resource diagnostics remain open.
@@ -110,4 +118,4 @@ Next slice: CI can later add publish/upload artifacts, self-contained outputs, o
 
 ## Selected Next Slice
 
-Audit runtime safety boundaries next. Preview failure details now preserve bounded structured context, so the next public-alpha risk is ensuring bridge activation, local transport, and remote-control limitations are documented and covered tightly enough.
+Run a public-alpha completion audit next. Runtime safety boundaries now have explicit manifest scope, current-user local pipe hardening, tests, and documentation, so the next step is to verify the whole objective requirement by requirement against current evidence.

@@ -194,8 +194,21 @@ public sealed class LocalBridgeClientTests : IDisposable
 
         var staleManifestPath = Path.Combine(_manifestDirectory, "stale.json");
         var invalidManifestPath = Path.Combine(_manifestDirectory, "invalid.json");
+        var unsupportedTransportManifestPath = Path.Combine(_manifestDirectory, "unsupported-transport.json");
         File.WriteAllText(staleManifestPath, JsonSerializer.Serialize(staleManifest), Encoding.UTF8);
         File.WriteAllText(invalidManifestPath, "{", Encoding.UTF8);
+        File.WriteAllText(
+            unsupportedTransportManifestPath,
+            $$"""
+            {
+              "sessionId": "session-unsupported-transport",
+              "processId": {{Environment.ProcessId}},
+              "pipeName": "avascope-unsupported-transport",
+              "createdAt": "2026-06-07T03:30:00+00:00",
+              "transportScope": "remote"
+            }
+            """,
+            Encoding.UTF8);
 
         var client = new LocalBridgeClient(_manifestDirectory, TimeSpan.FromMilliseconds(100));
 
@@ -221,6 +234,14 @@ public sealed class LocalBridgeClientTests : IDisposable
                 Assert.Equal(Path.GetFullPath(invalidManifestPath), invalid.ManifestPath);
                 Assert.Null(invalid.Session);
                 Assert.Equal(CoreErrorCodes.BridgeManifestInvalid, invalid.Error!.Code);
+            },
+            unsupportedTransport =>
+            {
+                Assert.Equal(DiagnosticStatuses.Invalid, unsupportedTransport.Status);
+                Assert.Equal(Path.GetFullPath(unsupportedTransportManifestPath), unsupportedTransport.ManifestPath);
+                Assert.Null(unsupportedTransport.Session);
+                Assert.Equal(CoreErrorCodes.BridgeManifestInvalid, unsupportedTransport.Error!.Code);
+                Assert.Contains("transport scope", unsupportedTransport.Error.Message, StringComparison.OrdinalIgnoreCase);
             });
     }
 
