@@ -83,7 +83,12 @@ public sealed class ProtocolContractTests
             ],
             [
                 new ProtocolError("bridge_session_not_found", "No bridge session matched.")
-            ]);
+            ],
+            new PreviewHostDiagnostic(
+                DiagnosticStatuses.Available,
+                "C:\\avascope\\AvaScope.PreviewHost.dll",
+                DiagnosticProcessModes.IsolatedChildProcess,
+                HealthResponse.Current()));
 
         var json = JsonSerializer.Serialize(response);
         var node = JsonNode.Parse(json)!;
@@ -99,6 +104,10 @@ public sealed class ProtocolContractTests
         Assert.Equal(DiagnosticTransportKinds.NamedPipe, node["bridgeSessions"]![0]!["transport"]!.GetValue<string>());
         Assert.Equal("avascope-1234-session-1", node["bridgeSessions"]![0]!["pipeName"]!.GetValue<string>());
         Assert.Equal("avascope", node["bridgeSessions"]![0]!["health"]!["serviceName"]!.GetValue<string>());
+        Assert.Equal(DiagnosticStatuses.Available, node["previewHost"]!["status"]!.GetValue<string>());
+        Assert.Equal("C:\\avascope\\AvaScope.PreviewHost.dll", node["previewHost"]!["hostAssemblyPath"]!.GetValue<string>());
+        Assert.Equal(DiagnosticProcessModes.IsolatedChildProcess, node["previewHost"]!["processMode"]!.GetValue<string>());
+        Assert.Equal("avascope", node["previewHost"]!["service"]!["serviceName"]!.GetValue<string>());
         Assert.Equal("bridge_session_not_found", node["issues"]![0]!["code"]!.GetValue<string>());
     }
 

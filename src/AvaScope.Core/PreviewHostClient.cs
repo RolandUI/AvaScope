@@ -24,6 +24,27 @@ public sealed class PreviewHostClient
 
     public string HostAssemblyPath { get; }
 
+    public PreviewHostDiagnostic GetDiagnostics()
+    {
+        var fullHostAssemblyPath = Path.GetFullPath(HostAssemblyPath);
+        if (!File.Exists(fullHostAssemblyPath))
+        {
+            return new PreviewHostDiagnostic(
+                DiagnosticStatuses.Unavailable,
+                fullHostAssemblyPath,
+                DiagnosticProcessModes.IsolatedChildProcess,
+                error: new ProtocolError(
+                    CoreErrorCodes.PreviewHostUnavailable,
+                    $"Preview host assembly '{fullHostAssemblyPath}' was not found."));
+        }
+
+        return new PreviewHostDiagnostic(
+            DiagnosticStatuses.Available,
+            fullHostAssemblyPath,
+            DiagnosticProcessModes.IsolatedChildProcess,
+            HealthResponse.Current());
+    }
+
     public async Task<CoreResult<PreviewResponse>> RenderAsync(
         PreviewRequest request,
         CancellationToken cancellationToken = default)

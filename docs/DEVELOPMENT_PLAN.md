@@ -23,15 +23,15 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `M15 Preview Diagnostics Expansion`
+- `M16 Preview Reload Foundation`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-07`
-- Goal: expand diagnostics beyond bridge state to include preview host readiness and recent preview failure surfaces.
+- Goal: introduce the smallest persistent preview-session foundation needed for future reload support.
 
 ## Next Action
 
-Add preview-host diagnostics to the existing diagnostics surface: host assembly path/existence, protocol version, isolated process capability, and structured readiness errors without loading user project code.
+Design and implement a minimal transport-neutral preview session model that can create/list/close preview sessions without hot reload yet, so `reload` can be added as a vertical slice instead of a broad rewrite.
 
 ## Latest Validation
 
@@ -121,6 +121,12 @@ Add preview-host diagnostics to the existing diagnostics surface: host assembly 
 - `2026-06-07`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after M14 preview App.axaml resource loading.
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewHost` passed with 10 tests.
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 81 tests.
+- `2026-06-07`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after M15 preview diagnostics expansion and build-server isolation hardening.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter Protocol` passed with 22 tests.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter Core` passed with 25 tests.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter Mcp` passed with 21 tests.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewHost` passed with 13 tests.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 84 tests.
 
 ## Milestones
 
@@ -393,18 +399,42 @@ Add preview-host diagnostics to the existing diagnostics surface: host assembly 
 
 ### M15 Preview Diagnostics Expansion
 
-- Status: `In Progress`
+- Status: `Done`
 - Goal: report preview-host readiness in the existing diagnostics tool without launching user project code.
 - Deliverables: preview host diagnostic DTO, Core diagnostics population, MCP diagnostics coverage, tests.
 - Progress:
-  - Pending: define preview host diagnostic shape without coupling to MCP internals.
-  - Pending: report host assembly path, existence, service/protocol version, isolation mode, and readiness status.
-  - Pending: preserve current bridge diagnostics behavior and add tests for missing-host and available-host cases.
+  - Done: protocol `PreviewHostDiagnostic` and process-mode constants cover preview host status, host assembly path, isolated child-process mode, service metadata, and structured errors.
+  - Done: `PreviewHostClient.GetDiagnostics()` reports available and missing host states without launching the host or loading user projects.
+  - Done: `DiagnosticsResponse` includes optional preview-host readiness alongside existing bridge diagnostics.
+  - Done: MCP `diagnostics` composes `LocalBridgeClient` and `PreviewHostClient` while remaining a thin Core adapter.
+  - Done: PreviewHost project builds now pass `--disable-build-servers` to reduce stale temp-project file locks in repeated smoke runs.
+  - Done: tests cover protocol serialization, Core available/missing host readiness, aggregated diagnostics response, MCP diagnostics output, and full-suite stability.
 - Acceptance Criteria:
   - Diagnostics can tell an agent whether the preview host executable is present before a preview request.
   - Preview diagnostics do not build or load user projects.
   - The existing `diagnostics` MCP tool remains a thin adapter over Core.
   - Missing preview host state is returned as structured diagnostic data.
+- Validation:
+  - `dotnet build AvaScope.slnx`
+  - `dotnet test AvaScope.slnx --no-build --filter Protocol`
+  - `dotnet test AvaScope.slnx --no-build --filter Core`
+  - `dotnet test AvaScope.slnx --no-build --filter Mcp`
+  - `dotnet test AvaScope.slnx --no-build`
+
+### M16 Preview Reload Foundation
+
+- Status: `In Progress`
+- Goal: create the minimal persistent preview-session model required before implementing `reload`.
+- Deliverables: preview session DTOs, Core preview session registry flow, MCP list/close integration for preview sessions where applicable, tests.
+- Progress:
+  - Pending: define what a preview session means without keeping user code loaded in MCP.
+  - Pending: add transport-neutral preview session metadata for request, output, created time, and last render result.
+  - Pending: expose create/list/close preview session behavior before adding actual reload.
+- Acceptance Criteria:
+  - Preview session state remains outside MCP-specific tool schemas.
+  - User project code still only runs in `AvaScope.PreviewHost`.
+  - The first foundation slice does not claim hot reload until a reload command is implemented and validated.
+  - Existing one-shot `preview_axaml` behavior remains compatible.
 - Validation:
   - `dotnet build AvaScope.slnx`
   - `dotnet test AvaScope.slnx --no-build --filter Protocol`
@@ -454,6 +484,8 @@ Add preview-host diagnostics to the existing diagnostics surface: host assembly 
 - `2026-06-07`: M14 targets preview app resources before reload because persistent/reloadable preview sessions should reuse a preview path that already handles app-level resources predictably.
 - `2026-06-07`: M14 copies top-level resource entries from the loaded project `Application.Resources` instead of reparenting the resource dictionary, because Avalonia resource dictionaries are owned by a parent once loaded.
 - `2026-06-07`: M15 expands diagnostics to preview-host readiness before reload work so agents can distinguish missing preview infrastructure from project/render failures.
+- `2026-06-07`: M15 preview diagnostics deliberately checks only host readiness and does not launch `AvaScope.PreviewHost`, build projects, or load user XAML; render/project diagnostics remain tied to actual preview requests.
+- `2026-06-07`: M16 starts with preview-session metadata before implementing `reload`, because reload needs a stable persisted request/result boundary that does not keep user code inside MCP.
 
 ## Change Log
 
@@ -482,3 +514,4 @@ Add preview-host diagnostics to the existing diagnostics surface: host assembly 
 - `2026-06-07`: Completed M12 close-session hardening with bridge IPC, Core client, MCP tool, manifest cleanup validation, and PreviewHost cleanup retry hardening; added M13 diagnostics surface as the active focus.
 - `2026-06-07`: Completed M13 diagnostics surface with protocol DTOs, Core bridge diagnostics, MCP `diagnostics`, unavailable-state handling, and focused tests; added M14 preview app resource scope as the active focus.
 - `2026-06-07`: Completed M14 preview app resource scope with compiled `App.axaml` resource loading, resource-backed render validation, structured invalid-app-resource errors, and README updates; added M15 preview diagnostics expansion as the active focus.
+- `2026-06-07`: Completed M15 preview diagnostics expansion with preview-host readiness diagnostics, MCP diagnostics composition, build-server isolation hardening, README updates, and full-suite validation; added M16 preview reload foundation as the active focus.

@@ -10,7 +10,8 @@ public sealed record DiagnosticsResponse
         DateTimeOffset generatedAt,
         string manifestDirectory,
         IReadOnlyList<BridgeSessionDiagnostic>? bridgeSessions = null,
-        IReadOnlyList<ProtocolError>? issues = null)
+        IReadOnlyList<ProtocolError>? issues = null,
+        PreviewHostDiagnostic? previewHost = null)
     {
         ArgumentNullException.ThrowIfNull(service);
 
@@ -22,6 +23,7 @@ public sealed record DiagnosticsResponse
         Service = service;
         GeneratedAt = generatedAt;
         ManifestDirectory = Path.GetFullPath(manifestDirectory);
+        PreviewHost = previewHost;
         BridgeSessions = bridgeSessions ?? [];
         Issues = issues ?? [];
     }
@@ -34,6 +36,10 @@ public sealed record DiagnosticsResponse
 
     [JsonPropertyName("manifestDirectory")]
     public string ManifestDirectory { get; }
+
+    [JsonPropertyName("previewHost")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PreviewHostDiagnostic? PreviewHost { get; }
 
     [JsonPropertyName("bridgeSessions")]
     public IReadOnlyList<BridgeSessionDiagnostic> BridgeSessions { get; }

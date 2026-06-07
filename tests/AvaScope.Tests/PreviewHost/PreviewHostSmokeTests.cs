@@ -439,7 +439,7 @@ public sealed class PreviewHostSmokeTests
 
     private static async Task DeleteDirectoryWithRetryAsync(string path)
     {
-        for (var attempt = 0; attempt < 10; attempt++)
+        for (var attempt = 0; attempt < 30; attempt++)
         {
             if (!Directory.Exists(path))
             {
@@ -451,11 +451,11 @@ public sealed class PreviewHostSmokeTests
                 Directory.Delete(path, recursive: true);
                 return;
             }
-            catch (IOException) when (attempt < 9)
+            catch (IOException) when (attempt < 29)
             {
                 await Task.Delay(100);
             }
-            catch (UnauthorizedAccessException) when (attempt < 9)
+            catch (UnauthorizedAccessException) when (attempt < 29)
             {
                 await Task.Delay(100);
             }

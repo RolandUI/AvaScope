@@ -62,12 +62,14 @@ public sealed class AvaScopeMcpBridgeToolsTests : IDisposable
         var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Sample app"));
         var manifestPath = runtime.SessionManifestPath!;
         var client = new LocalBridgeClient(Path.GetDirectoryName(manifestPath)!);
+        var previewHostClient = new PreviewHostClient(Path.Combine(AppContext.BaseDirectory, "AvaScope.PreviewHost.dll"));
 
-        var result = await AvaScopeMcpTools.Diagnostics(client, sessionId: runtime.SessionId.Value);
+        var result = await AvaScopeMcpTools.Diagnostics(client, previewHostClient, sessionId: runtime.SessionId.Value);
 
         Assert.True(result.Success, result.Error?.Message);
         Assert.Null(result.Error);
         Assert.Equal("avascope", result.Value!.Service.ServiceName);
+        Assert.Equal(DiagnosticStatuses.Available, result.Value.PreviewHost!.Status);
         Assert.Empty(result.Value.Issues);
         var bridge = Assert.Single(result.Value.BridgeSessions);
         Assert.Equal(DiagnosticStatuses.Available, bridge.Status);

@@ -163,12 +163,15 @@ public sealed class AvaScopeMcpToolsTests
     public async Task DiagnosticsReturnsStructuredIssueWhenNoBridgeSessionExists()
     {
         var client = new LocalBridgeClient(CreateMissingManifestDirectory());
+        var previewHostClient = CreatePreviewHostClient();
 
-        var result = await AvaScopeMcpTools.Diagnostics(client, sessionId: "session-missing");
+        var result = await AvaScopeMcpTools.Diagnostics(client, previewHostClient, sessionId: "session-missing");
 
         Assert.True(result.Success, result.Error?.Message);
         Assert.Null(result.Error);
         Assert.Equal("avascope", result.Value!.Service.ServiceName);
+        Assert.Equal(DiagnosticStatuses.Available, result.Value.PreviewHost!.Status);
+        Assert.Equal(DiagnosticProcessModes.IsolatedChildProcess, result.Value.PreviewHost.ProcessMode);
         Assert.Empty(result.Value.BridgeSessions);
         var issue = Assert.Single(result.Value.Issues);
         Assert.Equal(CoreErrorCodes.BridgeSessionNotFound, issue.Code);
@@ -178,8 +181,9 @@ public sealed class AvaScopeMcpToolsTests
     public async Task DiagnosticsRejectsInvalidSessionLimit()
     {
         var client = new LocalBridgeClient(CreateMissingManifestDirectory());
+        var previewHostClient = CreatePreviewHostClient();
 
-        var result = await AvaScopeMcpTools.Diagnostics(client, maxSessions: 0);
+        var result = await AvaScopeMcpTools.Diagnostics(client, previewHostClient, maxSessions: 0);
 
         Assert.False(result.Success);
         Assert.Null(result.Value);
@@ -255,5 +259,10 @@ public sealed class AvaScopeMcpToolsTests
             Path.GetTempPath(),
             "AvaScope.Tests",
             $"missing-manifests-{Guid.NewGuid():N}");
+    }
+
+    private static PreviewHostClient CreatePreviewHostClient()
+    {
+        return new PreviewHostClient(Path.Combine(AppContext.BaseDirectory, "AvaScope.PreviewHost.dll"));
     }
 }

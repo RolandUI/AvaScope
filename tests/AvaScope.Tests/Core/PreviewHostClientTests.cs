@@ -66,4 +66,34 @@ public sealed class PreviewHostClientTests : IDisposable
         Assert.False(result.Success);
         Assert.Equal(CoreErrorCodes.PreviewHostUnavailable, result.Error!.Code);
     }
+
+    [Fact]
+    public void GetDiagnosticsReportsAvailablePreviewHost()
+    {
+        var hostAssembly = Path.Combine(AppContext.BaseDirectory, "AvaScope.PreviewHost.dll");
+        var client = new PreviewHostClient(hostAssembly);
+
+        var diagnostics = client.GetDiagnostics();
+
+        Assert.Equal(DiagnosticStatuses.Available, diagnostics.Status);
+        Assert.Equal(Path.GetFullPath(hostAssembly), diagnostics.HostAssemblyPath);
+        Assert.Equal(DiagnosticProcessModes.IsolatedChildProcess, diagnostics.ProcessMode);
+        Assert.Equal("avascope", diagnostics.Service!.ServiceName);
+        Assert.Null(diagnostics.Error);
+    }
+
+    [Fact]
+    public void GetDiagnosticsReportsMissingPreviewHostAsUnavailable()
+    {
+        var hostAssembly = Path.Combine(_testRoot, "missing-host.dll");
+        var client = new PreviewHostClient(hostAssembly);
+
+        var diagnostics = client.GetDiagnostics();
+
+        Assert.Equal(DiagnosticStatuses.Unavailable, diagnostics.Status);
+        Assert.Equal(Path.GetFullPath(hostAssembly), diagnostics.HostAssemblyPath);
+        Assert.Equal(DiagnosticProcessModes.IsolatedChildProcess, diagnostics.ProcessMode);
+        Assert.Null(diagnostics.Service);
+        Assert.Equal(CoreErrorCodes.PreviewHostUnavailable, diagnostics.Error!.Code);
+    }
 }

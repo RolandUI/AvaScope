@@ -207,4 +207,22 @@ public sealed class LocalBridgeClientTests : IDisposable
         Assert.False(result.Success);
         Assert.Equal(CoreErrorCodes.InvalidBridgeRequest, result.Error!.Code);
     }
+
+    [Fact]
+    public async Task DiagnosticsIncludesPreviewHostDiagnosticWhenProvided()
+    {
+        var client = new LocalBridgeClient(_manifestDirectory);
+        var previewHost = new PreviewHostDiagnostic(
+            DiagnosticStatuses.Available,
+            Path.Combine(AppContext.BaseDirectory, "AvaScope.PreviewHost.dll"),
+            DiagnosticProcessModes.IsolatedChildProcess,
+            HealthResponse.Current());
+
+        var result = await client.DiagnosticsAsync(previewHost: previewHost);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Same(previewHost, result.Value!.PreviewHost);
+        Assert.Empty(result.Value.BridgeSessions);
+        Assert.Empty(result.Value.Issues);
+    }
 }

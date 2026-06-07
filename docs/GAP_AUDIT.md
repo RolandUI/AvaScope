@@ -20,7 +20,7 @@ Status: first bridge diagnostics slice complete; richer preview/build/binding/la
 
 `diagnostics` is listed in the intended MCP tool shape. The first slice now reports service health, local bridge manifest path, process id, named-pipe transport, protocol health, stale manifests, invalid manifests, and unavailable IPC states. Current errors are still structured per operation; there is no historical last-error stream yet.
 
-Next slice: add preview-host readiness diagnostics now that preview host resource scope has expanded.
+Completed slice: preview-host readiness diagnostics now report host assembly path, availability, isolated child-process mode, service metadata, and structured missing-host errors without launching user project code.
 
 ## P1 Gaps
 
@@ -28,7 +28,7 @@ Next slice: add preview-host readiness diagnostics now that preview host resourc
 
 `reload` is listed in the intended MCP tool shape, but preview sessions are one-shot child process executions. There is no persistent preview session or reload path yet.
 
-Next slice: keep one-shot preview stable first; add persistent preview only after diagnostics and close lifecycle are reliable.
+Next slice: add the smallest persistent preview-session foundation before implementing actual reload.
 
 ### Preview Resource Scope
 
@@ -36,7 +36,9 @@ Status: first app-resource slice complete; full design-time parity remains open.
 
 PreviewHost can build a project, load a compiled view resource through `avares://`, and copy top-level resource entries from compiled project-root `App.axaml` into the isolated preview host application. Full `App.axaml` orchestration, merged dictionaries, app styles, culture variants, design data, and richer diagnostics are still limited.
 
-Next slice: add preview-host readiness diagnostics before persistent reload work.
+Completed slice: project-root compiled `App.axaml` top-level resources are loaded into the isolated preview host before view loading.
+
+Next slice: continue with persistent preview-session foundation before broader resource/style/design-data parity.
 
 ### Input Coverage
 
@@ -60,4 +62,4 @@ Next slice: add CI only after the local validation path is stable enough to avoi
 
 ## Selected Next Slice
 
-Implement preview diagnostics expansion next. The P0 lifecycle/bridge diagnostics and first app-resource preview slices are complete; agents now need structured preview-host readiness before distinguishing infrastructure failures from project/render failures.
+Implement preview reload foundation next. The P0 lifecycle/diagnostics and first preview resource/preview-host readiness slices are complete; `reload` now needs stable preview-session metadata before a real reload command can be validated.

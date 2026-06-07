@@ -294,12 +294,14 @@ public sealed class AvaScopeMcpTools
     [Description("Returns bounded local AvaScope diagnostics for bridge sessions, manifests, transport, and protocol health.")]
     public static async Task<ToolResult<DiagnosticsResponse>> Diagnostics(
         LocalBridgeClient bridgeClient,
+        PreviewHostClient previewHostClient,
         int? processId = null,
         string? sessionId = null,
         int maxSessions = 50,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(bridgeClient);
+        ArgumentNullException.ThrowIfNull(previewHostClient);
 
         if (!TryParseOptionalSessionId(sessionId, out var parsedSessionId, out var error))
         {
@@ -310,6 +312,7 @@ public sealed class AvaScopeMcpTools
             processId,
             parsedSessionId,
             maxSessions,
+            previewHostClient.GetDiagnostics(),
             cancellationToken));
     }
 

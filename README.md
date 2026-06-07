@@ -83,6 +83,8 @@ Implemented tools:
 
 Planned but not implemented yet: `reload`.
 
+`diagnostics` reports AvaScope service metadata, local bridge manifest/pipe health, stale or invalid bridge manifests, and preview host readiness without building or loading user projects.
+
 ## Runtime Bridge
 
 The bridge is opt-in. A host app must activate it explicitly and register top-levels that should be inspectable:

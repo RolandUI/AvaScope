@@ -186,6 +186,7 @@ internal static class Program
         process.StartInfo.ArgumentList.Add("build");
         process.StartInfo.ArgumentList.Add(fullProjectPath);
         process.StartInfo.ArgumentList.Add("--nologo");
+        process.StartInfo.ArgumentList.Add("--disable-build-servers");
 
         if (!process.Start())
         {
