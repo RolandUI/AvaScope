@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Reflection;
 using System.Text.Json;
 using Avalonia;
 using Avalonia.Controls;
@@ -106,7 +107,7 @@ internal static class Program
             Width = request.Width,
             Height = request.Height,
             Background = Brushes.White,
-            Content = LoadContent(fullViewPath)
+            Content = LoadContent(fullProjectPath, fullViewPath)
         };
 
         window.RequestedThemeVariant = ResolveThemeVariant(request.ThemeVariant);
@@ -249,7 +250,7 @@ internal static class Program
         return Path.GetFullPath(Path.Combine(baseDirectory, viewPath));
     }
 
-    private static Control LoadContent(string? fullViewPath)
+    private static Control LoadContent(string? fullProjectPath, string? fullViewPath)
     {
         if (fullViewPath is null)
         {
@@ -266,6 +267,11 @@ internal static class Program
             throw new FileNotFoundException($"Preview view '{fullViewPath}' was not found.", fullViewPath);
         }
 
+        if (fullProjectPath is not null && TryLoadCompiledProjectView(fullProjectPath, fullViewPath) is { } compiled)
+        {
+            return compiled;
+        }
+
         var viewUri = new Uri(fullViewPath);
         var loaded = AvaloniaRuntimeXamlLoader.Load(
             File.ReadAllText(fullViewPath),
@@ -275,6 +281,50 @@ internal static class Program
             designMode: true);
         return loaded as Control
             ?? throw new NotSupportedException("Preview view XAML must load to an Avalonia Control.");
+    }
+
+    private static Control? TryLoadCompiledProjectView(string fullProjectPath, string fullViewPath)
+    {
+        var projectAssemblyPath = FindProjectAssemblyPath(fullProjectPath);
+        if (projectAssemblyPath is null)
+        {
+            return null;
+        }
+
+        var assembly = Assembly.LoadFrom(projectAssemblyPath);
+        var projectDirectory = Path.GetDirectoryName(fullProjectPath) ?? Environment.CurrentDirectory;
+        var resourcePath = Path.GetRelativePath(projectDirectory, fullViewPath).Replace('\\', '/');
+        var viewUri = new Uri($"avares://{assembly.GetName().Name}/{resourcePath}");
+
+        try
+        {
+            return AvaloniaXamlLoader.Load(viewUri, viewUri) as Control;
+        }
+        catch (XamlLoadException)
+        {
+            return null;
+        }
+    }
+
+    private static string? FindProjectAssemblyPath(string fullProjectPath)
+    {
+        var projectDirectory = Path.GetDirectoryName(fullProjectPath);
+        if (string.IsNullOrEmpty(projectDirectory))
+        {
+            return null;
+        }
+
+        var assemblyName = Path.GetFileNameWithoutExtension(fullProjectPath);
+        var outputRoot = Path.Combine(projectDirectory, "bin", "Debug");
+        if (!Directory.Exists(outputRoot))
+        {
+            return null;
+        }
+
+        return Directory
+            .EnumerateFiles(outputRoot, $"{assemblyName}.dll", SearchOption.AllDirectories)
+            .OrderByDescending(static path => File.GetLastWriteTimeUtc(path))
+            .FirstOrDefault();
     }
 
     private static ThemeVariant? ResolveThemeVariant(string? themeVariant)

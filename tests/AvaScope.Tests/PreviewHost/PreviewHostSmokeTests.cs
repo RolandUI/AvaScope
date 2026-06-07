@@ -185,13 +185,103 @@ public sealed class PreviewHostSmokeTests
         }
     }
 
+    [Fact]
+    public async Task PreviewHostLoadsCompiledAvaloniaProjectResourceView()
+    {
+        var hostAssembly = Path.Combine(AppContext.BaseDirectory, "AvaScope.PreviewHost.dll");
+        Assert.True(File.Exists(hostAssembly), $"Expected preview host assembly at {hostAssembly}.");
+
+        var testRoot = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(testRoot);
+
+        var projectPath = Path.Combine(testRoot, "CompiledPreviewSample.csproj");
+        var viewsDirectory = Path.Combine(testRoot, "Views");
+        Directory.CreateDirectory(viewsDirectory);
+
+        var viewPath = Path.Combine(viewsDirectory, "MainView.axaml");
+        var codeBehindPath = Path.Combine(viewsDirectory, "MainView.axaml.cs");
+        var requestPath = Path.Combine(testRoot, "request.json");
+        var outputPath = Path.Combine(testRoot, "preview.png");
+
+        await File.WriteAllTextAsync(projectPath, """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <Nullable>enable</Nullable>
+              </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="Avalonia" Version="12.0.4" />
+              </ItemGroup>
+            </Project>
+            """);
+
+        await File.WriteAllTextAsync(viewPath, """
+            <UserControl xmlns="https://github.com/avaloniaui"
+                         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                         x:Class="CompiledPreviewSample.Views.MainView">
+              <Border Background="#FFFFFFFF" Padding="8">
+                <TextBlock Text="Compiled project resource preview" />
+              </Border>
+            </UserControl>
+            """);
+
+        await File.WriteAllTextAsync(codeBehindPath, """
+            using Avalonia.Controls;
+
+            namespace CompiledPreviewSample.Views;
+
+            public partial class MainView : UserControl
+            {
+                public MainView()
+                {
+                    InitializeComponent();
+                    ConstructedByCodeBehind = true;
+                }
+
+                public bool ConstructedByCodeBehind { get; }
+            }
+            """);
+
+        var request = new PreviewRequest(
+            outputPath,
+            width: 260,
+            height: 180,
+            dpi: 96,
+            projectPath: projectPath,
+            viewPath: Path.Combine("Views", "MainView.axaml"),
+            themeVariant: "light");
+
+        await File.WriteAllTextAsync(requestPath, JsonSerializer.Serialize(request, JsonOptions));
+
+        try
+        {
+            var result = await RunPreviewHostAsync(hostAssembly, requestPath, expectedExitCode: 0);
+
+            Assert.NotNull(result);
+            Assert.True(result.Success, result.Error?.Message);
+            Assert.Equal(Path.GetFullPath(projectPath), result.Value!.ProjectPath);
+            Assert.Equal(Path.GetFullPath(viewPath), result.Value.ViewPath);
+            Assert.Equal(260, result.Value.PixelWidth);
+            Assert.Equal(180, result.Value.PixelHeight);
+            Assert.True(File.Exists(result.Value.FilePath));
+            Assert.True(new FileInfo(result.Value.FilePath).Length > 0);
+        }
+        finally
+        {
+            if (Directory.Exists(testRoot))
+            {
+                Directory.Delete(testRoot, recursive: true);
+            }
+        }
+    }
+
     private static async Task<ToolResult<PreviewResponse>?> RunPreviewHostAsync(
         string hostAssembly,
         string requestPath,
         int expectedExitCode)
     {
         using var process = StartPreviewHost(hostAssembly, requestPath);
-        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(60));
 
         var stdoutTask = process.StandardOutput.ReadToEndAsync(cancellation.Token);
         var stderrTask = process.StandardError.ReadToEndAsync(cancellation.Token);

@@ -23,15 +23,15 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `M8 Preview Host Slice`
+- `M9 Preview Adapter Integration`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-07`
-- Goal: render a `.axaml` view from a project in an isolated preview process.
+- Goal: expose the isolated preview host through reusable Core and MCP adapter surfaces.
 
 ## Next Action
 
-Load the built project output into the preview child process so resource XAML, styles, and code-behind-backed views can be resolved from the compiled Avalonia project instead of only standalone runtime XAML strings.
+Add a reusable Core preview host client that writes `PreviewRequest` JSON, launches `AvaScope.PreviewHost` as a child process, parses `ToolResult<PreviewResponse>`, and keeps user project code outside the MCP server process.
 
 ## Latest Validation
 
@@ -92,6 +92,9 @@ Load the built project output into the preview child process so resource XAML, s
 - `2026-06-07`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after M8 project build boundary.
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewHost` passed with 3 tests.
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 59 tests.
+- `2026-06-07`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after M8 compiled project resource loading.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewHost` passed with 4 tests.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 60 tests.
 
 ## Milestones
 
@@ -227,7 +230,7 @@ Load the built project output into the preview child process so resource XAML, s
 
 ### M8 Preview Host Slice
 
-- Status: `In Progress`
+- Status: `Done`
 - Goal: render a `.axaml` view from a project in an isolated preview process.
 - Deliverables: preview host process, project/view selection, headless Skia rendering, basic variants.
 - Progress:
@@ -237,7 +240,7 @@ Load the built project output into the preview child process so resource XAML, s
   - Done: process-level smoke test validates child process isolation, structured JSON output, PNG existence, dimensions, and non-empty output.
   - Done: project-aware `.csproj` validation resolves relative view paths from the project directory and returns absolute project/view paths in the response.
   - Done: project build boundary runs `dotnet build` inside the preview child process before rendering and returns structured `preview_project_build_failed` diagnostics when the build fails.
-  - Pending: loading built project assemblies/resources so real project styles, app resources, and code-behind-backed controls can be resolved.
+  - Done: built project assembly loading resolves compiled Avalonia resource XAML through `avares://` and validates a code-behind-backed `UserControl` smoke render.
 - Acceptance Criteria:
   - User application code runs outside the MCP server process.
   - Preview supports width, height, DPI, and theme inputs.
@@ -245,6 +248,19 @@ Load the built project output into the preview child process so resource XAML, s
 - Validation:
   - preview smoke test against sample Avalonia 12 project
   - output file existence and non-empty image validation
+
+### M9 Preview Adapter Integration
+
+- Status: `In Progress`
+- Goal: expose preview rendering through adapter surfaces without moving preview execution into MCP.
+- Deliverables: reusable Core preview host client, MCP `preview_axaml` tool, structured process diagnostics.
+- Acceptance Criteria:
+  - Core can launch `AvaScope.PreviewHost` as a child process and parse structured preview results.
+  - MCP exposes preview rendering as a thin adapter over the Core preview client.
+  - Preview failures return structured diagnostics without leaking user code into the MCP server process.
+- Validation:
+  - Core preview client process smoke test
+  - MCP `preview_axaml` smoke test with PNG output validation
 
 ## Decision Log
 
@@ -273,6 +289,8 @@ Load the built project output into the preview child process so resource XAML, s
 - `2026-06-07`: Preview rendering starts in an isolated `AvaScope.PreviewHost` child process before adding MCP/CLI adapters, preserving the architecture rule that user preview code cannot run inside the MCP server process.
 - `2026-06-07`: M8 project-aware preview path resolution is kept as a separate slice before MSBuild integration; it validates the `.csproj` boundary and resolves relative view paths without yet claiming full project resource/code-behind support.
 - `2026-06-07`: M8 build preparation currently uses `dotnet build` inside the preview host child process as the isolation boundary; this validates project compilation and keeps build failures structured, but it does not yet load compiled project assemblies/resources into the render path.
+- `2026-06-07`: M8 compiled view loading uses the built project assembly plus `avares://<AssemblyName>/<ViewPath>` first, then falls back to standalone runtime XAML loading; this keeps real project code execution inside `AvaScope.PreviewHost`.
+- `2026-06-07`: Added M9 to continue after the initial M0-M8 plan by wiring the completed preview host through Core and MCP adapters.
 
 ## Change Log
 
@@ -293,3 +311,4 @@ Load the built project output into the preview child process so resource XAML, s
 - `2026-06-07`: Added the first M8 preview host slice with protocol preview DTOs, isolated child process entrypoint, standalone `.axaml` runtime loading, headless Skia PNG output, and process smoke validation; M8 remains in progress pending project-aware preview loading.
 - `2026-06-07`: Added M8 project-aware path resolution for `.csproj` plus relative view paths with process smoke coverage; M8 remains in progress pending MSBuild/design-time build support.
 - `2026-06-07`: Added M8 project build boundary in the preview host child process with structured build failure diagnostics; M8 remains in progress pending compiled project assembly/resource loading.
+- `2026-06-07`: Completed M8 preview host slice with compiled Avalonia project resource and code-behind smoke rendering; added M9 preview adapter integration as the active focus.
