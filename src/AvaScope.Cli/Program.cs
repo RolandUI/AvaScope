@@ -27,6 +27,7 @@ internal static class Program
             "visual-tree" => await Tree(args[1..], TreeKinds.Visual, GetVisualTreeUsage()),
             "logical-tree" => await Tree(args[1..], TreeKinds.Logical, GetLogicalTreeUsage()),
             "inspect-node" => await InspectNode(args[1..]),
+            "find-nodes" => await FindNodes(args[1..]),
             "mcp" => await Mcp(),
             _ => UnknownCommand(args[0])
         };
@@ -240,6 +241,64 @@ internal static class Program
         return result.Success ? 0 : 1;
     }
 
+    private static async Task<int> FindNodes(string[] args)
+    {
+        var options = ParseOptions(args, GetFindNodesUsage());
+        if (!options.Success)
+        {
+            WriteFailure(InvalidCliArguments, options.Error!);
+            return 2;
+        }
+
+        if (!ValidateOptions(
+                options.Values,
+                GetFindNodesUsage(),
+                "session",
+                "top-level",
+                "tree-kind",
+                "type",
+                "name",
+                "automation-id",
+                "text",
+                "max-depth",
+                "max-results")
+            || !TryReadRequiredSessionId(options.Values, GetFindNodesUsage(), out var sessionId)
+            || !TryReadRequiredOption(options.Values, "top-level", GetFindNodesUsage(), out var topLevelId)
+            || !TryReadOptionalTreeKind(options.Values, out var treeKind)
+            || !TryReadOptionalNonNegativeInt(options.Values, "max-depth", out var maxDepth)
+            || !TryReadOptionalPositiveInt(options.Values, "max-results", out var maxResults))
+        {
+            return 2;
+        }
+
+        var nodeType = options.Values.GetValueOrDefault("type");
+        var name = options.Values.GetValueOrDefault("name");
+        var automationId = options.Values.GetValueOrDefault("automation-id");
+        var text = options.Values.GetValueOrDefault("text");
+        if (string.IsNullOrWhiteSpace(nodeType)
+            && string.IsNullOrWhiteSpace(name)
+            && string.IsNullOrWhiteSpace(automationId)
+            && string.IsNullOrWhiteSpace(text))
+        {
+            WriteFailure(InvalidCliArguments, "At least one find filter is required.");
+            return 2;
+        }
+
+        var result = await new LocalBridgeClient().FindNodesAsync(
+            sessionId!,
+            topLevelId!,
+            treeKind,
+            nodeType,
+            name,
+            automationId,
+            text,
+            maxDepth,
+            maxResults);
+        WriteResult(result);
+
+        return result.Success ? 0 : 1;
+    }
+
     private static async Task<int> Screenshot(string[] args)
     {
         var options = ParseOptions(args, GetScreenshotUsage());
@@ -325,6 +384,28 @@ internal static class Program
         return true;
     }
 
+    private static bool TryReadOptionalPositiveInt(
+        IReadOnlyDictionary<string, string> options,
+        string optionName,
+        out int? value)
+    {
+        value = null;
+        if (!options.TryGetValue(optionName, out var text))
+        {
+            return true;
+        }
+
+        if (!int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed)
+            || parsed < 1)
+        {
+            WriteFailure(InvalidCliArguments, $"{optionName} must be a positive integer.");
+            return false;
+        }
+
+        value = parsed;
+        return true;
+    }
+
     private static bool TryReadOptionalTreeKind(
         IReadOnlyDictionary<string, string> options,
         out string treeKind)
@@ -398,7 +479,7 @@ internal static class Program
 
     private static string GetUsage()
     {
-        return "Usage: avascope mcp | avascope attach [--process <pid>] [--session <session-id>] | avascope list-top-levels --session <session-id> | avascope visual-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] | avascope logical-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] | avascope inspect-node --session <session-id> --top-level <top-level-id> --node <node-id> [--tree-kind visual|logical] | avascope screenshot --session <session-id> --top-level <top-level-id> --out <screenshot.png> | avascope preview <project.csproj> --view <view.axaml> --out <preview.png> --width <width> --height <height> [--dpi <dpi>] [--theme light|dark]";
+        return "Usage: avascope mcp | avascope attach [--process <pid>] [--session <session-id>] | avascope list-top-levels --session <session-id> | avascope visual-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] | avascope logical-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] | avascope inspect-node --session <session-id> --top-level <top-level-id> --node <node-id> [--tree-kind visual|logical] | avascope find-nodes --session <session-id> --top-level <top-level-id> [--tree-kind visual|logical] [--type <type>] [--name <name>] [--automation-id <id>] [--text <text>] [--max-depth <n>] [--max-results <n>] | avascope screenshot --session <session-id> --top-level <top-level-id> --out <screenshot.png> | avascope preview <project.csproj> --view <view.axaml> --out <preview.png> --width <width> --height <height> [--dpi <dpi>] [--theme light|dark]";
     }
 
     private static string GetPreviewUsage()
@@ -429,6 +510,11 @@ internal static class Program
     private static string GetInspectNodeUsage()
     {
         return "Usage: avascope inspect-node --session <session-id> --top-level <top-level-id> --node <node-id> [--tree-kind visual|logical]";
+    }
+
+    private static string GetFindNodesUsage()
+    {
+        return "Usage: avascope find-nodes --session <session-id> --top-level <top-level-id> [--tree-kind visual|logical] [--type <type>] [--name <name>] [--automation-id <id>] [--text <text>] [--max-depth <n>] [--max-results <n>]";
     }
 
     private static string GetScreenshotUsage()

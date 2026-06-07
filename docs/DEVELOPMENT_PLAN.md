@@ -23,15 +23,15 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `M31 CLI Runtime Find Nodes Slice`
+- `M32 CLI Runtime Input Slice`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-07`
-- Goal: expose runtime node search from the `avascope` CLI.
+- Goal: expose local-only runtime input commands from the `avascope` CLI.
 
 ## Next Action
 
-Add a `find-nodes` CLI command over `LocalBridgeClient.FindNodesAsync`, requiring at least one filter and keeping depth/result limits bounded by existing Core validation.
+Add an `input` CLI command over `LocalBridgeClient.InputAsync`, starting with the existing bridge-supported actions and deterministic argument validation.
 
 ## Latest Validation
 
@@ -207,6 +207,9 @@ Add a `find-nodes` CLI command over `LocalBridgeClient.FindNodesAsync`, requirin
 - `2026-06-07`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after M30 CLI `inspect-node` implementation.
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli` passed with 46 tests, including fake bridge pipe success paths for `inspect-node`.
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 130 tests after M30 CLI node detail workflow.
+- `2026-06-07`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after M31 CLI `find-nodes` implementation.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli` passed with 52 tests, including fake bridge pipe success paths for `find-nodes`.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 136 tests after M31 CLI node search workflow.
 
 ## Milestones
 
@@ -864,18 +867,40 @@ Add a `find-nodes` CLI command over `LocalBridgeClient.FindNodesAsync`, requirin
 
 ### M31 CLI Runtime Find Nodes Slice
 
-- Status: `In Progress`
+- Status: `Done`
 - Goal: expose runtime node search from the `avascope` CLI.
 - Deliverables: `find-nodes` CLI command over `LocalBridgeClient.FindNodesAsync`, filter argument validation, optional depth/result limits, structured JSON output, README/tracking update.
 - Progress:
-  - Pending: add `find-nodes --session <session-id> --top-level <top-level-id> [--tree-kind visual|logical] [--type <type>] [--name <name>] [--automation-id <id>] [--text <text>] [--max-depth <n>] [--max-results <n>]`.
-  - Pending: require at least one filter before calling Core.
-  - Pending: add fake bridge success and deterministic failure tests.
+  - Done: added `find-nodes --session <session-id> --top-level <top-level-id> [--tree-kind visual|logical] [--type <type>] [--name <name>] [--automation-id <id>] [--text <text>] [--max-depth <n>] [--max-results <n>]`.
+  - Done: required at least one filter before calling Core.
+  - Done: added optional non-negative `max-depth` and positive `max-results` validation.
+  - Done: added fake bridge named-pipe success test covering type, name, automation id, text, depth, and result limit request fields.
+  - Done: added no-session, missing-filter, invalid limit, and invalid tree-kind tests.
+  - Done: README documents command shape.
 - Acceptance Criteria:
   - CLI can find runtime nodes by at least type, name, automation id, or text.
   - CLI rejects missing session/top-level, unsupported tree kind, invalid limits, and missing filters deterministically.
   - Tests cover fake bridge success paths and structured failure paths.
   - README documents command shape.
+- Validation:
+  - `dotnet build AvaScope.slnx`
+  - `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli`
+  - `dotnet test AvaScope.slnx --no-build`
+
+### M32 CLI Runtime Input Slice
+
+- Status: `In Progress`
+- Goal: expose local-only runtime input commands from the `avascope` CLI.
+- Deliverables: `input` CLI command over `LocalBridgeClient.InputAsync`, action-specific argument validation, structured JSON output, README/tracking update.
+- Progress:
+  - Pending: add `input --session <session-id> --top-level <top-level-id> --action <action>` with optional coordinates, text, node id, key, and modifiers.
+  - Pending: validate supported action names against existing protocol actions before calling Core.
+  - Pending: add fake bridge success and deterministic failure tests.
+- Acceptance Criteria:
+  - CLI can send at least pointer move/click, focus, key text, key down, and key up actions supported by the bridge.
+  - CLI rejects missing session/top-level/action, unsupported actions, invalid numeric coordinates, and missing action-specific parameters deterministically.
+  - Tests cover fake bridge success paths and structured failure paths.
+  - README documents command shape and local-only scope.
 - Validation:
   - `dotnet build AvaScope.slnx`
   - `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli`
@@ -961,6 +986,8 @@ Add a `find-nodes` CLI command over `LocalBridgeClient.FindNodesAsync`, requirin
 - `2026-06-07`: M29 defers `inspect-node` to M30 so tree retrieval and single-node detail remain separately trackable vertical slices with focused tests.
 - `2026-06-07`: M30 keeps `inspect-node` tree kind optional with `visual` as the default to match MCP behavior while still allowing explicit logical node inspection.
 - `2026-06-07`: M31 targets CLI `find-nodes` next because tree output and single-node detail now exist, and search is the missing workflow that makes stable node ids discoverable from the CLI.
+- `2026-06-07`: M31 validates `find-nodes` filter presence in the CLI before calling Core so empty searches fail deterministically as CLI argument errors.
+- `2026-06-07`: M32 targets CLI input next because attach, screenshot, tree, inspect, and find now cover read-side runtime inspection, leaving local-only control as the next core runtime workflow.
 
 ## Change Log
 
@@ -1005,3 +1032,4 @@ Add a `find-nodes` CLI command over `LocalBridgeClient.FindNodesAsync`, requirin
 - `2026-06-07`: Completed M28 CLI top-level and screenshot workflow with `list-top-levels`, `screenshot`, fake bridge pipe success tests, no-session and missing-argument coverage, README updates, and targeted validation; added M29 CLI tree inspection as the active focus.
 - `2026-06-07`: Completed M29 CLI runtime tree inspection with `visual-tree`, `logical-tree`, shared `max-depth` validation, fake bridge pipe success tests, README updates, and full-suite validation; added M30 CLI node detail as the active focus.
 - `2026-06-07`: Completed M30 CLI runtime node detail with `inspect-node`, default visual tree kind, explicit logical tree kind support, fake bridge pipe success tests, README updates, and full-suite validation; added M31 CLI find nodes as the active focus.
+- `2026-06-07`: Completed M31 CLI runtime find nodes with filter validation, depth/result limit validation, fake bridge pipe success tests, README updates, and full-suite validation; added M32 CLI runtime input as the active focus.

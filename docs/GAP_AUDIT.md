@@ -34,11 +34,11 @@ Next slice: richer properties, resources, binding diagnostics, or style diagnost
 
 ### CLI Runtime Workflows
 
-Status: attach, top-level listing, screenshot, tree, and inspect-node slices complete; find, input, close, reload, and diagnostics commands remain open.
+Status: attach, top-level listing, screenshot, tree, inspect-node, and find slices complete; input, close, reload, and diagnostics commands remain open.
 
-The CLI now supports `preview`, `mcp`, `attach`, `list-top-levels`, `screenshot`, `visual-tree`, `logical-tree`, and `inspect-node`. Runtime CLI commands drive the local bridge through `LocalBridgeClient`, return structured `ToolResult<T>` output, and have deterministic invalid-argument, no-session, and fake bridge named-pipe success tests for the top-level, screenshot, tree, and inspect-node paths.
+The CLI now supports `preview`, `mcp`, `attach`, `list-top-levels`, `screenshot`, `visual-tree`, `logical-tree`, `inspect-node`, and `find-nodes`. Runtime CLI commands drive the local bridge through `LocalBridgeClient`, return structured `ToolResult<T>` output, and have deterministic invalid-argument, no-session, and fake bridge named-pipe success tests for the top-level, screenshot, tree, inspect-node, and find paths.
 
-Next slice: add structured JSON `find-nodes` CLI command over `LocalBridgeClient`, keeping argument errors deterministic and output consistent with existing CLI preview behavior.
+Next slice: add structured JSON local-only `input` CLI command over `LocalBridgeClient`, keeping argument errors deterministic and output consistent with existing CLI preview behavior.
 
 ### Reload And Hot Preview
 
@@ -90,4 +90,4 @@ Next slice: CI can later add publish/upload artifacts, self-contained outputs, o
 
 ## Selected Next Slice
 
-Add CLI runtime node search next. The CLI can now attach, list top-levels, capture screenshots, read bounded trees, and inspect a node by id, so the next vertical slice should expose node discovery by type, name, automation id, and text.
+Add CLI runtime input next. The CLI can now attach, list top-levels, capture screenshots, read bounded trees, inspect nodes, and find nodes, so the next vertical slice should expose local-only runtime control through the existing input protocol actions.

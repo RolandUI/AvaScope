@@ -571,6 +571,169 @@ public sealed class CliSmokeTests
     }
 
     [Fact]
+    public async Task FindNodesCommandReadsMatchesThroughBridgePipe()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var sessionId = SessionId.New();
+        var pipeName = $"avascope-cli-test-{Guid.NewGuid():N}";
+        var manifestPath = WriteBridgeManifest(sessionId, pipeName);
+        var matchNode = new TreeNodeSummary(
+            "logical:match",
+            "TextBlock",
+            "SearchTarget",
+            "search-target",
+            "Find me");
+
+        var serverTask = RespondToBridgeRequestAsync(pipeName, request =>
+        {
+            Assert.Equal(BridgeIpcMethods.FindNodes, request.Method);
+            Assert.Equal("topLevel:cli", request.TopLevelId);
+            Assert.Equal(TreeKinds.Logical, request.TreeKind);
+            Assert.Equal("TextBlock", request.NodeType);
+            Assert.Equal("SearchTarget", request.Name);
+            Assert.Equal("search-target", request.AutomationId);
+            Assert.Equal("Find me", request.Text);
+            Assert.Equal(3, request.MaxDepth);
+            Assert.Equal(5, request.MaxResults);
+            return BridgeIpcResponse.Ok(
+                request.RequestId,
+                new FindNodesResponse(
+                    sessionId,
+                    request.TopLevelId!,
+                    TreeKinds.Logical,
+                    3,
+                    [new FindNodeMatch(matchNode, ["logical:root", "logical:match"])]));
+        });
+
+        try
+        {
+            var result = await RunCliAsync(
+                cliAssembly,
+                "find-nodes",
+                "--session",
+                sessionId.Value,
+                "--top-level",
+                "topLevel:cli",
+                "--tree-kind",
+                TreeKinds.Logical,
+                "--type",
+                "TextBlock",
+                "--name",
+                "SearchTarget",
+                "--automation-id",
+                "search-target",
+                "--text",
+                "Find me",
+                "--max-depth",
+                "3",
+                "--max-results",
+                "5");
+            var request = await serverTask;
+
+            Assert.Equal(0, result.ExitCode);
+            Assert.Equal(BridgeIpcMethods.FindNodes, request.Method);
+            Assert.True(string.IsNullOrWhiteSpace(result.StandardError), result.StandardError);
+
+            var payload = JsonSerializer.Deserialize<ToolResult<FindNodesResponse>>(result.StandardOutput, JsonOptions);
+            Assert.NotNull(payload);
+            Assert.True(payload.Success, payload.Error?.Message);
+            Assert.Equal(sessionId, payload.Value!.SessionId);
+            Assert.Equal(TreeKinds.Logical, payload.Value.TreeKind);
+            var match = Assert.Single(payload.Value.Matches);
+            Assert.Equal("logical:match", match.Node.NodeId);
+            Assert.Equal("SearchTarget", match.Node.Name);
+            Assert.Equal(new[] { "logical:root", "logical:match" }, match.Path);
+        }
+        finally
+        {
+            if (File.Exists(manifestPath))
+            {
+                File.Delete(manifestPath);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task FindNodesCommandReturnsStructuredErrorWhenNoBridgeSessionMatches()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var result = await RunCliAsync(
+            cliAssembly,
+            "find-nodes",
+            "--session",
+            "missing",
+            "--top-level",
+            "topLevel:missing",
+            "--type",
+            "TextBlock");
+
+        Assert.Equal(1, result.ExitCode);
+        Assert.True(string.IsNullOrWhiteSpace(result.StandardError), result.StandardError);
+
+        var payload = JsonSerializer.Deserialize<ToolResult<FindNodesResponse>>(result.StandardOutput, JsonOptions);
+        Assert.NotNull(payload);
+        Assert.False(payload.Success);
+        Assert.Equal(CoreErrorCodes.BridgeSessionNotFound, payload.Error!.Code);
+    }
+
+    [Fact]
+    public async Task FindNodesCommandRejectsMissingFilters()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var result = await RunCliAsync(
+            cliAssembly,
+            "find-nodes",
+            "--session",
+            "missing",
+            "--top-level",
+            "topLevel:missing");
+
+        Assert.Equal(2, result.ExitCode);
+        Assert.True(string.IsNullOrWhiteSpace(result.StandardError), result.StandardError);
+
+        var payload = JsonSerializer.Deserialize<ToolResult<FindNodesResponse>>(result.StandardOutput, JsonOptions);
+        Assert.NotNull(payload);
+        Assert.False(payload.Success);
+        Assert.Equal("invalid_cli_arguments", payload.Error!.Code);
+    }
+
+    [Theory]
+    [InlineData("--max-depth", "-1")]
+    [InlineData("--max-results", "0")]
+    [InlineData("--tree-kind", "layout")]
+    public async Task FindNodesCommandRejectsInvalidOptions(string optionName, string optionValue)
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var result = await RunCliAsync(
+            cliAssembly,
+            "find-nodes",
+            "--session",
+            "missing",
+            "--top-level",
+            "topLevel:missing",
+            "--type",
+            "TextBlock",
+            optionName,
+            optionValue);
+
+        Assert.Equal(2, result.ExitCode);
+        Assert.True(string.IsNullOrWhiteSpace(result.StandardError), result.StandardError);
+
+        var payload = JsonSerializer.Deserialize<ToolResult<FindNodesResponse>>(result.StandardOutput, JsonOptions);
+        Assert.NotNull(payload);
+        Assert.False(payload.Success);
+        Assert.Equal("invalid_cli_arguments", payload.Error!.Code);
+    }
+
+    [Fact]
     public async Task ScreenshotCommandReturnsStructuredErrorWhenNoBridgeSessionMatches()
     {
         var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
