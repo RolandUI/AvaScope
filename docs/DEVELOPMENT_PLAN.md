@@ -23,15 +23,15 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `M40 Preview Style Include Scope Slice`
+- `M41 Preview Culture Variant Contract Slice`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-07`
-- Goal: improve preview-host app style include parity.
+- Goal: add explicit culture selection to preview rendering.
 
 ## Next Action
 
-Audit current `StyleInclude` behavior under project `Application.Styles`, then implement the smallest validated style-include scenario if the current merge is insufficient.
+Add a transport-neutral preview culture field, apply it inside the isolated preview host during render, and validate with a tiny culture-sensitive project.
 
 ## Latest Validation
 
@@ -235,6 +235,9 @@ Audit current `StyleInclude` behavior under project `Application.Styles`, then i
 - `2026-06-07`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after M39 App.axaml theme dictionary loading.
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewHostSmokeTests` passed with 9 tests.
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 163 tests after M39 preview theme dictionary variant scope.
+- `2026-06-07`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after M40 app style include coverage.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewHostSmokeTests` passed with 10 tests.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 164 tests after M40 preview style include scope.
 
 ## Milestones
 
@@ -1084,13 +1087,14 @@ Audit current `StyleInclude` behavior under project `Application.Styles`, then i
 
 ### M40 Preview Style Include Scope Slice
 
-- Status: `In Progress`
+- Status: `Done`
 - Goal: improve preview-host app style include parity.
 - Deliverables: focused support for one compiled `StyleInclude` scenario, tests with tiny sample project/view, README/tracking update.
 - Progress:
-  - Pending: audit current `StyleInclude` behavior after project `Application.Initialize()` and preview-window style transfer.
-  - Pending: implement the smallest required preview-host style transfer behavior.
-  - Pending: add pixel-validated PreviewHost smoke coverage for a style loaded through `StyleInclude`.
+  - Done: audited current `StyleInclude` behavior after project `Application.Initialize()` and preview-window style transfer.
+  - Done: confirmed no PreviewHost code change was required because compiled style includes are already transferred as app styles.
+  - Done: added pixel-validated PreviewHost smoke coverage for a style loaded through `StyleInclude`.
+  - Done: README and gap audit document style include support from `App.axaml`.
 - Acceptance Criteria:
   - PreviewHost validates at least one app-level `StyleInclude` scenario from project `App.axaml`.
   - The behavior remains isolated in `AvaScope.PreviewHost`.
@@ -1099,6 +1103,25 @@ Audit current `StyleInclude` behavior under project `Application.Styles`, then i
 - Validation:
   - `dotnet build AvaScope.slnx`
   - targeted PreviewHost tests
+  - `dotnet test AvaScope.slnx --no-build`
+
+### M41 Preview Culture Variant Contract Slice
+
+- Status: `In Progress`
+- Goal: add explicit culture selection to preview rendering.
+- Deliverables: preview culture DTO field, CLI/MCP argument propagation, preview-host culture application, tiny culture-sensitive render test, README/tracking update.
+- Progress:
+  - Pending: add a nullable transport-neutral culture field to preview request/response contracts.
+  - Pending: apply the requested culture inside the isolated preview host render boundary.
+  - Pending: add validation proving culture-sensitive preview output changes as requested.
+- Acceptance Criteria:
+  - Preview requests can specify a culture without coupling protocol contracts to Avalonia runtime types.
+  - PreviewHost applies the culture only inside the child render process.
+  - CLI and MCP preview entrypoints propagate the culture field.
+  - Tests validate protocol serialization and one culture-sensitive preview render.
+- Validation:
+  - `dotnet build AvaScope.slnx`
+  - targeted Protocol/Core/MCP/CLI/PreviewHost tests as touched
   - `dotnet test AvaScope.slnx --no-build`
 
 ## Decision Log
@@ -1198,6 +1221,8 @@ Audit current `StyleInclude` behavior under project `Application.Styles`, then i
 - `2026-06-07`: M39 targets theme dictionary variants next because resource include support is covered and requested light/dark preview variants should resolve app-level theme dictionaries predictably.
 - `2026-06-07`: M39 copies project app `ThemeDictionaries` into the host app resource scope so `DynamicResource` lookups honor requested light/dark preview variants.
 - `2026-06-07`: M40 targets `StyleInclude` next because direct app styles, resource includes, and theme dictionaries are covered, while included app styles remain unverified.
+- `2026-06-07`: M40 records `StyleInclude` as a coverage slice because the existing project app style transfer already handles compiled style includes; no PreviewHost code change was required.
+- `2026-06-07`: M41 targets an explicit culture variant contract next because App.axaml resource/style parity is now covered enough to move to design-time preview variants.
 
 ## Change Log
 
@@ -1251,3 +1276,4 @@ Audit current `StyleInclude` behavior under project `Application.Styles`, then i
 - `2026-06-07`: Completed M37 preview resource/style scope with project `Application.Initialize()` loading, preview-window style application, pixel-validated App.axaml style smoke coverage, README updates, and full-suite validation; added M38 preview resource include scope as the active focus.
 - `2026-06-07`: Completed M38 preview resource include scope with App.axaml merged resource dictionary transfer, pixel-validated ResourceInclude smoke coverage, README updates, and full-suite validation; added M39 preview theme dictionary variant scope as the active focus.
 - `2026-06-07`: Completed M39 preview theme dictionary variant scope with App.axaml theme dictionary transfer, pixel-validated light/dark theme resource smoke coverage, README/gap updates, and full-suite validation; added M40 preview style include scope as the active focus.
+- `2026-06-07`: Completed M40 preview style include scope with pixel-validated StyleInclude smoke coverage, README/gap updates, and full-suite validation; added M41 preview culture variant contract as the active focus.

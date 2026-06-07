@@ -217,7 +217,7 @@ Preview rendering is isolated in `AvaScope.PreviewHost`, launched as a child pro
 - accepts a JSON `PreviewRequest`;
 - optionally runs `dotnet build` for the requested `.csproj`;
 - loads compiled Avalonia resource XAML through `avares://` when possible;
-- loads compiled top-level `Application.Resources`, resource merged dictionaries, theme dictionaries, and `Application.Styles` from `App.axaml` when present;
+- loads compiled top-level `Application.Resources`, resource merged dictionaries, theme dictionaries, and direct or included `Application.Styles` from `App.axaml` when present;
 - falls back to standalone runtime `.axaml` loading;
 - renders through headless Skia;
 - writes a PNG and structured JSON result.
@@ -229,7 +229,7 @@ Preview session tools store the original preview request plus the latest render 
 Current preview limitations:
 
 - no hot reload or persistent live preview host process yet;
-- no full `App.axaml` orchestration yet; style includes and startup logic remain limited;
+- no full `App.axaml` orchestration yet; startup logic remains limited;
 - no culture/design-data variants yet;
 - build output probing assumes the default `bin\Debug\<tfm>\<ProjectName>.dll` shape.
 
