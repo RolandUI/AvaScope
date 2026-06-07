@@ -325,4 +325,55 @@ public sealed class ProtocolContractTests
         Assert.Equal("visual:button", node["targetNodeId"]!.GetValue<string>());
         Assert.Equal(executedAt, DateTimeOffset.Parse(node["executedAt"]!.GetValue<string>(), CultureInfo.InvariantCulture));
     }
+
+    [Fact]
+    public void PreviewRequestSerializesStableShape()
+    {
+        var request = new PreviewRequest(
+            "C:\\previews\\main.png",
+            1440,
+            900,
+            120,
+            "C:\\apps\\Sample\\Sample.csproj",
+            "Views\\MainView.axaml",
+            "dark");
+
+        var json = JsonSerializer.Serialize(request);
+        var node = JsonNode.Parse(json)!;
+
+        Assert.Equal("C:\\previews\\main.png", node["outputPath"]!.GetValue<string>());
+        Assert.Equal(1440, node["width"]!.GetValue<double>());
+        Assert.Equal(900, node["height"]!.GetValue<double>());
+        Assert.Equal(120, node["dpi"]!.GetValue<double>());
+        Assert.Equal("C:\\apps\\Sample\\Sample.csproj", node["projectPath"]!.GetValue<string>());
+        Assert.Equal("Views\\MainView.axaml", node["viewPath"]!.GetValue<string>());
+        Assert.Equal("dark", node["themeVariant"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public void PreviewResponseSerializesStableShape()
+    {
+        var renderedAt = new DateTimeOffset(2026, 6, 7, 1, 0, 0, TimeSpan.Zero);
+        var response = new PreviewResponse(
+            "C:\\previews\\main.png",
+            1440,
+            900,
+            96,
+            renderedAt,
+            "C:\\apps\\Sample\\Sample.csproj",
+            "Views\\MainView.axaml",
+            "light");
+
+        var json = JsonSerializer.Serialize(response);
+        var node = JsonNode.Parse(json)!;
+
+        Assert.Equal("C:\\previews\\main.png", node["filePath"]!.GetValue<string>());
+        Assert.Equal(1440, node["pixelWidth"]!.GetValue<int>());
+        Assert.Equal(900, node["pixelHeight"]!.GetValue<int>());
+        Assert.Equal(96, node["dpi"]!.GetValue<double>());
+        Assert.Equal(renderedAt, DateTimeOffset.Parse(node["renderedAt"]!.GetValue<string>(), CultureInfo.InvariantCulture));
+        Assert.Equal("C:\\apps\\Sample\\Sample.csproj", node["projectPath"]!.GetValue<string>());
+        Assert.Equal("Views\\MainView.axaml", node["viewPath"]!.GetValue<string>());
+        Assert.Equal("light", node["themeVariant"]!.GetValue<string>());
+    }
 }

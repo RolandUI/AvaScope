@@ -22,6 +22,7 @@
     <ProjectReference Include="..\..\src\AvaScope.Protocol\AvaScope.Protocol.csproj" />
     <ProjectReference Include="..\..\src\AvaScope.Core\AvaScope.Core.csproj" />
     <ProjectReference Include="..\..\src\AvaScope.Mcp\AvaScope.Mcp.csproj" />
+    <ProjectReference Include="..\..\src\AvaScope.PreviewHost\AvaScope.PreviewHost.csproj" />
     <ProjectReference Include="..\..\src\AvaScope.Bridge\AvaScope.Bridge.csproj" />
   </ItemGroup>
 

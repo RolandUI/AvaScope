@@ -31,7 +31,7 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Next Action
 
-Inspect the existing solution boundaries and scaffold the first M8 vertical slice: `AvaScope.PreviewHost` process entrypoint, preview request/response contracts, and a headless-render smoke path that can be validated against a tiny Avalonia view.
+Extend the preview host from standalone `.axaml` runtime loading to project-aware preview: resolve a `.csproj` plus view path, establish the future MSBuild/design-time build boundary, and keep rendering isolated in the child process.
 
 ## Latest Validation
 
@@ -82,6 +82,10 @@ Inspect the existing solution boundaries and scaffold the first M8 vertical slic
 - `2026-06-07`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after M7 routed pointer move completion.
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter Bridge` passed with 23 tests.
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 54 tests.
+- `2026-06-07`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after the first M8 preview host slice.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter Protocol` passed with 20 tests.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewHost` passed with 1 test.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 57 tests.
 
 ## Milestones
 
@@ -221,9 +225,12 @@ Inspect the existing solution boundaries and scaffold the first M8 vertical slic
 - Goal: render a `.axaml` view from a project in an isolated preview process.
 - Deliverables: preview host process, project/view selection, headless Skia rendering, basic variants.
 - Progress:
-  - Pending: preview host project and process entrypoint.
-  - Pending: preview request/response contracts.
-  - Pending: headless render smoke validation against a tiny Avalonia 12 view.
+  - Done: `AvaScope.PreviewHost` console process entrypoint accepts a JSON `PreviewRequest` file and writes a structured `ToolResult<PreviewResponse>` to stdout.
+  - Done: `PreviewRequest` and `PreviewResponse` protocol DTOs cover output path, width, height, DPI, theme variant, project path, and view path.
+  - Done: headless Skia render smoke path loads a standalone `.axaml` control with the official Avalonia runtime XAML loader and writes a PNG file.
+  - Done: process-level smoke test validates child process isolation, structured JSON output, PNG existence, dimensions, and non-empty output.
+  - Pending: project-aware `.csproj` plus view path resolution.
+  - Pending: MSBuild/design-time build boundary for real project resources, styles, and code-behind.
 - Acceptance Criteria:
   - User application code runs outside the MCP server process.
   - Preview supports width, height, DPI, and theme inputs.
@@ -255,6 +262,8 @@ Inspect the existing solution boundaries and scaffold the first M8 vertical slic
 - `2026-06-06`: `find_nodes` searches the already bounded tree model and requires at least one filter so accidental unbounded discovery is avoided; type/text use case-insensitive contains matching, name/automation id use case-insensitive exact matching.
 - `2026-06-06`: M7 input MVP deliberately starts with safe local-only operations: Button click is implemented through hit-test plus routed click event, key text mutates a focused `TextBox`, and pointer move is still tracked separately because generic routed/raw pointer injection needs a more precise platform strategy.
 - `2026-06-07`: M7 pointer move uses public Avalonia 12 `PointerEventArgs` plus `InputElement.PointerMovedEvent` on the hit-tested input target instead of raw `IInputManager` injection because `TopLevel.InputRoot` is not public; this keeps the bridge off private runtime hooks.
+- `2026-06-07`: The first M8 slice uses the official `Avalonia.Markup.Xaml.Loader` 12.0.4 package for standalone runtime `.axaml` loading; `AvaloniaXamlLoader.Load(Uri, Uri)` was rejected because it expects precompiled/resource XAML.
+- `2026-06-07`: Preview rendering starts in an isolated `AvaScope.PreviewHost` child process before adding MCP/CLI adapters, preserving the architecture rule that user preview code cannot run inside the MCP server process.
 
 ## Change Log
 
@@ -272,3 +281,4 @@ Inspect the existing solution boundaries and scaffold the first M8 vertical slic
 - `2026-06-06`: Completed M6 tree inspection slice with `find_nodes` filters for type, name, automation id, and text plus path-oriented match results; moved active focus to M7.
 - `2026-06-06`: Added M7 input MVP protocol, bridge, Core, and MCP path with headless validation for pointer target lookup, Button click, and focused TextBox key text; M7 remains in progress pending real pointer move injection or explicit limitation handling.
 - `2026-06-07`: Completed M7 input slice with routed pointer move, Button click, focused TextBox key text, and unsupported input diagnostics; moved active focus to M8.
+- `2026-06-07`: Added the first M8 preview host slice with protocol preview DTOs, isolated child process entrypoint, standalone `.axaml` runtime loading, headless Skia PNG output, and process smoke validation; M8 remains in progress pending project-aware preview loading.
