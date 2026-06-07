@@ -34,11 +34,11 @@ Next slice: richer properties, resources, binding diagnostics, or style diagnost
 
 ### CLI Runtime Workflows
 
-Status: open.
+Status: first attach slice complete; top-level listing and screenshot commands remain open.
 
-The CLI currently supports `preview` and `mcp`, but the intended CLI shape includes runtime inspection flows. MCP exposes attach/list/tree/find/inspect/screenshot/input, while the CLI cannot yet drive an active bridge session directly.
+The CLI now supports `preview`, `mcp`, and `attach`. `avascope attach` drives the local bridge through `LocalBridgeClient`, accepts process id or explicit session id selection, returns structured `ToolResult<AttachToAppResponse>` output, and has deterministic invalid-argument and no-session tests.
 
-Next slice: add the smallest structured JSON CLI command over `LocalBridgeClient`, keeping argument errors deterministic and output consistent with existing CLI preview behavior.
+Next slice: add structured JSON `list-top-levels` and screenshot CLI commands over `LocalBridgeClient`, keeping argument errors deterministic and output consistent with existing CLI preview behavior.
 
 ### Reload And Hot Preview
 
@@ -90,4 +90,4 @@ Next slice: CI can later add publish/upload artifacts, self-contained outputs, o
 
 ## Selected Next Slice
 
-Add CLI runtime bridge workflow next. MCP runtime inspection is now broad enough that the CLI should expose at least one direct local workflow before deeper diagnostics or preview parity work.
+Add CLI runtime top-level listing and screenshot workflow next. The CLI can now attach to a local bridge session, so the next vertical slice should make that attached session visibly useful from the command line.

@@ -23,15 +23,15 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `M27 CLI Runtime Bridge Workflow Slice`
+- `M28 CLI Runtime Top-level And Screenshot Slice`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-07`
-- Goal: expose the core runtime bridge workflow through the `avascope` CLI beyond `mcp` and `preview`.
+- Goal: extend CLI runtime support from attach to top-level listing and screenshot capture.
 
 ## Next Action
 
-Add the smallest CLI runtime commands for local bridge discovery and inspection so non-MCP users can list or inspect active bridged apps.
+Add CLI commands over `LocalBridgeClient` for `list-top-levels` and `screenshot`, keeping structured JSON output and deterministic argument failures.
 
 ## Latest Validation
 
@@ -194,6 +194,10 @@ Add the smallest CLI runtime commands for local bridge discovery and inspection 
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter Bridge` passed with 39 tests.
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter Mcp` passed with 29 tests.
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 106 tests after M26 `inspect_node` implementation.
+- `2026-06-07`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after M27 CLI `attach` implementation.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli` passed with 24 tests.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter Core` passed with 34 tests.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 108 tests after M27 CLI runtime attach workflow.
 
 ## Milestones
 
@@ -760,18 +764,42 @@ Add the smallest CLI runtime commands for local bridge discovery and inspection 
 
 ### M27 CLI Runtime Bridge Workflow Slice
 
-- Status: `In Progress`
+- Status: `Done`
 - Goal: expose the core runtime bridge workflow through the `avascope` CLI beyond `mcp` and `preview`.
 - Deliverables: CLI command shape for local runtime bridge sessions, implementation over `LocalBridgeClient`, process/argument smoke tests, docs/tracking update.
 - Progress:
-  - Pending: audit current CLI parser and tests before adding commands.
-  - Pending: add the smallest runtime command path, likely `avascope list-top-levels --session <id>` or `avascope attach --process <pid>`.
-  - Pending: keep output as structured JSON `ToolResult<T>` consistent with existing CLI preview errors.
+  - Done: audited current CLI parser and process smoke test pattern.
+  - Done: added `avascope attach [--process <pid>] [--session <session-id>]` over `LocalBridgeClient.AttachToAppAsync`.
+  - Done: CLI attach writes structured `ToolResult<AttachToAppResponse>` JSON on success or bridge failure.
+  - Done: invalid CLI arguments still return structured `invalid_cli_arguments` failures and exit code 2.
+  - Done: added CLI smoke tests for deterministic no-session failure and invalid process id.
+  - Done: README documents CLI attach usage.
 - Acceptance Criteria:
   - CLI exposes at least one usable runtime bridge workflow over `LocalBridgeClient`.
   - Invalid CLI arguments return structured errors.
   - CLI tests cover success or deterministic no-session failure paths.
   - README documents the command shape and current limitations.
+- Validation:
+  - `dotnet build AvaScope.slnx`
+  - `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli`
+  - `dotnet test AvaScope.slnx --no-build --filter Core`
+  - `dotnet test AvaScope.slnx --no-build`
+  - `git status --short`
+
+### M28 CLI Runtime Top-level And Screenshot Slice
+
+- Status: `In Progress`
+- Goal: extend CLI runtime support from attach to top-level listing and screenshot capture.
+- Deliverables: `list-top-levels` and/or `screenshot` CLI commands over `LocalBridgeClient`, structured JSON output, argument validation tests, README/tracking update.
+- Progress:
+  - Pending: add a CLI command that lists top-levels for a runtime session id.
+  - Pending: add or plan the screenshot CLI command using explicit output path validation.
+  - Pending: keep commands thin over Core and avoid duplicating bridge IPC behavior in CLI.
+- Acceptance Criteria:
+  - CLI can list top-levels for an attached runtime bridge session id.
+  - CLI argument failures are structured and deterministic.
+  - Tests cover invalid arguments and no-session failure; success may be covered through headless bridge if reliable from a child CLI process.
+  - README documents command shape.
 - Validation:
   - `dotnet build AvaScope.slnx`
   - `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli`
@@ -849,6 +877,8 @@ Add the smallest CLI runtime commands for local bridge discovery and inspection 
 - `2026-06-07`: M26 targets `inspect_node` next because it is part of the intended MCP tool shape and tree/find already provide stable node ids but no detail lookup tool.
 - `2026-06-07`: M26 keeps `inspect_node` bounded to one node plus `childCount`; it does not return descendants or arbitrary Avalonia object properties in the first slice.
 - `2026-06-07`: M27 targets CLI runtime bridge workflow next because MCP now exposes the primary runtime inspection tools, while the CLI still lacks runtime attach/list/inspect commands from the intended product shape.
+- `2026-06-07`: M27 starts CLI runtime support with `attach` because it is the smallest command over existing `LocalBridgeClient` discovery and returns the session id needed by later CLI runtime commands.
+- `2026-06-07`: M28 follows with CLI top-level/screenshot commands because `attach` alone verifies bridge discovery but does not yet expose a complete local inspection workflow.
 
 ## Change Log
 
@@ -889,3 +919,4 @@ Add the smallest CLI runtime commands for local bridge discovery and inspection 
 - `2026-06-07`: Completed M24 cross-platform framework-dependent artifacts with RID-aware win-x64/linux-x64 ZIP packaging, manifest coverage enforcement, CI/README updates, artifact smoke validation, and full Release test validation; added M25 runtime focus and keyboard input as the active focus.
 - `2026-06-07`: Completed M25 runtime focus and keyboard input with stable protocol actions, target-node/key IPC fields, public Avalonia focus/key event dispatch, README updates, and full-suite validation; added M26 inspect node detail as the active focus.
 - `2026-06-07`: Completed M26 inspect node detail with Protocol/Core/Bridge/MCP support, bounded single-node details, structured not-found diagnostics, README updates, and full-suite validation; added M27 CLI runtime bridge workflow as the active focus.
+- `2026-06-07`: Completed M27 CLI runtime bridge workflow with `avascope attach`, structured attach/no-session errors, README updates, CLI/Core targeted tests, and full-suite validation; added M28 CLI top-level and screenshot workflow as the active focus.

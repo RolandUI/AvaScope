@@ -85,6 +85,13 @@ Start the MCP server through the CLI:
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll mcp
 ```
 
+Attach to an active local bridge session:
+
+```powershell
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll attach --process 1234
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll attach --session session-id
+```
+
 After creating or extracting the local executable package, the same command shape can be run from the artifact directory:
 
 ```powershell

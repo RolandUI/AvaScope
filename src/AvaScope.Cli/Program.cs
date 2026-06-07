@@ -21,6 +21,7 @@ internal static class Program
         return args[0] switch
         {
             "preview" => await Preview(args[1..]),
+            "attach" => await Attach(args[1..]),
             "mcp" => await Mcp(),
             _ => UnknownCommand(args[0])
         };
@@ -66,7 +67,7 @@ internal static class Program
         }
 
         var projectPath = args[0];
-        var options = ParseOptions(args[1..]);
+        var options = ParseOptions(args[1..], GetPreviewUsage());
         if (!options.Success)
         {
             WriteFailure(InvalidCliArguments, options.Error!);
@@ -116,7 +117,61 @@ internal static class Program
         return result.Success ? 0 : 1;
     }
 
-    private static OptionParseResult ParseOptions(IReadOnlyList<string> args)
+    private static async Task<int> Attach(string[] args)
+    {
+        var options = ParseOptions(args, GetAttachUsage());
+        if (!options.Success)
+        {
+            WriteFailure(InvalidCliArguments, options.Error!);
+            return 2;
+        }
+
+        foreach (var key in options.Values.Keys)
+        {
+            if (!string.Equals(key, "process", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(key, "session", StringComparison.OrdinalIgnoreCase))
+            {
+                WriteFailure(InvalidCliArguments, GetAttachUsage());
+                return 2;
+            }
+        }
+
+        int? processId = null;
+        if (options.Values.TryGetValue("process", out var processText))
+        {
+            if (!int.TryParse(processText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedProcessId)
+                || parsedProcessId < 1)
+            {
+                WriteFailure(InvalidCliArguments, "Process id must be a positive integer.");
+                return 2;
+            }
+
+            processId = parsedProcessId;
+        }
+
+        SessionId? sessionId = null;
+        if (options.Values.TryGetValue("session", out var sessionText))
+        {
+            try
+            {
+                sessionId = new SessionId(sessionText);
+            }
+            catch (ArgumentException exception)
+            {
+                WriteFailure(CoreErrorCodes.InvalidBridgeRequest, exception.Message);
+                return 2;
+            }
+        }
+
+        var result = await new LocalBridgeClient().AttachToAppAsync(processId, sessionId);
+        WriteResult(result.Success
+            ? ToolResult<AttachToAppResponse>.Ok(result.Value!)
+            : ToolResult<AttachToAppResponse>.Fail(new ProtocolError(result.Error!.Code, result.Error.Message)));
+
+        return result.Success ? 0 : 1;
+    }
+
+    private static OptionParseResult ParseOptions(IReadOnlyList<string> args, string usage)
     {
         var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         for (var index = 0; index < args.Count; index += 2)
@@ -124,7 +179,7 @@ internal static class Program
             var key = args[index];
             if (!key.StartsWith("--", StringComparison.Ordinal) || index + 1 >= args.Count)
             {
-                return OptionParseResult.Fail(GetPreviewUsage());
+                return OptionParseResult.Fail(usage);
             }
 
             values[key[2..]] = args[index + 1];
@@ -147,7 +202,7 @@ internal static class Program
 
     private static string GetUsage()
     {
-        return "Usage: avascope mcp | avascope preview <project.csproj> --view <view.axaml> --out <preview.png> --width <width> --height <height> [--dpi <dpi>] [--theme light|dark]";
+        return "Usage: avascope mcp | avascope attach [--process <pid>] [--session <session-id>] | avascope preview <project.csproj> --view <view.axaml> --out <preview.png> --width <width> --height <height> [--dpi <dpi>] [--theme light|dark]";
     }
 
     private static string GetPreviewUsage()
@@ -155,12 +210,17 @@ internal static class Program
         return "Usage: avascope preview <project.csproj> --view <view.axaml> --out <preview.png> --width <width> --height <height> [--dpi <dpi>] [--theme light|dark]";
     }
 
+    private static string GetAttachUsage()
+    {
+        return "Usage: avascope attach [--process <pid>] [--session <session-id>]";
+    }
+
     private static void WriteFailure(string code, string message)
     {
         WriteResult(ToolResult<PreviewResponse>.Fail(new ProtocolError(code, message)));
     }
 
-    private static void WriteResult(ToolResult<PreviewResponse> result)
+    private static void WriteResult<T>(ToolResult<T> result)
     {
         Console.WriteLine(JsonSerializer.Serialize(result, JsonOptions));
     }

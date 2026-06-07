@@ -1,5 +1,7 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.Text.Json;
+using AvaScope.Core;
 using AvaScope.Protocol;
 
 namespace AvaScope.Tests.Cli;
@@ -82,6 +84,44 @@ public sealed class CliSmokeTests
         Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
 
         var result = await RunCliAsync(cliAssembly, "preview");
+
+        Assert.Equal(2, result.ExitCode);
+        Assert.True(string.IsNullOrWhiteSpace(result.StandardError), result.StandardError);
+
+        var payload = JsonSerializer.Deserialize<ToolResult<PreviewResponse>>(result.StandardOutput, JsonOptions);
+        Assert.NotNull(payload);
+        Assert.False(payload.Success);
+        Assert.Equal("invalid_cli_arguments", payload.Error!.Code);
+    }
+
+    [Fact]
+    public async Task AttachCommandReturnsStructuredErrorWhenNoBridgeSessionMatches()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var result = await RunCliAsync(
+            cliAssembly,
+            "attach",
+            "--process",
+            int.MaxValue.ToString(CultureInfo.InvariantCulture));
+
+        Assert.Equal(1, result.ExitCode);
+        Assert.True(string.IsNullOrWhiteSpace(result.StandardError), result.StandardError);
+
+        var payload = JsonSerializer.Deserialize<ToolResult<AttachToAppResponse>>(result.StandardOutput, JsonOptions);
+        Assert.NotNull(payload);
+        Assert.False(payload.Success);
+        Assert.Equal(CoreErrorCodes.BridgeSessionNotFound, payload.Error!.Code);
+    }
+
+    [Fact]
+    public async Task AttachCommandRejectsInvalidProcessId()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var result = await RunCliAsync(cliAssembly, "attach", "--process", "abc");
 
         Assert.Equal(2, result.ExitCode);
         Assert.True(string.IsNullOrWhiteSpace(result.StandardError), result.StandardError);
