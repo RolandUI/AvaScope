@@ -102,7 +102,7 @@ internal static class Program
             Directory.CreateDirectory(outputDirectory);
         }
 
-        LoadProjectApplicationResources(fullProjectPath);
+        var projectStyles = LoadProjectApplicationResources(fullProjectPath);
 
         var window = new Window
         {
@@ -111,6 +111,10 @@ internal static class Program
             Background = Brushes.White,
             Content = LoadContent(fullProjectPath, fullViewPath)
         };
+        foreach (var style in projectStyles)
+        {
+            window.Styles.Add(style);
+        }
 
         window.RequestedThemeVariant = ResolveThemeVariant(request.ThemeVariant);
         window.SetRenderScaling(request.Dpi / 96d);
@@ -286,24 +290,24 @@ internal static class Program
             ?? throw new NotSupportedException("Preview view XAML must load to an Avalonia Control.");
     }
 
-    private static void LoadProjectApplicationResources(string? fullProjectPath)
+    private static IReadOnlyList<IStyle> LoadProjectApplicationResources(string? fullProjectPath)
     {
         if (fullProjectPath is null)
         {
-            return;
+            return [];
         }
 
         var projectDirectory = Path.GetDirectoryName(fullProjectPath) ?? Environment.CurrentDirectory;
         var appXamlPath = Path.Combine(projectDirectory, "App.axaml");
         if (!File.Exists(appXamlPath))
         {
-            return;
+            return [];
         }
 
         var projectAssemblyPath = FindProjectAssemblyPath(fullProjectPath);
         if (projectAssemblyPath is null)
         {
-            return;
+            return [];
         }
 
         var assembly = Assembly.LoadFrom(projectAssemblyPath);
@@ -312,7 +316,8 @@ internal static class Program
         Application projectApplication;
         try
         {
-            projectApplication = AvaloniaXamlLoader.Load(appUri, appUri) as Application
+            projectApplication = CreateProjectApplication(assembly)
+                ?? AvaloniaXamlLoader.Load(appUri, appUri) as Application
                 ?? throw new NotSupportedException("Preview project App.axaml must load to an Avalonia Application.");
         }
         catch (XamlLoadException exception)
@@ -320,10 +325,27 @@ internal static class Program
             throw new InvalidOperationException($"Preview project App.axaml could not be loaded: {exception.Message}", exception);
         }
 
-        MergeProjectApplication(projectApplication);
+        return MergeProjectApplication(projectApplication);
     }
 
-    private static void MergeProjectApplication(Application projectApplication)
+    private static Application? CreateProjectApplication(Assembly assembly)
+    {
+        var applicationType = assembly
+            .GetTypes()
+            .FirstOrDefault(static type => typeof(Application).IsAssignableFrom(type)
+                && !type.IsAbstract
+                && type.GetConstructor(Type.EmptyTypes) is not null);
+        if (applicationType is null)
+        {
+            return null;
+        }
+
+        var application = (Application)Activator.CreateInstance(applicationType)!;
+        application.Initialize();
+        return application;
+    }
+
+    private static IReadOnlyList<IStyle> MergeProjectApplication(Application projectApplication)
     {
         var hostApplication = Application.Current
             ?? throw new InvalidOperationException("Preview host application was not initialized.");
@@ -333,6 +355,14 @@ internal static class Program
         {
             hostApplication.Resources[resource.Key] = resource.Value;
         }
+
+        var styles = projectApplication.Styles.ToArray();
+        foreach (var style in projectApplication.Styles.ToArray())
+        {
+            projectApplication.Styles.Remove(style);
+        }
+
+        return styles;
     }
 
     private static Control? TryLoadCompiledProjectView(string fullProjectPath, string fullViewPath)

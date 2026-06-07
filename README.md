@@ -217,7 +217,7 @@ Preview rendering is isolated in `AvaScope.PreviewHost`, launched as a child pro
 - accepts a JSON `PreviewRequest`;
 - optionally runs `dotnet build` for the requested `.csproj`;
 - loads compiled Avalonia resource XAML through `avares://` when possible;
-- loads compiled top-level `Application.Resources` entries from `App.axaml` when present;
+- loads compiled top-level `Application.Resources` entries and `Application.Styles` from `App.axaml` when present;
 - falls back to standalone runtime `.axaml` loading;
 - renders through headless Skia;
 - writes a PNG and structured JSON result.

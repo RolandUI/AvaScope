@@ -23,15 +23,15 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `M37 Preview Resource And Style Scope Slice`
+- `M38 Preview Resource Include Scope Slice`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-07`
-- Goal: improve preview-host resource/style parity after durable preview-session persistence.
+- Goal: improve preview-host support for App.axaml resource/style includes.
 
 ## Next Action
 
-Audit current `App.axaml`, merged dictionary, style, theme, and resource loading boundaries in `AvaScope.PreviewHost`, then implement the smallest validated parity improvement.
+Audit compiled `ResourceInclude` and `StyleInclude` behavior from project `App.axaml`, then implement the smallest validated include scenario that is still isolated inside `AvaScope.PreviewHost`.
 
 ## Latest Validation
 
@@ -226,6 +226,9 @@ Audit current `App.axaml`, merged dictionary, style, theme, and resource loading
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewSessionRegistryTests` passed with 8 tests.
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter Core` passed with 36 tests.
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 160 tests after M36 reload/hot preview foundation.
+- `2026-06-07`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after M37 App.axaml style loading.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewHostSmokeTests` passed with 7 tests.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 161 tests after M37 preview App.axaml style scope.
 
 ## Milestones
 
@@ -1013,18 +1016,40 @@ Audit current `App.axaml`, merged dictionary, style, theme, and resource loading
 
 ### M37 Preview Resource And Style Scope Slice
 
-- Status: `In Progress`
+- Status: `Done`
 - Goal: improve preview-host resource/style parity after durable preview-session persistence.
 - Deliverables: focused preview-host resource/style loading improvement, tests with a tiny sample project/view, README/tracking update.
 - Progress:
-  - Pending: audit current `AvaScope.PreviewHost` app resource, style, merged dictionary, and theme handling.
-  - Pending: identify the smallest high-value gap that can be validated without claiming full design-time parity.
-  - Pending: implement with focused preview-host smoke coverage.
+  - Done: audited current `AvaScope.PreviewHost` app resource, style, merged dictionary, and theme handling.
+  - Done: identified missing `Application.Styles` application as the smallest high-value gap after top-level resources.
+  - Done: changed App.axaml loading to instantiate the project `Application` type and call `Initialize()` when available, falling back to URI XAML loading.
+  - Done: extracted project application styles and applied them to the preview window style scope.
+  - Done: added pixel-validated PreviewHost smoke coverage proving an App.axaml style affects the rendered output.
+  - Done: README documents `Application.Styles` support.
 - Acceptance Criteria:
   - PreviewHost handles one additional real-world resource/style scenario beyond current top-level `App.axaml` resources.
   - The behavior remains isolated in `AvaScope.PreviewHost`; MCP/CLI do not load user project code.
   - Tests validate rendered output file and structured response for the new scenario.
   - README documents the supported boundary and remaining limitations.
+- Validation:
+  - `dotnet build AvaScope.slnx`
+  - targeted PreviewHost tests
+  - `dotnet test AvaScope.slnx --no-build`
+
+### M38 Preview Resource Include Scope Slice
+
+- Status: `In Progress`
+- Goal: improve preview-host support for App.axaml resource/style includes.
+- Deliverables: focused support for one compiled `ResourceInclude` or `StyleInclude` scenario, tests with tiny sample project/view, README/tracking update.
+- Progress:
+  - Pending: audit compiled `ResourceInclude` and `StyleInclude` behavior after project `Application.Initialize()`.
+  - Pending: pick the smallest include scenario that currently fails or is unverified.
+  - Pending: implement only the required preview-host merge/copy behavior.
+- Acceptance Criteria:
+  - PreviewHost validates at least one app-level include scenario from project `App.axaml`.
+  - The behavior remains isolated in `AvaScope.PreviewHost`.
+  - Tests validate rendered output file and structured response for the include scenario.
+  - README documents supported boundary and remaining limitations.
 - Validation:
   - `dotnet build AvaScope.slnx`
   - targeted PreviewHost tests
@@ -1120,6 +1145,9 @@ Audit current `App.axaml`, merged dictionary, style, theme, and resource loading
 - `2026-06-07`: M36 persists MCP-backed preview session records as local per-session JSON under the AvaScope temp preview-session store; CLI preview remains one-shot until a future CLI command explicitly creates durable preview sessions.
 - `2026-06-07`: M36 ignores corrupt persisted preview-session records during startup so one bad file cannot prevent the MCP server from starting; write failures are surfaced as structured `preview_session_store_failed` errors.
 - `2026-06-07`: M37 targets preview resource/style scope next because durable preview reload now exists and the remaining preview gap is closer design-time resource parity, not another adapter command.
+- `2026-06-07`: M37 uses the project's real `Application.Initialize()` path when possible, inside the isolated preview host child process, because compiled App.axaml styles may not be materialized by URI-only loading.
+- `2026-06-07`: M37 applies project application styles to the preview window style scope rather than the long-lived host application scope, keeping the imported styles limited to the single render.
+- `2026-06-07`: M38 targets app-level include scenarios next because top-level resources and direct application styles are now covered, while include parity remains unverified.
 
 ## Change Log
 
@@ -1170,3 +1198,4 @@ Audit current `App.axaml`, merged dictionary, style, theme, and resource loading
 - `2026-06-07`: Completed M34 CLI diagnostics with process/session filters, max-session validation, preview-host diagnostics, fake bridge health tests, README updates, and full-suite validation; added M35 CLI reload as the active focus.
 - `2026-06-07`: Completed M35 CLI reload with runtime bridge health checks, explicit `runtime_reload_not_supported`, structured failure tests, README updates, and full-suite validation; added M36 reload/hot preview foundation as the active focus.
 - `2026-06-07`: Completed M36 reload/hot preview foundation with persistent Core preview-session JSON storage, MCP store wiring, restore tests, README updates, and full-suite validation; added M37 preview resource/style scope as the active focus.
+- `2026-06-07`: Completed M37 preview resource/style scope with project `Application.Initialize()` loading, preview-window style application, pixel-validated App.axaml style smoke coverage, README updates, and full-suite validation; added M38 preview resource include scope as the active focus.

@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Text.Json;
 using AvaScope.Protocol;
+using SkiaSharp;
 
 namespace AvaScope.Tests.PreviewHost;
 
@@ -376,6 +377,113 @@ public sealed class PreviewHostSmokeTests
     }
 
     [Fact]
+    public async Task PreviewHostAppliesCompiledAppStylesBeforeProjectView()
+    {
+        var hostAssembly = Path.Combine(AppContext.BaseDirectory, "AvaScope.PreviewHost.dll");
+        Assert.True(File.Exists(hostAssembly), $"Expected preview host assembly at {hostAssembly}.");
+
+        var testRoot = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(testRoot);
+
+        var projectPath = Path.Combine(testRoot, "AppStylePreviewSample.csproj");
+        var appPath = Path.Combine(testRoot, "App.axaml");
+        var appCodeBehindPath = Path.Combine(testRoot, "App.axaml.cs");
+        var viewsDirectory = Path.Combine(testRoot, "Views");
+        Directory.CreateDirectory(viewsDirectory);
+
+        var viewPath = Path.Combine(viewsDirectory, "StyleView.axaml");
+        var codeBehindPath = Path.Combine(viewsDirectory, "StyleView.axaml.cs");
+        var requestPath = Path.Combine(testRoot, "request.json");
+        var outputPath = Path.Combine(testRoot, "preview.png");
+
+        await File.WriteAllTextAsync(projectPath, """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <Nullable>enable</Nullable>
+              </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="Avalonia" Version="12.0.4" />
+              </ItemGroup>
+            </Project>
+            """);
+
+        await File.WriteAllTextAsync(appPath, """
+            <Application xmlns="https://github.com/avaloniaui"
+                         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                         x:Class="AppStylePreviewSample.App">
+              <Application.Styles>
+                <Style Selector="Border">
+                  <Setter Property="Background" Value="#FF2B6CB0" />
+                </Style>
+              </Application.Styles>
+            </Application>
+            """);
+
+        await File.WriteAllTextAsync(appCodeBehindPath, """
+            using Avalonia;
+            using Avalonia.Markup.Xaml;
+
+            namespace AppStylePreviewSample;
+
+            public partial class App : Application
+            {
+                public override void Initialize()
+                {
+                    AvaloniaXamlLoader.Load(this);
+                }
+            }
+            """);
+
+        await File.WriteAllTextAsync(viewPath, """
+            <UserControl xmlns="https://github.com/avaloniaui"
+                         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                         x:Class="AppStylePreviewSample.Views.StyleView">
+              <Border Width="220" Height="140" />
+            </UserControl>
+            """);
+
+        await File.WriteAllTextAsync(codeBehindPath, """
+            using Avalonia.Controls;
+
+            namespace AppStylePreviewSample.Views;
+
+            public partial class StyleView : UserControl
+            {
+                public StyleView()
+                {
+                    InitializeComponent();
+                }
+            }
+            """);
+
+        var request = new PreviewRequest(
+            outputPath,
+            width: 220,
+            height: 140,
+            dpi: 96,
+            projectPath: projectPath,
+            viewPath: Path.Combine("Views", "StyleView.axaml"),
+            themeVariant: "light");
+
+        await File.WriteAllTextAsync(requestPath, JsonSerializer.Serialize(request, JsonOptions));
+
+        try
+        {
+            var result = await RunPreviewHostAsync(hostAssembly, requestPath, expectedExitCode: 0);
+
+            Assert.NotNull(result);
+            Assert.True(result.Success, result.Error?.Message);
+            Assert.Equal(Path.GetFullPath(outputPath), result.Value!.FilePath);
+            AssertCenterPixel(outputPath, red: 0x2B, green: 0x6C, blue: 0xB0);
+        }
+        finally
+        {
+            await DeleteDirectoryWithRetryAsync(testRoot);
+        }
+    }
+
+    [Fact]
     public async Task PreviewHostReturnsStructuredErrorWhenAppResourceRootIsNotApplication()
     {
         var hostAssembly = Path.Combine(AppContext.BaseDirectory, "AvaScope.PreviewHost.dll");
@@ -502,5 +610,21 @@ public sealed class PreviewHostSmokeTests
 
         Assert.True(process.Start());
         return process;
+    }
+
+    private static void AssertCenterPixel(
+        string filePath,
+        byte red,
+        byte green,
+        byte blue)
+    {
+        using var bitmap = SKBitmap.Decode(filePath);
+        Assert.NotNull(bitmap);
+
+        var color = bitmap.GetPixel(bitmap.Width / 2, bitmap.Height / 2);
+        Assert.InRange(Math.Abs(color.Red - red), 0, 3);
+        Assert.InRange(Math.Abs(color.Green - green), 0, 3);
+        Assert.InRange(Math.Abs(color.Blue - blue), 0, 3);
+        Assert.Equal(byte.MaxValue, color.Alpha);
     }
 }

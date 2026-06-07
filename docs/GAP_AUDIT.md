@@ -50,13 +50,13 @@ Completed slice: runtime reload no longer falls through to a misleading preview 
 
 ### Preview Resource Scope
 
-Status: first app-resource slice complete; full design-time parity remains open.
+Status: first app-resource and app-style slices complete; full design-time parity remains open.
 
-PreviewHost can build a project, load a compiled view resource through `avares://`, and copy top-level resource entries from compiled project-root `App.axaml` into the isolated preview host application. Full `App.axaml` orchestration, merged dictionaries, app styles, culture variants, design data, and richer diagnostics are still limited.
+PreviewHost can build a project, load a compiled view resource through `avares://`, copy top-level resource entries from compiled project-root `App.axaml`, instantiate the project `Application` inside the isolated preview host process, and apply direct `Application.Styles` to the preview window style scope. Full `App.axaml` orchestration, merged dictionaries/includes, culture variants, design data, and richer diagnostics are still limited.
 
-Completed slice: project-root compiled `App.axaml` top-level resources are loaded into the isolated preview host before view loading.
+Completed slice: project-root compiled `App.axaml` top-level resources and direct app-level styles are loaded before rendering the preview view.
 
-Next slice: continue with broader resource/style/design-data parity.
+Next slice: validate and improve app-level `ResourceInclude` or `StyleInclude` behavior.
 
 ### Input Coverage
 
@@ -90,4 +90,4 @@ Next slice: CI can later add publish/upload artifacts, self-contained outputs, o
 
 ## Selected Next Slice
 
-Add preview resource/style scope next. Durable preview-session reload now exists for MCP-backed preview records, so the next vertical slice should improve real-world preview resource parity without claiming full design-time hot reload.
+Add preview resource include scope next. App-level resources and direct styles are covered, so the next vertical slice should validate include behavior without claiming full design-time hot reload.
