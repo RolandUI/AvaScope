@@ -15,7 +15,12 @@ builder.Logging.AddConsole(consoleLogOptions =>
 builder.Services.AddSingleton<SessionRegistry>();
 builder.Services.AddSingleton<LocalBridgeClient>();
 builder.Services.AddSingleton<PreviewHostClient>();
-builder.Services.AddSingleton<PreviewSessionRegistry>();
+builder.Services.AddSingleton(PreviewSessionStore.CreateDefault());
+builder.Services.AddSingleton(static services => new PreviewSessionRegistry(
+    services.GetRequiredService<SessionRegistry>(),
+    services.GetRequiredService<PreviewHostClient>(),
+    TimeProvider.System,
+    services.GetRequiredService<PreviewSessionStore>()));
 builder.Services
     .AddMcpServer()
     .WithStdioServerTransport()

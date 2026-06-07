@@ -8,12 +8,13 @@ public sealed class PreviewSessionRegistry
     private readonly ConcurrentDictionary<string, PreviewSessionRecord> _sessions = new(StringComparer.Ordinal);
     private readonly PreviewHostClient _previewHostClient;
     private readonly SessionRegistry _sessionRegistry;
+    private readonly PreviewSessionStore? _store;
     private readonly TimeProvider _timeProvider;
 
     public PreviewSessionRegistry(
         SessionRegistry sessionRegistry,
         PreviewHostClient previewHostClient)
-        : this(sessionRegistry, previewHostClient, TimeProvider.System)
+        : this(sessionRegistry, previewHostClient, TimeProvider.System, store: null)
     {
     }
 
@@ -21,10 +22,22 @@ public sealed class PreviewSessionRegistry
         SessionRegistry sessionRegistry,
         PreviewHostClient previewHostClient,
         TimeProvider timeProvider)
+        : this(sessionRegistry, previewHostClient, timeProvider, store: null)
+    {
+    }
+
+    public PreviewSessionRegistry(
+        SessionRegistry sessionRegistry,
+        PreviewHostClient previewHostClient,
+        TimeProvider timeProvider,
+        PreviewSessionStore? store)
     {
         _sessionRegistry = sessionRegistry ?? throw new ArgumentNullException(nameof(sessionRegistry));
         _previewHostClient = previewHostClient ?? throw new ArgumentNullException(nameof(previewHostClient));
         _timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
+        _store = store;
+
+        RestoreFromStore();
     }
 
     public async Task<CoreResult<PreviewSessionSummary>> CreateAsync(
@@ -48,7 +61,11 @@ public sealed class PreviewSessionRegistry
 
         _sessions[session.Id.Value] = record;
 
-        return CoreResult<PreviewSessionSummary>.Ok(record.Snapshot(ToProtocolSummary(snapshot)));
+        var summary = record.Snapshot(ToProtocolSummary(snapshot));
+        var stored = Store(summary);
+        return stored.Success
+            ? CoreResult<PreviewSessionSummary>.Ok(summary)
+            : CoreResult<PreviewSessionSummary>.Fail(stored.Error!);
     }
 
     public IReadOnlyList<PreviewSessionSummary> List()
@@ -77,7 +94,11 @@ public sealed class PreviewSessionRegistry
         }
 
         record.Touch(_timeProvider.GetUtcNow());
-        return CoreResult<PreviewSessionSummary>.Ok(record.Snapshot(ToProtocolSummary(closed.Value!)));
+        var summary = record.Snapshot(ToProtocolSummary(closed.Value!));
+        var stored = Store(summary);
+        return stored.Success
+            ? CoreResult<PreviewSessionSummary>.Ok(summary)
+            : CoreResult<PreviewSessionSummary>.Fail(stored.Error!);
     }
 
     public async Task<CoreResult<PreviewSessionSummary>> ReloadAsync(
@@ -112,7 +133,44 @@ public sealed class PreviewSessionRegistry
 
         record.Update(lastRender, _timeProvider.GetUtcNow());
 
-        return CoreResult<PreviewSessionSummary>.Ok(record.Snapshot(ToProtocolSummary(snapshot)));
+        var summary = record.Snapshot(ToProtocolSummary(snapshot));
+        var stored = Store(summary);
+        return stored.Success
+            ? CoreResult<PreviewSessionSummary>.Ok(summary)
+            : CoreResult<PreviewSessionSummary>.Fail(stored.Error!);
+    }
+
+    private void RestoreFromStore()
+    {
+        if (_store is null)
+        {
+            return;
+        }
+
+        foreach (var summary in _store.Load())
+        {
+            if (!TryCreateSnapshot(summary, out var snapshot))
+            {
+                continue;
+            }
+
+            var restored = _sessionRegistry.Restore(snapshot!);
+            if (!restored.Success)
+            {
+                continue;
+            }
+
+            _sessions[summary.Session.SessionId.Value] = new PreviewSessionRecord(
+                summary.Session.SessionId,
+                summary.Request,
+                summary.LastRender,
+                summary.UpdatedAt);
+        }
+    }
+
+    private CoreResult<bool> Store(PreviewSessionSummary summary)
+    {
+        return _store?.Save(summary) ?? CoreResult<bool>.Ok(true);
     }
 
     private PreviewSessionSummary? TrySnapshot(PreviewSessionRecord record)
@@ -150,6 +208,51 @@ public sealed class PreviewSessionRegistry
             SessionLifecycleState.Failed => SessionStates.Failed,
             _ => throw new ArgumentOutOfRangeException(nameof(state), state, "Unknown session state.")
         };
+    }
+
+    private static bool TryCreateSnapshot(
+        PreviewSessionSummary summary,
+        out SessionSnapshot? snapshot)
+    {
+        snapshot = null;
+        if (!string.Equals(summary.Session.Kind, SessionKinds.Preview, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        if (!TryParseState(summary.Session.State, out var state))
+        {
+            return false;
+        }
+
+        var lastError = summary.LastRender.Success || summary.LastRender.Error is null
+            ? null
+            : new CoreError(summary.LastRender.Error.Code, summary.LastRender.Error.Message);
+        snapshot = new SessionSnapshot(
+            summary.Session.SessionId,
+            summary.Session.Kind,
+            state,
+            summary.Session.CreatedAt,
+            summary.Session.DisplayName,
+            lastError);
+        return true;
+    }
+
+    private static bool TryParseState(string state, out SessionLifecycleState lifecycleState)
+    {
+        lifecycleState = state switch
+        {
+            SessionStates.Active => SessionLifecycleState.Active,
+            SessionStates.Closing => SessionLifecycleState.Closing,
+            SessionStates.Closed => SessionLifecycleState.Closed,
+            SessionStates.Failed => SessionLifecycleState.Failed,
+            _ => SessionLifecycleState.Active
+        };
+
+        return state is SessionStates.Active
+            or SessionStates.Closing
+            or SessionStates.Closed
+            or SessionStates.Failed;
     }
 
     private static CoreError SessionNotFound(SessionId sessionId)

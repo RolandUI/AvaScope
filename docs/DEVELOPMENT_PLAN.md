@@ -23,15 +23,15 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `M36 Reload And Hot Preview Foundation Slice`
+- `M37 Preview Resource And Style Scope Slice`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-07`
-- Goal: move beyond explicit runtime reload unsupported checks toward a durable reload foundation.
+- Goal: improve preview-host resource/style parity after durable preview-session persistence.
 
 ## Next Action
 
-Audit existing preview-session reload boundaries and implement the smallest durable reload foundation that can survive beyond one in-memory MCP server process.
+Audit current `App.axaml`, merged dictionary, style, theme, and resource loading boundaries in `AvaScope.PreviewHost`, then implement the smallest validated parity improvement.
 
 ## Latest Validation
 
@@ -222,6 +222,10 @@ Audit existing preview-session reload boundaries and implement the smallest dura
 - `2026-06-07`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after M35 CLI `reload` implementation.
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli` passed with 74 tests, including fake bridge health checks for CLI `reload`.
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 158 tests after M35 CLI reload workflow.
+- `2026-06-07`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after M36 durable preview-session store implementation.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewSessionRegistryTests` passed with 8 tests.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter Core` passed with 36 tests.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 160 tests after M36 reload/hot preview foundation.
 
 ## Milestones
 
@@ -984,13 +988,17 @@ Audit existing preview-session reload boundaries and implement the smallest dura
 
 ### M36 Reload And Hot Preview Foundation Slice
 
-- Status: `In Progress`
+- Status: `Done`
 - Goal: move beyond explicit runtime reload unsupported checks toward a durable reload foundation.
 - Deliverables: repository-backed reload gap audit, smallest durable preview-session persistence or reload-state foundation, tests, README/tracking update.
 - Progress:
-  - Pending: inspect `PreviewSessionRegistry`, MCP reload behavior, CLI one-shot preview behavior, and current storage boundaries.
-  - Pending: choose the smallest persistent reload foundation that does not run user code inside MCP/CLI.
-  - Pending: implement with focused Core/MCP/CLI tests if the foundation is clear.
+  - Done: inspected `PreviewSessionRegistry`, MCP reload behavior, CLI one-shot preview behavior, and current storage boundaries.
+  - Done: added Core `PreviewSessionStore` for per-session JSON records under the local AvaScope temp preview-session store.
+  - Done: added `SessionRegistry.Restore` and registry startup restore for persisted preview session records.
+  - Done: wired MCP host `PreviewSessionRegistry` to the default persistent store while leaving existing unit-test constructors in-memory unless a store is supplied.
+  - Done: persisted create, reload, and close updates; write failures return structured `preview_session_store_failed` errors.
+  - Done: added Core tests proving preview sessions and closed state restore across registry instances.
+  - Done: README documents the durable MCP preview-session boundary and runtime reload limitation.
 - Acceptance Criteria:
   - Non-obvious reload persistence decisions are recorded.
   - Existing runtime reload unsupported behavior remains explicit and tested.
@@ -1002,7 +1010,25 @@ Audit existing preview-session reload boundaries and implement the smallest dura
   - `dotnet test AvaScope.slnx --no-build`
   - `dotnet test AvaScope.slnx --no-build --filter Core`
   - `git status --short`
-  - `git status --short`
+
+### M37 Preview Resource And Style Scope Slice
+
+- Status: `In Progress`
+- Goal: improve preview-host resource/style parity after durable preview-session persistence.
+- Deliverables: focused preview-host resource/style loading improvement, tests with a tiny sample project/view, README/tracking update.
+- Progress:
+  - Pending: audit current `AvaScope.PreviewHost` app resource, style, merged dictionary, and theme handling.
+  - Pending: identify the smallest high-value gap that can be validated without claiming full design-time parity.
+  - Pending: implement with focused preview-host smoke coverage.
+- Acceptance Criteria:
+  - PreviewHost handles one additional real-world resource/style scenario beyond current top-level `App.axaml` resources.
+  - The behavior remains isolated in `AvaScope.PreviewHost`; MCP/CLI do not load user project code.
+  - Tests validate rendered output file and structured response for the new scenario.
+  - README documents the supported boundary and remaining limitations.
+- Validation:
+  - `dotnet build AvaScope.slnx`
+  - targeted PreviewHost tests
+  - `dotnet test AvaScope.slnx --no-build`
 
 ## Decision Log
 
@@ -1091,6 +1117,9 @@ Audit existing preview-session reload boundaries and implement the smallest dura
 - `2026-06-07`: M35 targets CLI reload next because diagnostics closes the read-only visibility gap, leaving reload as the remaining intended runtime/preview CLI workflow.
 - `2026-06-07`: M35 keeps CLI reload to runtime bridge health checks because preview sessions are currently in-memory server state and CLI preview renders are one-shot; durable preview reload belongs in a separate reload foundation slice.
 - `2026-06-07`: M36 targets reload/hot preview foundation next because the CLI runtime command surface now covers attach, top-levels, screenshots, trees, inspect, find, input, close, diagnostics, and runtime reload checks.
+- `2026-06-07`: M36 persists MCP-backed preview session records as local per-session JSON under the AvaScope temp preview-session store; CLI preview remains one-shot until a future CLI command explicitly creates durable preview sessions.
+- `2026-06-07`: M36 ignores corrupt persisted preview-session records during startup so one bad file cannot prevent the MCP server from starting; write failures are surfaced as structured `preview_session_store_failed` errors.
+- `2026-06-07`: M37 targets preview resource/style scope next because durable preview reload now exists and the remaining preview gap is closer design-time resource parity, not another adapter command.
 
 ## Change Log
 
@@ -1140,3 +1169,4 @@ Audit existing preview-session reload boundaries and implement the smallest dura
 - `2026-06-07`: Completed M33 CLI close session with structured `close-session`, fake bridge pipe success tests, README updates, and full-suite validation; added M34 CLI diagnostics as the active focus.
 - `2026-06-07`: Completed M34 CLI diagnostics with process/session filters, max-session validation, preview-host diagnostics, fake bridge health tests, README updates, and full-suite validation; added M35 CLI reload as the active focus.
 - `2026-06-07`: Completed M35 CLI reload with runtime bridge health checks, explicit `runtime_reload_not_supported`, structured failure tests, README updates, and full-suite validation; added M36 reload/hot preview foundation as the active focus.
+- `2026-06-07`: Completed M36 reload/hot preview foundation with persistent Core preview-session JSON storage, MCP store wiring, restore tests, README updates, and full-suite validation; added M37 preview resource/style scope as the active focus.

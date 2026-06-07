@@ -58,6 +58,23 @@ public sealed class SessionRegistry
             : CoreResult<SessionSnapshot>.Fail(SessionNotFound(sessionId));
     }
 
+    public CoreResult<SessionSnapshot> Restore(SessionSnapshot snapshot)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot);
+
+        var record = new SessionRecord(
+            snapshot.Id,
+            snapshot.Kind,
+            snapshot.DisplayName,
+            snapshot.CreatedAt,
+            snapshot.State,
+            snapshot.LastError);
+
+        return _sessions.TryAdd(snapshot.Id.Value, record)
+            ? CoreResult<SessionSnapshot>.Ok(record.Snapshot())
+            : Get(snapshot.Id);
+    }
+
     public CoreResult<SessionSnapshot> Close(SessionId sessionId)
     {
         ArgumentNullException.ThrowIfNull(sessionId);
@@ -106,12 +123,20 @@ public sealed class SessionRegistry
         private SessionLifecycleState _state = SessionLifecycleState.Active;
         private CoreError? _lastError;
 
-        public SessionRecord(SessionId id, string kind, string? displayName, DateTimeOffset createdAt)
+        public SessionRecord(
+            SessionId id,
+            string kind,
+            string? displayName,
+            DateTimeOffset createdAt,
+            SessionLifecycleState state = SessionLifecycleState.Active,
+            CoreError? lastError = null)
         {
             Id = id;
             Kind = kind;
             DisplayName = displayName;
             CreatedAt = createdAt;
+            _state = state;
+            _lastError = lastError;
         }
 
         public SessionId Id { get; }

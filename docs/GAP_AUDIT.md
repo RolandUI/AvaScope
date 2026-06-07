@@ -42,11 +42,11 @@ Next slice: move to the broader reload/hot preview foundation gap; CLI preview s
 
 ### Reload And Hot Preview
 
-Status: preview-session reload MVP and runtime reload contract complete; runtime hot reload and live hot preview remain open.
+Status: preview-session reload MVP, durable MCP preview-session store, and runtime reload contract complete; runtime hot reload and live hot preview remain open.
 
-`reload` is listed in the intended MCP tool shape. Preview sessions now persist the original request plus latest render result as Core metadata, and MCP `reload` re-renders an existing preview session through the isolated preview host. Runtime bridge session ids are now checked through the local bridge health path and return a structured `runtime_reload_not_supported` diagnostic. User code still runs only in one-shot preview host child processes. Runtime hot reload and live hot preview sessions are not implemented yet.
+`reload` is listed in the intended MCP tool shape. Preview sessions now persist the original request plus latest render result as Core metadata and as per-session local JSON records for the MCP host. MCP startup restores those preview records into `PreviewSessionRegistry`, and MCP `reload` re-renders an existing preview session through the isolated preview host. Runtime bridge session ids are checked through the local bridge health path and return a structured `runtime_reload_not_supported` diagnostic. User code still runs only in one-shot preview host child processes. Runtime hot reload and live hot preview sessions are not implemented yet.
 
-Completed slice: runtime reload no longer falls through to a misleading preview `session_not_found` for active bridge sessions.
+Completed slice: runtime reload no longer falls through to a misleading preview `session_not_found` for active bridge sessions, and MCP-backed preview session records now survive MCP server process restarts.
 
 ### Preview Resource Scope
 
@@ -56,7 +56,7 @@ PreviewHost can build a project, load a compiled view resource through `avares:/
 
 Completed slice: project-root compiled `App.axaml` top-level resources are loaded into the isolated preview host before view loading.
 
-Next slice: continue with persistent preview-session foundation before broader resource/style/design-data parity.
+Next slice: continue with broader resource/style/design-data parity.
 
 ### Input Coverage
 
@@ -90,4 +90,4 @@ Next slice: CI can later add publish/upload artifacts, self-contained outputs, o
 
 ## Selected Next Slice
 
-Add reload/hot preview foundation next. The current CLI runtime command surface is covered, so the next vertical slice should address durable preview reload boundaries without claiming runtime hot reload.
+Add preview resource/style scope next. Durable preview-session reload now exists for MCP-backed preview records, so the next vertical slice should improve real-world preview resource parity without claiming full design-time hot reload.

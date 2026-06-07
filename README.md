@@ -222,9 +222,9 @@ Preview rendering is isolated in `AvaScope.PreviewHost`, launched as a child pro
 - renders through headless Skia;
 - writes a PNG and structured JSON result.
 
-Preview session tools store the original preview request plus the latest render result as Core metadata. They do not keep user project code loaded inside MCP; each render still goes through `AvaScope.PreviewHost`.
+Preview session tools store the original preview request plus the latest render result as Core metadata. MCP-backed preview session records are also persisted as JSON under the local AvaScope temp preview-session store so they can be restored after the MCP server process restarts. They do not keep user project code loaded inside MCP; each render still goes through `AvaScope.PreviewHost`.
 
-`reload` re-runs stored preview-session requests through the isolated preview host and updates the existing session's latest render result. Runtime bridge session ids are health-checked locally and return `runtime_reload_not_supported`; AvaScope does not restart apps, inject code, or claim runtime hot reload.
+`reload` re-runs stored preview-session requests through the isolated preview host and updates the existing session's latest render result. Runtime bridge session ids are health-checked locally and return `runtime_reload_not_supported`; AvaScope does not restart apps, inject code, or claim runtime hot reload. CLI preview renders remain one-shot unless a future CLI command creates durable preview session records explicitly.
 
 Current preview limitations:
 

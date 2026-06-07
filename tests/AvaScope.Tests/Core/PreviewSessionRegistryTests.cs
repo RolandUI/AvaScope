@@ -183,6 +183,90 @@ public sealed class PreviewSessionRegistryTests : IDisposable
     }
 
     [Fact]
+    public async Task PreviewSessionsPersistAndRestoreFromStore()
+    {
+        var createdAt = new DateTimeOffset(2026, 6, 7, 7, 0, 0, TimeSpan.Zero);
+        var timeProvider = new ManualTimeProvider(createdAt);
+        var store = new PreviewSessionStore(Path.Combine(_testRoot, "store"));
+        var missingHost = new PreviewHostClient(Path.Combine(_testRoot, "missing-host.dll"));
+        var firstRegistry = new PreviewSessionRegistry(
+            new SessionRegistry(timeProvider),
+            missingHost,
+            timeProvider,
+            store);
+        var request = new PreviewRequest(
+            Path.Combine(_testRoot, "preview.png"),
+            width: 100,
+            height: 100,
+            dpi: 96,
+            viewPath: Path.Combine(_testRoot, "StoredView.axaml"));
+
+        var created = await firstRegistry.CreateAsync(request, "Stored preview");
+
+        Assert.True(created.Success, created.Error?.Message);
+        Assert.Equal(SessionStates.Failed, created.Value!.Session.State);
+        Assert.False(created.Value.LastRender.Success);
+        Assert.True(Directory.EnumerateFiles(store.Directory, "*.json").Any());
+
+        var restoredSessionRegistry = new SessionRegistry(timeProvider);
+        var restoredRegistry = new PreviewSessionRegistry(
+            restoredSessionRegistry,
+            missingHost,
+            timeProvider,
+            store);
+
+        var restored = Assert.Single(restoredRegistry.List());
+        Assert.Equal(created.Value.Session.SessionId, restored.Session.SessionId);
+        Assert.Equal("Stored preview", restored.Session.DisplayName);
+        Assert.Equal(SessionStates.Failed, restored.Session.State);
+        Assert.Equal(Path.GetFullPath(request.OutputPath), Path.GetFullPath(restored.Request.OutputPath));
+        Assert.False(restored.LastRender.Success);
+        Assert.Equal(CoreErrorCodes.PreviewHostUnavailable, restored.LastRender.Error!.Code);
+        Assert.Equal(SessionLifecycleState.Failed, restoredSessionRegistry.Get(restored.Session.SessionId).Value!.State);
+    }
+
+    [Fact]
+    public async Task ClosedPreviewSessionStatePersistsAcrossRegistryInstances()
+    {
+        var timeProvider = new ManualTimeProvider(new DateTimeOffset(2026, 6, 7, 7, 30, 0, TimeSpan.Zero));
+        var store = new PreviewSessionStore(Path.Combine(_testRoot, "closed-store"));
+        var missingHost = new PreviewHostClient(Path.Combine(_testRoot, "missing-host.dll"));
+        var firstSessionRegistry = new SessionRegistry(timeProvider);
+        var firstRegistry = new PreviewSessionRegistry(
+            firstSessionRegistry,
+            missingHost,
+            timeProvider,
+            store);
+        var created = await firstRegistry.CreateAsync(new PreviewRequest(
+            Path.Combine(_testRoot, "preview.png"),
+            width: 100,
+            height: 100,
+            dpi: 96));
+        timeProvider.UtcNow = timeProvider.UtcNow.AddMinutes(1);
+
+        var closed = firstRegistry.Close(created.Value!.Session.SessionId);
+
+        Assert.True(closed.Success, closed.Error?.Message);
+        Assert.Equal(SessionStates.Closed, closed.Value!.Session.State);
+
+        var restoredSessionRegistry = new SessionRegistry(timeProvider);
+        var restoredRegistry = new PreviewSessionRegistry(
+            restoredSessionRegistry,
+            missingHost,
+            timeProvider,
+            store);
+
+        var restored = Assert.Single(restoredRegistry.List());
+        Assert.Equal(SessionStates.Closed, restored.Session.State);
+        Assert.Equal(SessionLifecycleState.Closed, restoredSessionRegistry.Get(restored.Session.SessionId).Value!.State);
+
+        var reloaded = await restoredRegistry.ReloadAsync(restored.Session.SessionId);
+
+        Assert.False(reloaded.Success);
+        Assert.Equal(CoreErrorCodes.SessionClosed, reloaded.Error!.Code);
+    }
+
+    [Fact]
     public void CloseReturnsStructuredErrorForUnknownPreviewSession()
     {
         var previewSessions = new PreviewSessionRegistry(
