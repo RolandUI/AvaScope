@@ -31,7 +31,7 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Next Action
 
-Run a focused gap audit against the product goals and choose the next vertical slice; prioritize implemented-but-undocumented limits, missing structured diagnostics, `close_session`, `reload`, or package/release readiness.
+Implement runtime `close_session` lifecycle support with a safe bridge IPC close handshake, Core client method, MCP tool, and stale manifest cleanup validation.
 
 ## Latest Validation
 
@@ -105,6 +105,7 @@ Run a focused gap audit against the product goals and choose the next vertical s
 - `2026-06-07`: Markdown tracking/status fields checked after M11 documentation update.
 - `2026-06-07`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after M11 documentation update.
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 67 tests.
+- `2026-06-07`: Post-MVP gap audit recorded in `docs/GAP_AUDIT.md`; selected runtime `close_session` lifecycle support as the next slice.
 
 ## Milestones
 
@@ -316,6 +317,10 @@ Run a focused gap audit against the product goals and choose the next vertical s
 - Status: `In Progress`
 - Goal: audit and close the highest-risk gaps in the first usable AvaScope workflow set.
 - Deliverables: prioritized gap list, next vertical hardening slice, validation updates.
+- Progress:
+  - Done: gap audit created with P0/P1/P2 ranking.
+  - Done: selected runtime `close_session` lifecycle support as the next vertical slice.
+  - Pending: implement safe bridge IPC close handshake and adapter tools.
 - Acceptance Criteria:
   - Gaps are ranked by user impact and architectural risk.
   - The next slice is small enough to validate and commit independently.
@@ -359,6 +364,7 @@ Run a focused gap audit against the product goals and choose the next vertical s
 - `2026-06-07`: Added M11 because the implemented bridge/MCP/CLI/preview workflows now need repository-level usage documentation before broader hardening.
 - `2026-06-07`: README intentionally documents current limitations for input, preview resources, hot reload, and diagnostics so users do not assume full DevTools parity yet.
 - `2026-06-07`: Added M12 to continue with explicit post-MVP hardening rather than broad untracked expansion.
+- `2026-06-07`: Runtime `close_session` is the next hardening slice because stale local bridge sessions/manifests directly affect repeated agent workflows and the tool name is already part of the target MCP shape.
 
 ## Change Log
 
@@ -383,3 +389,4 @@ Run a focused gap audit against the product goals and choose the next vertical s
 - `2026-06-07`: Completed M9 preview adapter integration with Core `PreviewHostClient`, MCP `preview_axaml`, process smoke coverage, and stdio tool-list validation; added M10 CLI integration as the active focus.
 - `2026-06-07`: Completed M10 CLI integration with `avascope preview`, `avascope mcp`, process smoke coverage, and structured invalid-argument errors; added M11 documentation and release readiness as the active focus.
 - `2026-06-07`: Completed M11 documentation and release-readiness slice with README usage documentation and validation guide updates; added M12 post-MVP hardening as the active focus.
+- `2026-06-07`: Added post-MVP gap audit and selected runtime `close_session` lifecycle support as the next hardening slice.
