@@ -23,15 +23,15 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `M10 CLI Integration`
+- `M11 Documentation and Release Readiness`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-07`
-- Goal: expose AvaScope preview and server workflows through a local `avascope` command.
+- Goal: make the implemented AvaScope workflows discoverable, reproducible, and ready for local use.
 
 ## Next Action
 
-Add `AvaScope.Cli` with an `avascope preview <project> --view <axaml> --out <png> --width <w> --height <h> [--dpi <dpi>] [--theme light|dark]` command backed by `PreviewHostClient`.
+Add concise repository documentation for bridge activation, MCP tools, CLI usage, preview host behavior, validation commands, and current safety boundaries.
 
 ## Latest Validation
 
@@ -99,6 +99,9 @@ Add `AvaScope.Cli` with an `avascope preview <project> --view <axaml> --out <png
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter Core` passed with 18 tests.
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter Mcp` passed with 15 tests.
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 64 tests.
+- `2026-06-07`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after M10 CLI integration.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli` passed with 13 tests.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 67 tests.
 
 ## Milestones
 
@@ -272,9 +275,14 @@ Add `AvaScope.Cli` with an `avascope preview <project> --view <axaml> --out <png
 
 ### M10 CLI Integration
 
-- Status: `In Progress`
+- Status: `Done`
 - Goal: provide a local `avascope` command for developer workflows.
 - Deliverables: CLI project, preview command, MCP server command handoff or documented invocation path.
+- Progress:
+  - Done: `AvaScope.Cli` builds as `avascope`.
+  - Done: `avascope preview <project.csproj> --view <view.axaml> --out <preview.png> --width <w> --height <h> [--dpi <dpi>] [--theme light|dark]` renders through `PreviewHostClient`.
+  - Done: `avascope mcp` starts the MCP server assembly colocated with the CLI output.
+  - Done: CLI invalid arguments return non-zero exit codes and structured JSON errors.
 - Acceptance Criteria:
   - CLI can render a preview through `PreviewHostClient` without loading user project code in the CLI process.
   - CLI returns non-zero exit codes and concise structured errors for invalid requests.
@@ -282,6 +290,20 @@ Add `AvaScope.Cli` with an `avascope preview <project> --view <axaml> --out <png
 - Validation:
   - CLI preview smoke test with PNG output validation
   - CLI invalid argument/error test
+
+### M11 Documentation and Release Readiness
+
+- Status: `In Progress`
+- Goal: document the current usable workflows and harden local validation for handoff.
+- Deliverables: README usage guide, architecture/safety summary, validation command checklist, current limitations.
+- Acceptance Criteria:
+  - A new agent or developer can run MCP, CLI preview, and bridge workflows from documented commands.
+  - Documentation states the current isolation and local-only safety boundaries.
+  - Documentation does not overclaim unsupported preview/resource/input behavior.
+- Validation:
+  - Markdown tracking/status check
+  - `dotnet build AvaScope.slnx`
+  - `dotnet test AvaScope.slnx --no-build`
 
 ## Decision Log
 
@@ -314,6 +336,8 @@ Add `AvaScope.Cli` with an `avascope preview <project> --view <axaml> --out <png
 - `2026-06-07`: Added M9 to continue after the initial M0-M8 plan by wiring the completed preview host through Core and MCP adapters.
 - `2026-06-07`: MCP references `AvaScope.PreviewHost` only to place the host assembly beside the MCP server output; rendering still goes through `PreviewHostClient` and a child process.
 - `2026-06-07`: Added M10 for local CLI workflows after preview host and MCP preview integration.
+- `2026-06-07`: `avascope mcp` is a process handoff to the colocated MCP server assembly rather than a second in-process MCP host, keeping one canonical MCP implementation.
+- `2026-06-07`: Added M11 because the implemented bridge/MCP/CLI/preview workflows now need repository-level usage documentation before broader hardening.
 
 ## Change Log
 
@@ -336,3 +360,4 @@ Add `AvaScope.Cli` with an `avascope preview <project> --view <axaml> --out <png
 - `2026-06-07`: Added M8 project build boundary in the preview host child process with structured build failure diagnostics; M8 remains in progress pending compiled project assembly/resource loading.
 - `2026-06-07`: Completed M8 preview host slice with compiled Avalonia project resource and code-behind smoke rendering; added M9 preview adapter integration as the active focus.
 - `2026-06-07`: Completed M9 preview adapter integration with Core `PreviewHostClient`, MCP `preview_axaml`, process smoke coverage, and stdio tool-list validation; added M10 CLI integration as the active focus.
+- `2026-06-07`: Completed M10 CLI integration with `avascope preview`, `avascope mcp`, process smoke coverage, and structured invalid-argument errors; added M11 documentation and release readiness as the active focus.

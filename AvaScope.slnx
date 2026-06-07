@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/AvaScope.Bridge/AvaScope.Bridge.csproj" />
+    <Project Path="src/AvaScope.Cli/AvaScope.Cli.csproj" />
     <Project Path="src/AvaScope.Core/AvaScope.Core.csproj" />
     <Project Path="src/AvaScope.Mcp/AvaScope.Mcp.csproj" />
     <Project Path="src/AvaScope.PreviewHost/AvaScope.PreviewHost.csproj" />
