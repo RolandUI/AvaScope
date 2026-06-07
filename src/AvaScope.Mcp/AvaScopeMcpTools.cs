@@ -448,6 +448,30 @@ public sealed class AvaScopeMcpTools
         return ToToolResult(previewSessions.Close(parsedSessionId!));
     }
 
+    [McpServerTool(
+        Name = "reload",
+        Title = "Reload",
+        ReadOnly = false,
+        Idempotent = false,
+        Destructive = false,
+        OpenWorld = false,
+        UseStructuredContent = true)]
+    [Description("Reloads a preview session by re-rendering its stored request through the isolated preview host.")]
+    public static async Task<ToolResult<PreviewSessionSummary>> Reload(
+        PreviewSessionRegistry previewSessions,
+        string sessionId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(previewSessions);
+
+        if (!TryParseRequiredSessionId(sessionId, out var parsedSessionId, out var error))
+        {
+            return ToolResult<PreviewSessionSummary>.Fail(error!);
+        }
+
+        return ToToolResult(await previewSessions.ReloadAsync(parsedSessionId!, cancellationToken));
+    }
+
     private static SessionSummary ToProtocolSummary(SessionSnapshot session)
     {
         return new SessionSummary(

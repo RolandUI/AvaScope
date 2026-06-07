@@ -242,6 +242,14 @@ public sealed class AvaScopeMcpToolsTests
         Assert.False(created.Value.LastRender.Success);
         Assert.Equal(CoreErrorCodes.PreviewHostUnavailable, created.Value.LastRender.Error!.Code);
 
+        var reloaded = await AvaScopeMcpTools.Reload(previewSessions, created.Value.Session.SessionId.Value);
+
+        Assert.True(reloaded.Success, reloaded.Error?.Message);
+        Assert.Equal(created.Value.Session.SessionId, reloaded.Value!.Session.SessionId);
+        Assert.Equal(SessionStates.Failed, reloaded.Value.Session.State);
+        Assert.False(reloaded.Value.LastRender.Success);
+        Assert.Equal(CoreErrorCodes.PreviewHostUnavailable, reloaded.Value.LastRender.Error!.Code);
+
         var listed = AvaScopeMcpTools.ListPreviewSessions(previewSessions);
 
         Assert.True(listed.Success);
@@ -268,6 +276,36 @@ public sealed class AvaScopeMcpToolsTests
         var previewSessions = CreatePreviewSessionRegistryWithMissingHost();
 
         var result = AvaScopeMcpTools.ClosePreviewSession(previewSessions, " ");
+
+        Assert.False(result.Success);
+        Assert.Null(result.Value);
+        Assert.Equal(CoreErrorCodes.InvalidBridgeRequest, result.Error!.Code);
+    }
+
+    [Fact]
+    public async Task ReloadRejectsClosedPreviewSession()
+    {
+        var previewSessions = CreatePreviewSessionRegistryWithMissingHost();
+        var created = await AvaScopeMcpTools.CreatePreviewSession(
+            previewSessions,
+            Path.Combine(Path.GetTempPath(), "AvaScope.Tests", "missing-preview.png"),
+            width: 120,
+            height: 80);
+        AvaScopeMcpTools.ClosePreviewSession(previewSessions, created.Value!.Session.SessionId.Value);
+
+        var result = await AvaScopeMcpTools.Reload(previewSessions, created.Value.Session.SessionId.Value);
+
+        Assert.False(result.Success);
+        Assert.Null(result.Value);
+        Assert.Equal(CoreErrorCodes.SessionClosed, result.Error!.Code);
+    }
+
+    [Fact]
+    public async Task ReloadRejectsEmptySessionId()
+    {
+        var previewSessions = CreatePreviewSessionRegistryWithMissingHost();
+
+        var result = await AvaScopeMcpTools.Reload(previewSessions, " ");
 
         Assert.False(result.Success);
         Assert.Null(result.Value);

@@ -104,6 +104,20 @@ public sealed class SessionRegistryTests
     }
 
     [Fact]
+    public void MarkActiveRestoresFailedSession()
+    {
+        var registry = new SessionRegistry();
+        var session = registry.Create(SessionKinds.Preview);
+        registry.MarkFailed(session.Id, new CoreError("preview_failed", "Preview failed."));
+
+        var result = registry.MarkActive(session.Id);
+
+        Assert.True(result.Success);
+        Assert.Equal(SessionLifecycleState.Active, result.Value!.State);
+        Assert.Null(result.Value.LastError);
+    }
+
+    [Fact]
     public void CreateRejectsEmptySessionKind()
     {
         var registry = new SessionRegistry();

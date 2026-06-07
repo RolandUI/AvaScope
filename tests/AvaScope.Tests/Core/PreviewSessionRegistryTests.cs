@@ -96,6 +96,93 @@ public sealed class PreviewSessionRegistryTests : IDisposable
     }
 
     [Fact]
+    public async Task ReloadAsyncRerendersExistingPreviewSession()
+    {
+        Directory.CreateDirectory(_testRoot);
+        var createdAt = new DateTimeOffset(2026, 6, 7, 5, 30, 0, TimeSpan.Zero);
+        var timeProvider = new ManualTimeProvider(createdAt);
+        var sessionRegistry = new SessionRegistry(timeProvider);
+        var previewHost = new PreviewHostClient(Path.Combine(AppContext.BaseDirectory, "AvaScope.PreviewHost.dll"));
+        var previewSessions = new PreviewSessionRegistry(sessionRegistry, previewHost, timeProvider);
+        var viewPath = Path.Combine(_testRoot, "ReloadView.axaml");
+        var outputPath = Path.Combine(_testRoot, "reload.png");
+
+        await File.WriteAllTextAsync(viewPath, """
+            <UserControl xmlns="https://github.com/avaloniaui">
+              <Border Background="#FFFFFFFF">
+                <TextBlock Text="Initial preview session reload smoke" />
+              </Border>
+            </UserControl>
+            """);
+
+        var request = new PreviewRequest(
+            outputPath,
+            width: 300,
+            height: 160,
+            dpi: 96,
+            viewPath: viewPath);
+        var created = await previewSessions.CreateAsync(request);
+        timeProvider.UtcNow = createdAt.AddMinutes(1);
+
+        var reloaded = await previewSessions.ReloadAsync(created.Value!.Session.SessionId);
+
+        Assert.True(reloaded.Success, reloaded.Error?.Message);
+        Assert.Equal(created.Value.Session.SessionId, reloaded.Value!.Session.SessionId);
+        Assert.Equal(SessionStates.Active, reloaded.Value.Session.State);
+        Assert.True(reloaded.Value.LastRender.Success, reloaded.Value.LastRender.Error?.Message);
+        Assert.Equal(Path.GetFullPath(outputPath), reloaded.Value.LastRender.Value!.FilePath);
+        Assert.Equal(timeProvider.UtcNow, reloaded.Value.UpdatedAt);
+        Assert.Single(previewSessions.List());
+        Assert.Single(sessionRegistry.List());
+    }
+
+    [Fact]
+    public async Task ReloadAsyncStoresFailedRenderAndKeepsSession()
+    {
+        var createdAt = new DateTimeOffset(2026, 6, 7, 6, 0, 0, TimeSpan.Zero);
+        var timeProvider = new ManualTimeProvider(createdAt);
+        var sessionRegistry = new SessionRegistry(timeProvider);
+        var missingHost = new PreviewHostClient(Path.Combine(_testRoot, "missing-host.dll"));
+        var previewSessions = new PreviewSessionRegistry(sessionRegistry, missingHost, timeProvider);
+        var request = new PreviewRequest(
+            Path.Combine(_testRoot, "preview.png"),
+            width: 100,
+            height: 100,
+            dpi: 96);
+        var created = await previewSessions.CreateAsync(request);
+        timeProvider.UtcNow = createdAt.AddMinutes(1);
+
+        var reloaded = await previewSessions.ReloadAsync(created.Value!.Session.SessionId);
+
+        Assert.True(reloaded.Success, reloaded.Error?.Message);
+        Assert.Equal(created.Value.Session.SessionId, reloaded.Value!.Session.SessionId);
+        Assert.Equal(SessionStates.Failed, reloaded.Value.Session.State);
+        Assert.False(reloaded.Value.LastRender.Success);
+        Assert.Equal(CoreErrorCodes.PreviewHostUnavailable, reloaded.Value.LastRender.Error!.Code);
+        Assert.Equal(timeProvider.UtcNow, reloaded.Value.UpdatedAt);
+        Assert.Equal(SessionLifecycleState.Failed, sessionRegistry.Get(created.Value.Session.SessionId).Value!.State);
+    }
+
+    [Fact]
+    public async Task ReloadAsyncRejectsClosedPreviewSession()
+    {
+        var sessionRegistry = new SessionRegistry();
+        var missingHost = new PreviewHostClient(Path.Combine(_testRoot, "missing-host.dll"));
+        var previewSessions = new PreviewSessionRegistry(sessionRegistry, missingHost);
+        var created = await previewSessions.CreateAsync(new PreviewRequest(
+            Path.Combine(_testRoot, "preview.png"),
+            width: 100,
+            height: 100,
+            dpi: 96));
+        previewSessions.Close(created.Value!.Session.SessionId);
+
+        var reloaded = await previewSessions.ReloadAsync(created.Value.Session.SessionId);
+
+        Assert.False(reloaded.Success);
+        Assert.Equal(CoreErrorCodes.SessionClosed, reloaded.Error!.Code);
+    }
+
+    [Fact]
     public void CloseReturnsStructuredErrorForUnknownPreviewSession()
     {
         var previewSessions = new PreviewSessionRegistry(

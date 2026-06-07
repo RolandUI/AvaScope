@@ -83,8 +83,9 @@ Implemented tools:
 - `create_preview_session`
 - `list_preview_sessions`
 - `close_preview_session`
+- `reload`
 
-Planned but not implemented yet: `reload`.
+Planned but not implemented yet: runtime bridge reload and broader input primitives.
 
 `diagnostics` reports AvaScope service metadata, local bridge manifest/pipe health, stale or invalid bridge manifests, and preview host readiness without building or loading user projects.
 
@@ -120,6 +121,8 @@ Preview rendering is isolated in `AvaScope.PreviewHost`, launched as a child pro
 - writes a PNG and structured JSON result.
 
 Preview session tools store the original preview request plus the latest render result as Core metadata. They do not keep user project code loaded inside MCP; each render still goes through `AvaScope.PreviewHost`.
+
+`reload` currently targets preview sessions: it re-runs the stored preview request through the isolated preview host and updates the existing session's latest render result. Runtime bridge reload is not implemented yet.
 
 Current preview limitations:
 

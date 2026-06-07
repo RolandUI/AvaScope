@@ -23,15 +23,15 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `M17 Preview Reload MVP`
+- `M18 Input Press/Release Slice`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-07`
-- Goal: implement the first real preview `reload` flow on top of persisted preview session metadata.
+- Goal: expand runtime input coverage with pointer press/release primitives while preserving local-only safety.
 
 ## Next Action
 
-Implement `reload` for preview sessions by re-running the stored `PreviewRequest` through `AvaScope.PreviewHost`, updating the latest render result, and exposing the path through Core and MCP with focused tests.
+Verify the current Avalonia 12 routed pointer event APIs, then add `pointer_down` and `pointer_up` input actions through the existing bridge/Core/MCP input path with headless validation.
 
 ## Latest Validation
 
@@ -132,6 +132,11 @@ Implement `reload` for preview sessions by re-running the stored `PreviewRequest
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter Core` passed with 28 tests.
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter Mcp` passed with 24 tests.
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 91 tests.
+- `2026-06-07`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after M17 preview reload MVP.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter Protocol` passed with 23 tests.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter Core` passed with 32 tests.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter Mcp` passed with 26 tests.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 97 tests.
 
 ## Milestones
 
@@ -453,13 +458,16 @@ Implement `reload` for preview sessions by re-running the stored `PreviewRequest
 
 ### M17 Preview Reload MVP
 
-- Status: `In Progress`
+- Status: `Done`
 - Goal: re-render an existing preview session from its stored request.
 - Deliverables: Core reload method, MCP `reload` tool for preview sessions, updated preview session metadata, tests.
 - Progress:
-  - Pending: update `PreviewSessionRegistry` so reload reuses the stored `PreviewRequest` and replaces `lastRender`.
-  - Pending: expose MCP `reload` for preview session ids.
-  - Pending: validate successful reload and failed reload metadata updates.
+  - Done: `PreviewSessionRegistry.ReloadAsync` reuses the stored `PreviewRequest`, re-renders through `AvaScope.PreviewHost`, updates `lastRender`, and preserves the existing session id.
+  - Done: successful reload restores a failed preview session to active state through `SessionRegistry.MarkActive`.
+  - Done: failed reload stores structured render failure metadata and marks the preview session failed.
+  - Done: closed preview sessions return structured `session_closed` errors on reload.
+  - Done: MCP exposes `reload` for preview session ids.
+  - Done: tests cover successful reload, failed reload, closed-session rejection, MCP reload behavior, and stdio tool discovery.
 - Acceptance Criteria:
   - Reload does not keep user code loaded in MCP.
   - Reload updates the existing preview session record rather than creating a new session.
@@ -469,6 +477,28 @@ Implement `reload` for preview sessions by re-running the stored `PreviewRequest
   - `dotnet build AvaScope.slnx`
   - `dotnet test AvaScope.slnx --no-build --filter Protocol`
   - `dotnet test AvaScope.slnx --no-build --filter Core`
+  - `dotnet test AvaScope.slnx --no-build --filter Mcp`
+  - `dotnet test AvaScope.slnx --no-build`
+
+### M18 Input Press/Release Slice
+
+- Status: `In Progress`
+- Goal: add one focused runtime input primitive pair beyond move/click/text.
+- Deliverables: protocol input action constants, bridge routed pointer press/release handling, Core/MCP path reuse, headless tests.
+- Progress:
+  - Pending: verify Avalonia 12 public routed pointer press/release event construction.
+  - Pending: add `pointer_down` and `pointer_up` actions with explicit coordinate validation.
+  - Pending: validate handled/unhandled and unsupported-target behavior in headless tests.
+- Acceptance Criteria:
+  - Input remains local-only through an active bridge session.
+  - Pointer press/release execute on the UI thread and target hit-tested input elements.
+  - Unsupported or invalid input returns structured diagnostics.
+  - Existing `click`, `pointer_move`, and `key_text` behavior remains compatible.
+- Validation:
+  - `dotnet build AvaScope.slnx`
+  - `dotnet test AvaScope.slnx --no-build --filter Protocol`
+  - `dotnet test AvaScope.slnx --no-build --filter Core`
+  - `dotnet test AvaScope.slnx --no-build --filter Bridge`
   - `dotnet test AvaScope.slnx --no-build --filter Mcp`
   - `dotnet test AvaScope.slnx --no-build`
 
@@ -518,6 +548,8 @@ Implement `reload` for preview sessions by re-running the stored `PreviewRequest
 - `2026-06-07`: M16 starts with preview-session metadata before implementing `reload`, because reload needs a stable persisted request/result boundary that does not keep user code inside MCP.
 - `2026-06-07`: M16 preview sessions are metadata records, not persistent Avalonia preview processes; this keeps user project code execution isolated in one-shot `AvaScope.PreviewHost` child processes while still giving reload a stable request/result target.
 - `2026-06-07`: M17 will implement reload only for preview sessions first; runtime bridge reload remains separate because it needs different lifecycle and safety semantics.
+- `2026-06-07`: M17 preview reload re-renders stored preview requests through the same isolated preview host path and deliberately does not implement runtime bridge reload.
+- `2026-06-07`: M18 targets pointer press/release before packaging/CI because input coverage remains a P1 functional gap in the runtime automation workflow.
 
 ## Change Log
 
@@ -548,3 +580,4 @@ Implement `reload` for preview sessions by re-running the stored `PreviewRequest
 - `2026-06-07`: Completed M14 preview app resource scope with compiled `App.axaml` resource loading, resource-backed render validation, structured invalid-app-resource errors, and README updates; added M15 preview diagnostics expansion as the active focus.
 - `2026-06-07`: Completed M15 preview diagnostics expansion with preview-host readiness diagnostics, MCP diagnostics composition, build-server isolation hardening, README updates, and full-suite validation; added M16 preview reload foundation as the active focus.
 - `2026-06-07`: Completed M16 preview reload foundation with preview session metadata, Core create/list/close lifecycle, MCP preview session tools, README updates, and full-suite validation; added M17 preview reload MVP as the active focus.
+- `2026-06-07`: Completed M17 preview reload MVP with Core preview session re-rendering, MCP `reload`, session state recovery/failure handling, README updates, and full-suite validation; added M18 input press/release slice as the active focus.

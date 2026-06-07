@@ -26,11 +26,11 @@ Completed slice: preview-host readiness diagnostics now report host assembly pat
 
 ### Reload And Hot Preview
 
-Status: preview-session foundation complete; real reload remains open.
+Status: preview-session reload MVP complete; runtime bridge reload and live hot preview remain open.
 
-`reload` is listed in the intended MCP tool shape. Preview sessions now persist the original request plus latest render result as Core metadata, while user code still runs only in one-shot preview host child processes. There is not yet a command that re-renders an existing preview session.
+`reload` is listed in the intended MCP tool shape. Preview sessions now persist the original request plus latest render result as Core metadata, and MCP `reload` re-renders an existing preview session through the isolated preview host. User code still runs only in one-shot preview host child processes. Runtime bridge reload and live hot preview sessions are not implemented yet.
 
-Next slice: implement preview-session `reload` by re-running the stored request and updating the existing session metadata.
+Next slice: keep reload scoped to preview sessions until runtime bridge lifecycle semantics are designed.
 
 ### Preview Resource Scope
 
@@ -46,7 +46,7 @@ Next slice: continue with persistent preview-session foundation before broader r
 
 Input support is intentionally narrow: routed pointer move, Button click, and focused TextBox text. Generic pointer press/release, keyboard key events, focus targeting, and drag/drop are not implemented.
 
-Next slice: add one new input primitive at a time with headless validation.
+Next slice: add pointer press/release as the next focused runtime input primitive pair with headless validation.
 
 ## P2 Gaps
 
@@ -64,4 +64,4 @@ Next slice: add CI only after the local validation path is stable enough to avoi
 
 ## Selected Next Slice
 
-Implement preview reload MVP next. The P0 lifecycle/diagnostics, first preview resource/readiness slices, and preview-session metadata foundation are complete; `reload` can now be added as a narrow re-render of an existing preview session.
+Implement pointer press/release next. Preview-session reload MVP is complete; input coverage is now the highest-priority remaining P1 functional gap for runtime automation.

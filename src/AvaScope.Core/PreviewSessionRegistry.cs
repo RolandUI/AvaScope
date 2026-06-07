@@ -80,6 +80,41 @@ public sealed class PreviewSessionRegistry
         return CoreResult<PreviewSessionSummary>.Ok(record.Snapshot(ToProtocolSummary(closed.Value!)));
     }
 
+    public async Task<CoreResult<PreviewSessionSummary>> ReloadAsync(
+        SessionId sessionId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(sessionId);
+
+        if (!_sessions.TryGetValue(sessionId.Value, out var record))
+        {
+            return CoreResult<PreviewSessionSummary>.Fail(SessionNotFound(sessionId));
+        }
+
+        var current = _sessionRegistry.Get(sessionId);
+        if (!current.Success)
+        {
+            return CoreResult<PreviewSessionSummary>.Fail(current.Error!);
+        }
+
+        if (current.Value!.State is SessionLifecycleState.Closed)
+        {
+            return CoreResult<PreviewSessionSummary>.Fail(new CoreError(
+                CoreErrorCodes.SessionClosed,
+                $"Preview session '{sessionId}' is closed and cannot be reloaded."));
+        }
+
+        var renderResult = await _previewHostClient.RenderAsync(record.Request, cancellationToken);
+        var lastRender = ToToolResult(renderResult);
+        var snapshot = renderResult.Success
+            ? _sessionRegistry.MarkActive(sessionId).Value!
+            : _sessionRegistry.MarkFailed(sessionId, renderResult.Error!).Value!;
+
+        record.Update(lastRender, _timeProvider.GetUtcNow());
+
+        return CoreResult<PreviewSessionSummary>.Ok(record.Snapshot(ToProtocolSummary(snapshot)));
+    }
+
     private PreviewSessionSummary? TrySnapshot(PreviewSessionRecord record)
     {
         var session = _sessionRegistry.Get(record.SessionId);
@@ -132,6 +167,7 @@ public sealed class PreviewSessionRegistry
     private sealed class PreviewSessionRecord
     {
         private readonly object _syncRoot = new();
+        private ToolResult<PreviewResponse> _lastRender;
         private DateTimeOffset _updatedAt;
 
         public PreviewSessionRecord(
@@ -142,15 +178,13 @@ public sealed class PreviewSessionRegistry
         {
             SessionId = sessionId;
             Request = request;
-            LastRender = lastRender;
+            _lastRender = lastRender;
             _updatedAt = updatedAt;
         }
 
         public SessionId SessionId { get; }
 
         public PreviewRequest Request { get; }
-
-        public ToolResult<PreviewResponse> LastRender { get; }
 
         public void Touch(DateTimeOffset updatedAt)
         {
@@ -160,11 +194,22 @@ public sealed class PreviewSessionRegistry
             }
         }
 
+        public void Update(
+            ToolResult<PreviewResponse> lastRender,
+            DateTimeOffset updatedAt)
+        {
+            lock (_syncRoot)
+            {
+                _lastRender = lastRender;
+                _updatedAt = updatedAt;
+            }
+        }
+
         public PreviewSessionSummary Snapshot(SessionSummary session)
         {
             lock (_syncRoot)
             {
-                return new PreviewSessionSummary(session, Request, LastRender, _updatedAt);
+                return new PreviewSessionSummary(session, Request, _lastRender, _updatedAt);
             }
         }
     }

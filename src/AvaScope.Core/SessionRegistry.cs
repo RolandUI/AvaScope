@@ -70,6 +70,18 @@ public sealed class SessionRegistry
         return CoreResult<SessionSnapshot>.Ok(session.Close());
     }
 
+    public CoreResult<SessionSnapshot> MarkActive(SessionId sessionId)
+    {
+        ArgumentNullException.ThrowIfNull(sessionId);
+
+        if (!_sessions.TryGetValue(sessionId.Value, out var session))
+        {
+            return CoreResult<SessionSnapshot>.Fail(SessionNotFound(sessionId));
+        }
+
+        return CoreResult<SessionSnapshot>.Ok(session.MarkActive());
+    }
+
     public CoreResult<SessionSnapshot> MarkFailed(SessionId sessionId, CoreError error)
     {
         ArgumentNullException.ThrowIfNull(sessionId);
@@ -138,6 +150,20 @@ public sealed class SessionRegistry
             {
                 _state = SessionLifecycleState.Failed;
                 _lastError = error;
+
+                return new SessionSnapshot(Id, Kind, _state, CreatedAt, DisplayName, _lastError);
+            }
+        }
+
+        public SessionSnapshot MarkActive()
+        {
+            lock (_syncRoot)
+            {
+                if (_state is not SessionLifecycleState.Closed)
+                {
+                    _state = SessionLifecycleState.Active;
+                    _lastError = null;
+                }
 
                 return new SessionSnapshot(Id, Kind, _state, CreatedAt, DisplayName, _lastError);
             }

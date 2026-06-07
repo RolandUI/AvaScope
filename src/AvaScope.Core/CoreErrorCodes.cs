@@ -3,6 +3,7 @@ namespace AvaScope.Core;
 public static class CoreErrorCodes
 {
     public const string SessionNotFound = "session_not_found";
+    public const string SessionClosed = "session_closed";
     public const string BridgeSessionNotFound = "bridge_session_not_found";
     public const string MultipleBridgeSessions = "multiple_bridge_sessions";
     public const string BridgeIpcFailed = "bridge_ipc_failed";
