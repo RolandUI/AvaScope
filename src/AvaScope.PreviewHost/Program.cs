@@ -86,6 +86,8 @@ internal static class Program
     private static ToolResult<PreviewResponse> Render(PreviewRequest request)
     {
         var fullOutputPath = Path.GetFullPath(request.OutputPath);
+        var fullProjectPath = ResolveProjectPath(request.ProjectPath);
+        var fullViewPath = ResolveViewPath(request.ViewPath, fullProjectPath);
         var outputDirectory = Path.GetDirectoryName(fullOutputPath);
         if (!string.IsNullOrEmpty(outputDirectory))
         {
@@ -97,7 +99,7 @@ internal static class Program
             Width = request.Width,
             Height = request.Height,
             Background = Brushes.White,
-            Content = LoadContent(request)
+            Content = LoadContent(fullViewPath)
         };
 
         window.RequestedThemeVariant = ResolveThemeVariant(request.ThemeVariant);
@@ -126,14 +128,54 @@ internal static class Program
             frame.PixelSize.Height,
             request.Dpi,
             DateTimeOffset.UtcNow,
-            request.ProjectPath,
-            request.ViewPath,
+            fullProjectPath,
+            fullViewPath,
             request.ThemeVariant));
     }
 
-    private static Control LoadContent(PreviewRequest request)
+    private static string? ResolveProjectPath(string? projectPath)
     {
-        if (request.ViewPath is null)
+        if (projectPath is null)
+        {
+            return null;
+        }
+
+        var fullProjectPath = Path.GetFullPath(projectPath);
+        if (!string.Equals(Path.GetExtension(fullProjectPath), ".csproj", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ArgumentException("Project path must point to a .csproj file.", nameof(projectPath));
+        }
+
+        if (!File.Exists(fullProjectPath))
+        {
+            throw new FileNotFoundException($"Preview project '{fullProjectPath}' was not found.", fullProjectPath);
+        }
+
+        return fullProjectPath;
+    }
+
+    private static string? ResolveViewPath(string? viewPath, string? fullProjectPath)
+    {
+        if (viewPath is null)
+        {
+            return null;
+        }
+
+        if (Path.IsPathRooted(viewPath))
+        {
+            return Path.GetFullPath(viewPath);
+        }
+
+        var baseDirectory = fullProjectPath is null
+            ? Environment.CurrentDirectory
+            : Path.GetDirectoryName(fullProjectPath) ?? Environment.CurrentDirectory;
+
+        return Path.GetFullPath(Path.Combine(baseDirectory, viewPath));
+    }
+
+    private static Control LoadContent(string? fullViewPath)
+    {
+        if (fullViewPath is null)
         {
             return new TextBlock
             {
@@ -143,7 +185,6 @@ internal static class Program
             };
         }
 
-        var fullViewPath = Path.GetFullPath(request.ViewPath);
         if (!File.Exists(fullViewPath))
         {
             throw new FileNotFoundException($"Preview view '{fullViewPath}' was not found.", fullViewPath);

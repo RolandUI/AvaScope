@@ -31,7 +31,7 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Next Action
 
-Extend the preview host from standalone `.axaml` runtime loading to project-aware preview: resolve a `.csproj` plus view path, establish the future MSBuild/design-time build boundary, and keep rendering isolated in the child process.
+Add the MSBuild/design-time build boundary for preview sessions so the child process can prepare real Avalonia project resources and code-behind before loading the requested view.
 
 ## Latest Validation
 
@@ -86,6 +86,9 @@ Extend the preview host from standalone `.axaml` runtime loading to project-awar
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter Protocol` passed with 20 tests.
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewHost` passed with 1 test.
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 57 tests.
+- `2026-06-07`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after M8 project-aware path resolution.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewHost` passed with 2 tests.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 58 tests.
 
 ## Milestones
 
@@ -229,7 +232,7 @@ Extend the preview host from standalone `.axaml` runtime loading to project-awar
   - Done: `PreviewRequest` and `PreviewResponse` protocol DTOs cover output path, width, height, DPI, theme variant, project path, and view path.
   - Done: headless Skia render smoke path loads a standalone `.axaml` control with the official Avalonia runtime XAML loader and writes a PNG file.
   - Done: process-level smoke test validates child process isolation, structured JSON output, PNG existence, dimensions, and non-empty output.
-  - Pending: project-aware `.csproj` plus view path resolution.
+  - Done: project-aware `.csproj` validation resolves relative view paths from the project directory and returns absolute project/view paths in the response.
   - Pending: MSBuild/design-time build boundary for real project resources, styles, and code-behind.
 - Acceptance Criteria:
   - User application code runs outside the MCP server process.
@@ -264,6 +267,7 @@ Extend the preview host from standalone `.axaml` runtime loading to project-awar
 - `2026-06-07`: M7 pointer move uses public Avalonia 12 `PointerEventArgs` plus `InputElement.PointerMovedEvent` on the hit-tested input target instead of raw `IInputManager` injection because `TopLevel.InputRoot` is not public; this keeps the bridge off private runtime hooks.
 - `2026-06-07`: The first M8 slice uses the official `Avalonia.Markup.Xaml.Loader` 12.0.4 package for standalone runtime `.axaml` loading; `AvaloniaXamlLoader.Load(Uri, Uri)` was rejected because it expects precompiled/resource XAML.
 - `2026-06-07`: Preview rendering starts in an isolated `AvaScope.PreviewHost` child process before adding MCP/CLI adapters, preserving the architecture rule that user preview code cannot run inside the MCP server process.
+- `2026-06-07`: M8 project-aware preview path resolution is kept as a separate slice before MSBuild integration; it validates the `.csproj` boundary and resolves relative view paths without yet claiming full project resource/code-behind support.
 
 ## Change Log
 
@@ -282,3 +286,4 @@ Extend the preview host from standalone `.axaml` runtime loading to project-awar
 - `2026-06-06`: Added M7 input MVP protocol, bridge, Core, and MCP path with headless validation for pointer target lookup, Button click, and focused TextBox key text; M7 remains in progress pending real pointer move injection or explicit limitation handling.
 - `2026-06-07`: Completed M7 input slice with routed pointer move, Button click, focused TextBox key text, and unsupported input diagnostics; moved active focus to M8.
 - `2026-06-07`: Added the first M8 preview host slice with protocol preview DTOs, isolated child process entrypoint, standalone `.axaml` runtime loading, headless Skia PNG output, and process smoke validation; M8 remains in progress pending project-aware preview loading.
+- `2026-06-07`: Added M8 project-aware path resolution for `.csproj` plus relative view paths with process smoke coverage; M8 remains in progress pending MSBuild/design-time build support.

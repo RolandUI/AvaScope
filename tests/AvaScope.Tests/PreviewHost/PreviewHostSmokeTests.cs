@@ -6,6 +6,8 @@ namespace AvaScope.Tests.PreviewHost;
 
 public sealed class PreviewHostSmokeTests
 {
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+
     [Fact]
     public async Task PreviewHostRendersStandaloneAxamlViewInChildProcess()
     {
@@ -35,26 +37,11 @@ public sealed class PreviewHostSmokeTests
             viewPath: viewPath,
             themeVariant: "light");
 
-        await File.WriteAllTextAsync(requestPath, JsonSerializer.Serialize(request, new JsonSerializerOptions(JsonSerializerDefaults.Web)));
+        await File.WriteAllTextAsync(requestPath, JsonSerializer.Serialize(request, JsonOptions));
 
         try
         {
-            using var process = StartPreviewHost(hostAssembly, requestPath);
-            using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-
-            var stdoutTask = process.StandardOutput.ReadToEndAsync(cancellation.Token);
-            var stderrTask = process.StandardError.ReadToEndAsync(cancellation.Token);
-
-            await process.WaitForExitAsync(cancellation.Token);
-            var stdout = await stdoutTask;
-            var stderr = await stderrTask;
-
-            Assert.Equal(0, process.ExitCode);
-            Assert.True(string.IsNullOrWhiteSpace(stderr), stderr);
-
-            var result = JsonSerializer.Deserialize<ToolResult<PreviewResponse>>(
-                stdout,
-                new JsonSerializerOptions(JsonSerializerDefaults.Web));
+            var result = await RunPreviewHostAsync(hostAssembly, requestPath);
 
             Assert.NotNull(result);
             Assert.True(result.Success, result.Error?.Message);
@@ -73,6 +60,94 @@ public sealed class PreviewHostSmokeTests
                 Directory.Delete(testRoot, recursive: true);
             }
         }
+    }
+
+    [Fact]
+    public async Task PreviewHostResolvesRelativeViewPathAgainstProjectDirectory()
+    {
+        var hostAssembly = Path.Combine(AppContext.BaseDirectory, "AvaScope.PreviewHost.dll");
+        Assert.True(File.Exists(hostAssembly), $"Expected preview host assembly at {hostAssembly}.");
+
+        var testRoot = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(testRoot);
+
+        var projectPath = Path.Combine(testRoot, "Sample.csproj");
+        var viewsDirectory = Path.Combine(testRoot, "Views");
+        Directory.CreateDirectory(viewsDirectory);
+
+        var viewPath = Path.Combine(viewsDirectory, "MainView.axaml");
+        var requestPath = Path.Combine(testRoot, "request.json");
+        var outputPath = Path.Combine(testRoot, "preview.png");
+
+        await File.WriteAllTextAsync(projectPath, """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+              </PropertyGroup>
+            </Project>
+            """);
+
+        await File.WriteAllTextAsync(viewPath, """
+            <UserControl xmlns="https://github.com/avaloniaui">
+              <Grid Background="#FFFFFFFF">
+                <TextBlock Text="Project relative preview" />
+              </Grid>
+            </UserControl>
+            """);
+
+        var request = new PreviewRequest(
+            outputPath,
+            width: 240,
+            height: 160,
+            dpi: 96,
+            projectPath: projectPath,
+            viewPath: Path.Combine("Views", "MainView.axaml"),
+            themeVariant: "dark");
+
+        await File.WriteAllTextAsync(requestPath, JsonSerializer.Serialize(request, JsonOptions));
+
+        try
+        {
+            var result = await RunPreviewHostAsync(hostAssembly, requestPath);
+
+            Assert.NotNull(result);
+            Assert.True(result.Success, result.Error?.Message);
+            Assert.Equal(Path.GetFullPath(projectPath), result.Value!.ProjectPath);
+            Assert.Equal(Path.GetFullPath(viewPath), result.Value.ViewPath);
+            Assert.Equal(Path.GetFullPath(outputPath), result.Value.FilePath);
+            Assert.Equal(240, result.Value.PixelWidth);
+            Assert.Equal(160, result.Value.PixelHeight);
+            Assert.Equal("dark", result.Value.ThemeVariant);
+            Assert.True(File.Exists(result.Value.FilePath));
+            Assert.True(new FileInfo(result.Value.FilePath).Length > 0);
+        }
+        finally
+        {
+            if (Directory.Exists(testRoot))
+            {
+                Directory.Delete(testRoot, recursive: true);
+            }
+        }
+    }
+
+    private static async Task<ToolResult<PreviewResponse>?> RunPreviewHostAsync(
+        string hostAssembly,
+        string requestPath)
+    {
+        using var process = StartPreviewHost(hostAssembly, requestPath);
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+
+        var stdoutTask = process.StandardOutput.ReadToEndAsync(cancellation.Token);
+        var stderrTask = process.StandardError.ReadToEndAsync(cancellation.Token);
+
+        await process.WaitForExitAsync(cancellation.Token);
+        var stdout = await stdoutTask;
+        var stderr = await stderrTask;
+
+        Assert.Equal(0, process.ExitCode);
+        Assert.True(string.IsNullOrWhiteSpace(stderr), stderr);
+
+        return JsonSerializer.Deserialize<ToolResult<PreviewResponse>>(stdout, JsonOptions);
     }
 
     private static Process StartPreviewHost(string hostAssembly, string requestPath)
