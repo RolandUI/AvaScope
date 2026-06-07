@@ -71,6 +71,35 @@ The default executable package targets are `win-x64` and `linux-x64`. Pass `-Run
 
 CI validation runs restore, Release build, Release test, local library pack, local executable package, and artifact verification commands in GitHub Actions on pushes and pull requests. It does not publish packages or require secrets.
 
+## Public Alpha Local Install
+
+AvaScope public-alpha artifacts are built locally for now; no package feed or installer publishing is configured.
+
+Create and verify local artifacts:
+
+```powershell
+dotnet build AvaScope.slnx -c Release
+dotnet test AvaScope.slnx -c Release --no-build
+dotnet pack .\src\AvaScope.Protocol\AvaScope.Protocol.csproj -c Release --no-build --output .\artifacts\packages
+dotnet pack .\src\AvaScope.Core\AvaScope.Core.csproj -c Release --no-build --output .\artifacts\packages
+dotnet pack .\src\AvaScope.Bridge\AvaScope.Bridge.csproj -c Release --no-build --output .\artifacts\packages
+powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\package-executables.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\verify-artifacts.ps1
+```
+
+Run the packaged Windows CLI/MCP bundle directly from the publish directory:
+
+```powershell
+.\artifacts\executables\avascope-win-x64-framework-dependent\avascope.exe mcp
+.\artifacts\executables\avascope-win-x64-framework-dependent\avascope.exe preview .\samples\AvaScope.GettingStartedApp\AvaScope.GettingStartedApp.csproj --view Views\MainView.axaml --out .\artifacts\samples\getting-started-preview-packaged.png --width 720 --height 420 --theme light --design-data-type AvaScope.GettingStartedApp.SamplePreviewData
+```
+
+Use the local NuGet packages for an Avalonia app that wants the opt-in bridge:
+
+```powershell
+dotnet add path\to\YourApp.csproj package AvaScope.Bridge --version 0.1.0 --source .\artifacts\packages
+```
+
 ## Getting Started Sample
 
 The repository includes a tiny Avalonia 12 sample app at `samples\AvaScope.GettingStartedApp`.
@@ -181,8 +210,8 @@ Runtime bridge reload currently returns an explicit `runtime_reload_not_supporte
 After creating or extracting the local executable package, the same command shape can be run from the artifact directory:
 
 ```powershell
-.\artifacts\executables\avascope\avascope.exe mcp
-dotnet .\artifacts\executables\avascope\avascope.dll mcp
+.\artifacts\executables\avascope-win-x64-framework-dependent\avascope.exe mcp
+dotnet .\artifacts\executables\avascope-win-x64-framework-dependent\avascope.dll mcp
 ```
 
 ## MCP

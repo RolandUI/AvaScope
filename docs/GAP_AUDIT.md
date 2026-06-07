@@ -118,4 +118,4 @@ Next slice: CI can later add publish/upload artifacts, self-contained outputs, o
 
 ## Selected Next Slice
 
-Run a public-alpha completion audit next. Runtime safety boundaries now have explicit manifest scope, current-user local pipe hardening, tests, and documentation, so the next step is to verify the whole objective requirement by requirement against current evidence.
+No public-alpha blocking slice remains after M50. Future post-alpha work can start from one of the recorded deferrals: runtime hot reload/live preview, richer input, broader preview startup orchestration, publishing automation, or richer binding/layout/resource diagnostics.

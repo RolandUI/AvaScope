@@ -24,14 +24,14 @@ This document is the primary project-management source for autonomous agents wor
 ## Current Focus
 
 - `M50 Public Alpha Completion Audit Slice`
-- Status: `In Progress`
+- Status: `Done`
 - Owner: autonomous agent
 - Started: `2026-06-07`
-- Goal: verify whether the repository satisfies the full public-alpha objective.
+- Goal: public-alpha completion audit and final validation are complete.
 
 ## Next Action
 
-Audit the full objective requirement by requirement against current code, docs, tests, packages, sample workflow, and git state; fix or track any remaining gap before marking the goal complete.
+No public-alpha blocker remains. Before new feature work, create or select the next post-alpha focus in this plan.
 
 ## Latest Validation
 
@@ -283,6 +283,16 @@ Audit the full objective requirement by requirement against current code, docs, 
 - `2026-06-07`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after M49 runtime safety boundary implementation.
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter "FullyQualifiedName~BridgeSessionManifest|FullyQualifiedName~ActivateCreatesAndDeactivateRemovesLocalSessionManifest|FullyQualifiedName~LocalPipeServerRespondsToHealthRequest|FullyQualifiedName~DiagnosticsReportsInvalidAndStaleManifestsWithoutThrowing"` passed with 5 tests.
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 172 tests after M49 runtime safety boundary implementation.
+- `2026-06-07`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors during M50 final validation.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 172 tests during M50 final validation.
+- `2026-06-07`: `dotnet build AvaScope.slnx -c Release` passed with 0 warnings and 0 errors during M50 final validation.
+- `2026-06-07`: `dotnet test AvaScope.slnx -c Release --no-build` passed with 172 tests during M50 final validation.
+- `2026-06-07`: `dotnet pack` for `AvaScope.Protocol`, `AvaScope.Core`, and `AvaScope.Bridge` passed; `verify-artifacts.ps1` confirmed all three `0.1.0` NuGet packages.
+- `2026-06-07`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\package-executables.ps1` created win-x64 and linux-x64 framework-dependent executable ZIPs during M50 final validation.
+- `2026-06-07`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\verify-artifacts.ps1` verified 5 release artifacts and wrote `artifacts\release-manifest.json`.
+- `2026-06-07`: Source CLI getting-started preview smoke passed and rendered `artifacts\samples\getting-started-preview.png` at 720x420.
+- `2026-06-07`: Packaged win-x64 CLI getting-started preview smoke passed and rendered `artifacts\samples\getting-started-preview-packaged.png` at 720x420.
+- `2026-06-07`: `git check-ignore -v` confirmed release manifest, package, executable ZIP, and sample preview artifact outputs are ignored under `artifacts/`.
 
 ## Milestones
 
@@ -1350,14 +1360,14 @@ Audit the full objective requirement by requirement against current code, docs, 
 
 ### M50 Public Alpha Completion Audit Slice
 
-- Status: `In Progress`
+- Status: `Done`
 - Goal: verify whether the repository satisfies the full public-alpha objective.
 - Deliverables: requirement-by-requirement completion audit, final gap fixes or explicit deferrals, final build/test/pack validation, clean committed worktree.
 - Progress:
-  - Pending: derive public-alpha requirements from the active goal, README, development plan, and gap audit.
-  - Pending: inspect authoritative evidence for each requirement: code, tests, docs, release artifacts, sample output, and git state.
-  - Pending: fix any remaining gap that blocks the public-alpha objective, or record a scoped deferral if it is not public-alpha blocking.
-  - Pending: run final validation commands and update tracking.
+  - Done: derived public-alpha requirements from the active goal, README, development plan, and gap audit.
+  - Done: inspected authoritative evidence for each requirement: code, tests, docs, release artifacts, sample output, and git state.
+  - Done: recorded remaining non-blocking deferrals in `docs/PUBLIC_ALPHA_AUDIT.md`; no public-alpha blocker remains.
+  - Done: ran final validation commands and updated tracking.
 - Acceptance Criteria:
   - Every explicit public-alpha requirement has current evidence or a tracked non-blocking deferral.
   - Final validation includes build, test, release pack/executable verification, and getting-started sample preview smoke.
@@ -1492,6 +1502,7 @@ Audit the full objective requirement by requirement against current code, docs, 
 - `2026-06-07`: M49 records bridge transport scope in session manifests as `local_only`; unsupported manifest scopes are invalid discovery records, not attachable sessions.
 - `2026-06-07`: M49 uses `PipeOptions.CurrentUserOnly` for local bridge named-pipe servers where supported by .NET, keeping runtime IPC scoped to the current local user rather than relying only on manifest obscurity.
 - `2026-06-07`: M50 is the completion gate for the thread goal; do not mark the goal complete until the audit proves every public-alpha requirement with current evidence.
+- `2026-06-07`: M50 completion audit concludes the current repository satisfies the production-ready public-alpha objective; runtime hot reload, richer input, broader preview startup orchestration, publishing automation, and richer binding/layout/resource diagnostics remain explicit non-blocking post-alpha deferrals.
 
 ## Change Log
 
@@ -1555,3 +1566,4 @@ Audit the full objective requirement by requirement against current code, docs, 
 - `2026-06-07`: Completed M47 public-alpha Release validation refresh with Release build/test, library pack, executable ZIP packaging, artifact manifest verification, packaged CLI sample preview smoke, gap/tracking updates, and sample exclusion from release artifacts; added M48 preview failure diagnostics detail as the active focus.
 - `2026-06-07`: Completed M48 preview failure diagnostics detail with bounded `error.details` for preview build/render failures, Core/CLI/MCP/session details preservation, protocol/PreviewHost/CLI tests, README/gap updates, and full-suite validation; added M49 runtime safety boundary audit as the active focus.
 - `2026-06-07`: Completed M49 runtime safety boundary audit with explicit local-only manifest scope, current-user local pipe server option, unsupported transport manifest diagnostics, README/sample README safety documentation, focused tests, and full-suite validation; added M50 public-alpha completion audit as the active focus.
+- `2026-06-07`: Completed M50 public-alpha completion audit with `docs/PUBLIC_ALPHA_AUDIT.md`, local install and validation documentation updates, final Debug/Release build and test validation, NuGet/executable artifact verification, source and packaged sample preview smoke validation, gap audit closure, and no remaining public-alpha blockers.
