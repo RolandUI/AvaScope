@@ -23,15 +23,15 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `M42 Preview Design Data Contract Audit Slice`
+- `M43 Preview Design Data Type Slice`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-07`
-- Goal: define the next safe design-data preview boundary.
+- Goal: implement the first explicit project-owned design-data boundary.
 
 ## Next Action
 
-Audit current preview data-context/design-data gaps, choose the smallest safe contract, and update the plan before implementation.
+Add a `designDataType` preview contract field, instantiate that project-owned type inside `AvaScope.PreviewHost`, assign it as the root control `DataContext`, and validate with a typed binding sample.
 
 ## Latest Validation
 
@@ -244,6 +244,8 @@ Audit current preview data-context/design-data gaps, choose the smallest safe co
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewCommandRendersAxamlThroughPreviewHostClient` passed with 1 test.
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewAxamlRendersThroughPreviewHostClient` passed with 1 test.
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 165 tests after M41 preview culture contract.
+- `2026-06-07`: Markdown tracking/status reviewed after M42 design-data contract audit.
+- `2026-06-07`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after M42 design-data contract audit.
 
 ## Milestones
 
@@ -1134,13 +1136,15 @@ Audit current preview data-context/design-data gaps, choose the smallest safe co
 
 ### M42 Preview Design Data Contract Audit Slice
 
-- Status: `In Progress`
+- Status: `Done`
 - Goal: define the next safe design-data preview boundary.
 - Deliverables: design-data gap audit, smallest proposed contract, acceptance criteria for first implementation slice, README/tracking update.
 - Progress:
-  - Pending: audit current preview data-context and design-data behavior.
-  - Pending: decide whether the first design-data slice is explicit unsupported diagnostics, JSON data-context injection, or project-owned design-data loading.
-  - Pending: record the chosen implementation boundary before code changes.
+  - Done: audited current preview data-context and design-data behavior.
+  - Done: confirmed the current preview path does not set `DataContext` and has no design-data request field.
+  - Done: selected project-owned public parameterless design-data type loading as the first implementation boundary.
+  - Done: recorded non-goals: no JSON object injection, dependency injection, remote data, or long-lived design-data state in the first slice.
+  - Done: README and gap audit describe the selected boundary.
 - Acceptance Criteria:
   - The plan documents the selected design-data boundary and non-goals.
   - The decision keeps user code execution isolated in `AvaScope.PreviewHost`.
@@ -1150,6 +1154,26 @@ Audit current preview data-context/design-data gaps, choose the smallest safe co
   - Markdown tracking/status review
   - `dotnet build AvaScope.slnx`
   - `git status --short`
+
+### M43 Preview Design Data Type Slice
+
+- Status: `In Progress`
+- Goal: implement the first explicit project-owned design-data boundary.
+- Deliverables: `designDataType` DTO field, CLI/MCP argument propagation, PreviewHost type instantiation and root `DataContext` assignment, typed-binding render test, README/tracking update.
+- Progress:
+  - Pending: add nullable transport-neutral `designDataType` fields to preview request/response contracts.
+  - Pending: propagate `designDataType` through CLI `preview`, MCP `preview_axaml`, and MCP `create_preview_session`.
+  - Pending: instantiate the named project type inside `AvaScope.PreviewHost` and assign it to the loaded root control `DataContext`.
+  - Pending: validate with a tiny project using typed bindings against the design-data type.
+- Acceptance Criteria:
+  - Design data is available only for project-backed previews with a built project assembly.
+  - The design-data type must be project-owned, concrete, and constructible with a public parameterless constructor.
+  - The design-data object is created only inside the PreviewHost child process and is not persisted in MCP/Core.
+  - Tests cover protocol serialization, CLI/MCP propagation, invalid design-data type diagnostics, and a positive typed-binding render.
+- Validation:
+  - `dotnet build AvaScope.slnx`
+  - targeted Protocol/CLI/MCP/PreviewHost tests
+  - `dotnet test AvaScope.slnx --no-build`
 
 ## Decision Log
 
@@ -1252,6 +1276,8 @@ Audit current preview data-context/design-data gaps, choose the smallest safe co
 - `2026-06-07`: M41 targets an explicit culture variant contract next because App.axaml resource/style parity is now covered enough to move to design-time preview variants.
 - `2026-06-07`: M41 keeps culture as a transport-neutral string in Protocol and applies it through `CultureInfo` only inside the isolated PreviewHost render process.
 - `2026-06-07`: M42 starts with a design-data contract audit because generic design data can imply arbitrary user-code construction and should not be guessed without an explicit boundary.
+- `2026-06-07`: M42 selects project-owned public parameterless design-data type loading as the first design-data boundary; JSON object injection, dependency injection, remote data, and long-lived state stay out of scope.
+- `2026-06-07`: M43 will assign design data as the loaded root control `DataContext` inside the PreviewHost child process, keeping Core and MCP limited to transport-neutral metadata.
 
 ## Change Log
 
@@ -1307,3 +1333,4 @@ Audit current preview data-context/design-data gaps, choose the smallest safe co
 - `2026-06-07`: Completed M39 preview theme dictionary variant scope with App.axaml theme dictionary transfer, pixel-validated light/dark theme resource smoke coverage, README/gap updates, and full-suite validation; added M40 preview style include scope as the active focus.
 - `2026-06-07`: Completed M40 preview style include scope with pixel-validated StyleInclude smoke coverage, README/gap updates, and full-suite validation; added M41 preview culture variant contract as the active focus.
 - `2026-06-07`: Completed M41 preview culture variant contract with protocol/CLI/MCP propagation, PreviewHost culture application, pixel-validated culture render coverage, README/gap updates, and full-suite validation; added M42 preview design data contract audit as the active focus.
+- `2026-06-07`: Completed M42 preview design data contract audit with project-owned design-data type boundary selection, non-goal documentation, README/gap updates, and build validation; added M43 preview design data type slice as the active focus.

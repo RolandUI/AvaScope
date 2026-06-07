@@ -56,7 +56,9 @@ PreviewHost can build a project, load a compiled view resource through `avares:/
 
 Completed slice: project-root compiled `App.axaml` top-level resources, merged resource dictionaries, theme dictionaries, direct app-level styles, app-level `StyleInclude` entries, and culture-sensitive view loading are validated before rendering the preview view.
 
-Next slice: audit a small explicit design-data contract for preview rendering.
+Design-data audit result: the current preview path does not set `DataContext` and has no design-data request field. The selected first boundary is a project-owned public parameterless design-data type, loaded from the built project assembly and assigned to the root preview control inside `AvaScope.PreviewHost`. JSON object injection, dependency injection, remote data, and long-lived design-data state are out of scope for the first implementation slice.
+
+Next slice: implement the project-owned `designDataType` preview contract.
 
 ### Input Coverage
 
@@ -90,4 +92,4 @@ Next slice: CI can later add publish/upload artifacts, self-contained outputs, o
 
 ## Selected Next Slice
 
-Audit preview design-data scope next. App-level resources, styles, includes, theme dictionaries, and culture variants are covered, so the next vertical slice should define the smallest safe design-data boundary without loading arbitrary long-lived user state into MCP.
+Implement project-owned `designDataType` next. App-level resources, styles, includes, theme dictionaries, and culture variants are covered, and the audit selected root `DataContext` assignment inside the isolated PreviewHost child process as the smallest safe design-data boundary.

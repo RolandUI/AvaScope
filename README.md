@@ -231,7 +231,7 @@ Current preview limitations:
 
 - no hot reload or persistent live preview host process yet;
 - no full `App.axaml` orchestration yet; startup logic remains limited;
-- no design-data variants yet;
+- no design-data variants yet; the planned first boundary is a project-owned design-data type instantiated inside `AvaScope.PreviewHost`;
 - build output probing assumes the default `bin\Debug\<tfm>\<ProjectName>.dll` shape.
 
 ## Safety Boundaries
