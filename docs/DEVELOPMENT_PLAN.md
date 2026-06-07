@@ -23,15 +23,15 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `M32 CLI Runtime Input Slice`
+- `M33 CLI Runtime Close Session Slice`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-07`
-- Goal: expose local-only runtime input commands from the `avascope` CLI.
+- Goal: expose runtime bridge session closure from the `avascope` CLI.
 
 ## Next Action
 
-Add an `input` CLI command over `LocalBridgeClient.InputAsync`, starting with the existing bridge-supported actions and deterministic argument validation.
+Add a `close-session` CLI command over `LocalBridgeClient.CloseSessionAsync`, keeping structured JSON output and deterministic session id validation.
 
 ## Latest Validation
 
@@ -210,6 +210,9 @@ Add an `input` CLI command over `LocalBridgeClient.InputAsync`, starting with th
 - `2026-06-07`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after M31 CLI `find-nodes` implementation.
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli` passed with 52 tests, including fake bridge pipe success paths for `find-nodes`.
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 136 tests after M31 CLI node search workflow.
+- `2026-06-07`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after M32 CLI `input` implementation.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli` passed with 63 tests, including fake bridge pipe success paths for `input`.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 147 tests after M32 CLI runtime input workflow.
 
 ## Milestones
 
@@ -889,18 +892,40 @@ Add an `input` CLI command over `LocalBridgeClient.InputAsync`, starting with th
 
 ### M32 CLI Runtime Input Slice
 
-- Status: `In Progress`
+- Status: `Done`
 - Goal: expose local-only runtime input commands from the `avascope` CLI.
 - Deliverables: `input` CLI command over `LocalBridgeClient.InputAsync`, action-specific argument validation, structured JSON output, README/tracking update.
 - Progress:
-  - Pending: add `input --session <session-id> --top-level <top-level-id> --action <action>` with optional coordinates, text, node id, key, and modifiers.
-  - Pending: validate supported action names against existing protocol actions before calling Core.
-  - Pending: add fake bridge success and deterministic failure tests.
+  - Done: added `input --session <session-id> --top-level <top-level-id> --action <action>` with optional coordinates, text, node id, key, and modifiers.
+  - Done: validated supported action names against existing protocol actions before calling Core.
+  - Done: added action-specific validation for coordinates, focus targets, text input, and key input.
+  - Done: added fake bridge named-pipe success tests for click, key text, key down, and focus.
+  - Done: added no-session, unsupported action, invalid coordinate, and missing action-specific argument tests.
+  - Done: README documents command shape and local-only scope.
 - Acceptance Criteria:
   - CLI can send at least pointer move/click, focus, key text, key down, and key up actions supported by the bridge.
   - CLI rejects missing session/top-level/action, unsupported actions, invalid numeric coordinates, and missing action-specific parameters deterministically.
   - Tests cover fake bridge success paths and structured failure paths.
   - README documents command shape and local-only scope.
+- Validation:
+  - `dotnet build AvaScope.slnx`
+  - `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli`
+  - `dotnet test AvaScope.slnx --no-build`
+
+### M33 CLI Runtime Close Session Slice
+
+- Status: `In Progress`
+- Goal: expose runtime bridge session closure from the `avascope` CLI.
+- Deliverables: `close-session` CLI command over `LocalBridgeClient.CloseSessionAsync`, structured JSON output, deterministic argument validation, README/tracking update.
+- Progress:
+  - Pending: add `close-session --session <session-id>`.
+  - Pending: add fake bridge success and no-session failure tests.
+  - Pending: document that the command closes the local bridge session and removes its manifest through the bridge.
+- Acceptance Criteria:
+  - CLI can request closure of an attached runtime bridge session id.
+  - CLI rejects missing or invalid session ids deterministically.
+  - Tests cover fake bridge success and structured failure paths.
+  - README documents command shape.
 - Validation:
   - `dotnet build AvaScope.slnx`
   - `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli`
@@ -988,6 +1013,8 @@ Add an `input` CLI command over `LocalBridgeClient.InputAsync`, starting with th
 - `2026-06-07`: M31 targets CLI `find-nodes` next because tree output and single-node detail now exist, and search is the missing workflow that makes stable node ids discoverable from the CLI.
 - `2026-06-07`: M31 validates `find-nodes` filter presence in the CLI before calling Core so empty searches fail deterministically as CLI argument errors.
 - `2026-06-07`: M32 targets CLI input next because attach, screenshot, tree, inspect, and find now cover read-side runtime inspection, leaving local-only control as the next core runtime workflow.
+- `2026-06-07`: M32 validates input actions in the CLI before calling Core so unsupported or under-specified local control requests fail as deterministic CLI argument errors.
+- `2026-06-07`: M33 targets CLI close-session next because runtime input introduces local control, and operators need a direct CLI way to close bridge sessions.
 
 ## Change Log
 
@@ -1033,3 +1060,4 @@ Add an `input` CLI command over `LocalBridgeClient.InputAsync`, starting with th
 - `2026-06-07`: Completed M29 CLI runtime tree inspection with `visual-tree`, `logical-tree`, shared `max-depth` validation, fake bridge pipe success tests, README updates, and full-suite validation; added M30 CLI node detail as the active focus.
 - `2026-06-07`: Completed M30 CLI runtime node detail with `inspect-node`, default visual tree kind, explicit logical tree kind support, fake bridge pipe success tests, README updates, and full-suite validation; added M31 CLI find nodes as the active focus.
 - `2026-06-07`: Completed M31 CLI runtime find nodes with filter validation, depth/result limit validation, fake bridge pipe success tests, README updates, and full-suite validation; added M32 CLI runtime input as the active focus.
+- `2026-06-07`: Completed M32 CLI runtime input with local-only action validation, click/key/focus fake bridge pipe success tests, README updates, and full-suite validation; added M33 CLI close session as the active focus.

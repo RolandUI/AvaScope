@@ -734,6 +734,322 @@ public sealed class CliSmokeTests
     }
 
     [Fact]
+    public async Task InputCommandSendsClickThroughBridgePipe()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var sessionId = SessionId.New();
+        var pipeName = $"avascope-cli-test-{Guid.NewGuid():N}";
+        var manifestPath = WriteBridgeManifest(sessionId, pipeName);
+
+        var serverTask = RespondToBridgeRequestAsync(pipeName, request =>
+        {
+            Assert.Equal(BridgeIpcMethods.Input, request.Method);
+            Assert.Equal("topLevel:cli", request.TopLevelId);
+            Assert.Equal(InputActions.Click, request.Action);
+            Assert.Equal(12.5, request.X);
+            Assert.Equal(34.25, request.Y);
+            return BridgeIpcResponse.Ok(
+                request.RequestId,
+                new InputResponse(sessionId, request.TopLevelId!, InputActions.Click, true, DateTimeOffset.UtcNow, "visual:button"));
+        });
+
+        try
+        {
+            var result = await RunCliAsync(
+                cliAssembly,
+                "input",
+                "--session",
+                sessionId.Value,
+                "--top-level",
+                "topLevel:cli",
+                "--action",
+                "CLICK",
+                "--x",
+                "12.5",
+                "--y",
+                "34.25");
+            var request = await serverTask;
+
+            Assert.Equal(0, result.ExitCode);
+            Assert.Equal(InputActions.Click, request.Action);
+            Assert.True(string.IsNullOrWhiteSpace(result.StandardError), result.StandardError);
+
+            var payload = JsonSerializer.Deserialize<ToolResult<InputResponse>>(result.StandardOutput, JsonOptions);
+            Assert.NotNull(payload);
+            Assert.True(payload.Success, payload.Error?.Message);
+            Assert.True(payload.Value!.Handled);
+            Assert.Equal("visual:button", payload.Value.TargetNodeId);
+        }
+        finally
+        {
+            if (File.Exists(manifestPath))
+            {
+                File.Delete(manifestPath);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task InputCommandSendsKeyTextThroughBridgePipe()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var sessionId = SessionId.New();
+        var pipeName = $"avascope-cli-test-{Guid.NewGuid():N}";
+        var manifestPath = WriteBridgeManifest(sessionId, pipeName);
+
+        var serverTask = RespondToBridgeRequestAsync(pipeName, request =>
+        {
+            Assert.Equal(BridgeIpcMethods.Input, request.Method);
+            Assert.Equal(InputActions.KeyText, request.Action);
+            Assert.Equal("typed text", request.InputText);
+            return BridgeIpcResponse.Ok(
+                request.RequestId,
+                new InputResponse(sessionId, request.TopLevelId!, InputActions.KeyText, true, DateTimeOffset.UtcNow, "visual:textbox"));
+        });
+
+        try
+        {
+            var result = await RunCliAsync(
+                cliAssembly,
+                "input",
+                "--session",
+                sessionId.Value,
+                "--top-level",
+                "topLevel:cli",
+                "--action",
+                InputActions.KeyText,
+                "--text",
+                "typed text");
+            var request = await serverTask;
+
+            Assert.Equal(0, result.ExitCode);
+            Assert.Equal("typed text", request.InputText);
+
+            var payload = JsonSerializer.Deserialize<ToolResult<InputResponse>>(result.StandardOutput, JsonOptions);
+            Assert.NotNull(payload);
+            Assert.True(payload.Success, payload.Error?.Message);
+            Assert.Equal(InputActions.KeyText, payload.Value!.Action);
+        }
+        finally
+        {
+            if (File.Exists(manifestPath))
+            {
+                File.Delete(manifestPath);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task InputCommandSendsKeyDownThroughBridgePipe()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var sessionId = SessionId.New();
+        var pipeName = $"avascope-cli-test-{Guid.NewGuid():N}";
+        var manifestPath = WriteBridgeManifest(sessionId, pipeName);
+
+        var serverTask = RespondToBridgeRequestAsync(pipeName, request =>
+        {
+            Assert.Equal(BridgeIpcMethods.Input, request.Method);
+            Assert.Equal(InputActions.KeyDown, request.Action);
+            Assert.Equal("Enter", request.InputKey);
+            Assert.Equal("Control+Shift", request.KeyModifiers);
+            Assert.Equal("visual:textbox", request.TargetNodeId);
+            return BridgeIpcResponse.Ok(
+                request.RequestId,
+                new InputResponse(sessionId, request.TopLevelId!, InputActions.KeyDown, true, DateTimeOffset.UtcNow, request.TargetNodeId));
+        });
+
+        try
+        {
+            var result = await RunCliAsync(
+                cliAssembly,
+                "input",
+                "--session",
+                sessionId.Value,
+                "--top-level",
+                "topLevel:cli",
+                "--action",
+                InputActions.KeyDown,
+                "--key",
+                "Enter",
+                "--modifiers",
+                "Control+Shift",
+                "--target-node",
+                "visual:textbox");
+            var request = await serverTask;
+
+            Assert.Equal(0, result.ExitCode);
+            Assert.Equal("Enter", request.InputKey);
+
+            var payload = JsonSerializer.Deserialize<ToolResult<InputResponse>>(result.StandardOutput, JsonOptions);
+            Assert.NotNull(payload);
+            Assert.True(payload.Success, payload.Error?.Message);
+            Assert.Equal("visual:textbox", payload.Value!.TargetNodeId);
+        }
+        finally
+        {
+            if (File.Exists(manifestPath))
+            {
+                File.Delete(manifestPath);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task InputCommandSendsFocusThroughBridgePipe()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var sessionId = SessionId.New();
+        var pipeName = $"avascope-cli-test-{Guid.NewGuid():N}";
+        var manifestPath = WriteBridgeManifest(sessionId, pipeName);
+
+        var serverTask = RespondToBridgeRequestAsync(pipeName, request =>
+        {
+            Assert.Equal(BridgeIpcMethods.Input, request.Method);
+            Assert.Equal(InputActions.Focus, request.Action);
+            Assert.Equal("visual:textbox", request.TargetNodeId);
+            return BridgeIpcResponse.Ok(
+                request.RequestId,
+                new InputResponse(sessionId, request.TopLevelId!, InputActions.Focus, true, DateTimeOffset.UtcNow, request.TargetNodeId));
+        });
+
+        try
+        {
+            var result = await RunCliAsync(
+                cliAssembly,
+                "input",
+                "--session",
+                sessionId.Value,
+                "--top-level",
+                "topLevel:cli",
+                "--action",
+                InputActions.Focus,
+                "--target-node",
+                "visual:textbox");
+            var request = await serverTask;
+
+            Assert.Equal(0, result.ExitCode);
+            Assert.Equal("visual:textbox", request.TargetNodeId);
+
+            var payload = JsonSerializer.Deserialize<ToolResult<InputResponse>>(result.StandardOutput, JsonOptions);
+            Assert.NotNull(payload);
+            Assert.True(payload.Success, payload.Error?.Message);
+            Assert.Equal(InputActions.Focus, payload.Value!.Action);
+        }
+        finally
+        {
+            if (File.Exists(manifestPath))
+            {
+                File.Delete(manifestPath);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task InputCommandReturnsStructuredErrorWhenNoBridgeSessionMatches()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var result = await RunCliAsync(
+            cliAssembly,
+            "input",
+            "--session",
+            "missing",
+            "--top-level",
+            "topLevel:missing",
+            "--action",
+            InputActions.Click,
+            "--x",
+            "1",
+            "--y",
+            "2");
+
+        Assert.Equal(1, result.ExitCode);
+        Assert.True(string.IsNullOrWhiteSpace(result.StandardError), result.StandardError);
+
+        var payload = JsonSerializer.Deserialize<ToolResult<InputResponse>>(result.StandardOutput, JsonOptions);
+        Assert.NotNull(payload);
+        Assert.False(payload.Success);
+        Assert.Equal(CoreErrorCodes.BridgeSessionNotFound, payload.Error!.Code);
+    }
+
+    [Theory]
+    [InlineData("click", "--x", "1")]
+    [InlineData("key_text", "--target-node", "visual:textbox")]
+    [InlineData("key_down", "--target-node", "visual:textbox")]
+    [InlineData("focus", "--text", "ignored")]
+    public async Task InputCommandRejectsMissingActionSpecificArguments(
+        string action,
+        string optionName,
+        string optionValue)
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var result = await RunCliAsync(
+            cliAssembly,
+            "input",
+            "--session",
+            "missing",
+            "--top-level",
+            "topLevel:missing",
+            "--action",
+            action,
+            optionName,
+            optionValue);
+
+        Assert.Equal(2, result.ExitCode);
+        Assert.True(string.IsNullOrWhiteSpace(result.StandardError), result.StandardError);
+
+        var payload = JsonSerializer.Deserialize<ToolResult<InputResponse>>(result.StandardOutput, JsonOptions);
+        Assert.NotNull(payload);
+        Assert.False(payload.Success);
+        Assert.Equal("invalid_cli_arguments", payload.Error!.Code);
+    }
+
+    [Theory]
+    [InlineData("--action", "drag")]
+    [InlineData("--x", "NaN")]
+    public async Task InputCommandRejectsInvalidOptions(string optionName, string optionValue)
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var result = await RunCliAsync(
+            cliAssembly,
+            "input",
+            "--session",
+            "missing",
+            "--top-level",
+            "topLevel:missing",
+            "--action",
+            InputActions.Click,
+            "--x",
+            "1",
+            "--y",
+            "2",
+            optionName,
+            optionValue);
+
+        Assert.Equal(2, result.ExitCode);
+        Assert.True(string.IsNullOrWhiteSpace(result.StandardError), result.StandardError);
+
+        var payload = JsonSerializer.Deserialize<ToolResult<InputResponse>>(result.StandardOutput, JsonOptions);
+        Assert.NotNull(payload);
+        Assert.False(payload.Success);
+        Assert.Equal("invalid_cli_arguments", payload.Error!.Code);
+    }
+
+    [Fact]
     public async Task ScreenshotCommandReturnsStructuredErrorWhenNoBridgeSessionMatches()
     {
         var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");

@@ -28,6 +28,7 @@ internal static class Program
             "logical-tree" => await Tree(args[1..], TreeKinds.Logical, GetLogicalTreeUsage()),
             "inspect-node" => await InspectNode(args[1..]),
             "find-nodes" => await FindNodes(args[1..]),
+            "input" => await Input(args[1..]),
             "mcp" => await Mcp(),
             _ => UnknownCommand(args[0])
         };
@@ -299,6 +300,61 @@ internal static class Program
         return result.Success ? 0 : 1;
     }
 
+    private static async Task<int> Input(string[] args)
+    {
+        var options = ParseOptions(args, GetInputUsage());
+        if (!options.Success)
+        {
+            WriteFailure(InvalidCliArguments, options.Error!);
+            return 2;
+        }
+
+        if (!ValidateOptions(
+                options.Values,
+                GetInputUsage(),
+                "session",
+                "top-level",
+                "action",
+                "x",
+                "y",
+                "text",
+                "target-node",
+                "key",
+                "modifiers")
+            || !TryReadRequiredSessionId(options.Values, GetInputUsage(), out var sessionId)
+            || !TryReadRequiredOption(options.Values, "top-level", GetInputUsage(), out var topLevelId)
+            || !TryReadRequiredOption(options.Values, "action", GetInputUsage(), out var action)
+            || !TryNormalizeInputAction(action!, out action)
+            || !TryReadOptionalDouble(options.Values, "x", out var x)
+            || !TryReadOptionalDouble(options.Values, "y", out var y))
+        {
+            return 2;
+        }
+
+        var inputText = options.Values.GetValueOrDefault("text");
+        var targetNodeId = options.Values.GetValueOrDefault("target-node");
+        var inputKey = options.Values.GetValueOrDefault("key");
+        var keyModifiers = options.Values.GetValueOrDefault("modifiers");
+        if (!ValidateInputActionArguments(action!, x, y, inputText, targetNodeId, inputKey))
+        {
+            return 2;
+        }
+
+        var result = await new LocalBridgeClient().InputAsync(
+            sessionId!,
+            topLevelId!,
+            action!,
+            x,
+            y,
+            inputText,
+            targetNodeId,
+            inputKey,
+            keyModifiers);
+        WriteResult(result);
+
+        return result.Success ? 0 : 1;
+    }
+
     private static async Task<int> Screenshot(string[] args)
     {
         var options = ParseOptions(args, GetScreenshotUsage());
@@ -384,6 +440,28 @@ internal static class Program
         return true;
     }
 
+    private static bool TryReadOptionalDouble(
+        IReadOnlyDictionary<string, string> options,
+        string optionName,
+        out double? value)
+    {
+        value = null;
+        if (!options.TryGetValue(optionName, out var text))
+        {
+            return true;
+        }
+
+        if (!double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed)
+            || !double.IsFinite(parsed))
+        {
+            WriteFailure(InvalidCliArguments, $"{optionName} must be a finite number.");
+            return false;
+        }
+
+        value = parsed;
+        return true;
+    }
+
     private static bool TryReadOptionalPositiveInt(
         IReadOnlyDictionary<string, string> options,
         string optionName,
@@ -429,6 +507,63 @@ internal static class Program
         }
 
         WriteFailure(InvalidCliArguments, "tree-kind must be visual or logical.");
+        return false;
+    }
+
+    private static bool TryNormalizeInputAction(string action, out string normalizedAction)
+    {
+        normalizedAction = action;
+        foreach (var supportedAction in SupportedInputActions)
+        {
+            if (string.Equals(action, supportedAction, StringComparison.OrdinalIgnoreCase))
+            {
+                normalizedAction = supportedAction;
+                return true;
+            }
+        }
+
+        WriteFailure(InvalidCliArguments, $"Unsupported input action '{action}'.");
+        return false;
+    }
+
+    private static bool ValidateInputActionArguments(
+        string action,
+        double? x,
+        double? y,
+        string? inputText,
+        string? targetNodeId,
+        string? inputKey)
+    {
+        return action switch
+        {
+            InputActions.PointerMove or InputActions.PointerDown or InputActions.PointerUp or InputActions.Click
+                => RequireCoordinates(action, x, y),
+            InputActions.Focus => !string.IsNullOrWhiteSpace(targetNodeId) || RequireCoordinates(action, x, y),
+            InputActions.KeyText => RequireText(action, inputText, "text"),
+            InputActions.KeyDown or InputActions.KeyUp => RequireText(action, inputKey, "key"),
+            _ => false
+        };
+    }
+
+    private static bool RequireCoordinates(string action, double? x, double? y)
+    {
+        if (x is not null && y is not null)
+        {
+            return true;
+        }
+
+        WriteFailure(InvalidCliArguments, $"{action} requires x and y coordinates.");
+        return false;
+    }
+
+    private static bool RequireText(string action, string? value, string optionName)
+    {
+        if (!string.IsNullOrEmpty(value))
+        {
+            return true;
+        }
+
+        WriteFailure(InvalidCliArguments, $"{action} requires {optionName}.");
         return false;
     }
 
@@ -479,7 +614,7 @@ internal static class Program
 
     private static string GetUsage()
     {
-        return "Usage: avascope mcp | avascope attach [--process <pid>] [--session <session-id>] | avascope list-top-levels --session <session-id> | avascope visual-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] | avascope logical-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] | avascope inspect-node --session <session-id> --top-level <top-level-id> --node <node-id> [--tree-kind visual|logical] | avascope find-nodes --session <session-id> --top-level <top-level-id> [--tree-kind visual|logical] [--type <type>] [--name <name>] [--automation-id <id>] [--text <text>] [--max-depth <n>] [--max-results <n>] | avascope screenshot --session <session-id> --top-level <top-level-id> --out <screenshot.png> | avascope preview <project.csproj> --view <view.axaml> --out <preview.png> --width <width> --height <height> [--dpi <dpi>] [--theme light|dark]";
+        return "Usage: avascope mcp | avascope attach [--process <pid>] [--session <session-id>] | avascope list-top-levels --session <session-id> | avascope visual-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] | avascope logical-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] | avascope inspect-node --session <session-id> --top-level <top-level-id> --node <node-id> [--tree-kind visual|logical] | avascope find-nodes --session <session-id> --top-level <top-level-id> [--tree-kind visual|logical] [--type <type>] [--name <name>] [--automation-id <id>] [--text <text>] [--max-depth <n>] [--max-results <n>] | avascope input --session <session-id> --top-level <top-level-id> --action <action> [--x <x>] [--y <y>] [--text <text>] [--target-node <node-id>] [--key <key>] [--modifiers <modifiers>] | avascope screenshot --session <session-id> --top-level <top-level-id> --out <screenshot.png> | avascope preview <project.csproj> --view <view.axaml> --out <preview.png> --width <width> --height <height> [--dpi <dpi>] [--theme light|dark]";
     }
 
     private static string GetPreviewUsage()
@@ -517,6 +652,11 @@ internal static class Program
         return "Usage: avascope find-nodes --session <session-id> --top-level <top-level-id> [--tree-kind visual|logical] [--type <type>] [--name <name>] [--automation-id <id>] [--text <text>] [--max-depth <n>] [--max-results <n>]";
     }
 
+    private static string GetInputUsage()
+    {
+        return "Usage: avascope input --session <session-id> --top-level <top-level-id> --action <action> [--x <x>] [--y <y>] [--text <text>] [--target-node <node-id>] [--key <key>] [--modifiers <modifiers>]";
+    }
+
     private static string GetScreenshotUsage()
     {
         return "Usage: avascope screenshot --session <session-id> --top-level <top-level-id> --out <screenshot.png>";
@@ -538,6 +678,18 @@ internal static class Program
             ? ToolResult<T>.Ok(result.Value!)
             : ToolResult<T>.Fail(new ProtocolError(result.Error!.Code, result.Error.Message)));
     }
+
+    private static readonly string[] SupportedInputActions =
+    [
+        InputActions.PointerMove,
+        InputActions.PointerDown,
+        InputActions.PointerUp,
+        InputActions.Click,
+        InputActions.Focus,
+        InputActions.KeyText,
+        InputActions.KeyDown,
+        InputActions.KeyUp
+    ];
 
     private sealed record OptionParseResult(
         bool Success,
