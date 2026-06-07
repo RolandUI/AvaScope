@@ -376,4 +376,30 @@ public sealed class ProtocolContractTests
         Assert.Equal("Views\\MainView.axaml", node["viewPath"]!.GetValue<string>());
         Assert.Equal("light", node["themeVariant"]!.GetValue<string>());
     }
+
+    [Fact]
+    public void CloseSessionResponseSerializesSessionSummary()
+    {
+        var createdAt = new DateTimeOffset(2026, 6, 7, 2, 0, 0, TimeSpan.Zero);
+        var closedAt = createdAt.AddMinutes(5);
+        var response = new CloseSessionResponse(
+            new SessionSummary(
+                new SessionId("session-1"),
+                SessionKinds.Runtime,
+                SessionStates.Closed,
+                createdAt,
+                "Sample app"),
+            1234,
+            closedAt);
+
+        var json = JsonSerializer.Serialize(response);
+        var node = JsonNode.Parse(json)!;
+
+        Assert.Equal(1234, node["processId"]!.GetValue<int>());
+        Assert.Equal("session-1", node["session"]!["sessionId"]!.GetValue<string>());
+        Assert.Equal("runtime", node["session"]!["kind"]!.GetValue<string>());
+        Assert.Equal("closed", node["session"]!["state"]!.GetValue<string>());
+        Assert.Equal("Sample app", node["session"]!["displayName"]!.GetValue<string>());
+        Assert.Equal(closedAt, DateTimeOffset.Parse(node["closedAt"]!.GetValue<string>(), CultureInfo.InvariantCulture));
+    }
 }

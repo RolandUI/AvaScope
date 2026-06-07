@@ -9,4 +9,5 @@ public static class BridgeIpcMethods
     public const string LogicalTree = "logical_tree";
     public const string FindNodes = "find_nodes";
     public const string Input = "input";
+    public const string CloseSession = "close_session";
 }

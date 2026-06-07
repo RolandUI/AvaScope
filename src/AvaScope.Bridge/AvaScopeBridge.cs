@@ -68,4 +68,19 @@ public static class AvaScopeBridge
             return result;
         }
     }
+
+    internal static void CompleteRemoteClose(AvaScopeBridgeRuntime runtime)
+    {
+        ArgumentNullException.ThrowIfNull(runtime);
+
+        lock (SyncRoot)
+        {
+            if (ReferenceEquals(_current, runtime))
+            {
+                _current = null;
+            }
+        }
+
+        runtime.StopLocalServer();
+    }
 }

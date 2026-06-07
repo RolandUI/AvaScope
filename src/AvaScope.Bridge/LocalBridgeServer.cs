@@ -170,14 +170,19 @@ internal sealed class LocalBridgeServer : IDisposable
             return;
         }
 
-        var response = await HandleRequestAsync(line, cancellationToken);
-        var responseBytes = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(response) + Environment.NewLine);
+        var result = await HandleRequestAsync(line, cancellationToken);
+        var responseBytes = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(result.Response) + Environment.NewLine);
 
         await pipe.WriteAsync(responseBytes, cancellationToken);
         await pipe.FlushAsync(cancellationToken);
+
+        if (result.CloseAfterResponse)
+        {
+            _ = Task.Run(() => AvaScopeBridge.CompleteRemoteClose(_runtime), CancellationToken.None);
+        }
     }
 
-    private async Task<BridgeIpcResponse> HandleRequestAsync(string line, CancellationToken cancellationToken)
+    private async Task<BridgeRequestResult> HandleRequestAsync(string line, CancellationToken cancellationToken)
     {
         BridgeIpcRequest request;
 
@@ -188,26 +193,44 @@ internal sealed class LocalBridgeServer : IDisposable
         }
         catch (Exception exception) when (exception is JsonException or ArgumentException)
         {
-            return BridgeIpcResponse.Fail(
+            return Respond(BridgeIpcResponse.Fail(
                 "unknown",
-                new ProtocolError("invalid_request", exception.Message));
+                new ProtocolError("invalid_request", exception.Message)));
         }
 
         return request.Method switch
         {
-            BridgeIpcMethods.Health => BridgeIpcResponse.Ok(request.RequestId, HealthResponse.Current()),
-            BridgeIpcMethods.ListTopLevels => BridgeIpcResponse.Ok(
+            BridgeIpcMethods.Health => Respond(BridgeIpcResponse.Ok(request.RequestId, HealthResponse.Current())),
+            BridgeIpcMethods.ListTopLevels => Respond(BridgeIpcResponse.Ok(
                 request.RequestId,
-                await _runtime.ListTopLevelsAsync(cancellationToken)),
-            BridgeIpcMethods.Screenshot => await CaptureScreenshotAsync(request, cancellationToken),
-            BridgeIpcMethods.VisualTree => await GetTreeAsync(request, TreeKinds.Visual, cancellationToken),
-            BridgeIpcMethods.LogicalTree => await GetTreeAsync(request, TreeKinds.Logical, cancellationToken),
-            BridgeIpcMethods.FindNodes => await FindNodesAsync(request, cancellationToken),
-            BridgeIpcMethods.Input => await InputAsync(request, cancellationToken),
-            _ => BridgeIpcResponse.Fail(
+                await _runtime.ListTopLevelsAsync(cancellationToken))),
+            BridgeIpcMethods.Screenshot => Respond(await CaptureScreenshotAsync(request, cancellationToken)),
+            BridgeIpcMethods.VisualTree => Respond(await GetTreeAsync(request, TreeKinds.Visual, cancellationToken)),
+            BridgeIpcMethods.LogicalTree => Respond(await GetTreeAsync(request, TreeKinds.Logical, cancellationToken)),
+            BridgeIpcMethods.FindNodes => Respond(await FindNodesAsync(request, cancellationToken)),
+            BridgeIpcMethods.Input => Respond(await InputAsync(request, cancellationToken)),
+            BridgeIpcMethods.CloseSession => CloseSession(request),
+            _ => Respond(BridgeIpcResponse.Fail(
                 request.RequestId,
-                new ProtocolError("unknown_method", $"Bridge method '{request.Method}' is not supported."))
+                new ProtocolError("unknown_method", $"Bridge method '{request.Method}' is not supported.")))
         };
+    }
+
+    private BridgeRequestResult CloseSession(BridgeIpcRequest request)
+    {
+        var result = _runtime.CloseSession();
+
+        return result.Success
+            ? Respond(BridgeIpcResponse.Ok(
+                    request.RequestId,
+                    new CloseSessionResponse(
+                        ToSessionSummary(result.Value!),
+                        Environment.ProcessId,
+                        DateTimeOffset.UtcNow)),
+                closeAfterResponse: true)
+            : Respond(BridgeIpcResponse.Fail(
+                request.RequestId,
+                new ProtocolError(result.Error!.Code, result.Error.Message)));
     }
 
     private async Task<BridgeIpcResponse> CaptureScreenshotAsync(
@@ -337,4 +360,37 @@ internal sealed class LocalBridgeServer : IDisposable
                 request.RequestId,
                 new ProtocolError(result.Error!.Code, result.Error.Message));
     }
+
+    private static BridgeRequestResult Respond(
+        BridgeIpcResponse response,
+        bool closeAfterResponse = false)
+    {
+        return new BridgeRequestResult(response, closeAfterResponse);
+    }
+
+    private static SessionSummary ToSessionSummary(SessionSnapshot session)
+    {
+        return new SessionSummary(
+            session.Id,
+            session.Kind,
+            ToProtocolState(session.State),
+            session.CreatedAt,
+            session.DisplayName);
+    }
+
+    private static string ToProtocolState(SessionLifecycleState state)
+    {
+        return state switch
+        {
+            SessionLifecycleState.Active => SessionStates.Active,
+            SessionLifecycleState.Closing => SessionStates.Closing,
+            SessionLifecycleState.Closed => SessionStates.Closed,
+            SessionLifecycleState.Failed => SessionStates.Failed,
+            _ => throw new ArgumentOutOfRangeException(nameof(state), state, "Unknown session state.")
+        };
+    }
+
+    private sealed record BridgeRequestResult(
+        BridgeIpcResponse Response,
+        bool CloseAfterResponse);
 }

@@ -83,6 +83,31 @@ public sealed class AvaScopeBridgeTests : IDisposable
     }
 
     [Fact]
+    public async Task LocalPipeCloseSessionRespondsThenRemovesManifest()
+    {
+        var registry = new SessionRegistry();
+        var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Sample app", sessionRegistry: registry));
+        var manifestPath = runtime.SessionManifestPath!;
+
+        var response = await SendBridgeRequestAsync(
+            runtime.LocalPipeName!,
+            new BridgeIpcRequest("request-close", BridgeIpcMethods.CloseSession));
+
+        Assert.Equal("request-close", response.RequestId);
+        Assert.True(response.Success, response.Error?.Message);
+        var close = response.GetValue<CloseSessionResponse>()!;
+        Assert.Equal(runtime.SessionId, close.Session.SessionId);
+        Assert.Equal(SessionStates.Closed, close.Session.State);
+        Assert.Equal(Environment.ProcessId, close.ProcessId);
+        Assert.Equal(SessionLifecycleState.Closed, registry.Get(runtime.SessionId).Value!.State);
+
+        await WaitForAsync(() => !AvaScopeBridge.IsActive && !File.Exists(manifestPath));
+
+        Assert.False(AvaScopeBridge.IsActive);
+        Assert.False(File.Exists(manifestPath));
+    }
+
+    [Fact]
     public void ActivateIsIdempotentWhileBridgeIsActive()
     {
         var first = AvaScopeBridge.Activate(new BridgeActivationOptions("First"));
@@ -169,5 +194,20 @@ public sealed class AvaScopeBridgeTests : IDisposable
         Assert.False(string.IsNullOrWhiteSpace(line));
         return JsonSerializer.Deserialize<BridgeIpcResponse>(line)!
             ?? throw new InvalidOperationException("Bridge IPC response was empty.");
+    }
+
+    private static async Task WaitForAsync(Func<bool> predicate)
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+
+        while (!predicate())
+        {
+            if (timeout.IsCancellationRequested)
+            {
+                Assert.True(predicate(), "Timed out waiting for bridge close to complete.");
+            }
+
+            await Task.Delay(20, CancellationToken.None);
+        }
     }
 }

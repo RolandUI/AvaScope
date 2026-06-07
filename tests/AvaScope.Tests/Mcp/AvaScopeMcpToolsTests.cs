@@ -148,6 +148,18 @@ public sealed class AvaScopeMcpToolsTests
     }
 
     [Fact]
+    public async Task CloseSessionRejectsEmptySessionId()
+    {
+        var client = new LocalBridgeClient(CreateMissingManifestDirectory());
+
+        var result = await AvaScopeMcpTools.CloseSession(client, " ");
+
+        Assert.False(result.Success);
+        Assert.Null(result.Value);
+        Assert.Equal(CoreErrorCodes.InvalidBridgeRequest, result.Error!.Code);
+    }
+
+    [Fact]
     public async Task PreviewAxamlRejectsInvalidDimensions()
     {
         var client = new PreviewHostClient(Path.Combine(AppContext.BaseDirectory, "AvaScope.PreviewHost.dll"));

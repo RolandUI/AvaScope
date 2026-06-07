@@ -54,4 +54,4 @@ Next slice: add CI only after the local validation path is stable enough to avoi
 
 ## Selected Next Slice
 
-Implement runtime `close_session` lifecycle support first. It is a P0 lifecycle gap, has a clear MCP tool target, and reduces stale bridge sessions/manifests during repeated agent workflows.
+Implement the first diagnostics surface next. Runtime `close_session` lifecycle support is complete; diagnostics is the remaining P0 gap that lets agents inspect local bridge/preview health, version, process, transport, manifest, and structured unavailable-state data before choosing a workflow.

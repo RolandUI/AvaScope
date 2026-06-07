@@ -127,4 +127,15 @@ public sealed class LocalBridgeClientTests : IDisposable
         Assert.False(result.Success);
         Assert.Equal(CoreErrorCodes.InvalidBridgeRequest, result.Error!.Code);
     }
+
+    [Fact]
+    public async Task CloseSessionReturnsStructuredErrorWhenNoManifestMatches()
+    {
+        var client = new LocalBridgeClient(_manifestDirectory);
+
+        var result = await client.CloseSessionAsync(new SessionId("missing"));
+
+        Assert.False(result.Success);
+        Assert.Equal(CoreErrorCodes.BridgeSessionNotFound, result.Error!.Code);
+    }
 }

@@ -55,10 +55,7 @@ public sealed class PreviewHostSmokeTests
         }
         finally
         {
-            if (Directory.Exists(testRoot))
-            {
-                Directory.Delete(testRoot, recursive: true);
-            }
+            await DeleteDirectoryWithRetryAsync(testRoot);
         }
     }
 
@@ -123,10 +120,7 @@ public sealed class PreviewHostSmokeTests
         }
         finally
         {
-            if (Directory.Exists(testRoot))
-            {
-                Directory.Delete(testRoot, recursive: true);
-            }
+            await DeleteDirectoryWithRetryAsync(testRoot);
         }
     }
 
@@ -178,10 +172,7 @@ public sealed class PreviewHostSmokeTests
         }
         finally
         {
-            if (Directory.Exists(testRoot))
-            {
-                Directory.Delete(testRoot, recursive: true);
-            }
+            await DeleteDirectoryWithRetryAsync(testRoot);
         }
     }
 
@@ -268,10 +259,37 @@ public sealed class PreviewHostSmokeTests
         }
         finally
         {
-            if (Directory.Exists(testRoot))
+            await DeleteDirectoryWithRetryAsync(testRoot);
+        }
+    }
+
+    private static async Task DeleteDirectoryWithRetryAsync(string path)
+    {
+        for (var attempt = 0; attempt < 10; attempt++)
+        {
+            if (!Directory.Exists(path))
             {
-                Directory.Delete(testRoot, recursive: true);
+                return;
             }
+
+            try
+            {
+                Directory.Delete(path, recursive: true);
+                return;
+            }
+            catch (IOException) when (attempt < 9)
+            {
+                await Task.Delay(100);
+            }
+            catch (UnauthorizedAccessException) when (attempt < 9)
+            {
+                await Task.Delay(100);
+            }
+        }
+
+        if (Directory.Exists(path))
+        {
+            Directory.Delete(path, recursive: true);
         }
     }
 

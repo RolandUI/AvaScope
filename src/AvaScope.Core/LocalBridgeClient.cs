@@ -254,6 +254,24 @@ public sealed class LocalBridgeClient
             cancellationToken);
     }
 
+    public async Task<CoreResult<CloseSessionResponse>> CloseSessionAsync(
+        SessionId sessionId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(sessionId);
+
+        var manifestResult = FindSingleManifest(null, sessionId);
+        if (!manifestResult.Success)
+        {
+            return CoreResult<CloseSessionResponse>.Fail(manifestResult.Error!);
+        }
+
+        return await SendAsync<CloseSessionResponse>(
+            manifestResult.Value!,
+            new BridgeIpcRequest(NewRequestId(), BridgeIpcMethods.CloseSession),
+            cancellationToken);
+    }
+
     private async Task<CoreResult<TreeResponse>> TreeAsync(
         SessionId sessionId,
         string topLevelId,

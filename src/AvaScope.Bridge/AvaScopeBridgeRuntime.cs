@@ -217,10 +217,21 @@ public sealed class AvaScopeBridgeRuntime
 
     internal CoreResult<SessionSnapshot> Close()
     {
+        var result = CloseSession();
+        StopLocalServer();
+
+        return result;
+    }
+
+    internal CoreResult<SessionSnapshot> CloseSession()
+    {
+        return _sessionRegistry.Close(SessionId);
+    }
+
+    internal void StopLocalServer()
+    {
         _localServer?.Dispose();
         _localServer = null;
-
-        return _sessionRegistry.Close(SessionId);
     }
 
     internal void StartLocalServer()

@@ -23,15 +23,15 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `M12 Post-MVP Hardening`
+- `M13 Diagnostics Surface`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-07`
-- Goal: close the highest-risk gaps after the first usable bridge, preview, MCP, and CLI workflow set.
+- Goal: add the first aggregate diagnostic surface for local bridge and preview workflows.
 
 ## Next Action
 
-Implement runtime `close_session` lifecycle support with a safe bridge IPC close handshake, Core client method, MCP tool, and stale manifest cleanup validation.
+Define the first diagnostics protocol shape, then implement a minimal `diagnostics` path that reports local bridge session health, transport metadata, version/process details, and structured unavailable-state errors.
 
 ## Latest Validation
 
@@ -106,6 +106,13 @@ Implement runtime `close_session` lifecycle support with a safe bridge IPC close
 - `2026-06-07`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after M11 documentation update.
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 67 tests.
 - `2026-06-07`: Post-MVP gap audit recorded in `docs/GAP_AUDIT.md`; selected runtime `close_session` lifecycle support as the next slice.
+- `2026-06-07`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after M12 runtime `close_session` lifecycle implementation.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter Protocol` passed with 21 tests.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter Core` passed with 19 tests.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter Bridge` passed with 26 tests.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter Mcp` passed with 18 tests.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter PreviewHost` passed with 8 tests after temp-directory cleanup retry hardening.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 72 tests.
 
 ## Milestones
 
@@ -314,13 +321,16 @@ Implement runtime `close_session` lifecycle support with a safe bridge IPC close
 
 ### M12 Post-MVP Hardening
 
-- Status: `In Progress`
+- Status: `Done`
 - Goal: audit and close the highest-risk gaps in the first usable AvaScope workflow set.
 - Deliverables: prioritized gap list, next vertical hardening slice, validation updates.
 - Progress:
   - Done: gap audit created with P0/P1/P2 ranking.
   - Done: selected runtime `close_session` lifecycle support as the next vertical slice.
-  - Pending: implement safe bridge IPC close handshake and adapter tools.
+  - Done: safe bridge IPC close handshake returns a structured response before stopping the local bridge server.
+  - Done: Core `LocalBridgeClient` and MCP expose `close_session`.
+  - Done: stale manifest cleanup is validated through bridge and MCP/Core/pipe tests.
+  - Done: PreviewHost temp-directory cleanup is retried to avoid Windows handle-release flakiness in full-suite validation.
 - Acceptance Criteria:
   - Gaps are ranked by user impact and architectural risk.
   - The next slice is small enough to validate and commit independently.
@@ -328,6 +338,27 @@ Implement runtime `close_session` lifecycle support with a safe bridge IPC close
 - Validation:
   - audit notes in this plan or a dedicated docs file
   - relevant targeted test command for the selected slice
+
+### M13 Diagnostics Surface
+
+- Status: `In Progress`
+- Goal: provide the first aggregate diagnostics surface without coupling MCP schemas to bridge or preview internals.
+- Deliverables: diagnostics protocol DTOs, local bridge diagnostics path, MCP `diagnostics` tool, focused tests.
+- Progress:
+  - Pending: define transport-neutral diagnostics response model and source names.
+  - Pending: expose local bridge session health, process id, transport, manifest path, and version metadata.
+  - Pending: add MCP `diagnostics` adapter and unavailable-session diagnostics.
+- Acceptance Criteria:
+  - Diagnostics are bounded, structured, and transport-neutral.
+  - Missing or stale sessions return structured diagnostic data rather than throwing.
+  - MCP remains a thin adapter over Core/client behavior.
+  - The first slice does not claim binding, layout, or resource diagnostics until those signals exist.
+- Validation:
+  - `dotnet build AvaScope.slnx`
+  - `dotnet test AvaScope.slnx --no-build --filter Protocol`
+  - `dotnet test AvaScope.slnx --no-build --filter Core`
+  - `dotnet test AvaScope.slnx --no-build --filter Mcp`
+  - `dotnet test AvaScope.slnx --no-build`
 
 ## Decision Log
 
@@ -365,6 +396,8 @@ Implement runtime `close_session` lifecycle support with a safe bridge IPC close
 - `2026-06-07`: README intentionally documents current limitations for input, preview resources, hot reload, and diagnostics so users do not assume full DevTools parity yet.
 - `2026-06-07`: Added M12 to continue with explicit post-MVP hardening rather than broad untracked expansion.
 - `2026-06-07`: Runtime `close_session` is the next hardening slice because stale local bridge sessions/manifests directly affect repeated agent workflows and the tool name is already part of the target MCP shape.
+- `2026-06-07`: Runtime `close_session` uses a two-phase bridge IPC close handshake: the session registry is closed before the structured response is flushed, and the bridge server/manifest are stopped afterward on a background task to avoid pipe teardown before the client receives the result.
+- `2026-06-07`: Diagnostics is the next P0 hardening slice because current operations return per-tool errors, but there is no aggregate health/version/session surface for agents to inspect before choosing a workflow.
 
 ## Change Log
 
@@ -390,3 +423,4 @@ Implement runtime `close_session` lifecycle support with a safe bridge IPC close
 - `2026-06-07`: Completed M10 CLI integration with `avascope preview`, `avascope mcp`, process smoke coverage, and structured invalid-argument errors; added M11 documentation and release readiness as the active focus.
 - `2026-06-07`: Completed M11 documentation and release-readiness slice with README usage documentation and validation guide updates; added M12 post-MVP hardening as the active focus.
 - `2026-06-07`: Added post-MVP gap audit and selected runtime `close_session` lifecycle support as the next hardening slice.
+- `2026-06-07`: Completed M12 close-session hardening with bridge IPC, Core client, MCP tool, manifest cleanup validation, and PreviewHost cleanup retry hardening; added M13 diagnostics surface as the active focus.

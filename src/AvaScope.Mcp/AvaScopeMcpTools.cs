@@ -260,6 +260,30 @@ public sealed class AvaScopeMcpTools
     }
 
     [McpServerTool(
+        Name = "close_session",
+        Title = "Close session",
+        ReadOnly = false,
+        Idempotent = true,
+        Destructive = false,
+        OpenWorld = false,
+        UseStructuredContent = true)]
+    [Description("Closes a local AvaScope bridge session and removes its local manifest.")]
+    public static async Task<ToolResult<CloseSessionResponse>> CloseSession(
+        LocalBridgeClient bridgeClient,
+        string sessionId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(bridgeClient);
+
+        if (!TryParseRequiredSessionId(sessionId, out var parsedSessionId, out var error))
+        {
+            return ToolResult<CloseSessionResponse>.Fail(error!);
+        }
+
+        return ToToolResult(await bridgeClient.CloseSessionAsync(parsedSessionId!, cancellationToken));
+    }
+
+    [McpServerTool(
         Name = "preview_axaml",
         Title = "Preview AXAML",
         ReadOnly = false,
