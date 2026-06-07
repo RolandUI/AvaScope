@@ -53,6 +53,8 @@ dotnet pack .\src\AvaScope.Bridge\AvaScope.Bridge.csproj -c Release --no-build -
 
 The first package slice produces local NuGet packages for `AvaScope.Protocol`, `AvaScope.Core`, and `AvaScope.Bridge`. `AvaScope.Mcp`, `AvaScope.Cli`, and `AvaScope.PreviewHost` are explicitly not packable yet; executable/tool packaging remains a later release workflow.
 
+CI validation runs the same restore, Release build, Release test, and local library pack commands in GitHub Actions on pushes and pull requests. It does not publish packages or require secrets.
+
 ## CLI
 
 Build first, then run the CLI assembly from the build output:

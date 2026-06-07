@@ -62,10 +62,12 @@ Next slice: add CI validation before broader release automation.
 
 ### CI Workflow
 
-Validation commands are documented, but there is no GitHub Actions workflow yet.
+Status: first CI validation slice complete.
 
-Next slice: add a GitHub Actions workflow for restore/build/test and local pack validation without publishing.
+GitHub Actions now validates restore, Release build, Release tests, and local library package creation on push and pull request without publishing packages or requiring secrets.
+
+Next slice: executable/tool packaging for `avascope`, MCP, and preview host remains open.
 
 ## Selected Next Slice
 
-Add CI validation next. Library package metadata and local pack validation are now in place.
+Add executable/tool packaging next. Library package metadata and CI validation are now in place.

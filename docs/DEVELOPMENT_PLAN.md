@@ -23,15 +23,15 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `M21 CI Validation Slice`
+- `M22 Executable Packaging Slice`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-07`
-- Goal: add repository CI validation for build, tests, and local package creation without publishing.
+- Goal: define local packaging for executable AvaScope artifacts without publishing.
 
 ## Next Action
 
-Add a GitHub Actions workflow that installs the required .NET SDK, restores, builds, tests, and locally packs library artifacts without pushing or publishing anything.
+Audit CLI, MCP, and PreviewHost release artifact shape, then add the smallest local executable packaging path that keeps bridge/library packages separate from tool distribution.
 
 ## Latest Validation
 
@@ -156,6 +156,11 @@ Add a GitHub Actions workflow that installs the required .NET SDK, restores, bui
 - `2026-06-07`: Package metadata inspected from `.nuspec`; Bridge declares dependencies on `AvaScope.Core`, `AvaScope.Protocol`, and `Avalonia` 12.0.4, and includes `README.md`.
 - `2026-06-07`: `dotnet pack` for `AvaScope.Mcp`, `AvaScope.Cli`, and `AvaScope.PreviewHost` completed as no-op because those projects are explicitly `IsPackable=false`.
 - `2026-06-07`: `git check-ignore -v artifacts\packages\AvaScope.Bridge.0.1.0.nupkg` confirmed package artifacts are ignored by `.gitignore`.
+- `2026-06-07`: GitHub Actions workflow added with `actions/checkout@v6`, `actions/setup-dotnet@v5`, Windows runner, restore, Release build, Release test, and local pack steps.
+- `2026-06-07`: `dotnet restore AvaScope.slnx` passed after M21 CI workflow addition.
+- `2026-06-07`: `dotnet build AvaScope.slnx -c Release --no-restore` passed with 0 warnings and 0 errors after M21 CI workflow addition.
+- `2026-06-07`: `dotnet test AvaScope.slnx -c Release --no-build` passed with 101 tests.
+- `2026-06-07`: CI pack command sequence created `AvaScope.Protocol.0.1.0.nupkg`, `AvaScope.Core.0.1.0.nupkg`, and `AvaScope.Bridge.0.1.0.nupkg`.
 
 ## Milestones
 
@@ -572,13 +577,14 @@ Add a GitHub Actions workflow that installs the required .NET SDK, restores, bui
 
 ### M21 CI Validation Slice
 
-- Status: `In Progress`
+- Status: `Done`
 - Goal: make the documented local validation path run in CI without release publishing.
 - Deliverables: GitHub Actions workflow, CI command list, documentation/tracking updates.
 - Progress:
-  - Pending: add a workflow using .NET 10 SDK setup.
-  - Pending: run restore, Release build, full tests, and local pack validation for library packages.
-  - Pending: keep workflow local-validation only, with no package push, release creation, or credentials.
+  - Done: added `.github/workflows/ci.yml` using official `actions/checkout@v6` and `actions/setup-dotnet@v5`.
+  - Done: workflow runs on pushes and pull requests to `main` and `master`.
+  - Done: workflow restores, builds Release, runs Release tests, and locally packs Protocol/Core/Bridge.
+  - Done: workflow uses no secrets, package feed, release creation, or publishing step.
 - Acceptance Criteria:
   - CI runs on pull requests and pushes to the main development branches.
   - CI uses `dotnet restore`, `dotnet build -c Release --no-restore`, `dotnet test -c Release --no-build`, and local `dotnet pack` commands.
@@ -588,6 +594,26 @@ Add a GitHub Actions workflow that installs the required .NET SDK, restores, bui
   - `dotnet build AvaScope.slnx`
   - `dotnet test AvaScope.slnx --no-build`
   - YAML/manual command inspection
+  - `git status --short`
+
+### M22 Executable Packaging Slice
+
+- Status: `In Progress`
+- Goal: define repeatable local artifacts for the `avascope` CLI, MCP server, and preview host without publishing.
+- Deliverables: executable artifact decision, local publish/package command(s), docs/tracking updates, validation.
+- Progress:
+  - Pending: audit whether `avascope` should first ship as a local `dotnet tool`, a zipped publish directory, or both.
+  - Pending: keep MCP and PreviewHost co-location requirements explicit.
+  - Pending: validate generated executable artifacts stay in ignored local output.
+- Acceptance Criteria:
+  - CLI/MCP/PreviewHost release artifact shape is explicit and documented.
+  - Local artifact generation works without publishing credentials.
+  - Artifact output is ignored and not committed.
+  - Existing library package workflow remains compatible.
+- Validation:
+  - `dotnet build AvaScope.slnx -c Release`
+  - executable packaging command(s)
+  - artifact inspection
   - `git status --short`
 
 ## Decision Log
@@ -645,6 +671,8 @@ Add a GitHub Actions workflow that installs the required .NET SDK, restores, bui
 - `2026-06-07`: M20 starts package metadata with `AvaScope.Bridge` first because it is the opt-in user-facing library package; executable/tool packaging for CLI/MCP can stay explicit until a later release workflow slice.
 - `2026-06-07`: M20 packages `AvaScope.Protocol` and `AvaScope.Core` alongside `AvaScope.Bridge` so the bridge package has resolvable local package dependencies.
 - `2026-06-07`: M21 targets CI before publishing or installer work because local build/test/pack validation is now stable enough to automate without credentials.
+- `2026-06-07`: M21 uses Windows CI first because current bridge and PreviewHost smoke coverage has been validated on Windows with named-pipe and headless Avalonia behavior.
+- `2026-06-07`: M22 targets executable packaging after CI because library packages are now validated but `avascope` executable distribution is still undefined.
 
 ## Change Log
 
@@ -679,3 +707,4 @@ Add a GitHub Actions workflow that installs the required .NET SDK, restores, bui
 - `2026-06-07`: Completed M18 input press/release with stable action constants, Avalonia routed pointer press/release events, active pointer reuse, headless bridge validation, README/gap updates, and full-suite validation; added M19 runtime reload contract as the active focus.
 - `2026-06-07`: Completed M19 runtime reload contract with preview-compatible reload responses, explicit active-runtime unsupported diagnostics, PreviewHost cleanup hardening, README/gap updates, and full-suite validation; added M20 packaging metadata as the active focus.
 - `2026-06-07`: Completed M20 packaging metadata with local library packages for Protocol/Core/Bridge, explicit non-packable executable projects, ignored package artifacts, README updates, and local pack validation; added M21 CI validation as the active focus.
+- `2026-06-07`: Completed M21 CI validation with GitHub Actions restore/build/test/pack workflow, README/gap updates, and local command validation; added M22 executable packaging as the active focus.
