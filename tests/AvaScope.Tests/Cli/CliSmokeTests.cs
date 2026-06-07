@@ -373,6 +373,203 @@ public sealed class CliSmokeTests
         Assert.Equal("invalid_cli_arguments", payload.Error!.Code);
     }
 
+    [Theory]
+    [InlineData(TreeKinds.Visual)]
+    [InlineData(TreeKinds.Logical)]
+    public async Task InspectNodeCommandReadsNodeThroughBridgePipe(string treeKind)
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var sessionId = SessionId.New();
+        var pipeName = $"avascope-cli-test-{Guid.NewGuid():N}";
+        var manifestPath = WriteBridgeManifest(sessionId, pipeName);
+        var nodeId = $"{treeKind}:child";
+
+        var serverTask = RespondToBridgeRequestAsync(pipeName, request =>
+        {
+            Assert.Equal(BridgeIpcMethods.InspectNode, request.Method);
+            Assert.Equal("topLevel:cli", request.TopLevelId);
+            Assert.Equal(treeKind, request.TreeKind);
+            Assert.Equal(nodeId, request.NodeId);
+            return BridgeIpcResponse.Ok(
+                request.RequestId,
+                new InspectNodeResponse(
+                    sessionId,
+                    request.TopLevelId!,
+                    treeKind,
+                    request.NodeId!,
+                    "TextBlock",
+                    childCount: 0,
+                    name: "CliText",
+                    text: "CLI node"));
+        });
+
+        try
+        {
+            var result = await RunCliAsync(
+                cliAssembly,
+                "inspect-node",
+                "--session",
+                sessionId.Value,
+                "--top-level",
+                "topLevel:cli",
+                "--node",
+                nodeId,
+                "--tree-kind",
+                treeKind);
+            var request = await serverTask;
+
+            Assert.Equal(0, result.ExitCode);
+            Assert.Equal(BridgeIpcMethods.InspectNode, request.Method);
+            Assert.True(string.IsNullOrWhiteSpace(result.StandardError), result.StandardError);
+
+            var payload = JsonSerializer.Deserialize<ToolResult<InspectNodeResponse>>(result.StandardOutput, JsonOptions);
+            Assert.NotNull(payload);
+            Assert.True(payload.Success, payload.Error?.Message);
+            Assert.Equal(sessionId, payload.Value!.SessionId);
+            Assert.Equal(treeKind, payload.Value.TreeKind);
+            Assert.Equal(nodeId, payload.Value.NodeId);
+            Assert.Equal("TextBlock", payload.Value.NodeType);
+            Assert.Equal("CLI node", payload.Value.Text);
+        }
+        finally
+        {
+            if (File.Exists(manifestPath))
+            {
+                File.Delete(manifestPath);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task InspectNodeCommandDefaultsTreeKindToVisual()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var sessionId = SessionId.New();
+        var pipeName = $"avascope-cli-test-{Guid.NewGuid():N}";
+        var manifestPath = WriteBridgeManifest(sessionId, pipeName);
+
+        var serverTask = RespondToBridgeRequestAsync(pipeName, request =>
+        {
+            Assert.Equal(BridgeIpcMethods.InspectNode, request.Method);
+            Assert.Equal(TreeKinds.Visual, request.TreeKind);
+            return BridgeIpcResponse.Ok(
+                request.RequestId,
+                new InspectNodeResponse(
+                    sessionId,
+                    request.TopLevelId!,
+                    TreeKinds.Visual,
+                    request.NodeId!,
+                    "Window",
+                    childCount: 1));
+        });
+
+        try
+        {
+            var result = await RunCliAsync(
+                cliAssembly,
+                "inspect-node",
+                "--session",
+                sessionId.Value,
+                "--top-level",
+                "topLevel:cli",
+                "--node",
+                "visual:root");
+            var request = await serverTask;
+
+            Assert.Equal(0, result.ExitCode);
+            Assert.Equal(TreeKinds.Visual, request.TreeKind);
+
+            var payload = JsonSerializer.Deserialize<ToolResult<InspectNodeResponse>>(result.StandardOutput, JsonOptions);
+            Assert.NotNull(payload);
+            Assert.True(payload.Success, payload.Error?.Message);
+            Assert.Equal(TreeKinds.Visual, payload.Value!.TreeKind);
+        }
+        finally
+        {
+            if (File.Exists(manifestPath))
+            {
+                File.Delete(manifestPath);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task InspectNodeCommandReturnsStructuredErrorWhenNoBridgeSessionMatches()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var result = await RunCliAsync(
+            cliAssembly,
+            "inspect-node",
+            "--session",
+            "missing",
+            "--top-level",
+            "topLevel:missing",
+            "--node",
+            "visual:missing");
+
+        Assert.Equal(1, result.ExitCode);
+        Assert.True(string.IsNullOrWhiteSpace(result.StandardError), result.StandardError);
+
+        var payload = JsonSerializer.Deserialize<ToolResult<InspectNodeResponse>>(result.StandardOutput, JsonOptions);
+        Assert.NotNull(payload);
+        Assert.False(payload.Success);
+        Assert.Equal(CoreErrorCodes.BridgeSessionNotFound, payload.Error!.Code);
+    }
+
+    [Theory]
+    [InlineData("--session", "missing", "--top-level", "topLevel:missing")]
+    [InlineData("--session", "missing", "--node", "visual:missing")]
+    [InlineData("--top-level", "topLevel:missing", "--node", "visual:missing")]
+    public async Task InspectNodeCommandRejectsMissingRequiredArguments(params string[] arguments)
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var commandArguments = new[] { "inspect-node" }.Concat(arguments).ToArray();
+        var result = await RunCliAsync(cliAssembly, commandArguments);
+
+        Assert.Equal(2, result.ExitCode);
+        Assert.True(string.IsNullOrWhiteSpace(result.StandardError), result.StandardError);
+
+        var payload = JsonSerializer.Deserialize<ToolResult<InspectNodeResponse>>(result.StandardOutput, JsonOptions);
+        Assert.NotNull(payload);
+        Assert.False(payload.Success);
+        Assert.Equal("invalid_cli_arguments", payload.Error!.Code);
+    }
+
+    [Fact]
+    public async Task InspectNodeCommandRejectsInvalidTreeKind()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var result = await RunCliAsync(
+            cliAssembly,
+            "inspect-node",
+            "--session",
+            "missing",
+            "--top-level",
+            "topLevel:missing",
+            "--node",
+            "visual:missing",
+            "--tree-kind",
+            "layout");
+
+        Assert.Equal(2, result.ExitCode);
+        Assert.True(string.IsNullOrWhiteSpace(result.StandardError), result.StandardError);
+
+        var payload = JsonSerializer.Deserialize<ToolResult<InspectNodeResponse>>(result.StandardOutput, JsonOptions);
+        Assert.NotNull(payload);
+        Assert.False(payload.Success);
+        Assert.Equal("invalid_cli_arguments", payload.Error!.Code);
+    }
+
     [Fact]
     public async Task ScreenshotCommandReturnsStructuredErrorWhenNoBridgeSessionMatches()
     {

@@ -26,6 +26,7 @@ internal static class Program
             "screenshot" => await Screenshot(args[1..]),
             "visual-tree" => await Tree(args[1..], TreeKinds.Visual, GetVisualTreeUsage()),
             "logical-tree" => await Tree(args[1..], TreeKinds.Logical, GetLogicalTreeUsage()),
+            "inspect-node" => await InspectNode(args[1..]),
             "mcp" => await Mcp(),
             _ => UnknownCommand(args[0])
         };
@@ -215,6 +216,30 @@ internal static class Program
         return result.Success ? 0 : 1;
     }
 
+    private static async Task<int> InspectNode(string[] args)
+    {
+        var options = ParseOptions(args, GetInspectNodeUsage());
+        if (!options.Success)
+        {
+            WriteFailure(InvalidCliArguments, options.Error!);
+            return 2;
+        }
+
+        if (!ValidateOptions(options.Values, GetInspectNodeUsage(), "session", "top-level", "node", "tree-kind")
+            || !TryReadRequiredSessionId(options.Values, GetInspectNodeUsage(), out var sessionId)
+            || !TryReadRequiredOption(options.Values, "top-level", GetInspectNodeUsage(), out var topLevelId)
+            || !TryReadRequiredOption(options.Values, "node", GetInspectNodeUsage(), out var nodeId)
+            || !TryReadOptionalTreeKind(options.Values, out var treeKind))
+        {
+            return 2;
+        }
+
+        var result = await new LocalBridgeClient().InspectNodeAsync(sessionId!, topLevelId!, treeKind, nodeId!);
+        WriteResult(result);
+
+        return result.Success ? 0 : 1;
+    }
+
     private static async Task<int> Screenshot(string[] args)
     {
         var options = ParseOptions(args, GetScreenshotUsage());
@@ -300,6 +325,32 @@ internal static class Program
         return true;
     }
 
+    private static bool TryReadOptionalTreeKind(
+        IReadOnlyDictionary<string, string> options,
+        out string treeKind)
+    {
+        treeKind = TreeKinds.Visual;
+        if (!options.TryGetValue("tree-kind", out var value))
+        {
+            return true;
+        }
+
+        if (string.Equals(value, TreeKinds.Visual, StringComparison.OrdinalIgnoreCase))
+        {
+            treeKind = TreeKinds.Visual;
+            return true;
+        }
+
+        if (string.Equals(value, TreeKinds.Logical, StringComparison.OrdinalIgnoreCase))
+        {
+            treeKind = TreeKinds.Logical;
+            return true;
+        }
+
+        WriteFailure(InvalidCliArguments, "tree-kind must be visual or logical.");
+        return false;
+    }
+
     private static bool TryReadRequiredSessionId(
         IReadOnlyDictionary<string, string> options,
         string usage,
@@ -347,7 +398,7 @@ internal static class Program
 
     private static string GetUsage()
     {
-        return "Usage: avascope mcp | avascope attach [--process <pid>] [--session <session-id>] | avascope list-top-levels --session <session-id> | avascope visual-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] | avascope logical-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] | avascope screenshot --session <session-id> --top-level <top-level-id> --out <screenshot.png> | avascope preview <project.csproj> --view <view.axaml> --out <preview.png> --width <width> --height <height> [--dpi <dpi>] [--theme light|dark]";
+        return "Usage: avascope mcp | avascope attach [--process <pid>] [--session <session-id>] | avascope list-top-levels --session <session-id> | avascope visual-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] | avascope logical-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] | avascope inspect-node --session <session-id> --top-level <top-level-id> --node <node-id> [--tree-kind visual|logical] | avascope screenshot --session <session-id> --top-level <top-level-id> --out <screenshot.png> | avascope preview <project.csproj> --view <view.axaml> --out <preview.png> --width <width> --height <height> [--dpi <dpi>] [--theme light|dark]";
     }
 
     private static string GetPreviewUsage()
@@ -373,6 +424,11 @@ internal static class Program
     private static string GetLogicalTreeUsage()
     {
         return "Usage: avascope logical-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>]";
+    }
+
+    private static string GetInspectNodeUsage()
+    {
+        return "Usage: avascope inspect-node --session <session-id> --top-level <top-level-id> --node <node-id> [--tree-kind visual|logical]";
     }
 
     private static string GetScreenshotUsage()
