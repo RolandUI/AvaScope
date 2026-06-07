@@ -34,11 +34,11 @@ Next slice: richer properties, resources, binding diagnostics, or style diagnost
 
 ### CLI Runtime Workflows
 
-Status: attach, top-level listing, screenshot, tree, inspect-node, find, input, and close-session slices complete; reload and diagnostics commands remain open.
+Status: attach, top-level listing, screenshot, tree, inspect-node, find, input, close-session, and diagnostics slices complete; reload command remains open.
 
-The CLI now supports `preview`, `mcp`, `attach`, `list-top-levels`, `screenshot`, `visual-tree`, `logical-tree`, `inspect-node`, `find-nodes`, `input`, and `close-session`. Runtime CLI commands drive the local bridge through `LocalBridgeClient`, return structured `ToolResult<T>` output, and have deterministic invalid-argument, no-session, and fake bridge named-pipe success tests for the top-level, screenshot, tree, inspect-node, find, input, and close paths.
+The CLI now supports `preview`, `mcp`, `attach`, `list-top-levels`, `screenshot`, `visual-tree`, `logical-tree`, `inspect-node`, `find-nodes`, `input`, `close-session`, and `diagnostics`. Runtime CLI commands drive the local bridge through `LocalBridgeClient`, return structured `ToolResult<T>` output, and have deterministic invalid-argument, no-session, and fake bridge named-pipe success tests for the top-level, screenshot, tree, inspect-node, find, input, close, and diagnostics paths.
 
-Next slice: add structured JSON `diagnostics` CLI command over `LocalBridgeClient`, keeping argument errors deterministic and output consistent with existing CLI preview behavior.
+Next slice: add structured JSON `reload` CLI command, keeping argument errors deterministic and output consistent with existing CLI preview behavior.
 
 ### Reload And Hot Preview
 
@@ -90,4 +90,4 @@ Next slice: CI can later add publish/upload artifacts, self-contained outputs, o
 
 ## Selected Next Slice
 
-Add CLI runtime diagnostics next. The CLI can now inspect, control, and close runtime sessions, so the next vertical slice should expose local manifest, bridge, and preview-host readiness diagnostics.
+Add CLI runtime reload next. The CLI can now inspect, control, close, and diagnose runtime sessions, so the next vertical slice should expose the existing reload behavior and runtime unsupported diagnostic from the command line.

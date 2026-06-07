@@ -30,6 +30,7 @@ internal static class Program
             "find-nodes" => await FindNodes(args[1..]),
             "input" => await Input(args[1..]),
             "close-session" => await CloseSession(args[1..]),
+            "diagnostics" => await Diagnostics(args[1..]),
             "mcp" => await Mcp(),
             _ => UnknownCommand(args[0])
         };
@@ -356,6 +357,33 @@ internal static class Program
         return result.Success ? 0 : 1;
     }
 
+    private static async Task<int> Diagnostics(string[] args)
+    {
+        var options = ParseOptions(args, GetDiagnosticsUsage());
+        if (!options.Success)
+        {
+            WriteFailure(InvalidCliArguments, options.Error!);
+            return 2;
+        }
+
+        if (!ValidateOptions(options.Values, GetDiagnosticsUsage(), "process", "session", "max-sessions")
+            || !TryReadOptionalProcessId(options.Values, out var processId)
+            || !TryReadOptionalSessionId(options.Values, out var sessionId)
+            || !TryReadOptionalDiagnosticsMaxSessions(options.Values, out var maxSessions))
+        {
+            return 2;
+        }
+
+        var result = await new LocalBridgeClient().DiagnosticsAsync(
+            processId,
+            sessionId,
+            maxSessions,
+            new PreviewHostClient().GetDiagnostics());
+        WriteResult(result);
+
+        return result.Success ? 0 : 1;
+    }
+
     private static async Task<int> CloseSession(string[] args)
     {
         var options = ParseOptions(args, GetCloseSessionUsage());
@@ -437,6 +465,73 @@ internal static class Program
             }
         }
 
+        return true;
+    }
+
+    private static bool TryReadOptionalProcessId(
+        IReadOnlyDictionary<string, string> options,
+        out int? processId)
+    {
+        processId = null;
+        if (!options.TryGetValue("process", out var processText))
+        {
+            return true;
+        }
+
+        if (!int.TryParse(processText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedProcessId)
+            || parsedProcessId < 1)
+        {
+            WriteFailure(InvalidCliArguments, "Process id must be a positive integer.");
+            return false;
+        }
+
+        processId = parsedProcessId;
+        return true;
+    }
+
+    private static bool TryReadOptionalSessionId(
+        IReadOnlyDictionary<string, string> options,
+        out SessionId? sessionId)
+    {
+        sessionId = null;
+        if (!options.TryGetValue("session", out var sessionText))
+        {
+            return true;
+        }
+
+        try
+        {
+            sessionId = new SessionId(sessionText);
+            return true;
+        }
+        catch (ArgumentException exception)
+        {
+            WriteFailure(CoreErrorCodes.InvalidBridgeRequest, exception.Message);
+            return false;
+        }
+    }
+
+    private static bool TryReadOptionalDiagnosticsMaxSessions(
+        IReadOnlyDictionary<string, string> options,
+        out int maxSessions)
+    {
+        const int defaultMaxSessions = 50;
+        const int maximumMaxSessions = 100;
+
+        maxSessions = defaultMaxSessions;
+        if (!options.TryGetValue("max-sessions", out var maxSessionsText))
+        {
+            return true;
+        }
+
+        if (!int.TryParse(maxSessionsText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedMaxSessions)
+            || parsedMaxSessions is < 1 or > maximumMaxSessions)
+        {
+            WriteFailure(InvalidCliArguments, $"max-sessions must be between 1 and {maximumMaxSessions}.");
+            return false;
+        }
+
+        maxSessions = parsedMaxSessions;
         return true;
     }
 
@@ -636,7 +731,7 @@ internal static class Program
 
     private static string GetUsage()
     {
-        return "Usage: avascope mcp | avascope attach [--process <pid>] [--session <session-id>] | avascope list-top-levels --session <session-id> | avascope visual-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] | avascope logical-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] | avascope inspect-node --session <session-id> --top-level <top-level-id> --node <node-id> [--tree-kind visual|logical] | avascope find-nodes --session <session-id> --top-level <top-level-id> [--tree-kind visual|logical] [--type <type>] [--name <name>] [--automation-id <id>] [--text <text>] [--max-depth <n>] [--max-results <n>] | avascope input --session <session-id> --top-level <top-level-id> --action <action> [--x <x>] [--y <y>] [--text <text>] [--target-node <node-id>] [--key <key>] [--modifiers <modifiers>] | avascope close-session --session <session-id> | avascope screenshot --session <session-id> --top-level <top-level-id> --out <screenshot.png> | avascope preview <project.csproj> --view <view.axaml> --out <preview.png> --width <width> --height <height> [--dpi <dpi>] [--theme light|dark]";
+        return "Usage: avascope mcp | avascope attach [--process <pid>] [--session <session-id>] | avascope list-top-levels --session <session-id> | avascope visual-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] | avascope logical-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] | avascope inspect-node --session <session-id> --top-level <top-level-id> --node <node-id> [--tree-kind visual|logical] | avascope find-nodes --session <session-id> --top-level <top-level-id> [--tree-kind visual|logical] [--type <type>] [--name <name>] [--automation-id <id>] [--text <text>] [--max-depth <n>] [--max-results <n>] | avascope input --session <session-id> --top-level <top-level-id> --action <action> [--x <x>] [--y <y>] [--text <text>] [--target-node <node-id>] [--key <key>] [--modifiers <modifiers>] | avascope close-session --session <session-id> | avascope diagnostics [--process <pid>] [--session <session-id>] [--max-sessions <n>] | avascope screenshot --session <session-id> --top-level <top-level-id> --out <screenshot.png> | avascope preview <project.csproj> --view <view.axaml> --out <preview.png> --width <width> --height <height> [--dpi <dpi>] [--theme light|dark]";
     }
 
     private static string GetPreviewUsage()
@@ -682,6 +777,11 @@ internal static class Program
     private static string GetCloseSessionUsage()
     {
         return "Usage: avascope close-session --session <session-id>";
+    }
+
+    private static string GetDiagnosticsUsage()
+    {
+        return "Usage: avascope diagnostics [--process <pid>] [--session <session-id>] [--max-sessions <n>]";
     }
 
     private static string GetScreenshotUsage()

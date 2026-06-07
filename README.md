@@ -134,6 +134,13 @@ Close an active local bridge session:
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll close-session --session session-id
 ```
 
+Read local bridge and preview-host diagnostics:
+
+```powershell
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll diagnostics
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll diagnostics --session session-id --max-sessions 10
+```
+
 After creating or extracting the local executable package, the same command shape can be run from the artifact directory:
 
 ```powershell

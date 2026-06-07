@@ -1136,6 +1136,113 @@ public sealed class CliSmokeTests
     }
 
     [Fact]
+    public async Task DiagnosticsCommandReadsBridgeHealthThroughPipe()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var sessionId = SessionId.New();
+        var pipeName = $"avascope-cli-test-{Guid.NewGuid():N}";
+        var manifestPath = WriteBridgeManifest(sessionId, pipeName);
+
+        var serverTask = RespondToBridgeRequestAsync(pipeName, request =>
+        {
+            Assert.Equal(BridgeIpcMethods.Health, request.Method);
+            return BridgeIpcResponse.Ok(request.RequestId, HealthResponse.Current());
+        });
+
+        try
+        {
+            var result = await RunCliAsync(
+                cliAssembly,
+                "diagnostics",
+                "--session",
+                sessionId.Value,
+                "--max-sessions",
+                "1");
+            var request = await serverTask;
+
+            Assert.Equal(0, result.ExitCode);
+            Assert.Equal(BridgeIpcMethods.Health, request.Method);
+            Assert.True(string.IsNullOrWhiteSpace(result.StandardError), result.StandardError);
+
+            var payload = JsonSerializer.Deserialize<ToolResult<DiagnosticsResponse>>(result.StandardOutput, JsonOptions);
+            Assert.NotNull(payload);
+            Assert.True(payload.Success, payload.Error?.Message);
+            Assert.Equal(DiagnosticStatuses.Available, payload.Value!.PreviewHost!.Status);
+            var bridge = Assert.Single(payload.Value.BridgeSessions);
+            Assert.Equal(DiagnosticStatuses.Available, bridge.Status);
+            Assert.Equal(sessionId, bridge.Session!.SessionId);
+            Assert.Equal(pipeName, bridge.PipeName);
+            Assert.NotNull(bridge.Health);
+            Assert.Empty(payload.Value.Issues);
+        }
+        finally
+        {
+            if (File.Exists(manifestPath))
+            {
+                File.Delete(manifestPath);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task DiagnosticsCommandReturnsStructuredIssueWhenNoBridgeSessionMatches()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var result = await RunCliAsync(cliAssembly, "diagnostics", "--session", SessionId.New().Value);
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.True(string.IsNullOrWhiteSpace(result.StandardError), result.StandardError);
+
+        var payload = JsonSerializer.Deserialize<ToolResult<DiagnosticsResponse>>(result.StandardOutput, JsonOptions);
+        Assert.NotNull(payload);
+        Assert.True(payload.Success, payload.Error?.Message);
+        Assert.Empty(payload.Value!.BridgeSessions);
+        var issue = Assert.Single(payload.Value.Issues);
+        Assert.Equal(CoreErrorCodes.BridgeSessionNotFound, issue.Code);
+        Assert.NotNull(payload.Value.PreviewHost);
+    }
+
+    [Fact]
+    public async Task DiagnosticsCommandRejectsInvalidProcessId()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var result = await RunCliAsync(cliAssembly, "diagnostics", "--process", "abc");
+
+        Assert.Equal(2, result.ExitCode);
+        Assert.True(string.IsNullOrWhiteSpace(result.StandardError), result.StandardError);
+
+        var payload = JsonSerializer.Deserialize<ToolResult<DiagnosticsResponse>>(result.StandardOutput, JsonOptions);
+        Assert.NotNull(payload);
+        Assert.False(payload.Success);
+        Assert.Equal("invalid_cli_arguments", payload.Error!.Code);
+    }
+
+    [Theory]
+    [InlineData("0")]
+    [InlineData("101")]
+    public async Task DiagnosticsCommandRejectsInvalidMaxSessions(string maxSessions)
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var result = await RunCliAsync(cliAssembly, "diagnostics", "--max-sessions", maxSessions);
+
+        Assert.Equal(2, result.ExitCode);
+        Assert.True(string.IsNullOrWhiteSpace(result.StandardError), result.StandardError);
+
+        var payload = JsonSerializer.Deserialize<ToolResult<DiagnosticsResponse>>(result.StandardOutput, JsonOptions);
+        Assert.NotNull(payload);
+        Assert.False(payload.Success);
+        Assert.Equal("invalid_cli_arguments", payload.Error!.Code);
+    }
+
+    [Fact]
     public async Task ScreenshotCommandReturnsStructuredErrorWhenNoBridgeSessionMatches()
     {
         var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");

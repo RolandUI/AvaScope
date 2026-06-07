@@ -23,15 +23,15 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `M34 CLI Runtime Diagnostics Slice`
+- `M35 CLI Runtime Reload Slice`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-07`
-- Goal: expose bounded runtime diagnostics from the `avascope` CLI.
+- Goal: expose runtime/preview reload checks from the `avascope` CLI.
 
 ## Next Action
 
-Add a `diagnostics` CLI command over `LocalBridgeClient.DiagnosticsAsync`, with process/session filters and max-session validation.
+Add a `reload` CLI command that follows MCP behavior: reload preview sessions when possible and return explicit unsupported diagnostics for active runtime bridge sessions.
 
 ## Latest Validation
 
@@ -216,6 +216,9 @@ Add a `diagnostics` CLI command over `LocalBridgeClient.DiagnosticsAsync`, with 
 - `2026-06-07`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after M33 CLI `close-session` implementation.
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli` passed with 66 tests, including fake bridge pipe success paths for `close-session`.
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 150 tests after M33 CLI close-session workflow.
+- `2026-06-07`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after M34 CLI `diagnostics` implementation.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli` passed with 71 tests, including fake bridge pipe success paths for `diagnostics`.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 155 tests after M34 CLI diagnostics workflow.
 
 ## Milestones
 
@@ -936,18 +939,39 @@ Add a `diagnostics` CLI command over `LocalBridgeClient.DiagnosticsAsync`, with 
 
 ### M34 CLI Runtime Diagnostics Slice
 
-- Status: `In Progress`
+- Status: `Done`
 - Goal: expose bounded runtime diagnostics from the `avascope` CLI.
 - Deliverables: `diagnostics` CLI command over `LocalBridgeClient.DiagnosticsAsync`, process/session filters, max-session validation, structured JSON output, README/tracking update.
 - Progress:
-  - Pending: add `diagnostics [--process <pid>] [--session <session-id>] [--max-sessions <n>]`.
-  - Pending: include preview host diagnostics from `PreviewHostClient.GetDiagnostics()`.
-  - Pending: add deterministic argument and no-match tests.
+  - Done: added `diagnostics [--process <pid>] [--session <session-id>] [--max-sessions <n>]`.
+  - Done: included preview host diagnostics from `PreviewHostClient.GetDiagnostics()`.
+  - Done: added fake bridge health success test.
+  - Done: added no-match issue, invalid process id, and invalid max-session tests.
+  - Done: README documents command shape.
 - Acceptance Criteria:
   - CLI can return runtime diagnostics with optional process/session filters.
   - CLI rejects invalid process ids, session ids, and max-session values deterministically.
   - Tests cover success and structured issue paths without requiring a live Avalonia bridge.
   - README documents command shape.
+- Validation:
+  - `dotnet build AvaScope.slnx`
+  - `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli`
+  - `dotnet test AvaScope.slnx --no-build`
+
+### M35 CLI Runtime Reload Slice
+
+- Status: `In Progress`
+- Goal: expose runtime/preview reload checks from the `avascope` CLI.
+- Deliverables: `reload` CLI command aligned with MCP reload behavior, runtime unsupported diagnostics, preview session reload path if reusable from CLI, structured JSON output, README/tracking update.
+- Progress:
+  - Pending: inspect existing preview session registry usage and decide the smallest CLI reload path.
+  - Pending: add `reload --session <session-id>` with deterministic session id validation.
+  - Pending: add tests for runtime bridge unsupported reload or preview reload path, whichever is reliable through CLI process boundaries.
+- Acceptance Criteria:
+  - CLI can check an active runtime bridge session and return explicit `runtime_reload_not_supported`.
+  - CLI returns structured errors for missing/invalid session ids.
+  - Tests cover deterministic runtime or no-session paths.
+  - README documents current reload behavior and limitations.
 - Validation:
   - `dotnet build AvaScope.slnx`
   - `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli`
@@ -1039,6 +1063,8 @@ Add a `diagnostics` CLI command over `LocalBridgeClient.DiagnosticsAsync`, with 
 - `2026-06-07`: M33 targets CLI close-session next because runtime input introduces local control, and operators need a direct CLI way to close bridge sessions.
 - `2026-06-07`: M33 keeps close-session as a separate slice from diagnostics/reload because it is the only runtime CLI command that intentionally changes bridge session lifecycle.
 - `2026-06-07`: M34 targets CLI diagnostics next because attach/inspection/control/close paths now exist, and diagnostics makes bridge manifest and preview-host readiness visible from the CLI.
+- `2026-06-07`: M34 includes preview-host diagnostics in CLI diagnostics to match MCP diagnostics coverage and expose preview readiness without launching user code.
+- `2026-06-07`: M35 targets CLI reload next because diagnostics closes the read-only visibility gap, leaving reload as the remaining intended runtime/preview CLI workflow.
 
 ## Change Log
 
@@ -1086,3 +1112,4 @@ Add a `diagnostics` CLI command over `LocalBridgeClient.DiagnosticsAsync`, with 
 - `2026-06-07`: Completed M31 CLI runtime find nodes with filter validation, depth/result limit validation, fake bridge pipe success tests, README updates, and full-suite validation; added M32 CLI runtime input as the active focus.
 - `2026-06-07`: Completed M32 CLI runtime input with local-only action validation, click/key/focus fake bridge pipe success tests, README updates, and full-suite validation; added M33 CLI close session as the active focus.
 - `2026-06-07`: Completed M33 CLI close session with structured `close-session`, fake bridge pipe success tests, README updates, and full-suite validation; added M34 CLI diagnostics as the active focus.
+- `2026-06-07`: Completed M34 CLI diagnostics with process/session filters, max-session validation, preview-host diagnostics, fake bridge health tests, README updates, and full-suite validation; added M35 CLI reload as the active focus.
