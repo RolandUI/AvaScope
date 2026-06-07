@@ -41,7 +41,7 @@ public sealed class PreviewHostSmokeTests
 
         try
         {
-            var result = await RunPreviewHostAsync(hostAssembly, requestPath);
+            var result = await RunPreviewHostAsync(hostAssembly, requestPath, expectedExitCode: 0);
 
             Assert.NotNull(result);
             Assert.True(result.Success, result.Error?.Message);
@@ -108,7 +108,7 @@ public sealed class PreviewHostSmokeTests
 
         try
         {
-            var result = await RunPreviewHostAsync(hostAssembly, requestPath);
+            var result = await RunPreviewHostAsync(hostAssembly, requestPath, expectedExitCode: 0);
 
             Assert.NotNull(result);
             Assert.True(result.Success, result.Error?.Message);
@@ -130,9 +130,65 @@ public sealed class PreviewHostSmokeTests
         }
     }
 
+    [Fact]
+    public async Task PreviewHostReturnsStructuredErrorWhenProjectBuildFails()
+    {
+        var hostAssembly = Path.Combine(AppContext.BaseDirectory, "AvaScope.PreviewHost.dll");
+        Assert.True(File.Exists(hostAssembly), $"Expected preview host assembly at {hostAssembly}.");
+
+        var testRoot = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(testRoot);
+
+        var projectPath = Path.Combine(testRoot, "Broken.csproj");
+        var viewPath = Path.Combine(testRoot, "MainView.axaml");
+        var requestPath = Path.Combine(testRoot, "request.json");
+        var outputPath = Path.Combine(testRoot, "preview.png");
+
+        await File.WriteAllTextAsync(projectPath, """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+            </Project>
+            """);
+
+        await File.WriteAllTextAsync(viewPath, """
+            <UserControl xmlns="https://github.com/avaloniaui">
+              <TextBlock Text="Should not render" />
+            </UserControl>
+            """);
+
+        var request = new PreviewRequest(
+            outputPath,
+            width: 240,
+            height: 160,
+            dpi: 96,
+            projectPath: projectPath,
+            viewPath: viewPath);
+
+        await File.WriteAllTextAsync(requestPath, JsonSerializer.Serialize(request, JsonOptions));
+
+        try
+        {
+            var result = await RunPreviewHostAsync(hostAssembly, requestPath, expectedExitCode: 1);
+
+            Assert.NotNull(result);
+            Assert.False(result.Success);
+            Assert.Equal("preview_project_build_failed", result.Error!.Code);
+            Assert.False(File.Exists(outputPath));
+        }
+        finally
+        {
+            if (Directory.Exists(testRoot))
+            {
+                Directory.Delete(testRoot, recursive: true);
+            }
+        }
+    }
+
     private static async Task<ToolResult<PreviewResponse>?> RunPreviewHostAsync(
         string hostAssembly,
-        string requestPath)
+        string requestPath,
+        int expectedExitCode)
     {
         using var process = StartPreviewHost(hostAssembly, requestPath);
         using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(30));
@@ -144,7 +200,7 @@ public sealed class PreviewHostSmokeTests
         var stdout = await stdoutTask;
         var stderr = await stderrTask;
 
-        Assert.Equal(0, process.ExitCode);
+        Assert.Equal(expectedExitCode, process.ExitCode);
         Assert.True(string.IsNullOrWhiteSpace(stderr), stderr);
 
         return JsonSerializer.Deserialize<ToolResult<PreviewResponse>>(stdout, JsonOptions);

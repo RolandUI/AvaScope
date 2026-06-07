@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.Json;
 using Avalonia;
 using Avalonia.Controls;
@@ -88,6 +89,12 @@ internal static class Program
         var fullOutputPath = Path.GetFullPath(request.OutputPath);
         var fullProjectPath = ResolveProjectPath(request.ProjectPath);
         var fullViewPath = ResolveViewPath(request.ViewPath, fullProjectPath);
+        var buildError = BuildProject(fullProjectPath);
+        if (buildError is not null)
+        {
+            return ToolResult<PreviewResponse>.Fail(buildError);
+        }
+
         var outputDirectory = Path.GetDirectoryName(fullOutputPath);
         if (!string.IsNullOrEmpty(outputDirectory))
         {
@@ -152,6 +159,75 @@ internal static class Program
         }
 
         return fullProjectPath;
+    }
+
+    private static ProtocolError? BuildProject(string? fullProjectPath)
+    {
+        if (fullProjectPath is null)
+        {
+            return null;
+        }
+
+        using var process = new Process
+        {
+            StartInfo = new ProcessStartInfo
+            {
+                FileName = "dotnet",
+                WorkingDirectory = Path.GetDirectoryName(fullProjectPath) ?? Environment.CurrentDirectory,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false
+            }
+        };
+
+        process.StartInfo.ArgumentList.Add("build");
+        process.StartInfo.ArgumentList.Add(fullProjectPath);
+        process.StartInfo.ArgumentList.Add("--nologo");
+
+        if (!process.Start())
+        {
+            return new ProtocolError(
+                PreviewHostErrorCodes.ProjectBuildFailed,
+                $"Could not start project build for '{fullProjectPath}'.");
+        }
+
+        var stdoutTask = process.StandardOutput.ReadToEndAsync();
+        var stderrTask = process.StandardError.ReadToEndAsync();
+
+        if (!process.WaitForExit(milliseconds: 60000))
+        {
+            process.Kill(entireProcessTree: true);
+            return new ProtocolError(
+                PreviewHostErrorCodes.ProjectBuildFailed,
+                $"Project build timed out for '{fullProjectPath}'.");
+        }
+
+        var output = string.Concat(
+            stdoutTask.GetAwaiter().GetResult(),
+            Environment.NewLine,
+            stderrTask.GetAwaiter().GetResult()).Trim();
+
+        if (process.ExitCode == 0)
+        {
+            return null;
+        }
+
+        return new ProtocolError(
+            PreviewHostErrorCodes.ProjectBuildFailed,
+            TrimBuildOutput(output));
+    }
+
+    private static string TrimBuildOutput(string output)
+    {
+        if (string.IsNullOrWhiteSpace(output))
+        {
+            return "Project build failed without output.";
+        }
+
+        const int maximumLength = 4000;
+        return output.Length <= maximumLength
+            ? output
+            : output[^maximumLength..];
     }
 
     private static string? ResolveViewPath(string? viewPath, string? fullProjectPath)
