@@ -26,11 +26,11 @@ Completed slice: preview-host readiness diagnostics now report host assembly pat
 
 ### Reload And Hot Preview
 
-Status: preview-session reload MVP complete; runtime bridge reload and live hot preview remain open.
+Status: preview-session reload MVP and runtime reload contract complete; runtime hot reload and live hot preview remain open.
 
-`reload` is listed in the intended MCP tool shape. Preview sessions now persist the original request plus latest render result as Core metadata, and MCP `reload` re-renders an existing preview session through the isolated preview host. User code still runs only in one-shot preview host child processes. Runtime bridge reload and live hot preview sessions are not implemented yet.
+`reload` is listed in the intended MCP tool shape. Preview sessions now persist the original request plus latest render result as Core metadata, and MCP `reload` re-renders an existing preview session through the isolated preview host. Runtime bridge session ids are now checked through the local bridge health path and return a structured `runtime_reload_not_supported` diagnostic. User code still runs only in one-shot preview host child processes. Runtime hot reload and live hot preview sessions are not implemented yet.
 
-Next slice: generalize or explicitly split the reload contract so runtime bridge reload behavior is defined without claiming app hot reload.
+Completed slice: runtime reload no longer falls through to a misleading preview `session_not_found` for active bridge sessions.
 
 ### Preview Resource Scope
 
@@ -56,7 +56,7 @@ Next slice: defer broader input until runtime reload semantics and packaging/CI 
 
 The solution builds and tests locally, but there is no packaging, version stamping, NuGet package metadata, or release artifact workflow for `AvaScope.Bridge`, `AvaScope.Mcp`, or `AvaScope.Cli`.
 
-Next slice: add package metadata and local pack validation after lifecycle/diagnostics gaps are closed.
+Next slice: add package metadata and local pack validation without publishing artifacts.
 
 ### CI Workflow
 
@@ -66,4 +66,4 @@ Next slice: add CI only after the local validation path is stable enough to avoi
 
 ## Selected Next Slice
 
-Define the runtime `reload` contract next. Preview-session reload and pointer press/release are complete; the remaining `reload` ambiguity is now the highest-priority P1 workflow gap.
+Add package metadata and local pack validation next. Runtime reload ambiguity is resolved, so packaging is the next concrete release-readiness gap.

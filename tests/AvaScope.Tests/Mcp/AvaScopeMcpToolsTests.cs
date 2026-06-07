@@ -242,7 +242,10 @@ public sealed class AvaScopeMcpToolsTests
         Assert.False(created.Value.LastRender.Success);
         Assert.Equal(CoreErrorCodes.PreviewHostUnavailable, created.Value.LastRender.Error!.Code);
 
-        var reloaded = await AvaScopeMcpTools.Reload(previewSessions, created.Value.Session.SessionId.Value);
+        var reloaded = await AvaScopeMcpTools.Reload(
+            previewSessions,
+            new LocalBridgeClient(CreateMissingManifestDirectory()),
+            created.Value.Session.SessionId.Value);
 
         Assert.True(reloaded.Success, reloaded.Error?.Message);
         Assert.Equal(created.Value.Session.SessionId, reloaded.Value!.Session.SessionId);
@@ -293,7 +296,10 @@ public sealed class AvaScopeMcpToolsTests
             height: 80);
         AvaScopeMcpTools.ClosePreviewSession(previewSessions, created.Value!.Session.SessionId.Value);
 
-        var result = await AvaScopeMcpTools.Reload(previewSessions, created.Value.Session.SessionId.Value);
+        var result = await AvaScopeMcpTools.Reload(
+            previewSessions,
+            new LocalBridgeClient(CreateMissingManifestDirectory()),
+            created.Value.Session.SessionId.Value);
 
         Assert.False(result.Success);
         Assert.Null(result.Value);
@@ -305,11 +311,27 @@ public sealed class AvaScopeMcpToolsTests
     {
         var previewSessions = CreatePreviewSessionRegistryWithMissingHost();
 
-        var result = await AvaScopeMcpTools.Reload(previewSessions, " ");
+        var result = await AvaScopeMcpTools.Reload(
+            previewSessions,
+            new LocalBridgeClient(CreateMissingManifestDirectory()),
+            " ");
 
         Assert.False(result.Success);
         Assert.Null(result.Value);
         Assert.Equal(CoreErrorCodes.InvalidBridgeRequest, result.Error!.Code);
+    }
+
+    [Fact]
+    public async Task ReloadPreservesPreviewSessionNotFoundWhenNoRuntimeBridgeMatches()
+    {
+        var previewSessions = CreatePreviewSessionRegistryWithMissingHost();
+        var client = new LocalBridgeClient(CreateMissingManifestDirectory());
+
+        var result = await AvaScopeMcpTools.Reload(previewSessions, client, "session-missing");
+
+        Assert.False(result.Success);
+        Assert.Null(result.Value);
+        Assert.Equal(CoreErrorCodes.SessionNotFound, result.Error!.Code);
     }
 
     [Fact]

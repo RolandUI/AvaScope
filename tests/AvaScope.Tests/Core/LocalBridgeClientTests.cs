@@ -140,6 +140,18 @@ public sealed class LocalBridgeClientTests : IDisposable
     }
 
     [Fact]
+    public async Task ReloadRuntimeReturnsStructuredErrorWhenNoManifestMatches()
+    {
+        var client = new LocalBridgeClient(_manifestDirectory);
+
+        var result = await client.ReloadRuntimeAsync(new SessionId("missing"));
+
+        Assert.False(result.Success);
+        Assert.Null(result.Value);
+        Assert.Equal(CoreErrorCodes.BridgeSessionNotFound, result.Error!.Code);
+    }
+
+    [Fact]
     public async Task DiagnosticsReturnsStructuredIssueWhenNoManifestMatches()
     {
         var client = new LocalBridgeClient(_manifestDirectory);

@@ -273,6 +273,33 @@ public sealed class LocalBridgeClient
             cancellationToken);
     }
 
+    public async Task<CoreResult<SessionSummary>> ReloadRuntimeAsync(
+        SessionId sessionId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(sessionId);
+
+        var manifestResult = FindSingleManifest(null, sessionId);
+        if (!manifestResult.Success)
+        {
+            return CoreResult<SessionSummary>.Fail(manifestResult.Error!);
+        }
+
+        var healthResult = await SendAsync<HealthResponse>(
+            manifestResult.Value!,
+            new BridgeIpcRequest(NewRequestId(), BridgeIpcMethods.Health),
+            cancellationToken);
+
+        if (!healthResult.Success)
+        {
+            return CoreResult<SessionSummary>.Fail(healthResult.Error!);
+        }
+
+        return CoreResult<SessionSummary>.Fail(new CoreError(
+            CoreErrorCodes.RuntimeReloadNotSupported,
+            "Runtime bridge reload is not supported yet. AvaScope verified the local bridge session is active, but it will not restart, inject code, or claim hot reload."));
+    }
+
     public async Task<CoreResult<DiagnosticsResponse>> DiagnosticsAsync(
         int? processId = null,
         SessionId? sessionId = null,

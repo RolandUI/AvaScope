@@ -85,7 +85,7 @@ Implemented tools:
 - `close_preview_session`
 - `reload`
 
-Planned but not implemented yet: runtime bridge reload and broader input primitives such as keyboard key events, focus targeting, and drag/drop.
+Planned but not implemented yet: runtime hot reload, keyboard key events, focus targeting, drag/drop, packaging, and CI.
 
 `diagnostics` reports AvaScope service metadata, local bridge manifest/pipe health, stale or invalid bridge manifests, and preview host readiness without building or loading user projects.
 
@@ -123,11 +123,11 @@ Preview rendering is isolated in `AvaScope.PreviewHost`, launched as a child pro
 
 Preview session tools store the original preview request plus the latest render result as Core metadata. They do not keep user project code loaded inside MCP; each render still goes through `AvaScope.PreviewHost`.
 
-`reload` currently targets preview sessions: it re-runs the stored preview request through the isolated preview host and updates the existing session's latest render result. Runtime bridge reload is not implemented yet.
+`reload` re-runs stored preview-session requests through the isolated preview host and updates the existing session's latest render result. Runtime bridge session ids are health-checked locally and return `runtime_reload_not_supported`; AvaScope does not restart apps, inject code, or claim runtime hot reload.
 
 Current preview limitations:
 
-- no hot reload or persistent preview sessions yet;
+- no hot reload or persistent live preview host process yet;
 - no full `App.axaml` orchestration yet; merged dictionaries, app styles, design data, and startup logic remain limited;
 - no culture/design-data variants yet;
 - build output probing assumes the default `bin\Debug\<tfm>\<ProjectName>.dll` shape.

@@ -391,6 +391,43 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
         }, CancellationToken.None);
     }
 
+    [Fact]
+    public async Task McpReloadRejectsActiveRuntimeBridgeSessionWithExplicitUnsupportedError()
+    {
+        using var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessTestApplication));
+
+        await session.Dispatch(async () =>
+        {
+            var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Headless runtime reload sample"));
+            var window = new Window
+            {
+                Title = "AvaScope Runtime Reload Sample",
+                Width = 320,
+                Height = 200,
+                Content = new TextBlock { Text = "Runtime reload" }
+            };
+
+            window.Show();
+            using var registration = runtime.RegisterTopLevel(window);
+            Dispatcher.UIThread.RunJobs();
+
+            var client = new LocalBridgeClient(Path.GetDirectoryName(runtime.SessionManifestPath)!);
+            var previewSessions = CreatePreviewSessionRegistryWithMissingHost();
+
+            var result = await AvaScopeMcpTools.Reload(
+                previewSessions,
+                client,
+                runtime.SessionId.Value);
+
+            Assert.False(result.Success);
+            Assert.Null(result.Value);
+            Assert.Equal(CoreErrorCodes.RuntimeReloadNotSupported, result.Error!.Code);
+            Assert.Contains("verified the local bridge session is active", result.Error.Message, StringComparison.Ordinal);
+
+            window.Close();
+        }, CancellationToken.None);
+    }
+
     private static TreeNodeSummary? FindNode(
         TreeNodeSummary node,
         Func<TreeNodeSummary, bool> predicate)
@@ -410,6 +447,16 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
         }
 
         return null;
+    }
+
+    private static PreviewSessionRegistry CreatePreviewSessionRegistryWithMissingHost()
+    {
+        return new PreviewSessionRegistry(
+            new SessionRegistry(),
+            new PreviewHostClient(Path.Combine(
+                Path.GetTempPath(),
+                "AvaScope.Tests",
+                $"missing-preview-host-{Guid.NewGuid():N}.dll")));
     }
 
     private sealed class BridgeHeadlessTestApplication : Application

@@ -23,15 +23,15 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `M19 Runtime Reload Contract Slice`
+- `M20 Packaging Metadata Slice`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-07`
-- Goal: define and implement the next safe reload behavior for runtime bridge sessions without claiming app hot reload.
+- Goal: add minimal package metadata and local pack validation without publishing artifacts.
 
 ## Next Action
 
-Audit the current MCP/Core `reload` response shape, then decide whether to generalize the protocol response or split preview/runtime reload behavior before implementing a local-only runtime reload slice.
+Audit current project packability and add conservative metadata for packable AvaScope artifacts, then validate local `dotnet pack` output.
 
 ## Latest Validation
 
@@ -143,6 +143,12 @@ Audit the current MCP/Core `reload` response shape, then decide whether to gener
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter Bridge` passed with 33 tests.
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter Mcp` passed with 26 tests.
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build` first hit a transient PreviewHost temp-directory cleanup lock, then passed on immediate rerun with 98 tests.
+- `2026-06-07`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after M19 runtime reload contract implementation.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter Protocol` passed with 24 tests.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter Core` passed with 33 tests.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter Bridge` passed with 36 tests.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter Mcp` passed with 28 tests.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 101 tests after PreviewHost cleanup lock hardening.
 
 ## Milestones
 
@@ -512,13 +518,15 @@ Audit the current MCP/Core `reload` response shape, then decide whether to gener
 
 ### M19 Runtime Reload Contract Slice
 
-- Status: `In Progress`
+- Status: `Done`
 - Goal: make runtime reload semantics explicit and safe now that preview reload has a working MVP.
 - Deliverables: reload protocol decision, Core/MCP behavior for runtime sessions, tests, README/tracking updates.
 - Progress:
-  - Pending: audit current `reload` response shape and preview-session coupling.
-  - Pending: choose whether runtime reload shares a generalized response or becomes an explicitly separate operation.
-  - Pending: implement the smallest local-only behavior that can be validated against an active bridge session.
+  - Done: audited the current MCP `reload` response shape and kept preview `PreviewSessionSummary` success responses compatible.
+  - Done: runtime bridge session ids now fall through to Core `LocalBridgeClient.ReloadRuntimeAsync` only when no preview session exists.
+  - Done: active runtime bridge sessions are health-checked locally and return structured `runtime_reload_not_supported` diagnostics.
+  - Done: unknown session ids preserve the existing preview `session_not_found` behavior when no runtime bridge matches.
+  - Done: PreviewHost smoke-test cleanup no longer fails successful tests on transient Windows temp-directory locks.
 - Acceptance Criteria:
   - Runtime reload must not inject code, restart the user app, or claim hot reload.
   - Preview reload behavior remains compatible and covered.
@@ -531,6 +539,26 @@ Audit the current MCP/Core `reload` response shape, then decide whether to gener
   - `dotnet test AvaScope.slnx --no-build --filter Bridge`
   - `dotnet test AvaScope.slnx --no-build --filter Mcp`
   - `dotnet test AvaScope.slnx --no-build`
+
+### M20 Packaging Metadata Slice
+
+- Status: `In Progress`
+- Goal: prepare local package artifacts without introducing publishing or CI yet.
+- Deliverables: package metadata for packable projects, local output folder convention, pack validation commands, docs/tracking update.
+- Progress:
+  - Pending: audit which projects should be packable in the first package slice.
+  - Pending: add conservative package metadata and opt-out settings for non-package projects if needed.
+  - Pending: validate local `dotnet pack` output and ensure no generated package artifacts are committed.
+- Acceptance Criteria:
+  - `AvaScope.Bridge` can produce a local NuGet package with explicit package id, version, description, tags, and repository metadata.
+  - `AvaScope.Cli` and `AvaScope.Mcp` packaging posture is explicit, even if final tool/executable packaging remains a later slice.
+  - Package output goes to a local ignored artifact folder or an explicit temp output path.
+  - No publishing credentials, feeds, or release automation are introduced.
+- Validation:
+  - `dotnet build AvaScope.slnx`
+  - `dotnet pack src/AvaScope.Bridge/AvaScope.Bridge.csproj --no-build --output artifacts/packages`
+  - packaging metadata inspection
+  - `git status --short`
 
 ## Decision Log
 
@@ -582,6 +610,9 @@ Audit the current MCP/Core `reload` response shape, then decide whether to gener
 - `2026-06-07`: M18 targets pointer press/release before packaging/CI because input coverage remains a P1 functional gap in the runtime automation workflow.
 - `2026-06-07`: M18 pointer press/release uses public Avalonia 12.0.4 routed pointer event args and `PointerPointProperties` update kinds rather than raw platform input injection.
 - `2026-06-07`: M19 targets the runtime reload contract next because `reload` is now implemented for preview sessions but still has preview-specific response semantics.
+- `2026-06-07`: M19 keeps preview `reload` success responses compatible and treats runtime bridge reload as an explicit local health check plus unsupported diagnostic, not hot reload.
+- `2026-06-07`: PreviewHost smoke-test cleanup is best-effort after assertions pass because Windows can transiently hold built sample project files after child-process exit.
+- `2026-06-07`: M20 starts package metadata with `AvaScope.Bridge` first because it is the opt-in user-facing library package; executable/tool packaging for CLI/MCP can stay explicit until a later release workflow slice.
 
 ## Change Log
 
@@ -614,3 +645,4 @@ Audit the current MCP/Core `reload` response shape, then decide whether to gener
 - `2026-06-07`: Completed M16 preview reload foundation with preview session metadata, Core create/list/close lifecycle, MCP preview session tools, README updates, and full-suite validation; added M17 preview reload MVP as the active focus.
 - `2026-06-07`: Completed M17 preview reload MVP with Core preview session re-rendering, MCP `reload`, session state recovery/failure handling, README updates, and full-suite validation; added M18 input press/release slice as the active focus.
 - `2026-06-07`: Completed M18 input press/release with stable action constants, Avalonia routed pointer press/release events, active pointer reuse, headless bridge validation, README/gap updates, and full-suite validation; added M19 runtime reload contract as the active focus.
+- `2026-06-07`: Completed M19 runtime reload contract with preview-compatible reload responses, explicit active-runtime unsupported diagnostics, PreviewHost cleanup hardening, README/gap updates, and full-suite validation; added M20 packaging metadata as the active focus.

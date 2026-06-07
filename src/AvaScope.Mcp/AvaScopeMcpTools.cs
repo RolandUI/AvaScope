@@ -456,20 +456,31 @@ public sealed class AvaScopeMcpTools
         Destructive = false,
         OpenWorld = false,
         UseStructuredContent = true)]
-    [Description("Reloads a preview session by re-rendering its stored request through the isolated preview host.")]
+    [Description("Reloads a preview session, or checks a runtime bridge session and returns explicit unsupported diagnostics.")]
     public static async Task<ToolResult<PreviewSessionSummary>> Reload(
         PreviewSessionRegistry previewSessions,
+        LocalBridgeClient bridgeClient,
         string sessionId,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(previewSessions);
+        ArgumentNullException.ThrowIfNull(bridgeClient);
 
         if (!TryParseRequiredSessionId(sessionId, out var parsedSessionId, out var error))
         {
             return ToolResult<PreviewSessionSummary>.Fail(error!);
         }
 
-        return ToToolResult(await previewSessions.ReloadAsync(parsedSessionId!, cancellationToken));
+        var previewReload = await previewSessions.ReloadAsync(parsedSessionId!, cancellationToken);
+        if (previewReload.Success || previewReload.Error!.Code != CoreErrorCodes.SessionNotFound)
+        {
+            return ToToolResult(previewReload);
+        }
+
+        var runtimeReload = await bridgeClient.ReloadRuntimeAsync(parsedSessionId!, cancellationToken);
+        return runtimeReload.Error!.Code == CoreErrorCodes.BridgeSessionNotFound
+            ? ToToolResult(previewReload)
+            : ToolResult<PreviewSessionSummary>.Fail(new ProtocolError(runtimeReload.Error.Code, runtimeReload.Error.Message));
     }
 
     private static SessionSummary ToProtocolSummary(SessionSnapshot session)

@@ -451,19 +451,14 @@ public sealed class PreviewHostSmokeTests
                 Directory.Delete(path, recursive: true);
                 return;
             }
-            catch (IOException) when (attempt < 29)
+            catch (IOException)
             {
                 await Task.Delay(100);
             }
-            catch (UnauthorizedAccessException) when (attempt < 29)
+            catch (UnauthorizedAccessException)
             {
                 await Task.Delay(100);
             }
-        }
-
-        if (Directory.Exists(path))
-        {
-            Directory.Delete(path, recursive: true);
         }
     }
 
