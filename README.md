@@ -92,6 +92,13 @@ dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll attach --process 1234
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll attach --session session-id
 ```
 
+List top-level windows/views and capture a runtime screenshot from an active bridge session:
+
+```powershell
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll list-top-levels --session session-id
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll screenshot --session session-id --top-level topLevel:1234 --out screenshot.png
+```
+
 After creating or extracting the local executable package, the same command shape can be run from the artifact directory:
 
 ```powershell

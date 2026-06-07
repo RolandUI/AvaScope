@@ -34,11 +34,11 @@ Next slice: richer properties, resources, binding diagnostics, or style diagnost
 
 ### CLI Runtime Workflows
 
-Status: first attach slice complete; top-level listing and screenshot commands remain open.
+Status: attach, top-level listing, and screenshot slices complete; tree, inspect, find, input, close, reload, and diagnostics commands remain open.
 
-The CLI now supports `preview`, `mcp`, and `attach`. `avascope attach` drives the local bridge through `LocalBridgeClient`, accepts process id or explicit session id selection, returns structured `ToolResult<AttachToAppResponse>` output, and has deterministic invalid-argument and no-session tests.
+The CLI now supports `preview`, `mcp`, `attach`, `list-top-levels`, and `screenshot`. Runtime CLI commands drive the local bridge through `LocalBridgeClient`, return structured `ToolResult<T>` output, and have deterministic invalid-argument, no-session, and fake bridge named-pipe success tests for the top-level/screenshot path.
 
-Next slice: add structured JSON `list-top-levels` and screenshot CLI commands over `LocalBridgeClient`, keeping argument errors deterministic and output consistent with existing CLI preview behavior.
+Next slice: add structured JSON visual/logical tree CLI commands over `LocalBridgeClient`, keeping argument errors deterministic and output consistent with existing CLI preview behavior.
 
 ### Reload And Hot Preview
 
@@ -90,4 +90,4 @@ Next slice: CI can later add publish/upload artifacts, self-contained outputs, o
 
 ## Selected Next Slice
 
-Add CLI runtime top-level listing and screenshot workflow next. The CLI can now attach to a local bridge session, so the next vertical slice should make that attached session visibly useful from the command line.
+Add CLI runtime tree inspection next. The CLI can now attach, list top-levels, and capture screenshots, so the next vertical slice should expose bounded visual/logical tree output for local inspection workflows.

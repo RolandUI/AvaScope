@@ -22,6 +22,8 @@ internal static class Program
         {
             "preview" => await Preview(args[1..]),
             "attach" => await Attach(args[1..]),
+            "list-top-levels" => await ListTopLevels(args[1..]),
+            "screenshot" => await Screenshot(args[1..]),
             "mcp" => await Mcp(),
             _ => UnknownCommand(args[0])
         };
@@ -126,14 +128,9 @@ internal static class Program
             return 2;
         }
 
-        foreach (var key in options.Values.Keys)
+        if (!ValidateOptions(options.Values, GetAttachUsage(), "process", "session"))
         {
-            if (!string.Equals(key, "process", StringComparison.OrdinalIgnoreCase)
-                && !string.Equals(key, "session", StringComparison.OrdinalIgnoreCase))
-            {
-                WriteFailure(InvalidCliArguments, GetAttachUsage());
-                return 2;
-            }
+            return 2;
         }
 
         int? processId = null;
@@ -164,9 +161,51 @@ internal static class Program
         }
 
         var result = await new LocalBridgeClient().AttachToAppAsync(processId, sessionId);
-        WriteResult(result.Success
-            ? ToolResult<AttachToAppResponse>.Ok(result.Value!)
-            : ToolResult<AttachToAppResponse>.Fail(new ProtocolError(result.Error!.Code, result.Error.Message)));
+        WriteResult(result);
+
+        return result.Success ? 0 : 1;
+    }
+
+    private static async Task<int> ListTopLevels(string[] args)
+    {
+        var options = ParseOptions(args, GetListTopLevelsUsage());
+        if (!options.Success)
+        {
+            WriteFailure(InvalidCliArguments, options.Error!);
+            return 2;
+        }
+
+        if (!ValidateOptions(options.Values, GetListTopLevelsUsage(), "session")
+            || !TryReadRequiredSessionId(options.Values, GetListTopLevelsUsage(), out var sessionId))
+        {
+            return 2;
+        }
+
+        var result = await new LocalBridgeClient().ListTopLevelsAsync(sessionId!);
+        WriteResult(result);
+
+        return result.Success ? 0 : 1;
+    }
+
+    private static async Task<int> Screenshot(string[] args)
+    {
+        var options = ParseOptions(args, GetScreenshotUsage());
+        if (!options.Success)
+        {
+            WriteFailure(InvalidCliArguments, options.Error!);
+            return 2;
+        }
+
+        if (!ValidateOptions(options.Values, GetScreenshotUsage(), "session", "top-level", "out")
+            || !TryReadRequiredSessionId(options.Values, GetScreenshotUsage(), out var sessionId)
+            || !TryReadRequiredOption(options.Values, "top-level", GetScreenshotUsage(), out var topLevelId)
+            || !TryReadRequiredOption(options.Values, "out", GetScreenshotUsage(), out var outputPath))
+        {
+            return 2;
+        }
+
+        var result = await new LocalBridgeClient().CaptureScreenshotAsync(sessionId!, topLevelId!, outputPath!);
+        WriteResult(result);
 
         return result.Success ? 0 : 1;
     }
@@ -194,6 +233,62 @@ internal static class Program
             && value > 0;
     }
 
+    private static bool ValidateOptions(
+        IReadOnlyDictionary<string, string> options,
+        string usage,
+        params string[] allowedOptions)
+    {
+        foreach (var key in options.Keys)
+        {
+            if (!allowedOptions.Contains(key, StringComparer.OrdinalIgnoreCase))
+            {
+                WriteFailure(InvalidCliArguments, usage);
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool TryReadRequiredSessionId(
+        IReadOnlyDictionary<string, string> options,
+        string usage,
+        out SessionId? sessionId)
+    {
+        sessionId = null;
+        if (!TryReadRequiredOption(options, "session", usage, out var sessionText))
+        {
+            return false;
+        }
+
+        try
+        {
+            sessionId = new SessionId(sessionText!);
+            return true;
+        }
+        catch (ArgumentException exception)
+        {
+            WriteFailure(CoreErrorCodes.InvalidBridgeRequest, exception.Message);
+            return false;
+        }
+    }
+
+    private static bool TryReadRequiredOption(
+        IReadOnlyDictionary<string, string> options,
+        string optionName,
+        string usage,
+        out string? value)
+    {
+        if (!options.TryGetValue(optionName, out value) || string.IsNullOrWhiteSpace(value))
+        {
+            value = null;
+            WriteFailure(InvalidCliArguments, usage);
+            return false;
+        }
+
+        return true;
+    }
+
     private static int UnknownCommand(string command)
     {
         WriteFailure(InvalidCliArguments, $"Unknown command '{command}'. {GetUsage()}");
@@ -202,7 +297,7 @@ internal static class Program
 
     private static string GetUsage()
     {
-        return "Usage: avascope mcp | avascope attach [--process <pid>] [--session <session-id>] | avascope preview <project.csproj> --view <view.axaml> --out <preview.png> --width <width> --height <height> [--dpi <dpi>] [--theme light|dark]";
+        return "Usage: avascope mcp | avascope attach [--process <pid>] [--session <session-id>] | avascope list-top-levels --session <session-id> | avascope screenshot --session <session-id> --top-level <top-level-id> --out <screenshot.png> | avascope preview <project.csproj> --view <view.axaml> --out <preview.png> --width <width> --height <height> [--dpi <dpi>] [--theme light|dark]";
     }
 
     private static string GetPreviewUsage()
@@ -215,6 +310,16 @@ internal static class Program
         return "Usage: avascope attach [--process <pid>] [--session <session-id>]";
     }
 
+    private static string GetListTopLevelsUsage()
+    {
+        return "Usage: avascope list-top-levels --session <session-id>";
+    }
+
+    private static string GetScreenshotUsage()
+    {
+        return "Usage: avascope screenshot --session <session-id> --top-level <top-level-id> --out <screenshot.png>";
+    }
+
     private static void WriteFailure(string code, string message)
     {
         WriteResult(ToolResult<PreviewResponse>.Fail(new ProtocolError(code, message)));
@@ -223,6 +328,13 @@ internal static class Program
     private static void WriteResult<T>(ToolResult<T> result)
     {
         Console.WriteLine(JsonSerializer.Serialize(result, JsonOptions));
+    }
+
+    private static void WriteResult<T>(CoreResult<T> result)
+    {
+        WriteResult(result.Success
+            ? ToolResult<T>.Ok(result.Value!)
+            : ToolResult<T>.Fail(new ProtocolError(result.Error!.Code, result.Error.Message)));
     }
 
     private sealed record OptionParseResult(

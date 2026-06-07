@@ -23,15 +23,15 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `M28 CLI Runtime Top-level And Screenshot Slice`
+- `M29 CLI Runtime Tree Inspection Slice`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-07`
-- Goal: extend CLI runtime support from attach to top-level listing and screenshot capture.
+- Goal: expose bounded runtime tree inspection from the `avascope` CLI.
 
 ## Next Action
 
-Add CLI commands over `LocalBridgeClient` for `list-top-levels` and `screenshot`, keeping structured JSON output and deterministic argument failures.
+Add CLI commands over `LocalBridgeClient` for `visual-tree` and `logical-tree`, then add the smallest follow-up node inspection command if the command surface stays coherent.
 
 ## Latest Validation
 
@@ -198,6 +198,9 @@ Add CLI commands over `LocalBridgeClient` for `list-top-levels` and `screenshot`
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli` passed with 24 tests.
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter Core` passed with 34 tests.
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 108 tests after M27 CLI runtime attach workflow.
+- `2026-06-07`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after M28 CLI top-level/screenshot implementation.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli` passed with 30 tests, including fake bridge pipe success paths for `list-top-levels` and `screenshot`.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 114 tests after M28 CLI runtime top-level/screenshot workflow.
 
 ## Milestones
 
@@ -782,19 +785,23 @@ Add CLI commands over `LocalBridgeClient` for `list-top-levels` and `screenshot`
 - Validation:
   - `dotnet build AvaScope.slnx`
   - `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli`
+  - `dotnet test AvaScope.slnx --no-build`
   - `dotnet test AvaScope.slnx --no-build --filter Core`
   - `dotnet test AvaScope.slnx --no-build`
   - `git status --short`
 
 ### M28 CLI Runtime Top-level And Screenshot Slice
 
-- Status: `In Progress`
+- Status: `Done`
 - Goal: extend CLI runtime support from attach to top-level listing and screenshot capture.
 - Deliverables: `list-top-levels` and/or `screenshot` CLI commands over `LocalBridgeClient`, structured JSON output, argument validation tests, README/tracking update.
 - Progress:
-  - Pending: add a CLI command that lists top-levels for a runtime session id.
-  - Pending: add or plan the screenshot CLI command using explicit output path validation.
-  - Pending: keep commands thin over Core and avoid duplicating bridge IPC behavior in CLI.
+  - Done: added `avascope list-top-levels --session <session-id>` over `LocalBridgeClient.ListTopLevelsAsync`.
+  - Done: added `avascope screenshot --session <session-id> --top-level <top-level-id> --out <screenshot.png>` over `LocalBridgeClient.CaptureScreenshotAsync`.
+  - Done: kept commands thin over Core and avoided duplicating bridge IPC behavior in CLI.
+  - Done: added no-session and missing-argument tests for both commands.
+  - Done: added fake bridge named-pipe success tests for `list-top-levels` and `screenshot`.
+  - Done: README documents the new runtime CLI commands.
 - Acceptance Criteria:
   - CLI can list top-levels for an attached runtime bridge session id.
   - CLI argument failures are structured and deterministic.
@@ -803,6 +810,25 @@ Add CLI commands over `LocalBridgeClient` for `list-top-levels` and `screenshot`
 - Validation:
   - `dotnet build AvaScope.slnx`
   - `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli`
+
+### M29 CLI Runtime Tree Inspection Slice
+
+- Status: `In Progress`
+- Goal: expose bounded runtime tree inspection from the `avascope` CLI.
+- Deliverables: `visual-tree` and `logical-tree` CLI commands over `LocalBridgeClient`, optional `inspect-node` CLI command if the slice remains small, structured JSON output, argument validation tests, README/tracking update.
+- Progress:
+  - Pending: add `visual-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>]`.
+  - Pending: add `logical-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>]`.
+  - Pending: decide whether `inspect-node` belongs in this slice or the immediate next slice.
+- Acceptance Criteria:
+  - CLI can request bounded visual and logical trees for an attached runtime bridge session id.
+  - CLI rejects invalid `max-depth`, missing session, and missing top-level arguments deterministically.
+  - Tests cover fake bridge success paths and structured failure paths.
+  - README documents command shape.
+- Validation:
+  - `dotnet build AvaScope.slnx`
+  - `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli`
+  - `dotnet test AvaScope.slnx --no-build`
   - `dotnet test AvaScope.slnx --no-build --filter Core`
   - `git status --short`
   - `git status --short`
@@ -879,6 +905,8 @@ Add CLI commands over `LocalBridgeClient` for `list-top-levels` and `screenshot`
 - `2026-06-07`: M27 targets CLI runtime bridge workflow next because MCP now exposes the primary runtime inspection tools, while the CLI still lacks runtime attach/list/inspect commands from the intended product shape.
 - `2026-06-07`: M27 starts CLI runtime support with `attach` because it is the smallest command over existing `LocalBridgeClient` discovery and returns the session id needed by later CLI runtime commands.
 - `2026-06-07`: M28 follows with CLI top-level/screenshot commands because `attach` alone verifies bridge discovery but does not yet expose a complete local inspection workflow.
+- `2026-06-07`: M28 validates CLI runtime success paths with a fake local bridge named pipe instead of a headless Avalonia child app; this keeps process-level CLI coverage deterministic while existing bridge tests continue to validate real Avalonia screenshot behavior.
+- `2026-06-07`: M29 targets CLI visual/logical tree inspection next because attach, top-level discovery, and screenshot now cover the session/image path, while structured tree output is the next core inspection workflow.
 
 ## Change Log
 
@@ -920,3 +948,4 @@ Add CLI commands over `LocalBridgeClient` for `list-top-levels` and `screenshot`
 - `2026-06-07`: Completed M25 runtime focus and keyboard input with stable protocol actions, target-node/key IPC fields, public Avalonia focus/key event dispatch, README updates, and full-suite validation; added M26 inspect node detail as the active focus.
 - `2026-06-07`: Completed M26 inspect node detail with Protocol/Core/Bridge/MCP support, bounded single-node details, structured not-found diagnostics, README updates, and full-suite validation; added M27 CLI runtime bridge workflow as the active focus.
 - `2026-06-07`: Completed M27 CLI runtime bridge workflow with `avascope attach`, structured attach/no-session errors, README updates, CLI/Core targeted tests, and full-suite validation; added M28 CLI top-level and screenshot workflow as the active focus.
+- `2026-06-07`: Completed M28 CLI top-level and screenshot workflow with `list-top-levels`, `screenshot`, fake bridge pipe success tests, no-session and missing-argument coverage, README updates, and targeted validation; added M29 CLI tree inspection as the active focus.
