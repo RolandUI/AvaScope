@@ -141,6 +141,14 @@ dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll diagnostics
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll diagnostics --session session-id --max-sessions 10
 ```
 
+Check reload support for a runtime bridge session:
+
+```powershell
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll reload --session session-id
+```
+
+Runtime bridge reload currently returns an explicit `runtime_reload_not_supported` result after verifying the local bridge session is active. CLI preview renders are one-shot and are not persisted across CLI processes.
+
 After creating or extracting the local executable package, the same command shape can be run from the artifact directory:
 
 ```powershell

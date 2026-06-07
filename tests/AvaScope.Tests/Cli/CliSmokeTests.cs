@@ -1243,6 +1243,80 @@ public sealed class CliSmokeTests
     }
 
     [Fact]
+    public async Task ReloadCommandRejectsActiveRuntimeBridgeSessionWithExplicitUnsupportedError()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var sessionId = SessionId.New();
+        var pipeName = $"avascope-cli-test-{Guid.NewGuid():N}";
+        var manifestPath = WriteBridgeManifest(sessionId, pipeName);
+
+        var serverTask = RespondToBridgeRequestAsync(pipeName, request =>
+        {
+            Assert.Equal(BridgeIpcMethods.Health, request.Method);
+            return BridgeIpcResponse.Ok(request.RequestId, HealthResponse.Current());
+        });
+
+        try
+        {
+            var result = await RunCliAsync(cliAssembly, "reload", "--session", sessionId.Value);
+            var request = await serverTask;
+
+            Assert.Equal(1, result.ExitCode);
+            Assert.Equal(BridgeIpcMethods.Health, request.Method);
+            Assert.True(string.IsNullOrWhiteSpace(result.StandardError), result.StandardError);
+
+            var payload = JsonSerializer.Deserialize<ToolResult<SessionSummary>>(result.StandardOutput, JsonOptions);
+            Assert.NotNull(payload);
+            Assert.False(payload.Success);
+            Assert.Equal(CoreErrorCodes.RuntimeReloadNotSupported, payload.Error!.Code);
+            Assert.Contains("verified the local bridge session is active", payload.Error.Message, StringComparison.Ordinal);
+        }
+        finally
+        {
+            if (File.Exists(manifestPath))
+            {
+                File.Delete(manifestPath);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task ReloadCommandReturnsStructuredErrorWhenNoBridgeSessionMatches()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var result = await RunCliAsync(cliAssembly, "reload", "--session", "missing");
+
+        Assert.Equal(1, result.ExitCode);
+        Assert.True(string.IsNullOrWhiteSpace(result.StandardError), result.StandardError);
+
+        var payload = JsonSerializer.Deserialize<ToolResult<SessionSummary>>(result.StandardOutput, JsonOptions);
+        Assert.NotNull(payload);
+        Assert.False(payload.Success);
+        Assert.Equal(CoreErrorCodes.BridgeSessionNotFound, payload.Error!.Code);
+    }
+
+    [Fact]
+    public async Task ReloadCommandRejectsMissingSession()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var result = await RunCliAsync(cliAssembly, "reload");
+
+        Assert.Equal(2, result.ExitCode);
+        Assert.True(string.IsNullOrWhiteSpace(result.StandardError), result.StandardError);
+
+        var payload = JsonSerializer.Deserialize<ToolResult<SessionSummary>>(result.StandardOutput, JsonOptions);
+        Assert.NotNull(payload);
+        Assert.False(payload.Success);
+        Assert.Equal("invalid_cli_arguments", payload.Error!.Code);
+    }
+
+    [Fact]
     public async Task ScreenshotCommandReturnsStructuredErrorWhenNoBridgeSessionMatches()
     {
         var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");

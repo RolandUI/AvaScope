@@ -34,11 +34,11 @@ Next slice: richer properties, resources, binding diagnostics, or style diagnost
 
 ### CLI Runtime Workflows
 
-Status: attach, top-level listing, screenshot, tree, inspect-node, find, input, close-session, and diagnostics slices complete; reload command remains open.
+Status: current runtime command surface complete.
 
-The CLI now supports `preview`, `mcp`, `attach`, `list-top-levels`, `screenshot`, `visual-tree`, `logical-tree`, `inspect-node`, `find-nodes`, `input`, `close-session`, and `diagnostics`. Runtime CLI commands drive the local bridge through `LocalBridgeClient`, return structured `ToolResult<T>` output, and have deterministic invalid-argument, no-session, and fake bridge named-pipe success tests for the top-level, screenshot, tree, inspect-node, find, input, close, and diagnostics paths.
+The CLI now supports `preview`, `mcp`, `attach`, `list-top-levels`, `screenshot`, `visual-tree`, `logical-tree`, `inspect-node`, `find-nodes`, `input`, `close-session`, `diagnostics`, and `reload`. Runtime CLI commands drive the local bridge through `LocalBridgeClient`, return structured `ToolResult<T>` output, and have deterministic invalid-argument, no-session, and fake bridge named-pipe success tests for the top-level, screenshot, tree, inspect-node, find, input, close, diagnostics, and runtime reload-check paths.
 
-Next slice: add structured JSON `reload` CLI command, keeping argument errors deterministic and output consistent with existing CLI preview behavior.
+Next slice: move to the broader reload/hot preview foundation gap; CLI preview sessions are still one-shot and not persisted across CLI processes.
 
 ### Reload And Hot Preview
 
@@ -90,4 +90,4 @@ Next slice: CI can later add publish/upload artifacts, self-contained outputs, o
 
 ## Selected Next Slice
 
-Add CLI runtime reload next. The CLI can now inspect, control, close, and diagnose runtime sessions, so the next vertical slice should expose the existing reload behavior and runtime unsupported diagnostic from the command line.
+Add reload/hot preview foundation next. The current CLI runtime command surface is covered, so the next vertical slice should address durable preview reload boundaries without claiming runtime hot reload.

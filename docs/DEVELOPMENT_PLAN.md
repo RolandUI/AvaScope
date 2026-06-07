@@ -23,15 +23,15 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `M35 CLI Runtime Reload Slice`
+- `M36 Reload And Hot Preview Foundation Slice`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-07`
-- Goal: expose runtime/preview reload checks from the `avascope` CLI.
+- Goal: move beyond explicit runtime reload unsupported checks toward a durable reload foundation.
 
 ## Next Action
 
-Add a `reload` CLI command that follows MCP behavior: reload preview sessions when possible and return explicit unsupported diagnostics for active runtime bridge sessions.
+Audit existing preview-session reload boundaries and implement the smallest durable reload foundation that can survive beyond one in-memory MCP server process.
 
 ## Latest Validation
 
@@ -219,6 +219,9 @@ Add a `reload` CLI command that follows MCP behavior: reload preview sessions wh
 - `2026-06-07`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after M34 CLI `diagnostics` implementation.
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli` passed with 71 tests, including fake bridge pipe success paths for `diagnostics`.
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 155 tests after M34 CLI diagnostics workflow.
+- `2026-06-07`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after M35 CLI `reload` implementation.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli` passed with 74 tests, including fake bridge health checks for CLI `reload`.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 158 tests after M35 CLI reload workflow.
 
 ## Milestones
 
@@ -960,13 +963,15 @@ Add a `reload` CLI command that follows MCP behavior: reload preview sessions wh
 
 ### M35 CLI Runtime Reload Slice
 
-- Status: `In Progress`
+- Status: `Done`
 - Goal: expose runtime/preview reload checks from the `avascope` CLI.
 - Deliverables: `reload` CLI command aligned with MCP reload behavior, runtime unsupported diagnostics, preview session reload path if reusable from CLI, structured JSON output, README/tracking update.
 - Progress:
-  - Pending: inspect existing preview session registry usage and decide the smallest CLI reload path.
-  - Pending: add `reload --session <session-id>` with deterministic session id validation.
-  - Pending: add tests for runtime bridge unsupported reload or preview reload path, whichever is reliable through CLI process boundaries.
+  - Done: inspected reload behavior and kept the CLI slice to runtime bridge checks because CLI preview renders are currently one-shot and not persisted across CLI processes.
+  - Done: added `reload --session <session-id>` with deterministic session id validation.
+  - Done: added fake bridge health test for explicit `runtime_reload_not_supported`.
+  - Done: added no-session and missing-session tests.
+  - Done: README documents current CLI reload behavior and limitation.
 - Acceptance Criteria:
   - CLI can check an active runtime bridge session and return explicit `runtime_reload_not_supported`.
   - CLI returns structured errors for missing/invalid session ids.
@@ -975,6 +980,25 @@ Add a `reload` CLI command that follows MCP behavior: reload preview sessions wh
 - Validation:
   - `dotnet build AvaScope.slnx`
   - `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli`
+  - `dotnet test AvaScope.slnx --no-build`
+
+### M36 Reload And Hot Preview Foundation Slice
+
+- Status: `In Progress`
+- Goal: move beyond explicit runtime reload unsupported checks toward a durable reload foundation.
+- Deliverables: repository-backed reload gap audit, smallest durable preview-session persistence or reload-state foundation, tests, README/tracking update.
+- Progress:
+  - Pending: inspect `PreviewSessionRegistry`, MCP reload behavior, CLI one-shot preview behavior, and current storage boundaries.
+  - Pending: choose the smallest persistent reload foundation that does not run user code inside MCP/CLI.
+  - Pending: implement with focused Core/MCP/CLI tests if the foundation is clear.
+- Acceptance Criteria:
+  - Non-obvious reload persistence decisions are recorded.
+  - Existing runtime reload unsupported behavior remains explicit and tested.
+  - Any new preview reload foundation is validated without broadening to full hot reload.
+  - README documents the supported reload boundary.
+- Validation:
+  - `dotnet build AvaScope.slnx`
+  - targeted Core/MCP/CLI tests as applicable
   - `dotnet test AvaScope.slnx --no-build`
   - `dotnet test AvaScope.slnx --no-build --filter Core`
   - `git status --short`
@@ -1065,6 +1089,8 @@ Add a `reload` CLI command that follows MCP behavior: reload preview sessions wh
 - `2026-06-07`: M34 targets CLI diagnostics next because attach/inspection/control/close paths now exist, and diagnostics makes bridge manifest and preview-host readiness visible from the CLI.
 - `2026-06-07`: M34 includes preview-host diagnostics in CLI diagnostics to match MCP diagnostics coverage and expose preview readiness without launching user code.
 - `2026-06-07`: M35 targets CLI reload next because diagnostics closes the read-only visibility gap, leaving reload as the remaining intended runtime/preview CLI workflow.
+- `2026-06-07`: M35 keeps CLI reload to runtime bridge health checks because preview sessions are currently in-memory server state and CLI preview renders are one-shot; durable preview reload belongs in a separate reload foundation slice.
+- `2026-06-07`: M36 targets reload/hot preview foundation next because the CLI runtime command surface now covers attach, top-levels, screenshots, trees, inspect, find, input, close, diagnostics, and runtime reload checks.
 
 ## Change Log
 
@@ -1113,3 +1139,4 @@ Add a `reload` CLI command that follows MCP behavior: reload preview sessions wh
 - `2026-06-07`: Completed M32 CLI runtime input with local-only action validation, click/key/focus fake bridge pipe success tests, README updates, and full-suite validation; added M33 CLI close session as the active focus.
 - `2026-06-07`: Completed M33 CLI close session with structured `close-session`, fake bridge pipe success tests, README updates, and full-suite validation; added M34 CLI diagnostics as the active focus.
 - `2026-06-07`: Completed M34 CLI diagnostics with process/session filters, max-session validation, preview-host diagnostics, fake bridge health tests, README updates, and full-suite validation; added M35 CLI reload as the active focus.
+- `2026-06-07`: Completed M35 CLI reload with runtime bridge health checks, explicit `runtime_reload_not_supported`, structured failure tests, README updates, and full-suite validation; added M36 reload/hot preview foundation as the active focus.
