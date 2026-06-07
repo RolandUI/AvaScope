@@ -109,6 +109,7 @@ Implemented tools:
 - `screenshot`
 - `visual_tree`
 - `logical_tree`
+- `inspect_node`
 - `find_nodes`
 - `input`
 - `close_session`

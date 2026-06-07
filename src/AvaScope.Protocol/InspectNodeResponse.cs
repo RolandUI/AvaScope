@@ -1,0 +1,97 @@
+using System.Text.Json.Serialization;
+
+namespace AvaScope.Protocol;
+
+public sealed record InspectNodeResponse
+{
+    [JsonConstructor]
+    public InspectNodeResponse(
+        SessionId sessionId,
+        string topLevelId,
+        string treeKind,
+        string nodeId,
+        string nodeType,
+        int childCount,
+        string? name = null,
+        string? automationId = null,
+        string? text = null,
+        NodeBounds? bounds = null,
+        IReadOnlyList<string>? classes = null)
+    {
+        SessionId = sessionId ?? throw new ArgumentNullException(nameof(sessionId));
+
+        if (string.IsNullOrWhiteSpace(topLevelId))
+        {
+            throw new ArgumentException("Top-level id cannot be empty.", nameof(topLevelId));
+        }
+
+        if (string.IsNullOrWhiteSpace(treeKind))
+        {
+            throw new ArgumentException("Tree kind cannot be empty.", nameof(treeKind));
+        }
+
+        if (string.IsNullOrWhiteSpace(nodeId))
+        {
+            throw new ArgumentException("Node id cannot be empty.", nameof(nodeId));
+        }
+
+        if (string.IsNullOrWhiteSpace(nodeType))
+        {
+            throw new ArgumentException("Node type cannot be empty.", nameof(nodeType));
+        }
+
+        if (childCount < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(childCount), childCount, "Child count cannot be negative.");
+        }
+
+        SessionId = sessionId;
+        TopLevelId = topLevelId;
+        TreeKind = treeKind;
+        NodeId = nodeId;
+        NodeType = nodeType;
+        Name = name;
+        AutomationId = automationId;
+        Text = text;
+        Bounds = bounds;
+        Classes = classes ?? Array.Empty<string>();
+        ChildCount = childCount;
+    }
+
+    [JsonPropertyName("sessionId")]
+    public SessionId SessionId { get; }
+
+    [JsonPropertyName("topLevelId")]
+    public string TopLevelId { get; }
+
+    [JsonPropertyName("treeKind")]
+    public string TreeKind { get; }
+
+    [JsonPropertyName("nodeId")]
+    public string NodeId { get; }
+
+    [JsonPropertyName("nodeType")]
+    public string NodeType { get; }
+
+    [JsonPropertyName("name")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Name { get; }
+
+    [JsonPropertyName("automationId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? AutomationId { get; }
+
+    [JsonPropertyName("text")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Text { get; }
+
+    [JsonPropertyName("bounds")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public NodeBounds? Bounds { get; }
+
+    [JsonPropertyName("classes")]
+    public IReadOnlyList<string> Classes { get; }
+
+    [JsonPropertyName("childCount")]
+    public int ChildCount { get; }
+}

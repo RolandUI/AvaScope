@@ -23,15 +23,15 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `M26 Inspect Node Detail Slice`
+- `M27 CLI Runtime Bridge Workflow Slice`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-07`
-- Goal: add the missing `inspect_node` vertical slice for runtime bridge sessions.
+- Goal: expose the core runtime bridge workflow through the `avascope` CLI beyond `mcp` and `preview`.
 
 ## Next Action
 
-Add protocol/core/bridge/MCP support to inspect a single runtime node by stable node id, returning bounded structured details without requiring a full tree payload.
+Add the smallest CLI runtime commands for local bridge discovery and inspection so non-MCP users can list or inspect active bridged apps.
 
 ## Latest Validation
 
@@ -188,6 +188,12 @@ Add protocol/core/bridge/MCP support to inspect a single runtime node by stable 
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter Bridge` passed with 37 tests.
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter Mcp` passed with 28 tests.
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 102 tests after M25 focus/key input implementation.
+- `2026-06-07`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after M26 `inspect_node` implementation.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter Protocol` passed with 27 tests.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter Core` passed with 34 tests.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter Bridge` passed with 39 tests.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter Mcp` passed with 29 tests.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 106 tests after M26 `inspect_node` implementation.
 
 ## Milestones
 
@@ -728,13 +734,16 @@ Add protocol/core/bridge/MCP support to inspect a single runtime node by stable 
 
 ### M26 Inspect Node Detail Slice
 
-- Status: `In Progress`
+- Status: `Done`
 - Goal: add the missing `inspect_node` vertical slice for runtime bridge sessions.
 - Deliverables: protocol inspect-node response, bridge node lookup by stable node id, Core client method, MCP `inspect_node` tool, focused tests, docs/tracking update.
 - Progress:
-  - Pending: define the smallest transport-neutral inspect-node detail DTO without coupling MCP schemas to Avalonia internals.
-  - Pending: implement visual/logical node id lookup using the same session-local stable ids as tree serialization.
-  - Pending: return structured not-found and unsupported diagnostics for invalid node ids.
+  - Done: added transport-neutral `InspectNodeResponse` with bounded node details and `childCount`.
+  - Done: added bridge IPC `inspect_node` method and request `nodeId`.
+  - Done: added Core `InspectNodeAsync` and MCP `inspect_node` tool.
+  - Done: bridge lookup resolves visual/logical node ids using the same session-local stable ids as tree/find results.
+  - Done: added structured `invalid_inspect_request` and `node_not_found` diagnostics.
+  - Done: added protocol, core, MCP, and headless bridge tests for success and invalid paths.
 - Acceptance Criteria:
   - MCP exposes `inspect_node` for runtime bridge sessions.
   - Node lookup works by stable visual/logical node id returned by tree/find responses.
@@ -746,6 +755,27 @@ Add protocol/core/bridge/MCP support to inspect a single runtime node by stable 
   - `dotnet test AvaScope.slnx --no-build --filter Core`
   - `dotnet test AvaScope.slnx --no-build --filter Bridge`
   - `dotnet test AvaScope.slnx --no-build --filter Mcp`
+  - `dotnet test AvaScope.slnx --no-build`
+  - `git status --short`
+
+### M27 CLI Runtime Bridge Workflow Slice
+
+- Status: `In Progress`
+- Goal: expose the core runtime bridge workflow through the `avascope` CLI beyond `mcp` and `preview`.
+- Deliverables: CLI command shape for local runtime bridge sessions, implementation over `LocalBridgeClient`, process/argument smoke tests, docs/tracking update.
+- Progress:
+  - Pending: audit current CLI parser and tests before adding commands.
+  - Pending: add the smallest runtime command path, likely `avascope list-top-levels --session <id>` or `avascope attach --process <pid>`.
+  - Pending: keep output as structured JSON `ToolResult<T>` consistent with existing CLI preview errors.
+- Acceptance Criteria:
+  - CLI exposes at least one usable runtime bridge workflow over `LocalBridgeClient`.
+  - Invalid CLI arguments return structured errors.
+  - CLI tests cover success or deterministic no-session failure paths.
+  - README documents the command shape and current limitations.
+- Validation:
+  - `dotnet build AvaScope.slnx`
+  - `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli`
+  - `dotnet test AvaScope.slnx --no-build --filter Core`
   - `git status --short`
   - `git status --short`
 
@@ -817,6 +847,8 @@ Add protocol/core/bridge/MCP support to inspect a single runtime node by stable 
 - `2026-06-07`: M25 uses public Avalonia 12.0.4 `InputElement.Focus(...)` and routed `KeyEventArgs`/`InputElement.KeyDownEvent`/`KeyUpEvent`; it does not use raw platform input injection or private hooks.
 - `2026-06-07`: M25 key input accepts Avalonia `Key` names plus simple modifier text, and returns structured invalid-input diagnostics instead of inventing a custom key naming scheme.
 - `2026-06-07`: M26 targets `inspect_node` next because it is part of the intended MCP tool shape and tree/find already provide stable node ids but no detail lookup tool.
+- `2026-06-07`: M26 keeps `inspect_node` bounded to one node plus `childCount`; it does not return descendants or arbitrary Avalonia object properties in the first slice.
+- `2026-06-07`: M27 targets CLI runtime bridge workflow next because MCP now exposes the primary runtime inspection tools, while the CLI still lacks runtime attach/list/inspect commands from the intended product shape.
 
 ## Change Log
 
@@ -856,3 +888,4 @@ Add protocol/core/bridge/MCP support to inspect a single runtime node by stable 
 - `2026-06-07`: Completed M23 release artifact hardening with an ignored JSON manifest containing artifact sizes and SHA-256 hashes, CI verification, README updates, and release distribution decision logging; added M24 cross-platform framework-dependent artifacts as the active focus.
 - `2026-06-07`: Completed M24 cross-platform framework-dependent artifacts with RID-aware win-x64/linux-x64 ZIP packaging, manifest coverage enforcement, CI/README updates, artifact smoke validation, and full Release test validation; added M25 runtime focus and keyboard input as the active focus.
 - `2026-06-07`: Completed M25 runtime focus and keyboard input with stable protocol actions, target-node/key IPC fields, public Avalonia focus/key event dispatch, README updates, and full-suite validation; added M26 inspect node detail as the active focus.
+- `2026-06-07`: Completed M26 inspect node detail with Protocol/Core/Bridge/MCP support, bounded single-node details, structured not-found diagnostics, README updates, and full-suite validation; added M27 CLI runtime bridge workflow as the active focus.

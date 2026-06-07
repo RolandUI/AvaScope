@@ -156,6 +156,50 @@ public sealed class LocalBridgeClient
             cancellationToken);
     }
 
+    public async Task<CoreResult<InspectNodeResponse>> InspectNodeAsync(
+        SessionId sessionId,
+        string topLevelId,
+        string treeKind,
+        string nodeId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(sessionId);
+
+        if (string.IsNullOrWhiteSpace(topLevelId))
+        {
+            return CoreResult<InspectNodeResponse>.Fail(
+                new CoreError(CoreErrorCodes.InvalidBridgeRequest, "Top-level id cannot be empty."));
+        }
+
+        if (string.IsNullOrWhiteSpace(treeKind))
+        {
+            return CoreResult<InspectNodeResponse>.Fail(
+                new CoreError(CoreErrorCodes.InvalidBridgeRequest, "Tree kind cannot be empty."));
+        }
+
+        if (string.IsNullOrWhiteSpace(nodeId))
+        {
+            return CoreResult<InspectNodeResponse>.Fail(
+                new CoreError(CoreErrorCodes.InvalidBridgeRequest, "Node id cannot be empty."));
+        }
+
+        var manifestResult = FindSingleManifest(null, sessionId);
+        if (!manifestResult.Success)
+        {
+            return CoreResult<InspectNodeResponse>.Fail(manifestResult.Error!);
+        }
+
+        return await SendAsync<InspectNodeResponse>(
+            manifestResult.Value!,
+            new BridgeIpcRequest(
+                NewRequestId(),
+                BridgeIpcMethods.InspectNode,
+                topLevelId,
+                treeKind: treeKind,
+                nodeId: nodeId),
+            cancellationToken);
+    }
+
     public async Task<CoreResult<FindNodesResponse>> FindNodesAsync(
         SessionId sessionId,
         string topLevelId,

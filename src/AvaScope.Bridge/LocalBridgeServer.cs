@@ -207,6 +207,7 @@ internal sealed class LocalBridgeServer : IDisposable
             BridgeIpcMethods.Screenshot => Respond(await CaptureScreenshotAsync(request, cancellationToken)),
             BridgeIpcMethods.VisualTree => Respond(await GetTreeAsync(request, TreeKinds.Visual, cancellationToken)),
             BridgeIpcMethods.LogicalTree => Respond(await GetTreeAsync(request, TreeKinds.Logical, cancellationToken)),
+            BridgeIpcMethods.InspectNode => Respond(await InspectNodeAsync(request, cancellationToken)),
             BridgeIpcMethods.FindNodes => Respond(await FindNodesAsync(request, cancellationToken)),
             BridgeIpcMethods.Input => Respond(await InputAsync(request, cancellationToken)),
             BridgeIpcMethods.CloseSession => CloseSession(request),
@@ -319,6 +320,44 @@ internal sealed class LocalBridgeServer : IDisposable
             request.Text,
             request.MaxDepth,
             request.MaxResults,
+            cancellationToken);
+
+        return result.Success
+            ? BridgeIpcResponse.Ok(request.RequestId, result.Value)
+            : BridgeIpcResponse.Fail(
+                request.RequestId,
+                new ProtocolError(result.Error!.Code, result.Error.Message));
+    }
+
+    private async Task<BridgeIpcResponse> InspectNodeAsync(
+        BridgeIpcRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.TopLevelId))
+        {
+            return BridgeIpcResponse.Fail(
+                request.RequestId,
+                new ProtocolError("missing_top_level_id", "Inspect node requests require a top-level id."));
+        }
+
+        if (string.IsNullOrWhiteSpace(request.TreeKind))
+        {
+            return BridgeIpcResponse.Fail(
+                request.RequestId,
+                new ProtocolError(BridgeErrorCodes.InvalidInspectRequest, "Inspect node requests require a tree kind."));
+        }
+
+        if (string.IsNullOrWhiteSpace(request.NodeId))
+        {
+            return BridgeIpcResponse.Fail(
+                request.RequestId,
+                new ProtocolError(BridgeErrorCodes.InvalidInspectRequest, "Inspect node requests require a node id."));
+        }
+
+        var result = await _runtime.InspectNodeAsync(
+            request.TopLevelId,
+            request.TreeKind,
+            request.NodeId,
             cancellationToken);
 
         return result.Success

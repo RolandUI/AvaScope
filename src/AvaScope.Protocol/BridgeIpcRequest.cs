@@ -17,6 +17,7 @@ public sealed record BridgeIpcRequest
         string? automationId = null,
         string? text = null,
         int? maxResults = null,
+        string? nodeId = null,
         string? action = null,
         double? x = null,
         double? y = null,
@@ -46,6 +47,7 @@ public sealed record BridgeIpcRequest
         AutomationId = automationId;
         Text = text;
         MaxResults = maxResults;
+        NodeId = nodeId;
         Action = action;
         X = x;
         Y = y;
@@ -96,6 +98,10 @@ public sealed record BridgeIpcRequest
     [JsonPropertyName("maxResults")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public int? MaxResults { get; }
+
+    [JsonPropertyName("nodeId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? NodeId { get; }
 
     [JsonPropertyName("action")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

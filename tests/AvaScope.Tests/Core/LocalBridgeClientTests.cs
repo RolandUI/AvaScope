@@ -115,6 +115,21 @@ public sealed class LocalBridgeClientTests : IDisposable
     }
 
     [Fact]
+    public async Task InspectNodeRejectsEmptyNodeIdBeforeIpc()
+    {
+        var client = new LocalBridgeClient(_manifestDirectory);
+
+        var result = await client.InspectNodeAsync(
+            new SessionId("session-1"),
+            "topLevel:abc",
+            TreeKinds.Visual,
+            " ");
+
+        Assert.False(result.Success);
+        Assert.Equal(CoreErrorCodes.InvalidBridgeRequest, result.Error!.Code);
+    }
+
+    [Fact]
     public async Task InputRejectsEmptyActionBeforeIpc()
     {
         var client = new LocalBridgeClient(_manifestDirectory);

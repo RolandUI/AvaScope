@@ -359,6 +359,38 @@ public sealed class ProtocolContractTests
     }
 
     [Fact]
+    public void InspectNodeResponseSerializesBoundedDetailShape()
+    {
+        var response = new InspectNodeResponse(
+            new SessionId("session-1"),
+            "topLevel:abc",
+            TreeKinds.Visual,
+            "visual:button",
+            "Avalonia.Controls.Button",
+            childCount: 1,
+            name: "SaveButton",
+            automationId: "save-button",
+            text: "Save",
+            bounds: new NodeBounds(10, 20, 80, 30),
+            classes: ["primary"]);
+
+        var json = JsonSerializer.Serialize(response);
+        var node = JsonNode.Parse(json)!;
+
+        Assert.Equal("session-1", node["sessionId"]!.GetValue<string>());
+        Assert.Equal("topLevel:abc", node["topLevelId"]!.GetValue<string>());
+        Assert.Equal("visual", node["treeKind"]!.GetValue<string>());
+        Assert.Equal("visual:button", node["nodeId"]!.GetValue<string>());
+        Assert.Equal("Avalonia.Controls.Button", node["nodeType"]!.GetValue<string>());
+        Assert.Equal("SaveButton", node["name"]!.GetValue<string>());
+        Assert.Equal("save-button", node["automationId"]!.GetValue<string>());
+        Assert.Equal("Save", node["text"]!.GetValue<string>());
+        Assert.Equal(80, node["bounds"]!["width"]!.GetValue<double>());
+        Assert.Equal("primary", node["classes"]![0]!.GetValue<string>());
+        Assert.Equal(1, node["childCount"]!.GetValue<int>());
+    }
+
+    [Fact]
     public void InputResponseSerializesStableShape()
     {
         var executedAt = new DateTimeOffset(2026, 6, 7, 0, 0, 0, TimeSpan.Zero);
@@ -416,6 +448,26 @@ public sealed class ProtocolContractTests
         Assert.Equal("visual:button", node["targetNodeId"]!.GetValue<string>());
         Assert.Equal("Enter", node["inputKey"]!.GetValue<string>());
         Assert.Equal("Control+Shift", node["keyModifiers"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public void BridgeIpcRequestSerializesInspectNodeShape()
+    {
+        var request = new BridgeIpcRequest(
+            "request-inspect",
+            BridgeIpcMethods.InspectNode,
+            "topLevel:abc",
+            treeKind: TreeKinds.Visual,
+            nodeId: "visual:button");
+
+        var json = JsonSerializer.Serialize(request);
+        var node = JsonNode.Parse(json)!;
+
+        Assert.Equal("request-inspect", node["requestId"]!.GetValue<string>());
+        Assert.Equal("inspect_node", node["method"]!.GetValue<string>());
+        Assert.Equal("topLevel:abc", node["topLevelId"]!.GetValue<string>());
+        Assert.Equal("visual", node["treeKind"]!.GetValue<string>());
+        Assert.Equal("visual:button", node["nodeId"]!.GetValue<string>());
     }
 
     [Fact]

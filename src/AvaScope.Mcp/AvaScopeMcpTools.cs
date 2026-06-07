@@ -182,6 +182,38 @@ public sealed class AvaScopeMcpTools
     }
 
     [McpServerTool(
+        Name = "inspect_node",
+        Title = "Inspect node",
+        ReadOnly = true,
+        Idempotent = true,
+        Destructive = false,
+        OpenWorld = false,
+        UseStructuredContent = true)]
+    [Description("Inspects one runtime node by stable visual or logical tree node id.")]
+    public static async Task<ToolResult<InspectNodeResponse>> InspectNode(
+        LocalBridgeClient bridgeClient,
+        string sessionId,
+        string topLevelId,
+        string nodeId,
+        string treeKind = TreeKinds.Visual,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(bridgeClient);
+
+        if (!TryParseRequiredSessionId(sessionId, out var parsedSessionId, out var error))
+        {
+            return ToolResult<InspectNodeResponse>.Fail(error!);
+        }
+
+        return ToToolResult(await bridgeClient.InspectNodeAsync(
+            parsedSessionId!,
+            topLevelId,
+            treeKind,
+            nodeId,
+            cancellationToken));
+    }
+
+    [McpServerTool(
         Name = "find_nodes",
         Title = "Find nodes",
         ReadOnly = true,

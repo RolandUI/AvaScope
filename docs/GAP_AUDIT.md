@@ -26,11 +26,19 @@ Completed slice: preview-host readiness diagnostics now report host assembly pat
 
 ### Inspect Node Detail
 
+Status: first slice complete.
+
+`inspect_node` is part of the intended MCP tool shape. The first slice now returns a bounded single-node payload by stable visual or logical node id, including node id, tree kind, type, name, automation id, text, bounds, classes, and child count. It deliberately does not return descendants or arbitrary Avalonia object properties yet.
+
+Next slice: richer properties, resources, binding diagnostics, or style diagnostics can be added after the first CLI runtime workflow is available.
+
+### CLI Runtime Workflows
+
 Status: open.
 
-`inspect_node` is part of the intended MCP tool shape, but the current runtime surface only returns node summaries through tree and find operations. Agents can identify stable node ids, but cannot yet request a bounded detail payload for one node without fetching a tree again.
+The CLI currently supports `preview` and `mcp`, but the intended CLI shape includes runtime inspection flows. MCP exposes attach/list/tree/find/inspect/screenshot/input, while the CLI cannot yet drive an active bridge session directly.
 
-Next slice: add `inspect_node` over Protocol/Core/Bridge/MCP using the same session-local stable node ids as tree and find results.
+Next slice: add the smallest structured JSON CLI command over `LocalBridgeClient`, keeping argument errors deterministic and output consistent with existing CLI preview behavior.
 
 ### Reload And Hot Preview
 
@@ -82,4 +90,4 @@ Next slice: CI can later add publish/upload artifacts, self-contained outputs, o
 
 ## Selected Next Slice
 
-Add inspect-node detail next. Tree/find expose stable ids, and agents need a direct bounded detail lookup before broader automation polish.
+Add CLI runtime bridge workflow next. MCP runtime inspection is now broad enough that the CLI should expose at least one direct local workflow before deeper diagnostics or preview parity work.

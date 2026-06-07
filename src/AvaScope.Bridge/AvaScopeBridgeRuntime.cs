@@ -185,6 +185,40 @@ public sealed class AvaScopeBridgeRuntime
             .GetTask();
     }
 
+    public Task<CoreResult<InspectNodeResponse>> InspectNodeAsync(
+        string topLevelId,
+        string treeKind,
+        string nodeId,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(topLevelId))
+        {
+            throw new ArgumentException("Top-level id cannot be empty.", nameof(topLevelId));
+        }
+
+        if (string.IsNullOrWhiteSpace(treeKind))
+        {
+            throw new ArgumentException("Tree kind cannot be empty.", nameof(treeKind));
+        }
+
+        if (string.IsNullOrWhiteSpace(nodeId))
+        {
+            throw new ArgumentException("Node id cannot be empty.", nameof(nodeId));
+        }
+
+        if (Dispatcher.UIThread.CheckAccess())
+        {
+            return Task.FromResult(InspectNode(topLevelId, treeKind, nodeId));
+        }
+
+        return Dispatcher.UIThread
+            .InvokeAsync(
+                () => InspectNode(topLevelId, treeKind, nodeId),
+                DispatcherPriority.Background,
+                cancellationToken)
+            .GetTask();
+    }
+
     public Task<CoreResult<InputResponse>> InputAsync(
         string topLevelId,
         string action,
@@ -460,6 +494,75 @@ public sealed class AvaScopeBridgeRuntime
             treeKind,
             treeResult.Value.DepthLimit,
             matches));
+    }
+
+    private CoreResult<InspectNodeResponse> InspectNode(string topLevelId, string treeKind, string nodeId)
+    {
+        Dispatcher.UIThread.VerifyAccess();
+
+        var topLevel = FindTopLevel(topLevelId);
+        if (topLevel is null)
+        {
+            return TopLevelNotFound<InspectNodeResponse>(topLevelId);
+        }
+
+        if (string.IsNullOrWhiteSpace(nodeId))
+        {
+            return InvalidInspectRequest("Node id cannot be empty.");
+        }
+
+        return treeKind switch
+        {
+            TreeKinds.Visual => InspectVisualNode(topLevel, topLevelId, nodeId),
+            TreeKinds.Logical => topLevel is ILogical logical
+                ? InspectLogicalNode(logical, topLevelId, nodeId)
+                : NodeNotFound(topLevelId, treeKind, nodeId),
+            _ => InvalidInspectRequest($"Tree kind '{treeKind}' is not supported for top-level '{topLevelId}'.")
+        };
+    }
+
+    private CoreResult<InspectNodeResponse> InspectVisualNode(Visual root, string topLevelId, string nodeId)
+    {
+        var node = FindVisualNodeById(root, nodeId);
+        if (node is null)
+        {
+            return NodeNotFound(topLevelId, TreeKinds.Visual, nodeId);
+        }
+
+        return CoreResult<InspectNodeResponse>.Ok(new InspectNodeResponse(
+            SessionId,
+            topLevelId,
+            TreeKinds.Visual,
+            CreateNodeId(node, TreeKinds.Visual),
+            node.GetType().FullName ?? node.GetType().Name,
+            node.GetVisualChildren().Count(),
+            GetName(node),
+            GetAutomationId(node),
+            GetText(node),
+            GetBounds(node),
+            GetClasses(node)));
+    }
+
+    private CoreResult<InspectNodeResponse> InspectLogicalNode(ILogical root, string topLevelId, string nodeId)
+    {
+        var node = FindLogicalNodeById(root, nodeId);
+        if (node is null)
+        {
+            return NodeNotFound(topLevelId, TreeKinds.Logical, nodeId);
+        }
+
+        return CoreResult<InspectNodeResponse>.Ok(new InspectNodeResponse(
+            SessionId,
+            topLevelId,
+            TreeKinds.Logical,
+            CreateNodeId(node, TreeKinds.Logical),
+            node.GetType().FullName ?? node.GetType().Name,
+            node.GetLogicalChildren().Count(),
+            GetName(node),
+            GetAutomationId(node),
+            GetText(node),
+            GetBounds(node),
+            GetClasses(node)));
     }
 
     private CoreResult<InputResponse> Input(
@@ -973,6 +1076,21 @@ public sealed class AvaScopeBridgeRuntime
     private static CoreResult<FindNodesResponse> InvalidFindRequest(string message)
     {
         return CoreResult<FindNodesResponse>.Fail(new CoreError(BridgeErrorCodes.InvalidFindRequest, message));
+    }
+
+    private static CoreResult<InspectNodeResponse> InvalidInspectRequest(string message)
+    {
+        return CoreResult<InspectNodeResponse>.Fail(new CoreError(BridgeErrorCodes.InvalidInspectRequest, message));
+    }
+
+    private static CoreResult<InspectNodeResponse> NodeNotFound(
+        string topLevelId,
+        string treeKind,
+        string nodeId)
+    {
+        return CoreResult<InspectNodeResponse>.Fail(new CoreError(
+            BridgeErrorCodes.NodeNotFound,
+            $"Node '{nodeId}' was not found in the {treeKind} tree for top-level '{topLevelId}'."));
     }
 
     private static CoreResult<TreeResponse> InvalidTreeKind(string topLevelId, string treeKind)

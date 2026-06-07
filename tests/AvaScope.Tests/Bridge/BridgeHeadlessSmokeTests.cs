@@ -195,6 +195,35 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
             Assert.True(byName.Success, byName.Error?.Message);
             Assert.Equal("PipeText", Assert.Single(byName.Value!.Matches).Node.Name);
 
+            var pipeTextNode = Assert.Single(byName.Value.Matches).Node;
+            var inspected = await AvaScopeMcpTools.InspectNode(
+                client,
+                runtime.SessionId.Value,
+                topLevel.Id,
+                pipeTextNode.NodeId,
+                TreeKinds.Visual);
+
+            Assert.True(inspected.Success, inspected.Error?.Message);
+            Assert.Equal(runtime.SessionId, inspected.Value!.SessionId);
+            Assert.Equal(topLevel.Id, inspected.Value.TopLevelId);
+            Assert.Equal(TreeKinds.Visual, inspected.Value.TreeKind);
+            Assert.Equal(pipeTextNode.NodeId, inspected.Value.NodeId);
+            Assert.Equal("PipeText", inspected.Value.Name);
+            Assert.Equal("pipe-text", inspected.Value.AutomationId);
+            Assert.Contains("TextBlock", inspected.Value.NodeType, StringComparison.Ordinal);
+            Assert.True(inspected.Value.Bounds is { Width: >= 0, Height: >= 0 });
+            Assert.True(inspected.Value.ChildCount >= 0);
+
+            var missingInspect = await AvaScopeMcpTools.InspectNode(
+                client,
+                runtime.SessionId.Value,
+                topLevel.Id,
+                "visual:missing",
+                TreeKinds.Visual);
+
+            Assert.False(missingInspect.Success);
+            Assert.Equal(BridgeErrorCodes.NodeNotFound, missingInspect.Error!.Code);
+
             var byAutomationId = await AvaScopeMcpTools.FindNodes(
                 client,
                 runtime.SessionId.Value,
