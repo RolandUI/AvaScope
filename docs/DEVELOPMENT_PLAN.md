@@ -23,15 +23,15 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `M38 Preview Resource Include Scope Slice`
+- `M39 Preview Theme Dictionary Variant Slice`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-07`
-- Goal: improve preview-host support for App.axaml resource/style includes.
+- Goal: improve preview-host theme-variant resource parity.
 
 ## Next Action
 
-Audit compiled `ResourceInclude` and `StyleInclude` behavior from project `App.axaml`, then implement the smallest validated include scenario that is still isolated inside `AvaScope.PreviewHost`.
+Audit current `ThemeDictionaries` and requested theme variant behavior, then implement the smallest validated theme-dictionary scenario.
 
 ## Latest Validation
 
@@ -229,6 +229,9 @@ Audit compiled `ResourceInclude` and `StyleInclude` behavior from project `App.a
 - `2026-06-07`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after M37 App.axaml style loading.
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewHostSmokeTests` passed with 7 tests.
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 161 tests after M37 preview App.axaml style scope.
+- `2026-06-07`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after M38 App.axaml resource include loading.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewHostSmokeTests` passed with 8 tests.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 162 tests after M38 preview resource include scope.
 
 ## Milestones
 
@@ -1038,17 +1041,37 @@ Audit compiled `ResourceInclude` and `StyleInclude` behavior from project `App.a
 
 ### M38 Preview Resource Include Scope Slice
 
-- Status: `In Progress`
+- Status: `Done`
 - Goal: improve preview-host support for App.axaml resource/style includes.
 - Deliverables: focused support for one compiled `ResourceInclude` or `StyleInclude` scenario, tests with tiny sample project/view, README/tracking update.
 - Progress:
-  - Pending: audit compiled `ResourceInclude` and `StyleInclude` behavior after project `Application.Initialize()`.
-  - Pending: pick the smallest include scenario that currently fails or is unverified.
-  - Pending: implement only the required preview-host merge/copy behavior.
+  - Done: audited compiled `ResourceInclude` behavior after project `Application.Initialize()`.
+  - Done: added preview-host merge of project app resource `MergedDictionaries` into the host app resource scope.
+  - Done: added pixel-validated PreviewHost smoke coverage proving a resource included by `ResourceInclude` affects the rendered output.
+  - Done: README documents merged resource dictionary support from `App.axaml`.
 - Acceptance Criteria:
   - PreviewHost validates at least one app-level include scenario from project `App.axaml`.
   - The behavior remains isolated in `AvaScope.PreviewHost`.
   - Tests validate rendered output file and structured response for the include scenario.
+  - README documents supported boundary and remaining limitations.
+- Validation:
+  - `dotnet build AvaScope.slnx`
+  - targeted PreviewHost tests
+  - `dotnet test AvaScope.slnx --no-build`
+
+### M39 Preview Theme Dictionary Variant Slice
+
+- Status: `In Progress`
+- Goal: improve preview-host theme-variant resource parity.
+- Deliverables: focused support for one `ThemeDictionaries` scenario, tests with light/dark preview variants, README/tracking update.
+- Progress:
+  - Pending: audit current `ThemeDictionaries` behavior after resource merge and requested theme variant assignment.
+  - Pending: implement the smallest required preview-host resource merge behavior.
+  - Pending: add pixel-validated preview-host smoke coverage for light/dark theme dictionary resources.
+- Acceptance Criteria:
+  - PreviewHost resolves app-level theme dictionary resources for at least one requested theme variant.
+  - The behavior remains isolated in `AvaScope.PreviewHost`.
+  - Tests validate rendered output for the theme variant scenario.
   - README documents supported boundary and remaining limitations.
 - Validation:
   - `dotnet build AvaScope.slnx`
@@ -1148,6 +1171,8 @@ Audit compiled `ResourceInclude` and `StyleInclude` behavior from project `App.a
 - `2026-06-07`: M37 uses the project's real `Application.Initialize()` path when possible, inside the isolated preview host child process, because compiled App.axaml styles may not be materialized by URI-only loading.
 - `2026-06-07`: M37 applies project application styles to the preview window style scope rather than the long-lived host application scope, keeping the imported styles limited to the single render.
 - `2026-06-07`: M38 targets app-level include scenarios next because top-level resources and direct application styles are now covered, while include parity remains unverified.
+- `2026-06-07`: M38 starts include parity with `ResourceInclude` under `Application.Resources` because resource includes commonly feed static resources used by views and can be validated with a single pixel-stable render.
+- `2026-06-07`: M39 targets theme dictionary variants next because resource include support is covered and requested light/dark preview variants should resolve app-level theme dictionaries predictably.
 
 ## Change Log
 
@@ -1199,3 +1224,4 @@ Audit compiled `ResourceInclude` and `StyleInclude` behavior from project `App.a
 - `2026-06-07`: Completed M35 CLI reload with runtime bridge health checks, explicit `runtime_reload_not_supported`, structured failure tests, README updates, and full-suite validation; added M36 reload/hot preview foundation as the active focus.
 - `2026-06-07`: Completed M36 reload/hot preview foundation with persistent Core preview-session JSON storage, MCP store wiring, restore tests, README updates, and full-suite validation; added M37 preview resource/style scope as the active focus.
 - `2026-06-07`: Completed M37 preview resource/style scope with project `Application.Initialize()` loading, preview-window style application, pixel-validated App.axaml style smoke coverage, README updates, and full-suite validation; added M38 preview resource include scope as the active focus.
+- `2026-06-07`: Completed M38 preview resource include scope with App.axaml merged resource dictionary transfer, pixel-validated ResourceInclude smoke coverage, README updates, and full-suite validation; added M39 preview theme dictionary variant scope as the active focus.
