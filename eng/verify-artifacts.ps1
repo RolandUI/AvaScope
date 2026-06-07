@@ -1,6 +1,7 @@
 param(
     [string]$PackageRoot = "artifacts/packages",
     [string]$ExecutableRoot = "artifacts/executables",
+    [string[]]$ExecutableRuntimeIdentifiers = @("win-x64", "linux-x64"),
     [string]$OutputPath = "artifacts/release-manifest.json"
 )
 
@@ -98,12 +99,45 @@ $requiredArtifacts = @(
     [pscustomobject]@{
         Kind = "nuget-package"
         Path = Join-Path $packageRootPath "AvaScope.Bridge.$version.nupkg"
-    },
-    [pscustomobject]@{
-        Kind = "executable-zip"
-        Path = Join-Path $executableRootPath "avascope-win-framework-dependent.zip"
     }
 )
+
+foreach ($runtimeIdentifier in $ExecutableRuntimeIdentifiers) {
+    if ([string]::IsNullOrWhiteSpace($runtimeIdentifier)) {
+        throw "Executable runtime identifier cannot be empty."
+    }
+
+    if ($runtimeIdentifier -notmatch "^[A-Za-z0-9_.-]+$") {
+        throw "Executable runtime identifier contains unsupported characters: $runtimeIdentifier"
+    }
+
+    $requiredArtifacts += [pscustomobject]@{
+        Kind = "executable-zip"
+        Path = Join-Path $executableRootPath "avascope-$runtimeIdentifier-framework-dependent.zip"
+    }
+}
+
+$expectedPackageNames = @{}
+foreach ($artifact in $requiredArtifacts | Where-Object { $_.Kind -eq "nuget-package" }) {
+    $expectedPackageNames[(Split-Path -Leaf $artifact.Path)] = $true
+}
+
+Get-ChildItem -LiteralPath $packageRootPath -Filter "AvaScope.*.nupkg" -File | ForEach-Object {
+    if (-not $expectedPackageNames.ContainsKey($_.Name)) {
+        throw "Unexpected AvaScope package artifact is not covered by the manifest: $($_.FullName)"
+    }
+}
+
+$expectedExecutableZipNames = @{}
+foreach ($artifact in $requiredArtifacts | Where-Object { $_.Kind -eq "executable-zip" }) {
+    $expectedExecutableZipNames[(Split-Path -Leaf $artifact.Path)] = $true
+}
+
+Get-ChildItem -LiteralPath $executableRootPath -Filter "avascope-*-framework-dependent.zip" -File | ForEach-Object {
+    if (-not $expectedExecutableZipNames.ContainsKey($_.Name)) {
+        throw "Unexpected executable ZIP artifact is not covered by the manifest: $($_.FullName)"
+    }
+}
 
 $artifacts = foreach ($artifact in $requiredArtifacts) {
     if (-not (Test-Path -LiteralPath $artifact.Path -PathType Leaf)) {

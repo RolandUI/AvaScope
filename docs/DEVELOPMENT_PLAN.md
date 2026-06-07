@@ -23,15 +23,15 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `M24 Cross-platform Framework-dependent Artifact Slice`
+- `M25 Runtime Focus And Keyboard Input Slice`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-07`
-- Goal: extend executable artifacts beyond the initial Windows-only ZIP while preserving co-located CLI/MCP/PreviewHost behavior.
+- Goal: add explicit runtime focus targeting and basic keyboard key input support.
 
 ## Next Action
 
-Extend executable packaging toward explicit runtime identifiers and framework-dependent ZIP outputs, starting from the current Windows artifact without introducing publishing credentials.
+Verify the relevant Avalonia 12 focus and keyboard input APIs from official/current sources, then add the smallest local-only focus/key input vertical slice.
 
 ## Latest Validation
 
@@ -174,6 +174,13 @@ Extend executable packaging toward explicit runtime identifiers and framework-de
 - `2026-06-07`: Manifest inspection confirmed artifact names, relative paths, byte sizes, and SHA-256 hashes for the three NuGet packages and executable ZIP.
 - `2026-06-07`: `git check-ignore -v artifacts\release-manifest.json artifacts\packages\AvaScope.Protocol.0.1.0.nupkg artifacts\executables\avascope-win-framework-dependent.zip` confirmed verification output and artifacts are ignored.
 - `2026-06-07`: `dotnet test AvaScope.slnx -c Release --no-build` passed with 101 tests after M23 artifact verification workflow update.
+- `2026-06-07`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\package-executables.ps1` created `avascope-win-x64-framework-dependent.zip` and `avascope-linux-x64-framework-dependent.zip`.
+- `2026-06-07`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\verify-artifacts.ps1` verified 5 release artifacts after M24 RID-based executable packaging.
+- `2026-06-07`: ZIP inspection confirmed the Windows artifact contains `.exe` apphosts and the Linux artifact contains extensionless apphosts, with `AvaScope.Core.dll` and `AvaScope.Protocol.dll` co-located in both.
+- `2026-06-07`: Windows RID artifact smoke validation passed: `dotnet artifacts\executables\avascope-win-x64-framework-dependent\avascope.dll` returned structured `invalid_cli_arguments` with exit code 2, and `dotnet artifacts\executables\avascope-win-x64-framework-dependent\avascope.dll mcp --help` started and shut down the co-located MCP server with exit code 0.
+- `2026-06-07`: `dotnet build AvaScope.slnx -c Release` passed with 0 warnings and 0 errors after M24 RID-based executable packaging.
+- `2026-06-07`: `git check-ignore -v artifacts\release-manifest.json artifacts\executables\avascope-win-x64-framework-dependent.zip artifacts\executables\avascope-linux-x64-framework-dependent.zip` confirmed RID executable artifacts and manifest are ignored.
+- `2026-06-07`: `dotnet test AvaScope.slnx -c Release --no-build` passed with 101 tests after M24 packaging update.
 
 ## Milestones
 
@@ -661,13 +668,16 @@ Extend executable packaging toward explicit runtime identifiers and framework-de
 
 ### M24 Cross-platform Framework-dependent Artifact Slice
 
-- Status: `In Progress`
+- Status: `Done`
 - Goal: extend executable artifacts beyond the initial Windows-only ZIP while preserving co-located CLI/MCP/PreviewHost behavior.
 - Deliverables: explicit RID/artifact strategy, script support for named framework-dependent runtime outputs, CI/local validation update, docs/tracking update.
 - Progress:
-  - Pending: update executable packaging to use explicit runtime identifiers and artifact names instead of a single hard-coded Windows output.
-  - Pending: validate at least the Windows framework-dependent RID artifact locally.
-  - Pending: evaluate cross-RID framework-dependent publish for Linux/macOS on the current CI runner without introducing self-contained runtime bundling.
+  - Done: updated `eng/package-executables.ps1` to accept `RuntimeIdentifiers` and default to `win-x64` plus `linux-x64`.
+  - Done: executable artifact names now include the RID: `avascope-<rid>-framework-dependent.zip`.
+  - Done: packaging validates per-RID apphost names, co-located MCP/PreviewHost/Core/Protocol assemblies, and removes stale AvaScope executable ZIP outputs before producing the current set.
+  - Done: updated `eng/verify-artifacts.ps1` to verify RID ZIPs and fail on unexpected AvaScope package/ZIP artifacts not covered by the manifest.
+  - Done: CI and README use the RID-aware package and verify commands.
+  - Done: validated Windows RID smoke behavior locally and verified Linux RID ZIP structure from the Windows runner environment.
 - Acceptance Criteria:
   - Executable artifact naming includes target runtime/platform information.
   - Co-located `avascope`, `AvaScope.Mcp`, `AvaScope.PreviewHost`, `AvaScope.Core`, and `AvaScope.Protocol` validation still runs for each produced executable artifact.
@@ -675,9 +685,34 @@ Extend executable packaging toward explicit runtime identifiers and framework-de
   - README and CI remain aligned with the local command path.
 - Validation:
   - `dotnet build AvaScope.slnx -c Release`
-  - executable packaging command(s)
-  - artifact verification command(s)
+  - `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\package-executables.ps1`
+  - `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\verify-artifacts.ps1`
   - artifact inspection
+  - Windows RID artifact smoke run for `avascope` and `avascope mcp`
+  - `dotnet test AvaScope.slnx -c Release --no-build`
+  - `git status --short`
+
+### M25 Runtime Focus And Keyboard Input Slice
+
+- Status: `In Progress`
+- Goal: add explicit runtime focus targeting and basic keyboard key input support.
+- Deliverables: protocol input actions for focus and key press/release or key tap, bridge implementation on `Dispatcher.UIThread`, MCP/Core path, focused tests, docs/tracking update.
+- Progress:
+  - Pending: verify Avalonia 12 public focus and keyboard event APIs from current official sources before implementation.
+  - Pending: add a local-only focus-targeting input action so agents can choose the active control before text/key input.
+  - Pending: add the smallest keyboard key input action with structured unsupported diagnostics where generic injection is not safe.
+- Acceptance Criteria:
+  - Runtime bridge can focus a target node by stable node id or hit-tested coordinates through a local-only input request.
+  - Basic keyboard key input is exposed through Protocol/Core/MCP without private Avalonia hooks.
+  - Unsupported or invalid targets return structured diagnostics.
+  - Focus/key behavior is covered by headless bridge tests or an explicit API limitation note.
+- Validation:
+  - official Avalonia 12 API/source check for focus and keyboard input APIs
+  - `dotnet build AvaScope.slnx`
+  - `dotnet test AvaScope.slnx --no-build --filter Protocol`
+  - `dotnet test AvaScope.slnx --no-build --filter Core`
+  - `dotnet test AvaScope.slnx --no-build --filter Bridge`
+  - `dotnet test AvaScope.slnx --no-build --filter Mcp`
   - `git status --short`
   - `git status --short`
 
@@ -743,6 +778,9 @@ Extend executable packaging toward explicit runtime identifiers and framework-de
 - `2026-06-07`: M23 targets artifact hardening next because local packages and executable ZIPs now exist, but agents still need deterministic checksum/manifest output before broader release automation.
 - `2026-06-07`: M23 keeps the artifact manifest under ignored `artifacts/` output rather than committing it because package ZIP hashes and sizes are generated validation evidence, not stable source metadata.
 - `2026-06-07`: The next executable distribution step is RID-based framework-dependent ZIPs before self-contained ZIPs or a `dotnet tool`; this preserves CLI/MCP/PreviewHost co-location while avoiding runtime bundling size and feed publishing decisions.
+- `2026-06-07`: M24 defaults executable packages to `win-x64` and `linux-x64`; macOS artifacts stay deferred until there is an explicit validation surface for macOS apphost behavior, signing, and notarization expectations.
+- `2026-06-07`: RID-based executable packaging does not use the CI `-NoBuild` path because runtime-specific publish requires runtime-specific restore/build assets that are not produced by the generic solution build.
+- `2026-06-07`: M25 returns to the input coverage gap after packaging hardening because focus targeting and keyboard keys are necessary for useful runtime automation beyond mouse and TextBox text insertion.
 
 ## Change Log
 
@@ -780,3 +818,4 @@ Extend executable packaging toward explicit runtime identifiers and framework-de
 - `2026-06-07`: Completed M21 CI validation with GitHub Actions restore/build/test/pack workflow, README/gap updates, and local command validation; added M22 executable packaging as the active focus.
 - `2026-06-07`: Completed M22 executable packaging with a validated Windows framework-dependent ZIP containing CLI, MCP, PreviewHost, Core, and Protocol artifacts; added M23 release artifact hardening as the active focus.
 - `2026-06-07`: Completed M23 release artifact hardening with an ignored JSON manifest containing artifact sizes and SHA-256 hashes, CI verification, README updates, and release distribution decision logging; added M24 cross-platform framework-dependent artifacts as the active focus.
+- `2026-06-07`: Completed M24 cross-platform framework-dependent artifacts with RID-aware win-x64/linux-x64 ZIP packaging, manifest coverage enforcement, CI/README updates, artifact smoke validation, and full Release test validation; added M25 runtime focus and keyboard input as the active focus.

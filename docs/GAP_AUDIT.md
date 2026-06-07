@@ -44,34 +44,34 @@ Next slice: continue with persistent preview-session foundation before broader r
 
 ### Input Coverage
 
-Status: pointer press/release slice complete; broader keyboard and targeting work remains open.
+Status: pointer press/release slice complete; focus targeting and broader keyboard work remain open.
 
 Input support is intentionally narrow: routed pointer move, routed pointer press/release, Button click, and focused TextBox text. Keyboard key events, focus targeting, drag/drop, and richer pointer button variants are not implemented.
 
-Next slice: defer broader input until runtime reload semantics and packaging/CI basics are clarified.
+Next slice: add runtime focus targeting and the smallest safe keyboard key input path.
 
 ## P2 Gaps
 
 ### Packaging And Release
 
-Status: first library package metadata slice, first executable ZIP packaging slice, and artifact verification manifest slice complete; broader release workflow remains open.
+Status: first library package metadata slice, RID-based executable ZIP packaging slice, and artifact verification manifest slice complete; broader release workflow remains open.
 
 `AvaScope.Protocol`, `AvaScope.Core`, and `AvaScope.Bridge` now have package ids, version metadata, descriptions, tags, repository metadata, README inclusion, and local `dotnet pack` validation into ignored `artifacts/packages`. `AvaScope.Mcp`, `AvaScope.Cli`, and `AvaScope.PreviewHost` are explicitly marked not packable in this slice.
 
-Executable distribution now uses `eng/package-executables.ps1` to publish `AvaScope.Cli` into `artifacts/executables/avascope` and create `artifacts/executables/avascope-win-framework-dependent.zip`. The artifact keeps `avascope`, `AvaScope.Mcp`, `AvaScope.PreviewHost`, `AvaScope.Core`, and `AvaScope.Protocol` co-located, stays under ignored local output, and does not require publishing credentials.
+Executable distribution now uses `eng/package-executables.ps1` to publish `AvaScope.Cli` into RID-specific framework-dependent output directories and create artifacts such as `artifacts/executables/avascope-win-x64-framework-dependent.zip` and `artifacts/executables/avascope-linux-x64-framework-dependent.zip`. Each artifact keeps `avascope`, `AvaScope.Mcp`, `AvaScope.PreviewHost`, `AvaScope.Core`, and `AvaScope.Protocol` co-located, stays under ignored local output, and does not require publishing credentials.
 
-Artifact verification now uses `eng/verify-artifacts.ps1` to write ignored `artifacts/release-manifest.json` output with artifact kind, name, relative path, byte size, and SHA-256 hash for the three NuGet packages and executable ZIP.
+Artifact verification now uses `eng/verify-artifacts.ps1` to write ignored `artifacts/release-manifest.json` output with artifact kind, name, relative path, byte size, and SHA-256 hash for the three NuGet packages and executable ZIP artifacts. Verification fails when unexpected AvaScope package or executable ZIP artifacts are present outside the manifest-covered set.
 
-Next slice: add explicit RID-based framework-dependent executable artifacts before broader release automation.
+Next slice: defer self-contained packages, macOS artifact policy, and publishing automation until more product gaps are closed.
 
 ### CI Workflow
 
 Status: first CI validation slice complete.
 
-GitHub Actions now validates restore, Release build, Release tests, local library package creation, local executable ZIP package creation, and artifact manifest verification on push and pull request without publishing packages or requiring secrets.
+GitHub Actions now validates restore, Release build, Release tests, local library package creation, RID-based local executable ZIP package creation, and artifact manifest verification on push and pull request without publishing packages or requiring secrets.
 
-Next slice: cross-platform/RID artifact validation remains open.
+Next slice: CI can later add publish/upload artifacts, self-contained outputs, or more RIDs when release policy is ready.
 
 ## Selected Next Slice
 
-Add cross-platform framework-dependent executable artifact support next. Library packages, executable ZIP packaging, artifact manifest verification, and CI validation are now in place.
+Add runtime focus and keyboard input next. Packaging, executable ZIPs, artifact manifest verification, and CI validation are now stable enough to return to runtime automation gaps.

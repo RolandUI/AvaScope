@@ -52,7 +52,7 @@ jobs:
       - name: Package executables
         shell: pwsh
         run: |
-          powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\package-executables.ps1 -NoBuild
+          powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\package-executables.ps1
           Get-ChildItem artifacts\executables
 
       - name: Verify artifacts
