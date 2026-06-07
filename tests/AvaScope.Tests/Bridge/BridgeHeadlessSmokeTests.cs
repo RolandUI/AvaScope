@@ -3,6 +3,7 @@ using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Themes.Fluent;
 using Avalonia.Threading;
 using AvaScope.Bridge;
@@ -257,6 +258,8 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
         {
             var clicked = 0;
             var pointerMoved = 0;
+            var pointerPressed = 0;
+            var pointerReleased = 0;
             var button = new Button
             {
                 Name = "ClickTarget",
@@ -266,6 +269,16 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
             };
             button.Click += (_, _) => clicked++;
             button.PointerMoved += (_, _) => pointerMoved++;
+            button.AddHandler(InputElement.PointerPressedEvent, (_, e) =>
+            {
+                pointerPressed++;
+                Assert.True(e.GetCurrentPoint(button).Properties.IsLeftButtonPressed);
+            }, RoutingStrategies.Bubble, handledEventsToo: true);
+            button.AddHandler(InputElement.PointerReleasedEvent, (_, e) =>
+            {
+                pointerReleased++;
+                Assert.Equal(MouseButton.Left, e.InitialPressMouseButton);
+            }, RoutingStrategies.Bubble, handledEventsToo: true);
 
             var textBox = new TextBox
             {
@@ -313,6 +326,32 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
             Assert.True(move.Value!.Handled);
             Assert.False(string.IsNullOrWhiteSpace(move.Value.TargetNodeId));
             Assert.Equal(1, pointerMoved);
+
+            var down = await AvaScopeMcpTools.Input(
+                client,
+                runtime.SessionId.Value,
+                topLevel.Id,
+                InputActions.PointerDown,
+                buttonCenter.Value.X,
+                buttonCenter.Value.Y);
+
+            Assert.True(down.Success, down.Error?.Message);
+            Assert.True(down.Value!.Handled);
+            Assert.False(string.IsNullOrWhiteSpace(down.Value.TargetNodeId));
+            Assert.Equal(1, pointerPressed);
+
+            var up = await AvaScopeMcpTools.Input(
+                client,
+                runtime.SessionId.Value,
+                topLevel.Id,
+                InputActions.PointerUp,
+                buttonCenter.Value.X,
+                buttonCenter.Value.Y);
+
+            Assert.True(up.Success, up.Error?.Message);
+            Assert.True(up.Value!.Handled);
+            Assert.False(string.IsNullOrWhiteSpace(up.Value.TargetNodeId));
+            Assert.Equal(1, pointerReleased);
 
             var click = await AvaScopeMcpTools.Input(
                 client,

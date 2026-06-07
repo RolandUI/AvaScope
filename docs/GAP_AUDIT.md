@@ -30,7 +30,7 @@ Status: preview-session reload MVP complete; runtime bridge reload and live hot 
 
 `reload` is listed in the intended MCP tool shape. Preview sessions now persist the original request plus latest render result as Core metadata, and MCP `reload` re-renders an existing preview session through the isolated preview host. User code still runs only in one-shot preview host child processes. Runtime bridge reload and live hot preview sessions are not implemented yet.
 
-Next slice: keep reload scoped to preview sessions until runtime bridge lifecycle semantics are designed.
+Next slice: generalize or explicitly split the reload contract so runtime bridge reload behavior is defined without claiming app hot reload.
 
 ### Preview Resource Scope
 
@@ -44,9 +44,11 @@ Next slice: continue with persistent preview-session foundation before broader r
 
 ### Input Coverage
 
-Input support is intentionally narrow: routed pointer move, Button click, and focused TextBox text. Generic pointer press/release, keyboard key events, focus targeting, and drag/drop are not implemented.
+Status: pointer press/release slice complete; broader keyboard and targeting work remains open.
 
-Next slice: add pointer press/release as the next focused runtime input primitive pair with headless validation.
+Input support is intentionally narrow: routed pointer move, routed pointer press/release, Button click, and focused TextBox text. Keyboard key events, focus targeting, drag/drop, and richer pointer button variants are not implemented.
+
+Next slice: defer broader input until runtime reload semantics and packaging/CI basics are clarified.
 
 ## P2 Gaps
 
@@ -64,4 +66,4 @@ Next slice: add CI only after the local validation path is stable enough to avoi
 
 ## Selected Next Slice
 
-Implement pointer press/release next. Preview-session reload MVP is complete; input coverage is now the highest-priority remaining P1 functional gap for runtime automation.
+Define the runtime `reload` contract next. Preview-session reload and pointer press/release are complete; the remaining `reload` ambiguity is now the highest-priority P1 workflow gap.

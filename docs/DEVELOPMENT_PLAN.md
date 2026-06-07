@@ -23,15 +23,15 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `M18 Input Press/Release Slice`
+- `M19 Runtime Reload Contract Slice`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-07`
-- Goal: expand runtime input coverage with pointer press/release primitives while preserving local-only safety.
+- Goal: define and implement the next safe reload behavior for runtime bridge sessions without claiming app hot reload.
 
 ## Next Action
 
-Verify the current Avalonia 12 routed pointer event APIs, then add `pointer_down` and `pointer_up` input actions through the existing bridge/Core/MCP input path with headless validation.
+Audit the current MCP/Core `reload` response shape, then decide whether to generalize the protocol response or split preview/runtime reload behavior before implementing a local-only runtime reload slice.
 
 ## Latest Validation
 
@@ -137,6 +137,12 @@ Verify the current Avalonia 12 routed pointer event APIs, then add `pointer_down
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter Core` passed with 32 tests.
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter Mcp` passed with 26 tests.
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 97 tests.
+- `2026-06-07`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after M18 pointer press/release input.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter Protocol` passed with 24 tests.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter Core` passed with 32 tests.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter Bridge` passed with 33 tests.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter Mcp` passed with 26 tests.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build` first hit a transient PreviewHost temp-directory cleanup lock, then passed on immediate rerun with 98 tests.
 
 ## Milestones
 
@@ -482,18 +488,42 @@ Verify the current Avalonia 12 routed pointer event APIs, then add `pointer_down
 
 ### M18 Input Press/Release Slice
 
-- Status: `In Progress`
+- Status: `Done`
 - Goal: add one focused runtime input primitive pair beyond move/click/text.
 - Deliverables: protocol input action constants, bridge routed pointer press/release handling, Core/MCP path reuse, headless tests.
 - Progress:
-  - Pending: verify Avalonia 12 public routed pointer press/release event construction.
-  - Pending: add `pointer_down` and `pointer_up` actions with explicit coordinate validation.
-  - Pending: validate handled/unhandled and unsupported-target behavior in headless tests.
+  - Done: verified Avalonia 12.0.4 public routed pointer press/release event construction against the official API/source shape.
+  - Done: added stable `pointer_down` and `pointer_up` input action constants.
+  - Done: bridge input raises `PointerPressedEventArgs` and `PointerReleasedEventArgs` on hit-tested `InputElement` targets with explicit coordinate validation.
+  - Done: pointer release reuses the active pointer created by pointer down when available.
+  - Done: headless MCP/Core/named-pipe validation covers pointer press/release and preserves existing move/click/text behavior.
 - Acceptance Criteria:
   - Input remains local-only through an active bridge session.
   - Pointer press/release execute on the UI thread and target hit-tested input elements.
   - Unsupported or invalid input returns structured diagnostics.
   - Existing `click`, `pointer_move`, and `key_text` behavior remains compatible.
+- Validation:
+  - `dotnet build AvaScope.slnx`
+  - `dotnet test AvaScope.slnx --no-build --filter Protocol`
+  - `dotnet test AvaScope.slnx --no-build --filter Core`
+  - `dotnet test AvaScope.slnx --no-build --filter Bridge`
+  - `dotnet test AvaScope.slnx --no-build --filter Mcp`
+  - `dotnet test AvaScope.slnx --no-build`
+
+### M19 Runtime Reload Contract Slice
+
+- Status: `In Progress`
+- Goal: make runtime reload semantics explicit and safe now that preview reload has a working MVP.
+- Deliverables: reload protocol decision, Core/MCP behavior for runtime sessions, tests, README/tracking updates.
+- Progress:
+  - Pending: audit current `reload` response shape and preview-session coupling.
+  - Pending: choose whether runtime reload shares a generalized response or becomes an explicitly separate operation.
+  - Pending: implement the smallest local-only behavior that can be validated against an active bridge session.
+- Acceptance Criteria:
+  - Runtime reload must not inject code, restart the user app, or claim hot reload.
+  - Preview reload behavior remains compatible and covered.
+  - Runtime reload checks an active local bridge session and returns structured success or structured unsupported/unavailable diagnostics.
+  - MCP remains a thin adapter over Core/protocol behavior.
 - Validation:
   - `dotnet build AvaScope.slnx`
   - `dotnet test AvaScope.slnx --no-build --filter Protocol`
@@ -550,6 +580,8 @@ Verify the current Avalonia 12 routed pointer event APIs, then add `pointer_down
 - `2026-06-07`: M17 will implement reload only for preview sessions first; runtime bridge reload remains separate because it needs different lifecycle and safety semantics.
 - `2026-06-07`: M17 preview reload re-renders stored preview requests through the same isolated preview host path and deliberately does not implement runtime bridge reload.
 - `2026-06-07`: M18 targets pointer press/release before packaging/CI because input coverage remains a P1 functional gap in the runtime automation workflow.
+- `2026-06-07`: M18 pointer press/release uses public Avalonia 12.0.4 routed pointer event args and `PointerPointProperties` update kinds rather than raw platform input injection.
+- `2026-06-07`: M19 targets the runtime reload contract next because `reload` is now implemented for preview sessions but still has preview-specific response semantics.
 
 ## Change Log
 
@@ -581,3 +613,4 @@ Verify the current Avalonia 12 routed pointer event APIs, then add `pointer_down
 - `2026-06-07`: Completed M15 preview diagnostics expansion with preview-host readiness diagnostics, MCP diagnostics composition, build-server isolation hardening, README updates, and full-suite validation; added M16 preview reload foundation as the active focus.
 - `2026-06-07`: Completed M16 preview reload foundation with preview session metadata, Core create/list/close lifecycle, MCP preview session tools, README updates, and full-suite validation; added M17 preview reload MVP as the active focus.
 - `2026-06-07`: Completed M17 preview reload MVP with Core preview session re-rendering, MCP `reload`, session state recovery/failure handling, README updates, and full-suite validation; added M18 input press/release slice as the active focus.
+- `2026-06-07`: Completed M18 input press/release with stable action constants, Avalonia routed pointer press/release events, active pointer reuse, headless bridge validation, README/gap updates, and full-suite validation; added M19 runtime reload contract as the active focus.

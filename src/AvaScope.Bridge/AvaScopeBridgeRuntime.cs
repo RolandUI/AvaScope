@@ -22,6 +22,7 @@ public sealed class AvaScopeBridgeRuntime
     private const int MaximumTreeDepth = 64;
     private const int MaximumFindResultLimit = 1000;
     private readonly ConcurrentDictionary<int, WeakReference<TopLevel>> _registeredTopLevels = new();
+    private readonly ConcurrentDictionary<string, Pointer> _activePointers = new(StringComparer.Ordinal);
     private readonly SessionRegistry _sessionRegistry;
     private LocalBridgeServer? _localServer;
 
@@ -476,6 +477,8 @@ public sealed class AvaScopeBridgeRuntime
         return action switch
         {
             InputActions.PointerMove => PointerMove(topLevel, topLevelId, x, y),
+            InputActions.PointerDown => PointerButton(topLevel, topLevelId, x, y, InputActions.PointerDown, isPressed: true),
+            InputActions.PointerUp => PointerButton(topLevel, topLevelId, x, y, InputActions.PointerUp, isPressed: false),
             InputActions.Click => Click(topLevel, topLevelId, x, y),
             InputActions.KeyText => KeyText(topLevel, topLevelId, inputText),
             _ => CoreResult<InputResponse>.Fail(new CoreError(
@@ -525,6 +528,80 @@ public sealed class AvaScopeBridgeRuntime
             SessionId,
             topLevelId,
             InputActions.PointerMove,
+            handled: true,
+            DateTimeOffset.UtcNow,
+            CreateNodeId(inputTarget, TreeKinds.Visual)));
+    }
+
+    private CoreResult<InputResponse> PointerButton(
+        TopLevel topLevel,
+        string topLevelId,
+        double? x,
+        double? y,
+        string action,
+        bool isPressed)
+    {
+        var point = GetInputPoint(x, y);
+        if (!point.Success)
+        {
+            return CoreResult<InputResponse>.Fail(point.Error!);
+        }
+
+        var target = topLevel.GetVisualAt(point.Value);
+        if (target is null)
+        {
+            return CoreResult<InputResponse>.Ok(new InputResponse(
+                SessionId,
+                topLevelId,
+                action,
+                handled: false,
+                DateTimeOffset.UtcNow));
+        }
+
+        var inputTarget = target as InputElement ?? target.FindAncestorOfType<InputElement>();
+        if (inputTarget is null)
+        {
+            return CoreResult<InputResponse>.Fail(new CoreError(
+                BridgeErrorCodes.UnsupportedInputAction,
+                "Pointer button target is not an input element."));
+        }
+
+        if (isPressed)
+        {
+            var pointer = new Pointer(Pointer.GetNextFreeId(), PointerType.Mouse, isPrimary: true);
+            _activePointers[topLevelId] = pointer;
+
+            inputTarget.RaiseEvent(new PointerPressedEventArgs(
+                inputTarget,
+                pointer,
+                topLevel,
+                point.Value,
+                (ulong)Environment.TickCount64,
+                new PointerPointProperties(RawInputModifiers.LeftMouseButton, PointerUpdateKind.LeftButtonPressed),
+                KeyModifiers.None));
+        }
+        else
+        {
+            if (!_activePointers.TryRemove(topLevelId, out var pointer))
+            {
+                pointer = new Pointer(Pointer.GetNextFreeId(), PointerType.Mouse, isPrimary: true);
+            }
+
+            inputTarget.RaiseEvent(new PointerReleasedEventArgs(
+                inputTarget,
+                pointer,
+                topLevel,
+                point.Value,
+                (ulong)Environment.TickCount64,
+                new PointerPointProperties(RawInputModifiers.None, PointerUpdateKind.LeftButtonReleased),
+                KeyModifiers.None,
+                MouseButton.Left));
+        }
+
+        return CoreResult<InputResponse>.Ok(new InputResponse(
+            SessionId,
+            topLevelId,
+            action,
             handled: true,
             DateTimeOffset.UtcNow,
             CreateNodeId(inputTarget, TreeKinds.Visual)));

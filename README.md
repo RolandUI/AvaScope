@@ -85,7 +85,7 @@ Implemented tools:
 - `close_preview_session`
 - `reload`
 
-Planned but not implemented yet: runtime bridge reload and broader input primitives.
+Planned but not implemented yet: runtime bridge reload and broader input primitives such as keyboard key events, focus targeting, and drag/drop.
 
 `diagnostics` reports AvaScope service metadata, local bridge manifest/pipe health, stale or invalid bridge manifests, and preview host readiness without building or loading user projects.
 
@@ -105,6 +105,7 @@ The bridge currently uses local session manifests and local named pipes. It does
 Runtime input support is intentionally narrow:
 
 - `pointer_move` raises a routed Avalonia `PointerMovedEvent` on the hit-tested input target.
+- `pointer_down` and `pointer_up` raise routed Avalonia pointer press/release events on the hit-tested input target.
 - `click` supports Button targets in the current MVP.
 - `key_text` requires a focused `TextBox`.
 

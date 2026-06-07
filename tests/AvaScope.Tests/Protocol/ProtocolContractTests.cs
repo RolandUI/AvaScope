@@ -382,6 +382,16 @@ public sealed class ProtocolContractTests
     }
 
     [Fact]
+    public void InputActionConstantsRemainStable()
+    {
+        Assert.Equal("pointer_move", InputActions.PointerMove);
+        Assert.Equal("pointer_down", InputActions.PointerDown);
+        Assert.Equal("pointer_up", InputActions.PointerUp);
+        Assert.Equal("click", InputActions.Click);
+        Assert.Equal("key_text", InputActions.KeyText);
+    }
+
+    [Fact]
     public void PreviewRequestSerializesStableShape()
     {
         var request = new PreviewRequest(
