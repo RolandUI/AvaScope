@@ -54,20 +54,22 @@ Next slice: defer broader input until runtime reload semantics and packaging/CI 
 
 ### Packaging And Release
 
-Status: first library package metadata slice complete; executable/tool packaging and release workflow remain open.
+Status: first library package metadata slice and first executable ZIP packaging slice complete; broader release workflow remains open.
 
 `AvaScope.Protocol`, `AvaScope.Core`, and `AvaScope.Bridge` now have package ids, version metadata, descriptions, tags, repository metadata, README inclusion, and local `dotnet pack` validation into ignored `artifacts/packages`. `AvaScope.Mcp`, `AvaScope.Cli`, and `AvaScope.PreviewHost` are explicitly marked not packable in this slice.
 
-Next slice: add CI validation before broader release automation.
+Executable distribution now uses `eng/package-executables.ps1` to publish `AvaScope.Cli` into `artifacts/executables/avascope` and create `artifacts/executables/avascope-win-framework-dependent.zip`. The artifact keeps `avascope`, `AvaScope.Mcp`, `AvaScope.PreviewHost`, `AvaScope.Core`, and `AvaScope.Protocol` co-located, stays under ignored local output, and does not require publishing credentials.
+
+Next slice: add deterministic artifact verification metadata before broader release automation.
 
 ### CI Workflow
 
 Status: first CI validation slice complete.
 
-GitHub Actions now validates restore, Release build, Release tests, and local library package creation on push and pull request without publishing packages or requiring secrets.
+GitHub Actions now validates restore, Release build, Release tests, local library package creation, and local executable ZIP package creation on push and pull request without publishing packages or requiring secrets.
 
-Next slice: executable/tool packaging for `avascope`, MCP, and preview host remains open.
+Next slice: artifact checksum/manifest validation remains open.
 
 ## Selected Next Slice
 
-Add executable/tool packaging next. Library package metadata and CI validation are now in place.
+Add release artifact hardening next. Library packages, executable ZIP packaging, and CI validation are now in place.

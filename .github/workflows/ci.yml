@@ -48,3 +48,9 @@ jobs:
           dotnet pack src\AvaScope.Core\AvaScope.Core.csproj -c Release --no-build --output artifacts\packages
           dotnet pack src\AvaScope.Bridge\AvaScope.Bridge.csproj -c Release --no-build --output artifacts\packages
           Get-ChildItem artifacts\packages
+
+      - name: Package executables
+        shell: pwsh
+        run: |
+          powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\package-executables.ps1 -NoBuild
+          Get-ChildItem artifacts\executables

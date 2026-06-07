@@ -23,15 +23,15 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `M22 Executable Packaging Slice`
+- `M23 Release Artifact Hardening Slice`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-07`
-- Goal: define local packaging for executable AvaScope artifacts without publishing.
+- Goal: harden local release artifacts with explicit verification metadata and follow-up release decisions.
 
 ## Next Action
 
-Audit CLI, MCP, and PreviewHost release artifact shape, then add the smallest local executable packaging path that keeps bridge/library packages separate from tool distribution.
+Add deterministic artifact manifest or checksum output for local packages/executable ZIP, then keep CI and README validation aligned.
 
 ## Latest Validation
 
@@ -161,6 +161,12 @@ Audit CLI, MCP, and PreviewHost release artifact shape, then add the smallest lo
 - `2026-06-07`: `dotnet build AvaScope.slnx -c Release --no-restore` passed with 0 warnings and 0 errors after M21 CI workflow addition.
 - `2026-06-07`: `dotnet test AvaScope.slnx -c Release --no-build` passed with 101 tests.
 - `2026-06-07`: CI pack command sequence created `AvaScope.Protocol.0.1.0.nupkg`, `AvaScope.Core.0.1.0.nupkg`, and `AvaScope.Bridge.0.1.0.nupkg`.
+- `2026-06-07`: `dotnet build AvaScope.slnx -c Release` passed with 0 warnings and 0 errors after M22 executable packaging script addition.
+- `2026-06-07`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\package-executables.ps1 -NoBuild` created `artifacts\executables\avascope-win-framework-dependent.zip`.
+- `2026-06-07`: Artifact inspection confirmed the executable ZIP contains `avascope`, `AvaScope.Mcp`, `AvaScope.PreviewHost`, `AvaScope.Core`, and `AvaScope.Protocol` co-located.
+- `2026-06-07`: Artifact smoke validation passed: `dotnet artifacts\executables\avascope\avascope.dll` returned structured `invalid_cli_arguments` with exit code 2, and `dotnet artifacts\executables\avascope\avascope.dll mcp --help` started and shut down the co-located MCP server with exit code 0.
+- `2026-06-07`: `git check-ignore -v artifacts\executables\avascope-win-framework-dependent.zip` confirmed executable artifacts are ignored by `.gitignore`.
+- `2026-06-07`: `dotnet test AvaScope.slnx -c Release --no-build` passed with 101 tests after M22 executable packaging validation.
 
 ## Milestones
 
@@ -598,13 +604,15 @@ Audit CLI, MCP, and PreviewHost release artifact shape, then add the smallest lo
 
 ### M22 Executable Packaging Slice
 
-- Status: `In Progress`
+- Status: `Done`
 - Goal: define repeatable local artifacts for the `avascope` CLI, MCP server, and preview host without publishing.
 - Deliverables: executable artifact decision, local publish/package command(s), docs/tracking updates, validation.
 - Progress:
-  - Pending: audit whether `avascope` should first ship as a local `dotnet tool`, a zipped publish directory, or both.
-  - Pending: keep MCP and PreviewHost co-location requirements explicit.
-  - Pending: validate generated executable artifacts stay in ignored local output.
+  - Done: selected a Windows framework-dependent zipped publish directory as the first executable artifact instead of a `dotnet tool`.
+  - Done: added `eng/package-executables.ps1` to publish `AvaScope.Cli` into `artifacts\executables\avascope` and validate co-located CLI/MCP/PreviewHost/Core/Protocol files.
+  - Done: added CI executable packaging validation without publishing credentials.
+  - Done: documented local executable package validation and artifact shape in `README.md`.
+  - Done: validated generated executable artifacts stay under ignored `artifacts/` output.
 - Acceptance Criteria:
   - CLI/MCP/PreviewHost release artifact shape is explicit and documented.
   - Local artifact generation works without publishing credentials.
@@ -612,8 +620,30 @@ Audit CLI, MCP, and PreviewHost release artifact shape, then add the smallest lo
   - Existing library package workflow remains compatible.
 - Validation:
   - `dotnet build AvaScope.slnx -c Release`
-  - executable packaging command(s)
+  - `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\package-executables.ps1 -NoBuild`
   - artifact inspection
+  - artifact smoke run for `avascope` and `avascope mcp`
+  - `git status --short`
+
+### M23 Release Artifact Hardening Slice
+
+- Status: `In Progress`
+- Goal: make local release artifacts easier for agents to verify, compare, and hand off.
+- Deliverables: artifact manifest or checksum output, documented verification command, CI/local validation alignment, next release-distribution decision.
+- Progress:
+  - Pending: add deterministic verification metadata for local NuGet packages and executable ZIP artifacts.
+  - Pending: decide whether the next executable distribution step should be cross-platform framework-dependent ZIPs, self-contained ZIPs, or a local/global `dotnet tool`.
+  - Pending: keep artifact verification output ignored unless it is intentionally committed as release metadata.
+- Acceptance Criteria:
+  - Local package and executable artifacts have a repeatable verification command.
+  - Verification output identifies artifact name, size, and checksum or equivalent integrity data.
+  - README and CI describe/run the verification path.
+  - Follow-up release distribution choice is recorded in the Decision Log.
+- Validation:
+  - `dotnet build AvaScope.slnx -c Release`
+  - local library package command(s)
+  - executable packaging command(s)
+  - artifact verification command(s)
   - `git status --short`
 
 ## Decision Log
@@ -673,6 +703,9 @@ Audit CLI, MCP, and PreviewHost release artifact shape, then add the smallest lo
 - `2026-06-07`: M21 targets CI before publishing or installer work because local build/test/pack validation is now stable enough to automate without credentials.
 - `2026-06-07`: M21 uses Windows CI first because current bridge and PreviewHost smoke coverage has been validated on Windows with named-pipe and headless Avalonia behavior.
 - `2026-06-07`: M22 targets executable packaging after CI because library packages are now validated but `avascope` executable distribution is still undefined.
+- `2026-06-07`: M22 uses a Windows framework-dependent zipped publish directory first because it preserves `avascope`, `AvaScope.Mcp`, and `AvaScope.PreviewHost` co-location without creating a feed-published tool package or requiring publishing credentials.
+- `2026-06-07`: The documented executable package command uses `powershell -NoProfile -ExecutionPolicy Bypass -File` because local Windows execution policy may block direct `.ps1` invocation and the repository should not require a global machine policy change.
+- `2026-06-07`: M23 targets artifact hardening next because local packages and executable ZIPs now exist, but agents still need deterministic checksum/manifest output before broader release automation.
 
 ## Change Log
 
@@ -708,3 +741,4 @@ Audit CLI, MCP, and PreviewHost release artifact shape, then add the smallest lo
 - `2026-06-07`: Completed M19 runtime reload contract with preview-compatible reload responses, explicit active-runtime unsupported diagnostics, PreviewHost cleanup hardening, README/gap updates, and full-suite validation; added M20 packaging metadata as the active focus.
 - `2026-06-07`: Completed M20 packaging metadata with local library packages for Protocol/Core/Bridge, explicit non-packable executable projects, ignored package artifacts, README updates, and local pack validation; added M21 CI validation as the active focus.
 - `2026-06-07`: Completed M21 CI validation with GitHub Actions restore/build/test/pack workflow, README/gap updates, and local command validation; added M22 executable packaging as the active focus.
+- `2026-06-07`: Completed M22 executable packaging with a validated Windows framework-dependent ZIP containing CLI, MCP, PreviewHost, Core, and Protocol artifacts; added M23 release artifact hardening as the active focus.

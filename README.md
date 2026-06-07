@@ -51,9 +51,18 @@ dotnet pack .\src\AvaScope.Core\AvaScope.Core.csproj -c Release --no-build --out
 dotnet pack .\src\AvaScope.Bridge\AvaScope.Bridge.csproj -c Release --no-build --output .\artifacts\packages
 ```
 
-The first package slice produces local NuGet packages for `AvaScope.Protocol`, `AvaScope.Core`, and `AvaScope.Bridge`. `AvaScope.Mcp`, `AvaScope.Cli`, and `AvaScope.PreviewHost` are explicitly not packable yet; executable/tool packaging remains a later release workflow.
+The library package slice produces local NuGet packages for `AvaScope.Protocol`, `AvaScope.Core`, and `AvaScope.Bridge`. `AvaScope.Mcp`, `AvaScope.Cli`, and `AvaScope.PreviewHost` are explicitly not packable; executable distribution uses the local publish/ZIP workflow below.
 
-CI validation runs the same restore, Release build, Release test, and local library pack commands in GitHub Actions on pushes and pull requests. It does not publish packages or require secrets.
+Local executable package validation:
+
+```powershell
+dotnet build AvaScope.slnx -c Release
+powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\package-executables.ps1 -NoBuild
+```
+
+The executable package slice produces `artifacts\executables\avascope-win-framework-dependent.zip`. It is a Windows framework-dependent publish artifact containing the `avascope` CLI, `AvaScope.Mcp`, and `AvaScope.PreviewHost` in one directory so `avascope mcp` and preview rendering can find their co-located assemblies. The package requires a compatible local .NET runtime and does not publish to any feed.
+
+CI validation runs restore, Release build, Release test, local library pack, and local executable package commands in GitHub Actions on pushes and pull requests. It does not publish packages or require secrets.
 
 ## CLI
 
@@ -69,6 +78,13 @@ Start the MCP server through the CLI:
 
 ```powershell
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll mcp
+```
+
+After creating or extracting the local executable package, the same command shape can be run from the artifact directory:
+
+```powershell
+.\artifacts\executables\avascope\avascope.exe mcp
+dotnet .\artifacts\executables\avascope\avascope.dll mcp
 ```
 
 ## MCP
@@ -98,7 +114,7 @@ Implemented tools:
 - `close_preview_session`
 - `reload`
 
-Planned but not implemented yet: runtime hot reload, keyboard key events, focus targeting, drag/drop, executable/tool packaging, and CI.
+Planned but not implemented yet: runtime hot reload, keyboard key events, focus targeting, drag/drop, cross-platform executable artifacts, self-contained artifacts, and publishing automation.
 
 `diagnostics` reports AvaScope service metadata, local bridge manifest/pipe health, stale or invalid bridge manifests, and preview host readiness without building or loading user projects.
 
