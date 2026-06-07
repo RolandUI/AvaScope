@@ -260,6 +260,8 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
             var pointerMoved = 0;
             var pointerPressed = 0;
             var pointerReleased = 0;
+            var keyDown = 0;
+            var keyUp = 0;
             var button = new Button
             {
                 Name = "ClickTarget",
@@ -285,6 +287,17 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                 Name = "TextTarget",
                 Width = 160
             };
+            textBox.AddHandler(InputElement.KeyDownEvent, (_, e) =>
+            {
+                keyDown++;
+                Assert.Equal(Key.Enter, e.Key);
+                Assert.Equal(KeyModifiers.Control | KeyModifiers.Shift, e.KeyModifiers);
+            }, RoutingStrategies.Bubble, handledEventsToo: true);
+            textBox.AddHandler(InputElement.KeyUpEvent, (_, e) =>
+            {
+                keyUp++;
+                Assert.Equal(Key.Enter, e.Key);
+            }, RoutingStrategies.Bubble, handledEventsToo: true);
 
             var window = new Window
             {
@@ -377,6 +390,53 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
             Assert.True(keyText.Success, keyText.Error?.Message);
             Assert.True(keyText.Value!.Handled);
             Assert.Equal("abc", textBox.Text);
+
+            Assert.True(button.Focus(NavigationMethod.Pointer));
+            Assert.False(textBox.IsFocused);
+
+            var inputTree = await AvaScopeMcpTools.VisualTree(
+                client,
+                runtime.SessionId.Value,
+                topLevel.Id,
+                maxDepth: 8);
+            Assert.True(inputTree.Success, inputTree.Error?.Message);
+            var textTargetNode = FindNode(inputTree.Value!.Root, node => node.Name == "TextTarget");
+            Assert.NotNull(textTargetNode);
+
+            var focus = await AvaScopeMcpTools.Input(
+                client,
+                runtime.SessionId.Value,
+                topLevel.Id,
+                InputActions.Focus,
+                targetNodeId: textTargetNode.NodeId);
+
+            Assert.True(focus.Success, focus.Error?.Message);
+            Assert.True(focus.Value!.Handled);
+            Assert.Equal(textTargetNode.NodeId, focus.Value.TargetNodeId);
+            Assert.True(textBox.IsFocused);
+
+            var keyDownResult = await AvaScopeMcpTools.Input(
+                client,
+                runtime.SessionId.Value,
+                topLevel.Id,
+                InputActions.KeyDown,
+                inputKey: "Enter",
+                keyModifiers: "Ctrl+Shift");
+
+            Assert.True(keyDownResult.Success, keyDownResult.Error?.Message);
+            Assert.True(keyDownResult.Value!.Handled);
+            Assert.Equal(1, keyDown);
+
+            var keyUpResult = await AvaScopeMcpTools.Input(
+                client,
+                runtime.SessionId.Value,
+                topLevel.Id,
+                InputActions.KeyUp,
+                inputKey: "Enter");
+
+            Assert.True(keyUpResult.Success, keyUpResult.Error?.Message);
+            Assert.True(keyUpResult.Value!.Handled);
+            Assert.Equal(1, keyUp);
 
             var unsupported = await AvaScopeMcpTools.Input(
                 client,

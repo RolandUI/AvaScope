@@ -240,6 +240,9 @@ public sealed class AvaScopeMcpTools
         double? x = null,
         double? y = null,
         string? inputText = null,
+        string? targetNodeId = null,
+        string? inputKey = null,
+        string? keyModifiers = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(bridgeClient);
@@ -256,6 +259,9 @@ public sealed class AvaScopeMcpTools
             x,
             y,
             inputText,
+            targetNodeId,
+            inputKey,
+            keyModifiers,
             cancellationToken));
     }
 

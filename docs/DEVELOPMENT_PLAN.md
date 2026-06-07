@@ -23,15 +23,15 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `M25 Runtime Focus And Keyboard Input Slice`
+- `M26 Inspect Node Detail Slice`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-07`
-- Goal: add explicit runtime focus targeting and basic keyboard key input support.
+- Goal: add the missing `inspect_node` vertical slice for runtime bridge sessions.
 
 ## Next Action
 
-Verify the relevant Avalonia 12 focus and keyboard input APIs from official/current sources, then add the smallest local-only focus/key input vertical slice.
+Add protocol/core/bridge/MCP support to inspect a single runtime node by stable node id, returning bounded structured details without requiring a full tree payload.
 
 ## Latest Validation
 
@@ -181,6 +181,13 @@ Verify the relevant Avalonia 12 focus and keyboard input APIs from official/curr
 - `2026-06-07`: `dotnet build AvaScope.slnx -c Release` passed with 0 warnings and 0 errors after M24 RID-based executable packaging.
 - `2026-06-07`: `git check-ignore -v artifacts\release-manifest.json artifacts\executables\avascope-win-x64-framework-dependent.zip artifacts\executables\avascope-linux-x64-framework-dependent.zip` confirmed RID executable artifacts and manifest are ignored.
 - `2026-06-07`: `dotnet test AvaScope.slnx -c Release --no-build` passed with 101 tests after M24 packaging update.
+- `2026-06-07`: Official Avalonia 12.0.4 source and API docs checked for `InputElement.Focus(...)`, `InputElement.KeyDownEvent`, `InputElement.KeyUpEvent`, and `KeyEventArgs` init properties before M25 input implementation.
+- `2026-06-07`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after M25 focus/key input implementation.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter Protocol` passed with 25 tests.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter Core` passed with 33 tests.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter Bridge` passed with 37 tests.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter Mcp` passed with 28 tests.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 102 tests after M25 focus/key input implementation.
 
 ## Milestones
 
@@ -694,20 +701,46 @@ Verify the relevant Avalonia 12 focus and keyboard input APIs from official/curr
 
 ### M25 Runtime Focus And Keyboard Input Slice
 
-- Status: `In Progress`
+- Status: `Done`
 - Goal: add explicit runtime focus targeting and basic keyboard key input support.
 - Deliverables: protocol input actions for focus and key press/release or key tap, bridge implementation on `Dispatcher.UIThread`, MCP/Core path, focused tests, docs/tracking update.
 - Progress:
-  - Pending: verify Avalonia 12 public focus and keyboard event APIs from current official sources before implementation.
-  - Pending: add a local-only focus-targeting input action so agents can choose the active control before text/key input.
-  - Pending: add the smallest keyboard key input action with structured unsupported diagnostics where generic injection is not safe.
+  - Done: verified official Avalonia 12.0.4 source/API docs for public focus and routed key event APIs before implementation.
+  - Done: added stable `focus`, `key_down`, and `key_up` input action constants.
+  - Done: extended input IPC/Core/MCP shape with optional `targetNodeId`, `inputKey`, and `keyModifiers`.
+  - Done: bridge focus action resolves visual/logical node ids or hit-tested coordinates and calls public `InputElement.Focus(...)` on the UI thread.
+  - Done: bridge key actions raise public routed `KeyEventArgs` for focused input elements or explicit target node ids, with optional modifier parsing.
+  - Done: added headless MCP/Core/pipe validation for focus by visual node id and routed key down/up delivery.
 - Acceptance Criteria:
   - Runtime bridge can focus a target node by stable node id or hit-tested coordinates through a local-only input request.
   - Basic keyboard key input is exposed through Protocol/Core/MCP without private Avalonia hooks.
   - Unsupported or invalid targets return structured diagnostics.
   - Focus/key behavior is covered by headless bridge tests or an explicit API limitation note.
 - Validation:
-  - official Avalonia 12 API/source check for focus and keyboard input APIs
+  - official Avalonia 12.0.4 API/source check for focus and keyboard input APIs
+  - `dotnet build AvaScope.slnx`
+  - `dotnet test AvaScope.slnx --no-build --filter Protocol`
+  - `dotnet test AvaScope.slnx --no-build --filter Core`
+  - `dotnet test AvaScope.slnx --no-build --filter Bridge`
+  - `dotnet test AvaScope.slnx --no-build --filter Mcp`
+  - `dotnet test AvaScope.slnx --no-build`
+  - `git status --short`
+
+### M26 Inspect Node Detail Slice
+
+- Status: `In Progress`
+- Goal: add the missing `inspect_node` vertical slice for runtime bridge sessions.
+- Deliverables: protocol inspect-node response, bridge node lookup by stable node id, Core client method, MCP `inspect_node` tool, focused tests, docs/tracking update.
+- Progress:
+  - Pending: define the smallest transport-neutral inspect-node detail DTO without coupling MCP schemas to Avalonia internals.
+  - Pending: implement visual/logical node id lookup using the same session-local stable ids as tree serialization.
+  - Pending: return structured not-found and unsupported diagnostics for invalid node ids.
+- Acceptance Criteria:
+  - MCP exposes `inspect_node` for runtime bridge sessions.
+  - Node lookup works by stable visual/logical node id returned by tree/find responses.
+  - Response includes bounded structured details already safe to expose: node id, tree kind, type, name, automation id, text, bounds, classes, and child count.
+  - Protocol/Core/Bridge/MCP tests cover success and invalid node id paths.
+- Validation:
   - `dotnet build AvaScope.slnx`
   - `dotnet test AvaScope.slnx --no-build --filter Protocol`
   - `dotnet test AvaScope.slnx --no-build --filter Core`
@@ -781,6 +814,9 @@ Verify the relevant Avalonia 12 focus and keyboard input APIs from official/curr
 - `2026-06-07`: M24 defaults executable packages to `win-x64` and `linux-x64`; macOS artifacts stay deferred until there is an explicit validation surface for macOS apphost behavior, signing, and notarization expectations.
 - `2026-06-07`: RID-based executable packaging does not use the CI `-NoBuild` path because runtime-specific publish requires runtime-specific restore/build assets that are not produced by the generic solution build.
 - `2026-06-07`: M25 returns to the input coverage gap after packaging hardening because focus targeting and keyboard keys are necessary for useful runtime automation beyond mouse and TextBox text insertion.
+- `2026-06-07`: M25 uses public Avalonia 12.0.4 `InputElement.Focus(...)` and routed `KeyEventArgs`/`InputElement.KeyDownEvent`/`KeyUpEvent`; it does not use raw platform input injection or private hooks.
+- `2026-06-07`: M25 key input accepts Avalonia `Key` names plus simple modifier text, and returns structured invalid-input diagnostics instead of inventing a custom key naming scheme.
+- `2026-06-07`: M26 targets `inspect_node` next because it is part of the intended MCP tool shape and tree/find already provide stable node ids but no detail lookup tool.
 
 ## Change Log
 
@@ -819,3 +855,4 @@ Verify the relevant Avalonia 12 focus and keyboard input APIs from official/curr
 - `2026-06-07`: Completed M22 executable packaging with a validated Windows framework-dependent ZIP containing CLI, MCP, PreviewHost, Core, and Protocol artifacts; added M23 release artifact hardening as the active focus.
 - `2026-06-07`: Completed M23 release artifact hardening with an ignored JSON manifest containing artifact sizes and SHA-256 hashes, CI verification, README updates, and release distribution decision logging; added M24 cross-platform framework-dependent artifacts as the active focus.
 - `2026-06-07`: Completed M24 cross-platform framework-dependent artifacts with RID-aware win-x64/linux-x64 ZIP packaging, manifest coverage enforcement, CI/README updates, artifact smoke validation, and full Release test validation; added M25 runtime focus and keyboard input as the active focus.
+- `2026-06-07`: Completed M25 runtime focus and keyboard input with stable protocol actions, target-node/key IPC fields, public Avalonia focus/key event dispatch, README updates, and full-suite validation; added M26 inspect node detail as the active focus.

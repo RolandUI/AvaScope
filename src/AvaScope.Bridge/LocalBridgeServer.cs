@@ -352,6 +352,9 @@ internal sealed class LocalBridgeServer : IDisposable
             request.X,
             request.Y,
             request.InputText,
+            request.TargetNodeId,
+            request.InputKey,
+            request.KeyModifiers,
             cancellationToken);
 
         return result.Success

@@ -141,6 +141,8 @@ Runtime input support is intentionally narrow:
 - `pointer_move` raises a routed Avalonia `PointerMovedEvent` on the hit-tested input target.
 - `pointer_down` and `pointer_up` raise routed Avalonia pointer press/release events on the hit-tested input target.
 - `click` supports Button targets in the current MVP.
+- `focus` focuses an input element by visual/logical node id or hit-tested coordinates.
+- `key_down` and `key_up` raise routed Avalonia key events on a focused input element or explicit target node id.
 - `key_text` requires a focused `TextBox`.
 
 ## Preview Host

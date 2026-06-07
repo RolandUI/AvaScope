@@ -389,6 +389,33 @@ public sealed class ProtocolContractTests
         Assert.Equal("pointer_up", InputActions.PointerUp);
         Assert.Equal("click", InputActions.Click);
         Assert.Equal("key_text", InputActions.KeyText);
+        Assert.Equal("focus", InputActions.Focus);
+        Assert.Equal("key_down", InputActions.KeyDown);
+        Assert.Equal("key_up", InputActions.KeyUp);
+    }
+
+    [Fact]
+    public void BridgeIpcRequestSerializesStableInputTargetAndKeyShape()
+    {
+        var request = new BridgeIpcRequest(
+            "request-input",
+            BridgeIpcMethods.Input,
+            "topLevel:abc",
+            action: InputActions.KeyDown,
+            targetNodeId: "visual:button",
+            inputKey: "Enter",
+            keyModifiers: "Control+Shift");
+
+        var json = JsonSerializer.Serialize(request);
+        var node = JsonNode.Parse(json)!;
+
+        Assert.Equal("request-input", node["requestId"]!.GetValue<string>());
+        Assert.Equal("input", node["method"]!.GetValue<string>());
+        Assert.Equal("topLevel:abc", node["topLevelId"]!.GetValue<string>());
+        Assert.Equal("key_down", node["action"]!.GetValue<string>());
+        Assert.Equal("visual:button", node["targetNodeId"]!.GetValue<string>());
+        Assert.Equal("Enter", node["inputKey"]!.GetValue<string>());
+        Assert.Equal("Control+Shift", node["keyModifiers"]!.GetValue<string>());
     }
 
     [Fact]

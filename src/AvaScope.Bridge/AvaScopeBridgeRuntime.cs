@@ -191,6 +191,9 @@ public sealed class AvaScopeBridgeRuntime
         double? x = null,
         double? y = null,
         string? inputText = null,
+        string? targetNodeId = null,
+        string? inputKey = null,
+        string? keyModifiers = null,
         CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(topLevelId))
@@ -205,12 +208,12 @@ public sealed class AvaScopeBridgeRuntime
 
         if (Dispatcher.UIThread.CheckAccess())
         {
-            return Task.FromResult(Input(topLevelId, action, x, y, inputText));
+            return Task.FromResult(Input(topLevelId, action, x, y, inputText, targetNodeId, inputKey, keyModifiers));
         }
 
         return Dispatcher.UIThread
             .InvokeAsync(
-                () => Input(topLevelId, action, x, y, inputText),
+                () => Input(topLevelId, action, x, y, inputText, targetNodeId, inputKey, keyModifiers),
                 DispatcherPriority.Background,
                 cancellationToken)
             .GetTask();
@@ -464,7 +467,10 @@ public sealed class AvaScopeBridgeRuntime
         string action,
         double? x,
         double? y,
-        string? inputText)
+        string? inputText,
+        string? targetNodeId,
+        string? inputKey,
+        string? keyModifiers)
     {
         Dispatcher.UIThread.VerifyAccess();
 
@@ -481,6 +487,9 @@ public sealed class AvaScopeBridgeRuntime
             InputActions.PointerUp => PointerButton(topLevel, topLevelId, x, y, InputActions.PointerUp, isPressed: false),
             InputActions.Click => Click(topLevel, topLevelId, x, y),
             InputActions.KeyText => KeyText(topLevel, topLevelId, inputText),
+            InputActions.Focus => FocusTarget(topLevel, topLevelId, targetNodeId, x, y),
+            InputActions.KeyDown => KeyInput(topLevel, topLevelId, InputActions.KeyDown, targetNodeId, inputKey, keyModifiers),
+            InputActions.KeyUp => KeyInput(topLevel, topLevelId, InputActions.KeyUp, targetNodeId, inputKey, keyModifiers),
             _ => CoreResult<InputResponse>.Fail(new CoreError(
                 BridgeErrorCodes.UnsupportedInputAction,
                 $"Input action '{action}' is not supported."))
@@ -666,6 +675,109 @@ public sealed class AvaScopeBridgeRuntime
             CreateNodeId(textBox, TreeKinds.Visual)));
     }
 
+    private CoreResult<InputResponse> FocusTarget(
+        TopLevel topLevel,
+        string topLevelId,
+        string? targetNodeId,
+        double? x,
+        double? y)
+    {
+        var target = ResolveInputTarget(topLevel, targetNodeId, x, y, "Focus input requires targetNodeId or x/y coordinates.");
+        if (!target.Success)
+        {
+            return CoreResult<InputResponse>.Fail(target.Error!);
+        }
+
+        var navigationMethod = string.IsNullOrWhiteSpace(targetNodeId)
+            ? NavigationMethod.Pointer
+            : NavigationMethod.Unspecified;
+        if (!target.Value!.Focus(navigationMethod))
+        {
+            return CoreResult<InputResponse>.Fail(new CoreError(
+                BridgeErrorCodes.UnsupportedInputAction,
+                "Focus target did not accept focus."));
+        }
+
+        return CoreResult<InputResponse>.Ok(new InputResponse(
+            SessionId,
+            topLevelId,
+            InputActions.Focus,
+            handled: true,
+            DateTimeOffset.UtcNow,
+            CreateNodeId(target.Value, TreeKinds.Visual)));
+    }
+
+    private CoreResult<InputResponse> KeyInput(
+        TopLevel topLevel,
+        string topLevelId,
+        string action,
+        string? targetNodeId,
+        string? inputKey,
+        string? keyModifiers)
+    {
+        var key = ParseInputKey(inputKey);
+        if (!key.Success)
+        {
+            return CoreResult<InputResponse>.Fail(key.Error!);
+        }
+
+        var modifiers = ParseKeyModifiers(keyModifiers);
+        if (!modifiers.Success)
+        {
+            return CoreResult<InputResponse>.Fail(modifiers.Error!);
+        }
+
+        InputElement? target;
+        if (string.IsNullOrWhiteSpace(targetNodeId))
+        {
+            target = topLevel.FocusManager?.GetFocusedElement() as InputElement;
+            if (target is null)
+            {
+                return CoreResult<InputResponse>.Fail(new CoreError(
+                    BridgeErrorCodes.UnsupportedInputAction,
+                    "Key input requires a focused input element or target node id."));
+            }
+        }
+        else
+        {
+            var resolved = ResolveInputTarget(topLevel, targetNodeId, null, null, "Key input target node id is required.");
+            if (!resolved.Success)
+            {
+                return CoreResult<InputResponse>.Fail(resolved.Error!);
+            }
+
+            target = resolved.Value!;
+            if (!target.IsFocused && !target.Focus(NavigationMethod.Unspecified))
+            {
+                return CoreResult<InputResponse>.Fail(new CoreError(
+                    BridgeErrorCodes.UnsupportedInputAction,
+                    "Key input target did not accept focus."));
+            }
+        }
+
+        var routedEvent = action == InputActions.KeyDown
+            ? InputElement.KeyDownEvent
+            : InputElement.KeyUpEvent;
+
+        target.RaiseEvent(new KeyEventArgs
+        {
+            RoutedEvent = routedEvent,
+            Source = target,
+            Key = key.Value,
+            KeyModifiers = modifiers.Value,
+            PhysicalKey = default,
+            KeyDeviceType = KeyDeviceType.Keyboard
+        });
+
+        return CoreResult<InputResponse>.Ok(new InputResponse(
+            SessionId,
+            topLevelId,
+            action,
+            handled: true,
+            DateTimeOffset.UtcNow,
+            CreateNodeId(target, TreeKinds.Visual)));
+    }
+
     private static CoreResult<Point> GetInputPoint(double? x, double? y)
     {
         if (x is null || y is null)
@@ -676,6 +788,162 @@ public sealed class AvaScopeBridgeRuntime
         }
 
         return CoreResult<Point>.Ok(new Point(x.Value, y.Value));
+    }
+
+    private static CoreResult<InputElement> ResolveInputTarget(
+        TopLevel topLevel,
+        string? targetNodeId,
+        double? x,
+        double? y,
+        string missingTargetMessage)
+    {
+        if (!string.IsNullOrWhiteSpace(targetNodeId))
+        {
+            var node = FindNodeById(topLevel, targetNodeId.Trim());
+            if (node is null)
+            {
+                return CoreResult<InputElement>.Fail(new CoreError(
+                    BridgeErrorCodes.InvalidInputRequest,
+                    $"Input target node '{targetNodeId}' was not found."));
+            }
+
+            var inputTarget = node as InputElement ?? (node as Visual)?.FindAncestorOfType<InputElement>();
+            return inputTarget is null
+                ? CoreResult<InputElement>.Fail(new CoreError(
+                    BridgeErrorCodes.UnsupportedInputAction,
+                    $"Input target node '{targetNodeId}' is not an input element."))
+                : CoreResult<InputElement>.Ok(inputTarget);
+        }
+
+        if (x is null && y is null)
+        {
+            return CoreResult<InputElement>.Fail(new CoreError(
+                BridgeErrorCodes.InvalidInputRequest,
+                missingTargetMessage));
+        }
+
+        var point = GetInputPoint(x, y);
+        if (!point.Success)
+        {
+            return CoreResult<InputElement>.Fail(point.Error!);
+        }
+
+        var visual = topLevel.GetVisualAt(point.Value);
+        if (visual is null)
+        {
+            return CoreResult<InputElement>.Fail(new CoreError(
+                BridgeErrorCodes.UnsupportedInputAction,
+                "Input coordinates did not hit a visual target."));
+        }
+
+        var target = visual as InputElement ?? visual.FindAncestorOfType<InputElement>();
+        return target is null
+            ? CoreResult<InputElement>.Fail(new CoreError(
+                BridgeErrorCodes.UnsupportedInputAction,
+                "Input coordinates did not hit an input element."))
+            : CoreResult<InputElement>.Ok(target);
+    }
+
+    private static CoreResult<Key> ParseInputKey(string? inputKey)
+    {
+        if (string.IsNullOrWhiteSpace(inputKey))
+        {
+            return CoreResult<Key>.Fail(new CoreError(
+                BridgeErrorCodes.InvalidInputRequest,
+                "Key input requires a non-empty input key."));
+        }
+
+        var normalizedKey = inputKey.Trim();
+        if (!Enum.TryParse<Key>(normalizedKey, ignoreCase: true, out var key)
+            || !Enum.IsDefined(key))
+        {
+            return CoreResult<Key>.Fail(new CoreError(
+                BridgeErrorCodes.InvalidInputRequest,
+                $"Input key '{inputKey}' is not a supported Avalonia key name."));
+        }
+
+        return CoreResult<Key>.Ok(key);
+    }
+
+    private static CoreResult<KeyModifiers> ParseKeyModifiers(string? keyModifiers)
+    {
+        if (string.IsNullOrWhiteSpace(keyModifiers))
+        {
+            return CoreResult<KeyModifiers>.Ok(KeyModifiers.None);
+        }
+
+        var modifiers = KeyModifiers.None;
+        var tokens = keyModifiers.Split(
+            [',', '+', '|', ' '],
+            StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        foreach (var token in tokens)
+        {
+            var normalized = string.Equals(token, "ctrl", StringComparison.OrdinalIgnoreCase)
+                ? "Control"
+                : token;
+            if (!Enum.TryParse<KeyModifiers>(normalized, ignoreCase: true, out var parsed))
+            {
+                return CoreResult<KeyModifiers>.Fail(new CoreError(
+                    BridgeErrorCodes.InvalidInputRequest,
+                    $"Key modifier '{token}' is not supported."));
+            }
+
+            modifiers |= parsed;
+        }
+
+        return CoreResult<KeyModifiers>.Ok(modifiers);
+    }
+
+    private static object? FindNodeById(TopLevel topLevel, string targetNodeId)
+    {
+        if (targetNodeId.StartsWith($"{TreeKinds.Visual}:", StringComparison.Ordinal))
+        {
+            return FindVisualNodeById(topLevel, targetNodeId);
+        }
+
+        return targetNodeId.StartsWith($"{TreeKinds.Logical}:", StringComparison.Ordinal)
+            && topLevel is ILogical logical
+            ? FindLogicalNodeById(logical, targetNodeId)
+            : null;
+    }
+
+    private static Visual? FindVisualNodeById(Visual visual, string targetNodeId)
+    {
+        if (string.Equals(CreateNodeId(visual, TreeKinds.Visual), targetNodeId, StringComparison.Ordinal))
+        {
+            return visual;
+        }
+
+        foreach (var child in visual.GetVisualChildren())
+        {
+            var match = FindVisualNodeById(child, targetNodeId);
+            if (match is not null)
+            {
+                return match;
+            }
+        }
+
+        return null;
+    }
+
+    private static ILogical? FindLogicalNodeById(ILogical logical, string targetNodeId)
+    {
+        if (string.Equals(CreateNodeId(logical, TreeKinds.Logical), targetNodeId, StringComparison.Ordinal))
+        {
+            return logical;
+        }
+
+        foreach (var child in logical.GetLogicalChildren())
+        {
+            var match = FindLogicalNodeById(child, targetNodeId);
+            if (match is not null)
+            {
+                return match;
+            }
+        }
+
+        return null;
     }
 
     private static CoreResult<int> NormalizeDepthLimit(int? maxDepth)

@@ -20,7 +20,10 @@ public sealed record BridgeIpcRequest
         string? action = null,
         double? x = null,
         double? y = null,
-        string? inputText = null)
+        string? inputText = null,
+        string? targetNodeId = null,
+        string? inputKey = null,
+        string? keyModifiers = null)
     {
         if (string.IsNullOrWhiteSpace(requestId))
         {
@@ -47,6 +50,9 @@ public sealed record BridgeIpcRequest
         X = x;
         Y = y;
         InputText = inputText;
+        TargetNodeId = targetNodeId;
+        InputKey = inputKey;
+        KeyModifiers = keyModifiers;
     }
 
     [JsonPropertyName("requestId")]
@@ -106,4 +112,16 @@ public sealed record BridgeIpcRequest
     [JsonPropertyName("inputText")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? InputText { get; }
+
+    [JsonPropertyName("targetNodeId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? TargetNodeId { get; }
+
+    [JsonPropertyName("inputKey")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? InputKey { get; }
+
+    [JsonPropertyName("keyModifiers")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? KeyModifiers { get; }
 }

@@ -220,6 +220,9 @@ public sealed class LocalBridgeClient
         double? x = null,
         double? y = null,
         string? inputText = null,
+        string? targetNodeId = null,
+        string? inputKey = null,
+        string? keyModifiers = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(sessionId);
@@ -251,7 +254,10 @@ public sealed class LocalBridgeClient
                 action: action,
                 x: x,
                 y: y,
-                inputText: inputText),
+                inputText: inputText,
+                targetNodeId: targetNodeId,
+                inputKey: inputKey,
+                keyModifiers: keyModifiers),
             cancellationToken);
     }
 

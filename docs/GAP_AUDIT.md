@@ -24,6 +24,14 @@ Completed slice: preview-host readiness diagnostics now report host assembly pat
 
 ## P1 Gaps
 
+### Inspect Node Detail
+
+Status: open.
+
+`inspect_node` is part of the intended MCP tool shape, but the current runtime surface only returns node summaries through tree and find operations. Agents can identify stable node ids, but cannot yet request a bounded detail payload for one node without fetching a tree again.
+
+Next slice: add `inspect_node` over Protocol/Core/Bridge/MCP using the same session-local stable node ids as tree and find results.
+
 ### Reload And Hot Preview
 
 Status: preview-session reload MVP and runtime reload contract complete; runtime hot reload and live hot preview remain open.
@@ -44,11 +52,11 @@ Next slice: continue with persistent preview-session foundation before broader r
 
 ### Input Coverage
 
-Status: pointer press/release slice complete; focus targeting and broader keyboard work remain open.
+Status: focus targeting and basic key down/up slice complete; drag/drop and richer pointer/key behavior remain open.
 
-Input support is intentionally narrow: routed pointer move, routed pointer press/release, Button click, and focused TextBox text. Keyboard key events, focus targeting, drag/drop, and richer pointer button variants are not implemented.
+Input support is intentionally narrow: routed pointer move, routed pointer press/release, Button click, focus by node id or coordinates, routed key down/up for focused or explicitly targeted input elements, and focused TextBox text. Drag/drop, richer pointer button variants, hardware-like key repeat, and full IME/text editing behavior are not implemented.
 
-Next slice: add runtime focus targeting and the smallest safe keyboard key input path.
+Next slice: defer broader input until `inspect_node` completes, then revisit drag/drop or richer keyboard/text behavior.
 
 ## P2 Gaps
 
@@ -74,4 +82,4 @@ Next slice: CI can later add publish/upload artifacts, self-contained outputs, o
 
 ## Selected Next Slice
 
-Add runtime focus and keyboard input next. Packaging, executable ZIPs, artifact manifest verification, and CI validation are now stable enough to return to runtime automation gaps.
+Add inspect-node detail next. Tree/find expose stable ids, and agents need a direct bounded detail lookup before broader automation polish.
