@@ -23,15 +23,15 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `M29 CLI Runtime Tree Inspection Slice`
+- `M30 CLI Runtime Node Detail Slice`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-07`
-- Goal: expose bounded runtime tree inspection from the `avascope` CLI.
+- Goal: expose single-node runtime details from the `avascope` CLI.
 
 ## Next Action
 
-Add CLI commands over `LocalBridgeClient` for `visual-tree` and `logical-tree`, then add the smallest follow-up node inspection command if the command surface stays coherent.
+Add an `inspect-node` CLI command over `LocalBridgeClient.InspectNodeAsync`, keeping tree kind explicit and argument failures deterministic.
 
 ## Latest Validation
 
@@ -201,6 +201,9 @@ Add CLI commands over `LocalBridgeClient` for `visual-tree` and `logical-tree`, 
 - `2026-06-07`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after M28 CLI top-level/screenshot implementation.
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli` passed with 30 tests, including fake bridge pipe success paths for `list-top-levels` and `screenshot`.
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 114 tests after M28 CLI runtime top-level/screenshot workflow.
+- `2026-06-07`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after M29 CLI visual/logical tree implementation.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli` passed with 38 tests, including fake bridge pipe success paths for `visual-tree` and `logical-tree`.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 122 tests after M29 CLI runtime tree workflow.
 
 ## Milestones
 
@@ -813,16 +816,39 @@ Add CLI commands over `LocalBridgeClient` for `visual-tree` and `logical-tree`, 
 
 ### M29 CLI Runtime Tree Inspection Slice
 
-- Status: `In Progress`
+- Status: `Done`
 - Goal: expose bounded runtime tree inspection from the `avascope` CLI.
 - Deliverables: `visual-tree` and `logical-tree` CLI commands over `LocalBridgeClient`, optional `inspect-node` CLI command if the slice remains small, structured JSON output, argument validation tests, README/tracking update.
 - Progress:
-  - Pending: add `visual-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>]`.
-  - Pending: add `logical-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>]`.
-  - Pending: decide whether `inspect-node` belongs in this slice or the immediate next slice.
+  - Done: added `visual-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>]`.
+  - Done: added `logical-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>]`.
+  - Done: added shared non-negative `max-depth` parsing for runtime tree commands.
+  - Done: added fake bridge named-pipe success tests for both tree commands.
+  - Done: added missing session, missing top-level, invalid `max-depth`, and no-session failure tests.
+  - Done: README documents the new runtime tree CLI commands.
+  - Done: deferred `inspect-node` to M30 to keep the slice small and independently trackable.
 - Acceptance Criteria:
   - CLI can request bounded visual and logical trees for an attached runtime bridge session id.
   - CLI rejects invalid `max-depth`, missing session, and missing top-level arguments deterministically.
+  - Tests cover fake bridge success paths and structured failure paths.
+  - README documents command shape.
+- Validation:
+  - `dotnet build AvaScope.slnx`
+  - `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli`
+  - `dotnet test AvaScope.slnx --no-build`
+
+### M30 CLI Runtime Node Detail Slice
+
+- Status: `In Progress`
+- Goal: expose single-node runtime details from the `avascope` CLI.
+- Deliverables: `inspect-node` CLI command over `LocalBridgeClient.InspectNodeAsync`, explicit tree-kind option, structured JSON output, argument validation tests, README/tracking update.
+- Progress:
+  - Pending: add `inspect-node --session <session-id> --top-level <top-level-id> --node <node-id> [--tree-kind visual|logical]`.
+  - Pending: validate tree kind values before calling Core.
+  - Pending: add fake bridge success and deterministic failure tests.
+- Acceptance Criteria:
+  - CLI can inspect a single visual or logical node id for an attached runtime bridge session.
+  - CLI rejects missing session, top-level, node id, and unsupported tree kind deterministically.
   - Tests cover fake bridge success paths and structured failure paths.
   - README documents command shape.
 - Validation:
@@ -907,6 +933,7 @@ Add CLI commands over `LocalBridgeClient` for `visual-tree` and `logical-tree`, 
 - `2026-06-07`: M28 follows with CLI top-level/screenshot commands because `attach` alone verifies bridge discovery but does not yet expose a complete local inspection workflow.
 - `2026-06-07`: M28 validates CLI runtime success paths with a fake local bridge named pipe instead of a headless Avalonia child app; this keeps process-level CLI coverage deterministic while existing bridge tests continue to validate real Avalonia screenshot behavior.
 - `2026-06-07`: M29 targets CLI visual/logical tree inspection next because attach, top-level discovery, and screenshot now cover the session/image path, while structured tree output is the next core inspection workflow.
+- `2026-06-07`: M29 defers `inspect-node` to M30 so tree retrieval and single-node detail remain separately trackable vertical slices with focused tests.
 
 ## Change Log
 
@@ -949,3 +976,4 @@ Add CLI commands over `LocalBridgeClient` for `visual-tree` and `logical-tree`, 
 - `2026-06-07`: Completed M26 inspect node detail with Protocol/Core/Bridge/MCP support, bounded single-node details, structured not-found diagnostics, README updates, and full-suite validation; added M27 CLI runtime bridge workflow as the active focus.
 - `2026-06-07`: Completed M27 CLI runtime bridge workflow with `avascope attach`, structured attach/no-session errors, README updates, CLI/Core targeted tests, and full-suite validation; added M28 CLI top-level and screenshot workflow as the active focus.
 - `2026-06-07`: Completed M28 CLI top-level and screenshot workflow with `list-top-levels`, `screenshot`, fake bridge pipe success tests, no-session and missing-argument coverage, README updates, and targeted validation; added M29 CLI tree inspection as the active focus.
+- `2026-06-07`: Completed M29 CLI runtime tree inspection with `visual-tree`, `logical-tree`, shared `max-depth` validation, fake bridge pipe success tests, README updates, and full-suite validation; added M30 CLI node detail as the active focus.

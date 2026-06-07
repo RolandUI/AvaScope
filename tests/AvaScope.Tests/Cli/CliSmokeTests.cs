@@ -218,6 +218,161 @@ public sealed class CliSmokeTests
         Assert.Equal("invalid_cli_arguments", payload.Error!.Code);
     }
 
+    [Theory]
+    [InlineData("visual-tree", BridgeIpcMethods.VisualTree, TreeKinds.Visual)]
+    [InlineData("logical-tree", BridgeIpcMethods.LogicalTree, TreeKinds.Logical)]
+    public async Task TreeCommandReadsTreeThroughBridgePipe(
+        string command,
+        string expectedMethod,
+        string expectedTreeKind)
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var sessionId = SessionId.New();
+        var pipeName = $"avascope-cli-test-{Guid.NewGuid():N}";
+        var manifestPath = WriteBridgeManifest(sessionId, pipeName);
+        var root = new TreeNodeSummary(
+            "visual:root",
+            "Window",
+            "CliWindow",
+            children:
+            [
+                new TreeNodeSummary("visual:child", "TextBlock", text: "CLI tree")
+            ]);
+
+        var serverTask = RespondToBridgeRequestAsync(pipeName, request =>
+        {
+            Assert.Equal(expectedMethod, request.Method);
+            Assert.Equal("topLevel:cli", request.TopLevelId);
+            Assert.Equal(2, request.MaxDepth);
+            return BridgeIpcResponse.Ok(
+                request.RequestId,
+                new TreeResponse(sessionId, request.TopLevelId!, expectedTreeKind, 2, root));
+        });
+
+        try
+        {
+            var result = await RunCliAsync(
+                cliAssembly,
+                command,
+                "--session",
+                sessionId.Value,
+                "--top-level",
+                "topLevel:cli",
+                "--max-depth",
+                "2");
+            var request = await serverTask;
+
+            Assert.Equal(0, result.ExitCode);
+            Assert.Equal(expectedMethod, request.Method);
+            Assert.True(string.IsNullOrWhiteSpace(result.StandardError), result.StandardError);
+
+            var payload = JsonSerializer.Deserialize<ToolResult<TreeResponse>>(result.StandardOutput, JsonOptions);
+            Assert.NotNull(payload);
+            Assert.True(payload.Success, payload.Error?.Message);
+            Assert.Equal(sessionId, payload.Value!.SessionId);
+            Assert.Equal("topLevel:cli", payload.Value.TopLevelId);
+            Assert.Equal(expectedTreeKind, payload.Value.TreeKind);
+            Assert.Equal(2, payload.Value.DepthLimit);
+            Assert.Equal("Window", payload.Value.Root.NodeType);
+            Assert.Equal("CLI tree", Assert.Single(payload.Value.Root.Children).Text);
+        }
+        finally
+        {
+            if (File.Exists(manifestPath))
+            {
+                File.Delete(manifestPath);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task VisualTreeCommandReturnsStructuredErrorWhenNoBridgeSessionMatches()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var result = await RunCliAsync(
+            cliAssembly,
+            "visual-tree",
+            "--session",
+            "missing",
+            "--top-level",
+            "topLevel:missing");
+
+        Assert.Equal(1, result.ExitCode);
+        Assert.True(string.IsNullOrWhiteSpace(result.StandardError), result.StandardError);
+
+        var payload = JsonSerializer.Deserialize<ToolResult<TreeResponse>>(result.StandardOutput, JsonOptions);
+        Assert.NotNull(payload);
+        Assert.False(payload.Success);
+        Assert.Equal(CoreErrorCodes.BridgeSessionNotFound, payload.Error!.Code);
+    }
+
+    [Theory]
+    [InlineData("visual-tree")]
+    [InlineData("logical-tree")]
+    public async Task TreeCommandRejectsMissingSession(string command)
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var result = await RunCliAsync(cliAssembly, command, "--top-level", "topLevel:missing");
+
+        Assert.Equal(2, result.ExitCode);
+        Assert.True(string.IsNullOrWhiteSpace(result.StandardError), result.StandardError);
+
+        var payload = JsonSerializer.Deserialize<ToolResult<TreeResponse>>(result.StandardOutput, JsonOptions);
+        Assert.NotNull(payload);
+        Assert.False(payload.Success);
+        Assert.Equal("invalid_cli_arguments", payload.Error!.Code);
+    }
+
+    [Theory]
+    [InlineData("visual-tree")]
+    [InlineData("logical-tree")]
+    public async Task TreeCommandRejectsMissingTopLevel(string command)
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var result = await RunCliAsync(cliAssembly, command, "--session", "missing");
+
+        Assert.Equal(2, result.ExitCode);
+        Assert.True(string.IsNullOrWhiteSpace(result.StandardError), result.StandardError);
+
+        var payload = JsonSerializer.Deserialize<ToolResult<TreeResponse>>(result.StandardOutput, JsonOptions);
+        Assert.NotNull(payload);
+        Assert.False(payload.Success);
+        Assert.Equal("invalid_cli_arguments", payload.Error!.Code);
+    }
+
+    [Fact]
+    public async Task VisualTreeCommandRejectsInvalidMaxDepth()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var result = await RunCliAsync(
+            cliAssembly,
+            "visual-tree",
+            "--session",
+            "missing",
+            "--top-level",
+            "topLevel:missing",
+            "--max-depth",
+            "-1");
+
+        Assert.Equal(2, result.ExitCode);
+        Assert.True(string.IsNullOrWhiteSpace(result.StandardError), result.StandardError);
+
+        var payload = JsonSerializer.Deserialize<ToolResult<TreeResponse>>(result.StandardOutput, JsonOptions);
+        Assert.NotNull(payload);
+        Assert.False(payload.Success);
+        Assert.Equal("invalid_cli_arguments", payload.Error!.Code);
+    }
+
     [Fact]
     public async Task ScreenshotCommandReturnsStructuredErrorWhenNoBridgeSessionMatches()
     {

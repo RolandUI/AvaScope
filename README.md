@@ -99,6 +99,13 @@ dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll list-top-levels --sessi
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll screenshot --session session-id --top-level topLevel:1234 --out screenshot.png
 ```
 
+Read bounded runtime trees from an active bridge session:
+
+```powershell
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll visual-tree --session session-id --top-level topLevel:1234 --max-depth 4
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll logical-tree --session session-id --top-level topLevel:1234 --max-depth 4
+```
+
 After creating or extracting the local executable package, the same command shape can be run from the artifact directory:
 
 ```powershell

@@ -24,6 +24,8 @@ internal static class Program
             "attach" => await Attach(args[1..]),
             "list-top-levels" => await ListTopLevels(args[1..]),
             "screenshot" => await Screenshot(args[1..]),
+            "visual-tree" => await Tree(args[1..], TreeKinds.Visual, GetVisualTreeUsage()),
+            "logical-tree" => await Tree(args[1..], TreeKinds.Logical, GetLogicalTreeUsage()),
             "mcp" => await Mcp(),
             _ => UnknownCommand(args[0])
         };
@@ -187,6 +189,32 @@ internal static class Program
         return result.Success ? 0 : 1;
     }
 
+    private static async Task<int> Tree(string[] args, string treeKind, string usage)
+    {
+        var options = ParseOptions(args, usage);
+        if (!options.Success)
+        {
+            WriteFailure(InvalidCliArguments, options.Error!);
+            return 2;
+        }
+
+        if (!ValidateOptions(options.Values, usage, "session", "top-level", "max-depth")
+            || !TryReadRequiredSessionId(options.Values, usage, out var sessionId)
+            || !TryReadRequiredOption(options.Values, "top-level", usage, out var topLevelId)
+            || !TryReadOptionalNonNegativeInt(options.Values, "max-depth", out var maxDepth))
+        {
+            return 2;
+        }
+
+        var client = new LocalBridgeClient();
+        var result = string.Equals(treeKind, TreeKinds.Visual, StringComparison.Ordinal)
+            ? await client.VisualTreeAsync(sessionId!, topLevelId!, maxDepth)
+            : await client.LogicalTreeAsync(sessionId!, topLevelId!, maxDepth);
+        WriteResult(result);
+
+        return result.Success ? 0 : 1;
+    }
+
     private static async Task<int> Screenshot(string[] args)
     {
         var options = ParseOptions(args, GetScreenshotUsage());
@@ -250,6 +278,28 @@ internal static class Program
         return true;
     }
 
+    private static bool TryReadOptionalNonNegativeInt(
+        IReadOnlyDictionary<string, string> options,
+        string optionName,
+        out int? value)
+    {
+        value = null;
+        if (!options.TryGetValue(optionName, out var text))
+        {
+            return true;
+        }
+
+        if (!int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed)
+            || parsed < 0)
+        {
+            WriteFailure(InvalidCliArguments, $"{optionName} must be a non-negative integer.");
+            return false;
+        }
+
+        value = parsed;
+        return true;
+    }
+
     private static bool TryReadRequiredSessionId(
         IReadOnlyDictionary<string, string> options,
         string usage,
@@ -297,7 +347,7 @@ internal static class Program
 
     private static string GetUsage()
     {
-        return "Usage: avascope mcp | avascope attach [--process <pid>] [--session <session-id>] | avascope list-top-levels --session <session-id> | avascope screenshot --session <session-id> --top-level <top-level-id> --out <screenshot.png> | avascope preview <project.csproj> --view <view.axaml> --out <preview.png> --width <width> --height <height> [--dpi <dpi>] [--theme light|dark]";
+        return "Usage: avascope mcp | avascope attach [--process <pid>] [--session <session-id>] | avascope list-top-levels --session <session-id> | avascope visual-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] | avascope logical-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] | avascope screenshot --session <session-id> --top-level <top-level-id> --out <screenshot.png> | avascope preview <project.csproj> --view <view.axaml> --out <preview.png> --width <width> --height <height> [--dpi <dpi>] [--theme light|dark]";
     }
 
     private static string GetPreviewUsage()
@@ -313,6 +363,16 @@ internal static class Program
     private static string GetListTopLevelsUsage()
     {
         return "Usage: avascope list-top-levels --session <session-id>";
+    }
+
+    private static string GetVisualTreeUsage()
+    {
+        return "Usage: avascope visual-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>]";
+    }
+
+    private static string GetLogicalTreeUsage()
+    {
+        return "Usage: avascope logical-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>]";
     }
 
     private static string GetScreenshotUsage()
