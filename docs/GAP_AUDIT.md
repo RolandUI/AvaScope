@@ -22,6 +22,8 @@ Status: first bridge diagnostics slice complete; richer preview/build/binding/la
 
 Completed slice: preview-host readiness diagnostics now report host assembly path, availability, isolated child-process mode, service metadata, and structured missing-host errors without launching user project code.
 
+Next slice: add richer preview failure diagnostics so build/render/XAML failures expose structured context beyond a trimmed message string.
+
 ## P1 Gaps
 
 ### Inspect Node Detail
@@ -84,13 +86,15 @@ Next slice: defer broader input until `inspect_node` completes, then revisit dra
 
 ### Packaging And Release
 
-Status: first library package metadata slice, RID-based executable ZIP packaging slice, and artifact verification manifest slice complete; broader release workflow remains open.
+Status: first library package metadata slice, RID-based executable ZIP packaging slice, artifact verification manifest slice, and post-sample Release validation refresh complete; broader publishing workflow remains open.
 
 `AvaScope.Protocol`, `AvaScope.Core`, and `AvaScope.Bridge` now have package ids, version metadata, descriptions, tags, repository metadata, README inclusion, and local `dotnet pack` validation into ignored `artifacts/packages`. `AvaScope.Mcp`, `AvaScope.Cli`, and `AvaScope.PreviewHost` are explicitly marked not packable in this slice.
 
 Executable distribution now uses `eng/package-executables.ps1` to publish `AvaScope.Cli` into RID-specific framework-dependent output directories and create artifacts such as `artifacts/executables/avascope-win-x64-framework-dependent.zip` and `artifacts/executables/avascope-linux-x64-framework-dependent.zip`. Each artifact keeps `avascope`, `AvaScope.Mcp`, `AvaScope.PreviewHost`, `AvaScope.Core`, and `AvaScope.Protocol` co-located, stays under ignored local output, and does not require publishing credentials.
 
 Artifact verification now uses `eng/verify-artifacts.ps1` to write ignored `artifacts/release-manifest.json` output with artifact kind, name, relative path, byte size, and SHA-256 hash for the three NuGet packages and executable ZIP artifacts. Verification fails when unexpected AvaScope package or executable ZIP artifacts are present outside the manifest-covered set.
+
+Release refresh: after adding the getting-started sample and CLI relative path normalization, Release build/test/pack, executable packaging, artifact verification, and packaged-CLI sample preview smoke validation passed. The sample remains `IsPackable=false` and is not part of the release artifact manifest.
 
 Next slice: defer self-contained packages, macOS artifact policy, and publishing automation until more product gaps are closed.
 
@@ -104,4 +108,4 @@ Next slice: CI can later add publish/upload artifacts, self-contained outputs, o
 
 ## Selected Next Slice
 
-Refresh public-alpha Release validation next. The repository now has a runnable getting-started sample, so the next risk is making sure the expanded solution still passes Release build/test/pack and artifact verification workflows.
+Expand preview failure diagnostics next. Release artifacts validate after the sample and CLI workflow updates, so the next public-alpha risk is making preview failures easier for agents and users to diagnose without scraping a single trimmed error string.

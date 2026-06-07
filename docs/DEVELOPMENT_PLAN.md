@@ -23,15 +23,15 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `M47 Public Alpha Release Validation Refresh`
+- `M48 Preview Failure Diagnostics Detail Slice`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-07`
-- Goal: revalidate release artifacts after the sample and CLI workflow stabilization changes.
+- Goal: make preview build/render failures easier for agents and users to diagnose.
 
 ## Next Action
 
-Run Release build/test/pack plus executable packaging and artifact verification, then update release-readiness tracking with the result.
+Audit current PreviewHost/Core error propagation and add structured preview failure context beyond a single trimmed message string.
 
 ## Latest Validation
 
@@ -267,6 +267,14 @@ Run Release build/test/pack plus executable packaging and artifact verification,
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewCommandResolvesRelativeProjectAndOutputPathsFromCallerWorkingDirectory` passed with 1 test.
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli` passed with 75 tests after CLI preview path normalization.
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 169 tests after M46 getting-started sample and CLI path normalization.
+- `2026-06-07`: `dotnet build AvaScope.slnx -c Release` passed with 0 warnings and 0 errors after M46.
+- `2026-06-07`: `dotnet test AvaScope.slnx -c Release --no-build` passed with 169 tests.
+- `2026-06-07`: `dotnet pack` created `AvaScope.Protocol.0.1.0.nupkg`, `AvaScope.Core.0.1.0.nupkg`, and `AvaScope.Bridge.0.1.0.nupkg`.
+- `2026-06-07`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\package-executables.ps1` created win-x64 and linux-x64 framework-dependent executable ZIPs.
+- `2026-06-07`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\verify-artifacts.ps1` verified 5 release artifacts and wrote `artifacts\release-manifest.json`.
+- `2026-06-07`: Release artifact list confirmed three NuGet packages and two executable ZIPs; `samples\AvaScope.GettingStartedApp` is not part of the manifest.
+- `2026-06-07`: `git check-ignore -v` confirmed release manifest, packages, executable ZIP, and sample preview PNG outputs are ignored under `artifacts/`.
+- `2026-06-07`: Packaged win-x64 CLI preview smoke passed against `samples\AvaScope.GettingStartedApp` and rendered `artifacts\samples\getting-started-preview-packaged.png`.
 
 ## Milestones
 
@@ -1266,14 +1274,17 @@ Run Release build/test/pack plus executable packaging and artifact verification,
 
 ### M47 Public Alpha Release Validation Refresh
 
-- Status: `In Progress`
+- Status: `Done`
 - Goal: revalidate release artifacts after the sample and CLI workflow stabilization changes.
 - Deliverables: Release build/test validation, local NuGet package validation, executable ZIP validation, artifact manifest verification, README/tracking update if release commands need adjustment.
 - Progress:
-  - Pending: run Release build for the expanded solution.
-  - Pending: run Release tests after the sample and CLI path normalization changes.
-  - Pending: run local package and executable artifact creation scripts.
-  - Pending: run artifact verification and inspect whether the sample changes affected package scope.
+  - Done: Release build succeeded for the expanded solution including the sample.
+  - Done: Release tests passed after the sample and CLI path normalization changes.
+  - Done: local library packages were created for Protocol, Core, and Bridge.
+  - Done: win-x64 and linux-x64 framework-dependent executable ZIPs were created.
+  - Done: artifact verification wrote a 5-artifact manifest.
+  - Done: confirmed sample app remains outside release artifact manifest.
+  - Done: packaged win-x64 CLI preview smoke rendered the getting-started sample.
 - Acceptance Criteria:
   - Release build succeeds for the full solution including the sample project.
   - Release tests pass.
@@ -1285,6 +1296,26 @@ Run Release build/test/pack plus executable packaging and artifact verification,
   - `dotnet pack` for packable libraries
   - `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\package-executables.ps1`
   - `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\verify-artifacts.ps1`
+
+### M48 Preview Failure Diagnostics Detail Slice
+
+- Status: `In Progress`
+- Goal: make preview build/render failures easier for agents and users to diagnose.
+- Deliverables: audit current PreviewHost/Core error propagation, structured preview failure context, tests for at least one build or render failure path, README/tracking update.
+- Progress:
+  - Pending: inspect current `PreviewHost` and `PreviewHostClient` failure contracts.
+  - Pending: decide the smallest transport-neutral diagnostic payload that does not expose unbounded logs.
+  - Pending: implement structured context for build/render failures.
+  - Pending: validate with focused protocol/core/preview or CLI tests.
+- Acceptance Criteria:
+  - Preview failure results expose bounded structured context beyond a single opaque message where practical.
+  - Existing `ToolResult<PreviewResponse>` compatibility is preserved.
+  - Diagnostics remain local and do not include unbounded build output.
+  - Tests cover the new failure context.
+- Validation:
+  - `dotnet build AvaScope.slnx`
+  - focused diagnostics/protocol/preview tests
+  - `dotnet test AvaScope.slnx --no-build`
 
 ## Decision Log
 
@@ -1399,6 +1430,8 @@ Run Release build/test/pack plus executable packaging and artifact verification,
 - `2026-06-07`: M46 gates sample bridge activation behind `AVASCOPE_SAMPLE_BRIDGE` so the sample demonstrates explicit opt-in local inspection rather than always enabling a bridge.
 - `2026-06-07`: CLI preview now normalizes project and output paths from the caller working directory before launching `AvaScope.PreviewHost`; view paths remain project-relative unless the user supplies an absolute path.
 - `2026-06-07`: M47 targets Release validation next because the expanded solution and CLI path change should be checked against public-alpha packaging workflows before more feature work.
+- `2026-06-07`: M47 keeps `samples/AvaScope.GettingStartedApp` out of release artifacts; it validates source workflows but public alpha artifacts remain the three libraries plus the CLI/MCP/PreviewHost executable ZIPs.
+- `2026-06-07`: M48 targets bounded preview failure context while preserving existing `ToolResult<PreviewResponse>` compatibility so current MCP/CLI clients do not break.
 
 ## Change Log
 
@@ -1459,3 +1492,4 @@ Run Release build/test/pack plus executable packaging and artifact verification,
 - `2026-06-07`: Completed M44 preview App startup boundary audit with explicit lifecycle-hook deferral, startup non-goals, official Avalonia lifetime source review, README/gap updates, and build validation; added M45 preview App DataTemplates scope as the active focus.
 - `2026-06-07`: Completed M45 preview App DataTemplates scope with preview-window data-template transfer, pixel-validated compiled App.axaml template coverage, README/gap updates, and full-suite validation; added M46 getting-started sample as the active focus.
 - `2026-06-07`: Completed M46 getting-started sample with `samples/AvaScope.GettingStartedApp`, documented preview/runtime bridge commands, CLI relative preview path normalization, ignored PNG validation, README/gap updates, and full-suite validation; added M47 public-alpha Release validation refresh as the active focus.
+- `2026-06-07`: Completed M47 public-alpha Release validation refresh with Release build/test, library pack, executable ZIP packaging, artifact manifest verification, packaged CLI sample preview smoke, gap/tracking updates, and sample exclusion from release artifacts; added M48 preview failure diagnostics detail as the active focus.
