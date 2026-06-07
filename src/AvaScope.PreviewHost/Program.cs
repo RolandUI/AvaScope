@@ -362,6 +362,12 @@ internal static class Program
             hostApplication.Resources.MergedDictionaries.Add(mergedDictionary);
         }
 
+        foreach (var themeDictionary in projectApplication.Resources.ThemeDictionaries.ToArray())
+        {
+            projectApplication.Resources.ThemeDictionaries.Remove(themeDictionary.Key);
+            hostApplication.Resources.ThemeDictionaries[themeDictionary.Key] = themeDictionary.Value;
+        }
+
         var styles = projectApplication.Styles.ToArray();
         foreach (var style in projectApplication.Styles.ToArray())
         {

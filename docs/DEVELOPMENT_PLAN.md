@@ -23,15 +23,15 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `M39 Preview Theme Dictionary Variant Slice`
+- `M40 Preview Style Include Scope Slice`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-07`
-- Goal: improve preview-host theme-variant resource parity.
+- Goal: improve preview-host app style include parity.
 
 ## Next Action
 
-Audit current `ThemeDictionaries` and requested theme variant behavior, then implement the smallest validated theme-dictionary scenario.
+Audit current `StyleInclude` behavior under project `Application.Styles`, then implement the smallest validated style-include scenario if the current merge is insufficient.
 
 ## Latest Validation
 
@@ -232,6 +232,9 @@ Audit current `ThemeDictionaries` and requested theme variant behavior, then imp
 - `2026-06-07`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after M38 App.axaml resource include loading.
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewHostSmokeTests` passed with 8 tests.
 - `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 162 tests after M38 preview resource include scope.
+- `2026-06-07`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after M39 App.axaml theme dictionary loading.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewHostSmokeTests` passed with 9 tests.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 163 tests after M39 preview theme dictionary variant scope.
 
 ## Milestones
 
@@ -1061,17 +1064,37 @@ Audit current `ThemeDictionaries` and requested theme variant behavior, then imp
 
 ### M39 Preview Theme Dictionary Variant Slice
 
-- Status: `In Progress`
+- Status: `Done`
 - Goal: improve preview-host theme-variant resource parity.
 - Deliverables: focused support for one `ThemeDictionaries` scenario, tests with light/dark preview variants, README/tracking update.
 - Progress:
-  - Pending: audit current `ThemeDictionaries` behavior after resource merge and requested theme variant assignment.
-  - Pending: implement the smallest required preview-host resource merge behavior.
-  - Pending: add pixel-validated preview-host smoke coverage for light/dark theme dictionary resources.
+  - Done: audited `ThemeDictionaries` behavior after project app resource merge and requested theme variant assignment.
+  - Done: copied project app resource `ThemeDictionaries` into the host app resource scope.
+  - Done: added pixel-validated PreviewHost smoke coverage for light/dark theme dictionary resources.
+  - Done: README documents theme dictionary support from `App.axaml`.
 - Acceptance Criteria:
   - PreviewHost resolves app-level theme dictionary resources for at least one requested theme variant.
   - The behavior remains isolated in `AvaScope.PreviewHost`.
   - Tests validate rendered output for the theme variant scenario.
+  - README documents supported boundary and remaining limitations.
+- Validation:
+  - `dotnet build AvaScope.slnx`
+  - targeted PreviewHost tests
+  - `dotnet test AvaScope.slnx --no-build`
+
+### M40 Preview Style Include Scope Slice
+
+- Status: `In Progress`
+- Goal: improve preview-host app style include parity.
+- Deliverables: focused support for one compiled `StyleInclude` scenario, tests with tiny sample project/view, README/tracking update.
+- Progress:
+  - Pending: audit current `StyleInclude` behavior after project `Application.Initialize()` and preview-window style transfer.
+  - Pending: implement the smallest required preview-host style transfer behavior.
+  - Pending: add pixel-validated PreviewHost smoke coverage for a style loaded through `StyleInclude`.
+- Acceptance Criteria:
+  - PreviewHost validates at least one app-level `StyleInclude` scenario from project `App.axaml`.
+  - The behavior remains isolated in `AvaScope.PreviewHost`.
+  - Tests validate rendered output for the style include scenario.
   - README documents supported boundary and remaining limitations.
 - Validation:
   - `dotnet build AvaScope.slnx`
@@ -1173,6 +1196,8 @@ Audit current `ThemeDictionaries` and requested theme variant behavior, then imp
 - `2026-06-07`: M38 targets app-level include scenarios next because top-level resources and direct application styles are now covered, while include parity remains unverified.
 - `2026-06-07`: M38 starts include parity with `ResourceInclude` under `Application.Resources` because resource includes commonly feed static resources used by views and can be validated with a single pixel-stable render.
 - `2026-06-07`: M39 targets theme dictionary variants next because resource include support is covered and requested light/dark preview variants should resolve app-level theme dictionaries predictably.
+- `2026-06-07`: M39 copies project app `ThemeDictionaries` into the host app resource scope so `DynamicResource` lookups honor requested light/dark preview variants.
+- `2026-06-07`: M40 targets `StyleInclude` next because direct app styles, resource includes, and theme dictionaries are covered, while included app styles remain unverified.
 
 ## Change Log
 
@@ -1225,3 +1250,4 @@ Audit current `ThemeDictionaries` and requested theme variant behavior, then imp
 - `2026-06-07`: Completed M36 reload/hot preview foundation with persistent Core preview-session JSON storage, MCP store wiring, restore tests, README updates, and full-suite validation; added M37 preview resource/style scope as the active focus.
 - `2026-06-07`: Completed M37 preview resource/style scope with project `Application.Initialize()` loading, preview-window style application, pixel-validated App.axaml style smoke coverage, README updates, and full-suite validation; added M38 preview resource include scope as the active focus.
 - `2026-06-07`: Completed M38 preview resource include scope with App.axaml merged resource dictionary transfer, pixel-validated ResourceInclude smoke coverage, README updates, and full-suite validation; added M39 preview theme dictionary variant scope as the active focus.
+- `2026-06-07`: Completed M39 preview theme dictionary variant scope with App.axaml theme dictionary transfer, pixel-validated light/dark theme resource smoke coverage, README/gap updates, and full-suite validation; added M40 preview style include scope as the active focus.

@@ -50,13 +50,13 @@ Completed slice: runtime reload no longer falls through to a misleading preview 
 
 ### Preview Resource Scope
 
-Status: first app-resource, app-style, and resource-include slices complete; full design-time parity remains open.
+Status: first app-resource, app-style, resource-include, and theme-dictionary slices complete; full design-time parity remains open.
 
-PreviewHost can build a project, load a compiled view resource through `avares://`, copy top-level resource entries and merged resource dictionaries from compiled project-root `App.axaml`, instantiate the project `Application` inside the isolated preview host process, and apply direct `Application.Styles` to the preview window style scope. Full `App.axaml` orchestration, style includes, theme dictionaries, culture variants, design data, and richer diagnostics are still limited.
+PreviewHost can build a project, load a compiled view resource through `avares://`, copy top-level resource entries, merged resource dictionaries, and theme dictionaries from compiled project-root `App.axaml`, instantiate the project `Application` inside the isolated preview host process, and apply direct `Application.Styles` to the preview window style scope. Full `App.axaml` orchestration, style includes, culture variants, design data, and richer diagnostics are still limited.
 
-Completed slice: project-root compiled `App.axaml` top-level resources, merged resource dictionaries, and direct app-level styles are loaded before rendering the preview view.
+Completed slice: project-root compiled `App.axaml` top-level resources, merged resource dictionaries, theme dictionaries, and direct app-level styles are loaded before rendering the preview view.
 
-Next slice: validate and improve app-level theme dictionary behavior for requested preview variants.
+Next slice: validate and improve app-level `StyleInclude` behavior.
 
 ### Input Coverage
 

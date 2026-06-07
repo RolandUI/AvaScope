@@ -603,6 +603,139 @@ public sealed class PreviewHostSmokeTests
     }
 
     [Fact]
+    public async Task PreviewHostResolvesCompiledAppThemeDictionariesForRequestedVariant()
+    {
+        var hostAssembly = Path.Combine(AppContext.BaseDirectory, "AvaScope.PreviewHost.dll");
+        Assert.True(File.Exists(hostAssembly), $"Expected preview host assembly at {hostAssembly}.");
+
+        var testRoot = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(testRoot);
+
+        var projectPath = Path.Combine(testRoot, "ThemeDictionaryPreviewSample.csproj");
+        var appPath = Path.Combine(testRoot, "App.axaml");
+        var appCodeBehindPath = Path.Combine(testRoot, "App.axaml.cs");
+        var viewsDirectory = Path.Combine(testRoot, "Views");
+        Directory.CreateDirectory(viewsDirectory);
+
+        var viewPath = Path.Combine(viewsDirectory, "ThemeView.axaml");
+        var codeBehindPath = Path.Combine(viewsDirectory, "ThemeView.axaml.cs");
+        var requestPath = Path.Combine(testRoot, "request.json");
+        var lightOutputPath = Path.Combine(testRoot, "preview-light.png");
+        var darkOutputPath = Path.Combine(testRoot, "preview-dark.png");
+
+        await File.WriteAllTextAsync(projectPath, """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <Nullable>enable</Nullable>
+              </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="Avalonia" Version="12.0.4" />
+              </ItemGroup>
+            </Project>
+            """);
+
+        await File.WriteAllTextAsync(appPath, """
+            <Application xmlns="https://github.com/avaloniaui"
+                         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                         x:Class="ThemeDictionaryPreviewSample.App">
+              <Application.Resources>
+                <ResourceDictionary>
+                  <ResourceDictionary.ThemeDictionaries>
+                    <ResourceDictionary x:Key="Light">
+                      <SolidColorBrush x:Key="VariantPreviewBrush" Color="#FF1B998B" />
+                    </ResourceDictionary>
+                    <ResourceDictionary x:Key="Dark">
+                      <SolidColorBrush x:Key="VariantPreviewBrush" Color="#FFD7263D" />
+                    </ResourceDictionary>
+                  </ResourceDictionary.ThemeDictionaries>
+                </ResourceDictionary>
+              </Application.Resources>
+            </Application>
+            """);
+
+        await File.WriteAllTextAsync(appCodeBehindPath, """
+            using Avalonia;
+            using Avalonia.Markup.Xaml;
+
+            namespace ThemeDictionaryPreviewSample;
+
+            public partial class App : Application
+            {
+                public override void Initialize()
+                {
+                    AvaloniaXamlLoader.Load(this);
+                }
+            }
+            """);
+
+        await File.WriteAllTextAsync(viewPath, """
+            <UserControl xmlns="https://github.com/avaloniaui"
+                         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                         x:Class="ThemeDictionaryPreviewSample.Views.ThemeView">
+              <Border Width="220" Height="140" Background="{DynamicResource VariantPreviewBrush}" />
+            </UserControl>
+            """);
+
+        await File.WriteAllTextAsync(codeBehindPath, """
+            using Avalonia.Controls;
+
+            namespace ThemeDictionaryPreviewSample.Views;
+
+            public partial class ThemeView : UserControl
+            {
+                public ThemeView()
+                {
+                    InitializeComponent();
+                }
+            }
+            """);
+
+        try
+        {
+            await File.WriteAllTextAsync(
+                requestPath,
+                JsonSerializer.Serialize(
+                    new PreviewRequest(
+                        lightOutputPath,
+                        width: 220,
+                        height: 140,
+                        dpi: 96,
+                        projectPath: projectPath,
+                        viewPath: Path.Combine("Views", "ThemeView.axaml"),
+                        themeVariant: "light"),
+                    JsonOptions));
+            var light = await RunPreviewHostAsync(hostAssembly, requestPath, expectedExitCode: 0);
+
+            Assert.NotNull(light);
+            Assert.True(light.Success, light.Error?.Message);
+            AssertCenterPixel(lightOutputPath, red: 0x1B, green: 0x99, blue: 0x8B);
+
+            await File.WriteAllTextAsync(
+                requestPath,
+                JsonSerializer.Serialize(
+                    new PreviewRequest(
+                        darkOutputPath,
+                        width: 220,
+                        height: 140,
+                        dpi: 96,
+                        projectPath: projectPath,
+                        viewPath: Path.Combine("Views", "ThemeView.axaml"),
+                        themeVariant: "dark"),
+                    JsonOptions));
+            var dark = await RunPreviewHostAsync(hostAssembly, requestPath, expectedExitCode: 0);
+
+            Assert.NotNull(dark);
+            Assert.True(dark.Success, dark.Error?.Message);
+            AssertCenterPixel(darkOutputPath, red: 0xD7, green: 0x26, blue: 0x3D);
+        }
+        finally
+        {
+            await DeleteDirectoryWithRetryAsync(testRoot);
+        }
+    }
+
+    [Fact]
     public async Task PreviewHostReturnsStructuredErrorWhenAppResourceRootIsNotApplication()
     {
         var hostAssembly = Path.Combine(AppContext.BaseDirectory, "AvaScope.PreviewHost.dll");
