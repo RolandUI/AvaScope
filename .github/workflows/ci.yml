@@ -54,3 +54,9 @@ jobs:
         run: |
           powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\package-executables.ps1 -NoBuild
           Get-ChildItem artifacts\executables
+
+      - name: Verify artifacts
+        shell: pwsh
+        run: |
+          powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\verify-artifacts.ps1
+          Get-Content artifacts\release-manifest.json

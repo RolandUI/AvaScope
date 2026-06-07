@@ -23,15 +23,15 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `M23 Release Artifact Hardening Slice`
+- `M24 Cross-platform Framework-dependent Artifact Slice`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-07`
-- Goal: harden local release artifacts with explicit verification metadata and follow-up release decisions.
+- Goal: extend executable artifacts beyond the initial Windows-only ZIP while preserving co-located CLI/MCP/PreviewHost behavior.
 
 ## Next Action
 
-Add deterministic artifact manifest or checksum output for local packages/executable ZIP, then keep CI and README validation aligned.
+Extend executable packaging toward explicit runtime identifiers and framework-dependent ZIP outputs, starting from the current Windows artifact without introducing publishing credentials.
 
 ## Latest Validation
 
@@ -167,6 +167,13 @@ Add deterministic artifact manifest or checksum output for local packages/execut
 - `2026-06-07`: Artifact smoke validation passed: `dotnet artifacts\executables\avascope\avascope.dll` returned structured `invalid_cli_arguments` with exit code 2, and `dotnet artifacts\executables\avascope\avascope.dll mcp --help` started and shut down the co-located MCP server with exit code 0.
 - `2026-06-07`: `git check-ignore -v artifacts\executables\avascope-win-framework-dependent.zip` confirmed executable artifacts are ignored by `.gitignore`.
 - `2026-06-07`: `dotnet test AvaScope.slnx -c Release --no-build` passed with 101 tests after M22 executable packaging validation.
+- `2026-06-07`: `dotnet build AvaScope.slnx -c Release` passed with 0 warnings and 0 errors after M23 artifact verification script addition.
+- `2026-06-07`: `dotnet pack` created `AvaScope.Protocol.0.1.0.nupkg`, `AvaScope.Core.0.1.0.nupkg`, and `AvaScope.Bridge.0.1.0.nupkg` in `artifacts\packages`.
+- `2026-06-07`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\package-executables.ps1 -NoBuild` created `artifacts\executables\avascope-win-framework-dependent.zip`.
+- `2026-06-07`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\verify-artifacts.ps1` verified 4 release artifacts and wrote `artifacts\release-manifest.json`.
+- `2026-06-07`: Manifest inspection confirmed artifact names, relative paths, byte sizes, and SHA-256 hashes for the three NuGet packages and executable ZIP.
+- `2026-06-07`: `git check-ignore -v artifacts\release-manifest.json artifacts\packages\AvaScope.Protocol.0.1.0.nupkg artifacts\executables\avascope-win-framework-dependent.zip` confirmed verification output and artifacts are ignored.
+- `2026-06-07`: `dotnet test AvaScope.slnx -c Release --no-build` passed with 101 tests after M23 artifact verification workflow update.
 
 ## Milestones
 
@@ -627,13 +634,15 @@ Add deterministic artifact manifest or checksum output for local packages/execut
 
 ### M23 Release Artifact Hardening Slice
 
-- Status: `In Progress`
+- Status: `Done`
 - Goal: make local release artifacts easier for agents to verify, compare, and hand off.
 - Deliverables: artifact manifest or checksum output, documented verification command, CI/local validation alignment, next release-distribution decision.
 - Progress:
-  - Pending: add deterministic verification metadata for local NuGet packages and executable ZIP artifacts.
-  - Pending: decide whether the next executable distribution step should be cross-platform framework-dependent ZIPs, self-contained ZIPs, or a local/global `dotnet tool`.
-  - Pending: keep artifact verification output ignored unless it is intentionally committed as release metadata.
+  - Done: added `eng/verify-artifacts.ps1` to validate required NuGet packages and executable ZIP artifacts.
+  - Done: manifest output records schema version, product, version, artifact kind, name, relative path, byte size, and SHA-256 hash.
+  - Done: CI now runs artifact verification after library pack and executable ZIP creation.
+  - Done: README documents local artifact verification and the ignored `artifacts\release-manifest.json` output.
+  - Done: selected RID-based framework-dependent ZIPs as the next executable distribution step before self-contained ZIPs or a `dotnet tool`.
 - Acceptance Criteria:
   - Local package and executable artifacts have a repeatable verification command.
   - Verification output identifies artifact name, size, and checksum or equivalent integrity data.
@@ -641,9 +650,35 @@ Add deterministic artifact manifest or checksum output for local packages/execut
   - Follow-up release distribution choice is recorded in the Decision Log.
 - Validation:
   - `dotnet build AvaScope.slnx -c Release`
-  - local library package command(s)
+  - `dotnet pack src\AvaScope.Protocol\AvaScope.Protocol.csproj -c Release --no-build --output artifacts\packages`
+  - `dotnet pack src\AvaScope.Core\AvaScope.Core.csproj -c Release --no-build --output artifacts\packages`
+  - `dotnet pack src\AvaScope.Bridge\AvaScope.Bridge.csproj -c Release --no-build --output artifacts\packages`
+  - `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\package-executables.ps1 -NoBuild`
+  - `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\verify-artifacts.ps1`
+  - manifest JSON inspection
+  - `dotnet test AvaScope.slnx -c Release --no-build`
+  - `git status --short`
+
+### M24 Cross-platform Framework-dependent Artifact Slice
+
+- Status: `In Progress`
+- Goal: extend executable artifacts beyond the initial Windows-only ZIP while preserving co-located CLI/MCP/PreviewHost behavior.
+- Deliverables: explicit RID/artifact strategy, script support for named framework-dependent runtime outputs, CI/local validation update, docs/tracking update.
+- Progress:
+  - Pending: update executable packaging to use explicit runtime identifiers and artifact names instead of a single hard-coded Windows output.
+  - Pending: validate at least the Windows framework-dependent RID artifact locally.
+  - Pending: evaluate cross-RID framework-dependent publish for Linux/macOS on the current CI runner without introducing self-contained runtime bundling.
+- Acceptance Criteria:
+  - Executable artifact naming includes target runtime/platform information.
+  - Co-located `avascope`, `AvaScope.Mcp`, `AvaScope.PreviewHost`, `AvaScope.Core`, and `AvaScope.Protocol` validation still runs for each produced executable artifact.
+  - Artifact verification manifest includes every produced package/ZIP artifact.
+  - README and CI remain aligned with the local command path.
+- Validation:
+  - `dotnet build AvaScope.slnx -c Release`
   - executable packaging command(s)
   - artifact verification command(s)
+  - artifact inspection
+  - `git status --short`
   - `git status --short`
 
 ## Decision Log
@@ -706,6 +741,8 @@ Add deterministic artifact manifest or checksum output for local packages/execut
 - `2026-06-07`: M22 uses a Windows framework-dependent zipped publish directory first because it preserves `avascope`, `AvaScope.Mcp`, and `AvaScope.PreviewHost` co-location without creating a feed-published tool package or requiring publishing credentials.
 - `2026-06-07`: The documented executable package command uses `powershell -NoProfile -ExecutionPolicy Bypass -File` because local Windows execution policy may block direct `.ps1` invocation and the repository should not require a global machine policy change.
 - `2026-06-07`: M23 targets artifact hardening next because local packages and executable ZIPs now exist, but agents still need deterministic checksum/manifest output before broader release automation.
+- `2026-06-07`: M23 keeps the artifact manifest under ignored `artifacts/` output rather than committing it because package ZIP hashes and sizes are generated validation evidence, not stable source metadata.
+- `2026-06-07`: The next executable distribution step is RID-based framework-dependent ZIPs before self-contained ZIPs or a `dotnet tool`; this preserves CLI/MCP/PreviewHost co-location while avoiding runtime bundling size and feed publishing decisions.
 
 ## Change Log
 
@@ -742,3 +779,4 @@ Add deterministic artifact manifest or checksum output for local packages/execut
 - `2026-06-07`: Completed M20 packaging metadata with local library packages for Protocol/Core/Bridge, explicit non-packable executable projects, ignored package artifacts, README updates, and local pack validation; added M21 CI validation as the active focus.
 - `2026-06-07`: Completed M21 CI validation with GitHub Actions restore/build/test/pack workflow, README/gap updates, and local command validation; added M22 executable packaging as the active focus.
 - `2026-06-07`: Completed M22 executable packaging with a validated Windows framework-dependent ZIP containing CLI, MCP, PreviewHost, Core, and Protocol artifacts; added M23 release artifact hardening as the active focus.
+- `2026-06-07`: Completed M23 release artifact hardening with an ignored JSON manifest containing artifact sizes and SHA-256 hashes, CI verification, README updates, and release distribution decision logging; added M24 cross-platform framework-dependent artifacts as the active focus.

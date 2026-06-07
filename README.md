@@ -58,11 +58,14 @@ Local executable package validation:
 ```powershell
 dotnet build AvaScope.slnx -c Release
 powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\package-executables.ps1 -NoBuild
+powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\verify-artifacts.ps1
 ```
 
 The executable package slice produces `artifacts\executables\avascope-win-framework-dependent.zip`. It is a Windows framework-dependent publish artifact containing the `avascope` CLI, `AvaScope.Mcp`, and `AvaScope.PreviewHost` in one directory so `avascope mcp` and preview rendering can find their co-located assemblies. The package requires a compatible local .NET runtime and does not publish to any feed.
 
-CI validation runs restore, Release build, Release test, local library pack, and local executable package commands in GitHub Actions on pushes and pull requests. It does not publish packages or require secrets.
+`eng\verify-artifacts.ps1` writes `artifacts\release-manifest.json`, a local ignored JSON manifest with artifact names, relative paths, byte sizes, and SHA-256 hashes for the three NuGet packages plus the executable ZIP.
+
+CI validation runs restore, Release build, Release test, local library pack, local executable package, and artifact verification commands in GitHub Actions on pushes and pull requests. It does not publish packages or require secrets.
 
 ## CLI
 

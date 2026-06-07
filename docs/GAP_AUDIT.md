@@ -54,22 +54,24 @@ Next slice: defer broader input until runtime reload semantics and packaging/CI 
 
 ### Packaging And Release
 
-Status: first library package metadata slice and first executable ZIP packaging slice complete; broader release workflow remains open.
+Status: first library package metadata slice, first executable ZIP packaging slice, and artifact verification manifest slice complete; broader release workflow remains open.
 
 `AvaScope.Protocol`, `AvaScope.Core`, and `AvaScope.Bridge` now have package ids, version metadata, descriptions, tags, repository metadata, README inclusion, and local `dotnet pack` validation into ignored `artifacts/packages`. `AvaScope.Mcp`, `AvaScope.Cli`, and `AvaScope.PreviewHost` are explicitly marked not packable in this slice.
 
 Executable distribution now uses `eng/package-executables.ps1` to publish `AvaScope.Cli` into `artifacts/executables/avascope` and create `artifacts/executables/avascope-win-framework-dependent.zip`. The artifact keeps `avascope`, `AvaScope.Mcp`, `AvaScope.PreviewHost`, `AvaScope.Core`, and `AvaScope.Protocol` co-located, stays under ignored local output, and does not require publishing credentials.
 
-Next slice: add deterministic artifact verification metadata before broader release automation.
+Artifact verification now uses `eng/verify-artifacts.ps1` to write ignored `artifacts/release-manifest.json` output with artifact kind, name, relative path, byte size, and SHA-256 hash for the three NuGet packages and executable ZIP.
+
+Next slice: add explicit RID-based framework-dependent executable artifacts before broader release automation.
 
 ### CI Workflow
 
 Status: first CI validation slice complete.
 
-GitHub Actions now validates restore, Release build, Release tests, local library package creation, and local executable ZIP package creation on push and pull request without publishing packages or requiring secrets.
+GitHub Actions now validates restore, Release build, Release tests, local library package creation, local executable ZIP package creation, and artifact manifest verification on push and pull request without publishing packages or requiring secrets.
 
-Next slice: artifact checksum/manifest validation remains open.
+Next slice: cross-platform/RID artifact validation remains open.
 
 ## Selected Next Slice
 
-Add release artifact hardening next. Library packages, executable ZIP packaging, and CI validation are now in place.
+Add cross-platform framework-dependent executable artifact support next. Library packages, executable ZIP packaging, artifact manifest verification, and CI validation are now in place.
