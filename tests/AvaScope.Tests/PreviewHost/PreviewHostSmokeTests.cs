@@ -169,6 +169,11 @@ public sealed class PreviewHostSmokeTests
             Assert.NotNull(result);
             Assert.False(result.Success);
             Assert.Equal("preview_project_build_failed", result.Error!.Code);
+            Assert.NotNull(result.Error.Details);
+            Assert.Equal("build", result.Error.Details!["phase"]);
+            Assert.Equal(Path.GetFullPath(projectPath), result.Error.Details["projectPath"]);
+            Assert.Equal("1", result.Error.Details["exitCode"]);
+            Assert.Contains("Build FAILED", result.Error.Details["outputTail"], StringComparison.Ordinal);
             Assert.False(File.Exists(outputPath));
         }
         finally

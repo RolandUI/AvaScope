@@ -217,6 +217,8 @@ Planned but not implemented yet: runtime hot reload, drag/drop, full preview sta
 
 `diagnostics` reports AvaScope service metadata, local bridge manifest/pipe health, stale or invalid bridge manifests, and preview host readiness without building or loading user projects.
 
+Preview build/render failures preserve the stable `error.code` and `error.message` shape and may include bounded `error.details` fields such as `phase`, `projectPath`, `viewPath`, `outputPath`, `exitCode`, and `outputTail`.
+
 ## Runtime Bridge
 
 The bridge is opt-in. A host app must activate it explicitly and register top-levels that should be inspectable:

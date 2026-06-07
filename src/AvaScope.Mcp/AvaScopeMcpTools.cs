@@ -526,7 +526,10 @@ public sealed class AvaScopeMcpTools
         var runtimeReload = await bridgeClient.ReloadRuntimeAsync(parsedSessionId!, cancellationToken);
         return runtimeReload.Error!.Code == CoreErrorCodes.BridgeSessionNotFound
             ? ToToolResult(previewReload)
-            : ToolResult<PreviewSessionSummary>.Fail(new ProtocolError(runtimeReload.Error.Code, runtimeReload.Error.Message));
+            : ToolResult<PreviewSessionSummary>.Fail(new ProtocolError(
+                runtimeReload.Error.Code,
+                runtimeReload.Error.Message,
+                runtimeReload.Error.Details));
     }
 
     private static SessionSummary ToProtocolSummary(SessionSnapshot session)
@@ -555,7 +558,10 @@ public sealed class AvaScopeMcpTools
     {
         return result.Success
             ? ToolResult<T>.Ok(result.Value!)
-            : ToolResult<T>.Fail(new ProtocolError(result.Error!.Code, result.Error.Message));
+            : ToolResult<T>.Fail(new ProtocolError(
+                result.Error!.Code,
+                result.Error.Message,
+                result.Error.Details));
     }
 
     private static bool TryParseOptionalSessionId(

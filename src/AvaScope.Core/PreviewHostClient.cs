@@ -164,7 +164,8 @@ public sealed class PreviewHostClient
         {
             return CoreResult<PreviewResponse>.Fail(new CoreError(
                 result.Error!.Code,
-                result.Error.Message));
+                result.Error.Message,
+                result.Error.Details));
         }
 
         if (process.ExitCode != 0)

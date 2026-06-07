@@ -16,13 +16,15 @@ Completed slice: bridge IPC now returns a structured close response, removes the
 
 ### Diagnostics Tool
 
-Status: first bridge diagnostics slice complete; richer preview/build/binding/layout/resource diagnostics remain open.
+Status: first bridge diagnostics slice and preview failure details slice complete; richer binding/layout/resource diagnostics remain open.
 
 `diagnostics` is listed in the intended MCP tool shape. The first slice now reports service health, local bridge manifest path, process id, named-pipe transport, protocol health, stale manifests, invalid manifests, and unavailable IPC states. Current errors are still structured per operation; there is no historical last-error stream yet.
 
 Completed slice: preview-host readiness diagnostics now report host assembly path, availability, isolated child-process mode, service metadata, and structured missing-host errors without launching user project code.
 
-Next slice: add richer preview failure diagnostics so build/render/XAML failures expose structured context beyond a trimmed message string.
+Completed slice: preview build/render failures can now include bounded `error.details` fields such as `phase`, paths, build exit code, and build output tail while preserving the existing `code/message` result shape through Core, CLI, MCP, and preview-session storage.
+
+Next slice: defer richer binding/layout/resource diagnostics until runtime safety boundaries are re-audited for public alpha.
 
 ## P1 Gaps
 
@@ -108,4 +110,4 @@ Next slice: CI can later add publish/upload artifacts, self-contained outputs, o
 
 ## Selected Next Slice
 
-Expand preview failure diagnostics next. Release artifacts validate after the sample and CLI workflow updates, so the next public-alpha risk is making preview failures easier for agents and users to diagnose without scraping a single trimmed error string.
+Audit runtime safety boundaries next. Preview failure details now preserve bounded structured context, so the next public-alpha risk is ensuring bridge activation, local transport, and remote-control limitations are documented and covered tightly enough.

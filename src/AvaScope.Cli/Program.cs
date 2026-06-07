@@ -126,7 +126,10 @@ internal static class Program
         var result = await new PreviewHostClient().RenderAsync(request);
         WriteResult(result.Success
             ? ToolResult<PreviewResponse>.Ok(result.Value!)
-            : ToolResult<PreviewResponse>.Fail(new ProtocolError(result.Error!.Code, result.Error.Message)));
+            : ToolResult<PreviewResponse>.Fail(new ProtocolError(
+                result.Error!.Code,
+                result.Error.Message,
+                result.Error.Details)));
 
         return result.Success ? 0 : 1;
     }
@@ -834,7 +837,10 @@ internal static class Program
     {
         WriteResult(result.Success
             ? ToolResult<T>.Ok(result.Value!)
-            : ToolResult<T>.Fail(new ProtocolError(result.Error!.Code, result.Error.Message)));
+            : ToolResult<T>.Fail(new ProtocolError(
+                result.Error!.Code,
+                result.Error.Message,
+                result.Error.Details)));
     }
 
     private static readonly string[] SupportedInputActions =

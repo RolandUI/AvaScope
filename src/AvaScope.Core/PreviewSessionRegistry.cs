@@ -185,7 +185,10 @@ public sealed class PreviewSessionRegistry
     {
         return result.Success
             ? ToolResult<PreviewResponse>.Ok(result.Value!)
-            : ToolResult<PreviewResponse>.Fail(new ProtocolError(result.Error!.Code, result.Error.Message));
+            : ToolResult<PreviewResponse>.Fail(new ProtocolError(
+                result.Error!.Code,
+                result.Error.Message,
+                result.Error.Details));
     }
 
     private static SessionSummary ToProtocolSummary(SessionSnapshot session)
@@ -227,7 +230,10 @@ public sealed class PreviewSessionRegistry
 
         var lastError = summary.LastRender.Success || summary.LastRender.Error is null
             ? null
-            : new CoreError(summary.LastRender.Error.Code, summary.LastRender.Error.Message);
+            : new CoreError(
+                summary.LastRender.Error.Code,
+                summary.LastRender.Error.Message,
+                summary.LastRender.Error.Details);
         snapshot = new SessionSnapshot(
             summary.Session.SessionId,
             summary.Session.Kind,

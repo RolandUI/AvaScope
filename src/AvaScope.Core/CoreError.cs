@@ -2,7 +2,7 @@ namespace AvaScope.Core;
 
 public sealed record CoreError
 {
-    public CoreError(string code, string message)
+    public CoreError(string code, string message, IReadOnlyDictionary<string, string>? details = null)
     {
         if (string.IsNullOrWhiteSpace(code))
         {
@@ -16,9 +16,12 @@ public sealed record CoreError
 
         Code = code;
         Message = message;
+        Details = details;
     }
 
     public string Code { get; }
 
     public string Message { get; }
+
+    public IReadOnlyDictionary<string, string>? Details { get; }
 }

@@ -44,6 +44,26 @@ public sealed class ProtocolContractTests
     }
 
     [Fact]
+    public void ToolResultFailureSerializesOptionalErrorDetails()
+    {
+        var result = ToolResult<HealthResponse>.Fail(new ProtocolError(
+            "preview_project_build_failed",
+            "Build failed.",
+            new Dictionary<string, string>
+            {
+                ["phase"] = "build",
+                ["exitCode"] = "1"
+            }));
+        var json = JsonSerializer.Serialize(result);
+        var node = JsonNode.Parse(json)!;
+
+        Assert.False(node["success"]!.GetValue<bool>());
+        Assert.Equal("preview_project_build_failed", node["error"]!["code"]!.GetValue<string>());
+        Assert.Equal("build", node["error"]!["details"]!["phase"]!.GetValue<string>());
+        Assert.Equal("1", node["error"]!["details"]!["exitCode"]!.GetValue<string>());
+    }
+
+    [Fact]
     public void HealthResponseUsesCurrentProtocolMetadata()
     {
         var result = ToolResult<HealthResponse>.Ok(HealthResponse.Current());

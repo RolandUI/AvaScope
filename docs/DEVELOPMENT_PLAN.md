@@ -23,15 +23,15 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `M48 Preview Failure Diagnostics Detail Slice`
+- `M49 Runtime Safety Boundary Audit Slice`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-07`
-- Goal: make preview build/render failures easier for agents and users to diagnose.
+- Goal: harden and document public-alpha runtime bridge safety boundaries.
 
 ## Next Action
 
-Audit current PreviewHost/Core error propagation and add structured preview failure context beyond a single trimmed message string.
+Audit bridge activation, local transport, and runtime control defaults; add missing tests or documentation for any safety gap found.
 
 ## Latest Validation
 
@@ -275,6 +275,11 @@ Audit current PreviewHost/Core error propagation and add structured preview fail
 - `2026-06-07`: Release artifact list confirmed three NuGet packages and two executable ZIPs; `samples\AvaScope.GettingStartedApp` is not part of the manifest.
 - `2026-06-07`: `git check-ignore -v` confirmed release manifest, packages, executable ZIP, and sample preview PNG outputs are ignored under `artifacts/`.
 - `2026-06-07`: Packaged win-x64 CLI preview smoke passed against `samples\AvaScope.GettingStartedApp` and rendered `artifacts\samples\getting-started-preview-packaged.png`.
+- `2026-06-07`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after M48 preview failure diagnostics details.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~ToolResultFailureSerializesOptionalErrorDetails` passed with 1 test.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewHostReturnsStructuredErrorWhenProjectBuildFails` passed with 1 test.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewCommandPreservesPreviewFailureDetails` passed with 1 test.
+- `2026-06-07`: `dotnet test AvaScope.slnx --no-build` passed with 171 tests after M48 preview failure diagnostics details.
 
 ## Milestones
 
@@ -1299,14 +1304,15 @@ Audit current PreviewHost/Core error propagation and add structured preview fail
 
 ### M48 Preview Failure Diagnostics Detail Slice
 
-- Status: `In Progress`
+- Status: `Done`
 - Goal: make preview build/render failures easier for agents and users to diagnose.
 - Deliverables: audit current PreviewHost/Core error propagation, structured preview failure context, tests for at least one build or render failure path, README/tracking update.
 - Progress:
-  - Pending: inspect current `PreviewHost` and `PreviewHostClient` failure contracts.
-  - Pending: decide the smallest transport-neutral diagnostic payload that does not expose unbounded logs.
-  - Pending: implement structured context for build/render failures.
-  - Pending: validate with focused protocol/core/preview or CLI tests.
+  - Done: audited current `PreviewHost`, `PreviewHostClient`, CLI, MCP, and preview-session error propagation.
+  - Done: reused existing optional `ProtocolError.details` as the smallest compatible transport-neutral payload.
+  - Done: added `CoreError.Details` and preserved details through Core, CLI, MCP, local bridge diagnostics conversion, and preview-session storage.
+  - Done: added bounded PreviewHost build/render context including phase, paths, build exit code, timeout, command, and output tail where applicable.
+  - Done: validated protocol serialization, direct PreviewHost build failure details, CLI preservation, and full suite.
 - Acceptance Criteria:
   - Preview failure results expose bounded structured context beyond a single opaque message where practical.
   - Existing `ToolResult<PreviewResponse>` compatibility is preserved.
@@ -1315,6 +1321,26 @@ Audit current PreviewHost/Core error propagation and add structured preview fail
 - Validation:
   - `dotnet build AvaScope.slnx`
   - focused diagnostics/protocol/preview tests
+  - `dotnet test AvaScope.slnx --no-build`
+
+### M49 Runtime Safety Boundary Audit Slice
+
+- Status: `In Progress`
+- Goal: harden and document public-alpha runtime bridge safety boundaries.
+- Deliverables: bridge activation/local transport audit, missing safety tests or docs, explicit non-goals for runtime control, tracking update.
+- Progress:
+  - Pending: inspect bridge activation defaults, local manifest creation, named-pipe transport, and CLI/MCP runtime control surfaces.
+  - Pending: verify local-only behavior is enforced by implementation, tests, and documentation.
+  - Pending: add missing tests or documentation for any safety gap found.
+  - Pending: validate build/tests and update public-alpha gap audit.
+- Acceptance Criteria:
+  - Bridge remains opt-in and local-only by default.
+  - Runtime input/control limitations are documented in public docs.
+  - No unauthenticated remote transport is introduced.
+  - Any discovered safety gap has either a fix or an explicit tracked deferral.
+- Validation:
+  - `dotnet build AvaScope.slnx`
+  - focused Bridge/Core/CLI safety tests if code changes are needed
   - `dotnet test AvaScope.slnx --no-build`
 
 ## Decision Log
@@ -1432,6 +1458,9 @@ Audit current PreviewHost/Core error propagation and add structured preview fail
 - `2026-06-07`: M47 targets Release validation next because the expanded solution and CLI path change should be checked against public-alpha packaging workflows before more feature work.
 - `2026-06-07`: M47 keeps `samples/AvaScope.GettingStartedApp` out of release artifacts; it validates source workflows but public alpha artifacts remain the three libraries plus the CLI/MCP/PreviewHost executable ZIPs.
 - `2026-06-07`: M48 targets bounded preview failure context while preserving existing `ToolResult<PreviewResponse>` compatibility so current MCP/CLI clients do not break.
+- `2026-06-07`: M48 uses optional `ProtocolError.details` and `CoreError.Details` rather than changing success/failure result envelopes; preview clients can ignore details and still parse the same `code/message` shape.
+- `2026-06-07`: M48 keeps build logs bounded by using the existing trimmed output tail for `error.details.outputTail`; unbounded build logs remain out of the protocol.
+- `2026-06-07`: M49 targets runtime safety boundaries next because public-alpha bridge control should be re-audited after preview diagnostics and release validation work.
 
 ## Change Log
 
@@ -1493,3 +1522,4 @@ Audit current PreviewHost/Core error propagation and add structured preview fail
 - `2026-06-07`: Completed M45 preview App DataTemplates scope with preview-window data-template transfer, pixel-validated compiled App.axaml template coverage, README/gap updates, and full-suite validation; added M46 getting-started sample as the active focus.
 - `2026-06-07`: Completed M46 getting-started sample with `samples/AvaScope.GettingStartedApp`, documented preview/runtime bridge commands, CLI relative preview path normalization, ignored PNG validation, README/gap updates, and full-suite validation; added M47 public-alpha Release validation refresh as the active focus.
 - `2026-06-07`: Completed M47 public-alpha Release validation refresh with Release build/test, library pack, executable ZIP packaging, artifact manifest verification, packaged CLI sample preview smoke, gap/tracking updates, and sample exclusion from release artifacts; added M48 preview failure diagnostics detail as the active focus.
+- `2026-06-07`: Completed M48 preview failure diagnostics detail with bounded `error.details` for preview build/render failures, Core/CLI/MCP/session details preservation, protocol/PreviewHost/CLI tests, README/gap updates, and full-suite validation; added M49 runtime safety boundary audit as the active focus.

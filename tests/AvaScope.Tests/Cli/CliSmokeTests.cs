@@ -181,6 +181,68 @@ public sealed class CliSmokeTests
     }
 
     [Fact]
+    public async Task PreviewCommandPreservesPreviewFailureDetails()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var testRoot = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(testRoot);
+
+        var projectPath = Path.Combine(testRoot, "BrokenPreviewSample.csproj");
+        var viewPath = Path.Combine(testRoot, "MainView.axaml");
+        var outputPath = Path.Combine(testRoot, "preview.png");
+
+        await File.WriteAllTextAsync(projectPath, """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+            </Project>
+            """);
+
+        await File.WriteAllTextAsync(viewPath, """
+            <UserControl xmlns="https://github.com/avaloniaui" />
+            """);
+
+        try
+        {
+            var result = await RunCliAsync(
+                cliAssembly,
+                "preview",
+                projectPath,
+                "--view",
+                viewPath,
+                "--out",
+                outputPath,
+                "--width",
+                "220",
+                "--height",
+                "140");
+
+            Assert.Equal(1, result.ExitCode);
+            Assert.True(string.IsNullOrWhiteSpace(result.StandardError), result.StandardError);
+
+            var payload = JsonSerializer.Deserialize<ToolResult<PreviewResponse>>(result.StandardOutput, JsonOptions);
+            Assert.NotNull(payload);
+            Assert.False(payload.Success);
+            Assert.Equal("preview_project_build_failed", payload.Error!.Code);
+            Assert.NotNull(payload.Error.Details);
+            Assert.Equal("build", payload.Error.Details!["phase"]);
+            Assert.Equal(Path.GetFullPath(projectPath), payload.Error.Details["projectPath"]);
+            Assert.Equal("1", payload.Error.Details["exitCode"]);
+            Assert.Contains("Build FAILED", payload.Error.Details["outputTail"], StringComparison.Ordinal);
+            Assert.False(File.Exists(outputPath));
+        }
+        finally
+        {
+            if (Directory.Exists(testRoot))
+            {
+                Directory.Delete(testRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
     public async Task AttachCommandReturnsStructuredErrorWhenNoBridgeSessionMatches()
     {
         var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");

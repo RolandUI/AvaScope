@@ -47,14 +47,16 @@ internal static class Program
         {
             WriteResult(ToolResult<PreviewResponse>.Fail(new ProtocolError(
                 PreviewHostErrorCodes.InvalidRequest,
-                exception.Message)));
+                exception.Message,
+                CreateExceptionDetails("request", exception))));
             return 1;
         }
         catch (Exception exception) when (exception is InvalidOperationException or XamlLoadException or NotSupportedException)
         {
             WriteResult(ToolResult<PreviewResponse>.Fail(new ProtocolError(
                 PreviewHostErrorCodes.RenderFailed,
-                exception.Message)));
+                exception.Message,
+                CreateExceptionDetails("render", exception))));
             return 1;
         }
     }
@@ -139,7 +141,8 @@ internal static class Program
         {
             return ToolResult<PreviewResponse>.Fail(new ProtocolError(
                 PreviewHostErrorCodes.RenderFailed,
-                "Preview host did not produce a rendered frame."));
+                "Preview host did not produce a rendered frame.",
+                CreateRenderDetails(fullProjectPath, fullViewPath, fullOutputPath)));
         }
 
         using (var stream = File.Create(fullOutputPath))
@@ -202,12 +205,13 @@ internal static class Program
             return null;
         }
 
+        var workingDirectory = Path.GetDirectoryName(fullProjectPath) ?? Environment.CurrentDirectory;
         using var process = new Process
         {
             StartInfo = new ProcessStartInfo
             {
                 FileName = "dotnet",
-                WorkingDirectory = Path.GetDirectoryName(fullProjectPath) ?? Environment.CurrentDirectory,
+                WorkingDirectory = workingDirectory,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 UseShellExecute = false
@@ -221,9 +225,10 @@ internal static class Program
 
         if (!process.Start())
         {
-            return new ProtocolError(
-                PreviewHostErrorCodes.ProjectBuildFailed,
-                $"Could not start project build for '{fullProjectPath}'.");
+            return CreateProjectBuildError(
+                $"Could not start project build for '{fullProjectPath}'.",
+                fullProjectPath,
+                workingDirectory);
         }
 
         var stdoutTask = process.StandardOutput.ReadToEndAsync();
@@ -232,9 +237,11 @@ internal static class Program
         if (!process.WaitForExit(milliseconds: 60000))
         {
             process.Kill(entireProcessTree: true);
-            return new ProtocolError(
-                PreviewHostErrorCodes.ProjectBuildFailed,
-                $"Project build timed out for '{fullProjectPath}'.");
+            return CreateProjectBuildError(
+                $"Project build timed out for '{fullProjectPath}'.",
+                fullProjectPath,
+                workingDirectory,
+                timeoutMilliseconds: 60000);
         }
 
         var output = string.Concat(
@@ -247,9 +254,82 @@ internal static class Program
             return null;
         }
 
-        return new ProtocolError(
-            PreviewHostErrorCodes.ProjectBuildFailed,
-            TrimBuildOutput(output));
+        var outputTail = TrimBuildOutput(output);
+        return CreateProjectBuildError(
+            outputTail,
+            fullProjectPath,
+            workingDirectory,
+            exitCode: process.ExitCode,
+            outputTail: outputTail);
+    }
+
+    private static ProtocolError CreateProjectBuildError(
+        string message,
+        string fullProjectPath,
+        string workingDirectory,
+        int? exitCode = null,
+        string? outputTail = null,
+        int? timeoutMilliseconds = null)
+    {
+        var details = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["phase"] = "build",
+            ["projectPath"] = fullProjectPath,
+            ["workingDirectory"] = workingDirectory,
+            ["command"] = $"dotnet build \"{fullProjectPath}\" --nologo --disable-build-servers"
+        };
+
+        if (exitCode is not null)
+        {
+            details["exitCode"] = exitCode.Value.ToString(CultureInfo.InvariantCulture);
+        }
+
+        if (timeoutMilliseconds is not null)
+        {
+            details["timeoutMilliseconds"] = timeoutMilliseconds.Value.ToString(CultureInfo.InvariantCulture);
+        }
+
+        if (!string.IsNullOrWhiteSpace(outputTail))
+        {
+            details["outputTail"] = outputTail;
+        }
+
+        return new ProtocolError(PreviewHostErrorCodes.ProjectBuildFailed, message, details);
+    }
+
+    private static IReadOnlyDictionary<string, string> CreateRenderDetails(
+        string? fullProjectPath,
+        string? fullViewPath,
+        string fullOutputPath)
+    {
+        var details = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["phase"] = "render",
+            ["outputPath"] = fullOutputPath
+        };
+
+        if (fullProjectPath is not null)
+        {
+            details["projectPath"] = fullProjectPath;
+        }
+
+        if (fullViewPath is not null)
+        {
+            details["viewPath"] = fullViewPath;
+        }
+
+        return details;
+    }
+
+    private static IReadOnlyDictionary<string, string> CreateExceptionDetails(
+        string phase,
+        Exception exception)
+    {
+        return new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["phase"] = phase,
+            ["exceptionType"] = exception.GetType().FullName ?? exception.GetType().Name
+        };
     }
 
     private static string TrimBuildOutput(string output)

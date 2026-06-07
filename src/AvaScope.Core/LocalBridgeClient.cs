@@ -706,7 +706,7 @@ public sealed class LocalBridgeClient
 
     private static ProtocolError ToProtocolError(CoreError error)
     {
-        return new ProtocolError(error.Code, error.Message);
+        return new ProtocolError(error.Code, error.Message, error.Details);
     }
 
     private static string NewRequestId()
