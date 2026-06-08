@@ -299,6 +299,15 @@ dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll diff --baseline .\basel
 
 The command returns a structured `ToolResult<PreviewDiffResponse>`. A changed image exits non-zero while still returning the changed pixel count, changed percentage, max channel delta, and diff path.
 
+Create and check a visual regression baseline set:
+
+```powershell
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll baseline-create path\to\App.csproj --view Views\MainView.axaml --manifest .\baselines\main.json --sizes 1440x900,1280x720 --out-dir .\baselines\main-images --theme light
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll baseline-check --manifest .\baselines\main.json --out-dir .\artifacts\visual-current --diff-dir .\artifacts\visual-diff --tolerance 2
+```
+
+`baseline-create` writes explicit baseline screenshots plus a JSON manifest. `baseline-check` re-renders the manifest variants, writes current and diff images to explicit output directories, and exits non-zero when any variant changes. It does not update or replace baseline files.
+
 Delete stale AvaScope-owned preview-session metadata:
 
 ```powershell

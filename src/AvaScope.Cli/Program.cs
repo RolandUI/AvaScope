@@ -37,6 +37,8 @@ internal static class Program
             "reload-preview-session" => await ReloadPreviewSession(args[1..]),
             "close-preview-session" => ClosePreviewSession(args[1..]),
             "watch-preview-session" => await WatchPreviewSession(args[1..]),
+            "baseline-create" => await BaselineCreate(args[1..]),
+            "baseline-check" => await BaselineCheck(args[1..]),
             "cleanup" => Cleanup(args[1..]),
             "diff" => Diff(args[1..]),
             "mcp" => await Mcp(),
@@ -386,6 +388,132 @@ internal static class Program
             watchOptions);
         WriteResult(result);
         return result.Success && result.Value!.ReloadCount > 0 && !result.Value.TimedOut ? 0 : 1;
+    }
+
+    private static async Task<int> BaselineCreate(string[] args)
+    {
+        if (args.Length == 0)
+        {
+            WriteFailure<PreviewBaselineCreateResponse>(InvalidCliArguments, GetBaselineCreateUsage());
+            return 2;
+        }
+
+        var projectPath = args[0];
+        var options = ParseOptions(args[1..], GetBaselineCreateUsage());
+        if (!options.Success)
+        {
+            WriteFailure<PreviewBaselineCreateResponse>(InvalidCliArguments, options.Error!);
+            return 2;
+        }
+
+        if (!ValidateOptions(
+                options.Values,
+                GetBaselineCreateUsage(),
+                "view",
+                "manifest",
+                "sizes",
+                "out-dir",
+                "dpi",
+                "theme",
+                "culture",
+                "design-data-type")
+            || !TryReadRequiredOption(options.Values, "view", GetBaselineCreateUsage(), out var viewPath)
+            || !TryReadRequiredOption(options.Values, "manifest", GetBaselineCreateUsage(), out var manifestPath)
+            || !TryReadRequiredOption(options.Values, "sizes", GetBaselineCreateUsage(), out var sizesText))
+        {
+            return 2;
+        }
+
+        if (!TryParsePreviewViewports(sizesText!, out var viewports))
+        {
+            WriteFailure<PreviewBaselineCreateResponse>(
+                InvalidCliArguments,
+                "sizes must be a comma-separated list like 1440x900,1280x720.");
+            return 2;
+        }
+
+        if (!TryParsePositiveDouble(options.Values.GetValueOrDefault("dpi", "96"), out var dpi))
+        {
+            WriteFailure<PreviewBaselineCreateResponse>(
+                InvalidCliArguments,
+                "dpi must be a positive number.");
+            return 2;
+        }
+
+        var fullManifestPath = Path.GetFullPath(manifestPath!);
+        var outputDirectory = options.Values.TryGetValue("out-dir", out var configuredOutputDirectory)
+            ? Path.GetFullPath(configuredOutputDirectory)
+            : Path.Combine(Path.GetDirectoryName(fullManifestPath) ?? Environment.CurrentDirectory, "baseline-images");
+        PreviewRequest request;
+        try
+        {
+            request = new PreviewRequest(
+                Path.Combine(outputDirectory, "baseline.png"),
+                dpi: dpi,
+                projectPath: Path.GetFullPath(projectPath),
+                viewPath: viewPath,
+                themeVariant: options.Values.GetValueOrDefault("theme"),
+                culture: options.Values.GetValueOrDefault("culture"),
+                designDataType: options.Values.GetValueOrDefault("design-data-type"));
+        }
+        catch (Exception exception) when (exception is ArgumentException or ArgumentOutOfRangeException or PathTooLongException)
+        {
+            WriteFailure<PreviewBaselineCreateResponse>(CoreErrorCodes.InvalidPreviewRequest, exception.Message);
+            return 2;
+        }
+
+        var result = await new PreviewBaselineManager(new PreviewHostClient()).CreateAsync(
+            request,
+            viewports!,
+            fullManifestPath,
+            outputDirectory);
+        WriteResult(result);
+        return result.Success ? 0 : 1;
+    }
+
+    private static async Task<int> BaselineCheck(string[] args)
+    {
+        var options = ParseOptions(args, GetBaselineCheckUsage());
+        if (!options.Success)
+        {
+            WriteFailure<PreviewBaselineCheckResponse>(InvalidCliArguments, options.Error!);
+            return 2;
+        }
+
+        if (!ValidateOptions(
+                options.Values,
+                GetBaselineCheckUsage(),
+                "manifest",
+                "out-dir",
+                "diff-dir",
+                "tolerance")
+            || !TryReadRequiredOption(options.Values, "manifest", GetBaselineCheckUsage(), out var manifestPath))
+        {
+            return 2;
+        }
+
+        if (!TryParseDoubleInRange(options.Values.GetValueOrDefault("tolerance", "0"), 0, 255, out var tolerance))
+        {
+            WriteFailure<PreviewBaselineCheckResponse>(InvalidCliArguments, "tolerance must be between 0 and 255.");
+            return 2;
+        }
+
+        var fullManifestPath = Path.GetFullPath(manifestPath!);
+        var manifestDirectory = Path.GetDirectoryName(fullManifestPath) ?? Environment.CurrentDirectory;
+        var outputDirectory = options.Values.TryGetValue("out-dir", out var configuredOutputDirectory)
+            ? Path.GetFullPath(configuredOutputDirectory)
+            : Path.Combine(manifestDirectory, "current-images");
+        var diffDirectory = options.Values.TryGetValue("diff-dir", out var configuredDiffDirectory)
+            ? Path.GetFullPath(configuredDiffDirectory)
+            : Path.Combine(manifestDirectory, "diff-images");
+
+        var result = await new PreviewBaselineManager(new PreviewHostClient()).CheckAsync(
+            fullManifestPath,
+            outputDirectory,
+            diffDirectory,
+            tolerance);
+        WriteResult(result);
+        return result.Success && result.Value!.Passed ? 0 : 1;
     }
 
     private static PreviewSessionRegistry CreatePreviewSessionRegistry()
@@ -1163,7 +1291,7 @@ internal static class Program
 
     private static string GetUsage()
     {
-        return "Usage: avascope mcp | avascope attach [--process <pid>] [--session <session-id>] | avascope list-top-levels --session <session-id> | avascope visual-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] | avascope logical-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] | avascope inspect-node --session <session-id> --top-level <top-level-id> --node <node-id> [--tree-kind visual|logical] | avascope find-nodes --session <session-id> --top-level <top-level-id> [--tree-kind visual|logical] [--type <type>] [--name <name>] [--automation-id <id>] [--text <text>] [--max-depth <n>] [--max-results <n>] | avascope input --session <session-id> --top-level <top-level-id> --action <action> [--x <x>] [--y <y>] [--text <text>] [--target-node <node-id>] [--key <key>] [--modifiers <modifiers>] | avascope close-session --session <session-id> | avascope diagnostics [--process <pid>] [--session <session-id>] [--max-sessions <n>] | avascope reload --session <session-id> | avascope create-preview-session <project.csproj> --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] [--display-name <name>] | avascope list-preview-sessions | avascope reload-preview-session --session <session-id> | avascope close-preview-session --session <session-id> | avascope watch-preview-session --session <session-id> --timeout-ms <ms> [--settle-ms <ms>] [--max-reloads <n>] [--watch <path>[,<path>...]] | avascope cleanup | avascope diff --baseline <baseline.png> --current <current.png> --out <diff.png> [--tolerance <0-255>] | avascope screenshot --session <session-id> --top-level <top-level-id> --out <screenshot.png> | avascope preview <project.csproj> --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--sizes <w>x<h>[,<w>x<h>...]] [--contact-sheet <sheet.png>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>]";
+        return "Usage: avascope mcp | avascope attach [--process <pid>] [--session <session-id>] | avascope list-top-levels --session <session-id> | avascope visual-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] | avascope logical-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] | avascope inspect-node --session <session-id> --top-level <top-level-id> --node <node-id> [--tree-kind visual|logical] | avascope find-nodes --session <session-id> --top-level <top-level-id> [--tree-kind visual|logical] [--type <type>] [--name <name>] [--automation-id <id>] [--text <text>] [--max-depth <n>] [--max-results <n>] | avascope input --session <session-id> --top-level <top-level-id> --action <action> [--x <x>] [--y <y>] [--text <text>] [--target-node <node-id>] [--key <key>] [--modifiers <modifiers>] | avascope close-session --session <session-id> | avascope diagnostics [--process <pid>] [--session <session-id>] [--max-sessions <n>] | avascope reload --session <session-id> | avascope create-preview-session <project.csproj> --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] [--display-name <name>] | avascope list-preview-sessions | avascope reload-preview-session --session <session-id> | avascope close-preview-session --session <session-id> | avascope watch-preview-session --session <session-id> --timeout-ms <ms> [--settle-ms <ms>] [--max-reloads <n>] [--watch <path>[,<path>...]] | avascope baseline-create <project.csproj> --view <view.axaml> --manifest <baseline.json> --sizes <w>x<h>[,<w>x<h>...] [--out-dir <dir>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] | avascope baseline-check --manifest <baseline.json> [--out-dir <dir>] [--diff-dir <dir>] [--tolerance <0-255>] | avascope cleanup | avascope diff --baseline <baseline.png> --current <current.png> --out <diff.png> [--tolerance <0-255>] | avascope screenshot --session <session-id> --top-level <top-level-id> --out <screenshot.png> | avascope preview <project.csproj> --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--sizes <w>x<h>[,<w>x<h>...]] [--contact-sheet <sheet.png>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>]";
     }
 
     private static string GetPreviewUsage()
@@ -1194,6 +1322,16 @@ internal static class Program
     private static string GetWatchPreviewSessionUsage()
     {
         return "Usage: avascope watch-preview-session --session <session-id> --timeout-ms <ms> [--settle-ms <ms>] [--max-reloads <n>] [--watch <path>[,<path>...]]";
+    }
+
+    private static string GetBaselineCreateUsage()
+    {
+        return "Usage: avascope baseline-create <project.csproj> --view <view.axaml> --manifest <baseline.json> --sizes <w>x<h>[,<w>x<h>...] [--out-dir <dir>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>]";
+    }
+
+    private static string GetBaselineCheckUsage()
+    {
+        return "Usage: avascope baseline-check --manifest <baseline.json> [--out-dir <dir>] [--diff-dir <dir>] [--tolerance <0-255>]";
     }
 
     private static string GetAttachUsage()

@@ -62,7 +62,9 @@ Completed slice: CLI preview-session commands can create, list, reload, and clos
 
 Completed slice: `watch-preview-session` can watch the stored preview request's project/view files or an explicit watch path list, debounce changes, and reload through isolated PreviewHost child processes with bounded structured events.
 
-Next slice: broaden visual regression workflows; the one-shot `preview` command remains intentionally one-shot.
+Completed slice: `baseline-create` and `baseline-check` provide manifest-backed visual regression workflows over multi-size preview and screenshot diff primitives, with explicit current/diff artifact directories and non-zero check exits for changed variants.
+
+Next slice: deepen diagnostics; the one-shot `preview` command remains intentionally one-shot.
 
 ### Reload And Hot Preview
 
@@ -134,4 +136,4 @@ Next slice: CI can later add upload artifacts, self-contained outputs, or more R
 
 ## Selected Next Slice
 
-No public-alpha blocking slice remains after M50, and W9 completed the stored feature-request first slices. Future post-alpha work can start from one of the recorded deferrals: runtime hot reload/live preview, richer input, broader preview startup orchestration, installer/self-contained distribution, deeper binding/style/resource provenance, or broader visual-regression workflows.
+No public-alpha blocking slice remains after M50, and W9-W12 completed the stored feature-request first slices plus CLI preview sessions, file-watch reload, and manifest-backed visual regression. Future post-W12 work can start from one of the recorded deferrals: deeper binding/style/resource provenance, richer input, broader preview startup orchestration, or installer/self-contained distribution.

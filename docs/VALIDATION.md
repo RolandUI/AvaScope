@@ -66,6 +66,13 @@ dotnet test AvaScope.slnx --no-build --filter Mcp
 dotnet test AvaScope.slnx --no-build
 ```
 
+For visual regression workflow work, include:
+
+```powershell
+dotnet test AvaScope.slnx --filter FullyQualifiedName~CliSmokeTests.BaselineCommandsCreateManifestPassCheckAndFailChangedCheck
+dotnet test AvaScope.slnx --filter FullyQualifiedName~ProtocolContractTests.PreviewBaselineResponsesSerializeStableShapes
+```
+
 ## Public Alpha Release Validation
 
 Before marking a public-alpha readiness or release-workflow slice complete, run:

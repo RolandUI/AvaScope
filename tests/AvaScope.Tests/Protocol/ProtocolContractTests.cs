@@ -755,6 +755,80 @@ public sealed class ProtocolContractTests
     }
 
     [Fact]
+    public void PreviewBaselineResponsesSerializeStableShapes()
+    {
+        var createdAt = new DateTimeOffset(2026, 6, 8, 10, 0, 0, TimeSpan.Zero);
+        var baseline = new PreviewBaselineEntry(
+            0,
+            new PreviewViewport(1440, 900),
+            "C:\\baselines\\baseline-01-1440x900.png",
+            96,
+            "C:\\apps\\Sample\\Sample.csproj",
+            "Views\\MainView.axaml",
+            "light",
+            "en-US");
+        var manifest = new PreviewBaselineManifest(
+            PreviewBaselineManifest.CurrentVersion,
+            createdAt,
+            [baseline]);
+        var create = new PreviewBaselineCreateResponse(
+            "C:\\baselines\\baseline.json",
+            manifest,
+            new PreviewBatchResponse(
+            [
+                new PreviewBatchEntry(
+                    baseline.Viewport,
+                    baseline.ImagePath,
+                    ToolResult<PreviewResponse>.Ok(new PreviewResponse(
+                        baseline.ImagePath,
+                        1440,
+                        900,
+                        96,
+                        createdAt)))
+            ],
+            null,
+            createdAt));
+        var check = new PreviewBaselineCheckResponse(
+            "C:\\baselines\\baseline.json",
+            passed: false,
+            [
+                new PreviewBaselineCheckEntry(
+                    baseline,
+                    "C:\\current\\current-01-1440x900.png",
+                    "C:\\diff\\diff-01-1440x900.png",
+                    ToolResult<PreviewResponse>.Ok(new PreviewResponse(
+                        "C:\\current\\current-01-1440x900.png",
+                        1440,
+                        900,
+                        96,
+                        createdAt)),
+                    ToolResult<PreviewDiffResponse>.Ok(new PreviewDiffResponse(
+                        baseline.ImagePath,
+                        "C:\\current\\current-01-1440x900.png",
+                        passed: false,
+                        pixelWidth: 1440,
+                        pixelHeight: 900,
+                        tolerance: 0,
+                        changedPixels: 10,
+                        totalPixels: 1296000,
+                        changedPercent: 0.001,
+                        maxDelta: 255,
+                        "C:\\diff\\diff-01-1440x900.png")))
+            ],
+            createdAt);
+
+        var createNode = JsonNode.Parse(JsonSerializer.Serialize(create))!;
+        var checkNode = JsonNode.Parse(JsonSerializer.Serialize(check))!;
+
+        Assert.Equal("C:\\baselines\\baseline.json", createNode["manifestPath"]!.GetValue<string>());
+        Assert.Equal(PreviewBaselineManifest.CurrentVersion, createNode["manifest"]!["version"]!.GetValue<int>());
+        Assert.Equal("C:\\baselines\\baseline-01-1440x900.png", createNode["manifest"]!["entries"]![0]!["imagePath"]!.GetValue<string>());
+        Assert.False(checkNode["passed"]!.GetValue<bool>());
+        Assert.Equal("C:\\diff\\diff-01-1440x900.png", checkNode["entries"]![0]!["diffPath"]!.GetValue<string>());
+        Assert.False(checkNode["entries"]![0]!["diff"]!["value"]!["passed"]!.GetValue<bool>());
+    }
+
+    [Fact]
     public void PreviewSessionSummarySerializesRequestAndLastRender()
     {
         var createdAt = new DateTimeOffset(2026, 6, 7, 4, 0, 0, TimeSpan.Zero);

@@ -23,21 +23,26 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `W12 Visual Regression Workflow`
+- `W13 Deeper Diagnostics`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-08`
-- Goal: layer baseline-set creation and checking over the existing multi-size preview and screenshot diff primitives.
+- Goal: improve preview/runtime diagnostics beyond W9 while staying on public Avalonia APIs or documented logging hooks.
 
 ## Next Action
 
-Implement W12 baseline manifest creation/checking with deterministic preview and diff artifacts.
+Implement W13 diagnostics improvements only where public Avalonia APIs or documented source-backed signals make them reliable.
 
 ## Latest Validation
 
 - `2026-06-08`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after W9 feature-ticket implementation.
 - `2026-06-08`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after W10 CLI preview-session workflow.
 - `2026-06-08`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after W11 live preview file-watch reload.
+- `2026-06-08`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after W12 visual regression workflow.
+- `2026-06-08`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli` passed with 83 tests after W12 visual regression workflow.
+- `2026-06-08`: `dotnet test AvaScope.slnx --no-build --filter Protocol` passed with 35 tests after W12 visual regression workflow.
+- `2026-06-08`: `dotnet test AvaScope.slnx --no-build` passed with 193 tests after W12 visual regression workflow.
+- `2026-06-08`: `git diff --check` passed after W12 visual regression workflow.
 - `2026-06-08`: W11 targeted tests passed: CLI watch reload, Core `PreviewSessionWatcher`, and Protocol watch response serialization.
 - `2026-06-08`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli` passed with 82 tests after W11 live preview file-watch reload.
 - `2026-06-08`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewSessionRegistryTests` passed with 10 tests after W11 live preview file-watch reload.
@@ -1706,11 +1711,16 @@ Implement W12 baseline manifest creation/checking with deterministic preview and
 
 ### W12 Visual Regression Workflow
 
-- Status: `In Progress`
+- Status: `Done`
 - Goal: layer baseline-set creation and checking over the existing multi-size preview and screenshot diff primitives.
 - Deliverables: baseline manifest protocol/Core model, CLI baseline create/check commands, deterministic artifacts, CI-friendly exit codes, tests, documentation, commit, push.
 - Progress:
-  - In Progress: build on W9 diff/multi-size preview primitives and W10-W11 persisted preview-session support.
+  - Done: added baseline manifest, create response, check response, and per-entry protocol DTOs.
+  - Done: added Core `PreviewBaselineManager` over existing multi-size preview and image diff primitives.
+  - Done: added CLI `baseline-create` and `baseline-check` commands with explicit manifest/current/diff artifacts.
+  - Done: added CLI/protocol coverage for pass and changed visual regression checks.
+  - Done: updated README, validation guide, and gap audit.
+  - Done: build, targeted tests, full-suite validation, and diff-check passed.
 - Acceptance Criteria:
   - Baseline creation records explicit project/view/theme/culture/DPI/size metadata and image paths.
   - Baseline checking re-renders the requested variants, compares images with tolerance, and writes explicit diff artifacts.
@@ -1725,9 +1735,11 @@ Implement W12 baseline manifest creation/checking with deterministic preview and
 
 ### W13 Deeper Diagnostics
 
-- Status: `Not Started`
+- Status: `In Progress`
 - Goal: improve preview/runtime diagnostics beyond W9 while staying on public Avalonia APIs or documented logging hooks.
 - Deliverables: deeper binding/resource/style diagnostics where reliable, bounded protocol fields, tests, documentation, commit, push.
+- Progress:
+  - In Progress: audit current W9 diagnostics against public Avalonia diagnostic and binding APIs.
 - Acceptance Criteria:
   - Diagnostics do not rely on private Avalonia internals or unsupported reflection over runtime engine state.
   - Compiled binding, binding error, resource-chain, or style provenance signals are added only where source-backed public APIs make them reliable.

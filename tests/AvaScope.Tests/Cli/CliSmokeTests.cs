@@ -504,6 +504,118 @@ public sealed class CliSmokeTests
     }
 
     [Fact]
+    public async Task BaselineCommandsCreateManifestPassCheckAndFailChangedCheck()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var testRoot = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(testRoot);
+
+        var projectPath = Path.Combine(testRoot, "CliBaselineSample.csproj");
+        var viewPath = Path.Combine(testRoot, "MainView.axaml");
+        var manifestPath = Path.Combine(testRoot, "baseline", "baseline.json");
+        var baselineDirectory = Path.Combine(testRoot, "baseline", "images");
+
+        await File.WriteAllTextAsync(projectPath, """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+              </PropertyGroup>
+            </Project>
+            """);
+
+        await File.WriteAllTextAsync(viewPath, """
+            <UserControl xmlns="https://github.com/avaloniaui">
+              <Border Background="#FFFFFFFF" />
+            </UserControl>
+            """);
+
+        try
+        {
+            var created = await RunCliAsync(
+                cliAssembly,
+                "baseline-create",
+                projectPath,
+                "--view",
+                viewPath,
+                "--manifest",
+                manifestPath,
+                "--sizes",
+                "80x60",
+                "--out-dir",
+                baselineDirectory);
+
+            Assert.Equal(0, created.ExitCode);
+            Assert.True(string.IsNullOrWhiteSpace(created.StandardError), created.StandardError);
+
+            var createPayload = JsonSerializer.Deserialize<ToolResult<PreviewBaselineCreateResponse>>(
+                created.StandardOutput,
+                JsonOptions);
+            Assert.NotNull(createPayload);
+            Assert.True(createPayload.Success, createPayload.Error?.Message);
+            Assert.True(File.Exists(createPayload.Value!.ManifestPath));
+            Assert.Single(createPayload.Value.Manifest.Entries);
+            Assert.True(File.Exists(createPayload.Value.Manifest.Entries[0].ImagePath));
+
+            var passed = await RunCliAsync(
+                cliAssembly,
+                "baseline-check",
+                "--manifest",
+                manifestPath,
+                "--out-dir",
+                Path.Combine(testRoot, "current-pass"),
+                "--diff-dir",
+                Path.Combine(testRoot, "diff-pass"));
+
+            Assert.Equal(0, passed.ExitCode);
+            var passedPayload = JsonSerializer.Deserialize<ToolResult<PreviewBaselineCheckResponse>>(
+                passed.StandardOutput,
+                JsonOptions);
+            Assert.NotNull(passedPayload);
+            Assert.True(passedPayload.Success, passedPayload.Error?.Message);
+            Assert.True(passedPayload.Value!.Passed);
+
+            await Task.Delay(1000);
+            await File.WriteAllTextAsync(viewPath, """
+                <UserControl xmlns="https://github.com/avaloniaui">
+                  <Border Background="#FF000000" />
+                </UserControl>
+                """);
+
+            var failed = await RunCliAsync(
+                cliAssembly,
+                "baseline-check",
+                "--manifest",
+                manifestPath,
+                "--out-dir",
+                Path.Combine(testRoot, "current-fail"),
+                "--diff-dir",
+                Path.Combine(testRoot, "diff-fail"));
+
+            Assert.Equal(1, failed.ExitCode);
+            var failedPayload = JsonSerializer.Deserialize<ToolResult<PreviewBaselineCheckResponse>>(
+                failed.StandardOutput,
+                JsonOptions);
+            Assert.NotNull(failedPayload);
+            Assert.True(failedPayload.Success, failedPayload.Error?.Message);
+            Assert.False(failedPayload.Value!.Passed);
+            var entry = Assert.Single(failedPayload.Value.Entries);
+            Assert.True(entry.Diff.Success, entry.Diff.Error?.Message);
+            Assert.False(entry.Diff.Value!.Passed);
+            Assert.True(entry.Diff.Value.ChangedPixels > 0);
+            Assert.True(File.Exists(entry.DiffPath));
+        }
+        finally
+        {
+            if (Directory.Exists(testRoot))
+            {
+                Directory.Delete(testRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
     public async Task PreviewCommandResolvesRelativeProjectAndOutputPathsFromCallerWorkingDirectory()
     {
         var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
