@@ -79,9 +79,24 @@ The default executable package targets are `win-x64` and `linux-x64`. Pass `-Run
 
 CI validation runs restore, Release build, Release test, local library pack, local executable package, and artifact verification commands in GitHub Actions on pushes and pull requests. It does not publish packages or require secrets.
 
-## NuGet Publish
+## NuGet Release
 
-Create and verify the Release artifacts first:
+NuGet release publishing is handled by GitHub Actions. Add a repository secret named:
+
+```text
+NUGET_API_KEY
+```
+
+Create a release by pushing a version tag that matches `Directory.Build.props`:
+
+```powershell
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+The `Release NuGet` workflow runs the full local release gate, checks that the tag name matches the package version, dry-runs the publish set, then publishes `AvaScope.Protocol`, `AvaScope.Core`, and `AvaScope.Bridge` to nuget.org in dependency order.
+
+Manual local publish is still available when needed. Create and verify the Release artifacts first:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1
@@ -102,7 +117,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-nuget.ps1
 
 The publish script pushes `AvaScope.Protocol`, `AvaScope.Core`, and `AvaScope.Bridge` from `artifacts\packages` in dependency order. It reads the version from `Directory.Build.props`, rejects missing or stale `AvaScope.*.nupkg` artifacts, and never stores the API key in source.
 
-For GitHub-hosted publishing, set a repository secret named `NUGET_API_KEY` and run the `Publish NuGet` workflow manually. The workflow defaults to dry-run mode; turn `dry_run` off only for the actual public publish.
+The workflow can also be run manually. Manual runs validate by default; set `publish=true` only when intentionally publishing without a release tag.
 
 ## Public Alpha Local Install
 

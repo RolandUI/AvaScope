@@ -35,6 +35,10 @@ Store future user-provided bug reports and feature requests as sanitized ledger 
 
 ## Latest Validation
 
+- `2026-06-08`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-nuget.ps1 -DryRun` passed after changing NuGet publishing to tag-triggered CI release.
+- `2026-06-08`: PowerShell tag/version check passed for `v0.1.0` against `Directory.Build.props` version `0.1.0`.
+- `2026-06-08`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-bug-reports.ps1` passed after CI release workflow documentation updates; 13 intake files scanned.
+- `2026-06-08`: `git diff --check` passed after CI release workflow updates.
 - `2026-06-08`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1` passed after adding the NuGet publish workflow; Release build/test passed with 179 tests, 5 release artifacts verified, packaged Windows sample preview smoke passed.
 - `2026-06-08`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-nuget.ps1 -DryRun` passed against `AvaScope.Protocol.0.1.0.nupkg`, `AvaScope.Core.0.1.0.nupkg`, and `AvaScope.Bridge.0.1.0.nupkg`.
 - `2026-06-08`: `git check-ignore -v` confirmed regenerated NuGet packages, release manifest, and packaged sample preview output remain ignored under `artifacts/`.
@@ -1487,6 +1491,29 @@ Store future user-provided bug reports and feature requests as sanitized ledger 
   - `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-nuget.ps1 -DryRun`
   - `git status --short`
 
+### W5 Tag-Based NuGet CI Release
+
+- Status: `Done`
+- Goal: move NuGet publishing responsibility to CI while keeping release execution explicit and version-gated.
+- Deliverables: tag-triggered GitHub Actions release workflow, tag/package version check, manual workflow fallback, README/validation/gap/tracking updates, validation, commit.
+- Progress:
+  - Done: updated `.github/workflows/publish-nuget.yml` into the `Release NuGet` workflow.
+  - Done: added `v*.*.*` tag push trigger for automated NuGet release publishing.
+  - Done: added a CI check that the pushed tag matches `Directory.Build.props` package version.
+  - Done: kept manual workflow dispatch available with `publish=false` by default.
+  - Done: documented the required `NUGET_API_KEY` repository secret and `git tag v0.1.0` release command.
+- Acceptance Criteria:
+  - Normal push/PR CI still does not publish packages.
+  - NuGet release publish runs from CI on a version tag.
+  - The release job fails before publishing if the tag and package version disagree.
+  - The workflow uses the `NUGET_API_KEY` repository secret for nuget.org publishing.
+  - Manual workflow dispatch validates by default and only publishes when explicitly requested.
+- Validation:
+  - `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-nuget.ps1 -DryRun`
+  - PowerShell tag/version check for `v0.1.0`
+  - `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-bug-reports.ps1`
+  - `git diff --check`
+
 ## Decision Log
 
 - `2026-06-06`: Use `docs/DEVELOPMENT_PLAN.md` as the primary tracking document and keep `AGENTS.md` as the mandatory routing entrypoint.
@@ -1617,6 +1644,7 @@ Store future user-provided bug reports and feature requests as sanitized ledger 
 - `2026-06-08`: Local testing should use a packaged Release artifact produced by `eng/create-local-release.ps1`; Debug build paths are only for development diagnostics.
 - `2026-06-08`: Feature requests are stored as sanitized tickets under `docs/feature-requests/`; storing a feature ticket is not authorization to implement it.
 - `2026-06-08`: W4 keeps NuGet publishing manual and credential-gated: normal CI still validates artifacts without secrets, while actual public publishing requires a nuget.org API key supplied by environment, parameter, or a manually triggered GitHub workflow secret.
+- `2026-06-08`: W5 moves NuGet publishing to CI on explicit version tags instead of branch pushes; the release tag must match `Directory.Build.props` so package identity stays deliberate.
 
 ## Change Log
 
@@ -1687,3 +1715,4 @@ Store future user-provided bug reports and feature requests as sanitized ledger 
 - `2026-06-08`: Completed W3 by adding `eng/create-local-release.ps1` as the local Release artifact workflow and documenting packaged-release testing.
 - `2026-06-08`: Added the feature request ticket ledger with `FEAT-0001` through `FEAT-0007`, prioritized binding/resource diagnostics, layout warnings, and computed style/resource inspection as the top three backlog items.
 - `2026-06-08`: Completed W4 by adding `eng/publish-nuget.ps1`, the manual `Publish NuGet` GitHub workflow, NuGet publishing documentation, and release/dry-run validation.
+- `2026-06-08`: Completed W5 by converting NuGet publishing to the tag-triggered `Release NuGet` CI workflow with version-gating and `NUGET_API_KEY` secret usage.

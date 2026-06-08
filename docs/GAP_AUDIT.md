@@ -106,7 +106,7 @@ Artifact verification now uses `eng/verify-artifacts.ps1` to write ignored `arti
 
 Release refresh: after adding the getting-started sample and CLI relative path normalization, Release build/test/pack, executable packaging, artifact verification, and packaged-CLI sample preview smoke validation passed. The sample remains `IsPackable=false` and is not part of the release artifact manifest.
 
-Manual NuGet publishing now uses `eng/publish-nuget.ps1` to push the three library packages from `artifacts/packages` in dependency order, with `-DryRun` validation and an API key supplied out of band.
+NuGet publishing now uses `eng/publish-nuget.ps1` to push the three library packages from `artifacts/packages` in dependency order, with `-DryRun` validation and an API key supplied out of band. GitHub Actions publishes on version tags such as `v0.1.0` after checking that the tag matches the package version.
 
 Next slice: defer self-contained packages, macOS artifact policy, and installer publishing until more product gaps are closed.
 
@@ -114,7 +114,7 @@ Next slice: defer self-contained packages, macOS artifact policy, and installer 
 
 Status: first CI validation slice complete.
 
-GitHub Actions now validates restore, Release build, Release tests, local library package creation, RID-based local executable ZIP package creation, and artifact manifest verification on push and pull request without publishing packages or requiring secrets. A separate manual `Publish NuGet` workflow can publish with the `NUGET_API_KEY` repository secret and defaults to dry-run mode.
+GitHub Actions now validates restore, Release build, Release tests, local library package creation, RID-based local executable ZIP package creation, and artifact manifest verification on push and pull request without publishing packages or requiring secrets. A separate `Release NuGet` workflow publishes on `v*.*.*` tags with the `NUGET_API_KEY` repository secret, and can also be run manually with publish disabled by default.
 
 Next slice: CI can later add upload artifacts, self-contained outputs, or more RIDs when release policy is ready.
 
