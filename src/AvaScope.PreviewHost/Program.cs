@@ -26,6 +26,7 @@ internal static class Program
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private const string BlendDesignNamespace = "http://schemas.microsoft.com/expression/blend/2008";
+    private const string XamlNamespace = "http://schemas.microsoft.com/winfx/2006/xaml";
     private const int MaximumPreviewDiagnostics = 100;
     private const double MinimumHitTargetSize = 24;
 
@@ -177,7 +178,7 @@ internal static class Program
             request.Dpi);
         try
         {
-            AddSourceDiagnostics(diagnostics, sourceMetadata, content, window, resolvedThemeVariant);
+            AddSourceDiagnostics(diagnostics, sourceMetadata, content, window, resolvedThemeVariant, fullProjectPath);
             window.Show();
             Dispatcher.UIThread.RunJobs();
             AddLayoutDiagnostics(diagnostics, window);
@@ -220,9 +221,11 @@ internal static class Program
         PreviewSourceMetadata sourceMetadata,
         Control content,
         Window window,
-        ThemeVariant? themeVariant)
+        ThemeVariant? themeVariant,
+        string? fullProjectPath)
     {
         var dataContext = content.DataContext;
+        var projectAssembly = TryLoadProjectAssembly(fullProjectPath);
 
         foreach (var binding in sourceMetadata.BindingReferences)
         {
@@ -237,7 +240,7 @@ internal static class Program
                         $"Binding converter resource '{binding.ConverterResourceKey}' could not be resolved.",
                         propertyName: binding.TargetProperty,
                         sourcePath: binding.SourcePath,
-                        details: CreateSourceDetails(binding.ElementPath, binding.Expression)));
+                        details: CreateBindingDetails(binding)));
                 }
                 else if (converter is not IValueConverter)
                 {
@@ -248,9 +251,8 @@ internal static class Program
                         $"Binding converter resource '{binding.ConverterResourceKey}' is not an IValueConverter.",
                         propertyName: binding.TargetProperty,
                         sourcePath: binding.SourcePath,
-                        details: CreateSourceDetails(
-                            binding.ElementPath,
-                            binding.Expression,
+                        details: CreateBindingDetails(
+                            binding,
                             new Dictionary<string, string>
                             {
                                 ["converterType"] = converter?.GetType().FullName ?? "null"
@@ -258,10 +260,29 @@ internal static class Program
                 }
             }
 
-            if (binding.HasExplicitSource || string.IsNullOrWhiteSpace(binding.BindingPath))
+            if (binding.HasExplicitSource)
             {
                 continue;
             }
+
+            if (binding.IsCompiledBinding && string.IsNullOrWhiteSpace(binding.DataTypeName))
+            {
+                AddDiagnostic(diagnostics, new PreviewDiagnostic(
+                    PreviewDiagnosticSeverities.Warning,
+                    PreviewDiagnosticCategories.Binding,
+                    "compiled_binding_missing_datatype",
+                    "CompiledBinding was found without an inherited x:DataType in the preview source.",
+                    propertyName: binding.TargetProperty,
+                    sourcePath: binding.SourcePath,
+                    details: CreateBindingDetails(binding)));
+            }
+
+            if (string.IsNullOrWhiteSpace(binding.BindingPath))
+            {
+                continue;
+            }
+
+            AddDataTypeBindingDiagnostics(diagnostics, sourceMetadata, binding, projectAssembly);
 
             if (dataContext is null)
             {
@@ -272,7 +293,7 @@ internal static class Program
                     $"Binding path '{binding.BindingPath}' has no root DataContext in the preview.",
                     propertyName: binding.TargetProperty,
                     sourcePath: binding.SourcePath,
-                    details: CreateSourceDetails(binding.ElementPath, binding.Expression)));
+                    details: CreateBindingDetails(binding)));
                 continue;
             }
 
@@ -286,9 +307,8 @@ internal static class Program
                     $"Binding path '{binding.BindingPath}' was not found on preview DataContext '{dataContext.GetType().FullName}'.",
                     propertyName: binding.TargetProperty,
                     sourcePath: binding.SourcePath,
-                    details: CreateSourceDetails(
-                        binding.ElementPath,
-                        binding.Expression,
+                    details: CreateBindingDetails(
+                        binding,
                         new Dictionary<string, string>
                         {
                             ["dataContextType"] = dataContext.GetType().FullName ?? dataContext.GetType().Name
@@ -526,6 +546,169 @@ internal static class Program
         return false;
     }
 
+    private static void AddDataTypeBindingDiagnostics(
+        List<PreviewDiagnostic> diagnostics,
+        PreviewSourceMetadata sourceMetadata,
+        SourceBindingReference binding,
+        Assembly? projectAssembly)
+    {
+        if (projectAssembly is null
+            || string.IsNullOrWhiteSpace(binding.DataTypeName)
+            || string.IsNullOrWhiteSpace(binding.BindingPath))
+        {
+            return;
+        }
+
+        if (!TryResolveBindingDataType(
+            projectAssembly,
+            binding.DataTypeName,
+            binding.DataTypeNamespaces ?? sourceMetadata.Namespaces,
+            out var dataType,
+            out var resolutionError))
+        {
+            AddDiagnostic(diagnostics, new PreviewDiagnostic(
+                PreviewDiagnosticSeverities.Warning,
+                PreviewDiagnosticCategories.Binding,
+                "binding_datatype_not_resolved",
+                $"x:DataType '{binding.DataTypeName}' could not be resolved for binding diagnostics.",
+                propertyName: binding.TargetProperty,
+                sourcePath: binding.SourcePath,
+                details: CreateBindingDetails(
+                    binding,
+                    new Dictionary<string, string>
+                    {
+                        ["resolutionError"] = resolutionError ?? "unknown"
+                    })));
+            return;
+        }
+
+        if (dataType is null
+            || !IsInspectableBindingPath(binding.BindingPath)
+            || CanResolveBindingPath(dataType, binding.BindingPath))
+        {
+            return;
+        }
+
+        AddDiagnostic(diagnostics, new PreviewDiagnostic(
+            PreviewDiagnosticSeverities.Warning,
+            PreviewDiagnosticCategories.Binding,
+            "binding_datatype_path_not_found",
+            $"Binding path '{binding.BindingPath}' was not found on declared x:DataType '{dataType.FullName}'.",
+            propertyName: binding.TargetProperty,
+            sourcePath: binding.SourcePath,
+            details: CreateBindingDetails(
+                binding,
+                new Dictionary<string, string>
+                {
+                    ["dataType"] = dataType.FullName ?? dataType.Name
+                })));
+    }
+
+    private static bool TryResolveBindingDataType(
+        Assembly projectAssembly,
+        string dataTypeName,
+        IReadOnlyDictionary<string, string> namespaces,
+        out Type? dataType,
+        out string? resolutionError)
+    {
+        dataType = null;
+        resolutionError = null;
+
+        var reference = ParseXamlTypeReference(dataTypeName);
+        if (reference is null)
+        {
+            resolutionError = "unsupported_xaml_datatype";
+            return false;
+        }
+
+        try
+        {
+            dataType = ResolveXamlType(projectAssembly, reference.Value.TypeName, reference.Value.Prefix, namespaces);
+            if (dataType is null)
+            {
+                resolutionError = "type_not_found";
+                return false;
+            }
+
+            return true;
+        }
+        catch (Exception exception) when (exception is InvalidOperationException
+            or NotSupportedException
+            or TypeLoadException
+            or ReflectionTypeLoadException
+            or FileLoadException
+            or BadImageFormatException)
+        {
+            resolutionError = exception.Message;
+            return false;
+        }
+    }
+
+    private static (string? Prefix, string TypeName)? ParseXamlTypeReference(string dataTypeName)
+    {
+        var trimmed = dataTypeName.Trim();
+        if (trimmed.Length == 0
+            || string.Equals(trimmed, "{x:Null}", StringComparison.Ordinal)
+            || string.Equals(trimmed, "x:Null", StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        const string xTypePrefix = "{x:Type ";
+        if (trimmed.StartsWith(xTypePrefix, StringComparison.Ordinal) && trimmed.EndsWith('}'))
+        {
+            trimmed = trimmed[xTypePrefix.Length..^1].Trim();
+        }
+
+        var prefixEnd = trimmed.IndexOf(':');
+        if (prefixEnd <= 0)
+        {
+            return (null, trimmed);
+        }
+
+        var prefix = trimmed[..prefixEnd];
+        if (string.Equals(prefix, "x", StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        return (prefix, trimmed[(prefixEnd + 1)..]);
+    }
+
+    private static Assembly? TryLoadProjectAssembly(string? fullProjectPath)
+    {
+        if (fullProjectPath is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            var projectAssemblyPath = FindProjectAssemblyPath(fullProjectPath);
+            if (projectAssemblyPath is null)
+            {
+                return null;
+            }
+
+            var fullAssemblyPath = Path.GetFullPath(projectAssemblyPath);
+            var loadedAssembly = AppDomain.CurrentDomain
+                .GetAssemblies()
+                .FirstOrDefault(assembly => string.Equals(
+                    assembly.Location,
+                    fullAssemblyPath,
+                    StringComparison.OrdinalIgnoreCase));
+            return loadedAssembly ?? Assembly.LoadFrom(fullAssemblyPath);
+        }
+        catch (Exception exception) when (exception is InvalidOperationException
+            or FileLoadException
+            or BadImageFormatException
+            or IOException
+            or UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
+
     private static bool IsInspectableBindingPath(string bindingPath)
     {
         var path = bindingPath.Trim();
@@ -590,6 +773,42 @@ internal static class Program
         }
 
         return details;
+    }
+
+    private static IReadOnlyDictionary<string, string> CreateBindingDetails(
+        SourceBindingReference binding,
+        IReadOnlyDictionary<string, string>? extra = null)
+    {
+        var details = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["elementType"] = binding.ElementType,
+            ["bindingKind"] = binding.IsCompiledBinding ? "compiled" : "runtime"
+        };
+
+        if (!string.IsNullOrWhiteSpace(binding.BindingPath))
+        {
+            details["bindingPath"] = binding.BindingPath;
+        }
+
+        if (!string.IsNullOrWhiteSpace(binding.DataTypeName))
+        {
+            details["dataTypeName"] = binding.DataTypeName;
+        }
+
+        if (!string.IsNullOrWhiteSpace(binding.DataTypePath))
+        {
+            details["dataTypePath"] = binding.DataTypePath;
+        }
+
+        if (extra is not null)
+        {
+            foreach (var item in extra)
+            {
+                details[item.Key] = item.Value;
+            }
+        }
+
+        return CreateSourceDetails(binding.ElementPath, binding.Expression, details);
     }
 
     private static IEnumerable<Visual> EnumerateVisuals(Visual root)
@@ -991,7 +1210,7 @@ internal static class Program
     private static IReadOnlyList<SourceBindingReference> ReadBindingReferences(XElement root, string? sourcePath)
     {
         var references = new List<SourceBindingReference>();
-        foreach (var (element, path) in EnumerateElementsWithPaths(root))
+        foreach (var (element, path, dataType) in EnumerateElementsWithPathsAndDataTypes(root))
         {
             foreach (var attribute in element.Attributes())
             {
@@ -1008,6 +1227,10 @@ internal static class Program
                     value,
                     ExtractBindingPath(value),
                     ExtractConverterResourceKey(value),
+                    ContainsCompiledBindingExpression(value),
+                    dataType?.TypeName,
+                    dataType?.ElementPath,
+                    dataType?.Namespaces,
                     HasExplicitBindingSource(value),
                     sourcePath));
 
@@ -1019,6 +1242,85 @@ internal static class Program
         }
 
         return references;
+    }
+
+    private static IEnumerable<(XElement Element, string Path, SourceDataTypeReference? DataType)> EnumerateElementsWithPathsAndDataTypes(XElement root)
+    {
+        return EnumerateElementsWithPathsAndDataTypes(
+            root,
+            root.Name.LocalName,
+            inheritedDataType: null,
+            inheritedNamespaces: new Dictionary<string, string>(StringComparer.Ordinal));
+
+        static IEnumerable<(XElement Element, string Path, SourceDataTypeReference? DataType)> EnumerateElementsWithPathsAndDataTypes(
+            XElement element,
+            string path,
+            SourceDataTypeReference? inheritedDataType,
+            IReadOnlyDictionary<string, string> inheritedNamespaces)
+        {
+            var namespaces = MergeNamespaceDeclarations(inheritedNamespaces, element);
+            var currentDataType = ReadDataTypeReference(element, path, namespaces) ?? inheritedDataType;
+            yield return (element, path, currentDataType);
+
+            var groupedChildren = element.Elements()
+                .GroupBy(static child => child.Name.LocalName, StringComparer.Ordinal);
+            foreach (var group in groupedChildren)
+            {
+                var index = 0;
+                foreach (var child in group)
+                {
+                    index++;
+                    foreach (var item in EnumerateElementsWithPathsAndDataTypes(
+                        child,
+                        $"{path}/{child.Name.LocalName}[{index}]",
+                        currentDataType,
+                        namespaces))
+                    {
+                        yield return item;
+                    }
+                }
+            }
+        }
+    }
+
+    private static IReadOnlyDictionary<string, string> MergeNamespaceDeclarations(
+        IReadOnlyDictionary<string, string> inheritedNamespaces,
+        XElement element)
+    {
+        var declaredNamespaces = element
+            .Attributes()
+            .Where(static attribute => attribute.IsNamespaceDeclaration)
+            .ToArray();
+        if (declaredNamespaces.Length == 0)
+        {
+            return inheritedNamespaces;
+        }
+
+        var namespaces = new Dictionary<string, string>(inheritedNamespaces, StringComparer.Ordinal);
+        foreach (var attribute in declaredNamespaces)
+        {
+            var prefix = attribute.Name.LocalName == "xmlns"
+                ? string.Empty
+                : attribute.Name.LocalName;
+            namespaces[prefix] = attribute.Value;
+        }
+
+        return namespaces;
+    }
+
+    private static SourceDataTypeReference? ReadDataTypeReference(
+        XElement element,
+        string elementPath,
+        IReadOnlyDictionary<string, string> namespaces)
+    {
+        var attribute = element.Attribute(XName.Get("DataType", XamlNamespace));
+        var value = attribute?.Value;
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        return new SourceDataTypeReference(value.Trim(), elementPath, namespaces);
     }
 
     private static IReadOnlyList<SourceResourceReference> ReadResourceReferences(XElement root, string? sourcePath)
@@ -1083,6 +1385,11 @@ internal static class Program
     {
         return value.Contains("{Binding", StringComparison.Ordinal)
             || value.Contains("{CompiledBinding", StringComparison.Ordinal);
+    }
+
+    private static bool ContainsCompiledBindingExpression(string value)
+    {
+        return value.Contains("{CompiledBinding", StringComparison.Ordinal);
     }
 
     private static string? ExtractBindingPath(string value)
@@ -1763,8 +2070,17 @@ internal static class Program
         string Expression,
         string? BindingPath,
         string? ConverterResourceKey,
+        bool IsCompiledBinding,
+        string? DataTypeName,
+        string? DataTypePath,
+        IReadOnlyDictionary<string, string>? DataTypeNamespaces,
         bool HasExplicitSource,
         string? SourcePath);
+
+    private sealed record SourceDataTypeReference(
+        string TypeName,
+        string ElementPath,
+        IReadOnlyDictionary<string, string> Namespaces);
 
     private sealed record SourceResourceReference(
         string ElementPath,

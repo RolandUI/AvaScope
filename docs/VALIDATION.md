@@ -41,6 +41,12 @@ For preview host work, also run:
 dotnet test AvaScope.slnx --filter FullyQualifiedName~PreviewHost
 ```
 
+For source-backed preview diagnostics work, include the typed-binding smoke path:
+
+```powershell
+dotnet test AvaScope.slnx --filter FullyQualifiedName~PreviewHostSmokeTests.PreviewHostReturnsDataTypeBindingPathDiagnostics
+```
+
 For CLI work, also run:
 
 ```powershell

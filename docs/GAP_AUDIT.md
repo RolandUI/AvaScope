@@ -24,7 +24,7 @@ Completed slice: protocol, bridge, and core diagnostics tests cover local-only m
 
 ### Diagnostics Tool
 
-Status: bridge diagnostics, preview failure details, preview binding/resource diagnostics, preview layout warnings, and stale preview-session diagnostics first slices complete.
+Status: bridge diagnostics, preview failure details, preview binding/resource diagnostics, source-backed `x:DataType` binding diagnostics, preview layout warnings, and stale preview-session diagnostics first slices complete.
 
 `diagnostics` is listed in the intended MCP tool shape. The first slice now reports service health, local bridge manifest path, process id, named-pipe transport, protocol health, stale manifests, invalid manifests, and unavailable IPC states. Current errors are still structured per operation; there is no historical last-error stream yet.
 
@@ -32,11 +32,11 @@ Completed slice: preview-host readiness diagnostics now report host assembly pat
 
 Completed slice: preview build/render failures can now include bounded `error.details` fields such as `phase`, paths, build exit code, and build output tail while preserving the existing `code/message` result shape through Core, CLI, MCP, and preview-session storage.
 
-Completed slice: successful preview responses can now include bounded advisory diagnostics for missing `DataContext`, missing or invalid binding converter resources, unresolved resource keys, conservative binding path failures, text clipping/truncation, clipped or unreachable content, sibling overlap, and too-small hit targets.
+Completed slice: successful preview responses can now include bounded advisory diagnostics for missing `DataContext`, missing or invalid binding converter resources, unresolved resource keys, conservative binding path failures, source-backed `x:DataType` binding path mismatches, missing inherited `x:DataType` on `CompiledBinding`, text clipping/truncation, clipped or unreachable content, sibling overlap, and too-small hit targets.
 
 Completed slice: `diagnostics` now includes preview-session store records so stale and invalid AvaScope-owned preview metadata can be identified without loading user projects.
 
-Next slice: deeper binding-engine, compiled-binding, and style/resource provenance parity remains limited to public Avalonia API availability.
+Next slice: deeper binding-engine runtime telemetry and style/resource provenance parity remains limited to public Avalonia API availability.
 
 ## P1 Gaps
 
@@ -64,7 +64,7 @@ Completed slice: `watch-preview-session` can watch the stored preview request's 
 
 Completed slice: `baseline-create` and `baseline-check` provide manifest-backed visual regression workflows over multi-size preview and screenshot diff primitives, with explicit current/diff artifact directories and non-zero check exits for changed variants.
 
-Next slice: deepen diagnostics; the one-shot `preview` command remains intentionally one-shot.
+Next slice: richer runtime input; the one-shot `preview` command remains intentionally one-shot.
 
 ### Reload And Hot Preview
 
@@ -136,4 +136,4 @@ Next slice: CI can later add upload artifacts, self-contained outputs, or more R
 
 ## Selected Next Slice
 
-No public-alpha blocking slice remains after M50, and W9-W12 completed the stored feature-request first slices plus CLI preview sessions, file-watch reload, and manifest-backed visual regression. Future post-W12 work can start from one of the recorded deferrals: deeper binding/style/resource provenance, richer input, broader preview startup orchestration, or installer/self-contained distribution.
+No public-alpha blocking slice remains after M50, and W9-W13 completed the stored feature-request first slices plus CLI preview sessions, file-watch reload, manifest-backed visual regression, and the first source-backed deeper diagnostics slice. Future post-W13 work can start from one of the recorded deferrals: richer input, broader preview startup orchestration, installer/self-contained distribution, or deeper binding/style/resource provenance where public APIs expose more reliable signals.

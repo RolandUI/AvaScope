@@ -121,6 +121,105 @@ public sealed class PreviewHostSmokeTests
     }
 
     [Fact]
+    public async Task PreviewHostReturnsDataTypeBindingPathDiagnostics()
+    {
+        var hostAssembly = Path.Combine(AppContext.BaseDirectory, "AvaScope.PreviewHost.dll");
+        Assert.True(File.Exists(hostAssembly), $"Expected preview host assembly at {hostAssembly}.");
+
+        var testRoot = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(testRoot);
+
+        var projectPath = Path.Combine(testRoot, "TypedBindingDiagnosticsSample.csproj");
+        var viewPath = Path.Combine(testRoot, "TypedBindingDiagnosticsView.axaml");
+        var codeBehindPath = Path.Combine(testRoot, "TypedBindingDiagnosticsView.axaml.cs");
+        var designDataPath = Path.Combine(testRoot, "PreviewDesignData.cs");
+        var requestPath = Path.Combine(testRoot, "request.json");
+        var outputPath = Path.Combine(testRoot, "preview.png");
+
+        await File.WriteAllTextAsync(projectPath, """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <Nullable>enable</Nullable>
+              </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="Avalonia" Version="12.0.4" />
+              </ItemGroup>
+            </Project>
+            """);
+
+        await File.WriteAllTextAsync(viewPath, """
+            <UserControl xmlns="https://github.com/avaloniaui"
+                         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                         xmlns:local="using:TypedBindingDiagnosticsSample"
+                         x:Class="TypedBindingDiagnosticsSample.TypedBindingDiagnosticsView"
+                         x:DataType="local:PreviewDesignData"
+                         x:CompileBindings="False">
+              <StackPanel>
+                <TextBlock Text="{Binding MissingTitle}" />
+                <TextBlock Text="{Binding Title}" />
+              </StackPanel>
+            </UserControl>
+            """);
+
+        await File.WriteAllTextAsync(codeBehindPath, """
+            using Avalonia.Controls;
+
+            namespace TypedBindingDiagnosticsSample;
+
+            public partial class TypedBindingDiagnosticsView : UserControl
+            {
+                public TypedBindingDiagnosticsView()
+                {
+                    InitializeComponent();
+                }
+            }
+            """);
+
+        await File.WriteAllTextAsync(designDataPath, """
+            namespace TypedBindingDiagnosticsSample;
+
+            public sealed class PreviewDesignData
+            {
+                public string Title { get; } = "Known title";
+            }
+            """);
+
+        var request = new PreviewRequest(
+            outputPath,
+            width: 260,
+            height: 180,
+            dpi: 96,
+            projectPath: projectPath,
+            viewPath: "TypedBindingDiagnosticsView.axaml",
+            themeVariant: "light");
+
+        await File.WriteAllTextAsync(requestPath, JsonSerializer.Serialize(request, JsonOptions));
+
+        try
+        {
+            var result = await RunPreviewHostAsync(hostAssembly, requestPath, expectedExitCode: 0);
+
+            Assert.NotNull(result);
+            Assert.True(result.Success, result.Error?.Message);
+            Assert.True(File.Exists(result.Value!.FilePath));
+
+            var diagnostic = Assert.Single(
+                result.Value.Diagnostics,
+                static item => item.Code == "binding_datatype_path_not_found");
+            Assert.Equal("Text", diagnostic.PropertyName);
+            Assert.NotNull(diagnostic.Details);
+            Assert.Equal("local:PreviewDesignData", diagnostic.Details!["dataTypeName"]);
+            Assert.Equal("TypedBindingDiagnosticsSample.PreviewDesignData", diagnostic.Details["dataType"]);
+            Assert.Equal("MissingTitle", diagnostic.Details["bindingPath"]);
+        }
+        finally
+        {
+            await DeleteDirectoryWithRetryAsync(testRoot);
+        }
+    }
+
+    [Fact]
     public async Task PreviewHostResolvesRelativeViewPathAgainstProjectDirectory()
     {
         var hostAssembly = Path.Combine(AppContext.BaseDirectory, "AvaScope.PreviewHost.dll");

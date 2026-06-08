@@ -23,15 +23,15 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `W13 Deeper Diagnostics`
+- `W14 Richer Runtime Input`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-08`
-- Goal: improve preview/runtime diagnostics beyond W9 while staying on public Avalonia APIs or documented logging hooks.
+- Goal: expand local runtime input beyond the current pointer/key/focus subset while preserving non-destructive local-only safety.
 
 ## Next Action
 
-Implement W13 diagnostics improvements only where public Avalonia APIs or documented source-backed signals make them reliable.
+Implement W14 runtime input improvements where public Avalonia routed input APIs make behavior deterministic enough for headless bridge tests.
 
 ## Latest Validation
 
@@ -43,6 +43,12 @@ Implement W13 diagnostics improvements only where public Avalonia APIs or docume
 - `2026-06-08`: `dotnet test AvaScope.slnx --no-build --filter Protocol` passed with 35 tests after W12 visual regression workflow.
 - `2026-06-08`: `dotnet test AvaScope.slnx --no-build` passed with 193 tests after W12 visual regression workflow.
 - `2026-06-08`: `git diff --check` passed after W12 visual regression workflow.
+- `2026-06-08`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after W13 deeper diagnostics.
+- `2026-06-08`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewHostSmokeTests.PreviewHostReturnsDataTypeBindingPathDiagnostics` passed after W13 deeper diagnostics.
+- `2026-06-08`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewHost` passed with 29 tests after W13 deeper diagnostics.
+- `2026-06-08`: `dotnet test AvaScope.slnx --no-build --filter Bridge` passed with 64 tests after W13 deeper diagnostics.
+- `2026-06-08`: `dotnet test AvaScope.slnx --no-build` passed with 194 tests after W13 deeper diagnostics.
+- `2026-06-08`: `git diff --check` passed after W13 deeper diagnostics.
 - `2026-06-08`: W11 targeted tests passed: CLI watch reload, Core `PreviewSessionWatcher`, and Protocol watch response serialization.
 - `2026-06-08`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli` passed with 82 tests after W11 live preview file-watch reload.
 - `2026-06-08`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewSessionRegistryTests` passed with 10 tests after W11 live preview file-watch reload.
@@ -1735,28 +1741,33 @@ Implement W13 diagnostics improvements only where public Avalonia APIs or docume
 
 ### W13 Deeper Diagnostics
 
-- Status: `In Progress`
+- Status: `Done`
 - Goal: improve preview/runtime diagnostics beyond W9 while staying on public Avalonia APIs or documented logging hooks.
 - Deliverables: deeper binding/resource/style diagnostics where reliable, bounded protocol fields, tests, documentation, commit, push.
 - Progress:
-  - In Progress: audit current W9 diagnostics against public Avalonia diagnostic and binding APIs.
+  - Done: verified current Avalonia 12.0.4 public diagnostic/binding surfaces from local reference XML and kept runtime computed inspection on public `Avalonia.Diagnostics.GetDiagnostic(...)`.
+  - Done: added source-backed inherited `x:DataType` metadata collection for preview binding references.
+  - Done: added advisory `binding_datatype_path_not_found`, `binding_datatype_not_resolved`, and `compiled_binding_missing_datatype` preview diagnostics without blocking otherwise successful screenshots.
+  - Done: added typed-binding PreviewHost smoke coverage and documentation updates.
 - Acceptance Criteria:
-  - Diagnostics do not rely on private Avalonia internals or unsupported reflection over runtime engine state.
-  - Compiled binding, binding error, resource-chain, or style provenance signals are added only where source-backed public APIs make them reliable.
-  - Unsupported or unavailable details return explicit `unknown` or `not_available` values.
-  - Diagnostics remain bounded and advisory unless rendering itself fails.
+  - Done: diagnostics do not rely on private Avalonia internals or unsupported reflection over runtime engine state.
+  - Done: compiled-binding and typed-binding diagnostics are added only from source metadata plus project assembly type resolution; deeper runtime binding-engine/resource-chain/style provenance remains deferred where public APIs do not expose reliable signals.
+  - Done: unsupported or unavailable details return explicit structured diagnostic codes/details instead of inferred provenance.
+  - Done: diagnostics remain bounded and advisory unless rendering itself fails.
 - Validation:
-  - `dotnet build AvaScope.slnx`
-  - `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewHost`
-  - `dotnet test AvaScope.slnx --no-build --filter Bridge`
-  - `dotnet test AvaScope.slnx --no-build`
-  - `git diff --check`
+  - Passed: `dotnet build AvaScope.slnx`
+  - Passed: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewHost`
+  - Passed: `dotnet test AvaScope.slnx --no-build --filter Bridge`
+  - Passed: `dotnet test AvaScope.slnx --no-build`
+  - Passed: `git diff --check`
 
 ### W14 Richer Runtime Input
 
-- Status: `Not Started`
+- Status: `In Progress`
 - Goal: expand local runtime input beyond the current pointer/key/focus subset while preserving non-destructive local-only safety.
 - Deliverables: richer pointer button state, drag/drop or text-input improvements where public Avalonia APIs allow, tests, documentation, commit, push.
+- Progress:
+  - In Progress: inspect current protocol/bridge/CLI input action coverage and select the smallest public-API-backed runtime input improvement.
 - Acceptance Criteria:
   - New input actions are explicit protocol constants and reject invalid argument combinations.
   - Runtime input stays local-only and does not introduce destructive actions.
@@ -1944,6 +1955,7 @@ Implement W13 diagnostics improvements only where public Avalonia APIs or docume
 - `2026-06-08`: Preview layout warnings are advisory diagnostics produced after rendering; they must not make otherwise successful screenshots fail.
 - `2026-06-08`: Screenshot diff and cleanup workflows remain explicit opt-in operations; cleanup may delete AvaScope-owned metadata and only terminate processes that can be tied to AvaScope-owned process metadata.
 - `2026-06-08`: W9 cleanup does not terminate processes in this slice because AvaScope does not yet persist reliable owned child-process metadata for post-hoc process cleanup.
+- `2026-06-08`: W13 deeper diagnostics use source metadata and built project assembly type resolution for `x:DataType` binding checks. They do not inspect private Avalonia binding-engine state, and unresolved type/provenance cases stay advisory structured diagnostics.
 
 ## Change Log
 
@@ -2021,3 +2033,4 @@ Implement W13 diagnostics improvements only where public Avalonia APIs or docume
 - `2026-06-08`: Completed W8 by fixing the first pushed CI/Release failures in GitHub Release creation and CLI fake bridge pipe smoke coverage.
 - `2026-06-08`: Started W9 for implementation of all stored feature tickets after explicit user authorization.
 - `2026-06-08`: Completed W9 by implementing stored feature tickets FEAT-0001 through FEAT-0007 with preview diagnostics, layout warnings, computed inspection, multi-size preview, screenshot diff, scoped cleanup, documentation updates, and full-suite validation.
+- `2026-06-08`: Completed W13 by adding source-backed `x:DataType` binding diagnostics in PreviewHost, typed-binding smoke coverage, README/validation/gap updates, and full-suite validation.

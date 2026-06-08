@@ -410,10 +410,10 @@ Preview rendering is isolated in `AvaScope.PreviewHost`, launched as a child pro
 - applies requested theme and culture variants inside the isolated render process;
 - optionally instantiates a project-owned public parameterless design-data type and assigns it as the root control `DataContext`;
 - renders through headless Skia;
-- adds bounded binding/resource diagnostics and advisory layout warnings when public Avalonia APIs and source metadata expose enough signal;
+- adds bounded binding/resource diagnostics, source-backed `x:DataType` binding diagnostics, and advisory layout warnings when public Avalonia APIs and source metadata expose enough signal;
 - writes a PNG and structured JSON result.
 
-Successful preview responses can include diagnostics for missing `DataContext`, unresolved resource keys, missing or invalid converter resources, conservative binding path failures, text clipping/truncation, clipped content, unreachable content, sibling overlap, and too-small hit targets. These diagnostics are advisory and do not fail an otherwise successful screenshot.
+Successful preview responses can include diagnostics for missing `DataContext`, unresolved resource keys, missing or invalid converter resources, conservative binding path failures, `x:DataType` binding path mismatches, missing inherited `x:DataType` on `CompiledBinding`, text clipping/truncation, clipped content, unreachable content, sibling overlap, and too-small hit targets. These diagnostics are advisory and do not fail an otherwise successful screenshot.
 
 Preview session tools store the original preview request plus the latest render result as Core metadata. MCP-backed and CLI-created preview session records are also persisted as JSON under the local AvaScope temp preview-session store so they can be restored after the MCP server or CLI process restarts. They do not keep user project code loaded inside MCP or CLI; each render still goes through `AvaScope.PreviewHost`.
 
