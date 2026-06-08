@@ -35,6 +35,7 @@ Store future user-provided bug reports as sanitized ledger entries. Do not start
 
 ## Latest Validation
 
+- `2026-06-08`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1` passed; Release build/test passed with 179 tests, 5 release artifacts verified, packaged Windows sample preview smoke passed.
 - `2026-06-08`: `dotnet test AvaScope.slnx --no-build` passed with 179 tests after implementing `BUG-0001` and `BUG-0002`.
 - `2026-06-08`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-bug-reports.ps1` passed after marking `BUG-0001` and `BUG-0002` fixed; 4 bug report files scanned.
 - `2026-06-08`: `dotnet test AvaScope.slnx --no-build --filter Protocol` passed with 30 tests after optional preview dimensions.
@@ -1434,6 +1435,27 @@ Store future user-provided bug reports as sanitized ledger entries. Do not start
   - `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewHost`
   - `dotnet test AvaScope.slnx --no-build`
 
+### W3 Local Release Workflow
+
+- Status: `Done`
+- Goal: provide a single repeatable local Release command for testing AvaScope from packaged artifacts.
+- Deliverables: local release orchestration script, packaged executable smoke validation, user-facing docs, development-plan tracking, commit.
+- Progress:
+  - Done: audited the existing release pack and artifact verification scripts.
+  - Done: added `eng/create-local-release.ps1` as the single local release entrypoint.
+  - Done: the script runs Release restore/build/test, packs libraries, packages executable artifacts, verifies the release manifest, and smoke-tests the packaged Windows CLI.
+  - Done: README and validation docs now direct external project testing to the packaged Release executable.
+  - Done: validated generated artifacts remain ignored by `.gitignore`.
+- Acceptance Criteria:
+  - A single command creates current Release artifacts from the repository root.
+  - The command runs Release build/test by default before packaging.
+  - The command reuses existing package, executable, and manifest verification scripts.
+  - The command smoke-tests the packaged Windows `avascope.exe` path.
+  - Documentation tells users to test external projects from the packaged Release executable.
+- Validation:
+  - `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1`
+  - `git status --short`
+
 ## Decision Log
 
 - `2026-06-06`: Use `docs/DEVELOPMENT_PLAN.md` as the primary tracking document and keep `AGENTS.md` as the mandatory routing entrypoint.
@@ -1561,6 +1583,7 @@ Store future user-provided bug reports as sanitized ledger entries. Do not start
 - `2026-06-08`: W2 keeps explicit `designDataType` as the highest-precedence preview data source; `Design.DataContext` and `d:DataContext="{x:Static ...}"` are fallback design-time metadata only.
 - `2026-06-08`: Preview width and height are optional at the protocol/CLI/MCP boundary only when PreviewHost can resolve positive design-time dimensions from the root AXAML.
 - `2026-06-08`: After W2 completion, W1 returned as the active `In Progress` intake workstream so future reports remain stored but not implemented without explicit user authorization.
+- `2026-06-08`: Local testing should use a packaged Release artifact produced by `eng/create-local-release.ps1`; Debug build paths are only for development diagnostics.
 
 ## Change Log
 
@@ -1628,3 +1651,4 @@ Store future user-provided bug reports as sanitized ledger entries. Do not start
 - `2026-06-08`: Added the bug report intake ledger with privacy validation and stored `BUG-0001` for the PreviewHost `Window` root rendering failure without starting implementation.
 - `2026-06-08`: Stored `BUG-0002` for ignored Avalonia design-time `DataContext` metadata, with local paths and target-specific identifiers sanitized.
 - `2026-06-08`: Completed W2 by implementing `BUG-0001` Window-root preview rendering and `BUG-0002` design-time data context/dimension support with PreviewHost, Protocol, CLI, and MCP tests.
+- `2026-06-08`: Completed W3 by adding `eng/create-local-release.ps1` as the local Release artifact workflow and documenting packaged-release testing.

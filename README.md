@@ -44,6 +44,14 @@ dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewHost
 dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli
 ```
 
+One-command local Release build for external project testing:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1
+```
+
+The script runs Release restore/build/test, creates local NuGet packages, creates framework-dependent executable ZIPs, verifies `artifacts\release-manifest.json`, and smoke-tests the packaged Windows CLI against the getting-started sample. Use the printed `artifacts\executables\avascope-win-x64-framework-dependent\avascope.exe` path for testing other Avalonia projects.
+
 Local package validation:
 
 ```powershell
@@ -75,16 +83,10 @@ CI validation runs restore, Release build, Release test, local library pack, loc
 
 AvaScope public-alpha artifacts are built locally for now; no package feed or installer publishing is configured.
 
-Create and verify local artifacts:
+Create and verify local Release artifacts:
 
 ```powershell
-dotnet build AvaScope.slnx -c Release
-dotnet test AvaScope.slnx -c Release --no-build
-dotnet pack .\src\AvaScope.Protocol\AvaScope.Protocol.csproj -c Release --no-build --output .\artifacts\packages
-dotnet pack .\src\AvaScope.Core\AvaScope.Core.csproj -c Release --no-build --output .\artifacts\packages
-dotnet pack .\src\AvaScope.Bridge\AvaScope.Bridge.csproj -c Release --no-build --output .\artifacts\packages
-powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\package-executables.ps1
-powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\verify-artifacts.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1
 ```
 
 Run the packaged Windows CLI/MCP bundle directly from the publish directory:
@@ -92,6 +94,12 @@ Run the packaged Windows CLI/MCP bundle directly from the publish directory:
 ```powershell
 .\artifacts\executables\avascope-win-x64-framework-dependent\avascope.exe mcp
 .\artifacts\executables\avascope-win-x64-framework-dependent\avascope.exe preview .\samples\AvaScope.GettingStartedApp\AvaScope.GettingStartedApp.csproj --view Views\MainView.axaml --out .\artifacts\samples\getting-started-preview-packaged.png --width 720 --height 420 --theme light --design-data-type AvaScope.GettingStartedApp.SamplePreviewData
+```
+
+For external app checks, use the same packaged Release executable path:
+
+```powershell
+.\artifacts\executables\avascope-win-x64-framework-dependent\avascope.exe preview path\to\App.csproj --view Views\MainWindow.axaml --out .\artifacts\samples\external-preview.png --width 1440 --height 900 --theme dark
 ```
 
 Use the local NuGet packages for an Avalonia app that wants the opt-in bridge:
