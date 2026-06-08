@@ -23,18 +23,19 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `W1 Bug Report Intake Ledger`
+- `W1 Intake Ledgers`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-08`
-- Goal: maintain sanitized bug reports without starting fixes until explicitly requested.
+- Goal: maintain sanitized bug reports and feature request tickets without starting fixes or feature work until explicitly requested.
 
 ## Next Action
 
-Store future user-provided bug reports as sanitized ledger entries. Do not start fixes unless the user explicitly requests implementation for a stored bug.
+Store future user-provided bug reports and feature requests as sanitized ledger entries. Do not start fixes or feature implementation unless the user explicitly requests work on a stored ticket.
 
 ## Latest Validation
 
+- `2026-06-08`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-bug-reports.ps1` passed after storing `FEAT-0001` through `FEAT-0007`; 13 intake files scanned.
 - `2026-06-08`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1` passed; Release build/test passed with 179 tests, 5 release artifacts verified, packaged Windows sample preview smoke passed.
 - `2026-06-08`: `dotnet test AvaScope.slnx --no-build` passed with 179 tests after implementing `BUG-0001` and `BUG-0002`.
 - `2026-06-08`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-bug-reports.ps1` passed after marking `BUG-0001` and `BUG-0002` fixed; 4 bug report files scanned.
@@ -1391,22 +1392,26 @@ Store future user-provided bug reports as sanitized ledger entries. Do not start
   - release pack/executable verify commands
   - documented sample preview command
 
-### W1 Bug Report Intake Ledger
+### W1 Intake Ledgers
 
 - Status: `In Progress`
-- Goal: maintain a sanitized holding area for reported bugs without treating reports as authorization to implement fixes.
-- Deliverables: bug report index, per-report Markdown records, privacy validation command, development-plan tracking.
+- Goal: maintain sanitized holding areas for reported bugs and feature requests without treating intake records as authorization to implement fixes or features.
+- Deliverables: bug report index, feature request index, per-record Markdown files, privacy validation command, development-plan tracking.
 - Progress:
   - Done: created `docs/BUG_REPORTS.md` as the report index and storage rules.
   - Done: created `docs/bug-reports/` for sanitized per-bug records.
   - Done: recorded `BUG-0001` for the PreviewHost `Window` root rendering failure without starting the fix.
   - Done: recorded `BUG-0002` for ignored Avalonia design-time `DataContext` metadata without starting the fix.
   - Done: added `eng/validate-bug-reports.ps1` to reject local absolute paths, home-directory paths, emails, secret assignments, and the current local username in bug report files.
-  - Ongoing: store future reports only after sanitizing personal data and paths.
+  - Done: expanded intake validation to scan feature request tickets in addition to bug reports.
+  - Done: created `docs/FEATURE_REQUESTS.md` and `docs/feature-requests/` for sanitized feature ticket records.
+  - Done: stored `FEAT-0001` through `FEAT-0007`, preserving the requested priority order for binding/resource diagnostics, layout warnings, and computed style/resource inspection.
+  - Ongoing: store future reports and requests only after sanitizing personal data and paths.
 - Acceptance Criteria:
   - Every stored report has a stable `BUG-####` id, status, fix status, reproduction summary, actual result, and expected result where available.
-  - Report files contain no personal local paths, usernames, emails, tokens, or secrets.
-  - Reports remain decoupled from implementation until the user explicitly asks for a fix.
+  - Every stored feature request has a stable `FEAT-####` id, priority, status, implementation status, user need, desired behavior, and acceptance criteria where available.
+  - Intake files contain no personal local paths, usernames, emails, tokens, or secrets.
+  - Intake records remain decoupled from implementation until the user explicitly asks for a fix or feature.
 - Validation:
   - `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-bug-reports.ps1`
 
@@ -1584,6 +1589,7 @@ Store future user-provided bug reports as sanitized ledger entries. Do not start
 - `2026-06-08`: Preview width and height are optional at the protocol/CLI/MCP boundary only when PreviewHost can resolve positive design-time dimensions from the root AXAML.
 - `2026-06-08`: After W2 completion, W1 returned as the active `In Progress` intake workstream so future reports remain stored but not implemented without explicit user authorization.
 - `2026-06-08`: Local testing should use a packaged Release artifact produced by `eng/create-local-release.ps1`; Debug build paths are only for development diagnostics.
+- `2026-06-08`: Feature requests are stored as sanitized tickets under `docs/feature-requests/`; storing a feature ticket is not authorization to implement it.
 
 ## Change Log
 
@@ -1652,3 +1658,4 @@ Store future user-provided bug reports as sanitized ledger entries. Do not start
 - `2026-06-08`: Stored `BUG-0002` for ignored Avalonia design-time `DataContext` metadata, with local paths and target-specific identifiers sanitized.
 - `2026-06-08`: Completed W2 by implementing `BUG-0001` Window-root preview rendering and `BUG-0002` design-time data context/dimension support with PreviewHost, Protocol, CLI, and MCP tests.
 - `2026-06-08`: Completed W3 by adding `eng/create-local-release.ps1` as the local Release artifact workflow and documenting packaged-release testing.
+- `2026-06-08`: Added the feature request ticket ledger with `FEAT-0001` through `FEAT-0007`, prioritized binding/resource diagnostics, layout warnings, and computed style/resource inspection as the top three backlog items.

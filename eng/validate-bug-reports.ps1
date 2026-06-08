@@ -19,20 +19,32 @@ if ([string]::IsNullOrWhiteSpace($Root)) {
 $Root = (Resolve-Path -LiteralPath $Root).Path.TrimEnd("\", "/")
 $reportPaths = New-Object System.Collections.Generic.List[string]
 
-$indexPath = Join-Path $Root "docs\BUG_REPORTS.md"
-if (Test-Path -LiteralPath $indexPath) {
-    $reportPaths.Add((Resolve-Path -LiteralPath $indexPath).Path)
+$indexPaths = @(
+    (Join-Path $Root "docs\BUG_REPORTS.md"),
+    (Join-Path $Root "docs\FEATURE_REQUESTS.md")
+)
+
+foreach ($indexPath in $indexPaths) {
+    if (Test-Path -LiteralPath $indexPath) {
+        $reportPaths.Add((Resolve-Path -LiteralPath $indexPath).Path)
+    }
 }
 
-$reportsDirectory = Join-Path $Root "docs\bug-reports"
-if (Test-Path -LiteralPath $reportsDirectory) {
-    Get-ChildItem -LiteralPath $reportsDirectory -Recurse -File -Filter "*.md" |
-        Sort-Object FullName |
-        ForEach-Object { $reportPaths.Add($_.FullName) }
+$intakeDirectories = @(
+    (Join-Path $Root "docs\bug-reports"),
+    (Join-Path $Root "docs\feature-requests")
+)
+
+foreach ($intakeDirectory in $intakeDirectories) {
+    if (Test-Path -LiteralPath $intakeDirectory) {
+        Get-ChildItem -LiteralPath $intakeDirectory -Recurse -File -Filter "*.md" |
+            Sort-Object FullName |
+            ForEach-Object { $reportPaths.Add($_.FullName) }
+    }
 }
 
 if ($reportPaths.Count -eq 0) {
-    Write-Host "No bug report files found."
+    Write-Host "No intake files found."
     exit 0
 }
 
@@ -89,7 +101,7 @@ foreach ($path in $reportPaths) {
 }
 
 if ($violations.Count -gt 0) {
-    Write-Error "Bug report privacy validation failed:"
+    Write-Error "Intake privacy validation failed:"
     foreach ($violation in $violations) {
         Write-Error "  $violation"
     }
@@ -97,4 +109,4 @@ if ($violations.Count -gt 0) {
     exit 1
 }
 
-Write-Host "Bug report privacy validation passed: $($reportPaths.Count) file(s) scanned."
+Write-Host "Intake privacy validation passed: $($reportPaths.Count) file(s) scanned."
