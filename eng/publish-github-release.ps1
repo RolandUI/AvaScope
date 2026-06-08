@@ -146,7 +146,7 @@ if ($releaseExists) {
         "--title",
         "AvaScope $version",
         "--generate-notes",
-        "--verify-tag"
+        "--latest"
     )
 
     Invoke-GitHubCli -Arguments $arguments

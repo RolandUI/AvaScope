@@ -76,9 +76,9 @@ It also validates the getting-started preview path from the packaged Windows CLI
 
 Use `.\artifacts\executables\avascope-win-x64-framework-dependent\avascope.exe` for external project testing after the script completes.
 
-NuGet publishing in CI requires a repository secret named `NUGET_API_KEY`. The `Release NuGet` workflow publishes when a version tag such as `v0.1.0` is pushed and the tag matches `Directory.Build.props`.
+NuGet publishing in CI requires a repository secret named `NUGET_API_KEY`. The `Release` workflow publishes from `master` or `main` when the `Directory.Build.props` `<Version>` value has no matching remote `v<Version>` tag yet.
 
-The release workflow publishes library packages to nuget.org and GitHub Packages. It also creates or updates the GitHub Release and uploads the three `.nupkg` files, RID-specific executable ZIPs, and `artifacts\release-manifest.json`.
+The release workflow publishes library packages to nuget.org and GitHub Packages, creates the `v<Version>` tag, creates or updates the matching GitHub Release, and uploads the three `.nupkg` files, RID-specific executable ZIPs, and `artifacts\release-manifest.json`.
 
 Before publishing library packages manually, validate the exact publish set without pushing:
 

@@ -79,22 +79,25 @@ The default executable package targets are `win-x64` and `linux-x64`. Pass `-Run
 
 CI validation runs restore, Release build, Release test, local library pack, local executable package, and artifact verification commands in GitHub Actions on pushes and pull requests. It does not publish packages or require secrets.
 
-## NuGet Release
+## Release
 
-NuGet release publishing is handled by GitHub Actions. Add a repository secret named:
+Release publishing is handled by GitHub Actions. Add a repository secret named:
 
 ```text
 NUGET_API_KEY
 ```
 
-Create a release by pushing a version tag that matches `Directory.Build.props`:
+The release version is the `<Version>` value in `Directory.Build.props`. To release, increase that value, commit, and push to `master`:
 
 ```powershell
-git tag v0.1.0
-git push origin v0.1.0
+git add Directory.Build.props
+git commit -m "Release 0.1.1"
+git push origin master
 ```
 
-The `Release NuGet` workflow runs the full local release gate, checks that the tag name matches the package version, dry-runs the publish set, then publishes `AvaScope.Protocol`, `AvaScope.Core`, and `AvaScope.Bridge` to nuget.org and GitHub Packages in dependency order.
+The `Release` workflow reads `Directory.Build.props`, checks whether `v<Version>` already exists on the remote, and only releases when that tag is missing. If the version was already released, the workflow exits without publishing.
+
+When a new version is detected, the workflow runs the full local release gate, dry-runs the publish set, publishes `AvaScope.Protocol`, `AvaScope.Core`, and `AvaScope.Bridge` to nuget.org and GitHub Packages in dependency order, then creates the `v<Version>` tag on the release commit.
 
 The same workflow creates or updates the GitHub Release for the tag and uploads these release assets:
 
@@ -124,7 +127,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-nuget.ps1
 
 The publish script pushes `AvaScope.Protocol`, `AvaScope.Core`, and `AvaScope.Bridge` from `artifacts\packages` in dependency order. It reads the version from `Directory.Build.props`, rejects missing or stale `AvaScope.*.nupkg` artifacts, and never stores the API key in source.
 
-The workflow can also be run manually. Manual runs validate by default; set `publish=true` and provide `release_tag` only when intentionally publishing outside a tag push. For an already-pushed tag such as `v0.1.0`, run the workflow manually with `publish=true` and `release_tag=v0.1.0`; package pushes use duplicate skipping so the run can still create or update the GitHub Release assets.
+The workflow can also be run manually. Manual runs validate by default; set `publish=true` only when intentionally republishing the current `Directory.Build.props` version. Package pushes use duplicate skipping so a manual run can still create or update the GitHub Release assets for an existing version.
 
 ## Public Alpha Local Install
 

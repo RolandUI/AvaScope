@@ -1,9 +1,10 @@
-name: Release NuGet
+name: Release
 
 on:
   push:
-    tags:
-      - "v*.*.*"
+    branches:
+      - main
+      - master
   workflow_dispatch:
     inputs:
       publish:
@@ -11,18 +12,13 @@ on:
         required: true
         type: boolean
         default: false
-      release_tag:
-        description: Optional release tag for manual publishing, for example v0.1.0.
-        required: false
-        type: string
-        default: ""
 
 permissions:
   contents: write
   packages: write
 
 concurrency:
-  group: release-nuget-${{ github.ref }}
+  group: release-nuget-${{ github.ref_name }}
   cancel-in-progress: false
 
 jobs:
@@ -45,45 +41,59 @@ jobs:
         run: |
           [xml]$buildProps = Get-Content -LiteralPath .\Directory.Build.props
           $version = [string]$buildProps.Project.PropertyGroup.Version
+          if ([string]::IsNullOrWhiteSpace($version)) {
+            throw "Directory.Build.props must define a non-empty Version."
+          }
+
           $eventName = "${{ github.event_name }}"
           $publishInput = "${{ inputs.publish }}"
-          $tag = if ($eventName -eq "push") {
-            "${{ github.ref_name }}"
-          } else {
-            "${{ inputs.release_tag }}"
-          }
+          $releaseTag = "v$version"
 
-          $shouldPublish = $eventName -eq "push" -or $publishInput -eq "true"
-          if ($shouldPublish -and [string]::IsNullOrWhiteSpace($tag)) {
-            throw "A release tag is required when publishing from workflow_dispatch."
-          }
-
-          $hasReleaseTag = -not [string]::IsNullOrWhiteSpace($tag)
           $expectedTag = "v$version"
-          if ($hasReleaseTag -and $tag -ne $expectedTag) {
-            throw "Release tag '$tag' does not match package version '$version'. Expected tag '$expectedTag'."
+          if ($releaseTag -ne $expectedTag) {
+            throw "Release tag '$releaseTag' does not match package version '$version'. Expected tag '$expectedTag'."
           }
+
+          $remoteTag = git ls-remote --tags origin "refs/tags/$releaseTag"
+          if ($LASTEXITCODE -ne 0) {
+            throw "Could not inspect remote tag '$releaseTag'."
+          }
+          $tagExists = -not [string]::IsNullOrWhiteSpace(($remoteTag | Out-String).Trim())
+
+          $manualPublish = $eventName -eq "workflow_dispatch" -and $publishInput -eq "true"
+          $shouldPublish = if ($eventName -eq "push") { -not $tagExists } else { $manualPublish }
+          $shouldValidate = $shouldPublish -or $eventName -eq "workflow_dispatch"
 
           "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
-          "release_tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
-          "has_release_tag=$($hasReleaseTag.ToString().ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "release_tag=$releaseTag" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "tag_exists=$($tagExists.ToString().ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "should_validate=$($shouldValidate.ToString().ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
           "should_publish=$($shouldPublish.ToString().ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
+          Write-Host "Version: $version"
+          Write-Host "Release tag: $releaseTag"
+          Write-Host "Remote tag exists: $tagExists"
+          Write-Host "Should validate: $shouldValidate"
+          Write-Host "Should publish: $shouldPublish"
+
       - name: Setup .NET
+        if: ${{ steps.release_metadata.outputs.should_validate == 'true' }}
         uses: actions/setup-dotnet@v5
         with:
           dotnet-version: 10.0.x
 
       - name: Create release artifacts
+        if: ${{ steps.release_metadata.outputs.should_validate == 'true' }}
         shell: pwsh
         run: powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1
 
       - name: Validate NuGet publish inputs
+        if: ${{ steps.release_metadata.outputs.should_validate == 'true' }}
         shell: pwsh
         run: powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-nuget.ps1 -DryRun
 
       - name: Validate GitHub Release assets
-        if: ${{ steps.release_metadata.outputs.has_release_tag == 'true' }}
+        if: ${{ steps.release_metadata.outputs.should_validate == 'true' }}
         shell: pwsh
         run: powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag "${{ steps.release_metadata.outputs.release_tag }}" -DryRun
 
@@ -112,9 +122,23 @@ jobs:
             -ApiKey $env:GH_PACKAGES_TOKEN `
             -SkipDuplicate
 
+      - name: Create release tag
+        if: ${{ steps.release_metadata.outputs.should_publish == 'true' && steps.release_metadata.outputs.tag_exists == 'false' }}
+        shell: pwsh
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag "${{ steps.release_metadata.outputs.release_tag }}" $env:GITHUB_SHA
+          git push origin "refs/tags/${{ steps.release_metadata.outputs.release_tag }}"
+
       - name: Publish GitHub Release assets
         if: ${{ steps.release_metadata.outputs.should_publish == 'true' }}
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag "${{ steps.release_metadata.outputs.release_tag }}"
+
+      - name: No release needed
+        if: ${{ steps.release_metadata.outputs.should_validate != 'true' }}
+        shell: pwsh
+        run: Write-Host "Version ${{ steps.release_metadata.outputs.version }} is already released as ${{ steps.release_metadata.outputs.release_tag }}. No release action needed."

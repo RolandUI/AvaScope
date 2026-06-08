@@ -35,6 +35,11 @@ Store future user-provided bug reports and feature requests as sanitized ledger 
 
 ## Latest Validation
 
+- `2026-06-08`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1` passed after W7 version-bump CI release changes; Release build/test passed with 179 tests, 5 release artifacts verified, packaged Windows sample preview smoke passed.
+- `2026-06-08`: Release metadata simulation passed after W7 validation: `Directory.Build.props` version `0.1.0`, derived release tag `v0.1.0`, and remote tag absence detection.
+- `2026-06-08`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.1.0 -DryRun` passed after W7 validation against freshly generated release artifacts.
+- `2026-06-08`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-nuget.ps1 -DryRun` passed after W7 validation against freshly generated release artifacts.
+- `2026-06-08`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-bug-reports.ps1` passed after W7 documentation updates; 13 intake files scanned.
 - `2026-06-08`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1` passed after adding GitHub Packages and GitHub Release asset publishing; Release build/test passed with 179 tests, 5 release artifacts verified, packaged Windows sample preview smoke passed.
 - `2026-06-08`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.1.0 -DryRun` passed and validated all GitHub Release assets: three `.nupkg` files, win/linux executable ZIPs, and `release-manifest.json`.
 - `2026-06-08`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.1.1 -DryRun` failed as expected because the tag did not match `Directory.Build.props` version `0.1.0`.
@@ -1546,6 +1551,32 @@ Store future user-provided bug reports and feature requests as sanitized ledger 
   - `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-bug-reports.ps1`
   - `git diff --check`
 
+### W7 Version-Bump CI Release
+
+- Status: `Done`
+- Goal: release automatically from CI when the repository package version is increased, without requiring a manually pushed release tag.
+- Deliverables: branch-push release detection, remote tag existence check, CI-created version tag, no-op behavior for already released versions, README/validation/gap/tracking updates, validation, commit.
+- Progress:
+  - Done: changed the `Release` workflow from tag-triggered release to `master`/`main` branch push release detection.
+  - Done: made `Directory.Build.props` `<Version>` the only release version source.
+  - Done: added remote `v<Version>` tag detection so ordinary pushes do not publish when the version is already released.
+  - Done: added CI tag creation for newly detected versions after package publishing succeeds.
+  - Done: removed the manual `release_tag` workflow input so manual workflow dispatch also uses the repository version.
+  - Done: documented the release process as version bump, commit, and push.
+- Acceptance Criteria:
+  - Increasing `Directory.Build.props` `<Version>` and pushing to `master` or `main` triggers a release.
+  - Pushing without increasing to a new unreleased version does not publish packages.
+  - The workflow creates the matching `v<Version>` tag automatically for a new release.
+  - The workflow still publishes nuget.org packages, GitHub Packages, and GitHub Release assets.
+  - Manual workflow dispatch can validate by default and republish the current repository version only when `publish=true`.
+- Validation:
+  - `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1`
+  - Release metadata simulation for version `0.1.0` and tag `v0.1.0`
+  - `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.1.0 -DryRun`
+  - `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-nuget.ps1 -DryRun`
+  - `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-bug-reports.ps1`
+  - `git diff --check`
+
 ## Decision Log
 
 - `2026-06-06`: Use `docs/DEVELOPMENT_PLAN.md` as the primary tracking document and keep `AGENTS.md` as the mandatory routing entrypoint.
@@ -1678,6 +1709,7 @@ Store future user-provided bug reports and feature requests as sanitized ledger 
 - `2026-06-08`: W4 keeps NuGet publishing manual and credential-gated: normal CI still validates artifacts without secrets, while actual public publishing requires a nuget.org API key supplied by environment, parameter, or a manually triggered GitHub workflow secret.
 - `2026-06-08`: W5 moves NuGet publishing to CI on explicit version tags instead of branch pushes; the release tag must match `Directory.Build.props` so package identity stays deliberate.
 - `2026-06-08`: W6 uses GitHub Releases, not NuGet packages, for CLI/MCP/PreviewHost executable distribution because those projects are intentionally non-packable and already validated as co-located framework-dependent ZIP artifacts.
+- `2026-06-08`: W7 supersedes the manual tag-push release trigger: `Directory.Build.props` `<Version>` is the release trigger, and CI creates the matching tag only after package publishing succeeds.
 
 ## Change Log
 
@@ -1750,3 +1782,4 @@ Store future user-provided bug reports and feature requests as sanitized ledger 
 - `2026-06-08`: Completed W4 by adding `eng/publish-nuget.ps1`, the manual `Publish NuGet` GitHub workflow, NuGet publishing documentation, and release/dry-run validation.
 - `2026-06-08`: Completed W5 by converting NuGet publishing to the tag-triggered `Release NuGet` CI workflow with version-gating and `NUGET_API_KEY` secret usage.
 - `2026-06-08`: Completed W6 by adding GitHub Packages publishing and GitHub Release asset publishing for release artifacts.
+- `2026-06-08`: Completed W7 by changing CI release activation to version bumps in `Directory.Build.props` with automatic tag creation and no-op behavior for already released versions.
