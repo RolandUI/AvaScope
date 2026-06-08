@@ -425,9 +425,6 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
             Assert.True(keyText.Value!.Handled);
             Assert.Equal("abc", textBox.Text);
 
-            Assert.True(button.Focus(NavigationMethod.Pointer));
-            Assert.False(textBox.IsFocused);
-
             var inputTree = await AvaScopeMcpTools.VisualTree(
                 client,
                 runtime.SessionId.Value,
@@ -436,6 +433,33 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
             Assert.True(inputTree.Success, inputTree.Error?.Message);
             var textTargetNode = FindNode(inputTree.Value!.Root, node => node.Name == "TextTarget");
             Assert.NotNull(textTargetNode);
+
+            textBox.Text = "abcdef";
+            textBox.SelectionStart = 1;
+            textBox.SelectionEnd = 4;
+            textBox.CaretIndex = 4;
+            Assert.True(button.Focus(NavigationMethod.Pointer));
+            Assert.False(textBox.IsFocused);
+
+            var targetedKeyText = await AvaScopeMcpTools.Input(
+                client,
+                runtime.SessionId.Value,
+                topLevel.Id,
+                InputActions.KeyText,
+                inputText: "X",
+                targetNodeId: textTargetNode.NodeId);
+
+            Assert.True(targetedKeyText.Success, targetedKeyText.Error?.Message);
+            Assert.True(targetedKeyText.Value!.Handled);
+            Assert.Equal(textTargetNode.NodeId, targetedKeyText.Value.TargetNodeId);
+            Assert.True(textBox.IsFocused);
+            Assert.Equal("aXef", textBox.Text);
+            Assert.Equal(2, textBox.CaretIndex);
+            Assert.Equal(textBox.CaretIndex, textBox.SelectionStart);
+            Assert.Equal(textBox.CaretIndex, textBox.SelectionEnd);
+
+            Assert.True(button.Focus(NavigationMethod.Pointer));
+            Assert.False(textBox.IsFocused);
 
             var focus = await AvaScopeMcpTools.Input(
                 client,

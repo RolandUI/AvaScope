@@ -23,15 +23,15 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `W14 Richer Runtime Input`
+- `W15 Preview Startup Parity`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-08`
-- Goal: expand local runtime input beyond the current pointer/key/focus subset while preserving non-destructive local-only safety.
+- Goal: safely improve PreviewHost startup parity for real Avalonia projects without weakening the isolated child-process boundary.
 
 ## Next Action
 
-Implement W14 runtime input improvements where public Avalonia routed input APIs make behavior deterministic enough for headless bridge tests.
+Implement W15 preview startup parity improvements with explicit isolation and failure diagnostics, without running app lifetime hooks by default.
 
 ## Latest Validation
 
@@ -49,6 +49,11 @@ Implement W14 runtime input improvements where public Avalonia routed input APIs
 - `2026-06-08`: `dotnet test AvaScope.slnx --no-build --filter Bridge` passed with 64 tests after W13 deeper diagnostics.
 - `2026-06-08`: `dotnet test AvaScope.slnx --no-build` passed with 194 tests after W13 deeper diagnostics.
 - `2026-06-08`: `git diff --check` passed after W13 deeper diagnostics.
+- `2026-06-08`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after W14 richer runtime input.
+- `2026-06-08`: `dotnet test AvaScope.slnx --no-build --filter Bridge` passed with 64 tests after W14 richer runtime input.
+- `2026-06-08`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli` passed with 83 tests after W14 richer runtime input.
+- `2026-06-08`: `dotnet test AvaScope.slnx --no-build` passed with 194 tests after W14 richer runtime input.
+- `2026-06-08`: `git diff --check` passed after W14 richer runtime input.
 - `2026-06-08`: W11 targeted tests passed: CLI watch reload, Core `PreviewSessionWatcher`, and Protocol watch response serialization.
 - `2026-06-08`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli` passed with 82 tests after W11 live preview file-watch reload.
 - `2026-06-08`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewSessionRegistryTests` passed with 10 tests after W11 live preview file-watch reload.
@@ -1763,28 +1768,32 @@ Implement W14 runtime input improvements where public Avalonia routed input APIs
 
 ### W14 Richer Runtime Input
 
-- Status: `In Progress`
+- Status: `Done`
 - Goal: expand local runtime input beyond the current pointer/key/focus subset while preserving non-destructive local-only safety.
 - Deliverables: richer pointer button state, drag/drop or text-input improvements where public Avalonia APIs allow, tests, documentation, commit, push.
 - Progress:
-  - In Progress: inspect current protocol/bridge/CLI input action coverage and select the smallest public-API-backed runtime input improvement.
+  - Done: selected target-aware TextBox text editing as the smallest deterministic public-API-backed runtime input improvement.
+  - Done: `key_text` can write to a focused TextBox or explicit target node id, rejects read-only TextBox targets, and replaces the current selection when one exists.
+  - Done: added headless bridge coverage for target-node text input and selection replacement, and CLI pipe coverage for target-node propagation.
 - Acceptance Criteria:
-  - New input actions are explicit protocol constants and reject invalid argument combinations.
-  - Runtime input stays local-only and does not introduce destructive actions.
-  - Headless bridge tests cover successful and invalid input paths.
-  - Unsupported platform/input cases return structured errors.
+  - Done: no new action was needed; the existing `key_text` protocol action uses the existing explicit `targetNodeId` request field.
+  - Done: runtime input stays local-only and does not introduce destructive actions.
+  - Done: headless bridge tests cover the successful target-aware text path, and existing invalid input paths remain covered.
+  - Done: unsupported read-only or non-TextBox text targets return structured errors.
 - Validation:
-  - `dotnet build AvaScope.slnx`
-  - `dotnet test AvaScope.slnx --no-build --filter Bridge`
-  - `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli`
-  - `dotnet test AvaScope.slnx --no-build`
-  - `git diff --check`
+  - Passed: `dotnet build AvaScope.slnx`
+  - Passed: `dotnet test AvaScope.slnx --no-build --filter Bridge`
+  - Passed: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli`
+  - Passed: `dotnet test AvaScope.slnx --no-build`
+  - Passed: `git diff --check`
 
 ### W15 Preview Startup Parity
 
-- Status: `Not Started`
+- Status: `In Progress`
 - Goal: safely improve PreviewHost startup parity for real Avalonia projects without weakening the isolated child-process boundary.
 - Deliverables: audited startup/lifetime expansion, opt-in behavior where needed, tests, documentation, commit, push.
+- Progress:
+  - In Progress: inspect current PreviewHost application startup boundary and select the smallest startup-parity improvement that keeps lifetime hooks opt-in or deferred.
 - Acceptance Criteria:
   - Default preview remains isolated and does not unexpectedly run app lifetime hooks that create windows or start services.
   - Any broader startup behavior is explicit, documented, and covered by failure diagnostics.
@@ -1956,6 +1965,7 @@ Implement W14 runtime input improvements where public Avalonia routed input APIs
 - `2026-06-08`: Screenshot diff and cleanup workflows remain explicit opt-in operations; cleanup may delete AvaScope-owned metadata and only terminate processes that can be tied to AvaScope-owned process metadata.
 - `2026-06-08`: W9 cleanup does not terminate processes in this slice because AvaScope does not yet persist reliable owned child-process metadata for post-hoc process cleanup.
 - `2026-06-08`: W13 deeper diagnostics use source metadata and built project assembly type resolution for `x:DataType` binding checks. They do not inspect private Avalonia binding-engine state, and unresolved type/provenance cases stay advisory structured diagnostics.
+- `2026-06-08`: W14 expands runtime text input through the existing `key_text` action and `targetNodeId` request field instead of adding a new protocol action, because this preserves the current tool shape while making TextBox editing behavior more realistic.
 
 ## Change Log
 
@@ -2034,3 +2044,4 @@ Implement W14 runtime input improvements where public Avalonia routed input APIs
 - `2026-06-08`: Started W9 for implementation of all stored feature tickets after explicit user authorization.
 - `2026-06-08`: Completed W9 by implementing stored feature tickets FEAT-0001 through FEAT-0007 with preview diagnostics, layout warnings, computed inspection, multi-size preview, screenshot diff, scoped cleanup, documentation updates, and full-suite validation.
 - `2026-06-08`: Completed W13 by adding source-backed `x:DataType` binding diagnostics in PreviewHost, typed-binding smoke coverage, README/validation/gap updates, and full-suite validation.
+- `2026-06-08`: Completed W14 by adding target-aware TextBox `key_text` input, selection replacement, read-only rejection, bridge/CLI tests, README/gap updates, and full-suite validation.

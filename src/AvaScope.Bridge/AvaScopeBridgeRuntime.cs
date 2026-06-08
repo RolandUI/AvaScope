@@ -596,7 +596,7 @@ public sealed class AvaScopeBridgeRuntime
             InputActions.PointerDown => PointerButton(topLevel, topLevelId, x, y, InputActions.PointerDown, isPressed: true),
             InputActions.PointerUp => PointerButton(topLevel, topLevelId, x, y, InputActions.PointerUp, isPressed: false),
             InputActions.Click => Click(topLevel, topLevelId, x, y),
-            InputActions.KeyText => KeyText(topLevel, topLevelId, inputText),
+            InputActions.KeyText => KeyText(topLevel, topLevelId, targetNodeId, inputText),
             InputActions.Focus => FocusTarget(topLevel, topLevelId, targetNodeId, x, y),
             InputActions.KeyDown => KeyInput(topLevel, topLevelId, InputActions.KeyDown, targetNodeId, inputKey, keyModifiers),
             InputActions.KeyUp => KeyInput(topLevel, topLevelId, InputActions.KeyUp, targetNodeId, inputKey, keyModifiers),
@@ -755,7 +755,11 @@ public sealed class AvaScopeBridgeRuntime
             CreateNodeId(button, TreeKinds.Visual)));
     }
 
-    private CoreResult<InputResponse> KeyText(TopLevel topLevel, string topLevelId, string? inputText)
+    private CoreResult<InputResponse> KeyText(
+        TopLevel topLevel,
+        string topLevelId,
+        string? targetNodeId,
+        string? inputText)
     {
         if (string.IsNullOrEmpty(inputText))
         {
@@ -764,17 +768,61 @@ public sealed class AvaScopeBridgeRuntime
                 "Text input requires non-empty input text."));
         }
 
-        if (topLevel.FocusManager?.GetFocusedElement() is not TextBox textBox)
+        TextBox? textBox;
+        if (string.IsNullOrWhiteSpace(targetNodeId))
+        {
+            textBox = topLevel.FocusManager?.GetFocusedElement() as TextBox;
+            if (textBox is null)
+            {
+                return CoreResult<InputResponse>.Fail(new CoreError(
+                    BridgeErrorCodes.UnsupportedInputAction,
+                    "Text input requires a focused TextBox target or target node id."));
+            }
+        }
+        else
+        {
+            var resolved = ResolveInputTarget(topLevel, targetNodeId, null, null, "Text input target node id is required.");
+            if (!resolved.Success)
+            {
+                return CoreResult<InputResponse>.Fail(resolved.Error!);
+            }
+
+            textBox = resolved.Value as TextBox ?? (resolved.Value as Visual)?.FindAncestorOfType<TextBox>();
+            if (textBox is null)
+            {
+                return CoreResult<InputResponse>.Fail(new CoreError(
+                    BridgeErrorCodes.UnsupportedInputAction,
+                    "Text input target is not a TextBox."));
+            }
+
+            if (!textBox.IsFocused && !textBox.Focus(NavigationMethod.Unspecified))
+            {
+                return CoreResult<InputResponse>.Fail(new CoreError(
+                    BridgeErrorCodes.UnsupportedInputAction,
+                    "Text input target did not accept focus."));
+            }
+        }
+
+        if (textBox.IsReadOnly)
         {
             return CoreResult<InputResponse>.Fail(new CoreError(
                 BridgeErrorCodes.UnsupportedInputAction,
-                "Text input MVP currently requires a focused TextBox target."));
+                "Text input target is read-only."));
         }
 
         var currentText = textBox.Text ?? string.Empty;
+        var selectionStart = Math.Clamp(Math.Min(textBox.SelectionStart, textBox.SelectionEnd), 0, currentText.Length);
+        var selectionEnd = Math.Clamp(Math.Max(textBox.SelectionStart, textBox.SelectionEnd), 0, currentText.Length);
         var caretIndex = Math.Clamp(textBox.CaretIndex, 0, currentText.Length);
-        textBox.Text = currentText.Insert(caretIndex, inputText);
-        textBox.CaretIndex = caretIndex + inputText.Length;
+        var insertIndex = selectionStart == selectionEnd ? caretIndex : selectionStart;
+        var removeLength = selectionStart == selectionEnd ? 0 : selectionEnd - selectionStart;
+        var updatedText = currentText.Remove(insertIndex, removeLength).Insert(insertIndex, inputText);
+        var updatedCaretIndex = insertIndex + inputText.Length;
+
+        textBox.Text = updatedText;
+        textBox.CaretIndex = updatedCaretIndex;
+        textBox.SelectionStart = updatedCaretIndex;
+        textBox.SelectionEnd = updatedCaretIndex;
 
         return CoreResult<InputResponse>.Ok(new InputResponse(
             SessionId,

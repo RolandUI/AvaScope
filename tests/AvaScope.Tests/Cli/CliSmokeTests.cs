@@ -1472,9 +1472,10 @@ public sealed class CliSmokeTests
             Assert.Equal(BridgeIpcMethods.Input, request.Method);
             Assert.Equal(InputActions.KeyText, request.Action);
             Assert.Equal("typed text", request.InputText);
+            Assert.Equal("visual:textbox", request.TargetNodeId);
             return BridgeIpcResponse.Ok(
                 request.RequestId,
-                new InputResponse(sessionId, request.TopLevelId!, InputActions.KeyText, true, DateTimeOffset.UtcNow, "visual:textbox"));
+                new InputResponse(sessionId, request.TopLevelId!, InputActions.KeyText, true, DateTimeOffset.UtcNow, request.TargetNodeId));
         });
 
         try
@@ -1489,11 +1490,14 @@ public sealed class CliSmokeTests
                 "--action",
                 InputActions.KeyText,
                 "--text",
-                "typed text");
+                "typed text",
+                "--target-node",
+                "visual:textbox");
             var request = await serverTask;
 
             Assert.Equal(0, result.ExitCode);
             Assert.Equal("typed text", request.InputText);
+            Assert.Equal("visual:textbox", request.TargetNodeId);
 
             var payload = JsonSerializer.Deserialize<ToolResult<InputResponse>>(result.StandardOutput, JsonOptions);
             Assert.NotNull(payload);

@@ -102,11 +102,11 @@ Next slice: refresh Release build/test/pack validation after the sample and CLI 
 
 ### Input Coverage
 
-Status: focus targeting and basic key down/up slice complete; drag/drop and richer pointer/key behavior remain open.
+Status: focus targeting, basic key down/up, and target-aware TextBox text editing slices complete; drag/drop and richer pointer/key behavior remain open.
 
-Input support is intentionally narrow: routed pointer move, routed pointer press/release, Button click, focus by node id or coordinates, routed key down/up for focused or explicitly targeted input elements, and focused TextBox text. Drag/drop, richer pointer button variants, hardware-like key repeat, and full IME/text editing behavior are not implemented.
+Input support is intentionally narrow: routed pointer move, routed pointer press/release, Button click, focus by node id or coordinates, routed key down/up for focused or explicitly targeted input elements, and TextBox text input for focused or explicitly targeted TextBox controls. TextBox text input now respects read-only targets and replaces a current selection when one exists. Drag/drop, richer pointer button variants, hardware-like key repeat, and full IME/text editing behavior are not implemented.
 
-Next slice: defer broader input until `inspect_node` completes, then revisit drag/drop or richer keyboard/text behavior.
+Next slice: defer broader input until a drag/drop, pointer-button, or hardware-like keyboard path can be covered by deterministic public Avalonia APIs.
 
 ## P2 Gaps
 

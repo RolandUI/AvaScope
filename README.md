@@ -396,7 +396,7 @@ Runtime input support is intentionally narrow:
 - `click` supports Button targets in the current MVP.
 - `focus` focuses an input element by visual/logical node id or hit-tested coordinates.
 - `key_down` and `key_up` raise routed Avalonia key events on a focused input element or explicit target node id.
-- `key_text` requires a focused `TextBox`.
+- `key_text` writes to a focused `TextBox` or explicit `targetNodeId`, respects read-only targets, and replaces the current selection when one exists.
 
 ## Preview Host
 
