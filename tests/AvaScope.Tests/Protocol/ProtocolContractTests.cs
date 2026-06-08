@@ -539,6 +539,23 @@ public sealed class ProtocolContractTests
     }
 
     [Fact]
+    public void PreviewRequestOmitsOptionalDimensionsWhenUnset()
+    {
+        var request = new PreviewRequest(
+            "C:\\previews\\main.png",
+            dpi: 96,
+            projectPath: "C:\\apps\\Sample\\Sample.csproj",
+            viewPath: "Views\\MainView.axaml");
+
+        var json = JsonSerializer.Serialize(request);
+        var node = JsonNode.Parse(json)!;
+
+        Assert.Null(node["width"]);
+        Assert.Null(node["height"]);
+        Assert.Equal(96, node["dpi"]!.GetValue<double>());
+    }
+
+    [Fact]
     public void PreviewResponseSerializesStableShape()
     {
         var renderedAt = new DateTimeOffset(2026, 6, 7, 1, 0, 0, TimeSpan.Zero);

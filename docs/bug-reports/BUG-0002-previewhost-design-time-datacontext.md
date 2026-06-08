@@ -1,7 +1,7 @@
 # BUG-0002: PreviewHost ignores Avalonia design-time DataContext metadata
 
-- Status: `Stored`
-- Fix Status: `Not started`
+- Status: `Implemented`
+- Fix Status: `Fixed`
 - Stored: `2026-06-08`
 - Privacy Review: local absolute paths, personal directory names, and target-specific identifiers were replaced with placeholders or generic names.
 
@@ -95,13 +95,21 @@ Expected supported cases:
 - `<Design.DataContext>...</Design.DataContext>`
 - `d:DesignWidth` and `d:DesignHeight` should also be considered as default preview dimensions when width/height are not explicitly provided by the CLI or MCP request.
 
+## Resolution
+
+Implemented on `2026-06-08`.
+
+- PreviewHost applies root design-time data from `<Design.DataContext>...</Design.DataContext>` object elements.
+- PreviewHost resolves root `d:DataContext="{x:Static ...}"` expressions against the built project assembly and assigns the value as root `DataContext`.
+- Preview requests can omit width and height; PreviewHost falls back to `d:DesignWidth`/`d:DesignHeight` or `Design.Width`/`Design.Height`.
+- Unsupported design-time `DataContext` expressions return structured `preview_render_failed` diagnostics.
+- Regression coverage: `PreviewHostAppliesDesignTimeStaticDataContextAsRootDataContext`, `PreviewHostAppliesAttachedDesignDataContextAsRootDataContext`, `PreviewHostUsesDesignDimensionsWhenRequestOmitsDimensions`, `PreviewHostReturnsStructuredErrorForUnsupportedDesignDataContext`, and `PreviewCommandUsesDesignDimensionsWhenWidthAndHeightAreOmitted`.
+
 ## Why This Matters
 
 Avalonia IDE previewers use `d:DataContext` or `Design.DataContext` to make complex views render with safe mock data without instantiating side-effecting runtime view models. Target app view models may start API clients, websocket clients, cache loaders, timers, persisted workspace restore logic, or other services, so AvaScope should not require constructing runtime view models just to render a useful preview.
 
-## Suggested Fix
-
-Do not implement this until explicitly requested.
+## Original Suggested Fix
 
 When selected for implementation, check the PreviewHost render flow:
 

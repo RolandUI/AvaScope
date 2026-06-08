@@ -7,9 +7,9 @@ public sealed record PreviewRequest
     [JsonConstructor]
     public PreviewRequest(
         string outputPath,
-        double width,
-        double height,
-        double dpi,
+        double? width = null,
+        double? height = null,
+        double dpi = 96,
         string? projectPath = null,
         string? viewPath = null,
         string? themeVariant = null,
@@ -21,12 +21,12 @@ public sealed record PreviewRequest
             throw new ArgumentException("Output path cannot be empty.", nameof(outputPath));
         }
 
-        if (width < 1)
+        if (width is < 1)
         {
             throw new ArgumentOutOfRangeException(nameof(width), width, "Width must be positive.");
         }
 
-        if (height < 1)
+        if (height is < 1)
         {
             throw new ArgumentOutOfRangeException(nameof(height), height, "Height must be positive.");
         }
@@ -51,10 +51,12 @@ public sealed record PreviewRequest
     public string OutputPath { get; }
 
     [JsonPropertyName("width")]
-    public double Width { get; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public double? Width { get; }
 
     [JsonPropertyName("height")]
-    public double Height { get; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public double? Height { get; }
 
     [JsonPropertyName("dpi")]
     public double Dpi { get; }

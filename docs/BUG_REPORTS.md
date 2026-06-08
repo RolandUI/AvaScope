@@ -16,5 +16,5 @@ Reports in this area are intake records only; do not start a fix unless the user
 
 | ID | Title | Status | Fix Status | Stored |
 | --- | --- | --- | --- | --- |
-| [BUG-0001](bug-reports/BUG-0001-previewhost-window-root.md) | PreviewHost fails for Window-rooted AXAML previews | Stored | Not started | 2026-06-08 |
-| [BUG-0002](bug-reports/BUG-0002-previewhost-design-time-datacontext.md) | PreviewHost ignores Avalonia design-time DataContext metadata | Stored | Not started | 2026-06-08 |
+| [BUG-0001](bug-reports/BUG-0001-previewhost-window-root.md) | PreviewHost fails for Window-rooted AXAML previews | Implemented | Fixed | 2026-06-08 |
+| [BUG-0002](bug-reports/BUG-0002-previewhost-design-time-datacontext.md) | PreviewHost ignores Avalonia design-time DataContext metadata | Implemented | Fixed | 2026-06-08 |

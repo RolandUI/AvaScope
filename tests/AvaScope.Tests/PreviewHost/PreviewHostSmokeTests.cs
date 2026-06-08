@@ -270,6 +270,86 @@ public sealed class PreviewHostSmokeTests
     }
 
     [Fact]
+    public async Task PreviewHostRendersCompiledWindowRootViewDirectly()
+    {
+        var hostAssembly = Path.Combine(AppContext.BaseDirectory, "AvaScope.PreviewHost.dll");
+        Assert.True(File.Exists(hostAssembly), $"Expected preview host assembly at {hostAssembly}.");
+
+        var testRoot = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(testRoot);
+
+        var projectPath = Path.Combine(testRoot, "WindowRootPreviewSample.csproj");
+        var viewsDirectory = Path.Combine(testRoot, "Views");
+        Directory.CreateDirectory(viewsDirectory);
+
+        var viewPath = Path.Combine(viewsDirectory, "MainWindow.axaml");
+        var codeBehindPath = Path.Combine(viewsDirectory, "MainWindow.axaml.cs");
+        var requestPath = Path.Combine(testRoot, "request.json");
+        var outputPath = Path.Combine(testRoot, "window-preview.png");
+
+        await File.WriteAllTextAsync(projectPath, """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <Nullable>enable</Nullable>
+              </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="Avalonia" Version="12.0.4" />
+              </ItemGroup>
+            </Project>
+            """);
+
+        await File.WriteAllTextAsync(viewPath, """
+            <Window xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    x:Class="WindowRootPreviewSample.Views.MainWindow"
+                    Background="#FF1B5E20">
+              <Grid />
+            </Window>
+            """);
+
+        await File.WriteAllTextAsync(codeBehindPath, """
+            using Avalonia.Controls;
+
+            namespace WindowRootPreviewSample.Views;
+
+            public partial class MainWindow : Window
+            {
+                public MainWindow()
+                {
+                    InitializeComponent();
+                }
+            }
+            """);
+
+        var request = new PreviewRequest(
+            outputPath,
+            width: 240,
+            height: 160,
+            dpi: 96,
+            projectPath: projectPath,
+            viewPath: Path.Combine("Views", "MainWindow.axaml"),
+            themeVariant: "light");
+
+        await File.WriteAllTextAsync(requestPath, JsonSerializer.Serialize(request, JsonOptions));
+
+        try
+        {
+            var result = await RunPreviewHostAsync(hostAssembly, requestPath, expectedExitCode: 0);
+
+            Assert.NotNull(result);
+            Assert.True(result.Success, result.Error?.Message);
+            Assert.Equal(240, result.Value!.PixelWidth);
+            Assert.Equal(160, result.Value.PixelHeight);
+            AssertCenterPixel(outputPath, red: 0x1B, green: 0x5E, blue: 0x20);
+        }
+        finally
+        {
+            await DeleteDirectoryWithRetryAsync(testRoot);
+        }
+    }
+
+    [Fact]
     public async Task PreviewHostLoadsCompiledAppResourcesBeforeProjectView()
     {
         var hostAssembly = Path.Combine(AppContext.BaseDirectory, "AvaScope.PreviewHost.dll");
@@ -1149,6 +1229,313 @@ public sealed class PreviewHostSmokeTests
             Assert.True(result.Success, result.Error?.Message);
             Assert.Equal("DesignDataPreviewSample.PreviewDesignData", result.Value!.DesignDataType);
             AssertCenterPixel(outputPath, red: 0x5C, green: 0x2A, blue: 0x9D);
+        }
+        finally
+        {
+            await DeleteDirectoryWithRetryAsync(testRoot);
+        }
+    }
+
+    [Fact]
+    public async Task PreviewHostAppliesDesignTimeStaticDataContextAsRootDataContext()
+    {
+        var hostAssembly = Path.Combine(AppContext.BaseDirectory, "AvaScope.PreviewHost.dll");
+        Assert.True(File.Exists(hostAssembly), $"Expected preview host assembly at {hostAssembly}.");
+
+        var testRoot = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(testRoot);
+
+        var projectPath = Path.Combine(testRoot, "StaticDesignDataPreviewSample.csproj");
+        var viewPath = Path.Combine(testRoot, "StaticDesignDataView.axaml");
+        var codeBehindPath = Path.Combine(testRoot, "StaticDesignDataView.axaml.cs");
+        var designDataPath = Path.Combine(testRoot, "TargetDesignData.cs");
+        var requestPath = Path.Combine(testRoot, "request.json");
+        var outputPath = Path.Combine(testRoot, "preview.png");
+
+        await File.WriteAllTextAsync(projectPath, """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <Nullable>enable</Nullable>
+              </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="Avalonia" Version="12.0.4" />
+              </ItemGroup>
+            </Project>
+            """);
+
+        await File.WriteAllTextAsync(viewPath, """
+            <UserControl xmlns="https://github.com/avaloniaui"
+                         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+                         xmlns:design="clr-namespace:StaticDesignDataPreviewSample"
+                         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+                         x:Class="StaticDesignDataPreviewSample.StaticDesignDataView"
+                         x:DataType="design:PreviewDesignData"
+                         d:DataContext="{x:Static design:TargetDesignData.LiveTrade}"
+                         mc:Ignorable="d">
+              <Border Width="220" Height="140" Background="{CompiledBinding PreviewBrush}" />
+            </UserControl>
+            """);
+
+        await File.WriteAllTextAsync(codeBehindPath, """
+            using Avalonia.Controls;
+
+            namespace StaticDesignDataPreviewSample;
+
+            public partial class StaticDesignDataView : UserControl
+            {
+                public StaticDesignDataView()
+                {
+                    InitializeComponent();
+                }
+            }
+            """);
+
+        await File.WriteAllTextAsync(designDataPath, """
+            using Avalonia.Media;
+
+            namespace StaticDesignDataPreviewSample;
+
+            public static class TargetDesignData
+            {
+                public static PreviewDesignData LiveTrade { get; } = new();
+            }
+
+            public sealed class PreviewDesignData
+            {
+                public IBrush PreviewBrush { get; } = new SolidColorBrush(Color.FromArgb(0xFF, 0xC1, 0x12, 0x1F));
+            }
+            """);
+
+        var request = new PreviewRequest(
+            outputPath,
+            width: 220,
+            height: 140,
+            dpi: 96,
+            projectPath: projectPath,
+            viewPath: "StaticDesignDataView.axaml",
+            themeVariant: "light");
+
+        await File.WriteAllTextAsync(requestPath, JsonSerializer.Serialize(request, JsonOptions));
+
+        try
+        {
+            var result = await RunPreviewHostAsync(hostAssembly, requestPath, expectedExitCode: 0);
+
+            Assert.NotNull(result);
+            Assert.True(result.Success, result.Error?.Message);
+            Assert.Null(result.Value!.DesignDataType);
+            AssertCenterPixel(outputPath, red: 0xC1, green: 0x12, blue: 0x1F);
+        }
+        finally
+        {
+            await DeleteDirectoryWithRetryAsync(testRoot);
+        }
+    }
+
+    [Fact]
+    public async Task PreviewHostAppliesAttachedDesignDataContextAsRootDataContext()
+    {
+        var hostAssembly = Path.Combine(AppContext.BaseDirectory, "AvaScope.PreviewHost.dll");
+        Assert.True(File.Exists(hostAssembly), $"Expected preview host assembly at {hostAssembly}.");
+
+        var testRoot = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(testRoot);
+
+        var projectPath = Path.Combine(testRoot, "AttachedDesignDataPreviewSample.csproj");
+        var viewPath = Path.Combine(testRoot, "AttachedDesignDataView.axaml");
+        var codeBehindPath = Path.Combine(testRoot, "AttachedDesignDataView.axaml.cs");
+        var designDataPath = Path.Combine(testRoot, "PreviewDesignData.cs");
+        var requestPath = Path.Combine(testRoot, "request.json");
+        var outputPath = Path.Combine(testRoot, "preview.png");
+
+        await File.WriteAllTextAsync(projectPath, """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <Nullable>enable</Nullable>
+              </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="Avalonia" Version="12.0.4" />
+              </ItemGroup>
+            </Project>
+            """);
+
+        await File.WriteAllTextAsync(viewPath, """
+            <UserControl xmlns="https://github.com/avaloniaui"
+                         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                         xmlns:design="using:AttachedDesignDataPreviewSample"
+                         x:Class="AttachedDesignDataPreviewSample.AttachedDesignDataView"
+                         x:DataType="design:PreviewDesignData">
+              <Design.DataContext>
+                <design:PreviewDesignData />
+              </Design.DataContext>
+              <Border Width="220" Height="140" Background="{CompiledBinding PreviewBrush}" />
+            </UserControl>
+            """);
+
+        await File.WriteAllTextAsync(codeBehindPath, """
+            using Avalonia.Controls;
+
+            namespace AttachedDesignDataPreviewSample;
+
+            public partial class AttachedDesignDataView : UserControl
+            {
+                public AttachedDesignDataView()
+                {
+                    InitializeComponent();
+                }
+            }
+            """);
+
+        await File.WriteAllTextAsync(designDataPath, """
+            using Avalonia.Media;
+
+            namespace AttachedDesignDataPreviewSample;
+
+            public sealed class PreviewDesignData
+            {
+                public IBrush PreviewBrush { get; } = new SolidColorBrush(Color.FromArgb(0xFF, 0x21, 0x77, 0x3F));
+            }
+            """);
+
+        var request = new PreviewRequest(
+            outputPath,
+            width: 220,
+            height: 140,
+            dpi: 96,
+            projectPath: projectPath,
+            viewPath: "AttachedDesignDataView.axaml",
+            themeVariant: "light");
+
+        await File.WriteAllTextAsync(requestPath, JsonSerializer.Serialize(request, JsonOptions));
+
+        try
+        {
+            var result = await RunPreviewHostAsync(hostAssembly, requestPath, expectedExitCode: 0);
+
+            Assert.NotNull(result);
+            Assert.True(result.Success, result.Error?.Message);
+            AssertCenterPixel(outputPath, red: 0x21, green: 0x77, blue: 0x3F);
+        }
+        finally
+        {
+            await DeleteDirectoryWithRetryAsync(testRoot);
+        }
+    }
+
+    [Fact]
+    public async Task PreviewHostUsesDesignDimensionsWhenRequestOmitsDimensions()
+    {
+        var hostAssembly = Path.Combine(AppContext.BaseDirectory, "AvaScope.PreviewHost.dll");
+        Assert.True(File.Exists(hostAssembly), $"Expected preview host assembly at {hostAssembly}.");
+
+        var testRoot = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(testRoot);
+
+        var projectPath = Path.Combine(testRoot, "DesignDimensionsPreviewSample.csproj");
+        var viewPath = Path.Combine(testRoot, "DesignDimensionsView.axaml");
+        var requestPath = Path.Combine(testRoot, "request.json");
+        var outputPath = Path.Combine(testRoot, "preview.png");
+
+        await File.WriteAllTextAsync(projectPath, """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+              </PropertyGroup>
+            </Project>
+            """);
+
+        await File.WriteAllTextAsync(viewPath, """
+            <UserControl xmlns="https://github.com/avaloniaui"
+                         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+                         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+                         d:DesignWidth="310"
+                         d:DesignHeight="170"
+                         mc:Ignorable="d">
+              <Border Background="#FF005A9C" />
+            </UserControl>
+            """);
+
+        var request = new PreviewRequest(
+            outputPath,
+            dpi: 96,
+            projectPath: projectPath,
+            viewPath: "DesignDimensionsView.axaml",
+            themeVariant: "light");
+
+        await File.WriteAllTextAsync(requestPath, JsonSerializer.Serialize(request, JsonOptions));
+
+        try
+        {
+            var result = await RunPreviewHostAsync(hostAssembly, requestPath, expectedExitCode: 0);
+
+            Assert.NotNull(result);
+            Assert.True(result.Success, result.Error?.Message);
+            Assert.Equal(310, result.Value!.PixelWidth);
+            Assert.Equal(170, result.Value.PixelHeight);
+            AssertCenterPixel(outputPath, red: 0x00, green: 0x5A, blue: 0x9C);
+        }
+        finally
+        {
+            await DeleteDirectoryWithRetryAsync(testRoot);
+        }
+    }
+
+    [Fact]
+    public async Task PreviewHostReturnsStructuredErrorForUnsupportedDesignDataContext()
+    {
+        var hostAssembly = Path.Combine(AppContext.BaseDirectory, "AvaScope.PreviewHost.dll");
+        Assert.True(File.Exists(hostAssembly), $"Expected preview host assembly at {hostAssembly}.");
+
+        var testRoot = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(testRoot);
+
+        var projectPath = Path.Combine(testRoot, "UnsupportedDesignDataPreviewSample.csproj");
+        var viewPath = Path.Combine(testRoot, "UnsupportedDesignDataView.axaml");
+        var requestPath = Path.Combine(testRoot, "request.json");
+        var outputPath = Path.Combine(testRoot, "preview.png");
+
+        await File.WriteAllTextAsync(projectPath, """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+              </PropertyGroup>
+            </Project>
+            """);
+
+        await File.WriteAllTextAsync(viewPath, """
+            <UserControl xmlns="https://github.com/avaloniaui"
+                         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+                         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+                         d:DataContext="{Binding LiveTrade}"
+                         mc:Ignorable="d">
+              <Border />
+            </UserControl>
+            """);
+
+        var request = new PreviewRequest(
+            outputPath,
+            width: 220,
+            height: 140,
+            dpi: 96,
+            projectPath: projectPath,
+            viewPath: "UnsupportedDesignDataView.axaml");
+
+        await File.WriteAllTextAsync(requestPath, JsonSerializer.Serialize(request, JsonOptions));
+
+        try
+        {
+            var result = await RunPreviewHostAsync(hostAssembly, requestPath, expectedExitCode: 1);
+
+            Assert.NotNull(result);
+            Assert.False(result.Success);
+            Assert.Equal("preview_render_failed", result.Error!.Code);
+            Assert.NotNull(result.Error.Details);
+            Assert.Equal("render", result.Error.Details!["phase"]);
+            Assert.Equal("{Binding LiveTrade}", result.Error.Details["designDataContext"]);
+            Assert.False(File.Exists(outputPath));
         }
         finally
         {

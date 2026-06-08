@@ -35,6 +35,13 @@ Store future user-provided bug reports as sanitized ledger entries. Do not start
 
 ## Latest Validation
 
+- `2026-06-08`: `dotnet test AvaScope.slnx --no-build` passed with 179 tests after implementing `BUG-0001` and `BUG-0002`.
+- `2026-06-08`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-bug-reports.ps1` passed after marking `BUG-0001` and `BUG-0002` fixed; 4 bug report files scanned.
+- `2026-06-08`: `dotnet test AvaScope.slnx --no-build --filter Protocol` passed with 30 tests after optional preview dimensions.
+- `2026-06-08`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli` passed with 77 tests after CLI design-dimension fallback.
+- `2026-06-08`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Mcp` passed with 29 tests after optional preview dimensions.
+- `2026-06-08`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewHost` passed with 27 tests after Window-root and design-time metadata support.
+- `2026-06-08`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after implementing stored PreviewHost bug fixes.
 - `2026-06-08`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-bug-reports.ps1` passed after storing `BUG-0002`; 4 bug report files scanned.
 - `2026-06-08`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-bug-reports.ps1` passed after creating the sanitized bug report ledger.
 - `2026-06-06`: `dotnet restore AvaScope.slnx` passed.
@@ -1402,6 +1409,31 @@ Store future user-provided bug reports as sanitized ledger entries. Do not start
 - Validation:
   - `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-bug-reports.ps1`
 
+### W2 PreviewHost Stored Bug Fixes
+
+- Status: `Done`
+- Goal: implement stored `BUG-0001` and `BUG-0002` after explicit user authorization.
+- Deliverables: Window/TopLevel-root preview rendering, Avalonia design-time `DataContext` support, regression tests, bug ledger status updates, validation and commit tracking.
+- Progress:
+  - Done: audited PreviewHost render and AXAML loading flow.
+  - Done: changed PreviewHost to render loaded `Window` roots directly while preserving the host-window path for normal `Control` roots.
+  - Done: added preview source metadata parsing for `d:DataContext`, `d:DesignWidth`/`d:DesignHeight`, and `Design.Width`/`Design.Height`.
+  - Done: applied `Design.DataContext` object elements and `d:DataContext="{x:Static ...}"` values as root `DataContext` when no explicit `designDataType` is supplied.
+  - Done: made preview request width and height optional so CLI/MCP requests can use design-time dimension fallback.
+  - Done: updated `docs/BUG_REPORTS.md` and both stored report files to `Fixed`.
+- Acceptance Criteria:
+  - Window-rooted AXAML previews render without being wrapped in another host window.
+  - Existing UserControl-rooted previews continue to render.
+  - `<Design.DataContext>...</Design.DataContext>` object elements are applied during preview rendering.
+  - `d:DataContext` using `x:Static` design data is applied during preview rendering.
+  - `d:DesignWidth`/`d:DesignHeight` and `Design.Width`/`Design.Height` are used when preview width and height are omitted.
+  - Unsupported or invalid design-time data expressions return structured diagnostics instead of crashing.
+  - Stored bug reports and the report index show implementation status.
+- Validation:
+  - `dotnet build AvaScope.slnx`
+  - `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewHost`
+  - `dotnet test AvaScope.slnx --no-build`
+
 ## Decision Log
 
 - `2026-06-06`: Use `docs/DEVELOPMENT_PLAN.md` as the primary tracking document and keep `AGENTS.md` as the mandatory routing entrypoint.
@@ -1525,6 +1557,10 @@ Store future user-provided bug reports as sanitized ledger entries. Do not start
 - `2026-06-07`: M50 is the completion gate for the thread goal; do not mark the goal complete until the audit proves every public-alpha requirement with current evidence.
 - `2026-06-07`: M50 completion audit concludes the current repository satisfies the production-ready public-alpha objective; runtime hot reload, richer input, broader preview startup orchestration, publishing automation, and richer binding/layout/resource diagnostics remain explicit non-blocking post-alpha deferrals.
 - `2026-06-08`: Bug reports are stored as sanitized documentation under `docs/bug-reports/` and validated by `eng/validate-bug-reports.ps1`; storing a report is not authorization to implement a fix.
+- `2026-06-08`: The user explicitly requested implementation for the two stored bug reports, so W1 intake moved to `Done` and W2 became the active implementation workstream.
+- `2026-06-08`: W2 keeps explicit `designDataType` as the highest-precedence preview data source; `Design.DataContext` and `d:DataContext="{x:Static ...}"` are fallback design-time metadata only.
+- `2026-06-08`: Preview width and height are optional at the protocol/CLI/MCP boundary only when PreviewHost can resolve positive design-time dimensions from the root AXAML.
+- `2026-06-08`: After W2 completion, W1 returned as the active `In Progress` intake workstream so future reports remain stored but not implemented without explicit user authorization.
 
 ## Change Log
 
@@ -1591,3 +1627,4 @@ Store future user-provided bug reports as sanitized ledger entries. Do not start
 - `2026-06-07`: Completed M50 public-alpha completion audit with `docs/PUBLIC_ALPHA_AUDIT.md`, local install and validation documentation updates, final Debug/Release build and test validation, NuGet/executable artifact verification, source and packaged sample preview smoke validation, gap audit closure, and no remaining public-alpha blockers.
 - `2026-06-08`: Added the bug report intake ledger with privacy validation and stored `BUG-0001` for the PreviewHost `Window` root rendering failure without starting implementation.
 - `2026-06-08`: Stored `BUG-0002` for ignored Avalonia design-time `DataContext` metadata, with local paths and target-specific identifiers sanitized.
+- `2026-06-08`: Completed W2 by implementing `BUG-0001` Window-root preview rendering and `BUG-0002` design-time data context/dimension support with PreviewHost, Protocol, CLI, and MCP tests.

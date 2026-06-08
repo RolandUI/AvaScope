@@ -96,6 +96,69 @@ public sealed class CliSmokeTests
     }
 
     [Fact]
+    public async Task PreviewCommandUsesDesignDimensionsWhenWidthAndHeightAreOmitted()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var testRoot = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(testRoot);
+
+        var projectPath = Path.Combine(testRoot, "CliDesignDimensionsPreviewSample.csproj");
+        var viewPath = Path.Combine(testRoot, "MainView.axaml");
+        var outputPath = Path.Combine(testRoot, "preview.png");
+
+        await File.WriteAllTextAsync(projectPath, """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+              </PropertyGroup>
+            </Project>
+            """);
+
+        await File.WriteAllTextAsync(viewPath, """
+            <UserControl xmlns="https://github.com/avaloniaui"
+                         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+                         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+                         d:DesignWidth="260"
+                         d:DesignHeight="150"
+                         mc:Ignorable="d">
+              <Border Background="#FFFFFFFF" />
+            </UserControl>
+            """);
+
+        try
+        {
+            var result = await RunCliAsync(
+                cliAssembly,
+                "preview",
+                projectPath,
+                "--view",
+                viewPath,
+                "--out",
+                outputPath);
+
+            Assert.Equal(0, result.ExitCode);
+            Assert.True(string.IsNullOrWhiteSpace(result.StandardError), result.StandardError);
+
+            var payload = JsonSerializer.Deserialize<ToolResult<PreviewResponse>>(result.StandardOutput, JsonOptions);
+            Assert.NotNull(payload);
+            Assert.True(payload.Success, payload.Error?.Message);
+            Assert.Equal(260, payload.Value!.PixelWidth);
+            Assert.Equal(150, payload.Value.PixelHeight);
+            Assert.True(File.Exists(payload.Value.FilePath));
+            Assert.True(new FileInfo(payload.Value.FilePath).Length > 0);
+        }
+        finally
+        {
+            if (Directory.Exists(testRoot))
+            {
+                Directory.Delete(testRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
     public async Task PreviewCommandResolvesRelativeProjectAndOutputPathsFromCallerWorkingDirectory()
     {
         var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");

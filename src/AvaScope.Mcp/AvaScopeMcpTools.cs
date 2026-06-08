@@ -366,8 +366,8 @@ public sealed class AvaScopeMcpTools
     public static async Task<ToolResult<PreviewResponse>> PreviewAxaml(
         PreviewHostClient previewHostClient,
         string outputPath,
-        double width,
-        double height,
+        double? width = null,
+        double? height = null,
         double dpi = 96,
         string? projectPath = null,
         string? viewPath = null,
@@ -414,8 +414,8 @@ public sealed class AvaScopeMcpTools
     public static async Task<ToolResult<PreviewSessionSummary>> CreatePreviewSession(
         PreviewSessionRegistry previewSessions,
         string outputPath,
-        double width,
-        double height,
+        double? width = null,
+        double? height = null,
         double dpi = 96,
         string? projectPath = null,
         string? viewPath = null,

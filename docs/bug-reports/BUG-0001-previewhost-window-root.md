@@ -1,7 +1,7 @@
 # BUG-0001: PreviewHost fails for Window-rooted AXAML previews
 
-- Status: `Stored`
-- Fix Status: `Not started`
+- Status: `Implemented`
+- Fix Status: `Fixed`
 - Stored: `2026-06-08`
 - Privacy Review: local absolute paths and personal directory names were replaced with placeholders.
 
@@ -48,6 +48,14 @@ Preview fails with `preview_render_failed` during the render phase:
 
 AvaScope should detect that the requested AXAML root is already a `Window` or `TopLevel` and render it directly instead of wrapping it inside another host `Window`.
 
+## Resolution
+
+Implemented on `2026-06-08`.
+
+- PreviewHost now uses a loaded `Window` root as the render window instead of assigning it as another window's content.
+- Non-window `Control` roots continue to render through the existing host `Window` path.
+- Regression coverage: `PreviewHostRendersCompiledWindowRootViewDirectly`.
+
 ## Control Case
 
 These `UserControl`-rooted views render successfully:
@@ -64,9 +72,7 @@ Both return `success: true`.
 
 PreviewHost likely wraps every loaded root control in a host `Window`. That is correct for `UserControl` or `Control` roots, but wrong for roots that are already `Window` or another `TopLevel`.
 
-## Suggested Fix
-
-Do not implement this until explicitly requested.
+## Original Suggested Fix
 
 When selected for implementation, check the PreviewHost render flow:
 
