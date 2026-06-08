@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.Json;
 using AvaScope.Core;
 using AvaScope.Protocol;
+using SkiaSharp;
 
 namespace AvaScope.Tests.Cli;
 
@@ -148,6 +149,76 @@ public sealed class CliSmokeTests
             Assert.Equal(150, payload.Value.PixelHeight);
             Assert.True(File.Exists(payload.Value.FilePath));
             Assert.True(new FileInfo(payload.Value.FilePath).Length > 0);
+        }
+        finally
+        {
+            if (Directory.Exists(testRoot))
+            {
+                Directory.Delete(testRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task PreviewCommandRendersMultipleSizesAndContactSheet()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var testRoot = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(testRoot);
+
+        var projectPath = Path.Combine(testRoot, "CliMultiPreviewSample.csproj");
+        var viewPath = Path.Combine(testRoot, "MainView.axaml");
+        var outputPath = Path.Combine(testRoot, "preview.png");
+        var contactSheetPath = Path.Combine(testRoot, "sheet.png");
+
+        await File.WriteAllTextAsync(projectPath, """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+              </PropertyGroup>
+            </Project>
+            """);
+
+        await File.WriteAllTextAsync(viewPath, """
+            <UserControl xmlns="https://github.com/avaloniaui">
+              <Border Background="#FFFFFFFF">
+                <TextBlock Text="CLI multi preview smoke" />
+              </Border>
+            </UserControl>
+            """);
+
+        try
+        {
+            var result = await RunCliAsync(
+                cliAssembly,
+                "preview",
+                projectPath,
+                "--view",
+                viewPath,
+                "--out",
+                outputPath,
+                "--sizes",
+                "160x100,120x80",
+                "--contact-sheet",
+                contactSheetPath);
+
+            Assert.Equal(0, result.ExitCode);
+            Assert.True(string.IsNullOrWhiteSpace(result.StandardError), result.StandardError);
+
+            var payload = JsonSerializer.Deserialize<ToolResult<PreviewBatchResponse>>(result.StandardOutput, JsonOptions);
+            Assert.NotNull(payload);
+            Assert.True(payload.Success, payload.Error?.Message);
+            Assert.Equal(2, payload.Value!.Entries.Count);
+            Assert.All(payload.Value.Entries, entry =>
+            {
+                Assert.True(entry.Render.Success, entry.Render.Error?.Message);
+                Assert.True(File.Exists(entry.Render.Value!.FilePath));
+            });
+            Assert.Equal(Path.GetFullPath(contactSheetPath), payload.Value.ContactSheetPath);
+            Assert.True(File.Exists(payload.Value.ContactSheetPath));
+            Assert.NotEqual(payload.Value.Entries[0].OutputPath, payload.Value.Entries[1].OutputPath);
         }
         finally
         {
@@ -1651,6 +1722,56 @@ public sealed class CliSmokeTests
     }
 
     [Fact]
+    public async Task DiffCommandWritesDiffAndReturnsChangedSummary()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var testRoot = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(testRoot);
+
+        var baselinePath = Path.Combine(testRoot, "baseline.png");
+        var currentPath = Path.Combine(testRoot, "current.png");
+        var diffPath = Path.Combine(testRoot, "diff.png");
+        WriteSolidImage(baselinePath, SKColors.White);
+        WriteSolidImage(currentPath, SKColors.White, changedPixel: SKColors.Black);
+
+        try
+        {
+            var result = await RunCliAsync(
+                cliAssembly,
+                "diff",
+                "--baseline",
+                baselinePath,
+                "--current",
+                currentPath,
+                "--out",
+                diffPath,
+                "--tolerance",
+                "0");
+
+            Assert.Equal(1, result.ExitCode);
+            Assert.True(string.IsNullOrWhiteSpace(result.StandardError), result.StandardError);
+
+            var payload = JsonSerializer.Deserialize<ToolResult<PreviewDiffResponse>>(result.StandardOutput, JsonOptions);
+            Assert.NotNull(payload);
+            Assert.True(payload.Success, payload.Error?.Message);
+            Assert.False(payload.Value!.Passed);
+            Assert.Equal(1, payload.Value.ChangedPixels);
+            Assert.Equal(16, payload.Value.TotalPixels);
+            Assert.Equal(Path.GetFullPath(diffPath), payload.Value.DiffPath);
+            Assert.True(File.Exists(diffPath));
+        }
+        finally
+        {
+            if (Directory.Exists(testRoot))
+            {
+                Directory.Delete(testRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
     public void McpServerAssemblyIsCopiedBesideCli()
     {
         var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
@@ -1663,6 +1784,21 @@ public sealed class CliSmokeTests
     private static async Task<CliResult> RunCliAsync(string cliAssembly, params string[] arguments)
     {
         return await RunCliAsyncFromDirectory(AppContext.BaseDirectory, cliAssembly, arguments);
+    }
+
+    private static void WriteSolidImage(string path, SKColor color, SKColor? changedPixel = null)
+    {
+        using var bitmap = new SKBitmap(4, 4);
+        bitmap.Erase(color);
+        if (changedPixel is { } pixel)
+        {
+            bitmap.SetPixel(0, 0, pixel);
+        }
+
+        using var image = SKImage.FromBitmap(bitmap);
+        using var data = image.Encode(SKEncodedImageFormat.Png, 100);
+        using var stream = File.Create(path);
+        data.SaveTo(stream);
     }
 
     private static async Task<CliResult> RunCliAsyncFromDirectory(

@@ -1,7 +1,7 @@
 # FEAT-0001: Binding and resource diagnostics
 
-- Status: `Backlog`
-- Implementation Status: `Not started`
+- Status: `Implemented`
+- Implementation Status: `Covered by W9`
 - Priority: `P0`
 - Stored: `2026-06-08`
 - Source Order: `2`
@@ -26,6 +26,18 @@ During preview rendering, AvaScope should separately report binding, compiled bi
 - Failing binding/resource entries include the affected target node or path where practical.
 - Diagnostics are bounded so large views do not return unbounded logs.
 - The implementation stays inside PreviewHost/core protocol boundaries and does not make MCP Avalonia-specific.
+
+## Current Coverage
+
+- `PreviewResponse.Diagnostics` carries bounded structured diagnostics with severity, category, code, message, optional node/path, and detail fields.
+- PreviewHost source metadata scanning reports missing root `DataContext`, missing/invalid binding converter resources, unresolved resource keys, and conservative binding path failures.
+- Diagnostics are advisory when rendering succeeds; they do not turn a successful screenshot into a failed render.
+- CLI and MCP preserve diagnostics through the same transport-neutral protocol response.
+
+## Limitations
+
+- Compiled binding and runtime binding-engine internals are reported only where public Avalonia APIs or source metadata expose enough signal.
+- Resource and binding locations are best-effort source paths or node paths; AvaScope does not use private Avalonia hooks to infer hidden provenance.
 
 ## Notes
 

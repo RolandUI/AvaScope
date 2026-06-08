@@ -587,6 +587,117 @@ public sealed class ProtocolContractTests
     }
 
     [Fact]
+    public void PreviewResponseSerializesDiagnostics()
+    {
+        var renderedAt = new DateTimeOffset(2026, 6, 8, 8, 0, 0, TimeSpan.Zero);
+        var response = new PreviewResponse(
+            "C:\\previews\\main.png",
+            320,
+            200,
+            96,
+            renderedAt,
+            diagnostics:
+            [
+                new PreviewDiagnostic(
+                    PreviewDiagnosticSeverities.Warning,
+                    PreviewDiagnosticCategories.Binding,
+                    "binding_missing_datacontext",
+                    "Binding has no DataContext.",
+                    "visual:text",
+                    "Avalonia.Controls.TextBlock",
+                    "Text",
+                    "Views\\MainView.axaml",
+                    new NodeBounds(0, 0, 80, 24),
+                    new Dictionary<string, string>
+                    {
+                        ["elementPath"] = "UserControl/TextBlock[1]"
+                    })
+            ]);
+
+        var json = JsonSerializer.Serialize(response);
+        var node = JsonNode.Parse(json)!;
+
+        Assert.Equal("binding", node["diagnostics"]![0]!["category"]!.GetValue<string>());
+        Assert.Equal("warning", node["diagnostics"]![0]!["severity"]!.GetValue<string>());
+        Assert.Equal("binding_missing_datacontext", node["diagnostics"]![0]!["code"]!.GetValue<string>());
+        Assert.Equal("Text", node["diagnostics"]![0]!["propertyName"]!.GetValue<string>());
+        Assert.Equal("UserControl/TextBlock[1]", node["diagnostics"]![0]!["details"]!["elementPath"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public void PreviewBatchResponseSerializesPerSizeResults()
+    {
+        var renderedAt = new DateTimeOffset(2026, 6, 8, 8, 15, 0, TimeSpan.Zero);
+        var response = new PreviewBatchResponse(
+        [
+            new PreviewBatchEntry(
+                new PreviewViewport(1440, 900),
+                "C:\\previews\\main-01-1440x900.png",
+                ToolResult<PreviewResponse>.Ok(new PreviewResponse(
+                    "C:\\previews\\main-01-1440x900.png",
+                    1440,
+                    900,
+                    96,
+                    renderedAt))),
+            new PreviewBatchEntry(
+                new PreviewViewport(1280, 720),
+                "C:\\previews\\main-02-1280x720.png",
+                ToolResult<PreviewResponse>.Fail(new ProtocolError("preview_render_failed", "Render failed.")))
+        ],
+        "C:\\previews\\sheet.png",
+        renderedAt);
+
+        var json = JsonSerializer.Serialize(response);
+        var node = JsonNode.Parse(json)!;
+
+        Assert.Equal(1440, node["entries"]![0]!["viewport"]!["width"]!.GetValue<double>());
+        Assert.True(node["entries"]![0]!["render"]!["success"]!.GetValue<bool>());
+        Assert.False(node["entries"]![1]!["render"]!["success"]!.GetValue<bool>());
+        Assert.Equal("C:\\previews\\sheet.png", node["contactSheetPath"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public void PreviewDiffAndCleanupResponsesSerializeStableShapes()
+    {
+        var diff = new PreviewDiffResponse(
+            "C:\\baseline.png",
+            "C:\\current.png",
+            passed: false,
+            pixelWidth: 4,
+            pixelHeight: 4,
+            tolerance: 0,
+            changedPixels: 1,
+            totalPixels: 16,
+            changedPercent: 6.25,
+            maxDelta: 255,
+            "C:\\diff.png");
+        var cleanup = new PreviewCleanupResponse(
+            "C:\\avascope\\preview-sessions",
+            1,
+            [
+                new PreviewSessionDiagnostic(
+                    DiagnosticStatuses.Stale,
+                    "C:\\avascope\\preview-sessions\\session.json",
+                    new SessionSummary(
+                        new SessionId("preview-1"),
+                        SessionKinds.Preview,
+                        SessionStates.Failed,
+                        DateTimeOffset.UnixEpoch))
+            ],
+            ["C:\\avascope\\preview-sessions\\session.json"],
+            DateTimeOffset.UnixEpoch);
+
+        var diffNode = JsonNode.Parse(JsonSerializer.Serialize(diff))!;
+        var cleanupNode = JsonNode.Parse(JsonSerializer.Serialize(cleanup))!;
+
+        Assert.False(diffNode["passed"]!.GetValue<bool>());
+        Assert.Equal(1, diffNode["changedPixels"]!.GetValue<long>());
+        Assert.Equal("C:\\diff.png", diffNode["diffPath"]!.GetValue<string>());
+        Assert.Equal(1, cleanupNode["deletedPreviewSessionRecords"]!.GetValue<int>());
+        Assert.Equal(DiagnosticStatuses.Stale, cleanupNode["stalePreviewSessions"]![0]!["status"]!.GetValue<string>());
+    }
+
+    [Fact]
     public void PreviewSessionSummarySerializesRequestAndLastRender()
     {
         var createdAt = new DateTimeOffset(2026, 6, 7, 4, 0, 0, TimeSpan.Zero);

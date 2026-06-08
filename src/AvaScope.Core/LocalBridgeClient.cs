@@ -355,6 +355,7 @@ public sealed class LocalBridgeClient
         SessionId? sessionId = null,
         int maxSessions = 50,
         PreviewHostDiagnostic? previewHost = null,
+        IReadOnlyList<PreviewSessionDiagnostic>? previewSessions = null,
         CancellationToken cancellationToken = default)
     {
         if (maxSessions is < 1 or > MaxDiagnosticsSessions)
@@ -400,7 +401,8 @@ public sealed class LocalBridgeClient
             ManifestDirectory,
             bridgeSessions,
             issues,
-            previewHost));
+            previewHost,
+            previewSessions));
     }
 
     private async Task<CoreResult<TreeResponse>> TreeAsync(

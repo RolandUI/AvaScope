@@ -2,15 +2,20 @@ using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Controls.Primitives;
+using Avalonia.Diagnostics;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Layout;
 using Avalonia.LogicalTree;
+using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using AvaScope.Core;
 using AvaScope.Protocol;
 using System.Collections.Concurrent;
+using System.Globalization;
 using System.Runtime.CompilerServices;
 
 namespace AvaScope.Bridge;
@@ -540,7 +545,8 @@ public sealed class AvaScopeBridgeRuntime
             GetAutomationId(node),
             GetText(node),
             GetBounds(node),
-            GetClasses(node)));
+            GetClasses(node),
+            GetComputedProperties(node)));
     }
 
     private CoreResult<InspectNodeResponse> InspectLogicalNode(ILogical root, string topLevelId, string nodeId)
@@ -562,7 +568,8 @@ public sealed class AvaScopeBridgeRuntime
             GetAutomationId(node),
             GetText(node),
             GetBounds(node),
-            GetClasses(node)));
+            GetClasses(node),
+            GetComputedProperties(node)));
     }
 
     private CoreResult<InputResponse> Input(
@@ -1253,6 +1260,115 @@ public sealed class AvaScopeBridgeRuntime
         return node is StyledElement styledElement
             ? styledElement.Classes.ToArray()
             : Array.Empty<string>();
+    }
+
+    private static IReadOnlyList<ComputedPropertyValue> GetComputedProperties(object node)
+    {
+        if (node is not AvaloniaObject avaloniaObject)
+        {
+            return Array.Empty<ComputedPropertyValue>();
+        }
+
+        var properties = GetInspectableProperties(node).ToArray();
+        var values = new List<ComputedPropertyValue>(properties.Length);
+        foreach (var property in properties)
+        {
+            try
+            {
+                var diagnostic = avaloniaObject.GetDiagnostic(property);
+                values.Add(new ComputedPropertyValue(
+                    property.Name,
+                    FormatComputedValue(diagnostic.Value),
+                    diagnostic.Value?.GetType().FullName ?? "null",
+                    diagnostic.Priority.ToString(),
+                    MapComputedSource(diagnostic.Priority),
+                    diagnostic.Diagnostic));
+            }
+            catch (InvalidOperationException)
+            {
+                values.Add(new ComputedPropertyValue(
+                    property.Name,
+                    "not_available",
+                    "not_available",
+                    source: "not_available"));
+            }
+        }
+
+        return values;
+    }
+
+    private static IEnumerable<AvaloniaProperty> GetInspectableProperties(object node)
+    {
+        if (node is Visual)
+        {
+            yield return Visual.BoundsProperty;
+            yield return Visual.ClipToBoundsProperty;
+        }
+
+        if (node is Layoutable)
+        {
+            yield return Layoutable.MarginProperty;
+            yield return Layoutable.DesiredSizeProperty;
+        }
+
+        if (node is Border)
+        {
+            yield return Border.BackgroundProperty;
+            yield return Border.BorderBrushProperty;
+            yield return Border.PaddingProperty;
+        }
+
+        if (node is Panel)
+        {
+            yield return Panel.BackgroundProperty;
+        }
+
+        if (node is TemplatedControl)
+        {
+            yield return TemplatedControl.BackgroundProperty;
+            yield return TemplatedControl.BorderBrushProperty;
+            yield return TemplatedControl.ForegroundProperty;
+            yield return TemplatedControl.FontFamilyProperty;
+            yield return TemplatedControl.FontSizeProperty;
+            yield return TemplatedControl.FontStyleProperty;
+            yield return TemplatedControl.FontWeightProperty;
+            yield return TemplatedControl.PaddingProperty;
+        }
+
+        if (node is TextBlock)
+        {
+            yield return TextBlock.ForegroundProperty;
+            yield return TextBlock.FontFamilyProperty;
+            yield return TextBlock.FontSizeProperty;
+            yield return TextBlock.FontStyleProperty;
+            yield return TextBlock.FontWeightProperty;
+        }
+    }
+
+    private static string FormatComputedValue(object? value)
+    {
+        return value switch
+        {
+            null => "null",
+            IBrush brush => brush.ToString() ?? brush.GetType().FullName ?? "brush",
+            IFormattable formattable => formattable.ToString(null, CultureInfo.InvariantCulture),
+            _ => value.ToString() ?? value.GetType().FullName ?? "value"
+        };
+    }
+
+    private static string MapComputedSource(Avalonia.Data.BindingPriority priority)
+    {
+        return priority switch
+        {
+            Avalonia.Data.BindingPriority.Animation => "animation",
+            Avalonia.Data.BindingPriority.LocalValue => "local",
+            Avalonia.Data.BindingPriority.StyleTrigger => "style",
+            Avalonia.Data.BindingPriority.Template => "template",
+            Avalonia.Data.BindingPriority.Style => "style",
+            Avalonia.Data.BindingPriority.Inherited => "inherited",
+            Avalonia.Data.BindingPriority.Unset => "default",
+            _ => "unknown"
+        };
     }
 
     private TopLevel? FindTopLevel(string topLevelId)

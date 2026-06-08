@@ -12,6 +12,8 @@ public static class CoreErrorCodes
     public const string DiagnosticsTruncated = "diagnostics_truncated";
     public const string InvalidBridgeRequest = "invalid_bridge_request";
     public const string InvalidPreviewRequest = "invalid_preview_request";
+    public const string ImageDiffDimensionMismatch = "image_diff_dimension_mismatch";
+    public const string ImageDiffFailed = "image_diff_failed";
     public const string PreviewHostFailed = "preview_host_failed";
     public const string PreviewHostUnavailable = "preview_host_unavailable";
     public const string PreviewSessionStoreFailed = "preview_session_store_failed";

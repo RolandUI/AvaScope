@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Media;
 using Avalonia.Themes.Fluent;
 using Avalonia.Threading;
 using AvaScope.Bridge;
@@ -119,7 +120,9 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
             var textBlock = new TextBlock
             {
                 Name = "PipeText",
-                Text = "AvaScope pipe"
+                Text = "AvaScope pipe",
+                FontSize = 18,
+                Foreground = Brushes.Red
             };
             AutomationProperties.SetAutomationId(textBlock, "pipe-text");
 
@@ -213,6 +216,8 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
             Assert.Contains("TextBlock", inspected.Value.NodeType, StringComparison.Ordinal);
             Assert.True(inspected.Value.Bounds is { Width: >= 0, Height: >= 0 });
             Assert.True(inspected.Value.ChildCount >= 0);
+            Assert.Contains(inspected.Value.ComputedProperties, property => property.Name == "FontSize" && property.Value == "18");
+            Assert.Contains(inspected.Value.ComputedProperties, property => property.Name == "Foreground" && property.Source == "local");
 
             var missingInspect = await AvaScopeMcpTools.InspectNode(
                 client,

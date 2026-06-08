@@ -1,7 +1,7 @@
 # FEAT-0005: Multi-size preview
 
-- Status: `Backlog`
-- Implementation Status: `Not started`
+- Status: `Implemented`
+- Implementation Status: `Covered by W9`
 - Priority: `P3`
 - Stored: `2026-06-08`
 - Source Order: `5`
@@ -24,6 +24,14 @@ A user should be able to render multiple viewport sizes from one command or requ
 - Partial failures are represented per size without losing successful renders.
 - Contact sheet generation is optional and does not replace individual screenshots unless explicitly requested.
 - Single-size preview remains compatible.
+
+## Current Coverage
+
+- CLI `preview --sizes 1440x900,1280x720` renders multiple isolated preview requests from one command.
+- MCP exposes `preview_axaml_multi` over the same Core batch renderer.
+- Output file names include the requested index and size, while preserving the caller's base output path.
+- Each size returns a `PreviewBatchEntry` with its own structured `ToolResult<PreviewResponse>`, so partial failures do not discard successful renders.
+- Optional contact-sheet generation writes a separate combined PNG and leaves individual screenshots in place.
 
 ## Notes
 

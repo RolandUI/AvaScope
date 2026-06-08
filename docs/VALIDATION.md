@@ -47,6 +47,17 @@ For CLI work, also run:
 dotnet test AvaScope.slnx --filter FullyQualifiedName~Cli
 ```
 
+For feature-ticket work covering preview diagnostics, computed inspection, multi-size preview, diff, or cleanup, run the targeted smoke checks first and then the full suite:
+
+```powershell
+dotnet test AvaScope.slnx --no-build --filter Protocol
+dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewHost
+dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli
+dotnet test AvaScope.slnx --no-build --filter Bridge
+dotnet test AvaScope.slnx --no-build --filter Mcp
+dotnet test AvaScope.slnx --no-build
+```
+
 ## Public Alpha Release Validation
 
 Before marking a public-alpha readiness or release-workflow slice complete, run:

@@ -36,9 +36,11 @@ public sealed class McpStdioSmokeTests
         Assert.Contains("close_session", toolNames);
         Assert.Contains("diagnostics", toolNames);
         Assert.Contains("preview_axaml", toolNames);
+        Assert.Contains("preview_axaml_multi", toolNames);
         Assert.Contains("create_preview_session", toolNames);
         Assert.Contains("list_preview_sessions", toolNames);
         Assert.Contains("close_preview_session", toolNames);
         Assert.Contains("reload", toolNames);
+        Assert.Contains("cleanup", toolNames);
     }
 }

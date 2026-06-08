@@ -32,6 +32,8 @@ internal static class Program
             "close-session" => await CloseSession(args[1..]),
             "diagnostics" => await Diagnostics(args[1..]),
             "reload" => await Reload(args[1..]),
+            "cleanup" => Cleanup(args[1..]),
+            "diff" => Diff(args[1..]),
             "mcp" => await Mcp(),
             _ => UnknownCommand(args[0])
         };
@@ -81,6 +83,23 @@ internal static class Program
         if (!options.Success)
         {
             WriteFailure(InvalidCliArguments, options.Error!);
+            return 2;
+        }
+
+        if (!ValidateOptions(
+                options.Values,
+                GetPreviewUsage(),
+                "view",
+                "out",
+                "width",
+                "height",
+                "dpi",
+                "theme",
+                "culture",
+                "design-data-type",
+                "sizes",
+                "contact-sheet"))
+        {
             return 2;
         }
 
@@ -143,7 +162,34 @@ internal static class Program
             return 2;
         }
 
-        var result = await new PreviewHostClient().RenderAsync(request);
+        var previewHostClient = new PreviewHostClient();
+        if (options.Values.TryGetValue("sizes", out var sizesText))
+        {
+            if (!TryParsePreviewViewports(sizesText, out var viewports))
+            {
+                WriteFailure(InvalidCliArguments, "sizes must be a comma-separated list like 1440x900,1280x720.");
+                return 2;
+            }
+
+            var batchResult = await previewHostClient.RenderBatchAsync(
+                request,
+                viewports!,
+                options.Values.TryGetValue("contact-sheet", out var contactSheetPath)
+                    ? Path.GetFullPath(contactSheetPath)
+                    : null);
+            WriteResult(batchResult.Success
+                ? ToolResult<PreviewBatchResponse>.Ok(batchResult.Value!)
+                : ToolResult<PreviewBatchResponse>.Fail(new ProtocolError(
+                    batchResult.Error!.Code,
+                    batchResult.Error.Message,
+                    batchResult.Error.Details)));
+
+            return batchResult.Success && batchResult.Value!.Entries.Any(static entry => entry.Render.Success)
+                ? 0
+                : 1;
+        }
+
+        var result = await previewHostClient.RenderAsync(request);
         WriteResult(result.Success
             ? ToolResult<PreviewResponse>.Ok(result.Value!)
             : ToolResult<PreviewResponse>.Fail(new ProtocolError(
@@ -423,14 +469,67 @@ internal static class Program
             return 2;
         }
 
+        var previewSessionDiagnostics = PreviewSessionStore.CreateDefault().GetDiagnostics();
         var result = await new LocalBridgeClient().DiagnosticsAsync(
             processId,
             sessionId,
             maxSessions,
-            new PreviewHostClient().GetDiagnostics());
+            new PreviewHostClient().GetDiagnostics(),
+            previewSessionDiagnostics);
         WriteResult(result);
 
         return result.Success ? 0 : 1;
+    }
+
+    private static int Cleanup(string[] args)
+    {
+        var options = ParseOptions(args, GetCleanupUsage());
+        if (!options.Success)
+        {
+            WriteFailure<PreviewCleanupResponse>(InvalidCliArguments, options.Error!);
+            return 2;
+        }
+
+        if (!ValidateOptions(options.Values, GetCleanupUsage()))
+        {
+            return 2;
+        }
+
+        var result = PreviewSessionStore.CreateDefault().CleanupStale();
+        WriteResult(result);
+        return result.Success ? 0 : 1;
+    }
+
+    private static int Diff(string[] args)
+    {
+        var options = ParseOptions(args, GetDiffUsage());
+        if (!options.Success)
+        {
+            WriteFailure<PreviewDiffResponse>(InvalidCliArguments, options.Error!);
+            return 2;
+        }
+
+        if (!ValidateOptions(options.Values, GetDiffUsage(), "baseline", "current", "out", "tolerance")
+            || !TryReadRequiredOption(options.Values, "baseline", GetDiffUsage(), out var baselinePath)
+            || !TryReadRequiredOption(options.Values, "current", GetDiffUsage(), out var currentPath)
+            || !TryReadRequiredOption(options.Values, "out", GetDiffUsage(), out var diffPath))
+        {
+            return 2;
+        }
+
+        if (!TryParseDoubleInRange(options.Values.GetValueOrDefault("tolerance", "0"), 0, 255, out var tolerance))
+        {
+            WriteFailure<PreviewDiffResponse>(InvalidCliArguments, "tolerance must be between 0 and 255.");
+            return 2;
+        }
+
+        var result = new PreviewImageDiffer().Compare(
+            baselinePath!,
+            currentPath!,
+            diffPath,
+            tolerance);
+        WriteResult(result);
+        return result.Success && result.Value!.Passed ? 0 : 1;
     }
 
     private static async Task<int> CloseSession(string[] args)
@@ -498,6 +597,45 @@ internal static class Program
     {
         return double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out value)
             && value > 0;
+    }
+
+    private static bool TryParseDoubleInRange(string text, double minimum, double maximum, out double value)
+    {
+        return double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out value)
+            && double.IsFinite(value)
+            && value >= minimum
+            && value <= maximum;
+    }
+
+    private static bool TryParsePreviewViewports(string text, out IReadOnlyList<PreviewViewport>? viewports)
+    {
+        viewports = null;
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return false;
+        }
+
+        var parsed = new List<PreviewViewport>();
+        foreach (var token in text.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            var parts = token.Split(['x', 'X'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            if (parts.Length != 2
+                || !TryParsePositiveDouble(parts[0], out var width)
+                || !TryParsePositiveDouble(parts[1], out var height))
+            {
+                return false;
+            }
+
+            parsed.Add(new PreviewViewport(width, height));
+        }
+
+        if (parsed.Count == 0)
+        {
+            return false;
+        }
+
+        viewports = parsed;
+        return true;
     }
 
     private static bool ValidateOptions(
@@ -780,12 +918,12 @@ internal static class Program
 
     private static string GetUsage()
     {
-        return "Usage: avascope mcp | avascope attach [--process <pid>] [--session <session-id>] | avascope list-top-levels --session <session-id> | avascope visual-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] | avascope logical-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] | avascope inspect-node --session <session-id> --top-level <top-level-id> --node <node-id> [--tree-kind visual|logical] | avascope find-nodes --session <session-id> --top-level <top-level-id> [--tree-kind visual|logical] [--type <type>] [--name <name>] [--automation-id <id>] [--text <text>] [--max-depth <n>] [--max-results <n>] | avascope input --session <session-id> --top-level <top-level-id> --action <action> [--x <x>] [--y <y>] [--text <text>] [--target-node <node-id>] [--key <key>] [--modifiers <modifiers>] | avascope close-session --session <session-id> | avascope diagnostics [--process <pid>] [--session <session-id>] [--max-sessions <n>] | avascope reload --session <session-id> | avascope screenshot --session <session-id> --top-level <top-level-id> --out <screenshot.png> | avascope preview <project.csproj> --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>]";
+        return "Usage: avascope mcp | avascope attach [--process <pid>] [--session <session-id>] | avascope list-top-levels --session <session-id> | avascope visual-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] | avascope logical-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] | avascope inspect-node --session <session-id> --top-level <top-level-id> --node <node-id> [--tree-kind visual|logical] | avascope find-nodes --session <session-id> --top-level <top-level-id> [--tree-kind visual|logical] [--type <type>] [--name <name>] [--automation-id <id>] [--text <text>] [--max-depth <n>] [--max-results <n>] | avascope input --session <session-id> --top-level <top-level-id> --action <action> [--x <x>] [--y <y>] [--text <text>] [--target-node <node-id>] [--key <key>] [--modifiers <modifiers>] | avascope close-session --session <session-id> | avascope diagnostics [--process <pid>] [--session <session-id>] [--max-sessions <n>] | avascope reload --session <session-id> | avascope cleanup | avascope diff --baseline <baseline.png> --current <current.png> --out <diff.png> [--tolerance <0-255>] | avascope screenshot --session <session-id> --top-level <top-level-id> --out <screenshot.png> | avascope preview <project.csproj> --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--sizes <w>x<h>[,<w>x<h>...]] [--contact-sheet <sheet.png>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>]";
     }
 
     private static string GetPreviewUsage()
     {
-        return "Usage: avascope preview <project.csproj> --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>]";
+        return "Usage: avascope preview <project.csproj> --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--sizes <w>x<h>[,<w>x<h>...]] [--contact-sheet <sheet.png>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>]";
     }
 
     private static string GetAttachUsage()
@@ -838,6 +976,16 @@ internal static class Program
         return "Usage: avascope reload --session <session-id>";
     }
 
+    private static string GetCleanupUsage()
+    {
+        return "Usage: avascope cleanup";
+    }
+
+    private static string GetDiffUsage()
+    {
+        return "Usage: avascope diff --baseline <baseline.png> --current <current.png> --out <diff.png> [--tolerance <0-255>]";
+    }
+
     private static string GetScreenshotUsage()
     {
         return "Usage: avascope screenshot --session <session-id> --top-level <top-level-id> --out <screenshot.png>";
@@ -846,6 +994,11 @@ internal static class Program
     private static void WriteFailure(string code, string message)
     {
         WriteResult(ToolResult<PreviewResponse>.Fail(new ProtocolError(code, message)));
+    }
+
+    private static void WriteFailure<T>(string code, string message)
+    {
+        WriteResult(ToolResult<T>.Fail(new ProtocolError(code, message)));
     }
 
     private static void WriteResult<T>(ToolResult<T> result)

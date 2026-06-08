@@ -10,6 +10,9 @@ AvaScope is a generic Avalonia inspection, preview, and automation stack for age
 - Local bridge discovery through session manifests and named pipes.
 - Runtime top-level listing, screenshots, bounded visual/logical trees, node search, and basic input.
 - Isolated preview host process for `.axaml` rendering.
+- Preview binding/resource diagnostics and advisory layout warnings.
+- Runtime `inspect_node` computed visual/style/layout property values.
+- Multi-size preview, contact-sheet output, screenshot diff, and scoped preview-session cleanup workflows.
 - MCP stdio server with structured tools.
 - `avascope` CLI with preview and MCP handoff commands.
 - Getting-started sample app for the first preview and bridge workflow.
@@ -196,6 +199,14 @@ dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll preview path\to\App.csp
 The command writes a structured JSON `ToolResult<PreviewResponse>` to stdout. On success, `value.filePath` points to the generated PNG.
 `--width` and `--height` can be omitted when the root AXAML declares design-time dimensions with `d:DesignWidth`/`d:DesignHeight` or `Design.Width`/`Design.Height`. Project previews also apply root design-time data from `Design.DataContext` or `d:DataContext="{x:Static ...}"`; an explicit `--design-data-type` still takes precedence.
 
+Render multiple viewport sizes from one preview request:
+
+```powershell
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll preview path\to\App.csproj --view Views\MainView.axaml --out .\preview.png --sizes 1440x900,1280x720,900x700 --theme light --contact-sheet .\preview-contact-sheet.png
+```
+
+The command writes a structured JSON `ToolResult<PreviewBatchResponse>`. Each `entries[]` item has a deterministic per-size output path and an independent `ToolResult<PreviewResponse>`, so one failed size does not discard successful screenshots.
+
 Start the MCP server through the CLI:
 
 ```powershell
@@ -230,6 +241,8 @@ dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll inspect-node --session 
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll inspect-node --session session-id --top-level topLevel:1234 --node logical:5678 --tree-kind logical
 ```
 
+`inspect-node` includes bounded `computedProperties` for high-value visual, style, text, and layout properties. Provenance uses public Avalonia diagnostic priority where available and reports `unknown` or `not_available` instead of guessing private style/resource origins.
+
 Find runtime tree nodes by type, name, automation id, or text:
 
 ```powershell
@@ -257,6 +270,22 @@ Read local bridge and preview-host diagnostics:
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll diagnostics
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll diagnostics --session session-id --max-sessions 10
 ```
+
+Compare screenshots with an explicit diff artifact:
+
+```powershell
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll diff --baseline .\baseline.png --current .\preview.png --out .\preview-diff.png --tolerance 2
+```
+
+The command returns a structured `ToolResult<PreviewDiffResponse>`. A changed image exits non-zero while still returning the changed pixel count, changed percentage, max channel delta, and diff path.
+
+Delete stale AvaScope-owned preview-session metadata:
+
+```powershell
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll cleanup
+```
+
+Cleanup only removes stale or invalid JSON records from the local AvaScope preview-session store. It does not terminate processes by name.
 
 Check reload support for a runtime bridge session:
 
@@ -296,14 +325,16 @@ Implemented tools:
 - `close_session`
 - `diagnostics`
 - `preview_axaml`
+- `preview_axaml_multi`
+- `cleanup`
 - `create_preview_session`
 - `list_preview_sessions`
 - `close_preview_session`
 - `reload`
 
-Planned but not implemented yet: runtime hot reload, drag/drop, full preview startup orchestration, self-contained artifacts, and publishing automation.
+Planned but not implemented yet: runtime hot reload, drag/drop, full preview startup orchestration, self-contained artifacts, installer distribution, and broader visual-regression workflows.
 
-`diagnostics` reports AvaScope service metadata, local bridge manifest/pipe health, stale or invalid bridge manifests, and preview host readiness without building or loading user projects.
+`diagnostics` reports AvaScope service metadata, local bridge manifest/pipe health, stale or invalid bridge manifests, preview host readiness, and stale or invalid preview-session metadata without building or loading user projects.
 
 Preview build/render failures preserve the stable `error.code` and `error.message` shape and may include bounded `error.details` fields such as `phase`, `projectPath`, `viewPath`, `outputPath`, `exitCode`, and `outputTail`.
 
@@ -349,7 +380,10 @@ Preview rendering is isolated in `AvaScope.PreviewHost`, launched as a child pro
 - applies requested theme and culture variants inside the isolated render process;
 - optionally instantiates a project-owned public parameterless design-data type and assigns it as the root control `DataContext`;
 - renders through headless Skia;
+- adds bounded binding/resource diagnostics and advisory layout warnings when public Avalonia APIs and source metadata expose enough signal;
 - writes a PNG and structured JSON result.
+
+Successful preview responses can include diagnostics for missing `DataContext`, unresolved resource keys, missing or invalid converter resources, conservative binding path failures, text clipping/truncation, clipped content, unreachable content, sibling overlap, and too-small hit targets. These diagnostics are advisory and do not fail an otherwise successful screenshot.
 
 Preview session tools store the original preview request plus the latest render result as Core metadata. MCP-backed preview session records are also persisted as JSON under the local AvaScope temp preview-session store so they can be restored after the MCP server process restarts. They do not keep user project code loaded inside MCP; each render still goes through `AvaScope.PreviewHost`.
 
@@ -360,6 +394,7 @@ Current preview limitations:
 - no hot reload or persistent live preview host process yet;
 - no project app startup/lifetime hook execution; `OnFrameworkInitializationCompleted`, project `MainWindow` creation, and app startup services are intentionally deferred;
 - no JSON object injection, dependency injection, remote design data, or long-lived design-data state;
+- no private Avalonia binding/style/resource hooks; diagnostics and computed provenance stay best-effort and public API based;
 - build output probing assumes the default `bin\Debug\<tfm>\<ProjectName>.dll` shape.
 
 ## Safety Boundaries

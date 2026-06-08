@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Globalization;
 using AvaScope.Core;
 using AvaScope.Protocol;
 using ModelContextProtocol.Server;
@@ -333,6 +334,7 @@ public sealed class AvaScopeMcpTools
     public static async Task<ToolResult<DiagnosticsResponse>> Diagnostics(
         LocalBridgeClient bridgeClient,
         PreviewHostClient previewHostClient,
+        PreviewSessionStore? previewSessionStore = null,
         int? processId = null,
         string? sessionId = null,
         int maxSessions = 50,
@@ -340,6 +342,7 @@ public sealed class AvaScopeMcpTools
     {
         ArgumentNullException.ThrowIfNull(bridgeClient);
         ArgumentNullException.ThrowIfNull(previewHostClient);
+        previewSessionStore ??= PreviewSessionStore.CreateDefault();
 
         if (!TryParseOptionalSessionId(sessionId, out var parsedSessionId, out var error))
         {
@@ -351,6 +354,7 @@ public sealed class AvaScopeMcpTools
             parsedSessionId,
             maxSessions,
             previewHostClient.GetDiagnostics(),
+            previewSessionStore.GetDiagnostics(),
             cancellationToken));
     }
 
@@ -400,6 +404,79 @@ public sealed class AvaScopeMcpTools
         }
 
         return ToToolResult(await previewHostClient.RenderAsync(request, cancellationToken));
+    }
+
+    [McpServerTool(
+        Name = "preview_axaml_multi",
+        Title = "Preview AXAML multiple sizes",
+        ReadOnly = false,
+        Idempotent = false,
+        Destructive = false,
+        OpenWorld = false,
+        UseStructuredContent = true)]
+    [Description("Renders an Avalonia .axaml preview at multiple viewport sizes through isolated preview host child processes.")]
+    public static async Task<ToolResult<PreviewBatchResponse>> PreviewAxamlMulti(
+        PreviewHostClient previewHostClient,
+        string outputPath,
+        string sizes,
+        double dpi = 96,
+        string? projectPath = null,
+        string? viewPath = null,
+        string? themeVariant = null,
+        string? culture = null,
+        string? designDataType = null,
+        string? contactSheetPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(previewHostClient);
+
+        if (!TryParsePreviewViewports(sizes, out var viewports))
+        {
+            return ToolResult<PreviewBatchResponse>.Fail(new ProtocolError(
+                CoreErrorCodes.InvalidPreviewRequest,
+                "sizes must be a comma-separated list like 1440x900,1280x720."));
+        }
+
+        PreviewRequest request;
+        try
+        {
+            request = new PreviewRequest(
+                outputPath,
+                dpi: dpi,
+                projectPath: projectPath,
+                viewPath: viewPath,
+                themeVariant: themeVariant,
+                culture: culture,
+                designDataType: designDataType);
+        }
+        catch (Exception exception) when (exception is ArgumentException or ArgumentOutOfRangeException)
+        {
+            return ToolResult<PreviewBatchResponse>.Fail(new ProtocolError(
+                CoreErrorCodes.InvalidPreviewRequest,
+                exception.Message));
+        }
+
+        return ToToolResult(await previewHostClient.RenderBatchAsync(
+            request,
+            viewports!,
+            contactSheetPath,
+            cancellationToken));
+    }
+
+    [McpServerTool(
+        Name = "cleanup",
+        Title = "Cleanup",
+        ReadOnly = false,
+        Idempotent = true,
+        Destructive = false,
+        OpenWorld = false,
+        UseStructuredContent = true)]
+    [Description("Deletes stale AvaScope-owned preview session records from the local preview-session store.")]
+    public static ToolResult<PreviewCleanupResponse> Cleanup(PreviewSessionStore previewSessionStore)
+    {
+        ArgumentNullException.ThrowIfNull(previewSessionStore);
+
+        return ToToolResult(previewSessionStore.CleanupStale());
     }
 
     [McpServerTool(
@@ -616,5 +693,38 @@ public sealed class AvaScopeMcpTools
     {
         error = new ProtocolError(CoreErrorCodes.InvalidBridgeRequest, message);
         return false;
+    }
+
+    private static bool TryParsePreviewViewports(string text, out IReadOnlyList<PreviewViewport>? viewports)
+    {
+        viewports = null;
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return false;
+        }
+
+        var parsed = new List<PreviewViewport>();
+        foreach (var token in text.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            var parts = token.Split(['x', 'X'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            if (parts.Length != 2
+                || !double.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out var width)
+                || !double.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var height)
+                || width < 1
+                || height < 1)
+            {
+                return false;
+            }
+
+            parsed.Add(new PreviewViewport(width, height));
+        }
+
+        if (parsed.Count == 0)
+        {
+            return false;
+        }
+
+        viewports = parsed;
+        return true;
     }
 }

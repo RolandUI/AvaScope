@@ -1,7 +1,7 @@
 # FEAT-0004: Automatic design-size recognition
 
 - Status: `Implemented`
-- Implementation Status: `Covered by W2`
+- Implementation Status: `Covered by W2; revalidated by W9`
 - Priority: `P3`
 - Stored: `2026-06-08`
 - Source Order: `1`
@@ -18,6 +18,8 @@ The development plan records this as covered by W2:
 - preview request width and height are optional at the protocol, CLI, and MCP boundary
 - PreviewHost falls back to `d:DesignWidth` and `d:DesignHeight`
 - PreviewHost also considers `Design.Width` and `Design.Height`
+
+W9 revalidated this behavior while adding multi-size preview: single-size preview compatibility remains intact, and design-size fallback remains the default when explicit dimensions are omitted.
 
 ## Acceptance Criteria
 

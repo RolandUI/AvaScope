@@ -61,6 +61,66 @@ public sealed class PreviewHostSmokeTests
     }
 
     [Fact]
+    public async Task PreviewHostReturnsBindingResourceAndLayoutDiagnostics()
+    {
+        var hostAssembly = Path.Combine(AppContext.BaseDirectory, "AvaScope.PreviewHost.dll");
+        Assert.True(File.Exists(hostAssembly), $"Expected preview host assembly at {hostAssembly}.");
+
+        var testRoot = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(testRoot);
+
+        var viewPath = Path.Combine(testRoot, "DiagnosticView.axaml");
+        var requestPath = Path.Combine(testRoot, "request.json");
+        var outputPath = Path.Combine(testRoot, "preview.png");
+
+        await File.WriteAllTextAsync(viewPath, """
+            <UserControl xmlns="https://github.com/avaloniaui">
+              <Grid Width="120" Height="80" ClipToBounds="True">
+                <TextBlock Width="16"
+                           Height="12"
+                           Text="{Binding MissingTitle}"
+                           TextTrimming="CharacterEllipsis" />
+                <Border Width="20"
+                        Height="20"
+                        Margin="160,0,0,0"
+                        Background="{DynamicResource MissingBrush}" />
+                <Button Width="10"
+                        Height="10"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Bottom"
+                        Content="!" />
+              </Grid>
+            </UserControl>
+            """);
+
+        var request = new PreviewRequest(
+            outputPath,
+            width: 120,
+            height: 80,
+            dpi: 96,
+            viewPath: viewPath,
+            themeVariant: "light");
+
+        await File.WriteAllTextAsync(requestPath, JsonSerializer.Serialize(request, JsonOptions));
+
+        try
+        {
+            var result = await RunPreviewHostAsync(hostAssembly, requestPath, expectedExitCode: 0);
+
+            Assert.NotNull(result);
+            Assert.True(result.Success, result.Error?.Message);
+            Assert.True(File.Exists(result.Value!.FilePath));
+            Assert.Contains(result.Value.Diagnostics, static diagnostic => diagnostic.Code == "binding_missing_datacontext");
+            Assert.Contains(result.Value.Diagnostics, static diagnostic => diagnostic.Code == "resource_not_found");
+            Assert.Contains(result.Value.Diagnostics, static diagnostic => diagnostic.Code == "hit_target_too_small");
+        }
+        finally
+        {
+            await DeleteDirectoryWithRetryAsync(testRoot);
+        }
+    }
+
+    [Fact]
     public async Task PreviewHostResolvesRelativeViewPathAgainstProjectDirectory()
     {
         var hostAssembly = Path.Combine(AppContext.BaseDirectory, "AvaScope.PreviewHost.dll");

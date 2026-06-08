@@ -1,7 +1,7 @@
 # FEAT-0002: Layout warnings
 
-- Status: `Backlog`
-- Implementation Status: `Not started`
+- Status: `Implemented`
+- Implementation Status: `Covered by W9`
 - Priority: `P1`
 - Stored: `2026-06-08`
 - Source Order: `3`
@@ -29,6 +29,14 @@ Report warnings for:
 - Overlap detection avoids obvious false positives from intentional overlays where possible.
 - Hit target checks use an explicit minimum target size policy documented with the implementation.
 - Warnings do not block screenshot generation unless rendering itself fails.
+
+## Current Coverage
+
+- PreviewHost analyzes the rendered visual tree after layout and emits bounded layout diagnostics.
+- Implemented warning codes cover text clipping/truncation, clipped content, unreachable content, sibling overlap, and too-small hit targets.
+- The hit-target policy is a minimum `24x24` device-independent pixel bounds check for common interactive controls.
+- Overlap detection skips obvious overlay-style containers such as canvas, popup, adorner, and overlay hosts where practical.
+- Layout warnings remain advisory and do not block screenshot generation.
 
 ## Notes
 

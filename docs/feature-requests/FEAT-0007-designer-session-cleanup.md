@@ -1,7 +1,7 @@
 # FEAT-0007: Designer and session cleanup
 
-- Status: `Backlog`
-- Implementation Status: `Not started`
+- Status: `Implemented`
+- Implementation Status: `Covered by W9`
 - Priority: `P3`
 - Stored: `2026-06-08`
 - Source Order: `7`
@@ -24,6 +24,19 @@ Preview workflows should provide better lifecycle control so unnecessary AvaScop
 - Any process termination is scoped to AvaScope-owned child process metadata.
 - Diagnostics can identify stale AvaScope-owned preview/session artifacts.
 - The CLI exposes a clear cleanup workflow if automatic cleanup is insufficient.
+
+## Current Coverage
+
+- CLI `cleanup` and MCP `cleanup` delete only stale or invalid AvaScope-owned preview session JSON records from the local preview-session store.
+- `diagnostics` includes preview-session diagnostics for available, stale, and invalid preview-session records.
+- Stale records include closed/failed preview sessions and preview records whose latest successful output file is missing.
+- Cleanup path checks keep deletion inside the configured AvaScope preview-session store.
+- The implementation does not terminate processes because AvaScope does not yet persist reliable owned child-process metadata for post-hoc cleanup.
+
+## Limitations
+
+- No arbitrary process kill-by-name behavior is implemented.
+- Future process termination must be based on AvaScope-owned child-process metadata, not `dotnet` process names.
 
 ## Notes
 

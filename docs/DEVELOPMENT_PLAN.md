@@ -23,18 +23,23 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `W1 Intake Ledgers`
-- Status: `In Progress`
+- `W9 Feature Ticket Implementation`
+- Status: `Done`
 - Owner: autonomous agent
 - Started: `2026-06-08`
-- Goal: maintain sanitized bug reports and feature request tickets without starting fixes or feature work until explicitly requested.
+- Goal: implement all stored feature tickets `FEAT-0001` through `FEAT-0007`, plus required protocol, adapter, validation, and documentation support.
 
 ## Next Action
 
-Store future user-provided bug reports and feature requests as sanitized ledger entries. Do not start fixes or feature implementation unless the user explicitly requests work on a stored ticket.
+Select the next post-W9 product slice only after a new user request or explicit plan update.
 
 ## Latest Validation
 
+- `2026-06-08`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after W9 feature-ticket implementation.
+- `2026-06-08`: W9 targeted tests passed: protocol contract diagnostics/batch/diff/cleanup coverage, PreviewHost binding/resource/layout diagnostics, CLI multi-size preview/contact sheet, CLI screenshot diff, Bridge computed properties, Core preview-session cleanup, and MCP stdio tool listing.
+- `2026-06-08`: `dotnet test AvaScope.slnx --no-build` passed with 186 tests after W9 feature-ticket implementation.
+- `2026-06-08`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-bug-reports.ps1` passed after W9 feature-ticket status updates; 13 intake files scanned.
+- `2026-06-08`: `git diff --check` passed after W9 feature-ticket implementation and documentation updates.
 - `2026-06-08`: `dotnet test AvaScope.slnx -c Release --filter FullyQualifiedName~CliSmokeTests.CloseSessionCommandClosesThroughBridgePipe` passed after W8 CI failure hardening.
 - `2026-06-08`: `dotnet test AvaScope.slnx -c Release --no-build` passed with 179 tests after W8 CI failure hardening.
 - `2026-06-08`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.1.0 -DryRun` passed after W8 GitHub Release creation hardening.
@@ -1417,7 +1422,7 @@ Store future user-provided bug reports and feature requests as sanitized ledger 
 
 ### W1 Intake Ledgers
 
-- Status: `In Progress`
+- Status: `Done`
 - Goal: maintain sanitized holding areas for reported bugs and feature requests without treating intake records as authorization to implement fixes or features.
 - Deliverables: bug report index, feature request index, per-record Markdown files, privacy validation command, development-plan tracking.
 - Progress:
@@ -1429,7 +1434,7 @@ Store future user-provided bug reports and feature requests as sanitized ledger 
   - Done: expanded intake validation to scan feature request tickets in addition to bug reports.
   - Done: created `docs/FEATURE_REQUESTS.md` and `docs/feature-requests/` for sanitized feature ticket records.
   - Done: stored `FEAT-0001` through `FEAT-0007`, preserving the requested priority order for binding/resource diagnostics, layout warnings, and computed style/resource inspection.
-  - Ongoing: store future reports and requests only after sanitizing personal data and paths.
+  - Done: user explicitly authorized implementation of all stored feature tickets, so active work moved to W9.
 - Acceptance Criteria:
   - Every stored report has a stable `BUG-####` id, status, fix status, reproduction summary, actual result, and expected result where available.
   - Every stored feature request has a stable `FEAT-####` id, priority, status, implementation status, user need, desired behavior, and acceptance criteria where available.
@@ -1602,6 +1607,41 @@ Store future user-provided bug reports and feature requests as sanitized ledger 
   - `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-bug-reports.ps1`
   - `git diff --check`
 
+### W9 Feature Ticket Implementation
+
+- Status: `Done`
+- Goal: implement all stored feature tickets `FEAT-0001` through `FEAT-0007`, plus protocol, adapter, validation, and documentation support needed for the complete requested feature set.
+- Deliverables: structured preview diagnostics, layout warnings, computed property/style inspection, multi-size preview, screenshot diff/baseline comparison, scoped preview/session cleanup, feature ledger updates, documentation, tests, commit, push.
+- Progress:
+  - Done: audited feature tickets, current protocol/Core/PreviewHost/Bridge/CLI/MCP paths, local Avalonia 12.0.4 API docs, and NuGet update state.
+  - Done: added transport-neutral protocol DTOs for preview diagnostics, computed properties, preview batches, image diffs, preview-session diagnostics, and cleanup responses.
+  - Done: added PreviewHost binding/resource diagnostics and advisory layout warnings.
+  - Done: added runtime `inspect_node` computed property inspection through public Avalonia diagnostics.
+  - Done: added Core/CLI/MCP multi-size preview with deterministic per-size outputs and optional contact sheets.
+  - Done: added opt-in CLI screenshot diff comparison with tolerance, structured result output, and explicit diff artifact path.
+  - Done: added preview-session diagnostics and scoped cleanup for stale or invalid AvaScope-owned preview-session records.
+  - Done: updated feature request ledger, ticket files, README, validation guide, and gap audit.
+  - Done: final build, targeted tests, full-suite validation, intake validation, and diff-check passed.
+- Acceptance Criteria:
+  - `FEAT-0001`: preview results include bounded binding/resource diagnostics when rendering succeeds; missing `DataContext`, unresolved resource keys, invalid converter resources, and resolvable binding path failures are reported where public APIs and source metadata allow.
+  - `FEAT-0002`: preview diagnostics include bounded layout warnings for text clipping/truncation, overlap, clipped/overflowing content, unreachable content, and too-small hit targets without blocking screenshot generation.
+  - `FEAT-0003`: `inspect_node` returns bounded computed visual/style/layout property values with public Avalonia diagnostic priority where available, and `unknown`/`not_available` instead of guessed provenance.
+  - `FEAT-0004`: automatic design-size recognition remains covered by W2 and is re-validated.
+  - `FEAT-0005`: CLI and MCP support multi-size preview requests with deterministic per-size output paths, per-size success/failure entries, and optional contact-sheet output while preserving single-size compatibility.
+  - `FEAT-0006`: CLI supports opt-in screenshot diff/baseline comparison with deterministic same-size comparison, dimension-mismatch diagnostics, explicit diff output paths, configurable tolerance, and no destructive baseline update.
+  - `FEAT-0007`: cleanup workflow is scoped to AvaScope-owned preview/session metadata and never kills arbitrary processes by name alone; diagnostics can report stale preview session records.
+  - Protocol/Core remain transport-neutral and MCP stays a thin adapter over reusable behavior.
+- Validation:
+  - `dotnet build AvaScope.slnx`
+  - `dotnet test AvaScope.slnx --no-build --filter Protocol`
+  - `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewHost`
+  - `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli`
+  - `dotnet test AvaScope.slnx --no-build --filter Bridge`
+  - `dotnet test AvaScope.slnx --no-build --filter Mcp`
+  - `dotnet test AvaScope.slnx --no-build`
+  - `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-bug-reports.ps1`
+  - `git diff --check`
+
 ## Decision Log
 
 - `2026-06-06`: Use `docs/DEVELOPMENT_PLAN.md` as the primary tracking document and keep `AGENTS.md` as the mandatory routing entrypoint.
@@ -1738,6 +1778,12 @@ Store future user-provided bug reports and feature requests as sanitized ledger 
 - `2026-06-08`: Project ownership now requires agents to push completed committed slices to the configured remote, not only leave local commits.
 - `2026-06-08`: W8 keeps GitHub Release creation idempotent by checking release existence without allowing an expected missing release to terminate the publish script.
 - `2026-06-08`: W8 treats empty fake bridge pipe connections as test-harness noise and waits for the first non-empty newline-delimited JSON request.
+- `2026-06-08`: The user explicitly authorized implementation of all stored feature tickets, so W1 intake is no longer the active workstream and W9 owns feature delivery.
+- `2026-06-08`: W9 uses the installed Avalonia 12.0.4 reference XML plus upstream Avalonia source/docs for public API checks; `dotnet list package --outdated` reports no newer stable Avalonia packages from the current NuGet source.
+- `2026-06-08`: Computed style/resource inspection will use public `Avalonia.Diagnostics.GetDiagnostic(...)` priority/diagnostic data where available and return explicit `unknown` or `not_available` provenance instead of inferring private style origins.
+- `2026-06-08`: Preview layout warnings are advisory diagnostics produced after rendering; they must not make otherwise successful screenshots fail.
+- `2026-06-08`: Screenshot diff and cleanup workflows remain explicit opt-in operations; cleanup may delete AvaScope-owned metadata and only terminate processes that can be tied to AvaScope-owned process metadata.
+- `2026-06-08`: W9 cleanup does not terminate processes in this slice because AvaScope does not yet persist reliable owned child-process metadata for post-hoc process cleanup.
 
 ## Change Log
 
@@ -1813,3 +1859,5 @@ Store future user-provided bug reports and feature requests as sanitized ledger 
 - `2026-06-08`: Completed W7 by changing CI release activation to version bumps in `Directory.Build.props` with automatic tag creation and no-op behavior for already released versions.
 - `2026-06-08`: Updated project agent ownership rules to require pushing committed changes.
 - `2026-06-08`: Completed W8 by fixing the first pushed CI/Release failures in GitHub Release creation and CLI fake bridge pipe smoke coverage.
+- `2026-06-08`: Started W9 for implementation of all stored feature tickets after explicit user authorization.
+- `2026-06-08`: Completed W9 by implementing stored feature tickets FEAT-0001 through FEAT-0007 with preview diagnostics, layout warnings, computed inspection, multi-size preview, screenshot diff, scoped cleanup, documentation updates, and full-suite validation.

@@ -8,6 +8,7 @@ public sealed class PreviewSessionStore
 {
     private const string RootDirectoryName = "AvaScope";
     private const string SessionDirectoryName = "preview-sessions";
+    private const int MaximumDiagnosticRecords = 100;
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     public PreviewSessionStore(string directory)
@@ -63,6 +64,60 @@ public sealed class PreviewSessionStore
             .ToArray();
     }
 
+    public IReadOnlyList<PreviewSessionDiagnostic> GetDiagnostics()
+    {
+        if (!System.IO.Directory.Exists(Directory))
+        {
+            return [];
+        }
+
+        return System.IO.Directory
+            .EnumerateFiles(Directory, "*.json")
+            .OrderBy(static path => path, StringComparer.OrdinalIgnoreCase)
+            .Take(MaximumDiagnosticRecords)
+            .Select(DiagnoseRecord)
+            .ToArray();
+    }
+
+    public CoreResult<PreviewCleanupResponse> CleanupStale()
+    {
+        var diagnostics = GetDiagnostics()
+            .Where(static diagnostic => diagnostic.Status is DiagnosticStatuses.Stale or DiagnosticStatuses.Invalid)
+            .ToArray();
+        var deletedPaths = new List<string>();
+
+        foreach (var diagnostic in diagnostics)
+        {
+            var recordPath = Path.GetFullPath(diagnostic.RecordPath);
+            if (!IsPathInsideStore(recordPath))
+            {
+                continue;
+            }
+
+            try
+            {
+                if (File.Exists(recordPath))
+                {
+                    File.Delete(recordPath);
+                    deletedPaths.Add(recordPath);
+                }
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                return CoreResult<PreviewCleanupResponse>.Fail(new CoreError(
+                    CoreErrorCodes.PreviewSessionStoreFailed,
+                    $"Preview session cleanup failed: {exception.Message}"));
+            }
+        }
+
+        return CoreResult<PreviewCleanupResponse>.Ok(new PreviewCleanupResponse(
+            Directory,
+            deletedPaths.Count,
+            diagnostics,
+            deletedPaths,
+            DateTimeOffset.UtcNow));
+    }
+
     public CoreResult<bool> Save(PreviewSessionSummary session)
     {
         ArgumentNullException.ThrowIfNull(session);
@@ -92,5 +147,68 @@ public sealed class PreviewSessionStore
     private static string EncodeFileName(string value)
     {
         return Convert.ToHexString(Encoding.UTF8.GetBytes(value));
+    }
+
+    private PreviewSessionDiagnostic DiagnoseRecord(string path)
+    {
+        try
+        {
+            var session = JsonSerializer.Deserialize<PreviewSessionSummary>(
+                File.ReadAllText(path, Encoding.UTF8),
+                JsonOptions);
+            if (session is null)
+            {
+                return InvalidRecord(path, "Preview session record did not contain a session object.");
+            }
+
+            var outputPath = session.LastRender.Success ? session.LastRender.Value?.FilePath : null;
+            if (session.Session.State is SessionStates.Closed or SessionStates.Failed)
+            {
+                return new PreviewSessionDiagnostic(
+                    DiagnosticStatuses.Stale,
+                    path,
+                    session.Session,
+                    outputPath,
+                    new ProtocolError(
+                        CoreErrorCodes.PreviewSessionStoreFailed,
+                        $"Preview session record is {session.Session.State}."));
+            }
+
+            if (!string.IsNullOrWhiteSpace(outputPath) && !File.Exists(outputPath))
+            {
+                return new PreviewSessionDiagnostic(
+                    DiagnosticStatuses.Stale,
+                    path,
+                    session.Session,
+                    outputPath,
+                    new ProtocolError(
+                        CoreErrorCodes.PreviewSessionStoreFailed,
+                        "Preview session output file is missing."));
+            }
+
+            return new PreviewSessionDiagnostic(
+                DiagnosticStatuses.Available,
+                path,
+                session.Session,
+                outputPath);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException or ArgumentException)
+        {
+            return InvalidRecord(path, exception.Message);
+        }
+    }
+
+    private static PreviewSessionDiagnostic InvalidRecord(string path, string message)
+    {
+        return new PreviewSessionDiagnostic(
+            DiagnosticStatuses.Invalid,
+            path,
+            error: new ProtocolError(CoreErrorCodes.PreviewSessionStoreFailed, message));
+    }
+
+    private bool IsPathInsideStore(string path)
+    {
+        var directory = Path.GetFullPath(Directory);
+        return path.StartsWith(directory + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
     }
 }

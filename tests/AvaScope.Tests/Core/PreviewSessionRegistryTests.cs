@@ -267,6 +267,62 @@ public sealed class PreviewSessionRegistryTests : IDisposable
     }
 
     [Fact]
+    public void PreviewSessionStoreDiagnosticsAndCleanupRemoveOnlyStaleRecords()
+    {
+        var store = new PreviewSessionStore(Path.Combine(_testRoot, "store"));
+        var staleSession = new PreviewSessionSummary(
+            new SessionSummary(
+                new SessionId("preview-stale"),
+                SessionKinds.Preview,
+                SessionStates.Failed,
+                DateTimeOffset.UnixEpoch,
+                "Stale preview"),
+            new PreviewRequest(
+                Path.Combine(_testRoot, "missing.png"),
+                width: 100,
+                height: 100,
+                dpi: 96),
+            ToolResult<PreviewResponse>.Fail(new ProtocolError("preview_render_failed", "Render failed.")),
+            DateTimeOffset.UnixEpoch);
+        var activeOutput = Path.Combine(_testRoot, "active.png");
+        Directory.CreateDirectory(_testRoot);
+        File.WriteAllBytes(activeOutput, [1, 2, 3]);
+        var activeSession = new PreviewSessionSummary(
+            new SessionSummary(
+                new SessionId("preview-active"),
+                SessionKinds.Preview,
+                SessionStates.Active,
+                DateTimeOffset.UnixEpoch,
+                "Active preview"),
+            new PreviewRequest(
+                activeOutput,
+                width: 100,
+                height: 100,
+                dpi: 96),
+            ToolResult<PreviewResponse>.Ok(new PreviewResponse(
+                activeOutput,
+                100,
+                100,
+                96,
+                DateTimeOffset.UnixEpoch)),
+            DateTimeOffset.UnixEpoch);
+
+        Assert.True(store.Save(staleSession).Success);
+        Assert.True(store.Save(activeSession).Success);
+
+        var diagnostics = store.GetDiagnostics();
+        Assert.Contains(diagnostics, static diagnostic => diagnostic.Status == DiagnosticStatuses.Stale);
+        Assert.Contains(diagnostics, static diagnostic => diagnostic.Status == DiagnosticStatuses.Available);
+
+        var cleanup = store.CleanupStale();
+
+        Assert.True(cleanup.Success, cleanup.Error?.Message);
+        Assert.Equal(1, cleanup.Value!.DeletedPreviewSessionRecords);
+        var remaining = Assert.Single(store.Load());
+        Assert.Equal("preview-active", remaining.Session.SessionId.Value);
+    }
+
+    [Fact]
     public void CloseReturnsStructuredErrorForUnknownPreviewSession()
     {
         var previewSessions = new PreviewSessionRegistry(

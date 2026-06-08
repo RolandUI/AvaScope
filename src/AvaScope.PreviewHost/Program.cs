@@ -1,17 +1,23 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Xml;
 using System.Xml.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
+using Avalonia.Data.Converters;
 using Avalonia.Headless;
+using Avalonia.Input;
+using Avalonia.Layout;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using AvaScope.Protocol;
 
 namespace AvaScope.PreviewHost;
@@ -20,6 +26,8 @@ internal static class Program
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private const string BlendDesignNamespace = "http://schemas.microsoft.com/expression/blend/2008";
+    private const int MaximumPreviewDiagnostics = 100;
+    private const double MinimumHitTargetSize = 24;
 
     public static async Task<int> Main(string[] args)
     {
@@ -132,6 +140,7 @@ internal static class Program
         }
 
         var dimensions = dimensionsResult.Value!;
+        var diagnostics = new List<PreviewDiagnostic>();
         var designData = CreateDesignData(fullProjectPath, request.DesignDataType);
         var projectApplicationScope = LoadProjectApplicationScope(fullProjectPath);
         var content = LoadContent(fullProjectPath, fullViewPath);
@@ -159,16 +168,19 @@ internal static class Program
             }
         }
 
+        var resolvedThemeVariant = ResolveThemeVariant(request.ThemeVariant);
         var window = CreateRenderWindow(
             content,
             dimensions,
             projectApplicationScope,
-            ResolveThemeVariant(request.ThemeVariant),
+            resolvedThemeVariant,
             request.Dpi);
         try
         {
+            AddSourceDiagnostics(diagnostics, sourceMetadata, content, window, resolvedThemeVariant);
             window.Show();
             Dispatcher.UIThread.RunJobs();
+            AddLayoutDiagnostics(diagnostics, window);
 
             using var frame = window.CaptureRenderedFrame();
             if (frame is null)
@@ -194,12 +206,477 @@ internal static class Program
                 fullViewPath,
                 request.ThemeVariant,
                 request.Culture,
-                request.DesignDataType));
+                request.DesignDataType,
+                diagnostics));
         }
         finally
         {
             window.Close();
         }
+    }
+
+    private static void AddSourceDiagnostics(
+        List<PreviewDiagnostic> diagnostics,
+        PreviewSourceMetadata sourceMetadata,
+        Control content,
+        Window window,
+        ThemeVariant? themeVariant)
+    {
+        var dataContext = content.DataContext;
+
+        foreach (var binding in sourceMetadata.BindingReferences)
+        {
+            if (!string.IsNullOrWhiteSpace(binding.ConverterResourceKey))
+            {
+                if (!TryResolveResource(content, window, themeVariant, binding.ConverterResourceKey, out var converter))
+                {
+                    AddDiagnostic(diagnostics, new PreviewDiagnostic(
+                        PreviewDiagnosticSeverities.Warning,
+                        PreviewDiagnosticCategories.Binding,
+                        "binding_converter_resource_not_found",
+                        $"Binding converter resource '{binding.ConverterResourceKey}' could not be resolved.",
+                        propertyName: binding.TargetProperty,
+                        sourcePath: binding.SourcePath,
+                        details: CreateSourceDetails(binding.ElementPath, binding.Expression)));
+                }
+                else if (converter is not IValueConverter)
+                {
+                    AddDiagnostic(diagnostics, new PreviewDiagnostic(
+                        PreviewDiagnosticSeverities.Error,
+                        PreviewDiagnosticCategories.Binding,
+                        "binding_converter_resource_invalid",
+                        $"Binding converter resource '{binding.ConverterResourceKey}' is not an IValueConverter.",
+                        propertyName: binding.TargetProperty,
+                        sourcePath: binding.SourcePath,
+                        details: CreateSourceDetails(
+                            binding.ElementPath,
+                            binding.Expression,
+                            new Dictionary<string, string>
+                            {
+                                ["converterType"] = converter?.GetType().FullName ?? "null"
+                            })));
+                }
+            }
+
+            if (binding.HasExplicitSource || string.IsNullOrWhiteSpace(binding.BindingPath))
+            {
+                continue;
+            }
+
+            if (dataContext is null)
+            {
+                AddDiagnostic(diagnostics, new PreviewDiagnostic(
+                    PreviewDiagnosticSeverities.Warning,
+                    PreviewDiagnosticCategories.Binding,
+                    "binding_missing_datacontext",
+                    $"Binding path '{binding.BindingPath}' has no root DataContext in the preview.",
+                    propertyName: binding.TargetProperty,
+                    sourcePath: binding.SourcePath,
+                    details: CreateSourceDetails(binding.ElementPath, binding.Expression)));
+                continue;
+            }
+
+            if (IsInspectableBindingPath(binding.BindingPath)
+                && !CanResolveBindingPath(dataContext.GetType(), binding.BindingPath))
+            {
+                AddDiagnostic(diagnostics, new PreviewDiagnostic(
+                    PreviewDiagnosticSeverities.Warning,
+                    PreviewDiagnosticCategories.Binding,
+                    "binding_path_not_found",
+                    $"Binding path '{binding.BindingPath}' was not found on preview DataContext '{dataContext.GetType().FullName}'.",
+                    propertyName: binding.TargetProperty,
+                    sourcePath: binding.SourcePath,
+                    details: CreateSourceDetails(
+                        binding.ElementPath,
+                        binding.Expression,
+                        new Dictionary<string, string>
+                        {
+                            ["dataContextType"] = dataContext.GetType().FullName ?? dataContext.GetType().Name
+                        })));
+            }
+        }
+
+        foreach (var resource in sourceMetadata.ResourceReferences)
+        {
+            if (TryResolveResource(content, window, themeVariant, resource.Key, out _))
+            {
+                continue;
+            }
+
+            AddDiagnostic(diagnostics, new PreviewDiagnostic(
+                PreviewDiagnosticSeverities.Warning,
+                PreviewDiagnosticCategories.Resource,
+                "resource_not_found",
+                $"{resource.Kind} resource '{resource.Key}' could not be resolved in the preview scope.",
+                propertyName: resource.TargetProperty,
+                sourcePath: resource.SourcePath,
+                details: new Dictionary<string, string>
+                {
+                    ["elementPath"] = resource.ElementPath,
+                    ["elementType"] = resource.ElementType,
+                    ["resourceKey"] = resource.Key,
+                    ["resourceKind"] = resource.Kind
+                }));
+        }
+    }
+
+    private static void AddLayoutDiagnostics(List<PreviewDiagnostic> diagnostics, Window window)
+    {
+        var rootBounds = GetGlobalBounds(window);
+        var visuals = EnumerateVisuals(window).ToArray();
+
+        foreach (var visual in visuals)
+        {
+            AddTextLayoutDiagnostics(diagnostics, visual);
+            AddHitTargetDiagnostics(diagnostics, visual);
+            AddClipDiagnostics(diagnostics, visual);
+
+            if (rootBounds is { } root
+                && visual != window
+                && GetGlobalBounds(visual) is { } bounds
+                && !Contains(root, bounds))
+            {
+                AddDiagnostic(diagnostics, CreateLayoutDiagnostic(
+                    "content_unreachable",
+                    "Content extends outside the preview root bounds.",
+                    visual,
+                    bounds));
+            }
+        }
+
+        foreach (var visual in visuals)
+        {
+            AddOverlapDiagnostics(diagnostics, visual);
+        }
+    }
+
+    private static void AddTextLayoutDiagnostics(List<PreviewDiagnostic> diagnostics, Visual visual)
+    {
+        switch (visual)
+        {
+            case TextBlock textBlock when !string.IsNullOrEmpty(textBlock.Text):
+                AddTextLayoutDiagnostics(
+                    diagnostics,
+                    textBlock,
+                    textBlock.DesiredSize,
+                    textBlock.Bounds,
+                    textBlock.TextTrimming != TextTrimming.None);
+                break;
+            case TextBox textBox when !string.IsNullOrEmpty(textBox.Text):
+                AddTextLayoutDiagnostics(diagnostics, textBox, textBox.DesiredSize, textBox.Bounds, hasTrimming: false);
+                break;
+        }
+    }
+
+    private static void AddTextLayoutDiagnostics(
+        List<PreviewDiagnostic> diagnostics,
+        Visual visual,
+        Size desiredSize,
+        Rect bounds,
+        bool hasTrimming)
+    {
+        if (desiredSize.Width <= bounds.Width + 0.5 && desiredSize.Height <= bounds.Height + 0.5)
+        {
+            return;
+        }
+
+        var globalBounds = GetGlobalBounds(visual) ?? new Rect(bounds.Size);
+        AddDiagnostic(diagnostics, CreateLayoutDiagnostic(
+            hasTrimming ? "text_truncated" : "text_clipped",
+            hasTrimming
+                ? "Text is likely truncated by the rendered bounds."
+                : "Text desired size exceeds the rendered bounds.",
+            visual,
+            globalBounds,
+            new Dictionary<string, string>
+            {
+                ["desiredWidth"] = desiredSize.Width.ToString(CultureInfo.InvariantCulture),
+                ["desiredHeight"] = desiredSize.Height.ToString(CultureInfo.InvariantCulture),
+                ["boundsWidth"] = bounds.Width.ToString(CultureInfo.InvariantCulture),
+                ["boundsHeight"] = bounds.Height.ToString(CultureInfo.InvariantCulture)
+            }));
+    }
+
+    private static void AddHitTargetDiagnostics(List<PreviewDiagnostic> diagnostics, Visual visual)
+    {
+        if (visual is not Button and not TextBox)
+        {
+            return;
+        }
+
+        var bounds = GetGlobalBounds(visual);
+        if (bounds is null
+            || bounds.Value.Width <= 0
+            || bounds.Value.Height <= 0
+            || (bounds.Value.Width >= MinimumHitTargetSize && bounds.Value.Height >= MinimumHitTargetSize))
+        {
+            return;
+        }
+
+        AddDiagnostic(diagnostics, CreateLayoutDiagnostic(
+            "hit_target_too_small",
+            $"Interactive target is smaller than the {MinimumHitTargetSize.ToString(CultureInfo.InvariantCulture)}x{MinimumHitTargetSize.ToString(CultureInfo.InvariantCulture)} policy.",
+            visual,
+            bounds.Value,
+            new Dictionary<string, string>
+            {
+                ["minimumWidth"] = MinimumHitTargetSize.ToString(CultureInfo.InvariantCulture),
+                ["minimumHeight"] = MinimumHitTargetSize.ToString(CultureInfo.InvariantCulture)
+            }));
+    }
+
+    private static void AddClipDiagnostics(List<PreviewDiagnostic> diagnostics, Visual visual)
+    {
+        if (!visual.ClipToBounds)
+        {
+            return;
+        }
+
+        var parentBounds = GetGlobalBounds(visual);
+        if (parentBounds is null)
+        {
+            return;
+        }
+
+        foreach (var child in visual.GetVisualChildren())
+        {
+            var childBounds = GetGlobalBounds(child);
+            if (childBounds is null || Contains(parentBounds.Value, childBounds.Value))
+            {
+                continue;
+            }
+
+            AddDiagnostic(diagnostics, CreateLayoutDiagnostic(
+                "content_clipped",
+                "Child content extends beyond a clipping parent.",
+                child,
+                childBounds.Value,
+                new Dictionary<string, string>
+                {
+                    ["parentNodeId"] = CreateNodeId(visual),
+                    ["parentType"] = visual.GetType().FullName ?? visual.GetType().Name
+                }));
+        }
+    }
+
+    private static void AddOverlapDiagnostics(List<PreviewDiagnostic> diagnostics, Visual parent)
+    {
+        if (IsIntentionalOverlayHost(parent))
+        {
+            return;
+        }
+
+        var children = parent.GetVisualChildren()
+            .Where(static child => child.IsVisible)
+            .Select(static child => new
+            {
+                Visual = child,
+                Bounds = GetGlobalBounds(child)
+            })
+            .Where(static item => item.Bounds is { Width: > 1, Height: > 1 })
+            .ToArray();
+
+        for (var outer = 0; outer < children.Length; outer++)
+        {
+            for (var inner = outer + 1; inner < children.Length; inner++)
+            {
+                var intersection = Intersect(children[outer].Bounds!.Value, children[inner].Bounds!.Value);
+                if (intersection is null || Area(intersection.Value) < 4)
+                {
+                    continue;
+                }
+
+                AddDiagnostic(diagnostics, CreateLayoutDiagnostic(
+                    "elements_overlap",
+                    "Sibling elements overlap in the rendered layout.",
+                    children[inner].Visual,
+                    intersection.Value,
+                    new Dictionary<string, string>
+                    {
+                        ["firstNodeId"] = CreateNodeId(children[outer].Visual),
+                        ["firstType"] = children[outer].Visual.GetType().FullName ?? children[outer].Visual.GetType().Name,
+                        ["secondNodeId"] = CreateNodeId(children[inner].Visual),
+                        ["secondType"] = children[inner].Visual.GetType().FullName ?? children[inner].Visual.GetType().Name,
+                        ["parentNodeId"] = CreateNodeId(parent)
+                    }));
+            }
+        }
+    }
+
+    private static bool TryResolveResource(
+        Control content,
+        Window window,
+        ThemeVariant? requestedTheme,
+        string key,
+        out object? value)
+    {
+        var theme = requestedTheme ?? window.ActualThemeVariant ?? ThemeVariant.Default;
+        if (content.TryGetResource(key, theme, out value)
+            || window.TryGetResource(key, theme, out value))
+        {
+            return true;
+        }
+
+        if (Application.Current is { } application && application.TryGetResource(key, theme, out value))
+        {
+            return true;
+        }
+
+        value = null;
+        return false;
+    }
+
+    private static bool IsInspectableBindingPath(string bindingPath)
+    {
+        var path = bindingPath.Trim();
+        return path.Length > 0
+            && !string.Equals(path, ".", StringComparison.Ordinal)
+            && !path.StartsWith("(", StringComparison.Ordinal)
+            && !path.Contains('[', StringComparison.Ordinal)
+            && !path.Contains('/', StringComparison.Ordinal);
+    }
+
+    private static bool CanResolveBindingPath(Type dataContextType, string bindingPath)
+    {
+        var current = dataContextType;
+        foreach (var segment in bindingPath.Split('.', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            var memberName = segment.TrimEnd('?', '!');
+            if (memberName.Length == 0)
+            {
+                return false;
+            }
+
+            var property = current.GetProperty(
+                memberName,
+                BindingFlags.Public | BindingFlags.Instance | BindingFlags.FlattenHierarchy);
+            if (property is not null)
+            {
+                current = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType;
+                continue;
+            }
+
+            var field = current.GetField(
+                memberName,
+                BindingFlags.Public | BindingFlags.Instance | BindingFlags.FlattenHierarchy);
+            if (field is null)
+            {
+                return false;
+            }
+
+            current = Nullable.GetUnderlyingType(field.FieldType) ?? field.FieldType;
+        }
+
+        return true;
+    }
+
+    private static IReadOnlyDictionary<string, string> CreateSourceDetails(
+        string elementPath,
+        string expression,
+        IReadOnlyDictionary<string, string>? extra = null)
+    {
+        var details = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["elementPath"] = elementPath,
+            ["expression"] = expression
+        };
+
+        if (extra is not null)
+        {
+            foreach (var item in extra)
+            {
+                details[item.Key] = item.Value;
+            }
+        }
+
+        return details;
+    }
+
+    private static IEnumerable<Visual> EnumerateVisuals(Visual root)
+    {
+        yield return root;
+        foreach (var child in root.GetVisualChildren())
+        {
+            foreach (var descendant in EnumerateVisuals(child))
+            {
+                yield return descendant;
+            }
+        }
+    }
+
+    private static PreviewDiagnostic CreateLayoutDiagnostic(
+        string code,
+        string message,
+        Visual visual,
+        Rect bounds,
+        IReadOnlyDictionary<string, string>? details = null)
+    {
+        return new PreviewDiagnostic(
+            PreviewDiagnosticSeverities.Warning,
+            PreviewDiagnosticCategories.Layout,
+            code,
+            message,
+            CreateNodeId(visual),
+            visual.GetType().FullName ?? visual.GetType().Name,
+            bounds: new NodeBounds(bounds.X, bounds.Y, bounds.Width, bounds.Height),
+            details: details);
+    }
+
+    private static void AddDiagnostic(List<PreviewDiagnostic> diagnostics, PreviewDiagnostic diagnostic)
+    {
+        if (diagnostics.Count < MaximumPreviewDiagnostics)
+        {
+            diagnostics.Add(diagnostic);
+        }
+    }
+
+    private static string CreateNodeId(object node)
+    {
+        return $"{TreeKinds.Visual}:{RuntimeHelpers.GetHashCode(node):x}";
+    }
+
+    private static Rect? GetGlobalBounds(Visual visual)
+    {
+        var transformedBounds = visual.GetTransformedBounds();
+        if (transformedBounds is null)
+        {
+            return null;
+        }
+
+        return transformedBounds.Value.Bounds.TransformToAABB(transformedBounds.Value.Transform);
+    }
+
+    private static bool Contains(Rect outer, Rect inner)
+    {
+        return inner.X >= outer.X - 0.5
+            && inner.Y >= outer.Y - 0.5
+            && inner.Right <= outer.Right + 0.5
+            && inner.Bottom <= outer.Bottom + 0.5;
+    }
+
+    private static Rect? Intersect(Rect first, Rect second)
+    {
+        var left = Math.Max(first.X, second.X);
+        var top = Math.Max(first.Y, second.Y);
+        var right = Math.Min(first.Right, second.Right);
+        var bottom = Math.Min(first.Bottom, second.Bottom);
+        return right <= left || bottom <= top
+            ? null
+            : new Rect(left, top, right - left, bottom - top);
+    }
+
+    private static double Area(Rect rect)
+    {
+        return rect.Width * rect.Height;
+    }
+
+    private static bool IsIntentionalOverlayHost(Visual visual)
+    {
+        var typeName = visual.GetType().Name;
+        return visual is Canvas
+            || typeName.Contains("Overlay", StringComparison.OrdinalIgnoreCase)
+            || typeName.Contains("Adorner", StringComparison.OrdinalIgnoreCase)
+            || typeName.Contains("Popup", StringComparison.OrdinalIgnoreCase);
     }
 
     private static void ApplyCulture(string? cultureName)
@@ -435,13 +912,17 @@ internal static class Program
                 .Attribute(XName.Get("DataContext", BlendDesignNamespace))
                 ?.Value;
             var designDataContextObject = ReadDesignDataContextObjectElement(root);
+            var bindingReferences = ReadBindingReferences(root, fullViewPath);
+            var resourceReferences = ReadResourceReferences(root, fullViewPath);
 
             return ToolResult<PreviewSourceMetadata>.Ok(new PreviewSourceMetadata(
                 designWidth,
                 designHeight,
                 string.IsNullOrWhiteSpace(designDataContext) ? null : designDataContext,
                 designDataContextObject,
-                namespaces));
+                namespaces,
+                bindingReferences,
+                resourceReferences));
         }
         catch (Exception exception) when (exception is XmlException or InvalidOperationException)
         {
@@ -505,6 +986,149 @@ internal static class Program
             ?.Elements()
             .FirstOrDefault()
             ?.ToString(SaveOptions.DisableFormatting);
+    }
+
+    private static IReadOnlyList<SourceBindingReference> ReadBindingReferences(XElement root, string? sourcePath)
+    {
+        var references = new List<SourceBindingReference>();
+        foreach (var (element, path) in EnumerateElementsWithPaths(root))
+        {
+            foreach (var attribute in element.Attributes())
+            {
+                var value = attribute.Value;
+                if (!ContainsBindingExpression(value))
+                {
+                    continue;
+                }
+
+                references.Add(new SourceBindingReference(
+                    path,
+                    element.Name.LocalName,
+                    attribute.Name.LocalName,
+                    value,
+                    ExtractBindingPath(value),
+                    ExtractConverterResourceKey(value),
+                    HasExplicitBindingSource(value),
+                    sourcePath));
+
+                if (references.Count >= MaximumPreviewDiagnostics)
+                {
+                    return references;
+                }
+            }
+        }
+
+        return references;
+    }
+
+    private static IReadOnlyList<SourceResourceReference> ReadResourceReferences(XElement root, string? sourcePath)
+    {
+        var references = new List<SourceResourceReference>();
+        foreach (var (element, path) in EnumerateElementsWithPaths(root))
+        {
+            foreach (var attribute in element.Attributes())
+            {
+                foreach (Match match in Regex.Matches(
+                    attribute.Value,
+                    @"\{(?<kind>StaticResource|DynamicResource)\s+(?<key>[^},\s]+)",
+                    RegexOptions.CultureInvariant))
+                {
+                    references.Add(new SourceResourceReference(
+                        path,
+                        element.Name.LocalName,
+                        attribute.Name.LocalName,
+                        match.Groups["key"].Value,
+                        match.Groups["kind"].Value,
+                        sourcePath));
+
+                    if (references.Count >= MaximumPreviewDiagnostics)
+                    {
+                        return references;
+                    }
+                }
+            }
+        }
+
+        return references;
+    }
+
+    private static IEnumerable<(XElement Element, string Path)> EnumerateElementsWithPaths(XElement root)
+    {
+        return EnumerateElementsWithPaths(root, root.Name.LocalName);
+
+        static IEnumerable<(XElement Element, string Path)> EnumerateElementsWithPaths(
+            XElement element,
+            string path)
+        {
+            yield return (element, path);
+
+            var groupedChildren = element.Elements()
+                .GroupBy(static child => child.Name.LocalName, StringComparer.Ordinal);
+            foreach (var group in groupedChildren)
+            {
+                var index = 0;
+                foreach (var child in group)
+                {
+                    index++;
+                    foreach (var item in EnumerateElementsWithPaths(child, $"{path}/{child.Name.LocalName}[{index}]"))
+                    {
+                        yield return item;
+                    }
+                }
+            }
+        }
+    }
+
+    private static bool ContainsBindingExpression(string value)
+    {
+        return value.Contains("{Binding", StringComparison.Ordinal)
+            || value.Contains("{CompiledBinding", StringComparison.Ordinal);
+    }
+
+    private static string? ExtractBindingPath(string value)
+    {
+        var pathMatch = Regex.Match(
+            value,
+            @"(?:^|[,{]\s*)Path\s*=\s*(?<path>[^,}]+)",
+            RegexOptions.CultureInvariant);
+        if (pathMatch.Success)
+        {
+            return CleanBindingToken(pathMatch.Groups["path"].Value);
+        }
+
+        var positionalMatch = Regex.Match(
+            value,
+            @"\{(?:Binding|CompiledBinding)\s+(?<path>[^,}]+)",
+            RegexOptions.CultureInvariant);
+        if (!positionalMatch.Success)
+        {
+            return null;
+        }
+
+        var path = CleanBindingToken(positionalMatch.Groups["path"].Value);
+        return string.Equals(path, "}", StringComparison.Ordinal) ? null : path;
+    }
+
+    private static string CleanBindingToken(string value)
+    {
+        return value.Trim().Trim('"', '\'');
+    }
+
+    private static string? ExtractConverterResourceKey(string value)
+    {
+        var match = Regex.Match(
+            value,
+            @"Converter\s*=\s*\{(?:StaticResource|DynamicResource)\s+(?<key>[^},\s]+)",
+            RegexOptions.CultureInvariant);
+        return match.Success ? match.Groups["key"].Value : null;
+    }
+
+    private static bool HasExplicitBindingSource(string value)
+    {
+        return Regex.IsMatch(
+            value,
+            @"(?:^|[,{]\s*)(Source|ElementName|RelativeSource)\s*=",
+            RegexOptions.CultureInvariant);
     }
 
     private static ToolResult<PreviewDimensions> ResolvePreviewDimensions(
@@ -1116,17 +1740,39 @@ internal static class Program
         double? DesignHeight,
         string? DesignDataContextExpression,
         string? DesignDataContextObjectElement,
-        IReadOnlyDictionary<string, string> Namespaces)
+        IReadOnlyDictionary<string, string> Namespaces,
+        IReadOnlyList<SourceBindingReference> BindingReferences,
+        IReadOnlyList<SourceResourceReference> ResourceReferences)
     {
         public static PreviewSourceMetadata Empty { get; } = new(
             null,
             null,
             null,
             null,
-            new Dictionary<string, string>(StringComparer.Ordinal));
+            new Dictionary<string, string>(StringComparer.Ordinal),
+            [],
+            []);
     }
 
     private sealed record PreviewDimensions(double Width, double Height);
+
+    private sealed record SourceBindingReference(
+        string ElementPath,
+        string ElementType,
+        string TargetProperty,
+        string Expression,
+        string? BindingPath,
+        string? ConverterResourceKey,
+        bool HasExplicitSource,
+        string? SourcePath);
+
+    private sealed record SourceResourceReference(
+        string ElementPath,
+        string ElementType,
+        string TargetProperty,
+        string Key,
+        string Kind,
+        string? SourcePath);
 
     private sealed record DesignDataResolution(bool HasValue, object? Value)
     {

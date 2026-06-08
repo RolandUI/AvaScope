@@ -1,6 +1,8 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.Text.Json;
 using AvaScope.Protocol;
+using SkiaSharp;
 
 namespace AvaScope.Core;
 
@@ -84,6 +86,67 @@ public sealed class PreviewHostClient
         {
             TryDeleteDirectory(requestDirectory);
         }
+    }
+
+    public async Task<CoreResult<PreviewBatchResponse>> RenderBatchAsync(
+        PreviewRequest request,
+        IReadOnlyList<PreviewViewport> viewports,
+        string? contactSheetPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(viewports);
+
+        if (viewports.Count == 0)
+        {
+            return CoreResult<PreviewBatchResponse>.Fail(new CoreError(
+                CoreErrorCodes.InvalidPreviewRequest,
+                "At least one preview viewport size is required."));
+        }
+
+        var entries = new List<PreviewBatchEntry>(viewports.Count);
+        for (var index = 0; index < viewports.Count; index++)
+        {
+            var viewport = viewports[index];
+            var outputPath = CreateViewportOutputPath(request.OutputPath, viewport, index);
+            var viewportRequest = new PreviewRequest(
+                outputPath,
+                viewport.Width,
+                viewport.Height,
+                request.Dpi,
+                request.ProjectPath,
+                request.ViewPath,
+                request.ThemeVariant,
+                request.Culture,
+                request.DesignDataType);
+            var result = await RenderAsync(viewportRequest, cancellationToken);
+            entries.Add(new PreviewBatchEntry(
+                viewport,
+                outputPath,
+                result.Success
+                    ? ToolResult<PreviewResponse>.Ok(result.Value!)
+                    : ToolResult<PreviewResponse>.Fail(new ProtocolError(
+                        result.Error!.Code,
+                        result.Error.Message,
+                        result.Error.Details))));
+        }
+
+        var fullContactSheetPath = string.IsNullOrWhiteSpace(contactSheetPath)
+            ? null
+            : Path.GetFullPath(contactSheetPath);
+        if (fullContactSheetPath is not null)
+        {
+            var sheetResult = TryCreateContactSheet(entries, fullContactSheetPath);
+            if (!sheetResult.Success)
+            {
+                return CoreResult<PreviewBatchResponse>.Fail(sheetResult.Error!);
+            }
+        }
+
+        return CoreResult<PreviewBatchResponse>.Ok(new PreviewBatchResponse(
+            entries,
+            fullContactSheetPath,
+            DateTimeOffset.UtcNow));
     }
 
     private async Task<CoreResult<PreviewResponse>> RunPreviewHostAsync(
@@ -180,6 +243,102 @@ public sealed class PreviewHostClient
                 CoreErrorCodes.PreviewHostFailed,
                 "Preview host success response did not contain a value."))
             : CoreResult<PreviewResponse>.Ok(result.Value);
+    }
+
+    private static string CreateViewportOutputPath(string baseOutputPath, PreviewViewport viewport, int index)
+    {
+        var fullBasePath = Path.GetFullPath(baseOutputPath);
+        var directory = Path.GetDirectoryName(fullBasePath) ?? Environment.CurrentDirectory;
+        var stem = Path.GetFileNameWithoutExtension(fullBasePath);
+        var extension = Path.GetExtension(fullBasePath);
+        if (string.IsNullOrWhiteSpace(extension))
+        {
+            extension = ".png";
+        }
+
+        var label = string.IsNullOrWhiteSpace(viewport.Label)
+            ? $"{FormatSizeToken(viewport.Width)}x{FormatSizeToken(viewport.Height)}"
+            : SanitizePathToken(viewport.Label);
+        var fileName = $"{stem}-{index + 1:00}-{label}{extension}";
+        return Path.Combine(directory, fileName);
+    }
+
+    private static string FormatSizeToken(double value)
+    {
+        return value.ToString("0.###", CultureInfo.InvariantCulture).Replace('.', '_');
+    }
+
+    private static string SanitizePathToken(string value)
+    {
+        var invalid = Path.GetInvalidFileNameChars();
+        var chars = value
+            .Trim()
+            .Select(ch => invalid.Contains(ch) || char.IsWhiteSpace(ch) ? '-' : ch)
+            .ToArray();
+        var token = new string(chars).Trim('-');
+        return string.IsNullOrWhiteSpace(token) ? "viewport" : token;
+    }
+
+    private static CoreResult<bool> TryCreateContactSheet(
+        IReadOnlyList<PreviewBatchEntry> entries,
+        string contactSheetPath)
+    {
+        try
+        {
+            var bitmaps = entries
+                .Where(static entry => entry.Render.Success && File.Exists(entry.Render.Value!.FilePath))
+                .Select(static entry => SKBitmap.Decode(entry.Render.Value!.FilePath))
+                .Where(static bitmap => bitmap is not null)
+                .Cast<SKBitmap>()
+                .ToArray();
+            try
+            {
+                if (bitmaps.Length == 0)
+                {
+                    return CoreResult<bool>.Fail(new CoreError(
+                        CoreErrorCodes.PreviewHostFailed,
+                        "Contact sheet requires at least one successful preview image."));
+                }
+
+                var width = bitmaps.Max(static bitmap => bitmap.Width);
+                var height = bitmaps.Sum(static bitmap => bitmap.Height);
+                using var sheet = new SKBitmap(width, height);
+                using var canvas = new SKCanvas(sheet);
+                canvas.Clear(SKColors.Transparent);
+
+                var offsetY = 0;
+                foreach (var bitmap in bitmaps)
+                {
+                    canvas.DrawBitmap(bitmap, 0, offsetY);
+                    offsetY += bitmap.Height;
+                }
+
+                var directory = Path.GetDirectoryName(contactSheetPath);
+                if (!string.IsNullOrEmpty(directory))
+                {
+                    Directory.CreateDirectory(directory);
+                }
+
+                using var image = SKImage.FromBitmap(sheet);
+                using var data = image.Encode(SKEncodedImageFormat.Png, 100);
+                using var stream = File.Create(contactSheetPath);
+                data.SaveTo(stream);
+                return CoreResult<bool>.Ok(true);
+            }
+            finally
+            {
+                foreach (var bitmap in bitmaps)
+                {
+                    bitmap.Dispose();
+                }
+            }
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException)
+        {
+            return CoreResult<bool>.Fail(new CoreError(
+                CoreErrorCodes.PreviewHostFailed,
+                $"Contact sheet could not be created: {exception.Message}"));
+        }
     }
 
     private static void KillPreviewHost(Process process)

@@ -24,7 +24,7 @@ Completed slice: protocol, bridge, and core diagnostics tests cover local-only m
 
 ### Diagnostics Tool
 
-Status: first bridge diagnostics slice and preview failure details slice complete; richer binding/layout/resource diagnostics remain open.
+Status: bridge diagnostics, preview failure details, preview binding/resource diagnostics, preview layout warnings, and stale preview-session diagnostics first slices complete.
 
 `diagnostics` is listed in the intended MCP tool shape. The first slice now reports service health, local bridge manifest path, process id, named-pipe transport, protocol health, stale manifests, invalid manifests, and unavailable IPC states. Current errors are still structured per operation; there is no historical last-error stream yet.
 
@@ -32,23 +32,31 @@ Completed slice: preview-host readiness diagnostics now report host assembly pat
 
 Completed slice: preview build/render failures can now include bounded `error.details` fields such as `phase`, paths, build exit code, and build output tail while preserving the existing `code/message` result shape through Core, CLI, MCP, and preview-session storage.
 
-Next slice: defer richer binding/layout/resource diagnostics until runtime safety boundaries are re-audited for public alpha.
+Completed slice: successful preview responses can now include bounded advisory diagnostics for missing `DataContext`, missing or invalid binding converter resources, unresolved resource keys, conservative binding path failures, text clipping/truncation, clipped or unreachable content, sibling overlap, and too-small hit targets.
+
+Completed slice: `diagnostics` now includes preview-session store records so stale and invalid AvaScope-owned preview metadata can be identified without loading user projects.
+
+Next slice: deeper binding-engine, compiled-binding, and style/resource provenance parity remains limited to public Avalonia API availability.
 
 ## P1 Gaps
 
 ### Inspect Node Detail
 
-Status: first slice complete.
+Status: first node detail and computed property inspection slices complete.
 
 `inspect_node` is part of the intended MCP tool shape. The first slice now returns a bounded single-node payload by stable visual or logical node id, including node id, tree kind, type, name, automation id, text, bounds, classes, and child count. It deliberately does not return descendants or arbitrary Avalonia object properties yet.
 
-Next slice: richer properties, resources, binding diagnostics, or style diagnostics can be added after the first CLI runtime workflow is available.
+Completed slice: `inspect_node` now returns bounded computed visual/style/layout values for high-value properties, with public Avalonia diagnostic priority where available and explicit `unknown`/`not_available` provenance when source details are not reliable.
+
+Next slice: richer resource-chain explanations can be added when public Avalonia APIs expose reliable provenance beyond priority/source diagnostics.
 
 ### CLI Runtime Workflows
 
 Status: current runtime command surface complete.
 
-The CLI now supports `preview`, `mcp`, `attach`, `list-top-levels`, `screenshot`, `visual-tree`, `logical-tree`, `inspect-node`, `find-nodes`, `input`, `close-session`, `diagnostics`, and `reload`. Runtime CLI commands drive the local bridge through `LocalBridgeClient`, return structured `ToolResult<T>` output, and have deterministic invalid-argument, no-session, and fake bridge named-pipe success tests for the top-level, screenshot, tree, inspect-node, find, input, close, diagnostics, and runtime reload-check paths.
+The CLI now supports `preview`, `mcp`, `attach`, `list-top-levels`, `screenshot`, `visual-tree`, `logical-tree`, `inspect-node`, `find-nodes`, `input`, `close-session`, `diagnostics`, `reload`, `diff`, and `cleanup`. Runtime CLI commands drive the local bridge through `LocalBridgeClient`, return structured `ToolResult<T>` output, and have deterministic invalid-argument, no-session, and fake bridge named-pipe success tests for the top-level, screenshot, tree, inspect-node, find, input, close, diagnostics, and runtime reload-check paths.
+
+Completed slice: `preview --sizes` adds deterministic multi-size preview output and optional contact-sheet generation, while `diff` adds explicit same-size screenshot comparison with tolerance and structured pass/fail output.
 
 Next slice: move to the broader reload/hot preview foundation gap; CLI preview sessions are still one-shot and not persisted across CLI processes.
 
@@ -120,4 +128,4 @@ Next slice: CI can later add upload artifacts, self-contained outputs, or more R
 
 ## Selected Next Slice
 
-No public-alpha blocking slice remains after M50. Future post-alpha work can start from one of the recorded deferrals: runtime hot reload/live preview, richer input, broader preview startup orchestration, installer/self-contained distribution, or richer binding/layout/resource diagnostics.
+No public-alpha blocking slice remains after M50, and W9 completed the stored feature-request first slices. Future post-alpha work can start from one of the recorded deferrals: runtime hot reload/live preview, richer input, broader preview startup orchestration, installer/self-contained distribution, deeper binding/style/resource provenance, or broader visual-regression workflows.

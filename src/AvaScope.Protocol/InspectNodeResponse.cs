@@ -16,7 +16,8 @@ public sealed record InspectNodeResponse
         string? automationId = null,
         string? text = null,
         NodeBounds? bounds = null,
-        IReadOnlyList<string>? classes = null)
+        IReadOnlyList<string>? classes = null,
+        IReadOnlyList<ComputedPropertyValue>? computedProperties = null)
     {
         SessionId = sessionId ?? throw new ArgumentNullException(nameof(sessionId));
 
@@ -55,6 +56,7 @@ public sealed record InspectNodeResponse
         Text = text;
         Bounds = bounds;
         Classes = classes ?? Array.Empty<string>();
+        ComputedProperties = computedProperties ?? Array.Empty<ComputedPropertyValue>();
         ChildCount = childCount;
     }
 
@@ -94,4 +96,7 @@ public sealed record InspectNodeResponse
 
     [JsonPropertyName("childCount")]
     public int ChildCount { get; }
+
+    [JsonPropertyName("computedProperties")]
+    public IReadOnlyList<ComputedPropertyValue> ComputedProperties { get; }
 }
