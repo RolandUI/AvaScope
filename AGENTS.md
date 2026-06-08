@@ -10,8 +10,8 @@ Target Avalonia line: `Avalonia 12`. Do not default implementation work to Avalo
 
 Development in this repository is expected to be performed 100% by autonomous coding agents.
 
-- Agents own implementation, test writing, build validation, test validation, documentation updates, commits, and handoff notes end-to-end.
-- Do not leave routine coding, validation, formatting, or commit work for the user.
+- Agents own implementation, test writing, build validation, test validation, documentation updates, commits, pushes, and handoff notes end-to-end.
+- Do not leave routine coding, validation, formatting, commit, or push work for the user.
 - If a task requires a decision that cannot be derived from this file or the codebase, make the smallest reasonable product-aligned choice and record non-obvious decisions in docs.
 - If external credentials, account access, publishing permissions, or product decisions block completion, state the blocker precisely and stop at the nearest validated state.
 - Each meaningful change should include relevant tests or an explicit validation note explaining why tests are not applicable.
@@ -26,7 +26,7 @@ Development in this repository is expected to be performed 100% by autonomous co
 - After each meaningful change, update the development plan with the new status, next action, validation result, and commit hash when practical.
 - If the development plan is stale or conflicts with the repository state, update the plan first, record the reason in its `Decision Log` or `Change Log`, then continue implementation.
 - Do not mark a milestone `Done` until its acceptance criteria and validation commands have passed.
-- Commit each completed vertical slice or coherent milestone part; do not leave commit, test, or validation work for the user.
+- Commit and push each completed vertical slice or coherent milestone part; do not leave commit, push, test, or validation work for the user.
 
 ## Product Goal
 

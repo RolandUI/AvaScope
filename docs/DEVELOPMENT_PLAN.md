@@ -9,7 +9,7 @@ This document is the primary project-management source for autonomous agents wor
 - Before implementing, compare the requested work with this plan. If the plan is stale, update the plan first.
 - Each meaningful implementation change must include relevant tests or an explicit validation note explaining why tests are not applicable.
 - Each completed slice must be validated with the listed commands before status moves to `Done`.
-- Commit each completed vertical slice or coherent milestone part. Record the commit hash in the handoff and, when practical, in this document.
+- Commit and push each completed vertical slice or coherent milestone part. Record the commit hash in the handoff and, when practical, in this document.
 - Keep MCP, CLI, core runtime, bridge, preview host, and protocol concerns separated.
 - Do not introduce broad skeletons unless they directly support the active vertical slice.
 
@@ -35,6 +35,7 @@ Store future user-provided bug reports and feature requests as sanitized ledger 
 
 ## Latest Validation
 
+- `2026-06-08`: Documentation-only ownership update; `git diff --check` and intake privacy validation passed before commit/push.
 - `2026-06-08`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1` passed after W7 version-bump CI release changes; Release build/test passed with 179 tests, 5 release artifacts verified, packaged Windows sample preview smoke passed.
 - `2026-06-08`: Release metadata simulation passed after W7 validation: `Directory.Build.props` version `0.1.0`, derived release tag `v0.1.0`, and remote tag absence detection.
 - `2026-06-08`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.1.0 -DryRun` passed after W7 validation against freshly generated release artifacts.
@@ -1710,6 +1711,7 @@ Store future user-provided bug reports and feature requests as sanitized ledger 
 - `2026-06-08`: W5 moves NuGet publishing to CI on explicit version tags instead of branch pushes; the release tag must match `Directory.Build.props` so package identity stays deliberate.
 - `2026-06-08`: W6 uses GitHub Releases, not NuGet packages, for CLI/MCP/PreviewHost executable distribution because those projects are intentionally non-packable and already validated as co-located framework-dependent ZIP artifacts.
 - `2026-06-08`: W7 supersedes the manual tag-push release trigger: `Directory.Build.props` `<Version>` is the release trigger, and CI creates the matching tag only after package publishing succeeds.
+- `2026-06-08`: Project ownership now requires agents to push completed committed slices to the configured remote, not only leave local commits.
 
 ## Change Log
 
@@ -1783,3 +1785,4 @@ Store future user-provided bug reports and feature requests as sanitized ledger 
 - `2026-06-08`: Completed W5 by converting NuGet publishing to the tag-triggered `Release NuGet` CI workflow with version-gating and `NUGET_API_KEY` secret usage.
 - `2026-06-08`: Completed W6 by adding GitHub Packages publishing and GitHub Release asset publishing for release artifacts.
 - `2026-06-08`: Completed W7 by changing CI release activation to version bumps in `Directory.Build.props` with automatic tag creation and no-op behavior for already released versions.
+- `2026-06-08`: Updated project agent ownership rules to require pushing committed changes.
