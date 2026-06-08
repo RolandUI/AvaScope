@@ -2,6 +2,8 @@ param(
     [string]$Configuration = "Release",
     [string]$OutputRoot = "artifacts/executables",
     [string[]]$RuntimeIdentifiers = @("win-x64", "linux-x64"),
+    [ValidateSet("framework-dependent", "self-contained")]
+    [string]$PackageKind = "framework-dependent",
     [switch]$NoBuild
 )
 
@@ -28,6 +30,66 @@ function Test-IsUnderDirectory {
             [System.StringComparison]::OrdinalIgnoreCase)
 }
 
+function Remove-ItemWithRetry {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path,
+        [switch]$Recurse
+    )
+
+    for ($attempt = 1; $attempt -le 30; $attempt++) {
+        try {
+            if ($Recurse) {
+                Remove-Item -LiteralPath $Path -Recurse -Force
+            } else {
+                Remove-Item -LiteralPath $Path -Force
+            }
+
+            return
+        }
+        catch [System.IO.IOException] {
+            if ($attempt -eq 30) {
+                throw
+            }
+
+            Start-Sleep -Milliseconds 100
+        }
+        catch [System.UnauthorizedAccessException] {
+            if ($attempt -eq 30) {
+                throw
+            }
+
+            Start-Sleep -Milliseconds 100
+        }
+    }
+}
+
+function Assert-NoRunningOutputProcesses {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$OutputRootPath
+    )
+
+    $runningProcesses = @(Get-Process | Where-Object {
+        try {
+            -not [string]::IsNullOrWhiteSpace($_.Path) -and
+                (Test-IsUnderDirectory -Path $_.Path -Directory $OutputRootPath)
+        }
+        catch {
+            $false
+        }
+    } | Select-Object Id, ProcessName, Path)
+
+    if ($runningProcesses.Count -eq 0) {
+        return
+    }
+
+    $processList = ($runningProcesses | ForEach-Object {
+        "$($_.ProcessName) pid=$($_.Id) path=$($_.Path)"
+    }) -join "; "
+    throw "Executable artifact processes are running from the output root. Stop them before packaging: $processList"
+}
+
 $repoRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot ".."))
 $outputRootPath = if ([System.IO.Path]::IsPathRooted($OutputRoot)) {
     [System.IO.Path]::GetFullPath($OutputRoot)
@@ -42,6 +104,7 @@ if (-not (Test-IsUnderDirectory -Path $outputRootPath -Directory $repoRoot)) {
 $projectPath = Join-Path $repoRoot "src/AvaScope.Cli/AvaScope.Cli.csproj"
 
 New-Item -ItemType Directory -Path $outputRootPath -Force | Out-Null
+Assert-NoRunningOutputProcesses -OutputRootPath $outputRootPath
 
 $legacyPublishDirectory = Join-Path $outputRootPath "avascope"
 if (Test-Path -LiteralPath $legacyPublishDirectory) {
@@ -50,23 +113,23 @@ if (Test-Path -LiteralPath $legacyPublishDirectory) {
         throw "Refusing to delete a legacy publish directory outside the output root: $resolvedLegacyPublishDirectory"
     }
 
-    Remove-Item -LiteralPath $resolvedLegacyPublishDirectory -Recurse -Force
+    Remove-ItemWithRetry -Path $resolvedLegacyPublishDirectory -Recurse
 }
 
-Get-ChildItem -LiteralPath $outputRootPath -Filter "avascope-*-framework-dependent.zip" -File | ForEach-Object {
+Get-ChildItem -LiteralPath $outputRootPath -Filter "avascope-*.zip" -File | ForEach-Object {
     if (-not (Test-IsUnderDirectory -Path $_.FullName -Directory $outputRootPath)) {
         throw "Refusing to delete a zip outside the output root: $($_.FullName)"
     }
 
-    Remove-Item -LiteralPath $_.FullName -Force
+    Remove-ItemWithRetry -Path $_.FullName
 }
 
-Get-ChildItem -LiteralPath $outputRootPath -Filter "avascope-*-framework-dependent" -Directory | ForEach-Object {
+Get-ChildItem -LiteralPath $outputRootPath -Filter "avascope-*" -Directory | ForEach-Object {
     if (-not (Test-IsUnderDirectory -Path $_.FullName -Directory $outputRootPath)) {
         throw "Refusing to delete a publish directory outside the output root: $($_.FullName)"
     }
 
-    Remove-Item -LiteralPath $_.FullName -Recurse -Force
+    Remove-ItemWithRetry -Path $_.FullName -Recurse
 }
 
 $createdZips = @()
@@ -79,9 +142,10 @@ foreach ($runtimeIdentifier in $RuntimeIdentifiers) {
         throw "Runtime identifier contains unsupported characters: $runtimeIdentifier"
     }
 
-    $artifactName = "avascope-$runtimeIdentifier-framework-dependent"
+    $artifactName = "avascope-$runtimeIdentifier-$PackageKind"
     $publishDirectory = Join-Path $outputRootPath $artifactName
     $zipPath = Join-Path $outputRootPath "$artifactName.zip"
+    $selfContained = if ($PackageKind -eq "self-contained") { "true" } else { "false" }
 
     if (Test-Path -LiteralPath $publishDirectory) {
         $resolvedPublishDirectory = (Resolve-Path -LiteralPath $publishDirectory).Path
@@ -89,7 +153,7 @@ foreach ($runtimeIdentifier in $RuntimeIdentifiers) {
             throw "Refusing to delete a publish directory outside the output root: $resolvedPublishDirectory"
         }
 
-        Remove-Item -LiteralPath $resolvedPublishDirectory -Recurse -Force
+        Remove-ItemWithRetry -Path $resolvedPublishDirectory -Recurse
     }
 
     New-Item -ItemType Directory -Path $publishDirectory -Force | Out-Null
@@ -102,7 +166,7 @@ foreach ($runtimeIdentifier in $RuntimeIdentifiers) {
         "-r",
         $runtimeIdentifier,
         "--self-contained",
-        "false",
+        $selfContained,
         "--output",
         $publishDirectory
     )
@@ -152,7 +216,7 @@ foreach ($runtimeIdentifier in $RuntimeIdentifiers) {
             throw "Refusing to replace a zip outside the output root: $resolvedZipPath"
         }
 
-        Remove-Item -LiteralPath $zipPath -Force
+        Remove-ItemWithRetry -Path $zipPath
     }
 
     Compress-Archive -Path (Join-Path $publishDirectory "*") -DestinationPath $zipPath -Force

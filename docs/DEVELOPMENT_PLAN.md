@@ -23,21 +23,35 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `W16 Distribution Hardening`
+- `Post-W16 Follow-up Selection`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-08`
-- Goal: harden executable distribution beyond current framework-dependent Windows/Linux ZIPs.
+- Goal: choose the next product-aligned workstream after W10-W16 completion only after the completed W10-W16 work is committed, pushed, and handed off.
 
 ## Next Action
 
-Implement W16 distribution hardening by selecting and validating the smallest release artifact improvement that fits current product maturity and CI safety.
+Commit and push W16, then hand off the completed W10-W16 run with validation evidence and remaining deferrals.
 
 ## Latest Validation
 
 - `2026-06-08`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after W9 feature-ticket implementation.
+- `2026-06-08`: W9 targeted tests passed: protocol contract diagnostics/batch/diff/cleanup coverage, PreviewHost binding/resource/layout diagnostics, CLI multi-size preview/contact sheet, CLI screenshot diff, Bridge computed properties, Core preview-session cleanup, and MCP stdio tool listing.
+- `2026-06-08`: `dotnet test AvaScope.slnx --no-build` passed with 186 tests after W9 feature-ticket implementation.
+- `2026-06-08`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-bug-reports.ps1` passed after W9 feature-ticket status updates; 13 intake files scanned.
+- `2026-06-08`: `git diff --check` passed after W9 feature-ticket implementation and documentation updates.
 - `2026-06-08`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after W10 CLI preview-session workflow.
+- `2026-06-08`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli` passed with 81 tests after W10 CLI preview-session workflow.
+- `2026-06-08`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewSessionRegistryTests` passed with 9 tests after W10 CLI preview-session workflow.
+- `2026-06-08`: `dotnet test AvaScope.slnx --no-build` passed with 188 tests after W10 CLI preview-session workflow.
+- `2026-06-08`: `git diff --check` passed after W10 CLI preview-session workflow.
 - `2026-06-08`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after W11 live preview file-watch reload.
+- `2026-06-08`: W11 targeted tests passed: CLI watch reload, Core `PreviewSessionWatcher`, and Protocol watch response serialization.
+- `2026-06-08`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli` passed with 82 tests after W11 live preview file-watch reload.
+- `2026-06-08`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewSessionRegistryTests` passed with 10 tests after W11 live preview file-watch reload.
+- `2026-06-08`: `dotnet test AvaScope.slnx --no-build --filter Protocol` passed with 34 tests after W11 live preview file-watch reload.
+- `2026-06-08`: `dotnet test AvaScope.slnx --no-build` passed with 191 tests after W11 live preview file-watch reload.
+- `2026-06-08`: `git diff --check` passed after W11 live preview file-watch reload.
 - `2026-06-08`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after W12 visual regression workflow.
 - `2026-06-08`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli` passed with 83 tests after W12 visual regression workflow.
 - `2026-06-08`: `dotnet test AvaScope.slnx --no-build --filter Protocol` passed with 35 tests after W12 visual regression workflow.
@@ -58,20 +72,12 @@ Implement W16 distribution hardening by selecting and validating the smallest re
 - `2026-06-08`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewHost` passed with 30 tests after W15 preview startup parity.
 - `2026-06-08`: `dotnet test AvaScope.slnx --no-build` passed with 195 tests after W15 preview startup parity.
 - `2026-06-08`: `git diff --check` passed after W15 preview startup parity.
-- `2026-06-08`: W11 targeted tests passed: CLI watch reload, Core `PreviewSessionWatcher`, and Protocol watch response serialization.
-- `2026-06-08`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli` passed with 82 tests after W11 live preview file-watch reload.
-- `2026-06-08`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewSessionRegistryTests` passed with 10 tests after W11 live preview file-watch reload.
-- `2026-06-08`: `dotnet test AvaScope.slnx --no-build --filter Protocol` passed with 34 tests after W11 live preview file-watch reload.
-- `2026-06-08`: `dotnet test AvaScope.slnx --no-build` passed with 191 tests after W11 live preview file-watch reload.
-- `2026-06-08`: `git diff --check` passed after W11 live preview file-watch reload.
-- `2026-06-08`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli` passed with 81 tests after W10 CLI preview-session workflow.
-- `2026-06-08`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewSessionRegistryTests` passed with 9 tests after W10 CLI preview-session workflow.
-- `2026-06-08`: `dotnet test AvaScope.slnx --no-build` passed with 188 tests after W10 CLI preview-session workflow.
-- `2026-06-08`: `git diff --check` passed after W10 CLI preview-session workflow.
-- `2026-06-08`: W9 targeted tests passed: protocol contract diagnostics/batch/diff/cleanup coverage, PreviewHost binding/resource/layout diagnostics, CLI multi-size preview/contact sheet, CLI screenshot diff, Bridge computed properties, Core preview-session cleanup, and MCP stdio tool listing.
-- `2026-06-08`: `dotnet test AvaScope.slnx --no-build` passed with 186 tests after W9 feature-ticket implementation.
-- `2026-06-08`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-bug-reports.ps1` passed after W9 feature-ticket status updates; 13 intake files scanned.
-- `2026-06-08`: `git diff --check` passed after W9 feature-ticket implementation and documentation updates.
+- `2026-06-08`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1 -RuntimeIdentifiers win-x64 -ExecutablePackageKind self-contained -SkipTests -SkipSampleSmoke` passed after W16 distribution hardening.
+- `2026-06-08`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.1.0 -ExecutableRuntimeIdentifiers win-x64 -ExecutablePackageKind self-contained -DryRun` passed after W16 distribution hardening.
+- `2026-06-08`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1` passed after W16 distribution hardening; Release build/test passed with 195 tests, 5 framework-dependent release artifacts verified, and packaged Windows sample preview smoke passed.
+- `2026-06-08`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-nuget.ps1 -DryRun` passed after W16 distribution hardening.
+- `2026-06-08`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.1.0 -DryRun` passed after W16 distribution hardening.
+- `2026-06-08`: `git check-ignore -v` confirmed regenerated W16 release artifacts remain ignored under `artifacts/`.
 - `2026-06-08`: `dotnet test AvaScope.slnx -c Release --filter FullyQualifiedName~CliSmokeTests.CloseSessionCommandClosesThroughBridgePipe` passed after W8 CI failure hardening.
 - `2026-06-08`: `dotnet test AvaScope.slnx -c Release --no-build` passed with 179 tests after W8 CI failure hardening.
 - `2026-06-08`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.1.0 -DryRun` passed after W8 GitHub Release creation hardening.
@@ -1813,22 +1819,26 @@ Implement W16 distribution hardening by selecting and validating the smallest re
 
 ### W16 Distribution Hardening
 
-- Status: `In Progress`
+- Status: `Done`
 - Goal: harden executable distribution beyond current framework-dependent Windows/Linux ZIPs.
 - Deliverables: self-contained artifact path or explicit decision, macOS artifact policy, installer or no-installer decision, CI/release updates, tests/scripts, documentation, commit, push.
 - Progress:
-  - In Progress: inspect current release scripts, artifact manifest policy, and CI release workflow before selecting the smallest safe distribution hardening slice.
+  - Done: added opt-in self-contained executable ZIP support to local packaging, release verification, local release creation, and GitHub Release asset validation/publish scripts.
+  - Done: kept framework-dependent ZIPs as the default CI/GitHub Release artifact shape.
+  - Done: hardened executable packaging cleanup with output-root process detection and retrying deletion of old package artifacts.
+  - Done: documented self-contained validation/publish commands, installer deferral, and macOS policy deferral.
 - Acceptance Criteria:
-  - Release scripts can produce and verify the selected hardened artifact set.
-  - Artifact manifest covers all generated release artifacts with hashes and sizes.
-  - CI remains credential-safe for validation-only runs.
-  - Documentation clearly distinguishes framework-dependent, self-contained, installer, and deferred distribution paths.
+  - Done: release scripts can produce and verify opt-in self-contained artifacts as well as the default framework-dependent artifact set.
+  - Done: artifact manifest covers all generated release artifacts with hashes, sizes, and executable package kind.
+  - Done: CI remains credential-safe for validation-only runs; default CI/release behavior remains framework-dependent unless the package kind is explicitly changed.
+  - Done: documentation distinguishes framework-dependent defaults, opt-in self-contained artifacts, no-installer status, and deferred macOS/installer policy.
 - Validation:
-  - `dotnet build AvaScope.slnx -c Release`
-  - `dotnet test AvaScope.slnx -c Release --no-build`
-  - `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1`
-  - `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\verify-artifacts.ps1`
-  - `git diff --check`
+  - Passed: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1 -RuntimeIdentifiers win-x64 -ExecutablePackageKind self-contained -SkipTests -SkipSampleSmoke`
+  - Passed: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.1.0 -ExecutableRuntimeIdentifiers win-x64 -ExecutablePackageKind self-contained -DryRun`
+  - Passed: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1`
+  - Passed: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.1.0 -DryRun`
+  - Passed: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-nuget.ps1 -DryRun`
+  - Passed: `git diff --check`
 
 ## Decision Log
 

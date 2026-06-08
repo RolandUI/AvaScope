@@ -2,6 +2,8 @@ param(
     [string]$PackageRoot = "artifacts/packages",
     [string]$ExecutableRoot = "artifacts/executables",
     [string[]]$ExecutableRuntimeIdentifiers = @("win-x64", "linux-x64"),
+    [ValidateSet("framework-dependent", "self-contained")]
+    [string]$ExecutablePackageKind = "framework-dependent",
     [string]$OutputPath = "artifacts/release-manifest.json"
 )
 
@@ -113,7 +115,7 @@ foreach ($runtimeIdentifier in $ExecutableRuntimeIdentifiers) {
 
     $requiredArtifacts += [pscustomobject]@{
         Kind = "executable-zip"
-        Path = Join-Path $executableRootPath "avascope-$runtimeIdentifier-framework-dependent.zip"
+        Path = Join-Path $executableRootPath "avascope-$runtimeIdentifier-$ExecutablePackageKind.zip"
     }
 }
 
@@ -133,7 +135,7 @@ foreach ($artifact in $requiredArtifacts | Where-Object { $_.Kind -eq "executabl
     $expectedExecutableZipNames[(Split-Path -Leaf $artifact.Path)] = $true
 }
 
-Get-ChildItem -LiteralPath $executableRootPath -Filter "avascope-*-framework-dependent.zip" -File | ForEach-Object {
+Get-ChildItem -LiteralPath $executableRootPath -Filter "avascope-*.zip" -File | ForEach-Object {
     if (-not $expectedExecutableZipNames.ContainsKey($_.Name)) {
         throw "Unexpected executable ZIP artifact is not covered by the manifest: $($_.FullName)"
     }
@@ -159,6 +161,7 @@ $manifest = [ordered]@{
     schemaVersion = 1
     product = "AvaScope"
     version = $version
+    executablePackageKind = $ExecutablePackageKind
     artifacts = @($artifacts | Sort-Object kind, name)
 }
 

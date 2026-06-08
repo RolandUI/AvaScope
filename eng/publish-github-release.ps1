@@ -5,6 +5,8 @@ param(
     [string]$ExecutableRoot = "artifacts/executables",
     [string]$ManifestPath = "artifacts/release-manifest.json",
     [string[]]$ExecutableRuntimeIdentifiers = @("win-x64", "linux-x64"),
+    [ValidateSet("framework-dependent", "self-contained")]
+    [string]$ExecutablePackageKind = "framework-dependent",
     [switch]$DryRun
 )
 
@@ -128,7 +130,7 @@ foreach ($runtimeIdentifier in $ExecutableRuntimeIdentifiers) {
         throw "Executable runtime identifier contains unsupported characters: $runtimeIdentifier"
     }
 
-    $assetPaths += Join-Path $executableRootPath "avascope-$runtimeIdentifier-framework-dependent.zip"
+    $assetPaths += Join-Path $executableRootPath "avascope-$runtimeIdentifier-$ExecutablePackageKind.zip"
 }
 
 $assetPaths += $manifestPathValue

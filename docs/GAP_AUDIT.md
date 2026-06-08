@@ -112,19 +112,19 @@ Next slice: defer broader input until a drag/drop, pointer-button, or hardware-l
 
 ### Packaging And Release
 
-Status: first library package metadata slice, RID-based executable ZIP packaging slice, artifact verification manifest slice, post-sample Release validation refresh, and manual NuGet publish workflow complete; broader installer and self-contained distribution remain open.
+Status: first library package metadata slice, RID-based executable ZIP packaging slice, opt-in self-contained ZIP lane, artifact verification manifest slice, post-sample Release validation refresh, and manual NuGet publish workflow complete; broader installer and macOS distribution policy remain open.
 
 `AvaScope.Protocol`, `AvaScope.Core`, and `AvaScope.Bridge` now have package ids, version metadata, descriptions, tags, repository metadata, README inclusion, and local `dotnet pack` validation into ignored `artifacts/packages`. `AvaScope.Mcp`, `AvaScope.Cli`, and `AvaScope.PreviewHost` are explicitly marked not packable in this slice.
 
-Executable distribution now uses `eng/package-executables.ps1` to publish `AvaScope.Cli` into RID-specific framework-dependent output directories and create artifacts such as `artifacts/executables/avascope-win-x64-framework-dependent.zip` and `artifacts/executables/avascope-linux-x64-framework-dependent.zip`. Each artifact keeps `avascope`, `AvaScope.Mcp`, `AvaScope.PreviewHost`, `AvaScope.Core`, and `AvaScope.Protocol` co-located, stays under ignored local output, and does not require publishing credentials.
+Executable distribution now uses `eng/package-executables.ps1` to publish `AvaScope.Cli` into RID-specific output directories and create artifacts such as `artifacts/executables/avascope-win-x64-framework-dependent.zip` and `artifacts/executables/avascope-linux-x64-framework-dependent.zip`. Each artifact keeps `avascope`, `AvaScope.Mcp`, `AvaScope.PreviewHost`, `AvaScope.Core`, and `AvaScope.Protocol` co-located, stays under ignored local output, and does not require publishing credentials. Framework-dependent remains the default package kind, and self-contained ZIPs are available through explicit script parameters.
 
-Artifact verification now uses `eng/verify-artifacts.ps1` to write ignored `artifacts/release-manifest.json` output with artifact kind, name, relative path, byte size, and SHA-256 hash for the three NuGet packages and executable ZIP artifacts. Verification fails when unexpected AvaScope package or executable ZIP artifacts are present outside the manifest-covered set.
+Artifact verification now uses `eng/verify-artifacts.ps1` to write ignored `artifacts/release-manifest.json` output with artifact kind, executable package kind, name, relative path, byte size, and SHA-256 hash for the three NuGet packages and executable ZIP artifacts. Verification fails when unexpected AvaScope package or executable ZIP artifacts are present outside the manifest-covered set.
 
 Release refresh: after adding the getting-started sample and CLI relative path normalization, Release build/test/pack, executable packaging, artifact verification, and packaged-CLI sample preview smoke validation passed. The sample remains `IsPackable=false` and is not part of the release artifact manifest.
 
 NuGet publishing now uses `eng/publish-nuget.ps1` to push the three library packages from `artifacts/packages` in dependency order, with `-DryRun` validation and an API key supplied out of band. GitHub Actions publishes from `master` or `main` when `Directory.Build.props` contains a version with no matching remote `v<Version>` tag. The release workflow creates that tag, publishes those packages to GitHub Packages, and uploads `.nupkg` files, RID executable ZIPs, and the release manifest to the matching GitHub Release.
 
-Next slice: defer self-contained packages, macOS artifact policy, and installer publishing until more product gaps are closed.
+Next slice: keep default GitHub Release assets framework-dependent until release policy changes; defer macOS artifact policy and installer publishing until there is a signing/notarization/installer validation surface.
 
 ### CI Workflow
 

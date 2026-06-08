@@ -28,7 +28,7 @@ This audit is the completion gate for the current public-alpha goal. It records 
 - Drag/drop, richer pointer/key behavior, IME-level text input, and destructive runtime actions are out of the public-alpha tool set.
 - Full project startup/lifetime orchestration for preview is deferred for safety.
 - JSON object design-data injection, dependency injection, remote design data, and long-lived design-data state are deferred.
-- Self-contained packages, macOS artifacts, package feed publishing, installer publishing, and upload automation are deferred.
+- Self-contained executable ZIPs are available through an opt-in local script lane after W16; default GitHub Release assets remain framework-dependent. macOS artifacts, installer publishing, and broader upload automation are deferred.
 - Rich binding/layout/resource diagnostics beyond bounded preview failure context were deferred at M50; W9 later added first slices for preview binding/resource diagnostics, layout warnings, and computed property inspection while deeper private provenance remains deferred.
 
 ## Final M50 Validation Gates

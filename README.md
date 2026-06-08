@@ -74,11 +74,19 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\package-executables.ps
 powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\verify-artifacts.ps1
 ```
 
-The executable package slice produces framework-dependent publish artifacts such as `artifacts\executables\avascope-win-x64-framework-dependent.zip` and `artifacts\executables\avascope-linux-x64-framework-dependent.zip`. Each ZIP contains the `avascope` CLI, `AvaScope.Mcp`, and `AvaScope.PreviewHost` in one directory so `avascope mcp` and preview rendering can find their co-located assemblies. The packages require a compatible local .NET runtime and do not publish to any feed.
+The executable package slice produces framework-dependent publish artifacts by default, such as `artifacts\executables\avascope-win-x64-framework-dependent.zip` and `artifacts\executables\avascope-linux-x64-framework-dependent.zip`. Each ZIP contains the `avascope` CLI, `AvaScope.Mcp`, and `AvaScope.PreviewHost` in one directory so `avascope mcp` and preview rendering can find their co-located assemblies. Framework-dependent packages require a compatible local .NET runtime and do not publish to any feed.
 
-`eng\verify-artifacts.ps1` writes `artifacts\release-manifest.json`, a local ignored JSON manifest with artifact names, relative paths, byte sizes, and SHA-256 hashes for the three NuGet packages plus executable ZIP artifacts.
+Self-contained executable ZIPs are available as an explicit local/package validation lane:
 
-The default executable package targets are `win-x64` and `linux-x64`. Pass `-RuntimeIdentifiers win-x64` or `-ExecutableRuntimeIdentifiers win-x64` to the package and verify scripts when validating a narrower local artifact set.
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1 -RuntimeIdentifiers win-x64 -ExecutablePackageKind self-contained -SkipTests -SkipSampleSmoke
+```
+
+This produces artifacts such as `artifacts\executables\avascope-win-x64-self-contained.zip`. Self-contained ZIPs are not the default CI or release asset set yet; use the package kind parameter intentionally when validating or publishing that artifact shape.
+
+`eng\verify-artifacts.ps1` writes `artifacts\release-manifest.json`, a local ignored JSON manifest with artifact names, relative paths, byte sizes, SHA-256 hashes, and executable package kind for the three NuGet packages plus executable ZIP artifacts.
+
+The default executable package targets are `win-x64` and `linux-x64`. Pass `-RuntimeIdentifiers win-x64` or `-ExecutableRuntimeIdentifiers win-x64` to the package and verify scripts when validating a narrower local artifact set. Pass `-PackageKind self-contained` to `package-executables.ps1`, or `-ExecutablePackageKind self-contained` to `create-local-release.ps1`, `verify-artifacts.ps1`, or `publish-github-release.ps1` when working with the opt-in self-contained lane.
 
 CI validation runs restore, Release build, Release test, local library pack, local executable package, and artifact verification commands in GitHub Actions on pushes and pull requests. It does not publish packages or require secrets.
 
@@ -109,6 +117,8 @@ The same workflow creates or updates the GitHub Release for the tag and uploads 
 - `avascope-linux-x64-framework-dependent.zip`.
 - `release-manifest.json`.
 
+The default workflow publishes framework-dependent executable ZIPs. To manually validate or publish a self-contained GitHub Release asset set, create local artifacts with `-ExecutablePackageKind self-contained` and pass the same package kind to `eng\publish-github-release.ps1`.
+
 Manual local publish is still available when needed. Create and verify the Release artifacts first:
 
 ```powershell
@@ -134,7 +144,7 @@ The workflow can also be run manually. Manual runs validate by default; set `pub
 
 ## Public Alpha Local Install
 
-AvaScope public-alpha executable artifacts are built locally for now; no installer publishing is configured.
+AvaScope public-alpha executable artifacts are built locally for now; no installer publishing is configured. Framework-dependent ZIPs are the default release asset shape; self-contained ZIPs are opt-in local/publish-script artifacts.
 
 Create and verify local Release artifacts:
 

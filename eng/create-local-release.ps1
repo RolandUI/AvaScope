@@ -1,6 +1,8 @@
 param(
     [string]$Configuration = "Release",
     [string[]]$RuntimeIdentifiers = @("win-x64", "linux-x64"),
+    [ValidateSet("framework-dependent", "self-contained")]
+    [string]$ExecutablePackageKind = "framework-dependent",
     [switch]$SkipTests,
     [switch]$SkipSampleSmoke
 )
@@ -90,6 +92,7 @@ try {
     Write-Host "Creating AvaScope local release from: $repoRoot"
     Write-Host "Configuration: $Configuration"
     Write-Host "Runtime identifiers: $($RuntimeIdentifiers -join ', ')"
+    Write-Host "Executable package kind: $ExecutablePackageKind"
 
     Invoke-DotNet -Arguments @("restore", $solutionPath)
     Invoke-DotNet -Arguments @("build", $solutionPath, "-c", $Configuration, "--no-restore")
@@ -122,13 +125,15 @@ try {
 
     & (Join-Path $repoRoot "eng/package-executables.ps1") `
         -Configuration $Configuration `
-        -RuntimeIdentifiers $RuntimeIdentifiers
+        -RuntimeIdentifiers $RuntimeIdentifiers `
+        -PackageKind $ExecutablePackageKind
     if ($LASTEXITCODE -ne 0) {
         throw "eng/package-executables.ps1 failed with exit code $LASTEXITCODE."
     }
 
     & (Join-Path $repoRoot "eng/verify-artifacts.ps1") `
-        -ExecutableRuntimeIdentifiers $RuntimeIdentifiers
+        -ExecutableRuntimeIdentifiers $RuntimeIdentifiers `
+        -ExecutablePackageKind $ExecutablePackageKind
     if ($LASTEXITCODE -ne 0) {
         throw "eng/verify-artifacts.ps1 failed with exit code $LASTEXITCODE."
     }
@@ -137,7 +142,7 @@ try {
         Where-Object { $_.StartsWith("win-", [System.StringComparison]::OrdinalIgnoreCase) } |
         Select-Object -First 1
     if ($winRuntimeIdentifier) {
-        $releaseDirectory = Join-Path $executableRoot "avascope-$winRuntimeIdentifier-framework-dependent"
+        $releaseDirectory = Join-Path $executableRoot "avascope-$winRuntimeIdentifier-$ExecutablePackageKind"
         $releaseExe = Join-Path $releaseDirectory "avascope.exe"
         if (-not (Test-Path -LiteralPath $releaseExe -PathType Leaf)) {
             throw "Packaged Windows avascope.exe was not produced: $releaseExe"
