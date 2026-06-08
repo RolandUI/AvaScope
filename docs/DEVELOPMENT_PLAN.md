@@ -23,19 +23,24 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `W9 Feature Ticket Implementation`
-- Status: `Done`
+- `W11 Live Preview File Watch Reload`
+- Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-08`
-- Goal: implement all stored feature tickets `FEAT-0001` through `FEAT-0007`, plus required protocol, adapter, validation, and documentation support.
+- Goal: add an explicit file-watch workflow for preview sessions that re-renders through isolated PreviewHost child processes when watched files change.
 
 ## Next Action
 
-Select the next post-W9 product slice only after a new user request or explicit plan update.
+Implement W11 live preview file-watch reload using the existing persistent preview-session store and isolated PreviewHost reload path.
 
 ## Latest Validation
 
 - `2026-06-08`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after W9 feature-ticket implementation.
+- `2026-06-08`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after W10 CLI preview-session workflow.
+- `2026-06-08`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli` passed with 81 tests after W10 CLI preview-session workflow.
+- `2026-06-08`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewSessionRegistryTests` passed with 9 tests after W10 CLI preview-session workflow.
+- `2026-06-08`: `dotnet test AvaScope.slnx --no-build` passed with 188 tests after W10 CLI preview-session workflow.
+- `2026-06-08`: `git diff --check` passed after W10 CLI preview-session workflow.
 - `2026-06-08`: W9 targeted tests passed: protocol contract diagnostics/batch/diff/cleanup coverage, PreviewHost binding/resource/layout diagnostics, CLI multi-size preview/contact sheet, CLI screenshot diff, Bridge computed properties, Core preview-session cleanup, and MCP stdio tool listing.
 - `2026-06-08`: `dotnet test AvaScope.slnx --no-build` passed with 186 tests after W9 feature-ticket implementation.
 - `2026-06-08`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-bug-reports.ps1` passed after W9 feature-ticket status updates; 13 intake files scanned.
@@ -1640,6 +1645,135 @@ Select the next post-W9 product slice only after a new user request or explicit 
   - `dotnet test AvaScope.slnx --no-build --filter Mcp`
   - `dotnet test AvaScope.slnx --no-build`
   - `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-bug-reports.ps1`
+  - `git diff --check`
+
+### W10 CLI Preview Session Workflow
+
+- Status: `Done`
+- Goal: make durable preview sessions available from `avascope` without requiring an MCP client.
+- Deliverables: CLI `create-preview-session`, `list-preview-sessions`, `reload-preview-session` or compatible reload path, `close-preview-session`, README/validation updates, tests, commit, push.
+- Progress:
+  - Done: inspected current Core preview-session registry/store and CLI command routing.
+  - Done: added CLI `create-preview-session`, `list-preview-sessions`, `reload-preview-session`, and `close-preview-session`.
+  - Done: added `AVASCOPE_PREVIEW_SESSION_STORE` override for deterministic local/test store isolation.
+  - Done: added CLI smoke coverage for persisted create/list/reload/close and missing preview-session errors.
+  - Done: updated README, validation guide, and gap audit.
+  - Done: build, targeted CLI/Core tests, full-suite validation, and diff-check passed.
+- Acceptance Criteria:
+  - CLI can create a preview-session record from project/view/output/theme/culture/design-data arguments and return `ToolResult<PreviewSessionSummary>`.
+  - CLI can list persisted preview-session records after a new CLI process starts.
+  - CLI can reload an active persisted preview session and update its latest render result.
+  - CLI can close a persisted preview session and return structured errors for missing or invalid ids.
+  - Existing runtime `reload --session` behavior remains compatible.
+  - Preview sessions remain metadata records; CLI does not keep user project code loaded.
+- Validation:
+  - `dotnet build AvaScope.slnx`
+  - `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli`
+  - `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewSessionRegistryTests`
+  - `dotnet test AvaScope.slnx --no-build`
+  - `git diff --check`
+
+### W11 Live Preview File Watch Reload
+
+- Status: `In Progress`
+- Goal: add an explicit file-watch workflow for preview sessions that re-renders through isolated PreviewHost child processes when watched project or AXAML files change.
+- Deliverables: Core watch orchestration, CLI watch command, bounded event/debounce behavior, tests, documentation, commit, push.
+- Progress:
+  - In Progress: build on W10 CLI preview-session commands and existing isolated reload path.
+- Acceptance Criteria:
+  - Watch mode requires an existing preview-session id and explicit timeout or stop behavior for testability.
+  - File changes trigger preview-session reload without keeping user code loaded in the CLI process.
+  - Rapid changes are debounced and reported as bounded structured events.
+  - Watch output remains local-only and does not alter baselines automatically.
+- Validation:
+  - `dotnet build AvaScope.slnx`
+  - `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli`
+  - `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Core`
+  - `dotnet test AvaScope.slnx --no-build`
+  - `git diff --check`
+
+### W12 Visual Regression Workflow
+
+- Status: `Not Started`
+- Goal: layer baseline-set creation and checking over the existing multi-size preview and screenshot diff primitives.
+- Deliverables: baseline manifest protocol/Core model, CLI baseline create/check commands, deterministic artifacts, CI-friendly exit codes, tests, documentation, commit, push.
+- Acceptance Criteria:
+  - Baseline creation records explicit project/view/theme/culture/DPI/size metadata and image paths.
+  - Baseline checking re-renders the requested variants, compares images with tolerance, and writes explicit diff artifacts.
+  - Changed baselines return non-zero CLI exit codes while preserving structured results.
+  - No command mutates or replaces baselines unless explicitly named as a create/update operation.
+- Validation:
+  - `dotnet build AvaScope.slnx`
+  - `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli`
+  - `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Core`
+  - `dotnet test AvaScope.slnx --no-build`
+  - `git diff --check`
+
+### W13 Deeper Diagnostics
+
+- Status: `Not Started`
+- Goal: improve preview/runtime diagnostics beyond W9 while staying on public Avalonia APIs or documented logging hooks.
+- Deliverables: deeper binding/resource/style diagnostics where reliable, bounded protocol fields, tests, documentation, commit, push.
+- Acceptance Criteria:
+  - Diagnostics do not rely on private Avalonia internals or unsupported reflection over runtime engine state.
+  - Compiled binding, binding error, resource-chain, or style provenance signals are added only where source-backed public APIs make them reliable.
+  - Unsupported or unavailable details return explicit `unknown` or `not_available` values.
+  - Diagnostics remain bounded and advisory unless rendering itself fails.
+- Validation:
+  - `dotnet build AvaScope.slnx`
+  - `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewHost`
+  - `dotnet test AvaScope.slnx --no-build --filter Bridge`
+  - `dotnet test AvaScope.slnx --no-build`
+  - `git diff --check`
+
+### W14 Richer Runtime Input
+
+- Status: `Not Started`
+- Goal: expand local runtime input beyond the current pointer/key/focus subset while preserving non-destructive local-only safety.
+- Deliverables: richer pointer button state, drag/drop or text-input improvements where public Avalonia APIs allow, tests, documentation, commit, push.
+- Acceptance Criteria:
+  - New input actions are explicit protocol constants and reject invalid argument combinations.
+  - Runtime input stays local-only and does not introduce destructive actions.
+  - Headless bridge tests cover successful and invalid input paths.
+  - Unsupported platform/input cases return structured errors.
+- Validation:
+  - `dotnet build AvaScope.slnx`
+  - `dotnet test AvaScope.slnx --no-build --filter Bridge`
+  - `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli`
+  - `dotnet test AvaScope.slnx --no-build`
+  - `git diff --check`
+
+### W15 Preview Startup Parity
+
+- Status: `Not Started`
+- Goal: safely improve PreviewHost startup parity for real Avalonia projects without weakening the isolated child-process boundary.
+- Deliverables: audited startup/lifetime expansion, opt-in behavior where needed, tests, documentation, commit, push.
+- Acceptance Criteria:
+  - Default preview remains isolated and does not unexpectedly run app lifetime hooks that create windows or start services.
+  - Any broader startup behavior is explicit, documented, and covered by failure diagnostics.
+  - PreviewHost keeps user code out of MCP/CLI processes.
+  - Existing App.axaml resource/style/data-template behavior remains compatible.
+- Validation:
+  - `dotnet build AvaScope.slnx`
+  - `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewHost`
+  - `dotnet test AvaScope.slnx --no-build`
+  - `git diff --check`
+
+### W16 Distribution Hardening
+
+- Status: `Not Started`
+- Goal: harden executable distribution beyond current framework-dependent Windows/Linux ZIPs.
+- Deliverables: self-contained artifact path or explicit decision, macOS artifact policy, installer or no-installer decision, CI/release updates, tests/scripts, documentation, commit, push.
+- Acceptance Criteria:
+  - Release scripts can produce and verify the selected hardened artifact set.
+  - Artifact manifest covers all generated release artifacts with hashes and sizes.
+  - CI remains credential-safe for validation-only runs.
+  - Documentation clearly distinguishes framework-dependent, self-contained, installer, and deferred distribution paths.
+- Validation:
+  - `dotnet build AvaScope.slnx -c Release`
+  - `dotnet test AvaScope.slnx -c Release --no-build`
+  - `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1`
+  - `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\verify-artifacts.ps1`
   - `git diff --check`
 
 ## Decision Log

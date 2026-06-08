@@ -207,6 +207,17 @@ dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll preview path\to\App.csp
 
 The command writes a structured JSON `ToolResult<PreviewBatchResponse>`. Each `entries[]` item has a deterministic per-size output path and an independent `ToolResult<PreviewResponse>`, so one failed size does not discard successful screenshots.
 
+Create and manage durable preview sessions from the CLI:
+
+```powershell
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll create-preview-session path\to\App.csproj --view Views\MainView.axaml --out .\preview.png --width 1440 --height 900 --theme light --display-name "Main preview"
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll list-preview-sessions
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll reload-preview-session --session <preview-session-id>
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll close-preview-session --session <preview-session-id>
+```
+
+Preview-session CLI commands persist metadata in the same local AvaScope preview-session store used by MCP. They store the original request and latest render result, then re-render through `AvaScope.PreviewHost` child processes on reload.
+
 Start the MCP server through the CLI:
 
 ```powershell
@@ -294,6 +305,7 @@ dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll reload --session sessio
 ```
 
 Runtime bridge reload currently returns an explicit `runtime_reload_not_supported` result after verifying the local bridge session is active. CLI preview renders are one-shot and are not persisted across CLI processes.
+Use `create-preview-session` when a CLI workflow needs persisted preview-session metadata and reload support across CLI processes.
 
 After creating or extracting the local executable package, the same command shape can be run from the artifact directory:
 
@@ -385,9 +397,9 @@ Preview rendering is isolated in `AvaScope.PreviewHost`, launched as a child pro
 
 Successful preview responses can include diagnostics for missing `DataContext`, unresolved resource keys, missing or invalid converter resources, conservative binding path failures, text clipping/truncation, clipped content, unreachable content, sibling overlap, and too-small hit targets. These diagnostics are advisory and do not fail an otherwise successful screenshot.
 
-Preview session tools store the original preview request plus the latest render result as Core metadata. MCP-backed preview session records are also persisted as JSON under the local AvaScope temp preview-session store so they can be restored after the MCP server process restarts. They do not keep user project code loaded inside MCP; each render still goes through `AvaScope.PreviewHost`.
+Preview session tools store the original preview request plus the latest render result as Core metadata. MCP-backed and CLI-created preview session records are also persisted as JSON under the local AvaScope temp preview-session store so they can be restored after the MCP server or CLI process restarts. They do not keep user project code loaded inside MCP or CLI; each render still goes through `AvaScope.PreviewHost`.
 
-`reload` re-runs stored preview-session requests through the isolated preview host and updates the existing session's latest render result. Runtime bridge session ids are health-checked locally and return `runtime_reload_not_supported`; AvaScope does not restart apps, inject code, or claim runtime hot reload. CLI preview renders remain one-shot unless a future CLI command creates durable preview session records explicitly.
+`reload` re-runs stored preview-session requests through the isolated preview host and updates the existing session's latest render result. Runtime bridge session ids are health-checked locally and return `runtime_reload_not_supported`; AvaScope does not restart apps, inject code, or claim runtime hot reload. The one-shot CLI `preview` command remains one-shot; CLI preview-session commands provide the durable preview path.
 
 Current preview limitations:
 

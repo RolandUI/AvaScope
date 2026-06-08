@@ -47,6 +47,13 @@ For CLI work, also run:
 dotnet test AvaScope.slnx --filter FullyQualifiedName~Cli
 ```
 
+For CLI preview-session work, include the persistent-session smoke path:
+
+```powershell
+dotnet test AvaScope.slnx --filter FullyQualifiedName~CliSmokeTests.PreviewSessionCommandsCreateListReloadAndClosePersistedSession
+dotnet test AvaScope.slnx --filter FullyQualifiedName~CliSmokeTests.ReloadPreviewSessionCommandReturnsStructuredErrorWhenNoPreviewSessionMatches
+```
+
 For feature-ticket work covering preview diagnostics, computed inspection, multi-size preview, diff, or cleanup, run the targeted smoke checks first and then the full suite:
 
 ```powershell

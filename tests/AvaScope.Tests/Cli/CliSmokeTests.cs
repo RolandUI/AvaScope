@@ -230,6 +230,176 @@ public sealed class CliSmokeTests
     }
 
     [Fact]
+    public async Task PreviewSessionCommandsCreateListReloadAndClosePersistedSession()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var testRoot = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(testRoot);
+
+        var storePath = Path.Combine(testRoot, "preview-sessions");
+        var environment = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            [PreviewSessionStore.DirectoryEnvironmentVariable] = storePath
+        };
+        var projectPath = Path.Combine(testRoot, "CliPreviewSessionSample.csproj");
+        var viewPath = Path.Combine(testRoot, "MainView.axaml");
+        var outputPath = Path.Combine(testRoot, "session-preview.png");
+
+        await File.WriteAllTextAsync(projectPath, """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+              </PropertyGroup>
+            </Project>
+            """);
+
+        await File.WriteAllTextAsync(viewPath, """
+            <UserControl xmlns="https://github.com/avaloniaui">
+              <Border Background="#FFFFFFFF">
+                <TextBlock Text="CLI preview session smoke" />
+              </Border>
+            </UserControl>
+            """);
+
+        try
+        {
+            var created = await RunCliAsyncWithEnvironment(
+                environment,
+                cliAssembly,
+                "create-preview-session",
+                projectPath,
+                "--view",
+                viewPath,
+                "--out",
+                outputPath,
+                "--width",
+                "220",
+                "--height",
+                "140",
+                "--display-name",
+                "CLI persisted preview");
+
+            Assert.Equal(0, created.ExitCode);
+            Assert.True(string.IsNullOrWhiteSpace(created.StandardError), created.StandardError);
+
+            var createdPayload = JsonSerializer.Deserialize<ToolResult<PreviewSessionSummary>>(
+                created.StandardOutput,
+                JsonOptions);
+            Assert.NotNull(createdPayload);
+            Assert.True(createdPayload.Success, createdPayload.Error?.Message);
+            Assert.Equal("CLI persisted preview", createdPayload.Value!.Session.DisplayName);
+            Assert.Equal(SessionStates.Active, createdPayload.Value.Session.State);
+            Assert.True(createdPayload.Value.LastRender.Success, createdPayload.Value.LastRender.Error?.Message);
+            Assert.True(File.Exists(createdPayload.Value.LastRender.Value!.FilePath));
+
+            var sessionId = createdPayload.Value.Session.SessionId.Value;
+            var listed = await RunCliAsyncWithEnvironment(
+                environment,
+                cliAssembly,
+                "list-preview-sessions");
+
+            Assert.Equal(0, listed.ExitCode);
+            var listedPayload = JsonSerializer.Deserialize<ToolResult<ListPreviewSessionsResponse>>(
+                listed.StandardOutput,
+                JsonOptions);
+            Assert.NotNull(listedPayload);
+            Assert.True(listedPayload.Success, listedPayload.Error?.Message);
+            var listedSession = Assert.Single(listedPayload.Value!.Sessions);
+            Assert.Equal(sessionId, listedSession.Session.SessionId.Value);
+
+            var reloaded = await RunCliAsyncWithEnvironment(
+                environment,
+                cliAssembly,
+                "reload-preview-session",
+                "--session",
+                sessionId);
+
+            Assert.Equal(0, reloaded.ExitCode);
+            var reloadedPayload = JsonSerializer.Deserialize<ToolResult<PreviewSessionSummary>>(
+                reloaded.StandardOutput,
+                JsonOptions);
+            Assert.NotNull(reloadedPayload);
+            Assert.True(reloadedPayload.Success, reloadedPayload.Error?.Message);
+            Assert.Equal(SessionStates.Active, reloadedPayload.Value!.Session.State);
+            Assert.True(reloadedPayload.Value.LastRender.Success, reloadedPayload.Value.LastRender.Error?.Message);
+
+            var closed = await RunCliAsyncWithEnvironment(
+                environment,
+                cliAssembly,
+                "close-preview-session",
+                "--session",
+                sessionId);
+
+            Assert.Equal(0, closed.ExitCode);
+            var closedPayload = JsonSerializer.Deserialize<ToolResult<PreviewSessionSummary>>(
+                closed.StandardOutput,
+                JsonOptions);
+            Assert.NotNull(closedPayload);
+            Assert.True(closedPayload.Success, closedPayload.Error?.Message);
+            Assert.Equal(SessionStates.Closed, closedPayload.Value!.Session.State);
+
+            var listedAfterClose = await RunCliAsyncWithEnvironment(
+                environment,
+                cliAssembly,
+                "list-preview-sessions");
+            var listedAfterClosePayload = JsonSerializer.Deserialize<ToolResult<ListPreviewSessionsResponse>>(
+                listedAfterClose.StandardOutput,
+                JsonOptions);
+            Assert.NotNull(listedAfterClosePayload);
+            Assert.Equal(SessionStates.Closed, Assert.Single(listedAfterClosePayload.Value!.Sessions).Session.State);
+        }
+        finally
+        {
+            if (Directory.Exists(testRoot))
+            {
+                Directory.Delete(testRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task ReloadPreviewSessionCommandReturnsStructuredErrorWhenNoPreviewSessionMatches()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var testRoot = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));
+        var environment = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            [PreviewSessionStore.DirectoryEnvironmentVariable] = Path.Combine(testRoot, "preview-sessions")
+        };
+
+        try
+        {
+            var result = await RunCliAsyncWithEnvironment(
+                environment,
+                cliAssembly,
+                "reload-preview-session",
+                "--session",
+                "missing");
+
+            Assert.Equal(1, result.ExitCode);
+            Assert.True(string.IsNullOrWhiteSpace(result.StandardError), result.StandardError);
+
+            var payload = JsonSerializer.Deserialize<ToolResult<PreviewSessionSummary>>(
+                result.StandardOutput,
+                JsonOptions);
+            Assert.NotNull(payload);
+            Assert.False(payload.Success);
+            Assert.Equal(CoreErrorCodes.SessionNotFound, payload.Error!.Code);
+        }
+        finally
+        {
+            if (Directory.Exists(testRoot))
+            {
+                Directory.Delete(testRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
     public async Task PreviewCommandResolvesRelativeProjectAndOutputPathsFromCallerWorkingDirectory()
     {
         var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
@@ -1786,6 +1956,14 @@ public sealed class CliSmokeTests
         return await RunCliAsyncFromDirectory(AppContext.BaseDirectory, cliAssembly, arguments);
     }
 
+    private static async Task<CliResult> RunCliAsyncWithEnvironment(
+        IReadOnlyDictionary<string, string> environment,
+        string cliAssembly,
+        params string[] arguments)
+    {
+        return await RunCliAsyncFromDirectory(AppContext.BaseDirectory, cliAssembly, environment, arguments);
+    }
+
     private static void WriteSolidImage(string path, SKColor color, SKColor? changedPixel = null)
     {
         using var bitmap = new SKBitmap(4, 4);
@@ -1806,6 +1984,15 @@ public sealed class CliSmokeTests
         string cliAssembly,
         params string[] arguments)
     {
+        return await RunCliAsyncFromDirectory(workingDirectory, cliAssembly, environment: null, arguments);
+    }
+
+    private static async Task<CliResult> RunCliAsyncFromDirectory(
+        string workingDirectory,
+        string cliAssembly,
+        IReadOnlyDictionary<string, string>? environment,
+        params string[] arguments)
+    {
         using var process = new Process
         {
             StartInfo = new ProcessStartInfo
@@ -1817,6 +2004,14 @@ public sealed class CliSmokeTests
                 UseShellExecute = false
             }
         };
+
+        if (environment is not null)
+        {
+            foreach (var item in environment)
+            {
+                process.StartInfo.Environment[item.Key] = item.Value;
+            }
+        }
 
         process.StartInfo.ArgumentList.Add(cliAssembly);
         foreach (var argument in arguments)

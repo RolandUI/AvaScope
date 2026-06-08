@@ -6,6 +6,7 @@ namespace AvaScope.Core;
 
 public sealed class PreviewSessionStore
 {
+    public const string DirectoryEnvironmentVariable = "AVASCOPE_PREVIEW_SESSION_STORE";
     private const string RootDirectoryName = "AvaScope";
     private const string SessionDirectoryName = "preview-sessions";
     private const int MaximumDiagnosticRecords = 100;
@@ -30,7 +31,10 @@ public sealed class PreviewSessionStore
 
     public static string GetDefaultDirectory()
     {
-        return Path.Combine(Path.GetTempPath(), RootDirectoryName, SessionDirectoryName);
+        var configuredDirectory = Environment.GetEnvironmentVariable(DirectoryEnvironmentVariable);
+        return string.IsNullOrWhiteSpace(configuredDirectory)
+            ? Path.Combine(Path.GetTempPath(), RootDirectoryName, SessionDirectoryName)
+            : configuredDirectory;
     }
 
     public IReadOnlyList<PreviewSessionSummary> Load()

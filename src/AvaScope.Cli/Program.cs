@@ -32,6 +32,10 @@ internal static class Program
             "close-session" => await CloseSession(args[1..]),
             "diagnostics" => await Diagnostics(args[1..]),
             "reload" => await Reload(args[1..]),
+            "create-preview-session" => await CreatePreviewSession(args[1..]),
+            "list-preview-sessions" => ListPreviewSessions(args[1..]),
+            "reload-preview-session" => await ReloadPreviewSession(args[1..]),
+            "close-preview-session" => ClosePreviewSession(args[1..]),
             "cleanup" => Cleanup(args[1..]),
             "diff" => Diff(args[1..]),
             "mcp" => await Mcp(),
@@ -103,62 +107,16 @@ internal static class Program
             return 2;
         }
 
-        if (!options.Values.TryGetValue("view", out var viewPath)
-            || !options.Values.TryGetValue("out", out var outputPath))
+        if (!options.Values.TryGetValue("view", out _)
+            || !options.Values.TryGetValue("out", out _))
         {
             WriteFailure(InvalidCliArguments, GetPreviewUsage());
             return 2;
         }
 
-        double? width = null;
-        if (options.Values.TryGetValue("width", out var widthText))
+        if (!TryCreatePreviewRequest(projectPath, options.Values, out var request, out var error))
         {
-            if (!TryParsePositiveDouble(widthText, out var parsedWidth))
-            {
-                WriteFailure(InvalidCliArguments, "Width, height, and dpi must be positive numbers.");
-                return 2;
-            }
-
-            width = parsedWidth;
-        }
-
-        double? height = null;
-        if (options.Values.TryGetValue("height", out var heightText))
-        {
-            if (!TryParsePositiveDouble(heightText, out var parsedHeight))
-            {
-                WriteFailure(InvalidCliArguments, "Width, height, and dpi must be positive numbers.");
-                return 2;
-            }
-
-            height = parsedHeight;
-        }
-
-        if (!TryParsePositiveDouble(options.Values.GetValueOrDefault("dpi", "96"), out var dpi))
-        {
-            WriteFailure(InvalidCliArguments, "Width, height, and dpi must be positive numbers.");
-            return 2;
-        }
-
-        PreviewRequest request;
-        try
-        {
-            projectPath = Path.GetFullPath(projectPath);
-            outputPath = Path.GetFullPath(outputPath);
-            request = new PreviewRequest(
-                outputPath,
-                width,
-                height,
-                dpi,
-                projectPath,
-                viewPath,
-                options.Values.GetValueOrDefault("theme"),
-                options.Values.GetValueOrDefault("culture"),
-                options.Values.GetValueOrDefault("design-data-type"));
-        }
-        catch (Exception exception) when (exception is ArgumentException or ArgumentOutOfRangeException or PathTooLongException)
-        {
-            WriteFailure(CoreErrorCodes.InvalidPreviewRequest, exception.Message);
+            WriteResult(ToolResult<PreviewResponse>.Fail(error!));
             return 2;
         }
 
@@ -172,7 +130,7 @@ internal static class Program
             }
 
             var batchResult = await previewHostClient.RenderBatchAsync(
-                request,
+                request!,
                 viewports!,
                 options.Values.TryGetValue("contact-sheet", out var contactSheetPath)
                     ? Path.GetFullPath(contactSheetPath)
@@ -189,7 +147,7 @@ internal static class Program
                 : 1;
         }
 
-        var result = await previewHostClient.RenderAsync(request);
+        var result = await previewHostClient.RenderAsync(request!);
         WriteResult(result.Success
             ? ToolResult<PreviewResponse>.Ok(result.Value!)
             : ToolResult<PreviewResponse>.Fail(new ProtocolError(
@@ -198,6 +156,192 @@ internal static class Program
                 result.Error.Details)));
 
         return result.Success ? 0 : 1;
+    }
+
+    private static bool TryCreatePreviewRequest(
+        string projectPath,
+        IReadOnlyDictionary<string, string> options,
+        out PreviewRequest? request,
+        out ProtocolError? error)
+    {
+        request = null;
+        error = null;
+
+        double? width = null;
+        if (options.TryGetValue("width", out var widthText))
+        {
+            if (!TryParsePositiveDouble(widthText, out var parsedWidth))
+            {
+                error = new ProtocolError(
+                    InvalidCliArguments,
+                    "Width, height, and dpi must be positive numbers.");
+                return false;
+            }
+
+            width = parsedWidth;
+        }
+
+        double? height = null;
+        if (options.TryGetValue("height", out var heightText))
+        {
+            if (!TryParsePositiveDouble(heightText, out var parsedHeight))
+            {
+                error = new ProtocolError(
+                    InvalidCliArguments,
+                    "Width, height, and dpi must be positive numbers.");
+                return false;
+            }
+
+            height = parsedHeight;
+        }
+
+        if (!TryParsePositiveDouble(options.GetValueOrDefault("dpi", "96"), out var dpi))
+        {
+            error = new ProtocolError(
+                InvalidCliArguments,
+                "Width, height, and dpi must be positive numbers.");
+            return false;
+        }
+
+        try
+        {
+            request = new PreviewRequest(
+                Path.GetFullPath(options["out"]),
+                width,
+                height,
+                dpi,
+                Path.GetFullPath(projectPath),
+                options["view"],
+                options.GetValueOrDefault("theme"),
+                options.GetValueOrDefault("culture"),
+                options.GetValueOrDefault("design-data-type"));
+            return true;
+        }
+        catch (Exception exception) when (exception is ArgumentException or ArgumentOutOfRangeException or PathTooLongException)
+        {
+            error = new ProtocolError(CoreErrorCodes.InvalidPreviewRequest, exception.Message);
+            return false;
+        }
+    }
+
+    private static async Task<int> CreatePreviewSession(string[] args)
+    {
+        if (args.Length == 0)
+        {
+            WriteFailure<PreviewSessionSummary>(InvalidCliArguments, GetCreatePreviewSessionUsage());
+            return 2;
+        }
+
+        var projectPath = args[0];
+        var options = ParseOptions(args[1..], GetCreatePreviewSessionUsage());
+        if (!options.Success)
+        {
+            WriteFailure<PreviewSessionSummary>(InvalidCliArguments, options.Error!);
+            return 2;
+        }
+
+        if (!ValidateOptions(
+                options.Values,
+                GetCreatePreviewSessionUsage(),
+                "view",
+                "out",
+                "width",
+                "height",
+                "dpi",
+                "theme",
+                "culture",
+                "design-data-type",
+                "display-name"))
+        {
+            return 2;
+        }
+
+        if (!options.Values.TryGetValue("view", out _)
+            || !options.Values.TryGetValue("out", out _))
+        {
+            WriteFailure<PreviewSessionSummary>(InvalidCliArguments, GetCreatePreviewSessionUsage());
+            return 2;
+        }
+
+        if (!TryCreatePreviewRequest(projectPath, options.Values, out var request, out var error))
+        {
+            WriteResult(ToolResult<PreviewSessionSummary>.Fail(error!));
+            return 2;
+        }
+
+        var result = await CreatePreviewSessionRegistry().CreateAsync(
+            request!,
+            options.Values.GetValueOrDefault("display-name"));
+        WriteResult(result);
+        return result.Success ? 0 : 1;
+    }
+
+    private static int ListPreviewSessions(string[] args)
+    {
+        var options = ParseOptions(args, GetListPreviewSessionsUsage());
+        if (!options.Success)
+        {
+            WriteFailure<ListPreviewSessionsResponse>(InvalidCliArguments, options.Error!);
+            return 2;
+        }
+
+        if (!ValidateOptions(options.Values, GetListPreviewSessionsUsage()))
+        {
+            return 2;
+        }
+
+        WriteResult(ToolResult<ListPreviewSessionsResponse>.Ok(new ListPreviewSessionsResponse(
+            CreatePreviewSessionRegistry().List())));
+        return 0;
+    }
+
+    private static async Task<int> ReloadPreviewSession(string[] args)
+    {
+        var options = ParseOptions(args, GetReloadPreviewSessionUsage());
+        if (!options.Success)
+        {
+            WriteFailure<PreviewSessionSummary>(InvalidCliArguments, options.Error!);
+            return 2;
+        }
+
+        if (!ValidateOptions(options.Values, GetReloadPreviewSessionUsage(), "session")
+            || !TryReadRequiredSessionId(options.Values, GetReloadPreviewSessionUsage(), out var sessionId))
+        {
+            return 2;
+        }
+
+        var result = await CreatePreviewSessionRegistry().ReloadAsync(sessionId!);
+        WriteResult(result);
+        return result.Success ? 0 : 1;
+    }
+
+    private static int ClosePreviewSession(string[] args)
+    {
+        var options = ParseOptions(args, GetClosePreviewSessionUsage());
+        if (!options.Success)
+        {
+            WriteFailure<PreviewSessionSummary>(InvalidCliArguments, options.Error!);
+            return 2;
+        }
+
+        if (!ValidateOptions(options.Values, GetClosePreviewSessionUsage(), "session")
+            || !TryReadRequiredSessionId(options.Values, GetClosePreviewSessionUsage(), out var sessionId))
+        {
+            return 2;
+        }
+
+        var result = CreatePreviewSessionRegistry().Close(sessionId!);
+        WriteResult(result);
+        return result.Success ? 0 : 1;
+    }
+
+    private static PreviewSessionRegistry CreatePreviewSessionRegistry()
+    {
+        return new PreviewSessionRegistry(
+            new SessionRegistry(),
+            new PreviewHostClient(),
+            TimeProvider.System,
+            PreviewSessionStore.CreateDefault());
     }
 
     private static async Task<int> Attach(string[] args)
@@ -918,12 +1062,32 @@ internal static class Program
 
     private static string GetUsage()
     {
-        return "Usage: avascope mcp | avascope attach [--process <pid>] [--session <session-id>] | avascope list-top-levels --session <session-id> | avascope visual-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] | avascope logical-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] | avascope inspect-node --session <session-id> --top-level <top-level-id> --node <node-id> [--tree-kind visual|logical] | avascope find-nodes --session <session-id> --top-level <top-level-id> [--tree-kind visual|logical] [--type <type>] [--name <name>] [--automation-id <id>] [--text <text>] [--max-depth <n>] [--max-results <n>] | avascope input --session <session-id> --top-level <top-level-id> --action <action> [--x <x>] [--y <y>] [--text <text>] [--target-node <node-id>] [--key <key>] [--modifiers <modifiers>] | avascope close-session --session <session-id> | avascope diagnostics [--process <pid>] [--session <session-id>] [--max-sessions <n>] | avascope reload --session <session-id> | avascope cleanup | avascope diff --baseline <baseline.png> --current <current.png> --out <diff.png> [--tolerance <0-255>] | avascope screenshot --session <session-id> --top-level <top-level-id> --out <screenshot.png> | avascope preview <project.csproj> --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--sizes <w>x<h>[,<w>x<h>...]] [--contact-sheet <sheet.png>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>]";
+        return "Usage: avascope mcp | avascope attach [--process <pid>] [--session <session-id>] | avascope list-top-levels --session <session-id> | avascope visual-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] | avascope logical-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] | avascope inspect-node --session <session-id> --top-level <top-level-id> --node <node-id> [--tree-kind visual|logical] | avascope find-nodes --session <session-id> --top-level <top-level-id> [--tree-kind visual|logical] [--type <type>] [--name <name>] [--automation-id <id>] [--text <text>] [--max-depth <n>] [--max-results <n>] | avascope input --session <session-id> --top-level <top-level-id> --action <action> [--x <x>] [--y <y>] [--text <text>] [--target-node <node-id>] [--key <key>] [--modifiers <modifiers>] | avascope close-session --session <session-id> | avascope diagnostics [--process <pid>] [--session <session-id>] [--max-sessions <n>] | avascope reload --session <session-id> | avascope create-preview-session <project.csproj> --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] [--display-name <name>] | avascope list-preview-sessions | avascope reload-preview-session --session <session-id> | avascope close-preview-session --session <session-id> | avascope cleanup | avascope diff --baseline <baseline.png> --current <current.png> --out <diff.png> [--tolerance <0-255>] | avascope screenshot --session <session-id> --top-level <top-level-id> --out <screenshot.png> | avascope preview <project.csproj> --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--sizes <w>x<h>[,<w>x<h>...]] [--contact-sheet <sheet.png>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>]";
     }
 
     private static string GetPreviewUsage()
     {
         return "Usage: avascope preview <project.csproj> --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--sizes <w>x<h>[,<w>x<h>...]] [--contact-sheet <sheet.png>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>]";
+    }
+
+    private static string GetCreatePreviewSessionUsage()
+    {
+        return "Usage: avascope create-preview-session <project.csproj> --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] [--display-name <name>]";
+    }
+
+    private static string GetListPreviewSessionsUsage()
+    {
+        return "Usage: avascope list-preview-sessions";
+    }
+
+    private static string GetReloadPreviewSessionUsage()
+    {
+        return "Usage: avascope reload-preview-session --session <session-id>";
+    }
+
+    private static string GetClosePreviewSessionUsage()
+    {
+        return "Usage: avascope close-preview-session --session <session-id>";
     }
 
     private static string GetAttachUsage()
