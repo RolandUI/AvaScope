@@ -35,6 +35,7 @@ Store future user-provided bug reports as sanitized ledger entries. Do not start
 
 ## Latest Validation
 
+- `2026-06-08`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-bug-reports.ps1` passed after storing `BUG-0002`; 4 bug report files scanned.
 - `2026-06-08`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-bug-reports.ps1` passed after creating the sanitized bug report ledger.
 - `2026-06-06`: `dotnet restore AvaScope.slnx` passed.
 - `2026-06-06`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors.
@@ -1391,6 +1392,7 @@ Store future user-provided bug reports as sanitized ledger entries. Do not start
   - Done: created `docs/BUG_REPORTS.md` as the report index and storage rules.
   - Done: created `docs/bug-reports/` for sanitized per-bug records.
   - Done: recorded `BUG-0001` for the PreviewHost `Window` root rendering failure without starting the fix.
+  - Done: recorded `BUG-0002` for ignored Avalonia design-time `DataContext` metadata without starting the fix.
   - Done: added `eng/validate-bug-reports.ps1` to reject local absolute paths, home-directory paths, emails, secret assignments, and the current local username in bug report files.
   - Ongoing: store future reports only after sanitizing personal data and paths.
 - Acceptance Criteria:
@@ -1588,3 +1590,4 @@ Store future user-provided bug reports as sanitized ledger entries. Do not start
 - `2026-06-07`: Completed M49 runtime safety boundary audit with explicit local-only manifest scope, current-user local pipe server option, unsupported transport manifest diagnostics, README/sample README safety documentation, focused tests, and full-suite validation; added M50 public-alpha completion audit as the active focus.
 - `2026-06-07`: Completed M50 public-alpha completion audit with `docs/PUBLIC_ALPHA_AUDIT.md`, local install and validation documentation updates, final Debug/Release build and test validation, NuGet/executable artifact verification, source and packaged sample preview smoke validation, gap audit closure, and no remaining public-alpha blockers.
 - `2026-06-08`: Added the bug report intake ledger with privacy validation and stored `BUG-0001` for the PreviewHost `Window` root rendering failure without starting implementation.
+- `2026-06-08`: Stored `BUG-0002` for ignored Avalonia design-time `DataContext` metadata, with local paths and target-specific identifiers sanitized.
