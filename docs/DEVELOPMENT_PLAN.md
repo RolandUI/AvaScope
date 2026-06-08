@@ -35,6 +35,9 @@ Store future user-provided bug reports and feature requests as sanitized ledger 
 
 ## Latest Validation
 
+- `2026-06-08`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1` passed after adding the NuGet publish workflow; Release build/test passed with 179 tests, 5 release artifacts verified, packaged Windows sample preview smoke passed.
+- `2026-06-08`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-nuget.ps1 -DryRun` passed against `AvaScope.Protocol.0.1.0.nupkg`, `AvaScope.Core.0.1.0.nupkg`, and `AvaScope.Bridge.0.1.0.nupkg`.
+- `2026-06-08`: `git check-ignore -v` confirmed regenerated NuGet packages, release manifest, and packaged sample preview output remain ignored under `artifacts/`.
 - `2026-06-08`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-bug-reports.ps1` passed after storing `FEAT-0001` through `FEAT-0007`; 13 intake files scanned.
 - `2026-06-08`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1` passed; Release build/test passed with 179 tests, 5 release artifacts verified, packaged Windows sample preview smoke passed.
 - `2026-06-08`: `dotnet test AvaScope.slnx --no-build` passed with 179 tests after implementing `BUG-0001` and `BUG-0002`.
@@ -1461,6 +1464,29 @@ Store future user-provided bug reports and feature requests as sanitized ledger 
   - `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1`
   - `git status --short`
 
+### W4 NuGet Publish Workflow
+
+- Status: `Done`
+- Goal: provide a repeatable manual NuGet publish path for the public AvaScope library packages.
+- Deliverables: API-key based publish script, dry-run validation mode, optional manual GitHub Actions workflow, user-facing docs, development-plan tracking, validation, commit.
+- Progress:
+  - Done: audited existing package metadata and local Release artifact workflow.
+  - Done: checked NuGet flat-container endpoints for `AvaScope.Protocol`, `AvaScope.Core`, and `AvaScope.Bridge`; all returned `404` before publishing.
+  - Done: added `eng/publish-nuget.ps1` with dry-run validation, dependency-ordered package push, stale artifact rejection, and API-key masking for failures.
+  - Done: added the manual `Publish NuGet` GitHub Actions workflow, defaulting to dry-run and using the `NUGET_API_KEY` secret only for actual publish runs.
+  - Done: documented local and GitHub-hosted publishing in README and validation docs.
+  - Done: validated the full local Release gate and NuGet publish dry-run.
+- Acceptance Criteria:
+  - Publishing uses existing Release package artifacts from `artifacts\packages`.
+  - Publishing requires an API key from a parameter or environment variable and never stores the key in source.
+  - A dry-run mode validates the exact package set and source without pushing.
+  - The packages publish in dependency order: Protocol, Core, Bridge.
+  - Documentation explains local and CI-secret based publish commands.
+- Validation:
+  - `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1`
+  - `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-nuget.ps1 -DryRun`
+  - `git status --short`
+
 ## Decision Log
 
 - `2026-06-06`: Use `docs/DEVELOPMENT_PLAN.md` as the primary tracking document and keep `AGENTS.md` as the mandatory routing entrypoint.
@@ -1590,6 +1616,7 @@ Store future user-provided bug reports and feature requests as sanitized ledger 
 - `2026-06-08`: After W2 completion, W1 returned as the active `In Progress` intake workstream so future reports remain stored but not implemented without explicit user authorization.
 - `2026-06-08`: Local testing should use a packaged Release artifact produced by `eng/create-local-release.ps1`; Debug build paths are only for development diagnostics.
 - `2026-06-08`: Feature requests are stored as sanitized tickets under `docs/feature-requests/`; storing a feature ticket is not authorization to implement it.
+- `2026-06-08`: W4 keeps NuGet publishing manual and credential-gated: normal CI still validates artifacts without secrets, while actual public publishing requires a nuget.org API key supplied by environment, parameter, or a manually triggered GitHub workflow secret.
 
 ## Change Log
 
@@ -1659,3 +1686,4 @@ Store future user-provided bug reports and feature requests as sanitized ledger 
 - `2026-06-08`: Completed W2 by implementing `BUG-0001` Window-root preview rendering and `BUG-0002` design-time data context/dimension support with PreviewHost, Protocol, CLI, and MCP tests.
 - `2026-06-08`: Completed W3 by adding `eng/create-local-release.ps1` as the local Release artifact workflow and documenting packaged-release testing.
 - `2026-06-08`: Added the feature request ticket ledger with `FEAT-0001` through `FEAT-0007`, prioritized binding/resource diagnostics, layout warnings, and computed style/resource inspection as the top three backlog items.
+- `2026-06-08`: Completed W4 by adding `eng/publish-nuget.ps1`, the manual `Publish NuGet` GitHub workflow, NuGet publishing documentation, and release/dry-run validation.

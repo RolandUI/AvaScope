@@ -76,6 +76,14 @@ It also validates the getting-started preview path from the packaged Windows CLI
 
 Use `.\artifacts\executables\avascope-win-x64-framework-dependent\avascope.exe` for external project testing after the script completes.
 
+Before publishing library packages to NuGet, validate the exact publish set without pushing:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-nuget.ps1 -DryRun
+```
+
+Actual NuGet publishing requires a nuget.org API key supplied by `AVASCOPE_NUGET_API_KEY`, `NUGET_API_KEY`, or the `-ApiKey` parameter.
+
 Then verify generated artifacts are ignored:
 
 ```powershell

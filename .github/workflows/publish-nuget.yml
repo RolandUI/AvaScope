@@ -1,0 +1,47 @@
+name: Publish NuGet
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Validate packages without pushing to NuGet.
+        required: true
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Publish NuGet Packages
+    runs-on: windows-latest
+
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+      DOTNET_NOLOGO: "1"
+      DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "1"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Create release artifacts
+        shell: pwsh
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1
+
+      - name: Validate NuGet publish inputs
+        shell: pwsh
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-nuget.ps1 -DryRun
+
+      - name: Publish NuGet packages
+        if: ${{ inputs.dry_run == false }}
+        shell: pwsh
+        env:
+          AVASCOPE_NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-nuget.ps1

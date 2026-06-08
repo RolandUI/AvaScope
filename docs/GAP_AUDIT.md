@@ -96,7 +96,7 @@ Next slice: defer broader input until `inspect_node` completes, then revisit dra
 
 ### Packaging And Release
 
-Status: first library package metadata slice, RID-based executable ZIP packaging slice, artifact verification manifest slice, and post-sample Release validation refresh complete; broader publishing workflow remains open.
+Status: first library package metadata slice, RID-based executable ZIP packaging slice, artifact verification manifest slice, post-sample Release validation refresh, and manual NuGet publish workflow complete; broader installer and self-contained distribution remain open.
 
 `AvaScope.Protocol`, `AvaScope.Core`, and `AvaScope.Bridge` now have package ids, version metadata, descriptions, tags, repository metadata, README inclusion, and local `dotnet pack` validation into ignored `artifacts/packages`. `AvaScope.Mcp`, `AvaScope.Cli`, and `AvaScope.PreviewHost` are explicitly marked not packable in this slice.
 
@@ -106,16 +106,18 @@ Artifact verification now uses `eng/verify-artifacts.ps1` to write ignored `arti
 
 Release refresh: after adding the getting-started sample and CLI relative path normalization, Release build/test/pack, executable packaging, artifact verification, and packaged-CLI sample preview smoke validation passed. The sample remains `IsPackable=false` and is not part of the release artifact manifest.
 
-Next slice: defer self-contained packages, macOS artifact policy, and publishing automation until more product gaps are closed.
+Manual NuGet publishing now uses `eng/publish-nuget.ps1` to push the three library packages from `artifacts/packages` in dependency order, with `-DryRun` validation and an API key supplied out of band.
+
+Next slice: defer self-contained packages, macOS artifact policy, and installer publishing until more product gaps are closed.
 
 ### CI Workflow
 
 Status: first CI validation slice complete.
 
-GitHub Actions now validates restore, Release build, Release tests, local library package creation, RID-based local executable ZIP package creation, and artifact manifest verification on push and pull request without publishing packages or requiring secrets.
+GitHub Actions now validates restore, Release build, Release tests, local library package creation, RID-based local executable ZIP package creation, and artifact manifest verification on push and pull request without publishing packages or requiring secrets. A separate manual `Publish NuGet` workflow can publish with the `NUGET_API_KEY` repository secret and defaults to dry-run mode.
 
-Next slice: CI can later add publish/upload artifacts, self-contained outputs, or more RIDs when release policy is ready.
+Next slice: CI can later add upload artifacts, self-contained outputs, or more RIDs when release policy is ready.
 
 ## Selected Next Slice
 
-No public-alpha blocking slice remains after M50. Future post-alpha work can start from one of the recorded deferrals: runtime hot reload/live preview, richer input, broader preview startup orchestration, publishing automation, or richer binding/layout/resource diagnostics.
+No public-alpha blocking slice remains after M50. Future post-alpha work can start from one of the recorded deferrals: runtime hot reload/live preview, richer input, broader preview startup orchestration, installer/self-contained distribution, or richer binding/layout/resource diagnostics.

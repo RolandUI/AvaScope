@@ -79,9 +79,34 @@ The default executable package targets are `win-x64` and `linux-x64`. Pass `-Run
 
 CI validation runs restore, Release build, Release test, local library pack, local executable package, and artifact verification commands in GitHub Actions on pushes and pull requests. It does not publish packages or require secrets.
 
+## NuGet Publish
+
+Create and verify the Release artifacts first:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1
+```
+
+Dry-run the NuGet publish inputs:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-nuget.ps1 -DryRun
+```
+
+Publish the public library packages to nuget.org with an API key from nuget.org:
+
+```powershell
+$env:AVASCOPE_NUGET_API_KEY = "<nuget-api-key>"
+powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-nuget.ps1
+```
+
+The publish script pushes `AvaScope.Protocol`, `AvaScope.Core`, and `AvaScope.Bridge` from `artifacts\packages` in dependency order. It reads the version from `Directory.Build.props`, rejects missing or stale `AvaScope.*.nupkg` artifacts, and never stores the API key in source.
+
+For GitHub-hosted publishing, set a repository secret named `NUGET_API_KEY` and run the `Publish NuGet` workflow manually. The workflow defaults to dry-run mode; turn `dry_run` off only for the actual public publish.
+
 ## Public Alpha Local Install
 
-AvaScope public-alpha artifacts are built locally for now; no package feed or installer publishing is configured.
+AvaScope public-alpha executable artifacts are built locally for now; no installer publishing is configured.
 
 Create and verify local Release artifacts:
 
