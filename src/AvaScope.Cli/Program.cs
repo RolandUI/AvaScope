@@ -36,6 +36,7 @@ internal static class Program
             "list-preview-sessions" => ListPreviewSessions(args[1..]),
             "reload-preview-session" => await ReloadPreviewSession(args[1..]),
             "close-preview-session" => ClosePreviewSession(args[1..]),
+            "watch-preview-session" => await WatchPreviewSession(args[1..]),
             "cleanup" => Cleanup(args[1..]),
             "diff" => Diff(args[1..]),
             "mcp" => await Mcp(),
@@ -333,6 +334,58 @@ internal static class Program
         var result = CreatePreviewSessionRegistry().Close(sessionId!);
         WriteResult(result);
         return result.Success ? 0 : 1;
+    }
+
+    private static async Task<int> WatchPreviewSession(string[] args)
+    {
+        var options = ParseOptions(args, GetWatchPreviewSessionUsage());
+        if (!options.Success)
+        {
+            WriteFailure<PreviewWatchResponse>(InvalidCliArguments, options.Error!);
+            return 2;
+        }
+
+        if (!ValidateOptions(
+                options.Values,
+                GetWatchPreviewSessionUsage(),
+                "session",
+                "timeout-ms",
+                "settle-ms",
+                "max-reloads",
+                "watch")
+            || !TryReadRequiredSessionId(options.Values, GetWatchPreviewSessionUsage(), out var sessionId)
+            || !TryReadRequiredPositiveInt(options.Values, "timeout-ms", GetWatchPreviewSessionUsage(), out var timeoutMilliseconds)
+            || !TryReadOptionalPositiveInt(options.Values, "settle-ms", out var settleMilliseconds)
+            || !TryReadOptionalPositiveInt(options.Values, "max-reloads", out var maxReloads))
+        {
+            return 2;
+        }
+
+        if (!TryReadOptionalWatchPaths(options.Values, out var watchPaths))
+        {
+            return 2;
+        }
+
+        PreviewSessionWatchOptions watchOptions;
+        try
+        {
+            watchOptions = new PreviewSessionWatchOptions(
+                TimeSpan.FromMilliseconds(timeoutMilliseconds),
+                TimeSpan.FromMilliseconds(settleMilliseconds ?? 250),
+                maxReloads ?? 1,
+                watchPaths);
+        }
+        catch (ArgumentOutOfRangeException exception)
+        {
+            WriteFailure<PreviewWatchResponse>(InvalidCliArguments, exception.Message);
+            return 2;
+        }
+
+        var result = await new PreviewSessionWatcher(CreatePreviewSessionRegistry()).WatchAsync(
+            sessionId!,
+            watchOptions);
+        WriteResult(result);
+        return result.Success && result.Value!.ReloadCount > 0 && !result.Value.TimedOut ? 0 : 1;
     }
 
     private static PreviewSessionRegistry CreatePreviewSessionRegistry()
@@ -932,6 +985,54 @@ internal static class Program
         return true;
     }
 
+    private static bool TryReadRequiredPositiveInt(
+        IReadOnlyDictionary<string, string> options,
+        string optionName,
+        string usage,
+        out int value)
+    {
+        value = 0;
+        if (!TryReadRequiredOption(options, optionName, usage, out var text))
+        {
+            return false;
+        }
+
+        if (!int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed)
+            || parsed < 1)
+        {
+            WriteFailure(InvalidCliArguments, $"{optionName} must be a positive integer.");
+            return false;
+        }
+
+        value = parsed;
+        return true;
+    }
+
+    private static bool TryReadOptionalWatchPaths(
+        IReadOnlyDictionary<string, string> options,
+        out IReadOnlyList<string>? watchPaths)
+    {
+        watchPaths = null;
+        if (!options.TryGetValue("watch", out var text))
+        {
+            return true;
+        }
+
+        var paths = text
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(static path => !string.IsNullOrWhiteSpace(path))
+            .Select(Path.GetFullPath)
+            .ToArray();
+        if (paths.Length == 0)
+        {
+            WriteFailure(InvalidCliArguments, "watch must contain at least one path.");
+            return false;
+        }
+
+        watchPaths = paths;
+        return true;
+    }
+
     private static bool TryReadOptionalTreeKind(
         IReadOnlyDictionary<string, string> options,
         out string treeKind)
@@ -1062,7 +1163,7 @@ internal static class Program
 
     private static string GetUsage()
     {
-        return "Usage: avascope mcp | avascope attach [--process <pid>] [--session <session-id>] | avascope list-top-levels --session <session-id> | avascope visual-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] | avascope logical-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] | avascope inspect-node --session <session-id> --top-level <top-level-id> --node <node-id> [--tree-kind visual|logical] | avascope find-nodes --session <session-id> --top-level <top-level-id> [--tree-kind visual|logical] [--type <type>] [--name <name>] [--automation-id <id>] [--text <text>] [--max-depth <n>] [--max-results <n>] | avascope input --session <session-id> --top-level <top-level-id> --action <action> [--x <x>] [--y <y>] [--text <text>] [--target-node <node-id>] [--key <key>] [--modifiers <modifiers>] | avascope close-session --session <session-id> | avascope diagnostics [--process <pid>] [--session <session-id>] [--max-sessions <n>] | avascope reload --session <session-id> | avascope create-preview-session <project.csproj> --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] [--display-name <name>] | avascope list-preview-sessions | avascope reload-preview-session --session <session-id> | avascope close-preview-session --session <session-id> | avascope cleanup | avascope diff --baseline <baseline.png> --current <current.png> --out <diff.png> [--tolerance <0-255>] | avascope screenshot --session <session-id> --top-level <top-level-id> --out <screenshot.png> | avascope preview <project.csproj> --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--sizes <w>x<h>[,<w>x<h>...]] [--contact-sheet <sheet.png>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>]";
+        return "Usage: avascope mcp | avascope attach [--process <pid>] [--session <session-id>] | avascope list-top-levels --session <session-id> | avascope visual-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] | avascope logical-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] | avascope inspect-node --session <session-id> --top-level <top-level-id> --node <node-id> [--tree-kind visual|logical] | avascope find-nodes --session <session-id> --top-level <top-level-id> [--tree-kind visual|logical] [--type <type>] [--name <name>] [--automation-id <id>] [--text <text>] [--max-depth <n>] [--max-results <n>] | avascope input --session <session-id> --top-level <top-level-id> --action <action> [--x <x>] [--y <y>] [--text <text>] [--target-node <node-id>] [--key <key>] [--modifiers <modifiers>] | avascope close-session --session <session-id> | avascope diagnostics [--process <pid>] [--session <session-id>] [--max-sessions <n>] | avascope reload --session <session-id> | avascope create-preview-session <project.csproj> --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] [--display-name <name>] | avascope list-preview-sessions | avascope reload-preview-session --session <session-id> | avascope close-preview-session --session <session-id> | avascope watch-preview-session --session <session-id> --timeout-ms <ms> [--settle-ms <ms>] [--max-reloads <n>] [--watch <path>[,<path>...]] | avascope cleanup | avascope diff --baseline <baseline.png> --current <current.png> --out <diff.png> [--tolerance <0-255>] | avascope screenshot --session <session-id> --top-level <top-level-id> --out <screenshot.png> | avascope preview <project.csproj> --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--sizes <w>x<h>[,<w>x<h>...]] [--contact-sheet <sheet.png>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>]";
     }
 
     private static string GetPreviewUsage()
@@ -1088,6 +1189,11 @@ internal static class Program
     private static string GetClosePreviewSessionUsage()
     {
         return "Usage: avascope close-preview-session --session <session-id>";
+    }
+
+    private static string GetWatchPreviewSessionUsage()
+    {
+        return "Usage: avascope watch-preview-session --session <session-id> --timeout-ms <ms> [--settle-ms <ms>] [--max-reloads <n>] [--watch <path>[,<path>...]]";
     }
 
     private static string GetAttachUsage()

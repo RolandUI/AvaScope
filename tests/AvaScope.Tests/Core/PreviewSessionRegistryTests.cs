@@ -335,6 +335,46 @@ public sealed class PreviewSessionRegistryTests : IDisposable
         Assert.Equal(CoreErrorCodes.SessionNotFound, result.Error!.Code);
     }
 
+    [Fact]
+    public async Task PreviewSessionWatcherReloadsWhenExplicitWatchFileChanges()
+    {
+        var watchedPath = Path.Combine(_testRoot, "WatchedView.axaml");
+        Directory.CreateDirectory(_testRoot);
+        await File.WriteAllTextAsync(watchedPath, "<UserControl />");
+
+        var previewSessions = new PreviewSessionRegistry(
+            new SessionRegistry(),
+            new PreviewHostClient(Path.Combine(_testRoot, "missing-host.dll")));
+        var created = await previewSessions.CreateAsync(new PreviewRequest(
+            Path.Combine(_testRoot, "preview.png"),
+            width: 100,
+            height: 100,
+            dpi: 96,
+            viewPath: watchedPath));
+        Assert.True(created.Success, created.Error?.Message);
+
+        var watcher = new PreviewSessionWatcher(previewSessions);
+        var watchTask = watcher.WatchAsync(
+            created.Value!.Session.SessionId,
+            new PreviewSessionWatchOptions(
+                TimeSpan.FromSeconds(5),
+                TimeSpan.FromMilliseconds(50),
+                maxReloads: 1,
+                [watchedPath]));
+
+        await Task.Delay(500);
+        await File.AppendAllTextAsync(watchedPath, Environment.NewLine);
+
+        var result = await watchTask;
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.False(result.Value!.TimedOut);
+        Assert.Equal(1, result.Value.ReloadCount);
+        Assert.Contains(result.Value.Events, static watchEvent => watchEvent.EventType == PreviewWatchEventTypes.Changed);
+        Assert.Contains(result.Value.Events, static watchEvent => watchEvent.EventType == PreviewWatchEventTypes.Reloaded);
+        Assert.Equal(created.Value.Session.SessionId, result.Value.SessionId);
+    }
+
     private sealed class ManualTimeProvider(DateTimeOffset utcNow) : TimeProvider
     {
         public DateTimeOffset UtcNow { get; set; } = utcNow;

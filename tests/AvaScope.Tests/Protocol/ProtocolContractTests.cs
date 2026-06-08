@@ -698,6 +698,63 @@ public sealed class ProtocolContractTests
     }
 
     [Fact]
+    public void PreviewWatchResponseSerializesEventsAndLatestSession()
+    {
+        var startedAt = new DateTimeOffset(2026, 6, 8, 9, 0, 0, TimeSpan.Zero);
+        var completedAt = startedAt.AddSeconds(2);
+        var session = new PreviewSessionSummary(
+            new SessionSummary(
+                new SessionId("preview-1"),
+                SessionKinds.Preview,
+                SessionStates.Active,
+                startedAt,
+                "Watched preview"),
+            new PreviewRequest(
+                "C:\\previews\\main.png",
+                100,
+                100,
+                96,
+                "C:\\apps\\Sample\\Sample.csproj",
+                "Views\\MainView.axaml"),
+            ToolResult<PreviewResponse>.Ok(new PreviewResponse(
+                "C:\\previews\\main.png",
+                100,
+                100,
+                96,
+                completedAt)),
+            completedAt);
+        var response = new PreviewWatchResponse(
+            new SessionId("preview-1"),
+            ["C:\\apps\\Sample\\Views\\MainView.axaml"],
+            [
+                new PreviewWatchEvent(
+                    PreviewWatchEventTypes.Changed,
+                    startedAt.AddSeconds(1),
+                    "C:\\apps\\Sample\\Views\\MainView.axaml",
+                    "Changed"),
+                new PreviewWatchEvent(
+                    PreviewWatchEventTypes.Reloaded,
+                    completedAt,
+                    reload: ToolResult<PreviewSessionSummary>.Ok(session))
+            ],
+            timedOut: false,
+            reloadCount: 1,
+            startedAt,
+            completedAt,
+            session);
+
+        var node = JsonNode.Parse(JsonSerializer.Serialize(response))!;
+
+        Assert.Equal("preview-1", node["sessionId"]!.GetValue<string>());
+        Assert.False(node["timedOut"]!.GetValue<bool>());
+        Assert.Equal(1, node["reloadCount"]!.GetValue<int>());
+        Assert.Equal(PreviewWatchEventTypes.Changed, node["events"]![0]!["eventType"]!.GetValue<string>());
+        Assert.Equal("Changed", node["events"]![0]!["changeKind"]!.GetValue<string>());
+        Assert.True(node["events"]![1]!["reload"]!["success"]!.GetValue<bool>());
+        Assert.Equal("Watched preview", node["latestSession"]!["session"]!["displayName"]!.GetValue<string>());
+    }
+
+    [Fact]
     public void PreviewSessionSummarySerializesRequestAndLastRender()
     {
         var createdAt = new DateTimeOffset(2026, 6, 7, 4, 0, 0, TimeSpan.Zero);

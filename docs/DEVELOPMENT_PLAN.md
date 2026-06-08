@@ -23,20 +23,27 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `W11 Live Preview File Watch Reload`
+- `W12 Visual Regression Workflow`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-08`
-- Goal: add an explicit file-watch workflow for preview sessions that re-renders through isolated PreviewHost child processes when watched files change.
+- Goal: layer baseline-set creation and checking over the existing multi-size preview and screenshot diff primitives.
 
 ## Next Action
 
-Implement W11 live preview file-watch reload using the existing persistent preview-session store and isolated PreviewHost reload path.
+Implement W12 baseline manifest creation/checking with deterministic preview and diff artifacts.
 
 ## Latest Validation
 
 - `2026-06-08`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after W9 feature-ticket implementation.
 - `2026-06-08`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after W10 CLI preview-session workflow.
+- `2026-06-08`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after W11 live preview file-watch reload.
+- `2026-06-08`: W11 targeted tests passed: CLI watch reload, Core `PreviewSessionWatcher`, and Protocol watch response serialization.
+- `2026-06-08`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli` passed with 82 tests after W11 live preview file-watch reload.
+- `2026-06-08`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewSessionRegistryTests` passed with 10 tests after W11 live preview file-watch reload.
+- `2026-06-08`: `dotnet test AvaScope.slnx --no-build --filter Protocol` passed with 34 tests after W11 live preview file-watch reload.
+- `2026-06-08`: `dotnet test AvaScope.slnx --no-build` passed with 191 tests after W11 live preview file-watch reload.
+- `2026-06-08`: `git diff --check` passed after W11 live preview file-watch reload.
 - `2026-06-08`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli` passed with 81 tests after W10 CLI preview-session workflow.
 - `2026-06-08`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewSessionRegistryTests` passed with 9 tests after W10 CLI preview-session workflow.
 - `2026-06-08`: `dotnet test AvaScope.slnx --no-build` passed with 188 tests after W10 CLI preview-session workflow.
@@ -1675,11 +1682,16 @@ Implement W11 live preview file-watch reload using the existing persistent previ
 
 ### W11 Live Preview File Watch Reload
 
-- Status: `In Progress`
+- Status: `Done`
 - Goal: add an explicit file-watch workflow for preview sessions that re-renders through isolated PreviewHost child processes when watched project or AXAML files change.
 - Deliverables: Core watch orchestration, CLI watch command, bounded event/debounce behavior, tests, documentation, commit, push.
 - Progress:
-  - In Progress: build on W10 CLI preview-session commands and existing isolated reload path.
+  - Done: added transport-neutral preview watch event/response DTOs.
+  - Done: added Core `PreviewSessionWatcher` with explicit timeout, debounce, max-reloads, explicit or derived watch paths, and isolated preview-session reload.
+  - Done: added CLI `watch-preview-session --session <id> --timeout-ms <ms>` command.
+  - Done: added protocol, Core, and CLI smoke coverage for watch reload.
+  - Done: updated README, validation guide, and gap audit.
+  - Done: build, targeted tests, full-suite validation, and diff-check passed.
 - Acceptance Criteria:
   - Watch mode requires an existing preview-session id and explicit timeout or stop behavior for testability.
   - File changes trigger preview-session reload without keeping user code loaded in the CLI process.
@@ -1694,9 +1706,11 @@ Implement W11 live preview file-watch reload using the existing persistent previ
 
 ### W12 Visual Regression Workflow
 
-- Status: `Not Started`
+- Status: `In Progress`
 - Goal: layer baseline-set creation and checking over the existing multi-size preview and screenshot diff primitives.
 - Deliverables: baseline manifest protocol/Core model, CLI baseline create/check commands, deterministic artifacts, CI-friendly exit codes, tests, documentation, commit, push.
+- Progress:
+  - In Progress: build on W9 diff/multi-size preview primitives and W10-W11 persisted preview-session support.
 - Acceptance Criteria:
   - Baseline creation records explicit project/view/theme/culture/DPI/size metadata and image paths.
   - Baseline checking re-renders the requested variants, compares images with tolerance, and writes explicit diff artifacts.

@@ -218,6 +218,15 @@ dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll close-preview-session -
 
 Preview-session CLI commands persist metadata in the same local AvaScope preview-session store used by MCP. They store the original request and latest render result, then re-render through `AvaScope.PreviewHost` child processes on reload.
 
+Watch a preview session and reload when project or view files change:
+
+```powershell
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll watch-preview-session --session <preview-session-id> --timeout-ms 30000 --settle-ms 250 --max-reloads 1
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll watch-preview-session --session <preview-session-id> --timeout-ms 30000 --watch Views\MainView.axaml
+```
+
+Watch mode is bounded by `--timeout-ms`. It emits a structured `ToolResult<PreviewWatchResponse>` with changed/reloaded events and does not keep user project code loaded in the CLI process.
+
 Start the MCP server through the CLI:
 
 ```powershell
@@ -399,11 +408,11 @@ Successful preview responses can include diagnostics for missing `DataContext`, 
 
 Preview session tools store the original preview request plus the latest render result as Core metadata. MCP-backed and CLI-created preview session records are also persisted as JSON under the local AvaScope temp preview-session store so they can be restored after the MCP server or CLI process restarts. They do not keep user project code loaded inside MCP or CLI; each render still goes through `AvaScope.PreviewHost`.
 
-`reload` re-runs stored preview-session requests through the isolated preview host and updates the existing session's latest render result. Runtime bridge session ids are health-checked locally and return `runtime_reload_not_supported`; AvaScope does not restart apps, inject code, or claim runtime hot reload. The one-shot CLI `preview` command remains one-shot; CLI preview-session commands provide the durable preview path.
+`reload` re-runs stored preview-session requests through the isolated preview host and updates the existing session's latest render result. Runtime bridge session ids are health-checked locally and return `runtime_reload_not_supported`; AvaScope does not restart apps, inject code, or claim runtime hot reload. The one-shot CLI `preview` command remains one-shot; CLI preview-session commands provide the durable preview path, and `watch-preview-session` can trigger bounded reloads from file changes.
 
 Current preview limitations:
 
-- no hot reload or persistent live preview host process yet;
+- no runtime hot reload or persistent live preview host process yet; CLI watch reloads still use one-shot PreviewHost child processes;
 - no project app startup/lifetime hook execution; `OnFrameworkInitializationCompleted`, project `MainWindow` creation, and app startup services are intentionally deferred;
 - no JSON object injection, dependency injection, remote design data, or long-lived design-data state;
 - no private Avalonia binding/style/resource hooks; diagnostics and computed provenance stay best-effort and public API based;

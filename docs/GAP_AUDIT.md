@@ -60,15 +60,19 @@ Completed slice: `preview --sizes` adds deterministic multi-size preview output 
 
 Completed slice: CLI preview-session commands can create, list, reload, and close persisted preview-session metadata across CLI processes using the same local preview-session store as MCP.
 
-Next slice: move to live preview file watching; the one-shot `preview` command remains intentionally one-shot.
+Completed slice: `watch-preview-session` can watch the stored preview request's project/view files or an explicit watch path list, debounce changes, and reload through isolated PreviewHost child processes with bounded structured events.
+
+Next slice: broaden visual regression workflows; the one-shot `preview` command remains intentionally one-shot.
 
 ### Reload And Hot Preview
 
-Status: preview-session reload MVP, durable MCP preview-session store, and runtime reload contract complete; runtime hot reload and live hot preview remain open.
+Status: preview-session reload MVP, durable MCP/CLI preview-session store, CLI file-watch reload, and runtime reload contract complete; runtime hot reload and persistent live preview host processes remain open.
 
-`reload` is listed in the intended MCP tool shape. Preview sessions now persist the original request plus latest render result as Core metadata and as per-session local JSON records for MCP and CLI hosts. MCP startup and CLI preview-session commands restore those preview records into `PreviewSessionRegistry`, and reload re-renders an existing preview session through the isolated preview host. Runtime bridge session ids are checked through the local bridge health path and return a structured `runtime_reload_not_supported` diagnostic. User code still runs only in one-shot preview host child processes. Runtime hot reload and live hot preview sessions are not implemented yet.
+`reload` is listed in the intended MCP tool shape. Preview sessions now persist the original request plus latest render result as Core metadata and as per-session local JSON records for MCP and CLI hosts. MCP startup and CLI preview-session commands restore those preview records into `PreviewSessionRegistry`, and reload re-renders an existing preview session through the isolated preview host. Runtime bridge session ids are checked through the local bridge health path and return a structured `runtime_reload_not_supported` diagnostic. User code still runs only in one-shot preview host child processes. Runtime hot reload and persistent live preview host sessions are not implemented yet.
 
 Completed slice: runtime reload no longer falls through to a misleading preview `session_not_found` for active bridge sessions, and MCP-backed preview session records now survive MCP server process restarts.
+
+Completed slice: CLI file-watch reload adds bounded `watch-preview-session` events for changed files and preview-session reloads without keeping user project code loaded.
 
 ### Preview Resource Scope
 

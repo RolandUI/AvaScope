@@ -400,6 +400,110 @@ public sealed class CliSmokeTests
     }
 
     [Fact]
+    public async Task WatchPreviewSessionCommandReloadsWhenWatchedFileChanges()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var testRoot = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(testRoot);
+
+        var environment = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            [PreviewSessionStore.DirectoryEnvironmentVariable] = Path.Combine(testRoot, "preview-sessions")
+        };
+        var projectPath = Path.Combine(testRoot, "CliPreviewWatchSample.csproj");
+        var viewPath = Path.Combine(testRoot, "MainView.axaml");
+        var outputPath = Path.Combine(testRoot, "watch-preview.png");
+
+        await File.WriteAllTextAsync(projectPath, """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+              </PropertyGroup>
+            </Project>
+            """);
+
+        await File.WriteAllTextAsync(viewPath, """
+            <UserControl xmlns="https://github.com/avaloniaui">
+              <Border Background="#FFFFFFFF">
+                <TextBlock Text="CLI preview watch smoke" />
+              </Border>
+            </UserControl>
+            """);
+
+        try
+        {
+            var created = await RunCliAsyncWithEnvironment(
+                environment,
+                cliAssembly,
+                "create-preview-session",
+                projectPath,
+                "--view",
+                viewPath,
+                "--out",
+                outputPath,
+                "--width",
+                "220",
+                "--height",
+                "140");
+            var createdPayload = JsonSerializer.Deserialize<ToolResult<PreviewSessionSummary>>(
+                created.StandardOutput,
+                JsonOptions);
+            Assert.NotNull(createdPayload);
+            Assert.True(createdPayload.Success, createdPayload.Error?.Message);
+
+            var sessionId = createdPayload.Value!.Session.SessionId.Value;
+            var watched = await RunCliAsyncWithEnvironmentAfterStart(
+                environment,
+                cliAssembly,
+                async () =>
+                {
+                    await Task.Delay(1000);
+                    await File.WriteAllTextAsync(viewPath, """
+                        <UserControl xmlns="https://github.com/avaloniaui">
+                          <Border Background="#FFFFFFFF">
+                            <TextBlock Text="CLI preview watch changed" />
+                          </Border>
+                        </UserControl>
+                        """);
+                },
+                "watch-preview-session",
+                "--session",
+                sessionId,
+                "--timeout-ms",
+                "15000",
+                "--settle-ms",
+                "100",
+                "--max-reloads",
+                "1",
+                "--watch",
+                viewPath);
+
+            Assert.Equal(0, watched.ExitCode);
+            Assert.True(string.IsNullOrWhiteSpace(watched.StandardError), watched.StandardError);
+
+            var payload = JsonSerializer.Deserialize<ToolResult<PreviewWatchResponse>>(
+                watched.StandardOutput,
+                JsonOptions);
+            Assert.NotNull(payload);
+            Assert.True(payload.Success, payload.Error?.Message);
+            Assert.False(payload.Value!.TimedOut);
+            Assert.Equal(1, payload.Value.ReloadCount);
+            Assert.Contains(payload.Value.Events, static watchEvent => watchEvent.EventType == PreviewWatchEventTypes.Changed);
+            Assert.Contains(payload.Value.Events, static watchEvent => watchEvent.EventType == PreviewWatchEventTypes.Reloaded);
+            Assert.True(payload.Value.LatestSession!.LastRender.Success, payload.Value.LatestSession.LastRender.Error?.Message);
+        }
+        finally
+        {
+            if (Directory.Exists(testRoot))
+            {
+                Directory.Delete(testRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
     public async Task PreviewCommandResolvesRelativeProjectAndOutputPathsFromCallerWorkingDirectory()
     {
         var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
@@ -1964,6 +2068,31 @@ public sealed class CliSmokeTests
         return await RunCliAsyncFromDirectory(AppContext.BaseDirectory, cliAssembly, environment, arguments);
     }
 
+    private static async Task<CliResult> RunCliAsyncWithEnvironmentAfterStart(
+        IReadOnlyDictionary<string, string> environment,
+        string cliAssembly,
+        Func<Task> afterStart,
+        params string[] arguments)
+    {
+        using var process = CreateCliProcess(
+            AppContext.BaseDirectory,
+            cliAssembly,
+            environment,
+            arguments);
+        Assert.True(process.Start());
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+
+        var stdoutTask = process.StandardOutput.ReadToEndAsync(cancellation.Token);
+        var stderrTask = process.StandardError.ReadToEndAsync(cancellation.Token);
+        await afterStart();
+        await process.WaitForExitAsync(cancellation.Token);
+
+        return new CliResult(
+            process.ExitCode,
+            await stdoutTask,
+            await stderrTask);
+    }
+
     private static void WriteSolidImage(string path, SKColor color, SKColor? changedPixel = null)
     {
         using var bitmap = new SKBitmap(4, 4);
@@ -1993,7 +2122,27 @@ public sealed class CliSmokeTests
         IReadOnlyDictionary<string, string>? environment,
         params string[] arguments)
     {
-        using var process = new Process
+        using var process = CreateCliProcess(workingDirectory, cliAssembly, environment, arguments);
+        Assert.True(process.Start());
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+
+        var stdoutTask = process.StandardOutput.ReadToEndAsync(cancellation.Token);
+        var stderrTask = process.StandardError.ReadToEndAsync(cancellation.Token);
+        await process.WaitForExitAsync(cancellation.Token);
+
+        return new CliResult(
+            process.ExitCode,
+            await stdoutTask,
+            await stderrTask);
+    }
+
+    private static Process CreateCliProcess(
+        string workingDirectory,
+        string cliAssembly,
+        IReadOnlyDictionary<string, string>? environment,
+        IReadOnlyList<string> arguments)
+    {
+        var process = new Process
         {
             StartInfo = new ProcessStartInfo
             {
@@ -2019,17 +2168,7 @@ public sealed class CliSmokeTests
             process.StartInfo.ArgumentList.Add(argument);
         }
 
-        Assert.True(process.Start());
-        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(60));
-
-        var stdoutTask = process.StandardOutput.ReadToEndAsync(cancellation.Token);
-        var stderrTask = process.StandardError.ReadToEndAsync(cancellation.Token);
-        await process.WaitForExitAsync(cancellation.Token);
-
-        return new CliResult(
-            process.ExitCode,
-            await stdoutTask,
-            await stderrTask);
+        return process;
     }
 
     private static string WriteBridgeManifest(SessionId sessionId, string pipeName)
