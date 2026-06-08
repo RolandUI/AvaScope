@@ -35,6 +35,10 @@ Store future user-provided bug reports and feature requests as sanitized ledger 
 
 ## Latest Validation
 
+- `2026-06-08`: `dotnet test AvaScope.slnx -c Release --filter FullyQualifiedName~CliSmokeTests.CloseSessionCommandClosesThroughBridgePipe` passed after W8 CI failure hardening.
+- `2026-06-08`: `dotnet test AvaScope.slnx -c Release --no-build` passed with 179 tests after W8 CI failure hardening.
+- `2026-06-08`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.1.0 -DryRun` passed after W8 GitHub Release creation hardening.
+- `2026-06-08`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-bug-reports.ps1` and `git diff --check` passed after W8 CI/Release follow-up fixes.
 - `2026-06-08`: Documentation-only ownership update; `git diff --check` and intake privacy validation passed before commit/push.
 - `2026-06-08`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1` passed after W7 version-bump CI release changes; Release build/test passed with 179 tests, 5 release artifacts verified, packaged Windows sample preview smoke passed.
 - `2026-06-08`: Release metadata simulation passed after W7 validation: `Directory.Build.props` version `0.1.0`, derived release tag `v0.1.0`, and remote tag absence detection.
@@ -1578,6 +1582,26 @@ Store future user-provided bug reports and feature requests as sanitized ledger 
   - `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-bug-reports.ps1`
   - `git diff --check`
 
+### W8 CI Release Follow-Up
+
+- Status: `Done`
+- Goal: fix the first CI and Release workflow failures observed after pushing the version-bump release infrastructure.
+- Deliverables: GitHub Release creation hardening, CLI fake bridge pipe test hardening, tracking update, validation, commit, push.
+- Progress:
+  - Done: made `eng/publish-github-release.ps1` treat a missing GitHub Release as an expected create-path condition instead of a terminating native-command error.
+  - Done: hardened the CLI fake bridge named-pipe test helper to ignore empty probe/closed connections and wait for a real JSON request.
+  - Done: validated the previously failing close-session smoke test, the full Release test suite, the GitHub Release dry-run, intake validation, and whitespace checks.
+- Acceptance Criteria:
+  - GitHub Release publishing can create the release when the tag exists but the release record does not.
+  - CLI fake bridge tests do not fail when a pipe connection closes before sending a request line.
+  - Local validation covers the previously failing CI test and release script path.
+- Validation:
+  - `dotnet test AvaScope.slnx -c Release --filter FullyQualifiedName~CliSmokeTests.CloseSessionCommandClosesThroughBridgePipe`
+  - `dotnet test AvaScope.slnx -c Release --no-build`
+  - `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.1.0 -DryRun`
+  - `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-bug-reports.ps1`
+  - `git diff --check`
+
 ## Decision Log
 
 - `2026-06-06`: Use `docs/DEVELOPMENT_PLAN.md` as the primary tracking document and keep `AGENTS.md` as the mandatory routing entrypoint.
@@ -1712,6 +1736,8 @@ Store future user-provided bug reports and feature requests as sanitized ledger 
 - `2026-06-08`: W6 uses GitHub Releases, not NuGet packages, for CLI/MCP/PreviewHost executable distribution because those projects are intentionally non-packable and already validated as co-located framework-dependent ZIP artifacts.
 - `2026-06-08`: W7 supersedes the manual tag-push release trigger: `Directory.Build.props` `<Version>` is the release trigger, and CI creates the matching tag only after package publishing succeeds.
 - `2026-06-08`: Project ownership now requires agents to push completed committed slices to the configured remote, not only leave local commits.
+- `2026-06-08`: W8 keeps GitHub Release creation idempotent by checking release existence without allowing an expected missing release to terminate the publish script.
+- `2026-06-08`: W8 treats empty fake bridge pipe connections as test-harness noise and waits for the first non-empty newline-delimited JSON request.
 
 ## Change Log
 
@@ -1786,3 +1812,4 @@ Store future user-provided bug reports and feature requests as sanitized ledger 
 - `2026-06-08`: Completed W6 by adding GitHub Packages publishing and GitHub Release asset publishing for release artifacts.
 - `2026-06-08`: Completed W7 by changing CI release activation to version bumps in `Directory.Build.props` with automatic tag creation and no-op behavior for already released versions.
 - `2026-06-08`: Updated project agent ownership rules to require pushing committed changes.
+- `2026-06-08`: Completed W8 by fixing the first pushed CI/Release failures in GitHub Release creation and CLI fake bridge pipe smoke coverage.

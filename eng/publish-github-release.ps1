@@ -58,6 +58,35 @@ function Invoke-GitHubCli {
     }
 }
 
+function Test-GitHubReleaseExists {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ReleaseTag
+    )
+
+    $previousErrorActionPreference = $ErrorActionPreference
+    $hasNativeCommandPreference = Test-Path -LiteralPath "variable:PSNativeCommandUseErrorActionPreference"
+    if ($hasNativeCommandPreference) {
+        $previousNativeCommandPreference = $PSNativeCommandUseErrorActionPreference
+    }
+
+    try {
+        $ErrorActionPreference = "Continue"
+        if ($hasNativeCommandPreference) {
+            $PSNativeCommandUseErrorActionPreference = $false
+        }
+
+        & gh release view $ReleaseTag *> $null
+        return $LASTEXITCODE -eq 0
+    }
+    finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+        if ($hasNativeCommandPreference) {
+            $PSNativeCommandUseErrorActionPreference = $previousNativeCommandPreference
+        }
+    }
+}
+
 if ([string]::IsNullOrWhiteSpace($Tag)) {
     throw "Tag cannot be empty."
 }
@@ -127,8 +156,7 @@ if ([string]::IsNullOrWhiteSpace($env:GH_TOKEN) -and [string]::IsNullOrWhiteSpac
     throw "Set GH_TOKEN or GITHUB_TOKEN before creating or updating a GitHub Release."
 }
 
-& gh release view $Tag *> $null
-$releaseExists = $LASTEXITCODE -eq 0
+$releaseExists = Test-GitHubReleaseExists -ReleaseTag $Tag
 
 if ($releaseExists) {
     Write-Host ""

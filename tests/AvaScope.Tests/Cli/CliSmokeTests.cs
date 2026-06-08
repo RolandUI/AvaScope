@@ -1720,27 +1720,42 @@ public sealed class CliSmokeTests
         string pipeName,
         Func<BridgeIpcRequest, BridgeIpcResponse> responseFactory)
     {
-        await using var pipe = new NamedPipeServerStream(
-            pipeName,
-            PipeDirection.InOut,
-            maxNumberOfServerInstances: 1,
-            PipeTransmissionMode.Byte,
-            PipeOptions.Asynchronous);
-
         using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-        await pipe.WaitForConnectionAsync(cancellation.Token);
+        try
+        {
+            while (true)
+            {
+                await using var pipe = new NamedPipeServerStream(
+                    pipeName,
+                    PipeDirection.InOut,
+                    maxNumberOfServerInstances: 1,
+                    PipeTransmissionMode.Byte,
+                    PipeOptions.Asynchronous);
 
-        var requestLine = await ReadLineAsync(pipe, cancellation.Token);
-        var request = JsonSerializer.Deserialize<BridgeIpcRequest>(requestLine, JsonOptions)
-            ?? throw new InvalidOperationException("Bridge IPC request payload was empty.");
-        var responseBytes = Encoding.UTF8.GetBytes(
-            JsonSerializer.Serialize(responseFactory(request), JsonOptions) + Environment.NewLine);
-        await pipe.WriteAsync(responseBytes, cancellation.Token);
-        await pipe.FlushAsync(cancellation.Token);
-        return request;
+                await pipe.WaitForConnectionAsync(cancellation.Token);
+
+                var requestLine = await ReadOptionalLineAsync(pipe, cancellation.Token);
+                if (string.IsNullOrWhiteSpace(requestLine))
+                {
+                    continue;
+                }
+
+                var request = JsonSerializer.Deserialize<BridgeIpcRequest>(requestLine, JsonOptions)
+                    ?? throw new InvalidOperationException("Bridge IPC request payload was empty.");
+                var responseBytes = Encoding.UTF8.GetBytes(
+                    JsonSerializer.Serialize(responseFactory(request), JsonOptions) + Environment.NewLine);
+                await pipe.WriteAsync(responseBytes, cancellation.Token);
+                await pipe.FlushAsync(cancellation.Token);
+                return request;
+            }
+        }
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+        {
+            throw new TimeoutException("Timed out waiting for a bridge IPC request.");
+        }
     }
 
-    private static async Task<string> ReadLineAsync(Stream stream, CancellationToken cancellationToken)
+    private static async Task<string?> ReadOptionalLineAsync(Stream stream, CancellationToken cancellationToken)
     {
         var bytes = new List<byte>();
         var buffer = new byte[1];
@@ -1750,7 +1765,9 @@ public sealed class CliSmokeTests
             var read = await stream.ReadAsync(buffer, cancellationToken);
             if (read == 0)
             {
-                break;
+                return bytes.Count == 0
+                    ? null
+                    : Encoding.UTF8.GetString(bytes.ToArray());
             }
 
             if (buffer[0] == (byte)'\n')
@@ -1764,9 +1781,7 @@ public sealed class CliSmokeTests
             }
         }
 
-        var line = Encoding.UTF8.GetString(bytes.ToArray());
-        Assert.False(string.IsNullOrWhiteSpace(line));
-        return line;
+        return Encoding.UTF8.GetString(bytes.ToArray());
     }
 
     private sealed record CliResult(
