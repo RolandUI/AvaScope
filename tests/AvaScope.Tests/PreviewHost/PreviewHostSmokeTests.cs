@@ -1220,6 +1220,125 @@ public sealed class PreviewHostSmokeTests
     }
 
     [Fact]
+    public async Task PreviewHostAppliesApplicationDataContextAsFallbackRootDataContext()
+    {
+        var hostAssembly = Path.Combine(AppContext.BaseDirectory, "AvaScope.PreviewHost.dll");
+        Assert.True(File.Exists(hostAssembly), $"Expected preview host assembly at {hostAssembly}.");
+
+        var testRoot = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(testRoot);
+
+        var projectPath = Path.Combine(testRoot, "AppDataContextPreviewSample.csproj");
+        var appPath = Path.Combine(testRoot, "App.axaml");
+        var appCodeBehindPath = Path.Combine(testRoot, "App.axaml.cs");
+        var viewPath = Path.Combine(testRoot, "AppDataContextView.axaml");
+        var codeBehindPath = Path.Combine(testRoot, "AppDataContextView.axaml.cs");
+        var shellDataPath = Path.Combine(testRoot, "PreviewShellData.cs");
+        var requestPath = Path.Combine(testRoot, "request.json");
+        var outputPath = Path.Combine(testRoot, "preview.png");
+
+        await File.WriteAllTextAsync(projectPath, """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <Nullable>enable</Nullable>
+              </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="Avalonia" Version="12.0.4" />
+              </ItemGroup>
+            </Project>
+            """);
+
+        await File.WriteAllTextAsync(appPath, """
+            <Application xmlns="https://github.com/avaloniaui"
+                         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                         x:Class="AppDataContextPreviewSample.App" />
+            """);
+
+        await File.WriteAllTextAsync(appCodeBehindPath, """
+            using System;
+            using Avalonia;
+            using Avalonia.Markup.Xaml;
+
+            namespace AppDataContextPreviewSample;
+
+            public partial class App : Application
+            {
+                public override void Initialize()
+                {
+                    AvaloniaXamlLoader.Load(this);
+                    DataContext = new PreviewShellData();
+                }
+
+                public override void OnFrameworkInitializationCompleted()
+                {
+                    throw new InvalidOperationException("PreviewHost must not run app startup hooks for App.DataContext previews.");
+                }
+            }
+            """);
+
+        await File.WriteAllTextAsync(viewPath, """
+            <UserControl xmlns="https://github.com/avaloniaui"
+                         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                         xmlns:local="using:AppDataContextPreviewSample"
+                         x:Class="AppDataContextPreviewSample.AppDataContextView"
+                         x:DataType="local:PreviewShellData">
+              <Border Width="220" Height="140" Background="{CompiledBinding PreviewBrush}" />
+            </UserControl>
+            """);
+
+        await File.WriteAllTextAsync(codeBehindPath, """
+            using Avalonia.Controls;
+
+            namespace AppDataContextPreviewSample;
+
+            public partial class AppDataContextView : UserControl
+            {
+                public AppDataContextView()
+                {
+                    InitializeComponent();
+                }
+            }
+            """);
+
+        await File.WriteAllTextAsync(shellDataPath, """
+            using Avalonia.Media;
+
+            namespace AppDataContextPreviewSample;
+
+            public sealed class PreviewShellData
+            {
+                public IBrush PreviewBrush { get; } = new SolidColorBrush(Color.FromArgb(0xFF, 0x46, 0x7A, 0xA7));
+            }
+            """);
+
+        var request = new PreviewRequest(
+            outputPath,
+            width: 220,
+            height: 140,
+            dpi: 96,
+            projectPath: projectPath,
+            viewPath: "AppDataContextView.axaml",
+            themeVariant: "light");
+
+        await File.WriteAllTextAsync(requestPath, JsonSerializer.Serialize(request, JsonOptions));
+
+        try
+        {
+            var result = await RunPreviewHostAsync(hostAssembly, requestPath, expectedExitCode: 0);
+
+            Assert.NotNull(result);
+            Assert.True(result.Success, result.Error?.Message);
+            Assert.Equal(Path.GetFullPath(outputPath), result.Value!.FilePath);
+            AssertCenterPixel(outputPath, red: 0x46, green: 0x7A, blue: 0xA7);
+        }
+        finally
+        {
+            await DeleteDirectoryWithRetryAsync(testRoot);
+        }
+    }
+
+    [Fact]
     public async Task PreviewHostAppliesRequestedCultureBeforeProjectViewLoading()
     {
         var hostAssembly = Path.Combine(AppContext.BaseDirectory, "AvaScope.PreviewHost.dll");

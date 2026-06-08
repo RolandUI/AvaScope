@@ -405,7 +405,7 @@ Preview rendering is isolated in `AvaScope.PreviewHost`, launched as a child pro
 - accepts a JSON `PreviewRequest`;
 - optionally runs `dotnet build` for the requested `.csproj`;
 - loads compiled Avalonia resource XAML through `avares://` when possible;
-- loads compiled top-level `Application.Resources`, resource merged dictionaries, theme dictionaries, direct or included `Application.Styles`, and `Application.DataTemplates` from `App.axaml` when present;
+- loads compiled top-level `Application.Resources`, resource merged dictionaries, theme dictionaries, direct or included `Application.Styles`, `Application.DataTemplates`, and fallback `Application.DataContext` from `App.axaml`/`App.Initialize()` when present;
 - falls back to standalone runtime `.axaml` loading;
 - applies requested theme and culture variants inside the isolated render process;
 - optionally instantiates a project-owned public parameterless design-data type and assigns it as the root control `DataContext`;

@@ -167,6 +167,10 @@ internal static class Program
             {
                 content.DataContext = designTimeDataContext.Value;
             }
+            else if (content.DataContext is null && projectApplicationScope.HasDataContext)
+            {
+                content.DataContext = projectApplicationScope.DataContext;
+            }
         }
 
         var resolvedThemeVariant = ResolveThemeVariant(request.ThemeVariant);
@@ -1968,7 +1972,11 @@ internal static class Program
             projectApplication.DataTemplates.Remove(dataTemplate);
         }
 
-        return new ProjectApplicationScope(styles, dataTemplates);
+        return new ProjectApplicationScope(
+            styles,
+            dataTemplates,
+            projectApplication.DataContext is not null,
+            projectApplication.DataContext);
     }
 
     private static Control? TryLoadCompiledProjectView(string fullProjectPath, string fullViewPath)
@@ -2037,9 +2045,11 @@ internal static class Program
 
     private sealed record ProjectApplicationScope(
         IReadOnlyList<IStyle> Styles,
-        IReadOnlyList<IDataTemplate> DataTemplates)
+        IReadOnlyList<IDataTemplate> DataTemplates,
+        bool HasDataContext,
+        object? DataContext)
     {
-        public static ProjectApplicationScope Empty { get; } = new([], []);
+        public static ProjectApplicationScope Empty { get; } = new([], [], false, null);
     }
 
     private sealed record PreviewSourceMetadata(
