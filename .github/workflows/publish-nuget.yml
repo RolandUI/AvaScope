@@ -7,13 +7,19 @@ on:
   workflow_dispatch:
     inputs:
       publish:
-        description: Publish packages to NuGet.
+        description: Publish packages and GitHub Release assets.
         required: true
         type: boolean
         default: false
+      release_tag:
+        description: Optional release tag for manual publishing, for example v0.1.0.
+        required: false
+        type: string
+        default: ""
 
 permissions:
-  contents: read
+  contents: write
+  packages: write
 
 concurrency:
   group: release-nuget-${{ github.ref }}
@@ -33,18 +39,35 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Check tag version
-        if: ${{ github.event_name == 'push' }}
+      - name: Resolve release metadata
+        id: release_metadata
         shell: pwsh
         run: |
           [xml]$buildProps = Get-Content -LiteralPath .\Directory.Build.props
           $version = [string]$buildProps.Project.PropertyGroup.Version
-          $tag = "${{ github.ref_name }}"
-          $expectedTag = "v$version"
+          $eventName = "${{ github.event_name }}"
+          $publishInput = "${{ inputs.publish }}"
+          $tag = if ($eventName -eq "push") {
+            "${{ github.ref_name }}"
+          } else {
+            "${{ inputs.release_tag }}"
+          }
 
-          if ($tag -ne $expectedTag) {
+          $shouldPublish = $eventName -eq "push" -or $publishInput -eq "true"
+          if ($shouldPublish -and [string]::IsNullOrWhiteSpace($tag)) {
+            throw "A release tag is required when publishing from workflow_dispatch."
+          }
+
+          $hasReleaseTag = -not [string]::IsNullOrWhiteSpace($tag)
+          $expectedTag = "v$version"
+          if ($hasReleaseTag -and $tag -ne $expectedTag) {
             throw "Release tag '$tag' does not match package version '$version'. Expected tag '$expectedTag'."
           }
+
+          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "release_tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "has_release_tag=$($hasReleaseTag.ToString().ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "should_publish=$($shouldPublish.ToString().ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
@@ -59,9 +82,39 @@ jobs:
         shell: pwsh
         run: powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-nuget.ps1 -DryRun
 
-      - name: Publish NuGet packages
-        if: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.publish == true) }}
+      - name: Validate GitHub Release assets
+        if: ${{ steps.release_metadata.outputs.has_release_tag == 'true' }}
+        shell: pwsh
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag "${{ steps.release_metadata.outputs.release_tag }}" -DryRun
+
+      - name: Publish nuget.org packages
+        if: ${{ steps.release_metadata.outputs.should_publish == 'true' }}
         shell: pwsh
         env:
           AVASCOPE_NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
-        run: powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-nuget.ps1
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-nuget.ps1 -SkipDuplicate
+
+      - name: Publish GitHub Packages
+        if: ${{ steps.release_metadata.outputs.should_publish == 'true' }}
+        shell: pwsh
+        env:
+          GH_PACKAGES_TOKEN: ${{ github.token }}
+        run: |
+          dotnet nuget add source `
+            --username "${{ github.actor }}" `
+            --password $env:GH_PACKAGES_TOKEN `
+            --store-password-in-clear-text `
+            --name github `
+            "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"
+
+          powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-nuget.ps1 `
+            -Source github `
+            -ApiKey $env:GH_PACKAGES_TOKEN `
+            -SkipDuplicate
+
+      - name: Publish GitHub Release assets
+        if: ${{ steps.release_metadata.outputs.should_publish == 'true' }}
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag "${{ steps.release_metadata.outputs.release_tag }}"

@@ -78,10 +78,13 @@ Use `.\artifacts\executables\avascope-win-x64-framework-dependent\avascope.exe` 
 
 NuGet publishing in CI requires a repository secret named `NUGET_API_KEY`. The `Release NuGet` workflow publishes when a version tag such as `v0.1.0` is pushed and the tag matches `Directory.Build.props`.
 
+The release workflow publishes library packages to nuget.org and GitHub Packages. It also creates or updates the GitHub Release and uploads the three `.nupkg` files, RID-specific executable ZIPs, and `artifacts\release-manifest.json`.
+
 Before publishing library packages manually, validate the exact publish set without pushing:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-nuget.ps1 -DryRun
+powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.1.0 -DryRun
 ```
 
 Manual NuGet publishing requires a nuget.org API key supplied by `AVASCOPE_NUGET_API_KEY`, `NUGET_API_KEY`, or the `-ApiKey` parameter.

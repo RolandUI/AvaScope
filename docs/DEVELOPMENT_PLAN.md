@@ -35,6 +35,12 @@ Store future user-provided bug reports and feature requests as sanitized ledger 
 
 ## Latest Validation
 
+- `2026-06-08`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1` passed after adding GitHub Packages and GitHub Release asset publishing; Release build/test passed with 179 tests, 5 release artifacts verified, packaged Windows sample preview smoke passed.
+- `2026-06-08`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.1.0 -DryRun` passed and validated all GitHub Release assets: three `.nupkg` files, win/linux executable ZIPs, and `release-manifest.json`.
+- `2026-06-08`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.1.1 -DryRun` failed as expected because the tag did not match `Directory.Build.props` version `0.1.0`.
+- `2026-06-08`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-nuget.ps1 -DryRun` passed after GitHub release distribution workflow updates.
+- `2026-06-08`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-bug-reports.ps1` passed after GitHub release distribution documentation updates; 13 intake files scanned.
+- `2026-06-08`: `git diff --check` passed after GitHub release distribution workflow updates.
 - `2026-06-08`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-nuget.ps1 -DryRun` passed after changing NuGet publishing to tag-triggered CI release.
 - `2026-06-08`: PowerShell tag/version check passed for `v0.1.0` against `Directory.Build.props` version `0.1.0`.
 - `2026-06-08`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-bug-reports.ps1` passed after CI release workflow documentation updates; 13 intake files scanned.
@@ -1514,6 +1520,32 @@ Store future user-provided bug reports and feature requests as sanitized ledger 
   - `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-bug-reports.ps1`
   - `git diff --check`
 
+### W6 GitHub Release And Package Distribution
+
+- Status: `Done`
+- Goal: publish release outputs to GitHub as both GitHub Packages and GitHub Release assets while preserving nuget.org publishing.
+- Deliverables: GitHub Release asset script, workflow updates for GitHub Packages and Release assets, docs/tracking updates, validation, commit.
+- Progress:
+  - Done: added `eng/publish-github-release.ps1` to validate and publish release assets for a version tag.
+  - Done: updated `Release NuGet` workflow permissions to allow GitHub Packages and GitHub Release writes.
+  - Done: added GitHub Packages publishing for `AvaScope.Protocol`, `AvaScope.Core`, and `AvaScope.Bridge` using the workflow `GITHUB_TOKEN`.
+  - Done: added GitHub Release asset upload for the three `.nupkg` files, win/linux executable ZIPs, and `release-manifest.json`.
+  - Done: kept `-SkipDuplicate` on package pushes so rerunning an existing release can still update GitHub Release assets.
+  - Done: documented GitHub Packages and GitHub Release outputs.
+- Acceptance Criteria:
+  - The tag-triggered release workflow still publishes the three library packages to nuget.org.
+  - The same workflow publishes the three library packages to GitHub Packages.
+  - The same workflow creates or updates the matching GitHub Release.
+  - GitHub Release assets include all local release artifacts needed for CLI/MCP/PreviewHost distribution.
+  - Release asset validation is available locally in dry-run mode.
+- Validation:
+  - `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1`
+  - `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.1.0 -DryRun`
+  - `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.1.1 -DryRun` expected tag/version mismatch failure
+  - `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-nuget.ps1 -DryRun`
+  - `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-bug-reports.ps1`
+  - `git diff --check`
+
 ## Decision Log
 
 - `2026-06-06`: Use `docs/DEVELOPMENT_PLAN.md` as the primary tracking document and keep `AGENTS.md` as the mandatory routing entrypoint.
@@ -1645,6 +1677,7 @@ Store future user-provided bug reports and feature requests as sanitized ledger 
 - `2026-06-08`: Feature requests are stored as sanitized tickets under `docs/feature-requests/`; storing a feature ticket is not authorization to implement it.
 - `2026-06-08`: W4 keeps NuGet publishing manual and credential-gated: normal CI still validates artifacts without secrets, while actual public publishing requires a nuget.org API key supplied by environment, parameter, or a manually triggered GitHub workflow secret.
 - `2026-06-08`: W5 moves NuGet publishing to CI on explicit version tags instead of branch pushes; the release tag must match `Directory.Build.props` so package identity stays deliberate.
+- `2026-06-08`: W6 uses GitHub Releases, not NuGet packages, for CLI/MCP/PreviewHost executable distribution because those projects are intentionally non-packable and already validated as co-located framework-dependent ZIP artifacts.
 
 ## Change Log
 
@@ -1716,3 +1749,4 @@ Store future user-provided bug reports and feature requests as sanitized ledger 
 - `2026-06-08`: Added the feature request ticket ledger with `FEAT-0001` through `FEAT-0007`, prioritized binding/resource diagnostics, layout warnings, and computed style/resource inspection as the top three backlog items.
 - `2026-06-08`: Completed W4 by adding `eng/publish-nuget.ps1`, the manual `Publish NuGet` GitHub workflow, NuGet publishing documentation, and release/dry-run validation.
 - `2026-06-08`: Completed W5 by converting NuGet publishing to the tag-triggered `Release NuGet` CI workflow with version-gating and `NUGET_API_KEY` secret usage.
+- `2026-06-08`: Completed W6 by adding GitHub Packages publishing and GitHub Release asset publishing for release artifacts.
