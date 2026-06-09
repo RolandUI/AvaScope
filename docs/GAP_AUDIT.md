@@ -66,6 +66,8 @@ Completed slice: `watch-preview-session` can watch the stored preview request's 
 
 Completed slice: `baseline-create` and `baseline-check` provide manifest-backed visual regression workflows over multi-size preview and screenshot diff primitives, with explicit current/diff artifact directories and non-zero check exits for changed variants.
 
+Completed slice: `baseline-check --report <report.json>` writes a stable JSON report containing the same pass/fail, variant, current-image, diff-image, and diff metric payload returned on stdout, making current/diff/report artifacts straightforward to upload from CI without changing existing pass/fail behavior.
+
 Completed slice: `doctor` reports CLI/MCP/PreviewHost co-location, bridge manifest diagnostics, preview-session store diagnostics, and actionable readiness issues without loading user projects. Packaged release validation now runs doctor with isolated manifest/store paths before sample preview smoke.
 
 Completed slice: project-local `avascope.preview.json` profiles can drive `preview` and `create-preview-session`, with explicit CLI options overriding profile values and profile output paths resolving relative to the profile file.
@@ -146,4 +148,4 @@ Next slice: CI can later add upload artifacts, self-contained outputs, or more R
 
 No public-alpha blocking slice remains after M50, and W9-W16 completed the stored feature-request first slices plus CLI preview sessions, file-watch reload, manifest-backed visual regression, source-backed typed binding diagnostics, target-aware TextBox input, preview startup parity, and opt-in self-contained distribution hardening.
 
-Selected next slice: W24 visual regression CI kit. W18 completed CLI doctor/self-test, W19 completed preview profiles, W20 added a validated packaged-CLI agent workflow, W21 added deterministic runtime `clear_text` input, W22 added bounded diagnostics issue provenance, and W23 reduced duplicate live-preview reloads with unchanged-input skip events. The next product improvement is making baseline-check output easier to upload and summarize in CI. W25 should finish with a release-candidate audit.
+Selected next slice: W25 public alpha release candidate. W18 completed CLI doctor/self-test, W19 completed preview profiles, W20 added a validated packaged-CLI agent workflow, W21 added deterministic runtime `clear_text` input, W22 added bounded diagnostics issue provenance, W23 reduced duplicate live-preview reloads with unchanged-input skip events, and W24 added CI-friendly baseline-check reports. The next step is a release-candidate audit and full local release validation.

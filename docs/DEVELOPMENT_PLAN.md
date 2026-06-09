@@ -23,15 +23,15 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `W24 Visual Regression CI Kit`
+- `W25 Public Alpha Release Candidate`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-09`
-- Goal: make baseline checking easier to run in CI and easier for agents to summarize.
+- Goal: validate the post-W17 development period as a coherent public-alpha release-candidate state.
 
 ## Next Action
 
-Audit the current baseline create/check response shape and artifact layout, add the smallest CI-friendly report output while preserving existing pass/fail behavior, validate, commit, and push W24.
+Run the public-alpha release-candidate audit after W18-W24, refresh audit/docs as needed, execute full local release validation and packaged smoke checks, commit, push, and close the development goal.
 
 ## Latest Validation
 
@@ -115,6 +115,13 @@ Audit the current baseline create/check response shape and artifact layout, add 
 - `2026-06-09`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewHost` passed with 31 tests after W23 unchanged-input watch skip.
 - `2026-06-09`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~CliSmokeTests.WatchPreviewSessionCommandReloadsWhenWatchedFileChanges` passed after W23 unchanged-input watch skip.
 - `2026-06-09`: `git diff --check` passed after W23 unchanged-input watch skip.
+- `2026-06-09`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after W24 baseline-check report output.
+- `2026-06-09`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~ProtocolContractTests.PreviewBaselineResponsesSerializeStableShapes` passed after W24 baseline-check report output.
+- `2026-06-09`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~CliSmokeTests.BaselineCommandsCreateManifestPassCheckAndFailChangedCheck` passed after W24 baseline-check report output.
+- `2026-06-09`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli` passed with 89 tests after W24 baseline-check report output.
+- `2026-06-09`: source CLI sample `baseline-create` and `baseline-check --report` smoke passed after W24 baseline-check report output.
+- `2026-06-09`: report file parse smoke passed for `.\artifacts\samples\w24-baseline\report.json` after W24 baseline-check report output.
+- `2026-06-09`: `git diff --check` passed after W24 baseline-check report output.
 - `2026-06-08`: `dotnet test AvaScope.slnx -c Release --filter FullyQualifiedName~CliSmokeTests.CloseSessionCommandClosesThroughBridgePipe` passed after W8 CI failure hardening.
 - `2026-06-08`: `dotnet test AvaScope.slnx -c Release --no-build` passed with 179 tests after W8 CI failure hardening.
 - `2026-06-08`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.1.0 -DryRun` passed after W8 GitHub Release creation hardening.
@@ -2031,24 +2038,31 @@ Audit the current baseline create/check response shape and artifact layout, add 
 
 ### W24 Visual Regression CI Kit
 
-- Status: `In Progress`
+- Status: `Done`
 - Goal: make baseline checking easier to run in CI and easier for agents to summarize.
 - Deliverables: CI-friendly baseline report output, stable artifact layout, tests, validation docs, commit, push.
 - Progress:
-  - Pending: extend baseline check reporting without changing existing pass/fail behavior.
+  - Done: added optional `baseline-check --report <report.json>` output.
+  - Done: Core writes a stable JSON `PreviewBaselineCheckResponse` report and includes `reportPath` in the response.
+  - Done: existing stdout shape, pass/fail behavior, current-image output, and diff-image output remain compatible.
+  - Done: protocol and CLI tests cover report serialization and mismatch report creation.
+  - Done: README, workflow, validation guide, and gap audit document CI artifact usage.
 - Acceptance Criteria:
-  - Baseline mismatches produce a stable machine-readable report and non-zero exit code.
-  - Current, baseline, and diff artifact paths are easy to upload from CI.
-  - Existing baseline commands remain compatible.
+  - Done: baseline mismatches produce a stable machine-readable report when `--report` is supplied and still exit non-zero.
+  - Done: current, baseline, diff, and report artifact paths are explicit in CLI arguments and response JSON.
+  - Done: existing baseline commands remain compatible because `--report` is optional.
 - Validation:
-  - Pending: `dotnet build AvaScope.slnx`
-  - Pending: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli`
-  - Pending: sample baseline create/check smoke
-  - Pending: `git diff --check`
+  - Passed: `dotnet build AvaScope.slnx`
+  - Passed: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~ProtocolContractTests.PreviewBaselineResponsesSerializeStableShapes`
+  - Passed: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~CliSmokeTests.BaselineCommandsCreateManifestPassCheckAndFailChangedCheck`
+  - Passed: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli`
+  - Passed: source CLI sample `baseline-create` and `baseline-check --report` smoke
+  - Passed: report file parse smoke
+  - Passed: `git diff --check`
 
 ### W25 Public Alpha Release Candidate
 
-- Status: `Not Started`
+- Status: `In Progress`
 - Goal: validate the post-W17 development period as a coherent public-alpha release-candidate state.
 - Deliverables: release-candidate audit refresh, full validation, packaged smoke checks, remaining deferrals, commit, push.
 - Progress:
@@ -2217,6 +2231,7 @@ Audit the current baseline create/check response shape and artifact layout, add 
 - `2026-06-09`: W21 selected `clear_text` instead of drag/drop or richer pointer variants because targeted `TextBox` clearing can be implemented through stable public control state and deterministic headless tests while preserving the narrow non-destructive runtime control boundary.
 - `2026-06-09`: W22 keeps legacy diagnostics `issues` intact and adds Core-derived `diagnosticIssues` as a v2 provenance layer so CLI, MCP, and future agents get severity/source/status/path metadata without adapter-specific logic or private Avalonia hooks.
 - `2026-06-09`: W23 defers persistent preview host processes until close/TTL/crash semantics are designed; the faster live-preview slice instead skips unchanged-input file watcher bursts while preserving one-shot isolated PreviewHost rendering for real changes.
+- `2026-06-09`: W24 keeps baseline-check stdout and exit behavior compatible while adding optional report-file output, so CI can upload current images, diff images, and a stable machine-readable report without changing existing local workflows.
 
 ## Change Log
 
@@ -2305,3 +2320,4 @@ Audit the current baseline create/check response shape and artifact layout, add 
 - `2026-06-09`: Completed W21 by adding runtime `clear_text` input for focused or targeted writable `TextBox` controls, bridge/CLI tests, README/workflow documentation, and targeted validation; moved active focus to W22.
 - `2026-06-09`: Completed W22 by adding bounded `diagnosticIssues` provenance to diagnostics responses, Core derivation from bridge/preview-host/preview-session records, protocol/Core/MCP/CLI tests, README/validation/gap updates, and targeted validation; moved active focus to W23.
 - `2026-06-09`: Completed W23 by adding unchanged-input skip events to preview-session watching, preserving isolated one-shot PreviewHost rendering, adding protocol/Core/CLI coverage, updating docs/gap tracking, and targeted validation; moved active focus to W24.
+- `2026-06-09`: Completed W24 by adding optional baseline-check JSON report output, report path propagation, protocol/CLI tests, sample report smoke validation, README/validation/gap updates, and targeted validation; moved active focus to W25.

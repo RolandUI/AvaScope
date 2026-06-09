@@ -880,7 +880,8 @@ public sealed class ProtocolContractTests
                         maxDelta: 255,
                         "C:\\diff\\diff-01-1440x900.png")))
             ],
-            createdAt);
+            createdAt,
+            "C:\\reports\\baseline-check.json");
 
         var createNode = JsonNode.Parse(JsonSerializer.Serialize(create))!;
         var checkNode = JsonNode.Parse(JsonSerializer.Serialize(check))!;
@@ -889,6 +890,7 @@ public sealed class ProtocolContractTests
         Assert.Equal(PreviewBaselineManifest.CurrentVersion, createNode["manifest"]!["version"]!.GetValue<int>());
         Assert.Equal("C:\\baselines\\baseline-01-1440x900.png", createNode["manifest"]!["entries"]![0]!["imagePath"]!.GetValue<string>());
         Assert.False(checkNode["passed"]!.GetValue<bool>());
+        Assert.Equal("C:\\reports\\baseline-check.json", checkNode["reportPath"]!.GetValue<string>());
         Assert.Equal("C:\\diff\\diff-01-1440x900.png", checkNode["entries"]![0]!["diffPath"]!.GetValue<string>());
         Assert.False(checkNode["entries"]![0]!["diff"]!["value"]!["passed"]!.GetValue<bool>());
     }

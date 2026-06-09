@@ -741,6 +741,7 @@ public sealed class CliSmokeTests
                 </UserControl>
                 """);
 
+            var reportPath = Path.Combine(testRoot, "reports", "baseline-check.json");
             var failed = await RunCliAsync(
                 cliAssembly,
                 "baseline-check",
@@ -749,7 +750,9 @@ public sealed class CliSmokeTests
                 "--out-dir",
                 Path.Combine(testRoot, "current-fail"),
                 "--diff-dir",
-                Path.Combine(testRoot, "diff-fail"));
+                Path.Combine(testRoot, "diff-fail"),
+                "--report",
+                reportPath);
 
             Assert.Equal(1, failed.ExitCode);
             var failedPayload = JsonSerializer.Deserialize<ToolResult<PreviewBaselineCheckResponse>>(
@@ -763,6 +766,16 @@ public sealed class CliSmokeTests
             Assert.False(entry.Diff.Value!.Passed);
             Assert.True(entry.Diff.Value.ChangedPixels > 0);
             Assert.True(File.Exists(entry.DiffPath));
+            Assert.Equal(Path.GetFullPath(reportPath), failedPayload.Value.ReportPath);
+            Assert.True(File.Exists(reportPath));
+            var reportPayload = JsonSerializer.Deserialize<PreviewBaselineCheckResponse>(
+                await File.ReadAllTextAsync(reportPath),
+                JsonOptions);
+            Assert.NotNull(reportPayload);
+            Assert.False(reportPayload.Passed);
+            Assert.Equal(Path.GetFullPath(reportPath), reportPayload.ReportPath);
+            Assert.Equal(Path.GetFullPath(entry.CurrentImagePath), reportPayload.Entries[0].CurrentImagePath);
+            Assert.Equal(Path.GetFullPath(entry.DiffPath), reportPayload.Entries[0].DiffPath);
         }
         finally
         {

@@ -708,7 +708,8 @@ internal static class Program
                 "manifest",
                 "out-dir",
                 "diff-dir",
-                "tolerance")
+                "tolerance",
+                "report")
             || !TryReadRequiredOption(options.Values, "manifest", GetBaselineCheckUsage(), out var manifestPath))
         {
             return 2;
@@ -728,12 +729,14 @@ internal static class Program
         var diffDirectory = options.Values.TryGetValue("diff-dir", out var configuredDiffDirectory)
             ? Path.GetFullPath(configuredDiffDirectory)
             : Path.Combine(manifestDirectory, "diff-images");
+        var reportPath = options.Values.GetValueOrDefault("report");
 
         var result = await new PreviewBaselineManager(new PreviewHostClient()).CheckAsync(
             fullManifestPath,
             outputDirectory,
             diffDirectory,
-            tolerance);
+            tolerance,
+            reportPath);
         WriteResult(result);
         return result.Success && result.Value!.Passed ? 0 : 1;
     }
@@ -1741,7 +1744,7 @@ internal static class Program
 
     private static string GetUsage()
     {
-        return "Usage: avascope mcp | avascope doctor [--manifest-dir <dir>] [--preview-session-store <dir>] | avascope attach [--process <pid>] [--session <session-id>] | avascope list-top-levels --session <session-id> | avascope visual-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] | avascope logical-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] | avascope inspect-node --session <session-id> --top-level <top-level-id> --node <node-id> [--tree-kind visual|logical] | avascope find-nodes --session <session-id> --top-level <top-level-id> [--tree-kind visual|logical] [--type <type>] [--name <name>] [--automation-id <id>] [--text <text>] [--max-depth <n>] [--max-results <n>] | avascope input --session <session-id> --top-level <top-level-id> --action <action> [--x <x>] [--y <y>] [--text <text>] [--target-node <node-id>] [--key <key>] [--modifiers <modifiers>] | avascope close-session --session <session-id> | avascope diagnostics [--process <pid>] [--session <session-id>] [--max-sessions <n>] | avascope reload --session <session-id> | avascope create-preview-session <project.csproj> [--profile <name>] [--profile-file <path>] --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] [--display-name <name>] | avascope list-preview-sessions | avascope reload-preview-session --session <session-id> | avascope close-preview-session --session <session-id> | avascope watch-preview-session --session <session-id> --timeout-ms <ms> [--settle-ms <ms>] [--max-reloads <n>] [--watch <path>[,<path>...]] | avascope baseline-create <project.csproj> --view <view.axaml> --manifest <baseline.json> --sizes <w>x<h>[,<w>x<h>...] [--out-dir <dir>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] | avascope baseline-check --manifest <baseline.json> [--out-dir <dir>] [--diff-dir <dir>] [--tolerance <0-255>] | avascope cleanup | avascope diff --baseline <baseline.png> --current <current.png> --out <diff.png> [--tolerance <0-255>] | avascope screenshot --session <session-id> --top-level <top-level-id> --out <screenshot.png> | avascope preview <project.csproj> [--profile <name>] [--profile-file <path>] --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--sizes <w>x<h>[,<w>x<h>...]] [--contact-sheet <sheet.png>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>]";
+        return "Usage: avascope mcp | avascope doctor [--manifest-dir <dir>] [--preview-session-store <dir>] | avascope attach [--process <pid>] [--session <session-id>] | avascope list-top-levels --session <session-id> | avascope visual-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] | avascope logical-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] | avascope inspect-node --session <session-id> --top-level <top-level-id> --node <node-id> [--tree-kind visual|logical] | avascope find-nodes --session <session-id> --top-level <top-level-id> [--tree-kind visual|logical] [--type <type>] [--name <name>] [--automation-id <id>] [--text <text>] [--max-depth <n>] [--max-results <n>] | avascope input --session <session-id> --top-level <top-level-id> --action <action> [--x <x>] [--y <y>] [--text <text>] [--target-node <node-id>] [--key <key>] [--modifiers <modifiers>] | avascope close-session --session <session-id> | avascope diagnostics [--process <pid>] [--session <session-id>] [--max-sessions <n>] | avascope reload --session <session-id> | avascope create-preview-session <project.csproj> [--profile <name>] [--profile-file <path>] --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] [--display-name <name>] | avascope list-preview-sessions | avascope reload-preview-session --session <session-id> | avascope close-preview-session --session <session-id> | avascope watch-preview-session --session <session-id> --timeout-ms <ms> [--settle-ms <ms>] [--max-reloads <n>] [--watch <path>[,<path>...]] | avascope baseline-create <project.csproj> --view <view.axaml> --manifest <baseline.json> --sizes <w>x<h>[,<w>x<h>...] [--out-dir <dir>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] | avascope baseline-check --manifest <baseline.json> [--out-dir <dir>] [--diff-dir <dir>] [--tolerance <0-255>] [--report <report.json>] | avascope cleanup | avascope diff --baseline <baseline.png> --current <current.png> --out <diff.png> [--tolerance <0-255>] | avascope screenshot --session <session-id> --top-level <top-level-id> --out <screenshot.png> | avascope preview <project.csproj> [--profile <name>] [--profile-file <path>] --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--sizes <w>x<h>[,<w>x<h>...]] [--contact-sheet <sheet.png>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>]";
     }
 
     private static string GetPreviewUsage()
@@ -1781,7 +1784,7 @@ internal static class Program
 
     private static string GetBaselineCheckUsage()
     {
-        return "Usage: avascope baseline-check --manifest <baseline.json> [--out-dir <dir>] [--diff-dir <dir>] [--tolerance <0-255>]";
+        return "Usage: avascope baseline-check --manifest <baseline.json> [--out-dir <dir>] [--diff-dir <dir>] [--tolerance <0-255>] [--report <report.json>]";
     }
 
     private static string GetAttachUsage()

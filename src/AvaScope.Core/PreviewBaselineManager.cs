@@ -114,6 +114,7 @@ public sealed class PreviewBaselineManager
         string outputDirectory,
         string diffDirectory,
         double tolerance,
+        string? reportPath = null,
         CancellationToken cancellationToken = default)
     {
         if (tolerance < 0 || tolerance > 255)
@@ -134,6 +135,7 @@ public sealed class PreviewBaselineManager
         var entries = new List<PreviewBaselineCheckEntry>(manifest.Entries.Count);
         var fullOutputDirectory = Path.GetFullPath(outputDirectory);
         var fullDiffDirectory = Path.GetFullPath(diffDirectory);
+        var fullReportPath = string.IsNullOrWhiteSpace(reportPath) ? null : Path.GetFullPath(reportPath);
         Directory.CreateDirectory(fullOutputDirectory);
         Directory.CreateDirectory(fullDiffDirectory);
 
@@ -186,11 +188,45 @@ public sealed class PreviewBaselineManager
                 diffResult));
         }
 
-        return CoreResult<PreviewBaselineCheckResponse>.Ok(new PreviewBaselineCheckResponse(
+        var response = new PreviewBaselineCheckResponse(
             fullManifestPath,
             passed,
             entries,
-            _timeProvider.GetUtcNow()));
+            _timeProvider.GetUtcNow(),
+            fullReportPath);
+        if (fullReportPath is not null)
+        {
+            var written = WriteBaselineCheckReport(response, fullReportPath);
+            if (!written.Success)
+            {
+                return CoreResult<PreviewBaselineCheckResponse>.Fail(written.Error!);
+            }
+        }
+
+        return CoreResult<PreviewBaselineCheckResponse>.Ok(response);
+    }
+
+    private static CoreResult<bool> WriteBaselineCheckReport(
+        PreviewBaselineCheckResponse response,
+        string reportPath)
+    {
+        try
+        {
+            var reportDirectory = Path.GetDirectoryName(reportPath);
+            if (!string.IsNullOrWhiteSpace(reportDirectory))
+            {
+                Directory.CreateDirectory(reportDirectory);
+            }
+
+            File.WriteAllText(reportPath, JsonSerializer.Serialize(response, JsonOptions));
+            return CoreResult<bool>.Ok(true);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException)
+        {
+            return CoreResult<bool>.Fail(new CoreError(
+                CoreErrorCodes.PreviewBaselineFailed,
+                $"Baseline check report could not be written: {exception.Message}"));
+        }
     }
 
     private static CoreResult<PreviewBaselineManifest> LoadManifest(string manifestPath)

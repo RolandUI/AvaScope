@@ -9,7 +9,8 @@ public sealed record PreviewBaselineCheckResponse
         string manifestPath,
         bool passed,
         IReadOnlyList<PreviewBaselineCheckEntry>? entries,
-        DateTimeOffset checkedAt)
+        DateTimeOffset checkedAt,
+        string? reportPath = null)
     {
         if (string.IsNullOrWhiteSpace(manifestPath))
         {
@@ -20,6 +21,7 @@ public sealed record PreviewBaselineCheckResponse
         Passed = passed;
         Entries = entries ?? [];
         CheckedAt = checkedAt;
+        ReportPath = string.IsNullOrWhiteSpace(reportPath) ? null : Path.GetFullPath(reportPath);
     }
 
     [JsonPropertyName("manifestPath")]
@@ -33,4 +35,8 @@ public sealed record PreviewBaselineCheckResponse
 
     [JsonPropertyName("checkedAt")]
     public DateTimeOffset CheckedAt { get; }
+
+    [JsonPropertyName("reportPath")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ReportPath { get; }
 }
