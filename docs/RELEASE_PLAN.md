@@ -35,16 +35,16 @@ git diff --check
 
 If the release includes public workflow or packaging changes, also validate the packaged CLI paths documented in `docs/AGENT_WORKFLOW.md`.
 
-## Current Release Target
+## Released Target: v0.3.0
 
 - Release: `v0.3.0`
 - Target Version: `0.3.0`
-- Release State: `Release Candidate`
+- Release State: `Released`
 - Scope Lock: `2026-06-09`
-- Release Commit: pending
+- Release Commit: `9d6cc3f` (`Release 0.3.0`)
 - Local Release Gate: passed on `2026-06-09`
-- Published At: pending
-- GitHub Release: pending
+- Published At: `2026-06-09T15:50:04Z`
+- GitHub Release: https://github.com/RolandUI/AvaScope/releases/tag/v0.3.0
 - Previous Release: `v0.2.2`
 
 ### v0.3.0 Release Goals
@@ -71,7 +71,7 @@ The `v0.3.0` release target is a minor release focused on deterministic animatio
 - `R0.3.0-M3 Motion Diagnostics` delivers `RG-0.3.0-3`; Status: `Done`.
 - `R0.3.0-M4 CLI, MCP, And Viewer Workflow` delivers `RG-0.3.0-4`; Status: `Done`.
 - `R0.3.0-M5 Sample And Documentation` delivers `RG-0.3.0-5`; Status: `Done`.
-- `R0.3.0-M6 Release Candidate And Version Bump` delivers `RG-0.3.0-6`; Status: `In Progress`.
+- `R0.3.0-M6 Release Candidate And Version Bump` delivers `RG-0.3.0-6`; Status: `Done`.
 
 ### v0.3.0 Implementation Validation
 
@@ -86,6 +86,11 @@ The `v0.3.0` release target is a minor release focused on deterministic animatio
 - `2026-06-09`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-bug-reports.ps1` passed for the `v0.3.0` release-candidate gate; 15 intake files scanned.
 - `2026-06-09`: `git diff --check` passed for the `v0.3.0` release-candidate working tree.
 - `2026-06-09`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-release-commit.ps1 -Version 0.3.0 -CommitSubject "Release 0.3.0" -RequiredState "Release Candidate"` passed for the `v0.3.0` release commit guard.
+- `2026-06-09`: GitHub Release workflow `27217885931` passed for `Release 0.3.0`; tag `v0.3.0` and six GitHub Release assets were published at `2026-06-09T15:50:04Z`.
+- `2026-06-09`: `gh release view v0.3.0` confirmed the public release URL and six uploaded assets: three `0.3.0` `.nupkg` files, win-x64 and linux-x64 framework-dependent ZIPs, and `release-manifest.json`.
+- `2026-06-09`: `git ls-remote --tags origin refs/tags/v0.3.0` confirmed tag `v0.3.0` at release commit `9d6cc3f`.
+- `2026-06-09`: GitHub CI workflow `27217886778` failed after publish in `PreviewSessionWatcherSkipsReloadWhenWatchedInputsAreUnchanged` because the hosted runner timed out during the watcher settle delay after receiving a transient file event.
+- `2026-06-09`: Post-release CI stabilization commit `9d475d2` increased the unchanged-input watcher test timeout; targeted Release test passed 3 consecutive runs, local `dotnet test AvaScope.slnx -c Release --no-build` passed with 218 tests, GitHub CI workflow `27218629376` passed, and the follow-up Release workflow `27218629389` no-oped successfully because `v0.3.0` already existed.
 
 ### Explicit Deferrals
 

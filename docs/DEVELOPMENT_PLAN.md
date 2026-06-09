@@ -25,15 +25,15 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `R0.3.0-M6 Release Candidate And Version Bump`
+- `Next Release Planning`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-09`
-- Goal: run the guarded `v0.3.0` release gate, move the target to `Release Candidate`, then prepare the final version bump release commit.
+- Goal: define the next release target before any new feature implementation starts.
 
 ## Next Action
 
-Run the full release gate for `v0.3.0`: full build/test, local release packaging, GitHub Release dry-run, packaged CLI animation smoke, bug-report validation, and `git diff --check`.
+Define the next release target in `docs/RELEASE_PLAN.md` when new product scope is selected; do not start feature work without a planned release target.
 
 ## Latest Validation
 
@@ -45,6 +45,12 @@ Run the full release gate for `v0.3.0`: full build/test, local release packaging
 - `2026-06-09`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-bug-reports.ps1` passed for the `v0.3.0` release-candidate gate; 15 intake files scanned.
 - `2026-06-09`: `git diff --check` passed for the `v0.3.0` release-candidate working tree.
 - `2026-06-09`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-release-commit.ps1 -Version 0.3.0 -CommitSubject "Release 0.3.0" -RequiredState "Release Candidate"` passed for the `v0.3.0` release commit guard.
+- `2026-06-09`: GitHub Release workflow `27217885931` passed for `Release 0.3.0`; tag `v0.3.0` and six GitHub Release assets were published at `2026-06-09T15:50:04Z`.
+- `2026-06-09`: `gh release view v0.3.0` confirmed the public release URL and six uploaded assets.
+- `2026-06-09`: `git ls-remote --tags origin refs/tags/v0.3.0` confirmed tag `v0.3.0` at release commit `9d6cc3f`.
+- `2026-06-09`: Post-release CI stabilization targeted Release watcher skip test passed 3 consecutive runs after increasing the unchanged-input watcher test timeout.
+- `2026-06-09`: `dotnet test AvaScope.slnx -c Release --no-build` passed with 218 tests after post-release watcher skip test stabilization.
+- `2026-06-09`: GitHub CI workflow `27218629376` passed after post-release watcher skip test stabilization; Release workflow `27218629389` no-oped successfully because `v0.3.0` already existed.
 - `2026-06-09`: `dotnet build AvaScope.slnx --no-restore -v:minimal` passed with 0 warnings and 0 errors after implementing `v0.3.0` animation sampling, viewer, sample, and documentation.
 - `2026-06-09`: Animation targeted tests passed with 5 tests: `ProtocolContractTests.PreviewAnimationRequestAndResponseSerializeStableShapes`, `PreviewHostClientTests.RenderAnimationAsyncCreatesOffsetFramesStripAndMotionSummary`, `CliSmokeTests.PreviewAnimationCommandRendersOffsetFramesAndStrip`, `McpStdioSmokeTests.ServerStartsOverStdioAndListsInitialTools`, and `AvaScopeMcpToolsTests.PreviewAxamlAnimationRejectsInvalidOffsets`.
 - `2026-06-09`: Source CLI `preview-animation .\samples\AvaScope.GettingStartedApp\AvaScope.GettingStartedApp.csproj --profile animation` passed with 4 successful frames, a frame strip, `motion.status=changed`, and a file-backed animation viewer URL.
@@ -2630,6 +2636,7 @@ Run the full release gate for `v0.3.0`: full build/test, local release packaging
 
 ## Change Log
 
+- `2026-06-09`: Completed `v0.3.0` release with GitHub Release assets and tag verification, stabilized the follow-up master CI watcher timing flake, and moved active focus to next release planning.
 - `2026-06-09`: Completed `R0.3.0-M1` through `R0.3.0-M5` by adding animation sampling protocol DTOs, PreviewHost time-offset capture, Core frame strip/motion/viewer export, CLI `preview-animation`, MCP `preview_axaml_animation`, getting-started animation sample/profile, documentation, and targeted validation; moved active focus to `R0.3.0-M6`.
 - `2026-06-09`: Planned `v0.3.0` with release goals and milestones for animation sampling, PreviewHost time-offset capture, motion diagnostics, CLI/MCP/viewer workflow, sample documentation, and guarded release validation; moved active focus to `R0.3.0-M1`.
 - `2026-06-09`: Stored `FEAT-0008` for future animation diagnostics; no implementation was started and next release planning remains the active focus.
