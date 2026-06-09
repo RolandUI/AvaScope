@@ -2755,11 +2755,11 @@ public sealed class CliSmokeTests
     private static async Task<string?> ReadOptionalLineAsync(Stream stream, CancellationToken cancellationToken)
     {
         var bytes = new List<byte>();
-        var buffer = new byte[1];
+        var buffer = new byte[256];
 
         while (true)
         {
-            var read = await stream.ReadAsync(buffer, cancellationToken);
+            var read = await stream.ReadAsync(buffer.AsMemory(0, buffer.Length), cancellationToken);
             if (read == 0)
             {
                 return bytes.Count == 0
@@ -2767,18 +2767,19 @@ public sealed class CliSmokeTests
                     : Encoding.UTF8.GetString(bytes.ToArray());
             }
 
-            if (buffer[0] == (byte)'\n')
+            for (var index = 0; index < read; index++)
             {
-                break;
-            }
+                if (buffer[index] == (byte)'\n')
+                {
+                    return Encoding.UTF8.GetString(bytes.ToArray());
+                }
 
-            if (buffer[0] != (byte)'\r')
-            {
-                bytes.Add(buffer[0]);
+                if (buffer[index] != (byte)'\r')
+                {
+                    bytes.Add(buffer[index]);
+                }
             }
         }
-
-        return Encoding.UTF8.GetString(bytes.ToArray());
     }
 
     private sealed record CliResult(

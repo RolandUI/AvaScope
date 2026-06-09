@@ -176,6 +176,12 @@ Define the next release target and milestone map in `docs/RELEASE_PLAN.md`; do n
 - `2026-06-09`: `gh release view v0.2.0` verified GitHub Release `AvaScope 0.2.0` with six uploaded assets: three `0.2.0` `.nupkg` files, win-x64 and linux-x64 framework-dependent ZIPs, and `release-manifest.json`.
 - `2026-06-09`: `git ls-remote --tags origin refs/tags/v0.2.0` verified tag `v0.2.0` points to release head commit `bb471af`.
 - `2026-06-09`: `git diff --check` passed after recording `v0.2.0` release completion metadata.
+- `2026-06-09`: post-release CI run `27195793057` failed in Release tests because the fake bridge server could read a partial named-pipe JSON request under hosted-runner timing.
+- `2026-06-09`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after switching the CLI fake bridge pipe reader from byte-at-a-time reads to chunked reads.
+- `2026-06-09`: targeted fake bridge CLI tests passed after chunked pipe reading: `dotnet test AvaScope.slnx --no-build --filter "FullyQualifiedName~CliSmokeTests.InputCommandSendsClickThroughBridgePipe|FullyQualifiedName~CliSmokeTests.InspectNodeCommandReadsNodeThroughBridgePipe"` passed with 3 tests.
+- `2026-06-09`: `dotnet build AvaScope.slnx -c Release` passed with 0 warnings and 0 errors after chunked pipe reading.
+- `2026-06-09`: `dotnet test AvaScope.slnx -c Release --no-build` passed with 210 tests after chunked pipe reading.
+- `2026-06-09`: `git diff --check` passed after chunked fake bridge pipe reader stabilization.
 - `2026-06-08`: `dotnet test AvaScope.slnx -c Release --filter FullyQualifiedName~CliSmokeTests.CloseSessionCommandClosesThroughBridgePipe` passed after W8 CI failure hardening.
 - `2026-06-08`: `dotnet test AvaScope.slnx -c Release --no-build` passed with 179 tests after W8 CI failure hardening.
 - `2026-06-08`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.1.0 -DryRun` passed after W8 GitHub Release creation hardening.
@@ -2291,6 +2297,7 @@ Define the next release target and milestone map in `docs/RELEASE_PLAN.md`; do n
   - Passed: CI run `27195202091`
   - Passed: `gh release view v0.2.0`
   - Passed: `git ls-remote --tags origin refs/tags/v0.2.0`
+  - Passed: post-release hosted-runner fake pipe reader fix targeted Debug tests and full Release test suite
 
 ## Decision Log
 
