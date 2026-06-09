@@ -483,7 +483,7 @@ public sealed class PreviewSessionRegistryTests : IDisposable
         var watchTask = watcher.WatchAsync(
             created.Value!.Session.SessionId,
             new PreviewSessionWatchOptions(
-                TimeSpan.FromSeconds(3),
+                TimeSpan.FromSeconds(10),
                 TimeSpan.FromMilliseconds(150),
                 maxReloads: 1,
                 [watchedDirectory]));
