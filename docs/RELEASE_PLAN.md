@@ -39,10 +39,12 @@ If the release includes public workflow or packaging changes, also validate the 
 
 - Release: `v0.2.0`
 - Target Version: `0.2.0`
-- Release State: `Release Candidate`
+- Release State: `Released`
 - Scope Lock: `2026-06-09`
-- Release Commit: `Release 0.2.0`
+- Release Commit: `bb471af` (`Release 0.2.0`)
 - Local Release Gate: passed on `2026-06-09`
+- Published At: `2026-06-09T09:04:15Z`
+- GitHub Release: https://github.com/RolandUI/AvaScope/releases/tag/v0.2.0
 - Previous Release: `v0.1.0`
 
 ### v0.2.0 Release Goals
