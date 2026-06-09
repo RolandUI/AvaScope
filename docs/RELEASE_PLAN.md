@@ -56,7 +56,9 @@ The `v0.2.0` release target is focused on making AvaScope more reliable for repe
    Success signal: either a small validated lifecycle improvement ships, or persistent preview host processes are explicitly deferred with close, TTL, crash, and cleanup semantics documented.
 4. `RG-0.2.0-4 Visual Regression CI Handoff`: visual baseline checks are ready to be consumed by CI without changing local baseline command behavior.
    Success signal: a documented workflow or helper shows how to upload the JSON report, current image, and diff image artifacts produced by `baseline-check --report`.
-5. `RG-0.2.0-5 Guarded Release`: `v0.2.0` ships only after the declared goals are complete or explicitly deferred.
+5. `RG-0.2.0-5 Codex Preview Surface`: Codex can hand off an AvaScope preview to a local web viewer that works with the Codex in-app browser instead of relying on a native custom sidebar surface.
+   Success signal: AvaScope can produce a local `previewUrl` for a preview/session viewer, MCP/CLI handoff returns that URL, and docs describe the Codex in-app browser workflow.
+6. `RG-0.2.0-6 Guarded Release`: `v0.2.0` ships only after the declared goals are complete or explicitly deferred.
    Success signal: audits are refreshed, the full release gate passes, `Directory.Build.props` is bumped to `0.2.0` in a `Release 0.2.0` commit, and the guarded release workflow publishes the matching version.
 
 ### v0.2.0 Milestone Map
@@ -65,7 +67,8 @@ The `v0.2.0` release target is focused on making AvaScope more reliable for repe
 - `R0.2.0-M2 Preview Diagnostics Readiness` delivers `RG-0.2.0-2`.
 - `R0.2.0-M3 Live Preview Lifecycle Decision` delivers `RG-0.2.0-3`.
 - `R0.2.0-M4 Visual Regression CI Integration` delivers `RG-0.2.0-4`.
-- `R0.2.0-M5 Release Candidate And Version Bump` delivers `RG-0.2.0-5`.
+- `R0.2.0-M5 Codex Preview Surface` delivers `RG-0.2.0-5`.
+- `R0.2.0-M6 Release Candidate And Version Bump` delivers `RG-0.2.0-6`.
 
 ### Explicit Deferrals
 
