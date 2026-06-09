@@ -76,6 +76,15 @@ dotnet test AvaScope.slnx --filter Mcp
 dotnet test AvaScope.slnx --filter FullyQualifiedName~Cli
 ```
 
+For runtime target handoff work, include:
+
+```powershell
+dotnet test AvaScope.slnx --filter FullyQualifiedName~ProtocolContractTests
+dotnet test AvaScope.slnx --filter FullyQualifiedName~BridgeHeadlessSmokeTests.McpToolsListTopLevelsAndCaptureScreenshotThroughLocalBridgePipe
+dotnet test AvaScope.slnx --filter FullyQualifiedName~BridgeHeadlessSmokeTests.McpInputClicksButtonAndTypesTextThroughLocalBridgePipe
+dotnet test AvaScope.slnx --filter "FullyQualifiedName~CliSmokeTests.TreeCommandReadsTreeThroughBridgePipe|FullyQualifiedName~CliSmokeTests.FindNodesCommandReadsMatchesThroughBridgePipe|FullyQualifiedName~CliSmokeTests.InputCommandSendsClickThroughBridgePipe"
+```
+
 For CLI preview-session work, include the persistent-session smoke path:
 
 ```powershell

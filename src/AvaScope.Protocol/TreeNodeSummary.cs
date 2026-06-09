@@ -13,7 +13,8 @@ public sealed record TreeNodeSummary
         string? text = null,
         NodeBounds? bounds = null,
         IReadOnlyList<string>? classes = null,
-        IReadOnlyList<TreeNodeSummary>? children = null)
+        IReadOnlyList<TreeNodeSummary>? children = null,
+        RuntimeTargetContext? target = null)
     {
         if (string.IsNullOrWhiteSpace(nodeId))
         {
@@ -33,6 +34,7 @@ public sealed record TreeNodeSummary
         Bounds = bounds;
         Classes = classes ?? Array.Empty<string>();
         Children = children ?? Array.Empty<TreeNodeSummary>();
+        Target = target;
     }
 
     [JsonPropertyName("nodeId")]
@@ -62,4 +64,8 @@ public sealed record TreeNodeSummary
 
     [JsonPropertyName("children")]
     public IReadOnlyList<TreeNodeSummary> Children { get; }
+
+    [JsonPropertyName("target")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public RuntimeTargetContext? Target { get; }
 }

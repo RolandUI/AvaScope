@@ -1094,13 +1094,22 @@ public sealed class CliSmokeTests
         var pipeName = $"avascope-cli-test-{Guid.NewGuid():N}";
         var manifestPath = WriteBridgeManifest(sessionId, pipeName);
         var root = new TreeNodeSummary(
-            "visual:root",
+            $"{expectedTreeKind}:root",
             "Window",
             "CliWindow",
             children:
             [
-                new TreeNodeSummary("visual:child", "TextBlock", text: "CLI tree")
-            ]);
+                new TreeNodeSummary(
+                    $"{expectedTreeKind}:child",
+                    "TextBlock",
+                    text: "CLI tree",
+                    target: new RuntimeTargetContext(
+                        sessionId,
+                        "topLevel:cli",
+                        expectedTreeKind,
+                        $"{expectedTreeKind}:child"))
+            ],
+            target: new RuntimeTargetContext(sessionId, "topLevel:cli", expectedTreeKind, $"{expectedTreeKind}:root"));
 
         var serverTask = RespondToBridgeRequestAsync(pipeName, request =>
         {
@@ -1136,8 +1145,14 @@ public sealed class CliSmokeTests
             Assert.Equal("topLevel:cli", payload.Value.TopLevelId);
             Assert.Equal(expectedTreeKind, payload.Value.TreeKind);
             Assert.Equal(2, payload.Value.DepthLimit);
+            Assert.Equal(sessionId, payload.Value.Target.SessionId);
+            Assert.Equal("topLevel:cli", payload.Value.Target.TopLevelId);
+            Assert.Equal(expectedTreeKind, payload.Value.Target.TreeKind);
+            Assert.Equal($"{expectedTreeKind}:root", payload.Value.Root.Target!.NodeId);
             Assert.Equal("Window", payload.Value.Root.NodeType);
-            Assert.Equal("CLI tree", Assert.Single(payload.Value.Root.Children).Text);
+            var child = Assert.Single(payload.Value.Root.Children);
+            Assert.Equal("CLI tree", child.Text);
+            Assert.Equal($"{expectedTreeKind}:child", child.Target!.NodeId);
         }
         finally
         {
@@ -1445,7 +1460,8 @@ public sealed class CliSmokeTests
             "TextBlock",
             "SearchTarget",
             "search-target",
-            "Find me");
+            "Find me",
+            target: new RuntimeTargetContext(sessionId, "topLevel:cli", TreeKinds.Logical, "logical:match"));
 
         var serverTask = RespondToBridgeRequestAsync(pipeName, request =>
         {
@@ -1502,8 +1518,15 @@ public sealed class CliSmokeTests
             Assert.True(payload.Success, payload.Error?.Message);
             Assert.Equal(sessionId, payload.Value!.SessionId);
             Assert.Equal(TreeKinds.Logical, payload.Value.TreeKind);
+            Assert.Equal(sessionId, payload.Value.Target.SessionId);
+            Assert.Equal("topLevel:cli", payload.Value.Target.TopLevelId);
+            Assert.Equal(TreeKinds.Logical, payload.Value.Target.TreeKind);
             var match = Assert.Single(payload.Value.Matches);
             Assert.Equal("logical:match", match.Node.NodeId);
+            Assert.Equal(sessionId, match.Target!.SessionId);
+            Assert.Equal("topLevel:cli", match.Target.TopLevelId);
+            Assert.Equal(TreeKinds.Logical, match.Target.TreeKind);
+            Assert.Equal("logical:match", match.Target.NodeId);
             Assert.Equal("SearchTarget", match.Node.Name);
             Assert.Equal(new[] { "logical:root", "logical:match" }, match.Path);
         }
@@ -1642,6 +1665,10 @@ public sealed class CliSmokeTests
             Assert.True(payload.Success, payload.Error?.Message);
             Assert.True(payload.Value!.Handled);
             Assert.Equal("visual:button", payload.Value.TargetNodeId);
+            Assert.Equal(sessionId, payload.Value.Target.SessionId);
+            Assert.Equal("topLevel:cli", payload.Value.Target.TopLevelId);
+            Assert.Equal(TreeKinds.Visual, payload.Value.Target.TreeKind);
+            Assert.Equal("visual:button", payload.Value.Target.NodeId);
         }
         finally
         {

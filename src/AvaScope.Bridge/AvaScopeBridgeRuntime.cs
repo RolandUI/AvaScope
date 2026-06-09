@@ -347,8 +347,7 @@ public sealed class AvaScopeBridgeRuntime
         var topLevel = FindTopLevel(topLevelId);
         if (topLevel is null)
         {
-            return CoreResult<ScreenshotResponse>.Fail(
-                new CoreError(BridgeErrorCodes.TopLevelNotFound, $"Top-level '{topLevelId}' was not found."));
+            return TopLevelNotFound<ScreenshotResponse>(topLevelId);
         }
 
         var pixelSize = GetPixelSize(topLevel);
@@ -383,7 +382,8 @@ public sealed class AvaScopeBridgeRuntime
                 fullPath,
                 pixelSize.Width,
                 pixelSize.Height,
-                DateTimeOffset.UtcNow));
+                DateTimeOffset.UtcNow,
+                CreateTopLevelTarget(topLevelId)));
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or NotSupportedException or InvalidOperationException)
         {
@@ -415,7 +415,7 @@ public sealed class AvaScopeBridgeRuntime
             topLevelId,
             TreeKinds.Visual,
             normalizedDepth,
-            SerializeVisualNode(topLevel, depth: 0, normalizedDepth)));
+            SerializeVisualNode(topLevel, topLevelId, depth: 0, normalizedDepth)));
     }
 
     private CoreResult<TreeResponse> GetLogicalTree(string topLevelId, int? maxDepth)
@@ -441,7 +441,7 @@ public sealed class AvaScopeBridgeRuntime
             topLevelId,
             TreeKinds.Logical,
             normalizedDepth,
-            SerializeLogicalNode(topLevel, depth: 0, normalizedDepth)));
+            SerializeLogicalNode(topLevel, topLevelId, depth: 0, normalizedDepth)));
     }
 
     private CoreResult<FindNodesResponse> FindNodes(
@@ -498,7 +498,8 @@ public sealed class AvaScopeBridgeRuntime
             topLevelId,
             treeKind,
             treeResult.Value.DepthLimit,
-            matches));
+            matches,
+            treeResult.Value.Target));
     }
 
     private CoreResult<InspectNodeResponse> InspectNode(string topLevelId, string treeKind, string nodeId)
@@ -546,7 +547,8 @@ public sealed class AvaScopeBridgeRuntime
             GetText(node),
             GetBounds(node),
             GetClasses(node),
-            GetComputedProperties(node)));
+            GetComputedProperties(node),
+            CreateNodeTarget(topLevelId, TreeKinds.Visual, node)));
     }
 
     private CoreResult<InspectNodeResponse> InspectLogicalNode(ILogical root, string topLevelId, string nodeId)
@@ -569,7 +571,8 @@ public sealed class AvaScopeBridgeRuntime
             GetText(node),
             GetBounds(node),
             GetClasses(node),
-            GetComputedProperties(node)));
+            GetComputedProperties(node),
+            CreateNodeTarget(topLevelId, TreeKinds.Logical, node)));
     }
 
     private CoreResult<InputResponse> Input(
@@ -1023,8 +1026,9 @@ public sealed class AvaScopeBridgeRuntime
             if (node is null)
             {
                 return CoreResult<InputElement>.Fail(new CoreError(
-                    BridgeErrorCodes.InvalidInputRequest,
-                    $"Input target node '{targetNodeId}' was not found."));
+                    BridgeErrorCodes.NodeNotFound,
+                    $"Input target node '{targetNodeId}' was not found.",
+                    CreateTargetErrorDetails(null, null, targetNodeId.Trim())));
             }
 
             var inputTarget = node as InputElement ?? (node as Visual)?.FindAncestorOfType<InputElement>();
@@ -1207,14 +1211,22 @@ public sealed class AvaScopeBridgeRuntime
     {
         return CoreResult<InspectNodeResponse>.Fail(new CoreError(
             BridgeErrorCodes.NodeNotFound,
-            $"Node '{nodeId}' was not found in the {treeKind} tree for top-level '{topLevelId}'."));
+            $"Node '{nodeId}' was not found in the {treeKind} tree for top-level '{topLevelId}'.",
+            CreateTargetErrorDetails(topLevelId, treeKind, nodeId)));
     }
 
     private static CoreResult<TreeResponse> InvalidTreeKind(string topLevelId, string treeKind)
     {
         return CoreResult<TreeResponse>.Fail(new CoreError(
             BridgeErrorCodes.InvalidFindRequest,
-            $"Tree kind '{treeKind}' is not supported for top-level '{topLevelId}'."));
+            $"Tree kind '{treeKind}' is not supported for top-level '{topLevelId}'.",
+            new Dictionary<string, string>
+            {
+                ["topLevelId"] = topLevelId,
+                ["treeKind"] = treeKind,
+                ["supportedTreeKinds"] = $"{TreeKinds.Visual},{TreeKinds.Logical}",
+                ["nextAction"] = "Use treeKind 'visual' or 'logical' from the target context returned by visual-tree, logical-tree, find-nodes, or inspect-node."
+            }));
     }
 
     private static void CollectMatches(
@@ -1280,32 +1292,40 @@ public sealed class AvaScopeBridgeRuntime
     private static CoreResult<T> TopLevelNotFound<T>(string topLevelId)
     {
         return CoreResult<T>.Fail(
-            new CoreError(BridgeErrorCodes.TopLevelNotFound, $"Top-level '{topLevelId}' was not found."));
+            new CoreError(
+                BridgeErrorCodes.TopLevelNotFound,
+                $"Top-level '{topLevelId}' was not found.",
+                new Dictionary<string, string>
+                {
+                    ["topLevelId"] = topLevelId,
+                    ["nextAction"] = "Call list-top-levels again and retry with a current topLevelId from the returned runtime target context."
+                }));
     }
 
-    private static TreeNodeSummary SerializeVisualNode(Visual visual, int depth, int maxDepth)
+    private TreeNodeSummary SerializeVisualNode(Visual visual, string topLevelId, int depth, int maxDepth)
     {
         var children = depth >= maxDepth
             ? Array.Empty<TreeNodeSummary>()
             : visual.GetVisualChildren()
-                .Select(child => SerializeVisualNode(child, depth + 1, maxDepth))
+                .Select(child => SerializeVisualNode(child, topLevelId, depth + 1, maxDepth))
                 .ToArray();
 
-        return CreateNodeSummary(visual, TreeKinds.Visual, children);
+        return CreateNodeSummary(topLevelId, visual, TreeKinds.Visual, children);
     }
 
-    private static TreeNodeSummary SerializeLogicalNode(ILogical logical, int depth, int maxDepth)
+    private TreeNodeSummary SerializeLogicalNode(ILogical logical, string topLevelId, int depth, int maxDepth)
     {
         var children = depth >= maxDepth
             ? Array.Empty<TreeNodeSummary>()
             : logical.GetLogicalChildren()
-                .Select(child => SerializeLogicalNode(child, depth + 1, maxDepth))
+                .Select(child => SerializeLogicalNode(child, topLevelId, depth + 1, maxDepth))
                 .ToArray();
 
-        return CreateNodeSummary(logical, TreeKinds.Logical, children);
+        return CreateNodeSummary(topLevelId, logical, TreeKinds.Logical, children);
     }
 
-    private static TreeNodeSummary CreateNodeSummary(
+    private TreeNodeSummary CreateNodeSummary(
+        string topLevelId,
         object node,
         string treeKind,
         IReadOnlyList<TreeNodeSummary> children)
@@ -1318,7 +1338,42 @@ public sealed class AvaScopeBridgeRuntime
             GetText(node),
             GetBounds(node),
             GetClasses(node),
-            children);
+            children,
+            CreateNodeTarget(topLevelId, treeKind, node));
+    }
+
+    private RuntimeTargetContext CreateTopLevelTarget(string topLevelId)
+    {
+        return new RuntimeTargetContext(SessionId, topLevelId);
+    }
+
+    private RuntimeTargetContext CreateNodeTarget(string topLevelId, string treeKind, object node)
+    {
+        return new RuntimeTargetContext(SessionId, topLevelId, treeKind, CreateNodeId(node, treeKind));
+    }
+
+    private static IReadOnlyDictionary<string, string> CreateTargetErrorDetails(
+        string? topLevelId,
+        string? treeKind,
+        string nodeId)
+    {
+        var details = new Dictionary<string, string>
+        {
+            ["nodeId"] = nodeId,
+            ["nextAction"] = "Refresh the relevant visual-tree, logical-tree, or find-nodes result and retry with the current target object."
+        };
+
+        if (!string.IsNullOrWhiteSpace(topLevelId))
+        {
+            details["topLevelId"] = topLevelId;
+        }
+
+        if (!string.IsNullOrWhiteSpace(treeKind))
+        {
+            details["treeKind"] = treeKind;
+        }
+
+        return details;
     }
 
     private static string CreateNodeId(object node, string treeKind)

@@ -10,7 +10,8 @@ public sealed record TreeResponse
         string topLevelId,
         string treeKind,
         int depthLimit,
-        TreeNodeSummary root)
+        TreeNodeSummary root,
+        RuntimeTargetContext? target = null)
     {
         SessionId = sessionId ?? throw new ArgumentNullException(nameof(sessionId));
 
@@ -33,6 +34,7 @@ public sealed record TreeResponse
         TreeKind = treeKind;
         DepthLimit = depthLimit;
         Root = root ?? throw new ArgumentNullException(nameof(root));
+        Target = target ?? new RuntimeTargetContext(sessionId, topLevelId, treeKind);
     }
 
     [JsonPropertyName("sessionId")]
@@ -49,4 +51,7 @@ public sealed record TreeResponse
 
     [JsonPropertyName("root")]
     public TreeNodeSummary Root { get; }
+
+    [JsonPropertyName("target")]
+    public RuntimeTargetContext Target { get; }
 }

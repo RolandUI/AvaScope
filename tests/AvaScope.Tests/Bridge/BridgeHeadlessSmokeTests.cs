@@ -69,6 +69,10 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                 Assert.True(screenshot.Success, screenshot.Error?.Message);
                 Assert.Equal(runtime.SessionId, screenshot.Value!.SessionId);
                 Assert.Equal(topLevel.Id, screenshot.Value.TopLevelId);
+                Assert.Equal(runtime.SessionId, screenshot.Value.Target.SessionId);
+                Assert.Equal(topLevel.Id, screenshot.Value.Target.TopLevelId);
+                Assert.Null(screenshot.Value.Target.TreeKind);
+                Assert.Null(screenshot.Value.Target.NodeId);
                 Assert.Equal(Path.GetFullPath(screenshotPath), screenshot.Value.FilePath);
                 Assert.True(screenshot.Value.PixelWidth > 0);
                 Assert.True(screenshot.Value.PixelHeight > 0);
@@ -155,7 +159,14 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
             Assert.True(visualTree.Success, visualTree.Error?.Message);
             Assert.Equal(TreeKinds.Visual, visualTree.Value!.TreeKind);
             Assert.Equal(topLevel.Id, visualTree.Value.TopLevelId);
+            Assert.Equal(runtime.SessionId, visualTree.Value.Target.SessionId);
+            Assert.Equal(topLevel.Id, visualTree.Value.Target.TopLevelId);
+            Assert.Equal(TreeKinds.Visual, visualTree.Value.Target.TreeKind);
             Assert.Contains("Window", visualTree.Value.Root.NodeType, StringComparison.Ordinal);
+            Assert.Equal(runtime.SessionId, visualTree.Value.Root.Target!.SessionId);
+            Assert.Equal(topLevel.Id, visualTree.Value.Root.Target.TopLevelId);
+            Assert.Equal(TreeKinds.Visual, visualTree.Value.Root.Target.TreeKind);
+            Assert.Equal(visualTree.Value.Root.NodeId, visualTree.Value.Root.Target.NodeId);
             Assert.NotEmpty(visualTree.Value.Root.Children);
             Assert.NotNull(FindNode(visualTree.Value.Root, node => node.Name == "PipeText"));
 
@@ -176,6 +187,7 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
 
             Assert.True(logicalTree.Success, logicalTree.Error?.Message);
             Assert.Equal(TreeKinds.Logical, logicalTree.Value!.TreeKind);
+            Assert.Equal(TreeKinds.Logical, logicalTree.Value.Target.TreeKind);
             Assert.NotNull(FindNode(logicalTree.Value.Root, node => node.Text == "AvaScope pipe"));
 
             var byType = await AvaScopeMcpTools.FindNodes(
@@ -196,9 +208,14 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                 name: "PipeText",
                 maxDepth: 8);
             Assert.True(byName.Success, byName.Error?.Message);
-            Assert.Equal("PipeText", Assert.Single(byName.Value!.Matches).Node.Name);
+            var pipeTextMatch = Assert.Single(byName.Value!.Matches);
+            Assert.Equal("PipeText", pipeTextMatch.Node.Name);
+            Assert.Equal(runtime.SessionId, pipeTextMatch.Target!.SessionId);
+            Assert.Equal(topLevel.Id, pipeTextMatch.Target.TopLevelId);
+            Assert.Equal(TreeKinds.Visual, pipeTextMatch.Target.TreeKind);
+            Assert.Equal(pipeTextMatch.Node.NodeId, pipeTextMatch.Target.NodeId);
 
-            var pipeTextNode = Assert.Single(byName.Value.Matches).Node;
+            var pipeTextNode = pipeTextMatch.Node;
             var inspected = await AvaScopeMcpTools.InspectNode(
                 client,
                 runtime.SessionId.Value,
@@ -211,6 +228,10 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
             Assert.Equal(topLevel.Id, inspected.Value.TopLevelId);
             Assert.Equal(TreeKinds.Visual, inspected.Value.TreeKind);
             Assert.Equal(pipeTextNode.NodeId, inspected.Value.NodeId);
+            Assert.Equal(runtime.SessionId, inspected.Value.Target.SessionId);
+            Assert.Equal(topLevel.Id, inspected.Value.Target.TopLevelId);
+            Assert.Equal(TreeKinds.Visual, inspected.Value.Target.TreeKind);
+            Assert.Equal(pipeTextNode.NodeId, inspected.Value.Target.NodeId);
             Assert.Equal("PipeText", inspected.Value.Name);
             Assert.Equal("pipe-text", inspected.Value.AutomationId);
             Assert.Contains("TextBlock", inspected.Value.NodeType, StringComparison.Ordinal);
@@ -228,6 +249,10 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
 
             Assert.False(missingInspect.Success);
             Assert.Equal(BridgeErrorCodes.NodeNotFound, missingInspect.Error!.Code);
+            Assert.Equal(topLevel.Id, missingInspect.Error.Details!["topLevelId"]);
+            Assert.Equal(TreeKinds.Visual, missingInspect.Error.Details["treeKind"]);
+            Assert.Equal("visual:missing", missingInspect.Error.Details["nodeId"]);
+            Assert.Contains("Refresh", missingInspect.Error.Details["nextAction"], StringComparison.Ordinal);
 
             var byAutomationId = await AvaScopeMcpTools.FindNodes(
                 client,
@@ -267,6 +292,8 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                 Assert.True(screenshot.Success, screenshot.Error?.Message);
                 Assert.Equal(runtime.SessionId, screenshot.Value!.SessionId);
                 Assert.Equal(topLevel.Id, screenshot.Value.TopLevelId);
+                Assert.Equal(runtime.SessionId, screenshot.Value.Target.SessionId);
+                Assert.Equal(topLevel.Id, screenshot.Value.Target.TopLevelId);
                 Assert.Equal(Path.GetFullPath(screenshotPath), screenshot.Value.FilePath);
                 Assert.True(File.Exists(screenshot.Value.FilePath));
                 Assert.True(new FileInfo(screenshot.Value.FilePath).Length > 0);
@@ -372,6 +399,10 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
             Assert.True(move.Success, move.Error?.Message);
             Assert.True(move.Value!.Handled);
             Assert.False(string.IsNullOrWhiteSpace(move.Value.TargetNodeId));
+            Assert.Equal(runtime.SessionId, move.Value.Target.SessionId);
+            Assert.Equal(topLevel.Id, move.Value.Target.TopLevelId);
+            Assert.Equal(TreeKinds.Visual, move.Value.Target.TreeKind);
+            Assert.Equal(move.Value.TargetNodeId, move.Value.Target.NodeId);
             Assert.Equal(1, pointerMoved);
 
             var down = await AvaScopeMcpTools.Input(
@@ -452,6 +483,10 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
             Assert.True(targetedKeyText.Success, targetedKeyText.Error?.Message);
             Assert.True(targetedKeyText.Value!.Handled);
             Assert.Equal(textTargetNode.NodeId, targetedKeyText.Value.TargetNodeId);
+            Assert.Equal(runtime.SessionId, targetedKeyText.Value.Target.SessionId);
+            Assert.Equal(topLevel.Id, targetedKeyText.Value.Target.TopLevelId);
+            Assert.Equal(TreeKinds.Visual, targetedKeyText.Value.Target.TreeKind);
+            Assert.Equal(textTargetNode.NodeId, targetedKeyText.Value.Target.NodeId);
             Assert.True(textBox.IsFocused);
             Assert.Equal("aXef", textBox.Text);
             Assert.Equal(2, textBox.CaretIndex);

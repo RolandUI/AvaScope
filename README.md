@@ -300,6 +300,8 @@ dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll visual-tree --session s
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll logical-tree --session session-id --top-level topLevel:1234 --max-depth 4
 ```
 
+Runtime tree, search, inspect, input, and screenshot responses include a `target` object with the current `sessionId`, `topLevelId`, and, when applicable, `treeKind` and `nodeId`. Carry that object into follow-up commands instead of guessing which visual/logical node id or top-level context belongs together. Missing or stale node references return structured details with the requested `topLevelId`, `treeKind`, `nodeId`, and a `nextAction`.
+
 Inspect a single runtime tree node by stable node id:
 
 ```powershell
@@ -439,6 +441,7 @@ Runtime safety boundary:
 - Bridge IPC uses local named pipes; the server is created with current-user-only pipe access where the platform supports it.
 - CLI and MCP runtime commands only attach to active local manifests and do not open network listeners.
 - Runtime control remains intentionally narrow and non-destructive for public alpha.
+- Runtime target handoff uses structured `target` context in command output; it does not add remote control or private Avalonia hooks.
 
 Runtime input support is intentionally narrow:
 

@@ -11,7 +11,8 @@ public sealed record InputResponse
         string action,
         bool handled,
         DateTimeOffset executedAt,
-        string? targetNodeId = null)
+        string? targetNodeId = null,
+        RuntimeTargetContext? target = null)
     {
         SessionId = sessionId ?? throw new ArgumentNullException(nameof(sessionId));
 
@@ -30,6 +31,7 @@ public sealed record InputResponse
         Handled = handled;
         ExecutedAt = executedAt;
         TargetNodeId = targetNodeId;
+        Target = target ?? CreateTarget(sessionId, topLevelId, targetNodeId);
     }
 
     [JsonPropertyName("sessionId")]
@@ -50,4 +52,35 @@ public sealed record InputResponse
     [JsonPropertyName("targetNodeId")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? TargetNodeId { get; }
+
+    [JsonPropertyName("target")]
+    public RuntimeTargetContext Target { get; }
+
+    private static RuntimeTargetContext CreateTarget(
+        SessionId sessionId,
+        string topLevelId,
+        string? targetNodeId)
+    {
+        if (string.IsNullOrWhiteSpace(targetNodeId))
+        {
+            return new RuntimeTargetContext(sessionId, topLevelId);
+        }
+
+        var treeKind = InferTreeKind(targetNodeId);
+        return treeKind is null
+            ? new RuntimeTargetContext(sessionId, topLevelId)
+            : new RuntimeTargetContext(sessionId, topLevelId, treeKind, targetNodeId);
+    }
+
+    private static string? InferTreeKind(string nodeId)
+    {
+        if (nodeId.StartsWith($"{TreeKinds.Visual}:", StringComparison.Ordinal))
+        {
+            return TreeKinds.Visual;
+        }
+
+        return nodeId.StartsWith($"{TreeKinds.Logical}:", StringComparison.Ordinal)
+            ? TreeKinds.Logical
+            : null;
+    }
 }

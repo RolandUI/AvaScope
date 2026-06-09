@@ -251,6 +251,10 @@ public sealed class ProtocolContractTests
         Assert.Equal(320, node["pixelWidth"]!.GetValue<int>());
         Assert.Equal(200, node["pixelHeight"]!.GetValue<int>());
         Assert.Equal(capturedAt, DateTimeOffset.Parse(node["capturedAt"]!.GetValue<string>(), CultureInfo.InvariantCulture));
+        Assert.Equal("session-1", node["target"]!["sessionId"]!.GetValue<string>());
+        Assert.Equal("topLevel:abc", node["target"]!["topLevelId"]!.GetValue<string>());
+        Assert.Null(node["target"]!["treeKind"]);
+        Assert.Null(node["target"]!["nodeId"]);
     }
 
     [Fact]
@@ -447,7 +451,12 @@ public sealed class ProtocolContractTests
                         "Avalonia.Controls.TextBlock",
                         name: "TitleText",
                         automationId: "title-text",
-                        text: "AvaScope")
+                        text: "AvaScope",
+                        target: new RuntimeTargetContext(
+                            new SessionId("session-1"),
+                            "topLevel:abc",
+                            TreeKinds.Visual,
+                            "visual:text"))
                 ]));
 
         var json = JsonSerializer.Serialize(response);
@@ -464,6 +473,10 @@ public sealed class ProtocolContractTests
         Assert.Equal("root", node["root"]!["classes"]![0]!.GetValue<string>());
         Assert.Equal("title-text", node["root"]!["children"]![0]!["automationId"]!.GetValue<string>());
         Assert.Equal("AvaScope", node["root"]!["children"]![0]!["text"]!.GetValue<string>());
+        Assert.Equal("session-1", node["target"]!["sessionId"]!.GetValue<string>());
+        Assert.Equal("topLevel:abc", node["target"]!["topLevelId"]!.GetValue<string>());
+        Assert.Equal("visual", node["target"]!["treeKind"]!.GetValue<string>());
+        Assert.Equal("visual:text", node["root"]!["children"]![0]!["target"]!["nodeId"]!.GetValue<string>());
     }
 
     [Fact]
@@ -481,7 +494,12 @@ public sealed class ProtocolContractTests
                         "Avalonia.Controls.TextBlock",
                         name: "TitleText",
                         automationId: "title-text",
-                        text: "AvaScope"),
+                        text: "AvaScope",
+                        target: new RuntimeTargetContext(
+                            new SessionId("session-1"),
+                            "topLevel:abc",
+                            TreeKinds.Visual,
+                            "visual:text")),
                     ["visual:root", "visual:text"])
             ]);
 
@@ -498,6 +516,9 @@ public sealed class ProtocolContractTests
         Assert.Equal("AvaScope", node["matches"]![0]!["node"]!["text"]!.GetValue<string>());
         Assert.Equal("visual:root", node["matches"]![0]!["path"]![0]!.GetValue<string>());
         Assert.Equal("visual:text", node["matches"]![0]!["path"]![1]!.GetValue<string>());
+        Assert.Equal("session-1", node["target"]!["sessionId"]!.GetValue<string>());
+        Assert.Equal("visual", node["target"]!["treeKind"]!.GetValue<string>());
+        Assert.Equal("visual:text", node["matches"]![0]!["target"]!["nodeId"]!.GetValue<string>());
     }
 
     [Fact]
@@ -530,6 +551,10 @@ public sealed class ProtocolContractTests
         Assert.Equal(80, node["bounds"]!["width"]!.GetValue<double>());
         Assert.Equal("primary", node["classes"]![0]!.GetValue<string>());
         Assert.Equal(1, node["childCount"]!.GetValue<int>());
+        Assert.Equal("session-1", node["target"]!["sessionId"]!.GetValue<string>());
+        Assert.Equal("topLevel:abc", node["target"]!["topLevelId"]!.GetValue<string>());
+        Assert.Equal("visual", node["target"]!["treeKind"]!.GetValue<string>());
+        Assert.Equal("visual:button", node["target"]!["nodeId"]!.GetValue<string>());
     }
 
     [Fact]
@@ -553,6 +578,10 @@ public sealed class ProtocolContractTests
         Assert.True(node["handled"]!.GetValue<bool>());
         Assert.Equal("visual:button", node["targetNodeId"]!.GetValue<string>());
         Assert.Equal(executedAt, DateTimeOffset.Parse(node["executedAt"]!.GetValue<string>(), CultureInfo.InvariantCulture));
+        Assert.Equal("session-1", node["target"]!["sessionId"]!.GetValue<string>());
+        Assert.Equal("topLevel:abc", node["target"]!["topLevelId"]!.GetValue<string>());
+        Assert.Equal("visual", node["target"]!["treeKind"]!.GetValue<string>());
+        Assert.Equal("visual:button", node["target"]!["nodeId"]!.GetValue<string>());
     }
 
     [Fact]

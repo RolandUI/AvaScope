@@ -99,6 +99,8 @@ In another terminal:
 & $avascope inspect-node --session <runtime-session-id> --top-level <topLevel:id> --node <node-id>
 ```
 
+Use the `target` object returned by `visual-tree`, `logical-tree`, `find-nodes`, `inspect-node`, `screenshot`, and `input` as the handoff source for follow-up commands. It contains the current `sessionId`, `topLevelId`, and node `treeKind`/`nodeId` when a node is involved; stale nodes return structured details and a `nextAction`.
+
 Runtime bridge activation is always explicit and local-only. AvaScope does not open a network listener.
 
 ## 6. Capture And Compare

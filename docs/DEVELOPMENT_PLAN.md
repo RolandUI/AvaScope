@@ -25,15 +25,15 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `R0.2.0-M1 Runtime Workflow Hardening`
+- `R0.2.0-M2 Preview Diagnostics Readiness`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-09`
-- Goal: harden runtime node targeting and stale-node error behavior for the `v0.2.0` release target.
+- Goal: make preview failures more actionable before agents retry expensive or impossible render commands for the `v0.2.0` release target.
 
 ## Next Action
 
-Implement `R0.2.0-M1` by making runtime node selection easier to carry across `find-nodes`, tree, inspect, screenshot, and input workflows while preserving the local-only bridge safety boundary.
+Implement `R0.2.0-M2` by auditing preview-host, SDK, build, and project-path diagnostics, then adding bounded readiness issues for reliable local prerequisite failures.
 
 ## Latest Validation
 
@@ -143,6 +143,10 @@ Implement `R0.2.0-M1` by making runtime node selection easier to carry across `f
 - `2026-06-09`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~AvaScopeMcpToolsTests.PreviewViewerExportsFileBackedUrlForPreviewSession` passed after Codex preview viewer implementation.
 - `2026-06-09`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~McpStdioSmokeTests.ServerStartsOverStdioAndListsInitialTools` passed after Codex preview viewer implementation.
 - `2026-06-09`: `git diff --check` passed after Codex preview viewer implementation.
+- `2026-06-09`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after runtime target handoff implementation.
+- `2026-06-09`: runtime target handoff targeted tests passed: protocol contract shape, headless MCP bridge tree/screenshot/inspect/find/input paths, and CLI tree/find/input handoff smoke paths.
+- `2026-06-09`: `dotnet test AvaScope.slnx --no-build` passed with 207 tests after runtime target handoff implementation.
+- `2026-06-09`: `git diff --check` passed after runtime target handoff implementation.
 - `2026-06-08`: `dotnet test AvaScope.slnx -c Release --filter FullyQualifiedName~CliSmokeTests.CloseSessionCommandClosesThroughBridgePipe` passed after W8 CI failure hardening.
 - `2026-06-08`: `dotnet test AvaScope.slnx -c Release --no-build` passed with 179 tests after W8 CI failure hardening.
 - `2026-06-08`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.1.0 -DryRun` passed after W8 GitHub Release creation hardening.
@@ -2129,26 +2133,28 @@ Implement `R0.2.0-M1` by making runtime node selection easier to carry across `f
 
 ### R0.2.0-M1 Runtime Workflow Hardening
 
-- Status: `In Progress`
+- Status: `Done`
 - Goal: make runtime node targeting easier and safer for agents using repeated CLI/MCP inspection and input workflows.
 - Deliverables: selector/targeting improvements, stale-node diagnostics, CLI/MCP documentation, tests, validation, commit, push.
 - Progress:
-  - Pending: audit current `find-nodes`, tree, `inspect-node`, `screenshot`, and `input` target handoff behavior.
-  - Pending: implement the smallest stable selector or target metadata improvement that avoids agents copying ambiguous values.
-  - Pending: return clearer stale-node or wrong-tree/top-level diagnostics without broadening runtime control.
+  - Done: audited current `find-nodes`, tree, `inspect-node`, `screenshot`, and `input` target handoff behavior.
+  - Done: added `RuntimeTargetContext` to runtime tree, find, inspect, input, and screenshot response shapes while preserving existing fields.
+  - Done: populated tree-node and find-match `target` context so agents can carry `sessionId`, `topLevelId`, `treeKind`, and `nodeId` through follow-up commands.
+  - Done: added structured stale/missing target error details with requested target fields and `nextAction`.
+  - Done: documented target handoff in README, agent workflow docs, and validation guidance.
 - Acceptance Criteria:
-  - Pending: an agent can find a node and use the returned targeting data in follow-up inspect/input workflows without guessing.
-  - Pending: stale or invalid node references return structured, actionable errors.
-  - Pending: no remote control, destructive actions, or private Avalonia hooks are introduced.
+  - Done: an agent can find a node and use the returned targeting data in follow-up inspect/input workflows without guessing.
+  - Done: stale or invalid node references return structured, actionable errors.
+  - Done: no remote control, destructive actions, or private Avalonia hooks are introduced.
 - Validation:
-  - Pending: targeted protocol/Core/Bridge/CLI tests for the selected target handoff behavior.
-  - Pending: `dotnet build AvaScope.slnx`
-  - Pending: `dotnet test AvaScope.slnx --no-build`
-  - Pending: `git diff --check`
+  - Passed: `dotnet test AvaScope.slnx --no-build --filter "FullyQualifiedName~ProtocolContractTests|FullyQualifiedName~BridgeHeadlessSmokeTests.McpToolsListTopLevelsAndCaptureScreenshotThroughLocalBridgePipe|FullyQualifiedName~BridgeHeadlessSmokeTests.McpInputClicksButtonAndTypesTextThroughLocalBridgePipe|FullyQualifiedName~CliSmokeTests.TreeCommandReadsTreeThroughBridgePipe|FullyQualifiedName~CliSmokeTests.FindNodesCommandReadsMatchesThroughBridgePipe|FullyQualifiedName~CliSmokeTests.InputCommandSendsClickThroughBridgePipe"`
+  - Passed: `dotnet build AvaScope.slnx`
+  - Passed: `dotnet test AvaScope.slnx --no-build`
+  - Passed: `git diff --check`
 
 ### R0.2.0-M2 Preview Diagnostics Readiness
 
-- Status: `Not Started`
+- Status: `In Progress`
 - Goal: make preview failures more actionable before agents retry expensive or impossible render commands.
 - Deliverables: project/environment readiness diagnostics, CLI/MCP surface updates, docs, tests, validation, commit, push.
 - Progress:
@@ -2406,6 +2412,7 @@ Implement `R0.2.0-M1` by making runtime node selection easier to carry across `f
 - `2026-06-09`: `v0.2.0` release goals use `RG-0.2.0-*` identifiers with success signals so release acceptance is evaluated against outcomes, not only task completion.
 - `2026-06-09`: `v0.2.0` includes a Codex preview surface goal implemented through a local file-backed AvaScope viewer and MCP/CLI `previewUrl` handoff rather than depending on an undocumented native Codex sidebar extension.
 - `2026-06-09`: Codex preview surface uses a file-backed, self-contained HTML viewer first because Codex supports file-backed previews and this avoids a long-lived preview server or network listener while still returning a `previewUrl`.
+- `2026-06-09`: Runtime target handoff is implemented as additive protocol context instead of replacing existing top-level, tree-kind, or node-id fields so older callers remain compatible while agents get an unambiguous object to carry forward.
 
 ## Change Log
 
@@ -2501,3 +2508,4 @@ Implement `R0.2.0-M1` by making runtime node selection easier to carry across `f
 - `2026-06-09`: Defined formal `v0.2.0` release goals with success signals and mapped them to R0.2.0-M1 through R0.2.0-M6.
 - `2026-06-09`: Added Codex preview surface to the `v0.2.0` release goals and inserted `R0.2.0-M5 Codex Preview Surface` before release-candidate validation.
 - `2026-06-09`: Completed R0.2.0-M5 by adding file-backed preview viewer export, CLI `preview-viewer`, MCP `preview_viewer`, Codex in-app browser docs, targeted validation, and full test-suite validation.
+- `2026-06-09`: Completed R0.2.0-M1 by adding runtime `target` context to tree/find/inspect/input/screenshot responses, actionable stale target error details, docs, and full validation.

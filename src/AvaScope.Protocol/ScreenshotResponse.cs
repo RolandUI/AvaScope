@@ -11,7 +11,8 @@ public sealed record ScreenshotResponse
         string filePath,
         int pixelWidth,
         int pixelHeight,
-        DateTimeOffset capturedAt)
+        DateTimeOffset capturedAt,
+        RuntimeTargetContext? target = null)
     {
         ArgumentNullException.ThrowIfNull(sessionId);
 
@@ -41,6 +42,7 @@ public sealed record ScreenshotResponse
         PixelWidth = pixelWidth;
         PixelHeight = pixelHeight;
         CapturedAt = capturedAt;
+        Target = target ?? new RuntimeTargetContext(sessionId, topLevelId);
     }
 
     [JsonPropertyName("sessionId")]
@@ -60,4 +62,7 @@ public sealed record ScreenshotResponse
 
     [JsonPropertyName("capturedAt")]
     public DateTimeOffset CapturedAt { get; }
+
+    [JsonPropertyName("target")]
+    public RuntimeTargetContext Target { get; }
 }

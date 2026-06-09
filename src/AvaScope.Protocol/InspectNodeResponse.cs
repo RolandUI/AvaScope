@@ -17,7 +17,8 @@ public sealed record InspectNodeResponse
         string? text = null,
         NodeBounds? bounds = null,
         IReadOnlyList<string>? classes = null,
-        IReadOnlyList<ComputedPropertyValue>? computedProperties = null)
+        IReadOnlyList<ComputedPropertyValue>? computedProperties = null,
+        RuntimeTargetContext? target = null)
     {
         SessionId = sessionId ?? throw new ArgumentNullException(nameof(sessionId));
 
@@ -58,6 +59,7 @@ public sealed record InspectNodeResponse
         Classes = classes ?? Array.Empty<string>();
         ComputedProperties = computedProperties ?? Array.Empty<ComputedPropertyValue>();
         ChildCount = childCount;
+        Target = target ?? new RuntimeTargetContext(sessionId, topLevelId, treeKind, nodeId);
     }
 
     [JsonPropertyName("sessionId")]
@@ -99,4 +101,7 @@ public sealed record InspectNodeResponse
 
     [JsonPropertyName("computedProperties")]
     public IReadOnlyList<ComputedPropertyValue> ComputedProperties { get; }
+
+    [JsonPropertyName("target")]
+    public RuntimeTargetContext Target { get; }
 }

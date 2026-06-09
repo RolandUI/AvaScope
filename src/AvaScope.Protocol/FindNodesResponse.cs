@@ -10,7 +10,8 @@ public sealed record FindNodesResponse
         string topLevelId,
         string treeKind,
         int depthLimit,
-        IReadOnlyList<FindNodeMatch>? matches = null)
+        IReadOnlyList<FindNodeMatch>? matches = null,
+        RuntimeTargetContext? target = null)
     {
         SessionId = sessionId ?? throw new ArgumentNullException(nameof(sessionId));
 
@@ -33,6 +34,7 @@ public sealed record FindNodesResponse
         TreeKind = treeKind;
         DepthLimit = depthLimit;
         Matches = matches ?? Array.Empty<FindNodeMatch>();
+        Target = target ?? new RuntimeTargetContext(sessionId, topLevelId, treeKind);
     }
 
     [JsonPropertyName("sessionId")]
@@ -49,4 +51,7 @@ public sealed record FindNodesResponse
 
     [JsonPropertyName("matches")]
     public IReadOnlyList<FindNodeMatch> Matches { get; }
+
+    [JsonPropertyName("target")]
+    public RuntimeTargetContext Target { get; }
 }
