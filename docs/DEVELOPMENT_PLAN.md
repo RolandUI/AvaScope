@@ -24,14 +24,14 @@ This document is the primary project-management source for autonomous agents wor
 ## Current Focus
 
 - `W25 Public Alpha Release Candidate`
-- Status: `In Progress`
+- Status: `Done`
 - Owner: autonomous agent
 - Started: `2026-06-09`
 - Goal: validate the post-W17 development period as a coherent public-alpha release-candidate state.
 
 ## Next Action
 
-Run the public-alpha release-candidate audit after W18-W24, refresh audit/docs as needed, execute full local release validation and packaged smoke checks, commit, push, and close the development goal.
+No W17-W25 implementation action remains. Start the next development period by selecting a fresh milestone from the latest gap audit and product priorities.
 
 ## Latest Validation
 
@@ -122,6 +122,13 @@ Run the public-alpha release-candidate audit after W18-W24, refresh audit/docs a
 - `2026-06-09`: source CLI sample `baseline-create` and `baseline-check --report` smoke passed after W24 baseline-check report output.
 - `2026-06-09`: report file parse smoke passed for `.\artifacts\samples\w24-baseline\report.json` after W24 baseline-check report output.
 - `2026-06-09`: `git diff --check` passed after W24 baseline-check report output.
+- `2026-06-09`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors for W25 release-candidate validation.
+- `2026-06-09`: `dotnet test AvaScope.slnx --no-build` passed with 203 tests for W25 release-candidate validation.
+- `2026-06-09`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1` passed for W25 release-candidate validation; Release build/test passed with 203 tests, packages and executable ZIPs were generated, 5 artifacts were verified, packaged doctor passed, and packaged sample preview passed.
+- `2026-06-09`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.1.0 -DryRun` passed for W25 release-candidate validation.
+- `2026-06-09`: packaged CLI doctor, MCP handoff, sample preview, baseline-create, baseline-check `--report`, and report parse smoke passed for W25 release-candidate validation.
+- `2026-06-09`: `git check-ignore -v` confirmed W25 generated release and baseline report artifacts remain ignored under `artifacts/`.
+- `2026-06-09`: `git diff --check` passed after W25 release-candidate audit updates.
 - `2026-06-08`: `dotnet test AvaScope.slnx -c Release --filter FullyQualifiedName~CliSmokeTests.CloseSessionCommandClosesThroughBridgePipe` passed after W8 CI failure hardening.
 - `2026-06-08`: `dotnet test AvaScope.slnx -c Release --no-build` passed with 179 tests after W8 CI failure hardening.
 - `2026-06-08`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.1.0 -DryRun` passed after W8 GitHub Release creation hardening.
@@ -2062,22 +2069,27 @@ Run the public-alpha release-candidate audit after W18-W24, refresh audit/docs a
 
 ### W25 Public Alpha Release Candidate
 
-- Status: `In Progress`
+- Status: `Done`
 - Goal: validate the post-W17 development period as a coherent public-alpha release-candidate state.
 - Deliverables: release-candidate audit refresh, full validation, packaged smoke checks, remaining deferrals, commit, push.
 - Progress:
-  - Pending: run after W18-W24 are complete.
+  - Done: refreshed `docs/PUBLIC_ALPHA_AUDIT.md` for the W17-W25 public-alpha release-candidate state.
+  - Done: ran full Debug build/test validation.
+  - Done: ran full local Release gate through `eng/create-local-release.ps1`.
+  - Done: ran GitHub Release asset dry-run validation.
+  - Done: ran packaged CLI doctor, MCP handoff, sample preview, baseline report, and artifact-ignore smoke checks.
 - Acceptance Criteria:
-  - Full local release gate passes.
-  - Packaged CLI `doctor`, preview, MCP handoff, sample preview, and baseline smoke paths pass.
-  - README, validation docs, gap audit, and public-alpha audit agree on current capabilities and deferrals.
+  - Done: full local release gate passed.
+  - Done: packaged CLI `doctor`, preview, MCP handoff, sample preview, and baseline smoke paths passed.
+  - Done: README, validation docs, gap audit, and public-alpha audit agree on current capabilities and deferrals.
 - Validation:
-  - Pending: `dotnet build AvaScope.slnx`
-  - Pending: `dotnet test AvaScope.slnx`
-  - Pending: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1`
-  - Pending: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.1.0 -DryRun`
-  - Pending: packaged CLI smoke commands
-  - Pending: `git diff --check`
+  - Passed: `dotnet build AvaScope.slnx`
+  - Passed: `dotnet test AvaScope.slnx --no-build`
+  - Passed: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1`
+  - Passed: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.1.0 -DryRun`
+  - Passed: packaged CLI doctor, MCP handoff, sample preview, baseline create/check report, and report parse smoke commands
+  - Passed: `git check-ignore -v` for generated release and W25 baseline report artifacts
+  - Passed: `git diff --check`
 
 ## Decision Log
 
@@ -2232,6 +2244,7 @@ Run the public-alpha release-candidate audit after W18-W24, refresh audit/docs a
 - `2026-06-09`: W22 keeps legacy diagnostics `issues` intact and adds Core-derived `diagnosticIssues` as a v2 provenance layer so CLI, MCP, and future agents get severity/source/status/path metadata without adapter-specific logic or private Avalonia hooks.
 - `2026-06-09`: W23 defers persistent preview host processes until close/TTL/crash semantics are designed; the faster live-preview slice instead skips unchanged-input file watcher bursts while preserving one-shot isolated PreviewHost rendering for real changes.
 - `2026-06-09`: W24 keeps baseline-check stdout and exit behavior compatible while adding optional report-file output, so CI can upload current images, diff images, and a stable machine-readable report without changing existing local workflows.
+- `2026-06-09`: W25 treats W17-W25 as a public-alpha release-candidate validation period rather than a publishing action; actual NuGet/GitHub Release upload remains gated by credentials and an explicit publish decision.
 
 ## Change Log
 
@@ -2321,3 +2334,4 @@ Run the public-alpha release-candidate audit after W18-W24, refresh audit/docs a
 - `2026-06-09`: Completed W22 by adding bounded `diagnosticIssues` provenance to diagnostics responses, Core derivation from bridge/preview-host/preview-session records, protocol/Core/MCP/CLI tests, README/validation/gap updates, and targeted validation; moved active focus to W23.
 - `2026-06-09`: Completed W23 by adding unchanged-input skip events to preview-session watching, preserving isolated one-shot PreviewHost rendering, adding protocol/Core/CLI coverage, updating docs/gap tracking, and targeted validation; moved active focus to W24.
 - `2026-06-09`: Completed W24 by adding optional baseline-check JSON report output, report path propagation, protocol/CLI tests, sample report smoke validation, README/validation/gap updates, and targeted validation; moved active focus to W25.
+- `2026-06-09`: Completed W25 by refreshing the public-alpha audit, running full Debug and Release validation, validating GitHub Release dry-run assets, running packaged CLI doctor/MCP/baseline smokes, updating docs/gap tracking, and confirming generated artifacts remain ignored.
