@@ -25,18 +25,21 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `Next Release Planning`
+- `R0.4.0-M1 Bridge Session Discovery And Cleanup`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-09`
-- Goal: define the next release target before any new feature implementation starts.
+- Goal: start the `v0.4.0` runtime reliability release by making local bridge discovery and cleanup resilient to stale manifests, dead processes, duplicate records, and user-selected manifest directories.
 
 ## Next Action
 
-Define the next release target in `docs/RELEASE_PLAN.md` when new product scope is selected; do not start feature work without a planned release target.
+Implement `R0.4.0-M1` as the first vertical slice of the `v0.4.0` runtime reliability release: inspect current bridge manifest discovery, add targeted cleanup/diagnostic behavior, validate with Core/CLI/MCP tests, and keep the release plan aligned.
 
 ## Latest Validation
 
+- `2026-06-09`: `git diff --check` passed after planning the `v0.4.0` through `v1.0.0` release roadmap.
+- `2026-06-09`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-bug-reports.ps1` passed after roadmap planning and ledger status refresh; 15 intake files scanned.
+- `2026-06-09`: Build/test validation was not run for the roadmap-only documentation change because no source code, project file, or test code changed.
 - `2026-06-09`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors on the `0.3.0` release-candidate working tree.
 - `2026-06-09`: `dotnet test AvaScope.slnx --no-build` passed with 218 tests on the `0.3.0` release-candidate working tree.
 - `2026-06-09`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1` passed for `v0.3.0` after stopping stale local artifact-hosted processes; Release build/test passed with 218 tests, three `0.3.0` packages, win-x64 and linux-x64 framework-dependent ZIPs, release manifest, packaged doctor smoke, and packaged sample preview smoke.
@@ -2633,9 +2636,12 @@ Define the next release target in `docs/RELEASE_PLAN.md` when new product scope 
 - `2026-06-09`: Animation support is tracked as a future diagnostics feature, not a Rider-style live designer clone; the useful agent surface is deterministic time-offset screenshots, bounded frame artifacts, and structured animation metadata/diagnostics.
 - `2026-06-09`: `v0.3.0` is scoped as a minor animation-diagnostics release because deterministic frame sampling, new artifact outputs, and CLI/MCP surfaces are additive product capabilities rather than patch-level fixes.
 - `2026-06-09`: `v0.3.0` animation sampling uses public `AvaloniaHeadlessPlatform.ForceRenderTimerTick(count)` in isolated PreviewHost child processes because Avalonia 12 animation clock types are not public; repeated offsets inside one request reuse the first successful frame for that offset to keep duplicate artifacts stable, while moving-property metadata remains explicit `not_available` provenance.
+- `2026-06-09`: The roadmap to `v1.0.0` is release-shaped rather than epic-shaped: `v0.4.0` hardens runtime attach/session reliability first, then `v0.5.0` preview fidelity, `v0.6.0` persistent live preview, `v0.7.0` visual regression CI, `v0.8.0` protocol/integration stability, `v0.9.0` beta hardening, and `v1.0.0` stable-surface verification.
+- `2026-06-09`: `v0.4.0` starts with bridge session discovery and cleanup because stale manifests, ambiguous attach, dead processes, and mismatched targets are foundational reliability risks for every later runtime and editor workflow.
 
 ## Change Log
 
+- `2026-06-09`: Planned the full release roadmap through `v1.0.0`, promoted `v0.4.0` as the current release target, and moved active focus to `R0.4.0-M1 Bridge Session Discovery And Cleanup`.
 - `2026-06-09`: Completed `v0.3.0` release with GitHub Release assets and tag verification, stabilized the follow-up master CI watcher timing flake, and moved active focus to next release planning.
 - `2026-06-09`: Completed `R0.3.0-M1` through `R0.3.0-M5` by adding animation sampling protocol DTOs, PreviewHost time-offset capture, Core frame strip/motion/viewer export, CLI `preview-animation`, MCP `preview_axaml_animation`, getting-started animation sample/profile, documentation, and targeted validation; moved active focus to `R0.3.0-M6`.
 - `2026-06-09`: Planned `v0.3.0` with release goals and milestones for animation sampling, PreviewHost time-offset capture, motion diagnostics, CLI/MCP/viewer workflow, sample documentation, and guarded release validation; moved active focus to `R0.3.0-M1`.

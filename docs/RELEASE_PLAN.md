@@ -35,6 +35,344 @@ git diff --check
 
 If the release includes public workflow or packaging changes, also validate the packaged CLI paths documented in `docs/AGENT_WORKFLOW.md`.
 
+## Roadmap Planning Rules
+
+The roadmap below is the working plan to `v1.0.0`. It is intentionally release-shaped so every implementation slice remains shippable, validated, and reversible.
+
+- `v0.4.0` is the current release target and may be implemented next.
+- `v0.5.0` through `v1.0.0` are planned targets. Their scope may be refined before they become the current release target, but changes must be recorded here before implementation starts.
+- Each release must preserve the current product boundaries: MCP and CLI stay adapters over Core, runtime bridge activation stays opt-in and local-only, PreviewHost stays isolated from the MCP server, and private Avalonia/runtime hooks remain out of the default path.
+- Every release must include targeted tests, full build/test validation, release dry-run validation, documentation updates, and explicit deferrals.
+- A release may be split into a patch release if a P0/P1 regression blocks users or CI, but patch scope must remain defect-focused.
+
+## v1.0 Readiness Definition
+
+AvaScope reaches `v1.0.0` when it is a stable local Avalonia inspection, preview, automation, and visual-regression toolkit that agents and developers can rely on without project-specific handholding.
+
+Required `v1.0.0` properties:
+
+- Stable public package identities for `AvaScope.Protocol`, `AvaScope.Core`, and `AvaScope.Bridge`, with SemVer compatibility rules documented.
+- Stable CLI command names for runtime inspection, preview, preview sessions, diagnostics, animation sampling, and visual regression.
+- Stable MCP tool names and schemas, with version/capability negotiation for additive future changes.
+- Runtime bridge workflows are safe, local-only, opt-in, observable, and resilient to stale manifests, closed processes, mismatched targets, and session cleanup.
+- Preview workflows handle normal Avalonia 12 project shapes with reliable resource/style/template/design-data behavior, bounded diagnostics, and isolated failure handling.
+- Live preview workflows have explicit close, TTL, crash, cleanup, cancellation, and performance behavior.
+- Visual regression workflows are CI-ready with structured reports, uploadable artifacts, threshold/mask support, and documented GitHub Actions usage.
+- Release artifacts are reproducible and verified for the supported platforms, and installation/upgrade documentation is complete.
+- No known P0/P1 bugs remain open; any deferred areas are documented as post-1.0 non-goals or future work.
+
+## Current Release Target
+
+- Release: `v0.4.0`
+- Target Version: `0.4.0`
+- Release State: `In Progress`
+- Scope Lock: `2026-06-09`
+- Release Commit: pending
+- Local Release Gate: pending
+- Published At: pending
+- GitHub Release: pending
+- Previous Release: `v0.3.0`
+
+### v0.4.0 Release Goals
+
+The `v0.4.0` release target is focused on runtime bridge reliability, attach ergonomics, and target stability. The goal is to make runtime inspection/control dependable enough for repeated agent workflows against real local applications before deeper preview-session work begins.
+
+1. `RG-0.4.0-1 Bridge Session Discovery And Cleanup`: make local bridge discovery resilient to stale manifests, dead processes, duplicate records, and user-selected manifest directories.
+   Success signal: diagnostics and attach flows can distinguish active, stale, invalid, incompatible, and unauthorized local bridge sessions without hanging or guessing.
+2. `RG-0.4.0-2 Attach Target Selection`: support explicit attach selection by session id, process id, process name, and manifest path where safe.
+   Success signal: CLI/MCP users can target the intended local app deterministically when multiple bridge-enabled apps are running.
+3. `RG-0.4.0-3 Runtime Target Stability`: strengthen node/top-level target references so tree/search results remain usable across follow-up inspect, screenshot, and input commands, or fail with actionable stale-target diagnostics.
+   Success signal: target handoff includes generation/timestamp/context metadata and returns bounded mismatch details when the target moved, disappeared, or belongs to a different tree/top-level.
+4. `RG-0.4.0-4 Runtime Input Reliability`: harden non-destructive runtime input for common agent workflows without broadening into destructive actions.
+   Success signal: click, pointer move/press/release, focus, key text, key down/up, and `clear_text` have clearer target validation, button/modifier metadata where supported, and deterministic bridge/CLI tests.
+5. `RG-0.4.0-5 Runtime Diagnostics And Observability`: add enough request/session diagnostics for agents to decide whether to retry, reattach, or stop.
+   Success signal: diagnostics can report recent bridge/session issues, protocol/capability mismatches, stale target causes, request ids, and cleanup outcomes in bounded structured data.
+6. `RG-0.4.0-6 Guarded Release`: ship only after the runtime attach and stability work passes targeted tests, full validation, packaged CLI smoke checks, and release dry-runs.
+
+### v0.4.0 Milestone Map
+
+- `R0.4.0-M1 Bridge Session Discovery And Cleanup` delivers `RG-0.4.0-1`; Status: `In Progress`.
+- `R0.4.0-M2 Attach Target Selection` delivers `RG-0.4.0-2`; Status: `Not Started`.
+- `R0.4.0-M3 Runtime Target Stability` delivers `RG-0.4.0-3`; Status: `Not Started`.
+- `R0.4.0-M4 Runtime Input Reliability` delivers `RG-0.4.0-4`; Status: `Not Started`.
+- `R0.4.0-M5 Runtime Diagnostics And Documentation` delivers `RG-0.4.0-5`; Status: `Not Started`.
+- `R0.4.0-M6 Release Candidate And Version Bump` delivers `RG-0.4.0-6`; Status: `Not Started`.
+
+### v0.4.0 Acceptance Criteria
+
+- Runtime attach commands never silently select an ambiguous session when multiple viable sessions exist.
+- Stale bridge manifests and dead processes are reported as diagnostics and can be cleaned through documented workflows.
+- Runtime target references include enough context for follow-up commands to reject mismatched top-levels, tree kinds, closed sessions, and stale node ids.
+- CLI and MCP runtime workflows preserve structured `ToolResult<T>` compatibility.
+- The getting-started sample validates at least one attach/list/tree/find/inspect/input/close workflow through the packaged CLI.
+- Runtime safety remains local-only and opt-in; no network listener, injection, production remote control, or destructive input action is introduced.
+
+### v0.4.0 Explicit Deferrals
+
+- Runtime hot reload remains out of scope.
+- Drag/drop, IME-level typing, hardware-like keyboard repeat, and destructive runtime actions remain out of scope.
+- No-code attach, injection, CLR profiling, or private runtime hooks remain out of scope.
+- Remote inspection remains out of scope.
+
+## Planned Target: v0.5.0
+
+- Release: `v0.5.0`
+- Target Version: `0.5.0`
+- Release State: `Planned`
+- Scope Lock: pending
+- Release Commit: pending
+- Local Release Gate: pending
+- Published At: pending
+- GitHub Release: pending
+- Previous Release: `v0.4.0`
+
+### v0.5.0 Release Goals
+
+The `v0.5.0` release target is focused on PreviewHost fidelity for normal Avalonia 12 project shapes. The goal is to reduce the gap between a successful `.axaml` render and a trustworthy design-time preview.
+
+1. `RG-0.5.0-1 Project Loading Robustness`: handle multi-project solutions, project references, multi-targeting selection, generated files, Avalonia resources, and build-output discovery more reliably.
+   Success signal: preview failures identify readiness, project graph, target framework, build, resource lookup, and render phases with actionable details.
+2. `RG-0.5.0-2 Resource And Style Provenance`: improve resource/style diagnostics through public Avalonia APIs and source metadata.
+   Success signal: missing resources, dynamic resources, style selectors, theme variants, and computed values report source/provenance when reliable, otherwise explicit `unknown`/`not_available`.
+3. `RG-0.5.0-3 Design Data Profiles`: expand project-local preview profiles for safe design-data scenarios without executing arbitrary remote services.
+   Success signal: profiles can declare design-data type, culture, theme, size, DPI, output paths, and optional named variants with deterministic CLI/MCP behavior.
+4. `RG-0.5.0-4 Preview Diagnostics Triage`: make preview advisory diagnostics easier for agents to prioritize.
+   Success signal: diagnostics include severity, category, provenance, affected node/path, suggested next action, and suppression/non-applicable reasons where relevant.
+5. `RG-0.5.0-5 Preview Fidelity Samples`: add sample scenarios covering resources, styles, templates, design data, culture, and theme variants.
+   Success signal: sample commands validate expected rendered artifacts and diagnostics through source and packaged CLI.
+6. `RG-0.5.0-6 Guarded Release`: ship only after preview fidelity tests, sample smokes, full validation, and release dry-runs pass.
+
+### v0.5.0 Milestone Map
+
+- `R0.5.0-M1 Project Graph And Build Diagnostics`; Status: `Planned`.
+- `R0.5.0-M2 Resource And Style Provenance`; Status: `Planned`.
+- `R0.5.0-M3 Design Data Profiles And Variants`; Status: `Planned`.
+- `R0.5.0-M4 Preview Diagnostic Prioritization`; Status: `Planned`.
+- `R0.5.0-M5 Preview Fidelity Samples And Docs`; Status: `Planned`.
+- `R0.5.0-M6 Release Candidate And Version Bump`; Status: `Planned`.
+
+### v0.5.0 Explicit Deferrals
+
+- Full application startup/lifetime execution remains deferred unless a safe isolated model is designed.
+- Dependency-injection service startup, remote data loading, and long-lived design-data state remain out of scope.
+- Private Avalonia designer APIs remain out of scope.
+
+## Planned Target: v0.6.0
+
+- Release: `v0.6.0`
+- Target Version: `0.6.0`
+- Release State: `Planned`
+- Scope Lock: pending
+- Release Commit: pending
+- Local Release Gate: pending
+- Published At: pending
+- GitHub Release: pending
+- Previous Release: `v0.5.0`
+
+### v0.6.0 Release Goals
+
+The `v0.6.0` release target is focused on persistent preview sessions and hot preview performance. The goal is to move beyond one-shot reloads while preserving process isolation and explicit lifecycle control.
+
+1. `RG-0.6.0-1 Persistent PreviewHost Lifecycle`: design and implement persistent preview host sessions with explicit close, TTL, crash, cancellation, and cleanup semantics.
+   Success signal: long-running preview sessions cannot outlive their TTL silently, can be closed deterministically, and recover cleanly after child-process failure.
+2. `RG-0.6.0-2 Incremental Reload Workflow`: reduce preview reload cost through safe reuse, request hashing, build-output checks, and watched-input snapshots.
+   Success signal: unchanged inputs skip reloads, changed AXAML/resources trigger bounded reloads, and reload reasons are reported structurally.
+3. `RG-0.6.0-3 Hot AXAML Reload Boundary`: support hot reload of changed `.axaml` where public APIs and isolation make it reliable.
+   Success signal: supported reload paths are fast and deterministic; unsupported paths return explicit diagnostics instead of falling back to stale previews.
+4. `RG-0.6.0-4 Session Event Stream`: expose bounded preview-session events for agents and future editor integrations.
+   Success signal: CLI/MCP can report session started, rendered, skipped, reloaded, failed, closed, timed out, and cleaned events.
+5. `RG-0.6.0-5 Performance Budgets`: establish preview-session latency, memory, process-count, and artifact-size budgets.
+   Success signal: tests or validation scripts fail when persistent-session behavior leaks processes, grows artifacts unboundedly, or regresses beyond documented thresholds.
+6. `RG-0.6.0-6 Guarded Release`: ship only after lifecycle, reload, cleanup, performance, and release validation pass.
+
+### v0.6.0 Milestone Map
+
+- `R0.6.0-M1 Persistent PreviewHost Lifecycle Contract`; Status: `Planned`.
+- `R0.6.0-M2 Preview Session Process Management`; Status: `Planned`.
+- `R0.6.0-M3 Incremental Reload And Watch Integration`; Status: `Planned`.
+- `R0.6.0-M4 Session Event Stream`; Status: `Planned`.
+- `R0.6.0-M5 Performance And Cleanup Validation`; Status: `Planned`.
+- `R0.6.0-M6 Release Candidate And Version Bump`; Status: `Planned`.
+
+### v0.6.0 Explicit Deferrals
+
+- Runtime app hot reload remains separate from PreviewHost hot preview.
+- Process injection and no-code attach remain out of scope.
+- Persistent hosts must stay child processes; MCP server in-process user-code loading remains out of scope.
+
+## Planned Target: v0.7.0
+
+- Release: `v0.7.0`
+- Target Version: `0.7.0`
+- Release State: `Planned`
+- Scope Lock: pending
+- Release Commit: pending
+- Local Release Gate: pending
+- Published At: pending
+- GitHub Release: pending
+- Previous Release: `v0.6.0`
+
+### v0.7.0 Release Goals
+
+The `v0.7.0` release target is focused on visual regression and CI productization. The goal is to make AvaScope usable in pull-request validation without custom glue scripts.
+
+1. `RG-0.7.0-1 Baseline Collections`: support named baseline suites with multiple projects, views, profiles, sizes, themes, cultures, and animation frames.
+   Success signal: one command can create/check a suite and produce stable per-variant artifacts.
+2. `RG-0.7.0-2 Thresholds, Masks, And Regions`: add practical comparison controls for real UI variance.
+   Success signal: users can configure tolerance, ignored regions, required regions, and per-variant thresholds without editing generated reports.
+3. `RG-0.7.0-3 CI Reports`: produce uploadable HTML, JSON, JUnit, and optional SARIF-style summaries.
+   Success signal: a CI run can expose current images, diffs, grouped failures, and machine-readable status from a single artifact directory.
+4. `RG-0.7.0-4 GitHub Actions Workflow`: provide a documented and validated GitHub Actions example for baseline checks.
+   Success signal: the repo sample can run baseline validation and upload artifacts in CI without publishing credentials.
+5. `RG-0.7.0-5 Agent Review Workflow`: make regression output easy for MCP clients and CLI users to summarize.
+   Success signal: MCP/CLI responses include bounded failure summaries, report paths, and preview URLs for local review.
+6. `RG-0.7.0-6 Guarded Release`: ship only after visual-regression suite tests, report rendering validation, CI example validation, and release dry-runs pass.
+
+### v0.7.0 Milestone Map
+
+- `R0.7.0-M1 Baseline Suite Manifest`; Status: `Planned`.
+- `R0.7.0-M2 Thresholds, Masks, And Region Rules`; Status: `Planned`.
+- `R0.7.0-M3 HTML/JSON/JUnit Report Pack`; Status: `Planned`.
+- `R0.7.0-M4 GitHub Actions Example And Artifact Upload`; Status: `Planned`.
+- `R0.7.0-M5 MCP/CLI Regression Review Surface`; Status: `Planned`.
+- `R0.7.0-M6 Release Candidate And Version Bump`; Status: `Planned`.
+
+### v0.7.0 Explicit Deferrals
+
+- Cloud dashboard hosting remains out of scope.
+- Automatic baseline approval or mutation from CI remains out of scope unless explicitly gated by user action.
+- Pixel-perfect guarantees across every OS/font stack remain out of scope; reports must expose environment metadata instead.
+
+## Planned Target: v0.8.0
+
+- Release: `v0.8.0`
+- Target Version: `0.8.0`
+- Release State: `Planned`
+- Scope Lock: pending
+- Release Commit: pending
+- Local Release Gate: pending
+- Published At: pending
+- GitHub Release: pending
+- Previous Release: `v0.7.0`
+
+### v0.8.0 Release Goals
+
+The `v0.8.0` release target is focused on protocol stabilization and integration readiness for MCP clients, CLI workflows, and future editor integrations.
+
+1. `RG-0.8.0-1 Protocol Versioning And Capability Negotiation`: make schema compatibility explicit across Protocol, Core, CLI, MCP, bridge, and PreviewHost.
+   Success signal: clients can query protocol/tool capabilities and handle additive fields without guessing package versions.
+2. `RG-0.8.0-2 Bounded Results And Pagination`: harden large-tree, diagnostics, baseline, and event outputs.
+   Success signal: large results are paged, filtered, depth-limited, or artifact-backed with predictable limits and continuation metadata.
+3. `RG-0.8.0-3 Error Taxonomy And Recovery Guidance`: normalize errors across runtime, preview, baseline, and packaging workflows.
+   Success signal: common failures include stable code, phase, severity, retryability, user action, and related paths/session ids.
+4. `RG-0.8.0-4 Integration Handoff Contracts`: document and validate how Rider, VS Code, Visual Studio, Cursor, Claude, Codex, and other MCP clients should consume AvaScope.
+   Success signal: integration docs describe launch, attach, preview, viewer, artifact, and cleanup workflows without relying on internal implementation details.
+5. `RG-0.8.0-5 Compatibility Test Matrix`: add tests and docs covering older clients/newer servers, newer clients/older bridge packages, and package version mismatches.
+   Success signal: incompatible combinations fail with actionable diagnostics rather than broken IPC or schema errors.
+6. `RG-0.8.0-6 Guarded Release`: ship only after compatibility tests, schema docs, integration docs, and release validation pass.
+
+### v0.8.0 Milestone Map
+
+- `R0.8.0-M1 Protocol Capability Contract`; Status: `Planned`.
+- `R0.8.0-M2 Pagination And Artifact Handoff Limits`; Status: `Planned`.
+- `R0.8.0-M3 Unified Error Taxonomy`; Status: `Planned`.
+- `R0.8.0-M4 MCP/CLI/Editor Integration Documentation`; Status: `Planned`.
+- `R0.8.0-M5 Compatibility Matrix Tests`; Status: `Planned`.
+- `R0.8.0-M6 Release Candidate And Version Bump`; Status: `Planned`.
+
+### v0.8.0 Explicit Deferrals
+
+- Native editor plugins remain optional; this release requires integration-ready contracts and docs, not shipped IDE extensions.
+- Remote multi-user inspection remains out of scope.
+- Breaking protocol cleanup must wait for `v1.0.0` planning unless a compatibility shim is added.
+
+## Planned Target: v0.9.0
+
+- Release: `v0.9.0`
+- Target Version: `0.9.0`
+- Release State: `Planned`
+- Scope Lock: pending
+- Release Commit: pending
+- Local Release Gate: pending
+- Published At: pending
+- GitHub Release: pending
+- Previous Release: `v0.8.0`
+
+### v0.9.0 Release Goals
+
+The `v0.9.0` release target is beta hardening. The goal is to remove known blockers before the `v1.0.0` API and workflow freeze.
+
+1. `RG-0.9.0-1 API And Package Audit`: review public DTOs, package dependencies, namespaces, command names, and SemVer behavior before 1.0 freeze.
+   Success signal: intended stable surfaces are documented, accidental public surfaces are removed or marked internal, and compatibility risk is recorded.
+2. `RG-0.9.0-2 Security And Safety Audit`: review runtime bridge activation, local IPC, file outputs, project-code execution, logs, and release artifacts.
+   Success signal: threat model docs exist, local-only guarantees are tested, unsafe defaults are rejected, and production bridge activation remains explicit.
+3. `RG-0.9.0-3 Performance And Stress Validation`: run larger app/tree/preview/baseline scenarios with explicit budgets.
+   Success signal: tests or validation scripts cover large visual trees, large diagnostics, repeated previews, persistent sessions, and baseline suites.
+4. `RG-0.9.0-4 Distribution Policy`: finalize supported platforms, framework-dependent/self-contained defaults, optional macOS lane, installer/signing decisions, and package publishing rules.
+   Success signal: release docs state what is supported for 1.0 and what remains unsupported.
+5. `RG-0.9.0-5 Documentation And Sample Audit`: make docs accurate, task-oriented, and versioned.
+   Success signal: README, validation, agent workflow, sample docs, release docs, troubleshooting, and migration notes cover the stable workflows.
+6. `RG-0.9.0-6 Guarded Beta Release`: ship only after beta audit validation, full release dry-runs, and all P0/P1 issues are fixed or explicitly accepted as non-blocking.
+
+### v0.9.0 Milestone Map
+
+- `R0.9.0-M1 Public API And CLI/MCP Surface Audit`; Status: `Planned`.
+- `R0.9.0-M2 Security And Local-Only Safety Audit`; Status: `Planned`.
+- `R0.9.0-M3 Performance And Stress Validation`; Status: `Planned`.
+- `R0.9.0-M4 Distribution Policy And Artifact Matrix`; Status: `Planned`.
+- `R0.9.0-M5 Documentation, Samples, And Troubleshooting Audit`; Status: `Planned`.
+- `R0.9.0-M6 Release Candidate And Version Bump`; Status: `Planned`.
+
+### v0.9.0 Explicit Deferrals
+
+- Any new product capability not required for 1.0 stability should move to post-1.0 unless it blocks the readiness definition.
+- Broad native IDE plugin implementation remains post-1.0 unless already validated through contracts and small adapters.
+- Remote/network inspection remains out of scope.
+
+## Planned Target: v1.0.0
+
+- Release: `v1.0.0`
+- Target Version: `1.0.0`
+- Release State: `Planned`
+- Scope Lock: pending
+- Release Commit: pending
+- Local Release Gate: pending
+- Published At: pending
+- GitHub Release: pending
+- Previous Release: `v0.9.0`
+
+### v1.0.0 Release Goals
+
+The `v1.0.0` release target is the stable public release. The goal is not to add broad new features; it is to freeze and verify the workflows that make AvaScope dependable.
+
+1. `RG-1.0.0-1 Stable Surface Freeze`: freeze public packages, protocol DTOs, CLI commands, MCP tools, exit codes, artifact naming, and release workflow behavior.
+   Success signal: compatibility rules and migration guidance exist, and stable surfaces are covered by contract tests.
+2. `RG-1.0.0-2 End-To-End Workflow Verification`: validate runtime, preview, animation, live preview, diagnostics, baseline, CLI, MCP, and packaged workflows end-to-end.
+   Success signal: source and packaged validation commands pass on the supported platform matrix with no P0/P1 failures.
+3. `RG-1.0.0-3 Documentation Complete`: publish complete installation, getting-started, CLI, MCP, bridge activation, preview, visual-regression, troubleshooting, security, and release documentation.
+   Success signal: a new user can install AvaScope, preview a sample, attach to a bridge-enabled app, run diagnostics, and configure baseline checks from docs alone.
+4. `RG-1.0.0-4 Release Artifact Verification`: finalize reproducible package and executable outputs.
+   Success signal: release artifacts have manifest hashes, package metadata, version alignment, NuGet/GitHub Release publication, and packaged smoke validation.
+5. `RG-1.0.0-5 Post-1.0 Backlog Definition`: explicitly separate stable scope from future work.
+   Success signal: deferred features are recorded as post-1.0 backlog with reason, not as hidden blockers.
+6. `RG-1.0.0-6 Stable Release Publication`: publish `v1.0.0` only after all readiness gates pass and release metadata is recorded.
+
+### v1.0.0 Milestone Map
+
+- `R1.0.0-M1 Stable Surface Freeze`; Status: `Planned`.
+- `R1.0.0-M2 End-To-End Workflow Verification`; Status: `Planned`.
+- `R1.0.0-M3 Documentation Completion`; Status: `Planned`.
+- `R1.0.0-M4 Release Artifact And Package Verification`; Status: `Planned`.
+- `R1.0.0-M5 Post-1.0 Backlog And Deferral Audit`; Status: `Planned`.
+- `R1.0.0-M6 Stable Release Commit And Publication`; Status: `Planned`.
+
+### v1.0.0 Explicit Deferrals
+
+- Remote inspection/control, no-code attach, process injection, CLR profiling, and private Avalonia designer APIs remain post-1.0 unless a separate security model is designed.
+- Native IDE extensions can build on the stable CLI/MCP contracts after 1.0; they are not required for the stable release.
+- Cloud-hosted visual regression dashboards remain post-1.0.
+- Destructive runtime actions remain out of scope for the stable tool set.
+
 ## Released Target: v0.3.0
 
 - Release: `v0.3.0`

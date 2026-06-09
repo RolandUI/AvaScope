@@ -1,7 +1,7 @@
 # FEAT-0008: Animation diagnostics
 
-- Status: `Planned`
-- Implementation Status: `Planned for v0.3.0`
+- Status: `Implemented`
+- Implementation Status: `Covered by v0.3.0`
 - Priority: `P4`
 - Stored: `2026-06-09`
 - Source Order: `8`
@@ -38,4 +38,4 @@ The feature should favor agent-readable state and deterministic frame comparison
 
 ## Notes
 
-This diagnostic capability is selected for the `v0.3.0` release. Implementation should start with additive protocol/tool contracts before PreviewHost rendering changes.
+This diagnostic capability was implemented and released in `v0.3.0`. The shipped scope covers deterministic PreviewHost animation sampling at explicit time offsets, bounded frame artifacts, frame strips, file-backed timeline viewers, CLI `preview-animation`, MCP `preview_axaml_animation`, pixel-motion diagnostics, explicit `not_available` provenance for unavailable animation metadata, and stable repeated-offset artifact reuse.

@@ -19,7 +19,7 @@ Tickets in this area are backlog records only; do not start implementation unles
 | 1 | [FEAT-0001](feature-requests/FEAT-0001-binding-resource-diagnostics.md) | P0 | Implemented | Covered by W9 |
 | 2 | [FEAT-0002](feature-requests/FEAT-0002-layout-warnings.md) | P1 | Implemented | Covered by W9 |
 | 3 | [FEAT-0003](feature-requests/FEAT-0003-computed-style-resource-inspector.md) | P2 | Implemented | Covered by W9 |
-| 4 | [FEAT-0008](feature-requests/FEAT-0008-animation-diagnostics.md) | P4 | Planned | Planned for v0.3.0 |
+| 4 | [FEAT-0008](feature-requests/FEAT-0008-animation-diagnostics.md) | P4 | Implemented | Covered by v0.3.0 |
 
 ## Tickets
 
@@ -32,4 +32,4 @@ Tickets in this area are backlog records only; do not start implementation unles
 | [FEAT-0005](feature-requests/FEAT-0005-multi-size-preview.md) | Multi-size preview | P3 | Implemented | Covered by W9 | 2026-06-08 |
 | [FEAT-0006](feature-requests/FEAT-0006-screenshot-diff-baseline.md) | Screenshot diff and baseline mode | P3 | Implemented | Covered by W9 | 2026-06-08 |
 | [FEAT-0007](feature-requests/FEAT-0007-designer-session-cleanup.md) | Designer and session cleanup | P3 | Implemented | Covered by W9 | 2026-06-08 |
-| [FEAT-0008](feature-requests/FEAT-0008-animation-diagnostics.md) | Animation diagnostics | P4 | Planned | Planned for v0.3.0 | 2026-06-09 |
+| [FEAT-0008](feature-requests/FEAT-0008-animation-diagnostics.md) | Animation diagnostics | P4 | Implemented | Covered by v0.3.0 | 2026-06-09 |

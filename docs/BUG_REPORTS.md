@@ -18,4 +18,4 @@ Reports in this area are intake records only; do not start a fix unless the user
 | --- | --- | --- | --- | --- |
 | [BUG-0001](bug-reports/BUG-0001-previewhost-window-root.md) | PreviewHost fails for Window-rooted AXAML previews | Implemented | Fixed | 2026-06-08 |
 | [BUG-0002](bug-reports/BUG-0002-previewhost-design-time-datacontext.md) | PreviewHost ignores Avalonia design-time DataContext metadata | Implemented | Fixed | 2026-06-08 |
-| [BUG-0003](bug-reports/BUG-0003-preview-diagnostics-false-positive-warnings.md) | Preview diagnostics reports false positive warnings for DataTemplate bindings and template internals | Stored | Not started | 2026-06-09 |
+| [BUG-0003](bug-reports/BUG-0003-preview-diagnostics-false-positive-warnings.md) | Preview diagnostics reports false positive warnings for DataTemplate bindings and template internals | Fixed | Implemented for v0.2.2 | 2026-06-09 |
