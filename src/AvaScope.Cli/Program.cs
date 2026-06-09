@@ -1666,6 +1666,7 @@ internal static class Program
                 => RequireCoordinates(action, x, y),
             InputActions.Focus => !string.IsNullOrWhiteSpace(targetNodeId) || RequireCoordinates(action, x, y),
             InputActions.KeyText => RequireText(action, inputText, "text"),
+            InputActions.ClearText => true,
             InputActions.KeyDown or InputActions.KeyUp => RequireText(action, inputKey, "key"),
             _ => false
         };
@@ -1886,6 +1887,7 @@ internal static class Program
         InputActions.Click,
         InputActions.Focus,
         InputActions.KeyText,
+        InputActions.ClearText,
         InputActions.KeyDown,
         InputActions.KeyUp
     ];

@@ -458,6 +458,44 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
             Assert.Equal(textBox.CaretIndex, textBox.SelectionStart);
             Assert.Equal(textBox.CaretIndex, textBox.SelectionEnd);
 
+            textBox.Text = "clear-me";
+            textBox.SelectionStart = 2;
+            textBox.SelectionEnd = 7;
+            textBox.CaretIndex = 7;
+            Assert.True(button.Focus(NavigationMethod.Pointer));
+            Assert.False(textBox.IsFocused);
+
+            var clearText = await AvaScopeMcpTools.Input(
+                client,
+                runtime.SessionId.Value,
+                topLevel.Id,
+                InputActions.ClearText,
+                targetNodeId: textTargetNode.NodeId);
+
+            Assert.True(clearText.Success, clearText.Error?.Message);
+            Assert.True(clearText.Value!.Handled);
+            Assert.Equal(InputActions.ClearText, clearText.Value.Action);
+            Assert.Equal(textTargetNode.NodeId, clearText.Value.TargetNodeId);
+            Assert.True(textBox.IsFocused);
+            Assert.Equal(string.Empty, textBox.Text);
+            Assert.Equal(0, textBox.CaretIndex);
+            Assert.Equal(0, textBox.SelectionStart);
+            Assert.Equal(0, textBox.SelectionEnd);
+
+            textBox.Text = "blocked";
+            textBox.IsReadOnly = true;
+            var readOnlyClear = await AvaScopeMcpTools.Input(
+                client,
+                runtime.SessionId.Value,
+                topLevel.Id,
+                InputActions.ClearText,
+                targetNodeId: textTargetNode.NodeId);
+
+            Assert.False(readOnlyClear.Success);
+            Assert.Equal(BridgeErrorCodes.UnsupportedInputAction, readOnlyClear.Error!.Code);
+            Assert.Equal("blocked", textBox.Text);
+            textBox.IsReadOnly = false;
+
             Assert.True(button.Focus(NavigationMethod.Pointer));
             Assert.False(textBox.IsFocused);
 

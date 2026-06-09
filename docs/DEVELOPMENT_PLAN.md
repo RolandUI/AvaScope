@@ -23,15 +23,15 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `W21 Runtime Interaction V2`
+- `W22 Diagnostics V2`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-09`
-- Goal: expand runtime input where public Avalonia APIs and deterministic headless tests support it.
+- Goal: improve diagnostics with bounded history and clearer severity/provenance without relying on private Avalonia internals.
 
 ## Next Action
 
-Audit current runtime input support, select the smallest deterministic extension, implement it through protocol/bridge/CLI where needed, validate, commit, and push W21.
+Audit existing diagnostics DTOs and runtime/preview diagnostic sources, select the smallest public-API-backed diagnostics v2 improvement, implement it through Core/adapters, validate, commit, and push W22.
 
 ## Latest Validation
 
@@ -99,6 +99,10 @@ Audit current runtime input support, select the smallest deterministic extension
 - `2026-06-09`: packaged CLI `doctor --manifest-dir .\artifacts\samples\agent-workflow\sessions --preview-session-store .\artifacts\samples\agent-workflow\preview-sessions` passed after W20 agent workflow pack.
 - `2026-06-09`: packaged CLI `preview .\samples\AvaScope.GettingStartedApp\AvaScope.GettingStartedApp.csproj --profile main --out .\artifacts\samples\agent-workflow\main-preview.png` passed after W20 agent workflow pack.
 - `2026-06-09`: `git diff --check` passed after W20 agent workflow pack.
+- `2026-06-09`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after W21 runtime `clear_text` input.
+- `2026-06-09`: `dotnet test AvaScope.slnx --no-build --filter Bridge` passed with 65 tests after W21 runtime `clear_text` input.
+- `2026-06-09`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli` passed with 88 tests after W21 runtime `clear_text` input.
+- `2026-06-09`: `git diff --check` passed after W21 runtime `clear_text` input.
 - `2026-06-08`: `dotnet test AvaScope.slnx -c Release --filter FullyQualifiedName~CliSmokeTests.CloseSessionCommandClosesThroughBridgePipe` passed after W8 CI failure hardening.
 - `2026-06-08`: `dotnet test AvaScope.slnx -c Release --no-build` passed with 179 tests after W8 CI failure hardening.
 - `2026-06-08`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.1.0 -DryRun` passed after W8 GitHub Release creation hardening.
@@ -1948,25 +1952,29 @@ Audit current runtime input support, select the smallest deterministic extension
 
 ### W21 Runtime Interaction V2
 
-- Status: `In Progress`
+- Status: `Done`
 - Goal: expand runtime input where public Avalonia APIs and deterministic headless tests support it.
 - Deliverables: richer non-destructive input behavior, protocol/CLI/MCP propagation if needed, bridge tests, documentation, commit, push.
 - Progress:
-  - Pending: select the smallest deterministic input extension after auditing current pointer/key support.
+  - Done: audited current pointer/key support and selected `clear_text` as the smallest deterministic runtime input extension.
+  - Done: added protocol and CLI support for `clear_text`.
+  - Done: bridge now clears a focused or targeted writable `TextBox`, resets caret/selection, and rejects read-only targets with a structured error.
+  - Done: added headless bridge coverage and CLI fake-pipe coverage.
+  - Done: documented `clear_text` in README and the packaged agent workflow.
 - Acceptance Criteria:
-  - Runtime bridge remains opt-in and local-only.
-  - No destructive runtime actions are introduced.
-  - Unsupported input variants return structured errors instead of inferred behavior.
-  - New input behavior is covered by headless bridge and CLI adapter tests.
+  - Done: runtime bridge remains opt-in and local-only.
+  - Done: no destructive runtime actions were introduced; `clear_text` only edits the selected writable `TextBox` target.
+  - Done: unsupported or read-only input variants return structured errors instead of inferred behavior.
+  - Done: new input behavior is covered by headless bridge and CLI adapter tests.
 - Validation:
-  - Pending: `dotnet build AvaScope.slnx`
-  - Pending: `dotnet test AvaScope.slnx --no-build --filter Bridge`
-  - Pending: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli`
-  - Pending: `git diff --check`
+  - Passed: `dotnet build AvaScope.slnx`
+  - Passed: `dotnet test AvaScope.slnx --no-build --filter Bridge`
+  - Passed: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli`
+  - Passed: `git diff --check`
 
 ### W22 Diagnostics V2
 
-- Status: `Not Started`
+- Status: `In Progress`
 - Goal: improve diagnostics with bounded history and clearer severity/provenance without relying on private Avalonia internals.
 - Deliverables: diagnostics history/provenance slice, protocol/core/adapter updates, tests, documentation, commit, push.
 - Progress:
@@ -2185,6 +2193,7 @@ Audit current runtime input support, select the smallest deterministic extension
 - `2026-06-09`: W18 doctor treats stale or unavailable bridge/preview-session records as actionable issues and exits non-zero, while release-script doctor smoke uses isolated manifest/store paths so package validation is not affected by previous local user sessions.
 - `2026-06-09`: W19 preview profiles are project-local JSON files and do not execute user code; explicit CLI arguments override profile values so one-off agent commands can safely specialize a stored profile.
 - `2026-06-09`: W20 uses packaged CLI examples as the primary agent workflow because they validate co-located CLI/MCP/PreviewHost behavior and are closer to public-alpha usage than Debug build commands.
+- `2026-06-09`: W21 selected `clear_text` instead of drag/drop or richer pointer variants because targeted `TextBox` clearing can be implemented through stable public control state and deterministic headless tests while preserving the narrow non-destructive runtime control boundary.
 
 ## Change Log
 
@@ -2270,3 +2279,4 @@ Audit current runtime input support, select the smallest deterministic extension
 - `2026-06-09`: Completed W18 by adding `avascope doctor`, doctor protocol DTOs, CLI/protocol smoke coverage, packaged release-script doctor smoke with isolated manifest/store paths, README/validation/gap updates, and release validation.
 - `2026-06-09`: Completed W19 by adding project-local preview profiles for `preview` and `create-preview-session`, a getting-started sample profile, CLI profile tests, README/sample/validation/gap updates, and sample profile smoke validation.
 - `2026-06-09`: Completed W20 by adding `docs/AGENT_WORKFLOW.md`, linking it from README and sample docs, documenting packaged CLI doctor/preview/runtime/diff/baseline workflows, and validating packaged doctor plus profile preview commands.
+- `2026-06-09`: Completed W21 by adding runtime `clear_text` input for focused or targeted writable `TextBox` controls, bridge/CLI tests, README/workflow documentation, and targeted validation; moved active focus to W22.

@@ -117,6 +117,7 @@ For preview-only visual regression:
 ```powershell
 & $avascope input --session <runtime-session-id> --top-level <topLevel:id> --action focus --target-node <node-id>
 & $avascope input --session <runtime-session-id> --top-level <topLevel:id> --action key_text --target-node <textBox-node-id> --text "hello"
+& $avascope input --session <runtime-session-id> --top-level <topLevel:id> --action clear_text --target-node <textBox-node-id>
 & $avascope input --session <runtime-session-id> --top-level <topLevel:id> --action click --x 120 --y 40
 ```
 

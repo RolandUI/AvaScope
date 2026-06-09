@@ -1672,6 +1672,60 @@ public sealed class CliSmokeTests
     }
 
     [Fact]
+    public async Task InputCommandSendsClearTextThroughBridgePipe()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var sessionId = SessionId.New();
+        var pipeName = $"avascope-cli-test-{Guid.NewGuid():N}";
+        var manifestPath = WriteBridgeManifest(sessionId, pipeName);
+
+        var serverTask = RespondToBridgeRequestAsync(pipeName, request =>
+        {
+            Assert.Equal(BridgeIpcMethods.Input, request.Method);
+            Assert.Equal(InputActions.ClearText, request.Action);
+            Assert.Equal("visual:textbox", request.TargetNodeId);
+            Assert.Null(request.InputText);
+            return BridgeIpcResponse.Ok(
+                request.RequestId,
+                new InputResponse(sessionId, request.TopLevelId!, InputActions.ClearText, true, DateTimeOffset.UtcNow, request.TargetNodeId));
+        });
+
+        try
+        {
+            var result = await RunCliAsync(
+                cliAssembly,
+                "input",
+                "--session",
+                sessionId.Value,
+                "--top-level",
+                "topLevel:cli",
+                "--action",
+                InputActions.ClearText,
+                "--target-node",
+                "visual:textbox");
+            var request = await serverTask;
+
+            Assert.Equal(0, result.ExitCode);
+            Assert.Equal("visual:textbox", request.TargetNodeId);
+
+            var payload = JsonSerializer.Deserialize<ToolResult<InputResponse>>(result.StandardOutput, JsonOptions);
+            Assert.NotNull(payload);
+            Assert.True(payload.Success, payload.Error?.Message);
+            Assert.Equal(InputActions.ClearText, payload.Value!.Action);
+            Assert.Equal("visual:textbox", payload.Value.TargetNodeId);
+        }
+        finally
+        {
+            if (File.Exists(manifestPath))
+            {
+                File.Delete(manifestPath);
+            }
+        }
+    }
+
+    [Fact]
     public async Task InputCommandSendsKeyDownThroughBridgePipe()
     {
         var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");

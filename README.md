@@ -315,6 +315,7 @@ Send local-only runtime input to an active bridge session:
 ```powershell
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll input --session session-id --top-level topLevel:1234 --action click --x 120 --y 40
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll input --session session-id --top-level topLevel:1234 --action focus --target-node visual:5678
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll input --session session-id --top-level topLevel:1234 --action clear_text --target-node visual:5678
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll input --session session-id --top-level topLevel:1234 --action key_down --key Enter --modifiers Control+Shift --target-node visual:5678
 ```
 
@@ -440,6 +441,7 @@ Runtime input support is intentionally narrow:
 - `focus` focuses an input element by visual/logical node id or hit-tested coordinates.
 - `key_down` and `key_up` raise routed Avalonia key events on a focused input element or explicit target node id.
 - `key_text` writes to a focused `TextBox` or explicit `targetNodeId`, respects read-only targets, and replaces the current selection when one exists.
+- `clear_text` clears a focused or targeted writable `TextBox`, resets caret/selection to 0, and rejects read-only targets.
 
 ## Preview Host
 

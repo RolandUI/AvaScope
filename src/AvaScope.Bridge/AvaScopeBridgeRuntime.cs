@@ -597,6 +597,7 @@ public sealed class AvaScopeBridgeRuntime
             InputActions.PointerUp => PointerButton(topLevel, topLevelId, x, y, InputActions.PointerUp, isPressed: false),
             InputActions.Click => Click(topLevel, topLevelId, x, y),
             InputActions.KeyText => KeyText(topLevel, topLevelId, targetNodeId, inputText),
+            InputActions.ClearText => ClearText(topLevel, topLevelId, targetNodeId),
             InputActions.Focus => FocusTarget(topLevel, topLevelId, targetNodeId, x, y),
             InputActions.KeyDown => KeyInput(topLevel, topLevelId, InputActions.KeyDown, targetNodeId, inputKey, keyModifiers),
             InputActions.KeyUp => KeyInput(topLevel, topLevelId, InputActions.KeyUp, targetNodeId, inputKey, keyModifiers),
@@ -828,6 +829,67 @@ public sealed class AvaScopeBridgeRuntime
             SessionId,
             topLevelId,
             InputActions.KeyText,
+            handled: true,
+            DateTimeOffset.UtcNow,
+            CreateNodeId(textBox, TreeKinds.Visual)));
+    }
+
+    private CoreResult<InputResponse> ClearText(
+        TopLevel topLevel,
+        string topLevelId,
+        string? targetNodeId)
+    {
+        TextBox? textBox;
+        if (string.IsNullOrWhiteSpace(targetNodeId))
+        {
+            textBox = topLevel.FocusManager?.GetFocusedElement() as TextBox;
+            if (textBox is null)
+            {
+                return CoreResult<InputResponse>.Fail(new CoreError(
+                    BridgeErrorCodes.UnsupportedInputAction,
+                    "Clear text input requires a focused TextBox target or target node id."));
+            }
+        }
+        else
+        {
+            var resolved = ResolveInputTarget(topLevel, targetNodeId, null, null, "Clear text target node id is required.");
+            if (!resolved.Success)
+            {
+                return CoreResult<InputResponse>.Fail(resolved.Error!);
+            }
+
+            textBox = resolved.Value as TextBox ?? (resolved.Value as Visual)?.FindAncestorOfType<TextBox>();
+            if (textBox is null)
+            {
+                return CoreResult<InputResponse>.Fail(new CoreError(
+                    BridgeErrorCodes.UnsupportedInputAction,
+                    "Clear text target is not a TextBox."));
+            }
+
+            if (!textBox.IsFocused && !textBox.Focus(NavigationMethod.Unspecified))
+            {
+                return CoreResult<InputResponse>.Fail(new CoreError(
+                    BridgeErrorCodes.UnsupportedInputAction,
+                    "Clear text target did not accept focus."));
+            }
+        }
+
+        if (textBox.IsReadOnly)
+        {
+            return CoreResult<InputResponse>.Fail(new CoreError(
+                BridgeErrorCodes.UnsupportedInputAction,
+                "Clear text target is read-only."));
+        }
+
+        textBox.Text = string.Empty;
+        textBox.CaretIndex = 0;
+        textBox.SelectionStart = 0;
+        textBox.SelectionEnd = 0;
+
+        return CoreResult<InputResponse>.Ok(new InputResponse(
+            SessionId,
+            topLevelId,
+            InputActions.ClearText,
             handled: true,
             DateTimeOffset.UtcNow,
             CreateNodeId(textBox, TreeKinds.Visual)));

@@ -7,6 +7,7 @@ public static class InputActions
     public const string PointerUp = "pointer_up";
     public const string Click = "click";
     public const string KeyText = "key_text";
+    public const string ClearText = "clear_text";
     public const string Focus = "focus";
     public const string KeyDown = "key_down";
     public const string KeyUp = "key_up";

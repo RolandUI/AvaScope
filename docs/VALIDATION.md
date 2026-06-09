@@ -35,6 +35,13 @@ For Avalonia bridge work, also run:
 dotnet test AvaScope.slnx --filter Bridge
 ```
 
+For runtime input work, include the bridge path and CLI adapter path:
+
+```powershell
+dotnet test AvaScope.slnx --filter Bridge
+dotnet test AvaScope.slnx --filter FullyQualifiedName~Cli
+```
+
 For preview host work, also run:
 
 ```powershell

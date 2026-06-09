@@ -106,9 +106,9 @@ Next slice: refresh Release build/test/pack validation after the sample and CLI 
 
 ### Input Coverage
 
-Status: focus targeting, basic key down/up, and target-aware TextBox text editing slices complete; drag/drop and richer pointer/key behavior remain open.
+Status: focus targeting, basic key down/up, target-aware TextBox text editing, and targeted TextBox clearing slices complete; drag/drop and richer pointer/key behavior remain open.
 
-Input support is intentionally narrow: routed pointer move, routed pointer press/release, Button click, focus by node id or coordinates, routed key down/up for focused or explicitly targeted input elements, and TextBox text input for focused or explicitly targeted TextBox controls. TextBox text input now respects read-only targets and replaces a current selection when one exists. Drag/drop, richer pointer button variants, hardware-like key repeat, and full IME/text editing behavior are not implemented.
+Input support is intentionally narrow: routed pointer move, routed pointer press/release, Button click, focus by node id or coordinates, routed key down/up for focused or explicitly targeted input elements, TextBox text input for focused or explicitly targeted TextBox controls, and `clear_text` for focused or explicitly targeted writable TextBox controls. TextBox text input respects read-only targets and replaces a current selection when one exists; `clear_text` also rejects read-only targets and resets caret/selection to 0. Drag/drop, richer pointer button variants, hardware-like key repeat, and full IME/text editing behavior are not implemented.
 
 Next slice: defer broader input until a drag/drop, pointer-button, or hardware-like keyboard path can be covered by deterministic public Avalonia APIs.
 
@@ -142,4 +142,4 @@ Next slice: CI can later add upload artifacts, self-contained outputs, or more R
 
 No public-alpha blocking slice remains after M50, and W9-W16 completed the stored feature-request first slices plus CLI preview sessions, file-watch reload, manifest-backed visual regression, source-backed typed binding diagnostics, target-aware TextBox input, preview startup parity, and opt-in self-contained distribution hardening.
 
-Selected next slice: W21 runtime interaction v2. W18 completed CLI doctor/self-test, W19 completed preview profiles, and W20 added a validated packaged-CLI agent workflow. The next product improvement is expanding non-destructive runtime input where public Avalonia APIs and deterministic headless tests support it. Future W22-W25 work should continue through diagnostics history/provenance, faster live preview, visual regression CI reporting, and a release-candidate audit.
+Selected next slice: W22 diagnostics v2. W18 completed CLI doctor/self-test, W19 completed preview profiles, W20 added a validated packaged-CLI agent workflow, and W21 added deterministic runtime `clear_text` input. The next product improvement is bounded diagnostics history/provenance that improves agent triage without relying on private Avalonia internals. Future W23-W25 work should continue through faster live preview, visual regression CI reporting, and a release-candidate audit.
