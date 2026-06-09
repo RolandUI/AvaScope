@@ -39,10 +39,10 @@ If the release includes public workflow or packaging changes, also validate the 
 
 - Release: `v0.2.1`
 - Target Version: `0.2.1`
-- Release State: `In Progress`
+- Release State: `Release Candidate`
 - Scope Lock: `2026-06-09`
 - Release Commit: pending
-- Local Release Gate: pending
+- Local Release Gate: passed on `2026-06-09`
 - Published At: pending
 - GitHub Release: pending
 - Previous Release: `v0.2.0`

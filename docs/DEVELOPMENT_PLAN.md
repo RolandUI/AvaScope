@@ -37,6 +37,9 @@ Commit and push the completed R0.2.1-M1 theme-background fix, then run the v0.2.
 
 ## Latest Validation
 
+- `2026-06-09`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1` passed for `v0.2.1`; Release build/test passed with 212 tests, 0.2.1 packages, win/linux framework-dependent ZIPs, release manifest, packaged doctor smoke, and packaged sample preview smoke.
+- `2026-06-09`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.2.1 -DryRun` passed for `v0.2.1` assets.
+- `2026-06-09`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-release-commit.ps1 -Version 0.2.1 -CommitSubject "Release 0.2.1" -RequiredState "Release Candidate"` passed.
 - `2026-06-09`: Targeted PreviewHost theme-background tests passed: `dotnet test AvaScope.slnx --filter "FullyQualifiedName~PreviewHostSmokeTests.PreviewHostUsesDarkFluentWindowBackgroundForTransparentRootControl|FullyQualifiedName~PreviewHostSmokeTests.PreviewHostKeepsAppWindowBackgroundStyleForTransparentRootControl"` passed with 2 tests.
 - `2026-06-09`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after R0.2.1-M1.
 - `2026-06-09`: `dotnet test AvaScope.slnx --no-build` passed with 212 tests after removing one closed AvaScope preview-session temp record that was unrelated stale diagnostics state.
@@ -2333,13 +2336,19 @@ Commit and push the completed R0.2.1-M1 theme-background fix, then run the v0.2.
 - Deliverables: full release validation, `Directory.Build.props` version bump to `0.2.1`, release commit, push.
 - Progress:
   - Done: R0.2.1-M1 reached `Done`.
-  - In Progress: commit and push the completed theme-background fix before running the release gate.
+  - Done: committed and pushed the completed theme-background fix.
+  - Done: moved the `v0.2.1` target to `Release Candidate`.
+  - Done: ran the local release gate and GitHub Release dry-run for `v0.2.1`.
+  - In Progress: commit and push the `Release 0.2.1` version bump.
 - Acceptance Criteria:
   - Pending: `Directory.Build.props` remains unchanged until all in-scope `v0.2.1` work is complete.
   - Pending: local release commit guard passes for subject `Release 0.2.1` and `Release Candidate` state.
   - Pending: published assets match the release manifest and the `v0.2.1` tag.
 - Validation:
-  - Pending: release gate commands from `docs/VALIDATION.md`.
+  - Passed: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1`
+  - Passed: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.2.1 -DryRun`
+  - Passed: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-release-commit.ps1 -Version 0.2.1 -CommitSubject "Release 0.2.1" -RequiredState "Release Candidate"`
+  - Passed: `git diff --check`
 
 ## Decision Log
 
