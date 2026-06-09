@@ -1,6 +1,6 @@
 # AvaScope AGENTS.md
 
-AvaScope is intended to become an open, generic Avalonia inspection and preview toolkit for AI agents and developers. The long-term target is a DevTools-like experience for Avalonia apps without requiring Avalonia Pro/Plus licensing.
+AvaScope is an Avalonia inspection, preview, and automation toolkit for AI agents and developers.
 
 This repository starts from an empty project. Preserve this file as the project context for future agents.
 
@@ -30,22 +30,20 @@ Development in this repository is expected to be performed 100% by autonomous co
 
 ## Product Goal
 
-Build a generic Avalonia UI inspection, preview, and automation stack that can be used by:
+Build an Avalonia UI inspection, preview, and automation stack that can be used by:
 
 - MCP clients such as Codex, Claude, Cursor, Rider, VS Code, and Visual Studio.
 - A CLI for local developer workflows.
 - Future editor integrations.
 - Future visual regression or CI workflows.
 
-The project must not be TradeR-specific. TradeR is only the motivating use case.
-
 ## Name and Positioning
 
 - Product/repo name: `AvaScope`.
 - CLI command target: `avascope`.
 - MCP server name target: `avascope`.
-- Suggested tagline: `Open inspection and preview tools for Avalonia.`
-- Avoid names that imply official Avalonia ownership, such as `Avalonia DevTools`, `Avalonia MCP DevTools`, or `AvaloniaUI.Diagnostics`.
+- Suggested tagline: `Inspection and preview tools for Avalonia.`
+- Keep naming AvaScope-specific. Do not introduce alternate product names.
 
 ## Core Architecture
 
@@ -111,7 +109,7 @@ Long-term target:
 - Keep protocols stable and versioned.
 - Keep the bridge opt-in, local-only, and disabled by default in production builds.
 - Do not couple MCP schemas directly to Avalonia internals.
-- Do not make assumptions from one sample app that break generic Avalonia projects.
+- Do not make assumptions from one sample app that break normal Avalonia project usage.
 
 ## Security and Safety
 
@@ -176,4 +174,4 @@ avascope screenshot --session <id> --out screenshot.png
 
 ## Context From Project Creation
 
-The user wants a generic tool for every Avalonia app, not only TradeR. Development time is not the main constraint; quality and a DevTools-like direction matter more. The best approach chosen was an MSBuild-integrated opt-in bridge plus a preview host, with MCP as one adapter over the engine.
+AvaScope is a standalone project for Avalonia inspection, preview, and automation workflows. The chosen architecture is an MSBuild-integrated opt-in bridge plus a preview host, with MCP as one adapter over the engine.

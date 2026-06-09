@@ -133,6 +133,7 @@ Implement `R0.2.0-M1` by making runtime node selection easier to carry across `f
 - `2026-06-09`: `git diff --check` passed after W25 release-candidate audit updates.
 - `2026-06-09`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-release-commit.ps1 -Version 0.2.0 -CommitSubject "Release 0.2.0" -RequiredState "In Progress"` passed after release-based planning updates.
 - `2026-06-09`: `git diff --check` passed after release-based planning updates.
+- `2026-06-09`: `git diff --check` passed after standalone AvaScope positioning cleanup.
 - `2026-06-08`: `dotnet test AvaScope.slnx -c Release --filter FullyQualifiedName~CliSmokeTests.CloseSessionCommandClosesThroughBridgePipe` passed after W8 CI failure hardening.
 - `2026-06-08`: `dotnet test AvaScope.slnx -c Release --no-build` passed with 179 tests after W8 CI failure hardening.
 - `2026-06-08`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.1.0 -DryRun` passed after W8 GitHub Release creation hardening.
@@ -2240,7 +2241,7 @@ Implement `R0.2.0-M1` by making runtime node selection easier to carry across `f
 - `2026-06-07`: Added M10 for local CLI workflows after preview host and MCP preview integration.
 - `2026-06-07`: `avascope mcp` is a process handoff to the colocated MCP server assembly rather than a second in-process MCP host, keeping one canonical MCP implementation.
 - `2026-06-07`: Added M11 because the implemented bridge/MCP/CLI/preview workflows now need repository-level usage documentation before broader hardening.
-- `2026-06-07`: README intentionally documents current limitations for input, preview resources, hot reload, and diagnostics so users do not assume full DevTools parity yet.
+- `2026-06-07`: README intentionally documents current limitations for input, preview resources, hot reload, and diagnostics so users do not assume coverage beyond implemented workflows.
 - `2026-06-07`: Added M12 to continue with explicit post-MVP hardening rather than broad untracked expansion.
 - `2026-06-07`: Runtime `close_session` is the next hardening slice because stale local bridge sessions/manifests directly affect repeated agent workflows and the tool name is already part of the target MCP shape.
 - `2026-06-07`: Runtime `close_session` uses a two-phase bridge IPC close handshake: the session registry is closed before the structured response is flushed, and the bridge server/manifest are stopped afterward on a background task to avoid pipe teardown before the client receives the result.
@@ -2364,6 +2365,7 @@ Implement `R0.2.0-M1` by making runtime node selection easier to carry across `f
 - `2026-06-09`: AvaScope development is release-based from `v0.2.0` onward: future feature work must belong to a declared release target in `docs/RELEASE_PLAN.md`, and `Directory.Build.props` version changes are release commits only.
 - `2026-06-09`: Automatic push-based publishing now requires a release commit subject of `Release <version>` and a matching `docs/RELEASE_PLAN.md` target in `Release Candidate` state, reducing the chance that an accidental version bump publishes unfinished scope.
 - `2026-06-09`: `v0.2.0` is scoped around repeated agent usability: runtime workflow hardening, preview diagnostics readiness, live-preview lifecycle decision, visual-regression CI integration, and a guarded release candidate/version bump.
+- `2026-06-09`: Project documentation should describe AvaScope as its own Avalonia inspection, preview, and automation project. Do not frame it around external projects, third-party tools, or comparison-based positioning.
 
 ## Change Log
 
@@ -2455,3 +2457,4 @@ Implement `R0.2.0-M1` by making runtime node selection easier to carry across `f
 - `2026-06-09`: Completed W24 by adding optional baseline-check JSON report output, report path propagation, protocol/CLI tests, sample report smoke validation, README/validation/gap updates, and targeted validation; moved active focus to W25.
 - `2026-06-09`: Completed W25 by refreshing the public-alpha audit, running full Debug and Release validation, validating GitHub Release dry-run assets, running packaged CLI doctor/MCP/baseline smokes, updating docs/gap tracking, and confirming generated artifacts remain ignored.
 - `2026-06-09`: Adopted release-based development for `v0.2.0`, added the release plan and release commit guard, updated release documentation, and moved active focus to `R0.2.0-M1 Runtime Workflow Hardening`.
+- `2026-06-09`: Cleaned project positioning references so docs present AvaScope as a standalone Avalonia project without external-product framing.

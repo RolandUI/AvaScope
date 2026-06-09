@@ -25,7 +25,7 @@ During preview rendering, AvaScope should separately report binding, compiled bi
 - Preview results can include structured binding/resource diagnostic entries without failing the whole render when the view still renders.
 - Failing binding/resource entries include the affected target node or path where practical.
 - Diagnostics are bounded so large views do not return unbounded logs.
-- The implementation stays inside PreviewHost/core protocol boundaries and does not make MCP Avalonia-specific.
+- The implementation stays inside PreviewHost/core protocol boundaries and does not couple MCP schemas directly to Avalonia runtime types.
 
 ## Current Coverage
 

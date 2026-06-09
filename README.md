@@ -1,8 +1,8 @@
 # AvaScope
 
-Open inspection and preview tools for Avalonia.
+Inspection and preview tools for Avalonia.
 
-AvaScope is a generic Avalonia inspection, preview, and automation stack for agents and local developer workflows. It targets Avalonia 12 and `net10.0`. It is not TradeR-specific.
+AvaScope is an Avalonia inspection, preview, and automation stack for agents and local developer workflows. It targets Avalonia 12 and `net10.0`.
 
 ## Current Capabilities
 
