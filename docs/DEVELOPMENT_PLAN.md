@@ -25,18 +25,22 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `R0.2.1-M2 Release Candidate And Version Bump`
+- `Next Release Planning`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-09`
-- Goal: close `v0.2.1` as a release candidate, bump the version, and publish through the guarded release workflow.
+- Goal: define the next release target in `docs/RELEASE_PLAN.md` before implementation resumes.
 
 ## Next Action
 
-Commit and push the completed R0.2.1-M1 theme-background fix, then run the v0.2.1 release gate before the version bump release commit.
+Define the next release target and milestone map in `docs/RELEASE_PLAN.md`; do not start feature implementation until that release scope is recorded.
 
 ## Latest Validation
 
+- `2026-06-09`: GitHub Release workflow `27200641766` passed for `Release 0.2.1`; tag `v0.2.1` and six GitHub Release assets were published at `2026-06-09T10:48:21Z`.
+- `2026-06-09`: GitHub CI workflow `27200641755` passed for `Release 0.2.1`.
+- `2026-06-09`: `gh release view v0.2.1` confirmed the public release URL and six uploaded assets.
+- `2026-06-09`: `git ls-remote --tags origin refs/tags/v0.2.1` confirmed tag `v0.2.1` at release commit `d12fe8c`.
 - `2026-06-09`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1` passed for `v0.2.1`; Release build/test passed with 212 tests, 0.2.1 packages, win/linux framework-dependent ZIPs, release manifest, packaged doctor smoke, and packaged sample preview smoke.
 - `2026-06-09`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.2.1 -DryRun` passed for `v0.2.1` assets.
 - `2026-06-09`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-release-commit.ps1 -Version 0.2.1 -CommitSubject "Release 0.2.1" -RequiredState "Release Candidate"` passed.
@@ -2331,7 +2335,7 @@ Commit and push the completed R0.2.1-M1 theme-background fix, then run the v0.2.
 
 ### R0.2.1-M2 Release Candidate And Version Bump
 
-- Status: `In Progress`
+- Status: `Done`
 - Goal: close `v0.2.1` as a release candidate, bump the version, and publish through the guarded release workflow.
 - Deliverables: full release validation, `Directory.Build.props` version bump to `0.2.1`, release commit, push.
 - Progress:
@@ -2339,16 +2343,21 @@ Commit and push the completed R0.2.1-M1 theme-background fix, then run the v0.2.
   - Done: committed and pushed the completed theme-background fix.
   - Done: moved the `v0.2.1` target to `Release Candidate`.
   - Done: ran the local release gate and GitHub Release dry-run for `v0.2.1`.
-  - In Progress: commit and push the `Release 0.2.1` version bump.
+  - Done: committed and pushed release head `d12fe8c` with subject `Release 0.2.1`.
+  - Done: GitHub Release workflow published tag `v0.2.1`, packages, executable ZIPs, and release manifest.
 - Acceptance Criteria:
-  - Pending: `Directory.Build.props` remains unchanged until all in-scope `v0.2.1` work is complete.
-  - Pending: local release commit guard passes for subject `Release 0.2.1` and `Release Candidate` state.
-  - Pending: published assets match the release manifest and the `v0.2.1` tag.
+  - Done: `Directory.Build.props` remained unchanged until all in-scope `v0.2.1` work was complete.
+  - Done: local release commit guard passed for subject `Release 0.2.1` and `Release Candidate` state.
+  - Done: published assets match the release manifest and the `v0.2.1` tag.
 - Validation:
   - Passed: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1`
   - Passed: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.2.1 -DryRun`
   - Passed: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-release-commit.ps1 -Version 0.2.1 -CommitSubject "Release 0.2.1" -RequiredState "Release Candidate"`
   - Passed: `git diff --check`
+  - Passed: GitHub Release run `27200641766`
+  - Passed: CI run `27200641755`
+  - Passed: `gh release view v0.2.1`
+  - Passed: `git ls-remote --tags origin refs/tags/v0.2.1`
 
 ## Decision Log
 
@@ -2614,3 +2623,4 @@ Commit and push the completed R0.2.1-M1 theme-background fix, then run the v0.2.
 - `2026-06-09`: Completed R0.2.0-M2 by adding preview readiness/build/render failure triage, bounded error details, CLI/Core/PreviewHost tests, docs, and full validation.
 - `2026-06-09`: Completed R0.2.0-M3 by adding tool-visible live preview lifecycle status, documenting persistent-host deferral semantics, adding protocol/Core/CLI coverage, and full validation.
 - `2026-06-09`: Completed R0.2.1-M1 by making PreviewHost wrapper `Window` backgrounds theme-aware, preserving app `Window` background styles, adding dark preview smoke coverage, and validating the `SettingsView.axaml` dark preview scenario.
+- `2026-06-09`: Completed R0.2.1-M2 by validating the release gate, committing `Release 0.2.1`, pushing it to `master`, and confirming GitHub Release `v0.2.1` published with packages, executable ZIPs, and release manifest.

@@ -39,12 +39,12 @@ If the release includes public workflow or packaging changes, also validate the 
 
 - Release: `v0.2.1`
 - Target Version: `0.2.1`
-- Release State: `Release Candidate`
+- Release State: `Released`
 - Scope Lock: `2026-06-09`
-- Release Commit: pending
+- Release Commit: `d12fe8c` (`Release 0.2.1`)
 - Local Release Gate: passed on `2026-06-09`
-- Published At: pending
-- GitHub Release: pending
+- Published At: `2026-06-09T10:48:21Z`
+- GitHub Release: https://github.com/RolandUI/AvaScope/releases/tag/v0.2.1
 - Previous Release: `v0.2.0`
 
 ### v0.2.1 Release Goals
@@ -59,7 +59,7 @@ The `v0.2.1` release target is a patch release focused on preview theme parity f
 ### v0.2.1 Milestone Map
 
 - `R0.2.1-M1 Theme-Aware Preview Wrapper Background` delivers `RG-0.2.1-1`; Status: `Done`.
-- `R0.2.1-M2 Release Candidate And Version Bump` delivers `RG-0.2.1-2`; Status: `In Progress`.
+- `R0.2.1-M2 Release Candidate And Version Bump` delivers `RG-0.2.1-2`; Status: `Done`.
 
 ### Explicit Deferrals
 
