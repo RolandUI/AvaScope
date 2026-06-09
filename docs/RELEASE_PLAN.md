@@ -39,9 +39,10 @@ If the release includes public workflow or packaging changes, also validate the 
 
 - Release: `v0.2.0`
 - Target Version: `0.2.0`
-- Release State: `In Progress`
+- Release State: `Release Candidate`
 - Scope Lock: `2026-06-09`
-- Release Commit: pending until every `v0.2.0` milestone is `Done` and the release gate passes.
+- Release Commit: `Release 0.2.0`
+- Local Release Gate: passed on `2026-06-09`
 - Previous Release: `v0.1.0`
 
 ### v0.2.0 Release Goals

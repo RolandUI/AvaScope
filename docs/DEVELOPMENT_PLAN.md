@@ -159,6 +159,12 @@ Implement `R0.2.0-M6` by running the full release gate for `v0.2.0`, moving the 
 - `2026-06-09`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after visual regression CI artifact handoff implementation.
 - `2026-06-09`: `dotnet test AvaScope.slnx --no-build` passed with 210 tests after visual regression CI artifact handoff implementation.
 - `2026-06-09`: `git diff --check` passed after visual regression CI artifact handoff implementation.
+- `2026-06-09`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors for `v0.2.0` release-candidate validation.
+- `2026-06-09`: `dotnet test AvaScope.slnx --no-build` passed with 210 tests for `v0.2.0` release-candidate validation.
+- `2026-06-09`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1` passed for `v0.2.0`; Release build/test passed with 210 tests, three `0.2.0` packages, win-x64 and linux-x64 framework-dependent ZIPs, release manifest, packaged doctor smoke, and packaged sample preview smoke.
+- `2026-06-09`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.2.0 -DryRun` passed for `v0.2.0` release assets.
+- `2026-06-09`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-release-commit.ps1 -Version 0.2.0 -CommitSubject "Release 0.2.0" -RequiredState "Release Candidate"` passed before the release commit.
+- `2026-06-09`: `git diff --check` passed for `v0.2.0` release-candidate validation.
 - `2026-06-08`: `dotnet test AvaScope.slnx -c Release --filter FullyQualifiedName~CliSmokeTests.CloseSessionCommandClosesThroughBridgePipe` passed after W8 CI failure hardening.
 - `2026-06-08`: `dotnet test AvaScope.slnx -c Release --no-build` passed with 179 tests after W8 CI failure hardening.
 - `2026-06-08`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.1.0 -DryRun` passed after W8 GitHub Release creation hardening.
@@ -2253,20 +2259,20 @@ Implement `R0.2.0-M6` by running the full release gate for `v0.2.0`, moving the 
 - Deliverables: audit refresh, full release validation, `Directory.Build.props` version bump to `0.2.0`, release commit, push.
 - Progress:
   - Done: confirmed R0.2.0-M1 through R0.2.0-M5 are `Done`.
-  - Pending: move `docs/RELEASE_PLAN.md` release state to `Release Candidate`.
-  - Pending: run full release gate and GitHub Release dry-run for `v0.2.0`.
+  - Done: moved `docs/RELEASE_PLAN.md` release state to `Release Candidate`.
+  - Done: ran full release gate and GitHub Release dry-run for `v0.2.0`.
   - Pending: commit with subject `Release 0.2.0` and push.
 - Acceptance Criteria:
   - Done: `Directory.Build.props` remained unchanged until all in-scope `v0.2.0` work was complete.
-  - Pending: automatic release workflow guard passes on the release commit.
+  - Done: local release commit guard passed for subject `Release 0.2.0` and `Release Candidate` state.
   - Pending: published assets match the release manifest and the `v0.2.0` tag.
 - Validation:
-  - Pending: `dotnet build AvaScope.slnx`
-  - Pending: `dotnet test AvaScope.slnx --no-build`
-  - Pending: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1`
-  - Pending: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.2.0 -DryRun`
-  - Pending: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-release-commit.ps1 -Version 0.2.0`
-  - Pending: `git diff --check`
+  - Passed: `dotnet build AvaScope.slnx`
+  - Passed: `dotnet test AvaScope.slnx --no-build`
+  - Passed: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1`
+  - Passed: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.2.0 -DryRun`
+  - Passed: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-release-commit.ps1 -Version 0.2.0 -CommitSubject "Release 0.2.0" -RequiredState "Release Candidate"`
+  - Passed: `git diff --check`
 
 ## Decision Log
 
