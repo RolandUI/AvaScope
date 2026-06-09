@@ -70,11 +70,14 @@ Explicit CLI options override profile values.
 & $avascope create-preview-session .\samples\AvaScope.GettingStartedApp\AvaScope.GettingStartedApp.csproj --profile main
 & $avascope list-preview-sessions
 & $avascope reload-preview-session --session <preview-session-id>
+& $avascope preview-viewer --session <preview-session-id> --out .\artifacts\samples\main-preview-viewer.html
 & $avascope watch-preview-session --session <preview-session-id> --timeout-ms 30000 --settle-ms 250 --max-reloads 1
 & $avascope close-preview-session --session <preview-session-id>
 ```
 
 Preview sessions persist request metadata only. Each render still runs through an isolated `AvaScope.PreviewHost` child process. Duplicate watcher bursts that leave the watched input snapshot unchanged are reported as `skipped` instead of launching another host process.
+
+`preview-viewer` returns a `previewUrl` pointing at a generated file-backed HTML viewer. Open that URL in the Codex in-app browser to review the rendered screenshot, preview metadata, diagnostics, and session JSON beside the thread without starting a server.
 
 ## 5. Inspect A Running App
 

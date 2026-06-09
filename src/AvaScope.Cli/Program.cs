@@ -39,6 +39,7 @@ internal static class Program
             "reload-preview-session" => await ReloadPreviewSession(args[1..]),
             "close-preview-session" => ClosePreviewSession(args[1..]),
             "watch-preview-session" => await WatchPreviewSession(args[1..]),
+            "preview-viewer" => PreviewViewer(args[1..]),
             "baseline-create" => await BaselineCreate(args[1..]),
             "baseline-check" => await BaselineCheck(args[1..]),
             "cleanup" => Cleanup(args[1..]),
@@ -610,6 +611,55 @@ internal static class Program
             watchOptions);
         WriteResult(result);
         return result.Success && result.Value!.ReloadCount > 0 && !result.Value.TimedOut ? 0 : 1;
+    }
+
+    private static int PreviewViewer(string[] args)
+    {
+        var options = ParseOptions(args, GetPreviewViewerUsage());
+        if (!options.Success)
+        {
+            WriteFailure<PreviewViewerResponse>(InvalidCliArguments, options.Error!);
+            return 2;
+        }
+
+        if (!ValidateOptions(options.Values, GetPreviewViewerUsage(), "session", "out"))
+        {
+            return 2;
+        }
+
+        if (!options.Values.TryGetValue("session", out var sessionText)
+            || string.IsNullOrWhiteSpace(sessionText))
+        {
+            WriteFailure<PreviewViewerResponse>(InvalidCliArguments, GetPreviewViewerUsage());
+            return 2;
+        }
+
+        SessionId sessionId;
+        try
+        {
+            sessionId = new SessionId(sessionText);
+        }
+        catch (ArgumentException exception)
+        {
+            WriteFailure<PreviewViewerResponse>(CoreErrorCodes.InvalidBridgeRequest, exception.Message);
+            return 2;
+        }
+
+        var session = CreatePreviewSessionRegistry().Get(sessionId);
+        if (!session.Success)
+        {
+            WriteResult(ToolResult<PreviewViewerResponse>.Fail(new ProtocolError(
+                session.Error!.Code,
+                session.Error.Message,
+                session.Error.Details)));
+            return 1;
+        }
+
+        var result = new PreviewViewerExporter().Export(
+            session.Value!,
+            options.Values.GetValueOrDefault("out"));
+        WriteResult(result);
+        return result.Success ? 0 : 1;
     }
 
     private static async Task<int> BaselineCreate(string[] args)
@@ -1744,7 +1794,7 @@ internal static class Program
 
     private static string GetUsage()
     {
-        return "Usage: avascope mcp | avascope doctor [--manifest-dir <dir>] [--preview-session-store <dir>] | avascope attach [--process <pid>] [--session <session-id>] | avascope list-top-levels --session <session-id> | avascope visual-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] | avascope logical-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] | avascope inspect-node --session <session-id> --top-level <top-level-id> --node <node-id> [--tree-kind visual|logical] | avascope find-nodes --session <session-id> --top-level <top-level-id> [--tree-kind visual|logical] [--type <type>] [--name <name>] [--automation-id <id>] [--text <text>] [--max-depth <n>] [--max-results <n>] | avascope input --session <session-id> --top-level <top-level-id> --action <action> [--x <x>] [--y <y>] [--text <text>] [--target-node <node-id>] [--key <key>] [--modifiers <modifiers>] | avascope close-session --session <session-id> | avascope diagnostics [--process <pid>] [--session <session-id>] [--max-sessions <n>] | avascope reload --session <session-id> | avascope create-preview-session <project.csproj> [--profile <name>] [--profile-file <path>] --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] [--display-name <name>] | avascope list-preview-sessions | avascope reload-preview-session --session <session-id> | avascope close-preview-session --session <session-id> | avascope watch-preview-session --session <session-id> --timeout-ms <ms> [--settle-ms <ms>] [--max-reloads <n>] [--watch <path>[,<path>...]] | avascope baseline-create <project.csproj> --view <view.axaml> --manifest <baseline.json> --sizes <w>x<h>[,<w>x<h>...] [--out-dir <dir>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] | avascope baseline-check --manifest <baseline.json> [--out-dir <dir>] [--diff-dir <dir>] [--tolerance <0-255>] [--report <report.json>] | avascope cleanup | avascope diff --baseline <baseline.png> --current <current.png> --out <diff.png> [--tolerance <0-255>] | avascope screenshot --session <session-id> --top-level <top-level-id> --out <screenshot.png> | avascope preview <project.csproj> [--profile <name>] [--profile-file <path>] --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--sizes <w>x<h>[,<w>x<h>...]] [--contact-sheet <sheet.png>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>]";
+        return "Usage: avascope mcp | avascope doctor [--manifest-dir <dir>] [--preview-session-store <dir>] | avascope attach [--process <pid>] [--session <session-id>] | avascope list-top-levels --session <session-id> | avascope visual-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] | avascope logical-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] | avascope inspect-node --session <session-id> --top-level <top-level-id> --node <node-id> [--tree-kind visual|logical] | avascope find-nodes --session <session-id> --top-level <top-level-id> [--tree-kind visual|logical] [--type <type>] [--name <name>] [--automation-id <id>] [--text <text>] [--max-depth <n>] [--max-results <n>] | avascope input --session <session-id> --top-level <top-level-id> --action <action> [--x <x>] [--y <y>] [--text <text>] [--target-node <node-id>] [--key <key>] [--modifiers <modifiers>] | avascope close-session --session <session-id> | avascope diagnostics [--process <pid>] [--session <session-id>] [--max-sessions <n>] | avascope reload --session <session-id> | avascope create-preview-session <project.csproj> [--profile <name>] [--profile-file <path>] --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] [--display-name <name>] | avascope list-preview-sessions | avascope reload-preview-session --session <session-id> | avascope close-preview-session --session <session-id> | avascope watch-preview-session --session <session-id> --timeout-ms <ms> [--settle-ms <ms>] [--max-reloads <n>] [--watch <path>[,<path>...]] | avascope preview-viewer --session <session-id> [--out <viewer.html>] | avascope baseline-create <project.csproj> --view <view.axaml> --manifest <baseline.json> --sizes <w>x<h>[,<w>x<h>...] [--out-dir <dir>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] | avascope baseline-check --manifest <baseline.json> [--out-dir <dir>] [--diff-dir <dir>] [--tolerance <0-255>] [--report <report.json>] | avascope cleanup | avascope diff --baseline <baseline.png> --current <current.png> --out <diff.png> [--tolerance <0-255>] | avascope screenshot --session <session-id> --top-level <top-level-id> --out <screenshot.png> | avascope preview <project.csproj> [--profile <name>] [--profile-file <path>] --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--sizes <w>x<h>[,<w>x<h>...]] [--contact-sheet <sheet.png>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>]";
     }
 
     private static string GetPreviewUsage()
@@ -1775,6 +1825,11 @@ internal static class Program
     private static string GetWatchPreviewSessionUsage()
     {
         return "Usage: avascope watch-preview-session --session <session-id> --timeout-ms <ms> [--settle-ms <ms>] [--max-reloads <n>] [--watch <path>[,<path>...]]";
+    }
+
+    private static string GetPreviewViewerUsage()
+    {
+        return "Usage: avascope preview-viewer --session <session-id> [--out <viewer.html>]";
     }
 
     private static string GetBaselineCreateUsage()

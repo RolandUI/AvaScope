@@ -295,6 +295,67 @@ public sealed class AvaScopeMcpToolsTests
     }
 
     [Fact]
+    public void PreviewViewerExportsFileBackedUrlForPreviewSession()
+    {
+        var testRoot = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(testRoot);
+
+        try
+        {
+            var imagePath = Path.Combine(testRoot, "preview.png");
+            var viewerPath = Path.Combine(testRoot, "viewer.html");
+            File.WriteAllBytes(imagePath, [1, 2, 3]);
+            var store = new PreviewSessionStore(Path.Combine(testRoot, "store"));
+            var session = new PreviewSessionSummary(
+                new SessionSummary(
+                    new SessionId("preview-mcp-viewer"),
+                    SessionKinds.Preview,
+                    SessionStates.Active,
+                    DateTimeOffset.UnixEpoch,
+                    "MCP viewer preview"),
+                new PreviewRequest(
+                    imagePath,
+                    width: 120,
+                    height: 80,
+                    dpi: 96,
+                    viewPath: "Views/MainView.axaml"),
+                ToolResult<PreviewResponse>.Ok(new PreviewResponse(
+                    imagePath,
+                    120,
+                    80,
+                    96,
+                    DateTimeOffset.UnixEpoch,
+                    viewPath: "Views/MainView.axaml")),
+                DateTimeOffset.UnixEpoch);
+            Assert.True(store.Save(session).Success);
+            var previewSessions = new PreviewSessionRegistry(
+                new SessionRegistry(),
+                new PreviewHostClient(Path.Combine(testRoot, "missing-host.dll")),
+                TimeProvider.System,
+                store);
+
+            var result = AvaScopeMcpTools.PreviewViewer(
+                previewSessions,
+                "preview-mcp-viewer",
+                viewerPath);
+
+            Assert.True(result.Success, result.Error?.Message);
+            Assert.Equal(Path.GetFullPath(viewerPath), result.Value!.ViewerPath);
+            Assert.Equal(new Uri(viewerPath).AbsoluteUri, result.Value.PreviewUrl);
+            Assert.Equal("preview-mcp-viewer", result.Value.Session.Session.SessionId.Value);
+            Assert.True(File.Exists(viewerPath));
+            Assert.Contains("MCP viewer preview", File.ReadAllText(viewerPath));
+        }
+        finally
+        {
+            if (Directory.Exists(testRoot))
+            {
+                Directory.Delete(testRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
     public void ClosePreviewSessionRejectsEmptySessionId()
     {
         var previewSessions = CreatePreviewSessionRegistryWithMissingHost();

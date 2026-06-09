@@ -136,6 +136,13 @@ Implement `R0.2.0-M1` by making runtime node selection easier to carry across `f
 - `2026-06-09`: `git diff --check` passed after standalone AvaScope positioning cleanup.
 - `2026-06-09`: `git diff --check` passed after formal `v0.2.0` release-goal definition.
 - `2026-06-09`: `git diff --check` passed after adding the Codex preview surface goal to `v0.2.0`.
+- `2026-06-09`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after Codex preview viewer implementation.
+- `2026-06-09`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~ProtocolContractTests.PreviewViewerResponseSerializesStableShape` passed after Codex preview viewer implementation.
+- `2026-06-09`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewSessionRegistryTests.PreviewViewerExporter` passed with 2 tests after Codex preview viewer implementation.
+- `2026-06-09`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~CliSmokeTests.PreviewSessionCommandsCreateListReloadAndClosePersistedSession` passed after Codex preview viewer implementation.
+- `2026-06-09`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~AvaScopeMcpToolsTests.PreviewViewerExportsFileBackedUrlForPreviewSession` passed after Codex preview viewer implementation.
+- `2026-06-09`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~McpStdioSmokeTests.ServerStartsOverStdioAndListsInitialTools` passed after Codex preview viewer implementation.
+- `2026-06-09`: `git diff --check` passed after Codex preview viewer implementation.
 - `2026-06-08`: `dotnet test AvaScope.slnx -c Release --filter FullyQualifiedName~CliSmokeTests.CloseSessionCommandClosesThroughBridgePipe` passed after W8 CI failure hardening.
 - `2026-06-08`: `dotnet test AvaScope.slnx -c Release --no-build` passed with 179 tests after W8 CI failure hardening.
 - `2026-06-08`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.1.0 -DryRun` passed after W8 GitHub Release creation hardening.
@@ -2193,23 +2200,28 @@ Implement `R0.2.0-M1` by making runtime node selection easier to carry across `f
 
 ### R0.2.0-M5 Codex Preview Surface
 
-- Status: `Not Started`
-- Goal: make AvaScope previews usable from Codex through a local web viewer and explicit MCP/CLI URL handoff.
-- Deliverables: local preview viewer or server entrypoint, preview/session `previewUrl` handoff, Codex in-app browser workflow docs, tests, validation, commit, push.
+- Status: `Done`
+- Goal: make AvaScope previews usable from Codex through a local file-backed viewer and explicit MCP/CLI URL handoff.
+- Deliverables: local file-backed preview viewer, preview/session `previewUrl` handoff, Codex in-app browser workflow docs, tests, validation, commit, push.
 - Progress:
-  - Pending: define the smallest local viewer surface for screenshot, tree, diagnostics, reload, and baseline artifacts.
-  - Pending: expose a stable local `previewUrl` through CLI/MCP responses without requiring a native Codex custom sidebar.
-  - Pending: document the Codex workflow around the in-app browser and local-only preview server.
+  - Done: added `PreviewViewerResponse` with `viewerPath`, `previewUrl`, generated timestamp, and preview-session metadata.
+  - Done: added Core `PreviewViewerExporter` that writes a self-contained file-backed HTML viewer for a preview session's latest successful render.
+  - Done: added CLI `preview-viewer --session <id> [--out <viewer.html>]`.
+  - Done: added MCP `preview_viewer` for Codex handoff.
+  - Done: documented the Codex in-app browser workflow around the returned `file://` `previewUrl`.
 - Acceptance Criteria:
-  - Pending: a Codex user can open an AvaScope preview URL in the in-app browser and review screenshot/diagnostics state.
-  - Pending: MCP/CLI handoff includes enough information for Codex to present or open the viewer.
-  - Pending: the preview server is local-only by default and does not widen the bridge remote-control boundary.
+  - Done: a Codex user can open an AvaScope preview URL in the in-app browser and review screenshot/diagnostics state.
+  - Done: MCP/CLI handoff includes enough information for Codex to present or open the viewer.
+  - Done: the viewer is file-backed and local-only; it does not start a network listener or widen the bridge remote-control boundary.
 - Validation:
-  - Pending: targeted CLI/MCP/Core tests for preview URL handoff.
-  - Pending: viewer smoke validation through a local URL or explicit deferral note if the slice is docs-only.
-  - Pending: `dotnet build AvaScope.slnx`
-  - Pending: `dotnet test AvaScope.slnx --no-build`
-  - Pending: `git diff --check`
+  - Passed: `dotnet build AvaScope.slnx`
+  - Passed: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~ProtocolContractTests.PreviewViewerResponseSerializesStableShape`
+  - Passed: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewSessionRegistryTests.PreviewViewerExporter`
+  - Passed: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~CliSmokeTests.PreviewSessionCommandsCreateListReloadAndClosePersistedSession`
+  - Passed: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~AvaScopeMcpToolsTests.PreviewViewerExportsFileBackedUrlForPreviewSession`
+  - Passed: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~McpStdioSmokeTests.ServerStartsOverStdioAndListsInitialTools`
+  - Passed: `dotnet test AvaScope.slnx --no-build`
+  - Passed: `git diff --check`
 
 ### R0.2.0-M6 Release Candidate And Version Bump
 
@@ -2392,7 +2404,8 @@ Implement `R0.2.0-M1` by making runtime node selection easier to carry across `f
 - `2026-06-09`: `v0.2.0` is scoped around repeated agent usability: runtime workflow hardening, preview diagnostics readiness, live-preview lifecycle decision, visual-regression CI integration, and a guarded release candidate/version bump.
 - `2026-06-09`: Project documentation should describe AvaScope as its own Avalonia inspection, preview, and automation project. Do not frame it around external projects, third-party tools, or comparison-based positioning.
 - `2026-06-09`: `v0.2.0` release goals use `RG-0.2.0-*` identifiers with success signals so release acceptance is evaluated against outcomes, not only task completion.
-- `2026-06-09`: `v0.2.0` includes a Codex preview surface goal implemented through a local AvaScope web viewer and MCP/CLI `previewUrl` handoff rather than depending on an undocumented native Codex sidebar extension.
+- `2026-06-09`: `v0.2.0` includes a Codex preview surface goal implemented through a local file-backed AvaScope viewer and MCP/CLI `previewUrl` handoff rather than depending on an undocumented native Codex sidebar extension.
+- `2026-06-09`: Codex preview surface uses a file-backed, self-contained HTML viewer first because Codex supports file-backed previews and this avoids a long-lived preview server or network listener while still returning a `previewUrl`.
 
 ## Change Log
 
@@ -2487,3 +2500,4 @@ Implement `R0.2.0-M1` by making runtime node selection easier to carry across `f
 - `2026-06-09`: Cleaned project positioning references so docs present AvaScope as a standalone Avalonia project without external-product framing.
 - `2026-06-09`: Defined formal `v0.2.0` release goals with success signals and mapped them to R0.2.0-M1 through R0.2.0-M6.
 - `2026-06-09`: Added Codex preview surface to the `v0.2.0` release goals and inserted `R0.2.0-M5 Codex Preview Surface` before release-candidate validation.
+- `2026-06-09`: Completed R0.2.0-M5 by adding file-backed preview viewer export, CLI `preview-viewer`, MCP `preview_viewer`, Codex in-app browser docs, targeted validation, and full test-suite validation.

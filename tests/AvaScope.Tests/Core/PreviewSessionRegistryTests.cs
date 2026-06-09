@@ -323,6 +323,85 @@ public sealed class PreviewSessionRegistryTests : IDisposable
     }
 
     [Fact]
+    public void PreviewViewerExporterWritesSelfContainedHtmlWithFileBackedPreviewUrl()
+    {
+        Directory.CreateDirectory(_testRoot);
+        var generatedAt = new DateTimeOffset(2026, 6, 9, 14, 0, 0, TimeSpan.Zero);
+        var timeProvider = new ManualTimeProvider(generatedAt);
+        var imagePath = Path.Combine(_testRoot, "preview.png");
+        var viewerPath = Path.Combine(_testRoot, "viewer.html");
+        File.WriteAllBytes(imagePath, [1, 2, 3]);
+        var session = new PreviewSessionSummary(
+            new SessionSummary(
+                new SessionId("preview-viewer"),
+                SessionKinds.Preview,
+                SessionStates.Active,
+                DateTimeOffset.UnixEpoch,
+                "Viewer preview"),
+            new PreviewRequest(
+                imagePath,
+                width: 100,
+                height: 80,
+                dpi: 96,
+                viewPath: "Views/MainView.axaml"),
+            ToolResult<PreviewResponse>.Ok(new PreviewResponse(
+                imagePath,
+                100,
+                80,
+                96,
+                DateTimeOffset.UnixEpoch,
+                viewPath: "Views/MainView.axaml",
+                diagnostics:
+                [
+                    new PreviewDiagnostic(
+                        PreviewDiagnosticSeverities.Warning,
+                        PreviewDiagnosticCategories.Binding,
+                        "binding_warning",
+                        "Binding warning.",
+                        nodeId: "visual:text")
+                ])),
+            DateTimeOffset.UnixEpoch);
+
+        var result = new PreviewViewerExporter(timeProvider).Export(session, viewerPath);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(Path.GetFullPath(viewerPath), result.Value!.ViewerPath);
+        Assert.Equal(new Uri(viewerPath).AbsoluteUri, result.Value.PreviewUrl);
+        Assert.Equal(generatedAt, result.Value.GeneratedAt);
+        Assert.True(File.Exists(viewerPath));
+
+        var html = File.ReadAllText(viewerPath);
+        Assert.Contains("data:image/png;base64,AQID", html);
+        Assert.Contains("Viewer preview", html);
+        Assert.Contains("binding_warning", html);
+        Assert.Contains("preview-viewer", html);
+    }
+
+    [Fact]
+    public void PreviewViewerExporterRejectsFailedPreviewSessionRender()
+    {
+        var session = new PreviewSessionSummary(
+            new SessionSummary(
+                new SessionId("preview-failed"),
+                SessionKinds.Preview,
+                SessionStates.Failed,
+                DateTimeOffset.UnixEpoch,
+                "Failed preview"),
+            new PreviewRequest(
+                Path.Combine(_testRoot, "missing.png"),
+                width: 100,
+                height: 80,
+                dpi: 96),
+            ToolResult<PreviewResponse>.Fail(new ProtocolError("preview_failed", "Preview failed.")),
+            DateTimeOffset.UnixEpoch);
+
+        var result = new PreviewViewerExporter().Export(session, Path.Combine(_testRoot, "viewer.html"));
+
+        Assert.False(result.Success);
+        Assert.Equal(CoreErrorCodes.PreviewViewerUnavailable, result.Error!.Code);
+    }
+
+    [Fact]
     public void CloseReturnsStructuredErrorForUnknownPreviewSession()
     {
         var previewSessions = new PreviewSessionRegistry(

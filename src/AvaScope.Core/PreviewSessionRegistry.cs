@@ -78,6 +78,21 @@ public sealed class PreviewSessionRegistry
             .ToArray();
     }
 
+    public CoreResult<PreviewSessionSummary> Get(SessionId sessionId)
+    {
+        ArgumentNullException.ThrowIfNull(sessionId);
+
+        if (!_sessions.TryGetValue(sessionId.Value, out var record))
+        {
+            return CoreResult<PreviewSessionSummary>.Fail(SessionNotFound(sessionId));
+        }
+
+        var summary = TrySnapshot(record);
+        return summary is null
+            ? CoreResult<PreviewSessionSummary>.Fail(SessionNotFound(sessionId))
+            : CoreResult<PreviewSessionSummary>.Ok(summary);
+    }
+
     public CoreResult<PreviewSessionSummary> Close(SessionId sessionId)
     {
         ArgumentNullException.ThrowIfNull(sessionId);

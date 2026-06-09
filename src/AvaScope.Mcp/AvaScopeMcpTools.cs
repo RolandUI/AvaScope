@@ -549,6 +549,39 @@ public sealed class AvaScopeMcpTools
     }
 
     [McpServerTool(
+        Name = "preview_viewer",
+        Title = "Preview viewer",
+        ReadOnly = false,
+        Idempotent = false,
+        Destructive = false,
+        OpenWorld = false,
+        UseStructuredContent = true)]
+    [Description("Exports a local file-backed AvaScope preview viewer for a preview session and returns a previewUrl suitable for the Codex in-app browser.")]
+    public static ToolResult<PreviewViewerResponse> PreviewViewer(
+        PreviewSessionRegistry previewSessions,
+        string sessionId,
+        string? outputPath = null)
+    {
+        ArgumentNullException.ThrowIfNull(previewSessions);
+
+        if (!TryParseRequiredSessionId(sessionId, out var parsedSessionId, out var error))
+        {
+            return ToolResult<PreviewViewerResponse>.Fail(error!);
+        }
+
+        var session = previewSessions.Get(parsedSessionId!);
+        if (!session.Success)
+        {
+            return ToolResult<PreviewViewerResponse>.Fail(new ProtocolError(
+                session.Error!.Code,
+                session.Error.Message,
+                session.Error.Details));
+        }
+
+        return ToToolResult(new PreviewViewerExporter().Export(session.Value!, outputPath));
+    }
+
+    [McpServerTool(
         Name = "close_preview_session",
         Title = "Close preview session",
         ReadOnly = false,

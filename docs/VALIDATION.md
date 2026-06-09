@@ -84,6 +84,16 @@ dotnet test AvaScope.slnx --filter FullyQualifiedName~CliSmokeTests.ReloadPrevie
 dotnet test AvaScope.slnx --filter FullyQualifiedName~CliSmokeTests.WatchPreviewSessionCommandReloadsWhenWatchedFileChanges
 ```
 
+For Codex preview-viewer handoff work, include:
+
+```powershell
+dotnet test AvaScope.slnx --filter FullyQualifiedName~ProtocolContractTests.PreviewViewerResponseSerializesStableShape
+dotnet test AvaScope.slnx --filter FullyQualifiedName~PreviewSessionRegistryTests.PreviewViewerExporter
+dotnet test AvaScope.slnx --filter FullyQualifiedName~CliSmokeTests.PreviewSessionCommandsCreateListReloadAndClosePersistedSession
+dotnet test AvaScope.slnx --filter FullyQualifiedName~AvaScopeMcpToolsTests.PreviewViewerExportsFileBackedUrlForPreviewSession
+dotnet test AvaScope.slnx --filter FullyQualifiedName~McpStdioSmokeTests.ServerStartsOverStdioAndListsInitialTools
+```
+
 For live preview watcher changes, include:
 
 ```powershell

@@ -13,6 +13,7 @@ AvaScope is an Avalonia inspection, preview, and automation stack for agents and
 - Preview binding/resource diagnostics and advisory layout warnings.
 - Runtime `inspect_node` computed visual/style/layout property values.
 - Multi-size preview, contact-sheet output, screenshot diff, and scoped preview-session cleanup workflows.
+- File-backed preview viewer export with `previewUrl` handoff for Codex in-app browser workflows.
 - MCP stdio server with structured tools.
 - `avascope` CLI with doctor, preview, runtime inspection, diagnostics, and MCP handoff commands.
 - Getting-started sample app for the first preview and bridge workflow.
@@ -255,10 +256,13 @@ Create and manage durable preview sessions from the CLI:
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll create-preview-session path\to\App.csproj --view Views\MainView.axaml --out .\preview.png --width 1440 --height 900 --theme light --display-name "Main preview"
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll list-preview-sessions
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll reload-preview-session --session <preview-session-id>
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll preview-viewer --session <preview-session-id> --out .\preview-viewer.html
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll close-preview-session --session <preview-session-id>
 ```
 
 Preview-session CLI commands persist metadata in the same local AvaScope preview-session store used by MCP. They store the original request and latest render result, then re-render through `AvaScope.PreviewHost` child processes on reload.
+
+`preview-viewer` writes a self-contained HTML viewer for the latest successful render and returns a structured `ToolResult<PreviewViewerResponse>` with `viewerPath` and `previewUrl`. Open the `file://` `previewUrl` in the Codex in-app browser to review the screenshot, metadata, diagnostics, and session JSON beside the thread. The viewer does not start a network listener.
 
 Watch a preview session and reload when project or view files change:
 
@@ -405,6 +409,7 @@ Implemented tools:
 - `cleanup`
 - `create_preview_session`
 - `list_preview_sessions`
+- `preview_viewer`
 - `close_preview_session`
 - `reload`
 
@@ -463,6 +468,8 @@ Preview rendering is isolated in `AvaScope.PreviewHost`, launched as a child pro
 Successful preview responses can include diagnostics for missing `DataContext`, unresolved resource keys, missing or invalid converter resources, conservative binding path failures, `x:DataType` binding path mismatches, missing inherited `x:DataType` on `CompiledBinding`, text clipping/truncation, clipped content, unreachable content, sibling overlap, and too-small hit targets. These diagnostics are advisory and do not fail an otherwise successful screenshot.
 
 Preview session tools store the original preview request plus the latest render result as Core metadata. MCP-backed and CLI-created preview session records are also persisted as JSON under the local AvaScope temp preview-session store so they can be restored after the MCP server or CLI process restarts. They do not keep user project code loaded inside MCP or CLI; each render still goes through `AvaScope.PreviewHost`.
+
+`preview_viewer` and CLI `preview-viewer` export a local file-backed HTML viewer for a preview session's latest successful render. The response includes a `previewUrl` that can be opened in the Codex in-app browser. The generated viewer embeds the screenshot and bounded session metadata, so it remains local and does not require a preview server.
 
 `reload` re-runs stored preview-session requests through the isolated preview host and updates the existing session's latest render result. Runtime bridge session ids are health-checked locally and return `runtime_reload_not_supported`; AvaScope does not restart apps, inject code, or claim runtime hot reload. The one-shot CLI `preview` command remains one-shot; CLI preview-session commands provide the durable preview path, and `watch-preview-session` can trigger bounded reloads from file changes. Watch events that leave the watched input snapshot unchanged are reported as `skipped` instead of launching another PreviewHost child process.
 

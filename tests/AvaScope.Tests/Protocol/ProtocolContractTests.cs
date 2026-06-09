@@ -291,6 +291,50 @@ public sealed class ProtocolContractTests
     }
 
     [Fact]
+    public void PreviewViewerResponseSerializesStableShape()
+    {
+        var createdAt = new DateTimeOffset(2026, 6, 9, 13, 0, 0, TimeSpan.Zero);
+        var renderedAt = createdAt.AddSeconds(5);
+        var generatedAt = createdAt.AddSeconds(10);
+        var session = new PreviewSessionSummary(
+            new SessionSummary(
+                new SessionId("preview-session-1"),
+                SessionKinds.Preview,
+                SessionStates.Active,
+                createdAt,
+                "Main preview"),
+            new PreviewRequest(
+                "C:\\preview\\main.png",
+                width: 320,
+                height: 200,
+                dpi: 96,
+                projectPath: "C:\\app\\App.csproj",
+                viewPath: "Views\\MainView.axaml"),
+            ToolResult<PreviewResponse>.Ok(new PreviewResponse(
+                "C:\\preview\\main.png",
+                320,
+                200,
+                96,
+                renderedAt,
+                "C:\\app\\App.csproj",
+                "Views\\MainView.axaml")),
+            renderedAt);
+        var response = new PreviewViewerResponse(
+            session,
+            "C:\\preview\\main.avascope-preview.html",
+            "file:///C:/preview/main.avascope-preview.html",
+            generatedAt);
+
+        var json = JsonSerializer.Serialize(response);
+        var node = JsonNode.Parse(json)!;
+
+        Assert.Equal("preview-session-1", node["session"]!["session"]!["sessionId"]!.GetValue<string>());
+        Assert.Equal("C:\\preview\\main.avascope-preview.html", node["viewerPath"]!.GetValue<string>());
+        Assert.Equal("file:///C:/preview/main.avascope-preview.html", node["previewUrl"]!.GetValue<string>());
+        Assert.Equal(generatedAt, DateTimeOffset.Parse(node["generatedAt"]!.GetValue<string>(), CultureInfo.InvariantCulture));
+    }
+
+    [Fact]
     public void BridgeSessionManifestSerializesStableAttachMetadata()
     {
         var createdAt = new DateTimeOffset(2026, 6, 6, 22, 0, 0, TimeSpan.Zero);

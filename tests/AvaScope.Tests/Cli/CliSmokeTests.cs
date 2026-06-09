@@ -400,6 +400,30 @@ public sealed class CliSmokeTests
             Assert.Equal(SessionStates.Active, reloadedPayload.Value!.Session.State);
             Assert.True(reloadedPayload.Value.LastRender.Success, reloadedPayload.Value.LastRender.Error?.Message);
 
+            var viewerPath = Path.Combine(testRoot, "session-viewer.html");
+            var viewer = await RunCliAsyncWithEnvironment(
+                environment,
+                cliAssembly,
+                "preview-viewer",
+                "--session",
+                sessionId,
+                "--out",
+                viewerPath);
+
+            Assert.Equal(0, viewer.ExitCode);
+            var viewerPayload = JsonSerializer.Deserialize<ToolResult<PreviewViewerResponse>>(
+                viewer.StandardOutput,
+                JsonOptions);
+            Assert.NotNull(viewerPayload);
+            Assert.True(viewerPayload.Success, viewerPayload.Error?.Message);
+            Assert.Equal(Path.GetFullPath(viewerPath), viewerPayload.Value!.ViewerPath);
+            Assert.Equal(new Uri(viewerPath).AbsoluteUri, viewerPayload.Value.PreviewUrl);
+            Assert.Equal(sessionId, viewerPayload.Value.Session.Session.SessionId.Value);
+            Assert.True(File.Exists(viewerPath));
+            var viewerHtml = await File.ReadAllTextAsync(viewerPath);
+            Assert.Contains("CLI persisted preview", viewerHtml);
+            Assert.Contains("data:image/png;base64,", viewerHtml);
+
             var closed = await RunCliAsyncWithEnvironment(
                 environment,
                 cliAssembly,
