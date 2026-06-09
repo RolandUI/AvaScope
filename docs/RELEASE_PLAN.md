@@ -39,10 +39,10 @@ If the release includes public workflow or packaging changes, also validate the 
 
 - Release: `v0.2.2`
 - Target Version: `0.2.2`
-- Release State: `In Progress`
+- Release State: `Release Candidate`
 - Scope Lock: `2026-06-09`
 - Release Commit: pending
-- Local Release Gate: pending
+- Local Release Gate: passed on `2026-06-09`
 - Published At: pending
 - GitHub Release: pending
 - Previous Release: `v0.2.1`
@@ -69,6 +69,12 @@ The `v0.2.2` release target is a patch release focused on reducing PreviewHost d
 - `2026-06-09`: `dotnet build tests/AvaScope.Tests/AvaScope.Tests.csproj --no-restore -v:minimal` passed with 0 warnings and 0 errors after BUG-0003 implementation.
 - `2026-06-09`: Targeted PreviewHost diagnostic tests passed with 4 tests: `PreviewHostUsesDataTemplateDataTypeForBindingDiagnostics`, `PreviewHostSuppressesFluentTemplateLayoutNoise`, `PreviewHostReturnsDataTypeBindingPathDiagnostics`, and `PreviewHostReturnsBindingResourceAndLayoutDiagnostics`.
 - `2026-06-09`: `dotnet test tests/AvaScope.Tests/AvaScope.Tests.csproj --no-build` passed with 214 tests.
+- `2026-06-09`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors for `v0.2.2` release-candidate validation.
+- `2026-06-09`: `dotnet test AvaScope.slnx --no-build` passed with 214 tests for `v0.2.2` release-candidate validation.
+- `2026-06-09`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1` passed for `v0.2.2`; Release build/test passed with 214 tests, three `0.2.2` packages, win-x64 and linux-x64 framework-dependent ZIPs, release manifest, packaged doctor smoke, and packaged sample preview smoke.
+- `2026-06-09`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.2.2 -DryRun` passed for `v0.2.2` assets.
+- `2026-06-09`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-release-commit.ps1 -Version 0.2.2 -CommitSubject "Release 0.2.2" -RequiredState "Release Candidate"` passed.
+- `2026-06-09`: `git diff --check` passed for `v0.2.2` release-candidate validation.
 
 ### Explicit Deferrals
 

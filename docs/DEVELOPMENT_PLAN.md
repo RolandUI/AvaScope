@@ -33,10 +33,16 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Next Action
 
-Run the `v0.2.2` release gate after the BUG-0003 diagnostics fix slice lands, then prepare the version bump release commit.
+Commit and push `Release 0.2.2`, then verify the guarded GitHub Release workflow publishes `v0.2.2`.
 
 ## Latest Validation
 
+- `2026-06-09`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-release-commit.ps1 -Version 0.2.2 -CommitSubject "Release 0.2.2" -RequiredState "Release Candidate"` passed.
+- `2026-06-09`: `git diff --check` passed for `v0.2.2` release-candidate validation.
+- `2026-06-09`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.2.2 -DryRun` passed for `v0.2.2` assets.
+- `2026-06-09`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1` passed for `v0.2.2`; Release build/test passed with 214 tests, three `0.2.2` packages, win-x64 and linux-x64 framework-dependent ZIPs, release manifest, packaged doctor smoke, and packaged sample preview smoke.
+- `2026-06-09`: `dotnet test AvaScope.slnx --no-build` passed with 214 tests for `v0.2.2` release-candidate validation.
+- `2026-06-09`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors for `v0.2.2` release-candidate validation.
 - `2026-06-09`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-bug-reports.ps1` passed after marking `BUG-0003` fixed; 14 intake files scanned.
 - `2026-06-09`: `git diff --check` passed after BUG-0003 diagnostics fix implementation.
 - `2026-06-09`: `dotnet test tests/AvaScope.Tests/AvaScope.Tests.csproj --no-build` passed with 214 tests after BUG-0003 diagnostics false positive fixes.
@@ -2414,13 +2420,21 @@ Run the `v0.2.2` release gate after the BUG-0003 diagnostics fix slice lands, th
 - Deliverables: full release validation, `Directory.Build.props` version bump to `0.2.2`, release commit, push.
 - Progress:
   - Done: R0.2.2-M1 and R0.2.2-M2 implementation validation passed.
-  - Pending: run the full `v0.2.2` release gate after the implementation slice lands.
+  - Done: moved the `v0.2.2` target to `Release Candidate`.
+  - Done: bumped `Directory.Build.props` to `0.2.2` for the release commit.
+  - Pending: commit and push `Release 0.2.2`.
+  - Pending: verify the guarded GitHub Release workflow publishes `v0.2.2`.
 - Acceptance Criteria:
-  - Pending: `Directory.Build.props` remains unchanged until all in-scope `v0.2.2` work is complete.
-  - Pending: local release commit guard passes for subject `Release 0.2.2` and `Release Candidate` state.
+  - Done: `Directory.Build.props` remained unchanged until all in-scope `v0.2.2` work was complete.
+  - Done: local release commit guard passed for subject `Release 0.2.2` and `Release Candidate` state.
   - Pending: published assets match the release manifest and the `v0.2.2` tag.
 - Validation:
-  - Pending: release gate commands from `docs/VALIDATION.md`.
+  - Passed: `dotnet build AvaScope.slnx`
+  - Passed: `dotnet test AvaScope.slnx --no-build`
+  - Passed: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1`
+  - Passed: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.2.2 -DryRun`
+  - Passed: `git diff --check`
+  - Passed: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-release-commit.ps1 -Version 0.2.2 -CommitSubject "Release 0.2.2" -RequiredState "Release Candidate"`
 
 ## Decision Log
 
