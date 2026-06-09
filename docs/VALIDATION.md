@@ -68,6 +68,13 @@ dotnet test AvaScope.slnx --filter FullyQualifiedName~CliSmokeTests.ReloadPrevie
 dotnet test AvaScope.slnx --filter FullyQualifiedName~CliSmokeTests.WatchPreviewSessionCommandReloadsWhenWatchedFileChanges
 ```
 
+For CLI preview profile work, include:
+
+```powershell
+dotnet test AvaScope.slnx --filter FullyQualifiedName~CliSmokeTests.PreviewCommandUsesProjectPreviewProfileAndAllowsExplicitOverrides
+dotnet test AvaScope.slnx --filter FullyQualifiedName~CliSmokeTests.CreatePreviewSessionCommandUsesProjectPreviewProfile
+```
+
 For feature-ticket work covering preview diagnostics, computed inspection, multi-size preview, diff, or cleanup, run the targeted smoke checks first and then the full suite:
 
 ```powershell

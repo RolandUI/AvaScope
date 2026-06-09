@@ -1,0 +1,13 @@
+{
+  "profiles": {
+    "main": {
+      "view": "Views/MainView.axaml",
+      "out": "../../artifacts/samples/getting-started-profile-preview.png",
+      "width": 720,
+      "height": 420,
+      "theme": "light",
+      "designDataType": "AvaScope.GettingStartedApp.SamplePreviewData",
+      "displayName": "Getting Started MainView"
+    }
+  }
+}

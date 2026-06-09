@@ -210,6 +210,33 @@ dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll preview path\to\App.csp
 The command writes a structured JSON `ToolResult<PreviewResponse>` to stdout. On success, `value.filePath` points to the generated PNG.
 `--width` and `--height` can be omitted when the root AXAML declares design-time dimensions with `d:DesignWidth`/`d:DesignHeight` or `Design.Width`/`Design.Height`. Project previews also apply root design-time data from `Design.DataContext` or `d:DataContext="{x:Static ...}"`; an explicit `--design-data-type` still takes precedence.
 
+Repeated preview settings can live in `avascope.preview.json` beside the project file:
+
+```json
+{
+  "profiles": {
+    "main": {
+      "view": "Views/MainView.axaml",
+      "out": "../../artifacts/samples/main-preview.png",
+      "width": 720,
+      "height": 420,
+      "theme": "light",
+      "designDataType": "MyApp.Design.PreviewData",
+      "displayName": "Main preview"
+    }
+  }
+}
+```
+
+Use the profile from preview or durable preview-session commands:
+
+```powershell
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll preview path\to\App.csproj --profile main
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll create-preview-session path\to\App.csproj --profile main
+```
+
+Explicit CLI options override profile values. Profile `out` and `contactSheet` paths are resolved relative to the profile file; `--profile-file <path>` can point to a non-default profile file.
+
 Render multiple viewport sizes from one preview request:
 
 ```powershell

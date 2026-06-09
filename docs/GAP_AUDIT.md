@@ -66,7 +66,9 @@ Completed slice: `baseline-create` and `baseline-check` provide manifest-backed 
 
 Completed slice: `doctor` reports CLI/MCP/PreviewHost co-location, bridge manifest diagnostics, preview-session store diagnostics, and actionable readiness issues without loading user projects. Packaged release validation now runs doctor with isolated manifest/store paths before sample preview smoke.
 
-Next slice: preview profiles for repeated preview workflows; the one-shot `preview` command remains intentionally one-shot.
+Completed slice: project-local `avascope.preview.json` profiles can drive `preview` and `create-preview-session`, with explicit CLI options overriding profile values and profile output paths resolving relative to the profile file.
+
+Next slice: agent workflow documentation and validation; the one-shot `preview` command remains intentionally one-shot.
 
 ### Reload And Hot Preview
 
@@ -140,4 +142,4 @@ Next slice: CI can later add upload artifacts, self-contained outputs, or more R
 
 No public-alpha blocking slice remains after M50, and W9-W16 completed the stored feature-request first slices plus CLI preview sessions, file-watch reload, manifest-backed visual regression, source-backed typed binding diagnostics, target-aware TextBox input, preview startup parity, and opt-in self-contained distribution hardening.
 
-Selected next slice: W19 preview profiles. W18 completed the CLI doctor/self-test improvement, so the next reliability improvement is reducing repeated preview command brittleness with project-local named profiles. Future W20-W25 work should continue through agent workflow documentation, runtime input, diagnostics history/provenance, faster live preview, visual regression CI reporting, and a release-candidate audit.
+Selected next slice: W20 agent workflow pack. W18 completed CLI doctor/self-test and W19 completed preview profiles, so the next reliability improvement is a validated workflow that agents and developers can follow from packaged CLI setup through preview, runtime bridge inspection, diagnostics, input, screenshots, and visual diffing. Future W21-W25 work should continue through runtime input, diagnostics history/provenance, faster live preview, visual regression CI reporting, and a release-candidate audit.

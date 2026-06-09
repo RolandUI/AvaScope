@@ -8,6 +8,13 @@ Preview the main view:
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll preview .\samples\AvaScope.GettingStartedApp\AvaScope.GettingStartedApp.csproj --view Views\MainView.axaml --out .\artifacts\samples\getting-started-preview.png --width 720 --height 420 --theme light --design-data-type AvaScope.GettingStartedApp.SamplePreviewData
 ```
 
+The same settings are available through `avascope.preview.json` in this sample directory:
+
+```powershell
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll preview .\samples\AvaScope.GettingStartedApp\AvaScope.GettingStartedApp.csproj --profile main
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll create-preview-session .\samples\AvaScope.GettingStartedApp\AvaScope.GettingStartedApp.csproj --profile main
+```
+
 Run the app with the local-only bridge enabled:
 
 ```powershell

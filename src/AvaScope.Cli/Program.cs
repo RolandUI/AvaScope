@@ -106,27 +106,35 @@ internal static class Program
                 "theme",
                 "culture",
                 "design-data-type",
+                "profile",
+                "profile-file",
                 "sizes",
                 "contact-sheet"))
         {
             return 2;
         }
 
-        if (!options.Values.TryGetValue("view", out _)
-            || !options.Values.TryGetValue("out", out _))
+        if (!TryApplyPreviewProfile(projectPath, options.Values, GetPreviewUsage(), out var effectiveOptions, out var profileError))
+        {
+            WriteResult(ToolResult<PreviewResponse>.Fail(profileError!));
+            return 2;
+        }
+
+        if (!effectiveOptions.TryGetValue("view", out _)
+            || !effectiveOptions.TryGetValue("out", out _))
         {
             WriteFailure(InvalidCliArguments, GetPreviewUsage());
             return 2;
         }
 
-        if (!TryCreatePreviewRequest(projectPath, options.Values, out var request, out var error))
+        if (!TryCreatePreviewRequest(projectPath, effectiveOptions, out var request, out var error))
         {
             WriteResult(ToolResult<PreviewResponse>.Fail(error!));
             return 2;
         }
 
         var previewHostClient = new PreviewHostClient();
-        if (options.Values.TryGetValue("sizes", out var sizesText))
+        if (effectiveOptions.TryGetValue("sizes", out var sizesText))
         {
             if (!TryParsePreviewViewports(sizesText, out var viewports))
             {
@@ -137,7 +145,7 @@ internal static class Program
             var batchResult = await previewHostClient.RenderBatchAsync(
                 request!,
                 viewports!,
-                options.Values.TryGetValue("contact-sheet", out var contactSheetPath)
+                effectiveOptions.TryGetValue("contact-sheet", out var contactSheetPath)
                     ? Path.GetFullPath(contactSheetPath)
                     : null);
             WriteResult(batchResult.Success
@@ -229,6 +237,210 @@ internal static class Program
         }
     }
 
+    private static bool TryApplyPreviewProfile(
+        string projectPath,
+        IReadOnlyDictionary<string, string> options,
+        string usage,
+        out IReadOnlyDictionary<string, string> effectiveOptions,
+        out ProtocolError? error)
+    {
+        effectiveOptions = options;
+        error = null;
+
+        if (!options.TryGetValue("profile", out var profileName))
+        {
+            return true;
+        }
+
+        if (string.IsNullOrWhiteSpace(profileName))
+        {
+            error = new ProtocolError(InvalidCliArguments, usage);
+            return false;
+        }
+
+        string profileFilePath;
+        try
+        {
+            var projectDirectory = Path.GetDirectoryName(Path.GetFullPath(projectPath)) ?? Environment.CurrentDirectory;
+            profileFilePath = options.TryGetValue("profile-file", out var configuredProfileFile)
+                ? Path.GetFullPath(configuredProfileFile)
+                : Path.Combine(projectDirectory, "avascope.preview.json");
+        }
+        catch (Exception exception) when (exception is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            error = new ProtocolError(InvalidCliArguments, exception.Message);
+            return false;
+        }
+
+        if (!File.Exists(profileFilePath))
+        {
+            error = new ProtocolError(
+                InvalidCliArguments,
+                $"Preview profile file was not found: {profileFilePath}");
+            return false;
+        }
+
+        Dictionary<string, string> profileOptions;
+        try
+        {
+            if (!TryReadPreviewProfile(profileFilePath, profileName, out profileOptions!, out var profileReadError))
+            {
+                error = profileReadError;
+                return false;
+            }
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException or ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            error = new ProtocolError(InvalidCliArguments, $"Preview profile file could not be read: {exception.Message}");
+            return false;
+        }
+
+        foreach (var option in options)
+        {
+            profileOptions[option.Key] = option.Value;
+        }
+
+        effectiveOptions = profileOptions;
+        return true;
+    }
+
+    private static bool TryReadPreviewProfile(
+        string profileFilePath,
+        string profileName,
+        out Dictionary<string, string> profileOptions,
+        out ProtocolError? error)
+    {
+        profileOptions = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        error = null;
+
+        using var document = JsonDocument.Parse(File.ReadAllText(profileFilePath));
+        if (!document.RootElement.TryGetProperty("profiles", out var profilesElement)
+            || profilesElement.ValueKind is not JsonValueKind.Object)
+        {
+            error = new ProtocolError(InvalidCliArguments, "Preview profile file must contain a 'profiles' object.");
+            return false;
+        }
+
+        JsonElement? selectedProfile = null;
+        foreach (var profileProperty in profilesElement.EnumerateObject())
+        {
+            if (string.Equals(profileProperty.Name, profileName, StringComparison.OrdinalIgnoreCase))
+            {
+                selectedProfile = profileProperty.Value;
+                break;
+            }
+        }
+
+        if (selectedProfile is null)
+        {
+            error = new ProtocolError(
+                InvalidCliArguments,
+                $"Preview profile '{profileName}' was not found in {Path.GetFullPath(profileFilePath)}.");
+            return false;
+        }
+
+        if (selectedProfile.Value.ValueKind is not JsonValueKind.Object)
+        {
+            error = new ProtocolError(InvalidCliArguments, $"Preview profile '{profileName}' must be a JSON object.");
+            return false;
+        }
+
+        var profileDirectory = Path.GetDirectoryName(Path.GetFullPath(profileFilePath)) ?? Environment.CurrentDirectory;
+        foreach (var property in selectedProfile.Value.EnumerateObject())
+        {
+            if (!TryMapPreviewProfileProperty(property, profileDirectory, out var optionName, out var optionValue, out error))
+            {
+                return false;
+            }
+
+            profileOptions[optionName!] = optionValue!;
+        }
+
+        return true;
+    }
+
+    private static bool TryMapPreviewProfileProperty(
+        JsonProperty property,
+        string profileDirectory,
+        out string? optionName,
+        out string? optionValue,
+        out ProtocolError? error)
+    {
+        optionName = property.Name switch
+        {
+            "view" => "view",
+            "out" => "out",
+            "width" => "width",
+            "height" => "height",
+            "dpi" => "dpi",
+            "theme" => "theme",
+            "culture" => "culture",
+            "designDataType" or "design-data-type" => "design-data-type",
+            "sizes" => "sizes",
+            "contactSheet" or "contact-sheet" => "contact-sheet",
+            "displayName" or "display-name" => "display-name",
+            _ => null
+        };
+        optionValue = null;
+        error = null;
+
+        if (optionName is null)
+        {
+            error = new ProtocolError(InvalidCliArguments, $"Preview profile property '{property.Name}' is not supported.");
+            return false;
+        }
+
+        if (!TryReadPreviewProfileValue(property, out optionValue))
+        {
+            error = new ProtocolError(InvalidCliArguments, $"Preview profile property '{property.Name}' must be a string, number, or string array.");
+            return false;
+        }
+
+        if (optionName is "out" or "contact-sheet" && !Path.IsPathRooted(optionValue!))
+        {
+            optionValue = Path.GetFullPath(Path.Combine(profileDirectory, optionValue!));
+        }
+
+        return true;
+    }
+
+    private static bool TryReadPreviewProfileValue(JsonProperty property, out string? value)
+    {
+        if (property.Value.ValueKind is JsonValueKind.Array)
+        {
+            var values = new List<string>();
+            foreach (var item in property.Value.EnumerateArray())
+            {
+                if (item.ValueKind is not JsonValueKind.String)
+                {
+                    value = null;
+                    return false;
+                }
+
+                var itemValue = item.GetString();
+                if (string.IsNullOrWhiteSpace(itemValue))
+                {
+                    value = null;
+                    return false;
+                }
+
+                values.Add(itemValue);
+            }
+
+            value = string.Join(',', values);
+            return values.Count > 0;
+        }
+
+        value = property.Value.ValueKind switch
+        {
+            JsonValueKind.String => property.Value.GetString(),
+            JsonValueKind.Number => property.Value.GetRawText(),
+            _ => null
+        };
+
+        return !string.IsNullOrWhiteSpace(value);
+    }
+
     private static async Task<int> CreatePreviewSession(string[] args)
     {
         if (args.Length == 0)
@@ -256,19 +468,27 @@ internal static class Program
                 "theme",
                 "culture",
                 "design-data-type",
+                "profile",
+                "profile-file",
                 "display-name"))
         {
             return 2;
         }
 
-        if (!options.Values.TryGetValue("view", out _)
-            || !options.Values.TryGetValue("out", out _))
+        if (!TryApplyPreviewProfile(projectPath, options.Values, GetCreatePreviewSessionUsage(), out var effectiveOptions, out var profileError))
+        {
+            WriteResult(ToolResult<PreviewSessionSummary>.Fail(profileError!));
+            return 2;
+        }
+
+        if (!effectiveOptions.TryGetValue("view", out _)
+            || !effectiveOptions.TryGetValue("out", out _))
         {
             WriteFailure<PreviewSessionSummary>(InvalidCliArguments, GetCreatePreviewSessionUsage());
             return 2;
         }
 
-        if (!TryCreatePreviewRequest(projectPath, options.Values, out var request, out var error))
+        if (!TryCreatePreviewRequest(projectPath, effectiveOptions, out var request, out var error))
         {
             WriteResult(ToolResult<PreviewSessionSummary>.Fail(error!));
             return 2;
@@ -276,7 +496,7 @@ internal static class Program
 
         var result = await CreatePreviewSessionRegistry().CreateAsync(
             request!,
-            options.Values.GetValueOrDefault("display-name"));
+            effectiveOptions.GetValueOrDefault("display-name"));
         WriteResult(result);
         return result.Success ? 0 : 1;
     }
@@ -1520,17 +1740,17 @@ internal static class Program
 
     private static string GetUsage()
     {
-        return "Usage: avascope mcp | avascope doctor [--manifest-dir <dir>] [--preview-session-store <dir>] | avascope attach [--process <pid>] [--session <session-id>] | avascope list-top-levels --session <session-id> | avascope visual-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] | avascope logical-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] | avascope inspect-node --session <session-id> --top-level <top-level-id> --node <node-id> [--tree-kind visual|logical] | avascope find-nodes --session <session-id> --top-level <top-level-id> [--tree-kind visual|logical] [--type <type>] [--name <name>] [--automation-id <id>] [--text <text>] [--max-depth <n>] [--max-results <n>] | avascope input --session <session-id> --top-level <top-level-id> --action <action> [--x <x>] [--y <y>] [--text <text>] [--target-node <node-id>] [--key <key>] [--modifiers <modifiers>] | avascope close-session --session <session-id> | avascope diagnostics [--process <pid>] [--session <session-id>] [--max-sessions <n>] | avascope reload --session <session-id> | avascope create-preview-session <project.csproj> --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] [--display-name <name>] | avascope list-preview-sessions | avascope reload-preview-session --session <session-id> | avascope close-preview-session --session <session-id> | avascope watch-preview-session --session <session-id> --timeout-ms <ms> [--settle-ms <ms>] [--max-reloads <n>] [--watch <path>[,<path>...]] | avascope baseline-create <project.csproj> --view <view.axaml> --manifest <baseline.json> --sizes <w>x<h>[,<w>x<h>...] [--out-dir <dir>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] | avascope baseline-check --manifest <baseline.json> [--out-dir <dir>] [--diff-dir <dir>] [--tolerance <0-255>] | avascope cleanup | avascope diff --baseline <baseline.png> --current <current.png> --out <diff.png> [--tolerance <0-255>] | avascope screenshot --session <session-id> --top-level <top-level-id> --out <screenshot.png> | avascope preview <project.csproj> --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--sizes <w>x<h>[,<w>x<h>...]] [--contact-sheet <sheet.png>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>]";
+        return "Usage: avascope mcp | avascope doctor [--manifest-dir <dir>] [--preview-session-store <dir>] | avascope attach [--process <pid>] [--session <session-id>] | avascope list-top-levels --session <session-id> | avascope visual-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] | avascope logical-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] | avascope inspect-node --session <session-id> --top-level <top-level-id> --node <node-id> [--tree-kind visual|logical] | avascope find-nodes --session <session-id> --top-level <top-level-id> [--tree-kind visual|logical] [--type <type>] [--name <name>] [--automation-id <id>] [--text <text>] [--max-depth <n>] [--max-results <n>] | avascope input --session <session-id> --top-level <top-level-id> --action <action> [--x <x>] [--y <y>] [--text <text>] [--target-node <node-id>] [--key <key>] [--modifiers <modifiers>] | avascope close-session --session <session-id> | avascope diagnostics [--process <pid>] [--session <session-id>] [--max-sessions <n>] | avascope reload --session <session-id> | avascope create-preview-session <project.csproj> [--profile <name>] [--profile-file <path>] --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] [--display-name <name>] | avascope list-preview-sessions | avascope reload-preview-session --session <session-id> | avascope close-preview-session --session <session-id> | avascope watch-preview-session --session <session-id> --timeout-ms <ms> [--settle-ms <ms>] [--max-reloads <n>] [--watch <path>[,<path>...]] | avascope baseline-create <project.csproj> --view <view.axaml> --manifest <baseline.json> --sizes <w>x<h>[,<w>x<h>...] [--out-dir <dir>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] | avascope baseline-check --manifest <baseline.json> [--out-dir <dir>] [--diff-dir <dir>] [--tolerance <0-255>] | avascope cleanup | avascope diff --baseline <baseline.png> --current <current.png> --out <diff.png> [--tolerance <0-255>] | avascope screenshot --session <session-id> --top-level <top-level-id> --out <screenshot.png> | avascope preview <project.csproj> [--profile <name>] [--profile-file <path>] --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--sizes <w>x<h>[,<w>x<h>...]] [--contact-sheet <sheet.png>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>]";
     }
 
     private static string GetPreviewUsage()
     {
-        return "Usage: avascope preview <project.csproj> --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--sizes <w>x<h>[,<w>x<h>...]] [--contact-sheet <sheet.png>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>]";
+        return "Usage: avascope preview <project.csproj> [--profile <name>] [--profile-file <path>] --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--sizes <w>x<h>[,<w>x<h>...]] [--contact-sheet <sheet.png>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>]";
     }
 
     private static string GetCreatePreviewSessionUsage()
     {
-        return "Usage: avascope create-preview-session <project.csproj> --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] [--display-name <name>]";
+        return "Usage: avascope create-preview-session <project.csproj> [--profile <name>] [--profile-file <path>] --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] [--display-name <name>]";
     }
 
     private static string GetListPreviewSessionsUsage()

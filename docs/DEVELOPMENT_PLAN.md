@@ -23,15 +23,15 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `W19 Preview Profiles`
+- `W20 Agent Workflow Pack`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-09`
-- Goal: make repeated preview commands less brittle by allowing project-local named preview profiles.
+- Goal: document and validate an agent-ready workflow that exercises preview, runtime bridge inspection, diagnostics, visual tree, input, screenshot, and diff commands from the packaged CLI.
 
 ## Next Action
 
-Implement `avascope.preview.json` profile loading for preview and preview-session creation, add a sample profile, cover it with CLI tests, document, validate, commit, and push W19.
+Write the agent workflow pack, align sample documentation, validate docs and sample commands, commit, and push W20.
 
 ## Latest Validation
 
@@ -89,6 +89,12 @@ Implement `avascope.preview.json` profile loading for preview and preview-sessio
 - `2026-06-09`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1` passed after W18 CLI doctor/self-test; Release build/test passed with 198 tests, 5 framework-dependent release artifacts verified, and packaged Windows sample preview smoke passed.
 - `2026-06-09`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1 -SkipTests` passed after adding packaged Windows doctor smoke to the release script.
 - `2026-06-09`: `git diff --check` passed after W18 CLI doctor/self-test.
+- `2026-06-09`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after W19 preview profiles.
+- `2026-06-09`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~CliSmokeTests.PreviewCommandUsesProjectPreviewProfileAndAllowsExplicitOverrides` passed after W19 preview profiles.
+- `2026-06-09`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~CliSmokeTests.CreatePreviewSessionCommandUsesProjectPreviewProfile` passed after W19 preview profiles.
+- `2026-06-09`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli` passed with 87 tests after W19 preview profiles.
+- `2026-06-09`: source CLI `preview .\samples\AvaScope.GettingStartedApp\AvaScope.GettingStartedApp.csproj --profile main` smoke passed after W19 preview profiles.
+- `2026-06-09`: `git diff --check` passed after W19 preview profiles.
 - `2026-06-08`: `dotnet test AvaScope.slnx -c Release --filter FullyQualifiedName~CliSmokeTests.CloseSessionCommandClosesThroughBridgePipe` passed after W8 CI failure hardening.
 - `2026-06-08`: `dotnet test AvaScope.slnx -c Release --no-build` passed with 179 tests after W8 CI failure hardening.
 - `2026-06-08`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.1.0 -DryRun` passed after W8 GitHub Release creation hardening.
@@ -1895,25 +1901,30 @@ Implement `avascope.preview.json` profile loading for preview and preview-sessio
 
 ### W19 Preview Profiles
 
-- Status: `In Progress`
+- Status: `Done`
 - Goal: make repeated preview commands less brittle by allowing project-local named preview profiles.
 - Deliverables: `avascope.preview.json` profile schema, CLI profile loading for preview and preview-session creation, sample profile, tests, documentation, commit, push.
 - Progress:
-  - Pending: define profile file shape with named profiles and default values for view, output, size, DPI, theme, culture, design data type, and sizes/contact sheet.
+  - Done: added project-local `avascope.preview.json` profile loading for `preview` and `create-preview-session`.
+  - Done: profile values support view, output, dimensions, DPI, theme, culture, design data type, sizes, contact sheet, and display name.
+  - Done: explicit CLI options override profile values, and profile output/contact-sheet paths resolve relative to the profile file.
+  - Done: added a getting-started sample profile and CLI smoke coverage.
 - Acceptance Criteria:
-  - Existing explicit CLI options remain compatible and override profile values.
-  - Missing or invalid profile files return structured diagnostics.
-  - The getting-started sample includes at least one valid profile.
-  - Profile loading does not execute user code.
+  - Done: existing explicit CLI options remain compatible and override profile values.
+  - Done: missing or invalid profile files return structured diagnostics.
+  - Done: the getting-started sample includes at least one valid profile.
+  - Done: profile loading does not execute user code.
 - Validation:
-  - Pending: `dotnet build AvaScope.slnx`
-  - Pending: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli`
-  - Pending: sample profile preview smoke
-  - Pending: `git diff --check`
+  - Passed: `dotnet build AvaScope.slnx`
+  - Passed: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~CliSmokeTests.PreviewCommandUsesProjectPreviewProfileAndAllowsExplicitOverrides`
+  - Passed: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~CliSmokeTests.CreatePreviewSessionCommandUsesProjectPreviewProfile`
+  - Passed: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli`
+  - Passed: source CLI sample profile preview smoke
+  - Passed: `git diff --check`
 
 ### W20 Agent Workflow Pack
 
-- Status: `Not Started`
+- Status: `In Progress`
 - Goal: document and validate an agent-ready workflow that exercises preview, runtime bridge inspection, diagnostics, visual tree, input, screenshot, and diff commands from the packaged CLI.
 - Deliverables: workflow documentation, sample walkthrough updates, validation commands, commit, push.
 - Progress:
@@ -2164,6 +2175,7 @@ Implement `avascope.preview.json` profile loading for preview and preview-sessio
 - `2026-06-08`: W15 keeps full desktop/single-view lifetime startup deferred; PreviewHost may reuse App.Initialize-created `Application.DataContext` as a fallback preview root DataContext without invoking `OnFrameworkInitializationCompleted()`.
 - `2026-06-09`: W17 selects CLI doctor/self-test as the next active slice after W16 because it improves onboarding, packaged-artifact sanity checks, and agent triage before deeper input, diagnostics, or live-preview behavior.
 - `2026-06-09`: W18 doctor treats stale or unavailable bridge/preview-session records as actionable issues and exits non-zero, while release-script doctor smoke uses isolated manifest/store paths so package validation is not affected by previous local user sessions.
+- `2026-06-09`: W19 preview profiles are project-local JSON files and do not execute user code; explicit CLI arguments override profile values so one-off agent commands can safely specialize a stored profile.
 
 ## Change Log
 
@@ -2247,3 +2259,4 @@ Implement `avascope.preview.json` profile loading for preview and preview-sessio
 - `2026-06-08`: Completed W16 by adding opt-in self-contained executable ZIP support, executable package kind manifest coverage, packaging cleanup process-lock detection, release script dry-runs, README/validation/gap updates, and full release validation.
 - `2026-06-09`: Completed W17 plan refresh with W17-W25 milestone definitions, active W18 focus, stale post-W16 next-action cleanup, gap-audit alignment, validation, commit, and push.
 - `2026-06-09`: Completed W18 by adding `avascope doctor`, doctor protocol DTOs, CLI/protocol smoke coverage, packaged release-script doctor smoke with isolated manifest/store paths, README/validation/gap updates, and release validation.
+- `2026-06-09`: Completed W19 by adding project-local preview profiles for `preview` and `create-preview-session`, a getting-started sample profile, CLI profile tests, README/sample/validation/gap updates, and sample profile smoke validation.

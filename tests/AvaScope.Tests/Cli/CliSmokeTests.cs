@@ -230,6 +230,81 @@ public sealed class CliSmokeTests
     }
 
     [Fact]
+    public async Task PreviewCommandUsesProjectPreviewProfileAndAllowsExplicitOverrides()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var testRoot = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(testRoot);
+
+        var projectPath = Path.Combine(testRoot, "CliProfilePreviewSample.csproj");
+        var viewPath = Path.Combine(testRoot, "MainView.axaml");
+        var profileOutputPath = Path.Combine(testRoot, "profile-preview.png");
+        var profilePath = Path.Combine(testRoot, "avascope.preview.json");
+
+        await File.WriteAllTextAsync(projectPath, """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+              </PropertyGroup>
+            </Project>
+            """);
+
+        await File.WriteAllTextAsync(viewPath, """
+            <UserControl xmlns="https://github.com/avaloniaui">
+              <Border Background="#FFFFFFFF">
+                <TextBlock Text="CLI profile preview smoke" />
+              </Border>
+            </UserControl>
+            """);
+
+        await File.WriteAllTextAsync(profilePath, $$"""
+            {
+              "profiles": {
+                "main": {
+                  "view": "MainView.axaml",
+                  "out": "{{Path.GetFileName(profileOutputPath)}}",
+                  "width": 260,
+                  "height": 140,
+                  "theme": "light"
+                }
+              }
+            }
+            """);
+
+        try
+        {
+            var result = await RunCliAsync(
+                cliAssembly,
+                "preview",
+                projectPath,
+                "--profile",
+                "main",
+                "--width",
+                "180");
+
+            Assert.Equal(0, result.ExitCode);
+            Assert.True(string.IsNullOrWhiteSpace(result.StandardError), result.StandardError);
+
+            var payload = JsonSerializer.Deserialize<ToolResult<PreviewResponse>>(result.StandardOutput, JsonOptions);
+            Assert.NotNull(payload);
+            Assert.True(payload.Success, payload.Error?.Message);
+            Assert.Equal(Path.GetFullPath(profileOutputPath), payload.Value!.FilePath);
+            Assert.Equal(180, payload.Value.PixelWidth);
+            Assert.Equal(140, payload.Value.PixelHeight);
+            Assert.True(File.Exists(payload.Value.FilePath));
+        }
+        finally
+        {
+            if (Directory.Exists(testRoot))
+            {
+                Directory.Delete(testRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
     public async Task PreviewSessionCommandsCreateListReloadAndClosePersistedSession()
     {
         var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
@@ -349,6 +424,89 @@ public sealed class CliSmokeTests
                 JsonOptions);
             Assert.NotNull(listedAfterClosePayload);
             Assert.Equal(SessionStates.Closed, Assert.Single(listedAfterClosePayload.Value!.Sessions).Session.State);
+        }
+        finally
+        {
+            if (Directory.Exists(testRoot))
+            {
+                Directory.Delete(testRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task CreatePreviewSessionCommandUsesProjectPreviewProfile()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var testRoot = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(testRoot);
+
+        var storePath = Path.Combine(testRoot, "preview-sessions");
+        var environment = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            [PreviewSessionStore.DirectoryEnvironmentVariable] = storePath
+        };
+        var projectPath = Path.Combine(testRoot, "CliProfileSessionSample.csproj");
+        var viewPath = Path.Combine(testRoot, "MainView.axaml");
+        var outputPath = Path.Combine(testRoot, "profile-session-preview.png");
+        var profilePath = Path.Combine(testRoot, "avascope.preview.json");
+
+        await File.WriteAllTextAsync(projectPath, """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+              </PropertyGroup>
+            </Project>
+            """);
+
+        await File.WriteAllTextAsync(viewPath, """
+            <UserControl xmlns="https://github.com/avaloniaui">
+              <Border Background="#FFFFFFFF">
+                <TextBlock Text="CLI profile session smoke" />
+              </Border>
+            </UserControl>
+            """);
+
+        await File.WriteAllTextAsync(profilePath, $$"""
+            {
+              "profiles": {
+                "main": {
+                  "view": "MainView.axaml",
+                  "out": "{{Path.GetFileName(outputPath)}}",
+                  "width": 200,
+                  "height": 120,
+                  "displayName": "Profile session"
+                }
+              }
+            }
+            """);
+
+        try
+        {
+            var created = await RunCliAsyncWithEnvironment(
+                environment,
+                cliAssembly,
+                "create-preview-session",
+                projectPath,
+                "--profile",
+                "main");
+
+            Assert.Equal(0, created.ExitCode);
+            Assert.True(string.IsNullOrWhiteSpace(created.StandardError), created.StandardError);
+
+            var payload = JsonSerializer.Deserialize<ToolResult<PreviewSessionSummary>>(
+                created.StandardOutput,
+                JsonOptions);
+            Assert.NotNull(payload);
+            Assert.True(payload.Success, payload.Error?.Message);
+            Assert.Equal("Profile session", payload.Value!.Session.DisplayName);
+            Assert.Equal(Path.GetFullPath(outputPath), payload.Value.Request.OutputPath);
+            Assert.Equal(200, payload.Value.Request.Width);
+            Assert.Equal(120, payload.Value.Request.Height);
+            Assert.True(payload.Value.LastRender.Success, payload.Value.LastRender.Error?.Message);
+            Assert.True(File.Exists(payload.Value.LastRender.Value!.FilePath));
         }
         finally
         {
