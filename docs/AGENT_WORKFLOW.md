@@ -121,6 +121,12 @@ For preview-only visual regression:
 & $avascope baseline-check --manifest .\artifacts\samples\baselines\getting-started.json --out-dir .\artifacts\samples\baselines\current --diff-dir .\artifacts\samples\baselines\diff --report .\artifacts\samples\baselines\report.json --tolerance 0
 ```
 
+For CI upload, collect the report/current/diff outputs into a single artifact directory:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\collect-baseline-artifacts.ps1 -Report .\artifacts\samples\baselines\report.json -OutDir .\artifacts\samples\baselines\upload
+```
+
 ## 7. Send Narrow Runtime Input
 
 ```powershell

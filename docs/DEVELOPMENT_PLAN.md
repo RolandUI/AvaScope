@@ -25,15 +25,15 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `R0.2.0-M4 Visual Regression CI Integration`
+- `R0.2.0-M6 Release Candidate And Version Bump`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-09`
-- Goal: make baseline report/current/diff artifacts straightforward to publish from CI without changing local baseline command behavior for the `v0.2.0` release target.
+- Goal: close `v0.2.0` as a release candidate, bump the version, and publish through the guarded release workflow.
 
 ## Next Action
 
-Implement `R0.2.0-M4` by adding a minimal CI artifact handoff path around existing `baseline-check --report` output while preserving local baseline command compatibility.
+Implement `R0.2.0-M6` by running the full release gate for `v0.2.0`, moving the release target to `Release Candidate`, bumping `Directory.Build.props` to `0.2.0`, validating the guarded release commit, committing with subject `Release 0.2.0`, and pushing.
 
 ## Latest Validation
 
@@ -155,6 +155,10 @@ Implement `R0.2.0-M4` by adding a minimal CI artifact handoff path around existi
 - `2026-06-09`: live preview lifecycle targeted tests passed: preview watch protocol lifecycle shape, Core watcher lifecycle fields, and CLI watch lifecycle output.
 - `2026-06-09`: `dotnet test AvaScope.slnx --no-build` passed with 210 tests after live preview lifecycle decision implementation.
 - `2026-06-09`: `git diff --check` passed after live preview lifecycle decision implementation.
+- `2026-06-09`: `eng\collect-baseline-artifacts.ps1` synthetic report validation passed after visual regression CI artifact handoff implementation.
+- `2026-06-09`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after visual regression CI artifact handoff implementation.
+- `2026-06-09`: `dotnet test AvaScope.slnx --no-build` passed with 210 tests after visual regression CI artifact handoff implementation.
+- `2026-06-09`: `git diff --check` passed after visual regression CI artifact handoff implementation.
 - `2026-06-08`: `dotnet test AvaScope.slnx -c Release --filter FullyQualifiedName~CliSmokeTests.CloseSessionCommandClosesThroughBridgePipe` passed after W8 CI failure hardening.
 - `2026-06-08`: `dotnet test AvaScope.slnx -c Release --no-build` passed with 179 tests after W8 CI failure hardening.
 - `2026-06-08`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.1.0 -DryRun` passed after W8 GitHub Release creation hardening.
@@ -2200,20 +2204,22 @@ Implement `R0.2.0-M4` by adding a minimal CI artifact handoff path around existi
 
 ### R0.2.0-M4 Visual Regression CI Integration
 
-- Status: `In Progress`
+- Status: `Done`
 - Goal: make baseline report/current/diff artifacts straightforward to publish from CI without changing local baseline command behavior.
 - Deliverables: workflow example or CI helper, docs, tests or script validation, commit, push.
 - Progress:
-  - Pending: design a minimal CI artifact upload path around existing `baseline-check --report`.
-  - Pending: keep baseline creation/check commands stable for local users.
+  - Done: added `eng\collect-baseline-artifacts.ps1` to collect a `baseline-check --report` JSON file plus referenced current and diff image artifacts into one upload directory.
+  - Done: added an `artifact-manifest.json` handoff file containing the copied report/current/diff paths.
+  - Done: documented the CI flow in `docs/VISUAL_REGRESSION_CI.md`, README, agent workflow docs, and validation guidance.
+  - Done: kept baseline creation/check commands stable for local users; the helper runs after `baseline-check --report`.
 - Acceptance Criteria:
-  - Pending: CI users can upload JSON report, current image, and diff image artifacts from a documented workflow.
-  - Pending: existing `baseline-create` and `baseline-check` behavior remains compatible.
+  - Done: CI users can upload JSON report, current image, and diff image artifacts from a documented workflow.
+  - Done: existing `baseline-create` and `baseline-check` behavior remains compatible.
 - Validation:
-  - Pending: script/workflow validation appropriate to the implemented slice.
-  - Pending: `dotnet build AvaScope.slnx`
-  - Pending: `dotnet test AvaScope.slnx --no-build`
-  - Pending: `git diff --check`
+  - Passed: `eng\collect-baseline-artifacts.ps1` synthetic report/current/diff copy validation
+  - Passed: `dotnet build AvaScope.slnx`
+  - Passed: `dotnet test AvaScope.slnx --no-build`
+  - Passed: `git diff --check`
 
 ### R0.2.0-M5 Codex Preview Surface
 
@@ -2242,16 +2248,16 @@ Implement `R0.2.0-M4` by adding a minimal CI artifact handoff path around existi
 
 ### R0.2.0-M6 Release Candidate And Version Bump
 
-- Status: `Not Started`
+- Status: `In Progress`
 - Goal: close `v0.2.0` as a release candidate, bump the version, and publish through the guarded release workflow.
 - Deliverables: audit refresh, full release validation, `Directory.Build.props` version bump to `0.2.0`, release commit, push.
 - Progress:
-  - Pending: confirm R0.2.0-M1 through R0.2.0-M5 are `Done` or explicitly deferred before release.
+  - Done: confirmed R0.2.0-M1 through R0.2.0-M5 are `Done`.
   - Pending: move `docs/RELEASE_PLAN.md` release state to `Release Candidate`.
   - Pending: run full release gate and GitHub Release dry-run for `v0.2.0`.
   - Pending: commit with subject `Release 0.2.0` and push.
 - Acceptance Criteria:
-  - Pending: `Directory.Build.props` remains unchanged until all in-scope `v0.2.0` work is complete.
+  - Done: `Directory.Build.props` remained unchanged until all in-scope `v0.2.0` work was complete.
   - Pending: automatic release workflow guard passes on the release commit.
   - Pending: published assets match the release manifest and the `v0.2.0` tag.
 - Validation:

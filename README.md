@@ -360,6 +360,8 @@ dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll baseline-check --manife
 
 `baseline-create` writes explicit baseline screenshots plus a JSON manifest. `baseline-check` re-renders the manifest variants, writes current and diff images to explicit output directories, can write a stable JSON report with `--report`, and exits non-zero when any variant changes. It does not update or replace baseline files.
 
+For CI artifact upload, run `eng\collect-baseline-artifacts.ps1` after `baseline-check --report` and upload the helper output directory. See [docs/VISUAL_REGRESSION_CI.md](docs/VISUAL_REGRESSION_CI.md).
+
 Delete stale AvaScope-owned preview-session metadata:
 
 ```powershell

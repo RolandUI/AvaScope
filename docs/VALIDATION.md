@@ -153,7 +153,11 @@ dotnet test AvaScope.slnx --filter FullyQualifiedName~CliSmokeTests.BaselineComm
 dotnet test AvaScope.slnx --filter FullyQualifiedName~ProtocolContractTests.PreviewBaselineResponsesSerializeStableShapes
 ```
 
-For CI report validation, run a sample baseline check with `--report <report.json>` and verify the report exists and contains the same `passed` and `entries` shape as stdout.
+For CI report validation, run a sample baseline check with `--report <report.json>`, verify the report exists and contains the same `passed` and `entries` shape as stdout, then collect upload artifacts:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\collect-baseline-artifacts.ps1 -Report <report.json> -OutDir .\artifacts\visual-regression\upload
+```
 
 For agent workflow documentation work, validate the packaged CLI examples that do not require a live runtime bridge:
 
