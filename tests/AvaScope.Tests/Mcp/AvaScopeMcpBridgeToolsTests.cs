@@ -25,7 +25,7 @@ public sealed class AvaScopeMcpBridgeToolsTests : IDisposable
         var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Sample app"));
         var client = new LocalBridgeClient(Path.GetDirectoryName(runtime.SessionManifestPath)!);
 
-        var result = await AvaScopeMcpTools.AttachToApp(client, processId: Environment.ProcessId);
+        var result = await AvaScopeMcpTools.AttachToApp(client, sessionId: runtime.SessionId.Value);
 
         Assert.True(result.Success, result.Error?.Message);
         Assert.Equal(runtime.SessionId, result.Value!.Session.SessionId);

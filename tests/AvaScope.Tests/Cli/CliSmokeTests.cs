@@ -642,7 +642,7 @@ public sealed class CliSmokeTests
                 async () =>
                 {
                     await Task.Delay(1000);
-                    await File.WriteAllTextAsync(viewPath, """
+                    await WriteAllTextWithRetryAsync(viewPath, """
                         <UserControl xmlns="https://github.com/avaloniaui">
                           <Border Background="#FFFFFFFF">
                             <TextBlock Text="CLI preview watch changed" />
@@ -2618,6 +2618,26 @@ public sealed class CliSmokeTests
             process.ExitCode,
             await stdoutTask,
             await stderrTask);
+    }
+
+    private static async Task WriteAllTextWithRetryAsync(string path, string contents)
+    {
+        Exception? lastException = null;
+        for (var attempt = 1; attempt <= 20; attempt++)
+        {
+            try
+            {
+                await File.WriteAllTextAsync(path, contents);
+                return;
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                lastException = exception;
+                await Task.Delay(TimeSpan.FromMilliseconds(100 * attempt));
+            }
+        }
+
+        throw new IOException($"Timed out writing test file '{path}'.", lastException);
     }
 
     private static void WriteSolidImage(string path, SKColor color, SKColor? changedPixel = null)

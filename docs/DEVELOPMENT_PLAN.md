@@ -37,6 +37,8 @@ Define the next release target and milestone map in `docs/RELEASE_PLAN.md`; do n
 
 ## Latest Validation
 
+- `2026-06-09`: Post-v0.2.1 CI stabilization targeted Release tests passed: `dotnet test AvaScope.slnx -c Release --filter "FullyQualifiedName~CliSmokeTests.WatchPreviewSessionCommandReloadsWhenWatchedFileChanges|FullyQualifiedName~AvaScopeMcpBridgeToolsTests.AttachToAppUsesLocalBridgeManifestAndPipeHealth"` passed with 2 tests.
+- `2026-06-09`: `dotnet test AvaScope.slnx -c Release --no-build` passed with 212 tests after stabilizing the watch file-write smoke path and explicit MCP bridge attach targeting.
 - `2026-06-09`: GitHub Release workflow `27200641766` passed for `Release 0.2.1`; tag `v0.2.1` and six GitHub Release assets were published at `2026-06-09T10:48:21Z`.
 - `2026-06-09`: GitHub CI workflow `27200641755` passed for `Release 0.2.1`.
 - `2026-06-09`: `gh release view v0.2.1` confirmed the public release URL and six uploaded assets.
@@ -2624,3 +2626,4 @@ Define the next release target and milestone map in `docs/RELEASE_PLAN.md`; do n
 - `2026-06-09`: Completed R0.2.0-M3 by adding tool-visible live preview lifecycle status, documenting persistent-host deferral semantics, adding protocol/Core/CLI coverage, and full validation.
 - `2026-06-09`: Completed R0.2.1-M1 by making PreviewHost wrapper `Window` backgrounds theme-aware, preserving app `Window` background styles, adding dark preview smoke coverage, and validating the `SettingsView.axaml` dark preview scenario.
 - `2026-06-09`: Completed R0.2.1-M2 by validating the release gate, committing `Release 0.2.1`, pushing it to `master`, and confirming GitHub Release `v0.2.1` published with packages, executable ZIPs, and release manifest.
+- `2026-06-09`: Stabilized post-release CI by retrying the watch smoke test file rewrite when Windows briefly locks the watched AXAML file and by making the MCP bridge attach smoke target its own session id explicitly.
