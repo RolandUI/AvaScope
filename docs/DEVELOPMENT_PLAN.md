@@ -37,6 +37,7 @@ Define the next release target and milestone map in `docs/RELEASE_PLAN.md`; do n
 
 ## Latest Validation
 
+- `2026-06-09`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-bug-reports.ps1` passed after storing `FEAT-0008`; 15 intake files scanned.
 - `2026-06-09`: GitHub Release workflow `27205089688` passed for `Release 0.2.2`; tag `v0.2.2` and six GitHub Release assets were published at `2026-06-09T12:17:17Z`.
 - `2026-06-09`: GitHub CI workflow `27205089675` passed for `Release 0.2.2`.
 - `2026-06-09`: `gh release view v0.2.2` confirmed the public release URL and six uploaded assets.
@@ -2611,9 +2612,11 @@ Define the next release target and milestone map in `docs/RELEASE_PLAN.md`; do n
 - `2026-06-09`: `v0.2.1` targets PreviewHost theme parity by resolving the wrapper `Window` background from applied app/window styles or requested theme resources instead of forcing a white local value on controls that do not paint their own root background.
 - `2026-06-09`: `v0.2.2` targets BUG-0003 as an AvaScope PreviewHost diagnostics bug, not a target-app workaround: DataTemplate binding scope and Avalonia template/layer layout noise should be handled inside AvaScope diagnostics.
 - `2026-06-09`: BUG-0003 binding diagnostics treat declared source `x:DataType` as authoritative for a binding path before falling back to root preview `DataContext`; layout diagnostics filter Avalonia framework/template internals instead of reporting them as user layout defects.
+- `2026-06-09`: Animation support is tracked as a future diagnostics feature, not a Rider-style live designer clone; the useful agent surface is deterministic time-offset screenshots, bounded frame artifacts, and structured animation metadata/diagnostics.
 
 ## Change Log
 
+- `2026-06-09`: Stored `FEAT-0008` for future animation diagnostics; no implementation was started and next release planning remains the active focus.
 - `2026-06-09`: Completed `v0.2.2` release with GitHub Release assets and tag verification; moved active focus to next release planning.
 - `2026-06-09`: Implemented BUG-0003 PreviewHost diagnostics fixes for DataTemplate binding scope, Fluent/template layout overlap noise, text metric tolerance, and slider internal hit-target warnings; moved active focus to `R0.2.2-M3`.
 - `2026-06-06`: Initial development plan created with M0-M8 milestones, tracking rules, acceptance criteria, and validation commands.

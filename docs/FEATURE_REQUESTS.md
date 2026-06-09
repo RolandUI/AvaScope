@@ -31,3 +31,4 @@ Tickets in this area are backlog records only; do not start implementation unles
 | [FEAT-0005](feature-requests/FEAT-0005-multi-size-preview.md) | Multi-size preview | P3 | Implemented | Covered by W9 | 2026-06-08 |
 | [FEAT-0006](feature-requests/FEAT-0006-screenshot-diff-baseline.md) | Screenshot diff and baseline mode | P3 | Implemented | Covered by W9 | 2026-06-08 |
 | [FEAT-0007](feature-requests/FEAT-0007-designer-session-cleanup.md) | Designer and session cleanup | P3 | Implemented | Covered by W9 | 2026-06-08 |
+| [FEAT-0008](feature-requests/FEAT-0008-animation-diagnostics.md) | Animation diagnostics | P4 | Backlog | Not started | 2026-06-09 |
