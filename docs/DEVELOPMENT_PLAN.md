@@ -25,18 +25,22 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `R0.2.2-M3 Release Candidate And Version Bump`
+- `Next Release Planning`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-09`
-- Goal: run the guarded `v0.2.2` release gate after the BUG-0003 diagnostics fix slice is committed.
+- Goal: define the next release target in `docs/RELEASE_PLAN.md` before implementation resumes.
 
 ## Next Action
 
-Commit and push `Release 0.2.2`, then verify the guarded GitHub Release workflow publishes `v0.2.2`.
+Define the next release target and milestone map in `docs/RELEASE_PLAN.md`; do not start feature implementation until that release scope is recorded.
 
 ## Latest Validation
 
+- `2026-06-09`: GitHub Release workflow `27205089688` passed for `Release 0.2.2`; tag `v0.2.2` and six GitHub Release assets were published at `2026-06-09T12:17:17Z`.
+- `2026-06-09`: GitHub CI workflow `27205089675` passed for `Release 0.2.2`.
+- `2026-06-09`: `gh release view v0.2.2` confirmed the public release URL and six uploaded assets.
+- `2026-06-09`: `git ls-remote --tags origin refs/tags/v0.2.2` confirmed tag `v0.2.2` at release commit `eac2bf1`.
 - `2026-06-09`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-release-commit.ps1 -Version 0.2.2 -CommitSubject "Release 0.2.2" -RequiredState "Release Candidate"` passed.
 - `2026-06-09`: `git diff --check` passed for `v0.2.2` release-candidate validation.
 - `2026-06-09`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.2.2 -DryRun` passed for `v0.2.2` assets.
@@ -2415,19 +2419,19 @@ Commit and push `Release 0.2.2`, then verify the guarded GitHub Release workflow
 
 ### R0.2.2-M3 Release Candidate And Version Bump
 
-- Status: `In Progress`
+- Status: `Done`
 - Goal: close `v0.2.2` as a release candidate, bump the version, and publish through the guarded release workflow.
 - Deliverables: full release validation, `Directory.Build.props` version bump to `0.2.2`, release commit, push.
 - Progress:
   - Done: R0.2.2-M1 and R0.2.2-M2 implementation validation passed.
   - Done: moved the `v0.2.2` target to `Release Candidate`.
   - Done: bumped `Directory.Build.props` to `0.2.2` for the release commit.
-  - Pending: commit and push `Release 0.2.2`.
-  - Pending: verify the guarded GitHub Release workflow publishes `v0.2.2`.
+  - Done: committed and pushed `eac2bf1` (`Release 0.2.2`).
+  - Done: verified the guarded GitHub Release workflow published `v0.2.2`.
 - Acceptance Criteria:
   - Done: `Directory.Build.props` remained unchanged until all in-scope `v0.2.2` work was complete.
   - Done: local release commit guard passed for subject `Release 0.2.2` and `Release Candidate` state.
-  - Pending: published assets match the release manifest and the `v0.2.2` tag.
+  - Done: published assets match the release manifest and the `v0.2.2` tag.
 - Validation:
   - Passed: `dotnet build AvaScope.slnx`
   - Passed: `dotnet test AvaScope.slnx --no-build`
@@ -2435,6 +2439,10 @@ Commit and push `Release 0.2.2`, then verify the guarded GitHub Release workflow
   - Passed: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.2.2 -DryRun`
   - Passed: `git diff --check`
   - Passed: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-release-commit.ps1 -Version 0.2.2 -CommitSubject "Release 0.2.2" -RequiredState "Release Candidate"`
+  - Passed: GitHub Release run `27205089688`
+  - Passed: CI run `27205089675`
+  - Passed: `gh release view v0.2.2`
+  - Passed: `git ls-remote --tags origin refs/tags/v0.2.2`
 
 ## Decision Log
 
@@ -2606,6 +2614,7 @@ Commit and push `Release 0.2.2`, then verify the guarded GitHub Release workflow
 
 ## Change Log
 
+- `2026-06-09`: Completed `v0.2.2` release with GitHub Release assets and tag verification; moved active focus to next release planning.
 - `2026-06-09`: Implemented BUG-0003 PreviewHost diagnostics fixes for DataTemplate binding scope, Fluent/template layout overlap noise, text metric tolerance, and slider internal hit-target warnings; moved active focus to `R0.2.2-M3`.
 - `2026-06-06`: Initial development plan created with M0-M8 milestones, tracking rules, acceptance criteria, and validation commands.
 - `2026-06-06`: Completed M0 foundation with shared build settings, validation documentation, test project, and Protocol/Core smoke tests; moved active focus to M1.

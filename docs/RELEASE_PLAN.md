@@ -39,12 +39,12 @@ If the release includes public workflow or packaging changes, also validate the 
 
 - Release: `v0.2.2`
 - Target Version: `0.2.2`
-- Release State: `Release Candidate`
+- Release State: `Released`
 - Scope Lock: `2026-06-09`
-- Release Commit: pending
+- Release Commit: `eac2bf1` (`Release 0.2.2`)
 - Local Release Gate: passed on `2026-06-09`
-- Published At: pending
-- GitHub Release: pending
+- Published At: `2026-06-09T12:17:17Z`
+- GitHub Release: https://github.com/RolandUI/AvaScope/releases/tag/v0.2.2
 - Previous Release: `v0.2.1`
 
 ### v0.2.2 Release Goals
@@ -62,7 +62,7 @@ The `v0.2.2` release target is a patch release focused on reducing PreviewHost d
 
 - `R0.2.2-M1 DataTemplate Binding Diagnostics` delivers `RG-0.2.2-1`; Status: `Done`.
 - `R0.2.2-M2 Template-Aware Layout Diagnostics` delivers `RG-0.2.2-2`; Status: `Done`.
-- `R0.2.2-M3 Release Candidate And Version Bump` delivers `RG-0.2.2-3`; Status: `In Progress`.
+- `R0.2.2-M3 Release Candidate And Version Bump` delivers `RG-0.2.2-3`; Status: `Done`.
 
 ### v0.2.2 Implementation Validation
 
@@ -75,6 +75,10 @@ The `v0.2.2` release target is a patch release focused on reducing PreviewHost d
 - `2026-06-09`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.2.2 -DryRun` passed for `v0.2.2` assets.
 - `2026-06-09`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-release-commit.ps1 -Version 0.2.2 -CommitSubject "Release 0.2.2" -RequiredState "Release Candidate"` passed.
 - `2026-06-09`: `git diff --check` passed for `v0.2.2` release-candidate validation.
+- `2026-06-09`: GitHub Release workflow `27205089688` passed for `Release 0.2.2`; tag `v0.2.2` and six GitHub Release assets were published at `2026-06-09T12:17:17Z`.
+- `2026-06-09`: GitHub CI workflow `27205089675` passed for `Release 0.2.2`.
+- `2026-06-09`: `gh release view v0.2.2` confirmed the public release URL and six uploaded assets.
+- `2026-06-09`: `git ls-remote --tags origin refs/tags/v0.2.2` confirmed tag `v0.2.2` at release commit `eac2bf1`.
 
 ### Explicit Deferrals
 
