@@ -165,6 +165,12 @@ Implement `R0.2.0-M6` by running the full release gate for `v0.2.0`, moving the 
 - `2026-06-09`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.2.0 -DryRun` passed for `v0.2.0` release assets.
 - `2026-06-09`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-release-commit.ps1 -Version 0.2.0 -CommitSubject "Release 0.2.0" -RequiredState "Release Candidate"` passed before the release commit.
 - `2026-06-09`: `git diff --check` passed for `v0.2.0` release-candidate validation.
+- `2026-06-09`: GitHub Release run `27194369827` failed before publish in `Create release artifacts` because `CliSmokeTests.InputCommandSendsClickThroughBridgePipe` timed out waiting for the fake bridge named-pipe request on the hosted runner.
+- `2026-06-09`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after stabilizing the CLI fake bridge pipe wait for hosted Release tests.
+- `2026-06-09`: targeted CLI bridge input tests passed after the hosted-runner timeout fix: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~CliSmokeTests.InputCommandSendsClickThroughBridgePipe` and `dotnet test AvaScope.slnx -c Release --no-build --filter FullyQualifiedName~CliSmokeTests.InputCommandSendsClickThroughBridgePipe`.
+- `2026-06-09`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1` passed again after the hosted-runner timeout fix; Release build/test passed with 210 tests and the `0.2.0` artifacts were regenerated.
+- `2026-06-09`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.2.0 -DryRun` and `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-release-commit.ps1 -Version 0.2.0 -CommitSubject "Release 0.2.0" -RequiredState "Release Candidate"` passed after the hosted-runner timeout fix.
+- `2026-06-09`: `git diff --check` passed after the hosted-runner timeout fix.
 - `2026-06-08`: `dotnet test AvaScope.slnx -c Release --filter FullyQualifiedName~CliSmokeTests.CloseSessionCommandClosesThroughBridgePipe` passed after W8 CI failure hardening.
 - `2026-06-08`: `dotnet test AvaScope.slnx -c Release --no-build` passed with 179 tests after W8 CI failure hardening.
 - `2026-06-08`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.1.0 -DryRun` passed after W8 GitHub Release creation hardening.
@@ -2261,6 +2267,7 @@ Implement `R0.2.0-M6` by running the full release gate for `v0.2.0`, moving the 
   - Done: confirmed R0.2.0-M1 through R0.2.0-M5 are `Done`.
   - Done: moved `docs/RELEASE_PLAN.md` release state to `Release Candidate`.
   - Done: ran full release gate and GitHub Release dry-run for `v0.2.0`.
+  - Done: fixed the first remote Release workflow failure, a hosted-runner timeout in the CLI fake bridge input smoke test before publish.
   - Pending: commit with subject `Release 0.2.0` and push.
 - Acceptance Criteria:
   - Done: `Directory.Build.props` remained unchanged until all in-scope `v0.2.0` work was complete.
@@ -2273,6 +2280,7 @@ Implement `R0.2.0-M6` by running the full release gate for `v0.2.0`, moving the 
   - Passed: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.2.0 -DryRun`
   - Passed: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-release-commit.ps1 -Version 0.2.0 -CommitSubject "Release 0.2.0" -RequiredState "Release Candidate"`
   - Passed: `git diff --check`
+  - Passed: hosted-runner timeout fix targeted Debug and Release CLI bridge input tests
 
 ## Decision Log
 

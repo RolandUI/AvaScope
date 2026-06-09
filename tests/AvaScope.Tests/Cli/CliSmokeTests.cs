@@ -2717,7 +2717,7 @@ public sealed class CliSmokeTests
         string pipeName,
         Func<BridgeIpcRequest, BridgeIpcResponse> responseFactory)
     {
-        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(30));
         try
         {
             while (true)
@@ -2748,7 +2748,7 @@ public sealed class CliSmokeTests
         }
         catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
         {
-            throw new TimeoutException("Timed out waiting for a bridge IPC request.");
+            throw new TimeoutException($"Timed out waiting for a bridge IPC request on pipe '{pipeName}'.");
         }
     }
 
