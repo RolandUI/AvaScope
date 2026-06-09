@@ -477,6 +477,8 @@ Preview session tools store the original preview request plus the latest render 
 
 `reload` re-runs stored preview-session requests through the isolated preview host and updates the existing session's latest render result. Runtime bridge session ids are health-checked locally and return `runtime_reload_not_supported`; AvaScope does not restart apps, inject code, or claim runtime hot reload. The one-shot CLI `preview` command remains one-shot; CLI preview-session commands provide the durable preview path, and `watch-preview-session` can trigger bounded reloads from file changes. Watch events that leave the watched input snapshot unchanged are reported as `skipped` instead of launching another PreviewHost child process.
 
+`watch-preview-session` responses include a `lifecycle` object. For `v0.2.0`, `lifecycle.hostProcessMode` is `one_shot_isolated_child_process` and `persistentHostEnabled` is `false`. Persistent preview hosts remain deferred until explicit ownership, `close`, TTL, crash recovery, and cleanup semantics are designed and validated; current cleanup is limited to request temp directories and AvaScope preview-session metadata.
+
 Current preview limitations:
 
 - no runtime hot reload or persistent live preview host process yet; CLI watch reloads still use one-shot PreviewHost child processes;

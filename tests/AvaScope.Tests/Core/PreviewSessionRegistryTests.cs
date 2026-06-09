@@ -452,6 +452,12 @@ public sealed class PreviewSessionRegistryTests : IDisposable
         Assert.Contains(result.Value.Events, static watchEvent => watchEvent.EventType == PreviewWatchEventTypes.Changed);
         Assert.Contains(result.Value.Events, static watchEvent => watchEvent.EventType == PreviewWatchEventTypes.Reloaded);
         Assert.Equal(created.Value.Session.SessionId, result.Value.SessionId);
+        Assert.Equal("one_shot_isolated_child_process", result.Value.Lifecycle.HostProcessMode);
+        Assert.False(result.Value.Lifecycle.PersistentHostEnabled);
+        Assert.Contains("close-preview-session", result.Value.Lifecycle.CloseSemantics, StringComparison.Ordinal);
+        Assert.Contains("TTL", result.Value.Lifecycle.TtlSemantics, StringComparison.Ordinal);
+        Assert.Contains("failed child process", result.Value.Lifecycle.CrashSemantics, StringComparison.Ordinal);
+        Assert.Contains("cleanup", result.Value.Lifecycle.CleanupSemantics, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -496,6 +502,8 @@ public sealed class PreviewSessionRegistryTests : IDisposable
         Assert.Contains(result.Value.Events, static watchEvent => watchEvent.EventType == PreviewWatchEventTypes.Skipped);
         Assert.DoesNotContain(result.Value.Events, static watchEvent => watchEvent.EventType == PreviewWatchEventTypes.Reloaded);
         Assert.Equal(created.Value.Session.SessionId, result.Value.SessionId);
+        Assert.Equal("one_shot_isolated_child_process", result.Value.Lifecycle.HostProcessMode);
+        Assert.False(result.Value.Lifecycle.PersistentHostEnabled);
     }
 
     private sealed class ManualTimeProvider(DateTimeOffset utcNow) : TimeProvider

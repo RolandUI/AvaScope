@@ -674,6 +674,9 @@ public sealed class CliSmokeTests
             Assert.Equal(1, payload.Value.ReloadCount);
             Assert.Contains(payload.Value.Events, static watchEvent => watchEvent.EventType == PreviewWatchEventTypes.Changed);
             Assert.Contains(payload.Value.Events, static watchEvent => watchEvent.EventType == PreviewWatchEventTypes.Reloaded);
+            Assert.Equal("one_shot_isolated_child_process", payload.Value.Lifecycle.HostProcessMode);
+            Assert.False(payload.Value.Lifecycle.PersistentHostEnabled);
+            Assert.Contains("TTL", payload.Value.Lifecycle.TtlSemantics, StringComparison.Ordinal);
             Assert.True(payload.Value.LatestSession!.LastRender.Success, payload.Value.LatestSession.LastRender.Error?.Message);
         }
         finally

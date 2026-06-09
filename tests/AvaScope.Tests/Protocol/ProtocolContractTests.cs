@@ -890,6 +890,13 @@ public sealed class ProtocolContractTests
         Assert.Equal(PreviewWatchEventTypes.Skipped, node["events"]![2]!["eventType"]!.GetValue<string>());
         Assert.Equal("unchanged_input_snapshot", node["events"]![2]!["changeKind"]!.GetValue<string>());
         Assert.Equal("Watched preview", node["latestSession"]!["session"]!["displayName"]!.GetValue<string>());
+        Assert.Equal("one_shot_isolated_child_process", node["lifecycle"]!["hostProcessMode"]!.GetValue<string>());
+        Assert.False(node["lifecycle"]!["persistentHostEnabled"]!.GetValue<bool>());
+        Assert.Contains("close-preview-session", node["lifecycle"]!["closeSemantics"]!.GetValue<string>(), StringComparison.Ordinal);
+        Assert.Contains("TTL", node["lifecycle"]!["ttlSemantics"]!.GetValue<string>(), StringComparison.Ordinal);
+        Assert.Contains("failed child process", node["lifecycle"]!["crashSemantics"]!.GetValue<string>(), StringComparison.Ordinal);
+        Assert.Contains("cleanup", node["lifecycle"]!["cleanupSemantics"]!.GetValue<string>(), StringComparison.Ordinal);
+        Assert.Contains("persistent-host", node["lifecycle"]!["nextStep"]!.GetValue<string>(), StringComparison.Ordinal);
     }
 
     [Fact]

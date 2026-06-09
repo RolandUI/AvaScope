@@ -81,6 +81,8 @@ Preview sessions persist request metadata only. Each render still runs through a
 
 Preview failures include bounded `error.details.phase` values. Treat `readiness` as a local prerequisite problem, `build` as user project build output, and `render` as isolated view loading or rendering failure.
 
+`watch-preview-session` also returns `lifecycle`. In `v0.2.0`, persistent preview hosts are disabled; the lifecycle status documents one-shot child-process rendering plus the deferred close, TTL, crash, and cleanup requirements.
+
 ## 5. Inspect A Running App
 
 Start the sample with the opt-in bridge:

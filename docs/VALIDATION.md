@@ -120,6 +120,14 @@ dotnet test AvaScope.slnx --filter FullyQualifiedName~PreviewHost
 dotnet test AvaScope.slnx --filter FullyQualifiedName~CliSmokeTests.WatchPreviewSessionCommandReloadsWhenWatchedFileChanges
 ```
 
+For live preview lifecycle decision work, also confirm the watch response lifecycle shape:
+
+```powershell
+dotnet test AvaScope.slnx --filter FullyQualifiedName~ProtocolContractTests.PreviewWatchResponseSerializesEventsAndLatestSession
+dotnet test AvaScope.slnx --filter FullyQualifiedName~PreviewSessionRegistryTests.PreviewSessionWatcher
+dotnet test AvaScope.slnx --filter FullyQualifiedName~CliSmokeTests.WatchPreviewSessionCommandReloadsWhenWatchedFileChanges
+```
+
 For CLI preview profile work, include:
 
 ```powershell

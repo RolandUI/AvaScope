@@ -13,7 +13,8 @@ public sealed record PreviewWatchResponse
         int reloadCount,
         DateTimeOffset startedAt,
         DateTimeOffset completedAt,
-        PreviewSessionSummary? latestSession = null)
+        PreviewSessionSummary? latestSession = null,
+        PreviewLifecycleStatus? lifecycle = null)
     {
         ArgumentNullException.ThrowIfNull(sessionId);
 
@@ -33,6 +34,7 @@ public sealed record PreviewWatchResponse
         StartedAt = startedAt;
         CompletedAt = completedAt;
         LatestSession = latestSession;
+        Lifecycle = lifecycle ?? PreviewLifecycleStatus.OneShotIsolated;
     }
 
     [JsonPropertyName("sessionId")]
@@ -59,4 +61,7 @@ public sealed record PreviewWatchResponse
     [JsonPropertyName("latestSession")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public PreviewSessionSummary? LatestSession { get; }
+
+    [JsonPropertyName("lifecycle")]
+    public PreviewLifecycleStatus Lifecycle { get; }
 }

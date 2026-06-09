@@ -25,15 +25,15 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `R0.2.0-M3 Live Preview Lifecycle Decision`
+- `R0.2.0-M4 Visual Regression CI Integration`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-09`
-- Goal: decide and implement the smallest safe live-preview lifecycle improvement after unchanged-input skip events for the `v0.2.0` release target.
+- Goal: make baseline report/current/diff artifacts straightforward to publish from CI without changing local baseline command behavior for the `v0.2.0` release target.
 
 ## Next Action
 
-Implement `R0.2.0-M3` by evaluating persistent preview host lifecycle boundaries and either shipping a small safe lifecycle improvement or recording an explicit deferral with close, TTL, crash, and cleanup semantics.
+Implement `R0.2.0-M4` by adding a minimal CI artifact handoff path around existing `baseline-check --report` output while preserving local baseline command compatibility.
 
 ## Latest Validation
 
@@ -151,6 +151,10 @@ Implement `R0.2.0-M3` by evaluating persistent preview host lifecycle boundaries
 - `2026-06-09`: preview failure triage targeted tests passed: PreviewHostClient readiness details, PreviewHost readiness/build/render diagnostics, and CLI readiness/build detail preservation.
 - `2026-06-09`: `dotnet test AvaScope.slnx --no-build` passed with 210 tests after preview failure triage implementation.
 - `2026-06-09`: `git diff --check` passed after preview failure triage implementation.
+- `2026-06-09`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after live preview lifecycle decision implementation.
+- `2026-06-09`: live preview lifecycle targeted tests passed: preview watch protocol lifecycle shape, Core watcher lifecycle fields, and CLI watch lifecycle output.
+- `2026-06-09`: `dotnet test AvaScope.slnx --no-build` passed with 210 tests after live preview lifecycle decision implementation.
+- `2026-06-09`: `git diff --check` passed after live preview lifecycle decision implementation.
 - `2026-06-08`: `dotnet test AvaScope.slnx -c Release --filter FullyQualifiedName~CliSmokeTests.CloseSessionCommandClosesThroughBridgePipe` passed after W8 CI failure hardening.
 - `2026-06-08`: `dotnet test AvaScope.slnx -c Release --no-build` passed with 179 tests after W8 CI failure hardening.
 - `2026-06-08`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.1.0 -DryRun` passed after W8 GitHub Release creation hardening.
@@ -2178,24 +2182,25 @@ Implement `R0.2.0-M3` by evaluating persistent preview host lifecycle boundaries
 
 ### R0.2.0-M3 Live Preview Lifecycle Decision
 
-- Status: `In Progress`
+- Status: `Done`
 - Goal: decide and implement the smallest safe live-preview improvement after unchanged-input skip events.
 - Deliverables: lifecycle decision record, implementation or explicit deferral, tests/docs, validation, commit, push.
 - Progress:
-  - Pending: evaluate persistent host process close, TTL, crash, and cleanup semantics.
-  - Pending: implement only if the lifecycle boundary is small and testable; otherwise document the deferral and next prerequisite.
+  - Done: evaluated persistent host process close, TTL, crash, and cleanup semantics against the current one-shot isolated PreviewHost boundary.
+  - Done: added `PreviewLifecycleStatus` to `PreviewWatchResponse` so watch output explicitly reports one-shot child-process mode and persistent-host deferral.
+  - Done: documented close, TTL, crash, cleanup, and next-step semantics in protocol output, README, agent workflow docs, and validation guidance.
 - Acceptance Criteria:
-  - Pending: live-preview behavior either improves measurably within the current isolation model or has a concrete documented deferral.
-  - Pending: no user project code runs inside MCP or the CLI process.
+  - Done: live-preview behavior has a concrete documented deferral with a tool-visible lifecycle status.
+  - Done: no user project code runs inside MCP or the CLI process.
 - Validation:
-  - Pending: targeted preview-session tests or explicit validation note for a deferral-only slice.
-  - Pending: `dotnet build AvaScope.slnx`
-  - Pending: `dotnet test AvaScope.slnx --no-build`
-  - Pending: `git diff --check`
+  - Passed: `dotnet test AvaScope.slnx --no-build --filter "FullyQualifiedName~ProtocolContractTests.PreviewWatchResponseSerializesEventsAndLatestSession|FullyQualifiedName~PreviewSessionRegistryTests.PreviewSessionWatcher|FullyQualifiedName~CliSmokeTests.WatchPreviewSessionCommandReloadsWhenWatchedFileChanges"`
+  - Passed: `dotnet build AvaScope.slnx`
+  - Passed: `dotnet test AvaScope.slnx --no-build`
+  - Passed: `git diff --check`
 
 ### R0.2.0-M4 Visual Regression CI Integration
 
-- Status: `Not Started`
+- Status: `In Progress`
 - Goal: make baseline report/current/diff artifacts straightforward to publish from CI without changing local baseline command behavior.
 - Deliverables: workflow example or CI helper, docs, tests or script validation, commit, push.
 - Progress:
@@ -2420,6 +2425,7 @@ Implement `R0.2.0-M3` by evaluating persistent preview host lifecycle boundaries
 - `2026-06-09`: Codex preview surface uses a file-backed, self-contained HTML viewer first because Codex supports file-backed previews and this avoids a long-lived preview server or network listener while still returning a `previewUrl`.
 - `2026-06-09`: Runtime target handoff is implemented as additive protocol context instead of replacing existing top-level, tree-kind, or node-id fields so older callers remain compatible while agents get an unambiguous object to carry forward.
 - `2026-06-09`: Preview failure triage keeps missing project/view/host/dotnet prerequisites in `phase=readiness`, project compilation in `phase=build`, and isolated XAML/render failures in `phase=render` so agents can decide whether retrying is useful.
+- `2026-06-09`: Persistent preview hosts remain deferred for `v0.2.0`; the watch response now carries explicit one-shot child-process lifecycle status and documents close, TTL, crash, and cleanup semantics.
 
 ## Change Log
 
@@ -2517,3 +2523,4 @@ Implement `R0.2.0-M3` by evaluating persistent preview host lifecycle boundaries
 - `2026-06-09`: Completed R0.2.0-M5 by adding file-backed preview viewer export, CLI `preview-viewer`, MCP `preview_viewer`, Codex in-app browser docs, targeted validation, and full test-suite validation.
 - `2026-06-09`: Completed R0.2.0-M1 by adding runtime `target` context to tree/find/inspect/input/screenshot responses, actionable stale target error details, docs, and full validation.
 - `2026-06-09`: Completed R0.2.0-M2 by adding preview readiness/build/render failure triage, bounded error details, CLI/Core/PreviewHost tests, docs, and full validation.
+- `2026-06-09`: Completed R0.2.0-M3 by adding tool-visible live preview lifecycle status, documenting persistent-host deferral semantics, adding protocol/Core/CLI coverage, and full validation.
