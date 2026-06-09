@@ -148,6 +148,15 @@ try {
             throw "Packaged Windows avascope.exe was not produced: $releaseExe"
         }
 
+        $doctorRoot = Join-Path $sampleRoot "doctor-smoke"
+        Remove-RepoItem -Path $doctorRoot -RepoRoot $repoRoot
+        & $releaseExe doctor `
+            --manifest-dir (Join-Path $doctorRoot "sessions") `
+            --preview-session-store (Join-Path $doctorRoot "preview-sessions")
+        if ($LASTEXITCODE -ne 0) {
+            throw "Packaged Windows doctor smoke test failed with exit code $LASTEXITCODE."
+        }
+
         if (-not $SkipSampleSmoke) {
             New-Item -ItemType Directory -Path $sampleRoot -Force | Out-Null
             $sampleOutputPath = Join-Path $sampleRoot "getting-started-preview-release.png"

@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Reflection;
 using System.Text.Json;
 using AvaScope.Core;
 using AvaScope.Protocol;
@@ -31,6 +32,7 @@ internal static class Program
             "input" => await Input(args[1..]),
             "close-session" => await CloseSession(args[1..]),
             "diagnostics" => await Diagnostics(args[1..]),
+            "doctor" => await Doctor(args[1..]),
             "reload" => await Reload(args[1..]),
             "create-preview-session" => await CreatePreviewSession(args[1..]),
             "list-preview-sessions" => ListPreviewSessions(args[1..]),
@@ -806,6 +808,106 @@ internal static class Program
         return result.Success ? 0 : 1;
     }
 
+    private static async Task<int> Doctor(string[] args)
+    {
+        var options = ParseOptions(args, GetDoctorUsage());
+        if (!options.Success)
+        {
+            WriteFailure<DoctorResponse>(InvalidCliArguments, options.Error!);
+            return 2;
+        }
+
+        if (!ValidateOptions(options.Values, GetDoctorUsage(), "manifest-dir", "preview-session-store"))
+        {
+            return 2;
+        }
+
+        var manifestDirectory = Path.GetFullPath(
+            options.Values.GetValueOrDefault("manifest-dir", BridgeSessionManifest.GetDefaultDirectory()));
+        var previewSessionStoreDirectory = Path.GetFullPath(
+            options.Values.GetValueOrDefault("preview-session-store", PreviewSessionStore.GetDefaultDirectory()));
+        var previewSessionStore = new PreviewSessionStore(previewSessionStoreDirectory);
+        var previewSessionDiagnostics = previewSessionStore.GetDiagnostics();
+        var previewHost = new PreviewHostClient().GetDiagnostics();
+        var bridgeClient = new LocalBridgeClient(manifestDirectory);
+        var diagnosticsResult = await bridgeClient.DiagnosticsAsync(
+            maxSessions: 100,
+            previewHost: previewHost,
+            previewSessions: previewSessionDiagnostics);
+
+        if (!diagnosticsResult.Success)
+        {
+            WriteResult(ToolResult<DoctorResponse>.Fail(new ProtocolError(
+                diagnosticsResult.Error!.Code,
+                diagnosticsResult.Error.Message,
+                diagnosticsResult.Error.Details)));
+            return 1;
+        }
+
+        var diagnostics = diagnosticsResult.Value!;
+        var issues = new List<ProtocolError>(diagnostics.Issues);
+        var checks = new List<DoctorCheck>();
+        var cliAssemblyPath = Assembly.GetExecutingAssembly().Location;
+        if (string.IsNullOrWhiteSpace(cliAssemblyPath))
+        {
+            cliAssemblyPath = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        }
+
+        AddFileCheck(
+            checks,
+            issues,
+            "cli_assembly",
+            cliAssemblyPath,
+            "CLI assembly is available.",
+            "CLI assembly was not found.",
+            "cli_assembly_unavailable");
+
+        AddFileCheck(
+            checks,
+            issues,
+            "mcp_assembly",
+            Path.Combine(AppContext.BaseDirectory, "AvaScope.Mcp.dll"),
+            "MCP server assembly is available beside the CLI.",
+            "MCP server assembly was not found beside the CLI.",
+            "mcp_server_unavailable");
+
+        AddPreviewHostCheck(checks, issues, previewHost);
+        AddDirectoryCheck(
+            checks,
+            "bridge_manifest_directory",
+            manifestDirectory,
+            "Bridge manifest directory is readable.",
+            "Bridge manifest directory does not exist yet; no runtime bridge sessions are discoverable.");
+        AddBridgeSessionCheck(checks, issues, diagnostics.BridgeSessions);
+        AddDirectoryCheck(
+            checks,
+            "preview_session_store",
+            previewSessionStoreDirectory,
+            "Preview session store directory is readable.",
+            "Preview session store directory does not exist yet; no preview sessions are persisted.");
+        AddPreviewSessionCheck(checks, issues, previewSessionDiagnostics);
+
+        var status = issues.Count == 0
+            ? DiagnosticStatuses.Available
+            : DiagnosticStatuses.Unavailable;
+        var response = new DoctorResponse(
+            HealthResponse.Current(),
+            DateTimeOffset.UtcNow,
+            status,
+            cliAssemblyPath,
+            AppContext.BaseDirectory,
+            manifestDirectory,
+            previewSessionStoreDirectory,
+            checks,
+            issues,
+            previewHost,
+            diagnostics.BridgeSessions,
+            previewSessionDiagnostics);
+
+        WriteResult(ToolResult<DoctorResponse>.Ok(response));
+        return issues.Count == 0 ? 0 : 1;
+    }
+
     private static int Cleanup(string[] args)
     {
         var options = ParseOptions(args, GetCleanupUsage());
@@ -978,6 +1080,133 @@ internal static class Program
         }
 
         return true;
+    }
+
+    private static void AddFileCheck(
+        ICollection<DoctorCheck> checks,
+        ICollection<ProtocolError> issues,
+        string name,
+        string path,
+        string availableMessage,
+        string unavailableMessage,
+        string unavailableCode)
+    {
+        var fullPath = Path.GetFullPath(path);
+        if (File.Exists(fullPath))
+        {
+            checks.Add(new DoctorCheck(name, DiagnosticStatuses.Available, availableMessage, fullPath));
+            return;
+        }
+
+        var error = new ProtocolError(unavailableCode, unavailableMessage);
+        issues.Add(error);
+        checks.Add(new DoctorCheck(name, DiagnosticStatuses.Unavailable, unavailableMessage, fullPath, error));
+    }
+
+    private static void AddPreviewHostCheck(
+        ICollection<DoctorCheck> checks,
+        ICollection<ProtocolError> issues,
+        PreviewHostDiagnostic previewHost)
+    {
+        if (string.Equals(previewHost.Status, DiagnosticStatuses.Available, StringComparison.Ordinal))
+        {
+            checks.Add(new DoctorCheck(
+                "preview_host",
+                DiagnosticStatuses.Available,
+                "Preview host assembly is available and configured for isolated child-process rendering.",
+                previewHost.HostAssemblyPath));
+            return;
+        }
+
+        var error = previewHost.Error ?? new ProtocolError(
+            CoreErrorCodes.PreviewHostUnavailable,
+            "Preview host is not available.");
+        issues.Add(error);
+        checks.Add(new DoctorCheck(
+            "preview_host",
+            previewHost.Status,
+            error.Message,
+            previewHost.HostAssemblyPath,
+            error));
+    }
+
+    private static void AddDirectoryCheck(
+        ICollection<DoctorCheck> checks,
+        string name,
+        string path,
+        string availableMessage,
+        string missingMessage)
+    {
+        var fullPath = Path.GetFullPath(path);
+        checks.Add(Directory.Exists(fullPath)
+            ? new DoctorCheck(name, DiagnosticStatuses.Available, availableMessage, fullPath)
+            : new DoctorCheck(name, DiagnosticStatuses.Available, missingMessage, fullPath));
+    }
+
+    private static void AddBridgeSessionCheck(
+        ICollection<DoctorCheck> checks,
+        ICollection<ProtocolError> issues,
+        IReadOnlyList<BridgeSessionDiagnostic> bridgeSessions)
+    {
+        var problematic = bridgeSessions
+            .Where(static session => session.Status is not DiagnosticStatuses.Available)
+            .ToArray();
+        foreach (var session in problematic)
+        {
+            if (session.Error is not null)
+            {
+                issues.Add(session.Error);
+            }
+        }
+
+        if (problematic.Length == 0)
+        {
+            checks.Add(new DoctorCheck(
+                "bridge_sessions",
+                DiagnosticStatuses.Available,
+                bridgeSessions.Count == 0
+                    ? "No runtime bridge sessions are currently discoverable."
+                    : $"{bridgeSessions.Count} runtime bridge session(s) are available."));
+            return;
+        }
+
+        checks.Add(new DoctorCheck(
+            "bridge_sessions",
+            DiagnosticStatuses.Unavailable,
+            $"{problematic.Length} runtime bridge session diagnostic record(s) need attention."));
+    }
+
+    private static void AddPreviewSessionCheck(
+        ICollection<DoctorCheck> checks,
+        ICollection<ProtocolError> issues,
+        IReadOnlyList<PreviewSessionDiagnostic> previewSessions)
+    {
+        var problematic = previewSessions
+            .Where(static session => session.Status is not DiagnosticStatuses.Available)
+            .ToArray();
+        foreach (var session in problematic)
+        {
+            if (session.Error is not null)
+            {
+                issues.Add(session.Error);
+            }
+        }
+
+        if (problematic.Length == 0)
+        {
+            checks.Add(new DoctorCheck(
+                "preview_sessions",
+                DiagnosticStatuses.Available,
+                previewSessions.Count == 0
+                    ? "No preview-session records are currently persisted."
+                    : $"{previewSessions.Count} preview-session record(s) are available."));
+            return;
+        }
+
+        checks.Add(new DoctorCheck(
+            "preview_sessions",
+            DiagnosticStatuses.Unavailable,
+            $"{problematic.Length} preview-session diagnostic record(s) need attention."));
     }
 
     private static bool TryReadOptionalProcessId(
@@ -1291,7 +1520,7 @@ internal static class Program
 
     private static string GetUsage()
     {
-        return "Usage: avascope mcp | avascope attach [--process <pid>] [--session <session-id>] | avascope list-top-levels --session <session-id> | avascope visual-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] | avascope logical-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] | avascope inspect-node --session <session-id> --top-level <top-level-id> --node <node-id> [--tree-kind visual|logical] | avascope find-nodes --session <session-id> --top-level <top-level-id> [--tree-kind visual|logical] [--type <type>] [--name <name>] [--automation-id <id>] [--text <text>] [--max-depth <n>] [--max-results <n>] | avascope input --session <session-id> --top-level <top-level-id> --action <action> [--x <x>] [--y <y>] [--text <text>] [--target-node <node-id>] [--key <key>] [--modifiers <modifiers>] | avascope close-session --session <session-id> | avascope diagnostics [--process <pid>] [--session <session-id>] [--max-sessions <n>] | avascope reload --session <session-id> | avascope create-preview-session <project.csproj> --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] [--display-name <name>] | avascope list-preview-sessions | avascope reload-preview-session --session <session-id> | avascope close-preview-session --session <session-id> | avascope watch-preview-session --session <session-id> --timeout-ms <ms> [--settle-ms <ms>] [--max-reloads <n>] [--watch <path>[,<path>...]] | avascope baseline-create <project.csproj> --view <view.axaml> --manifest <baseline.json> --sizes <w>x<h>[,<w>x<h>...] [--out-dir <dir>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] | avascope baseline-check --manifest <baseline.json> [--out-dir <dir>] [--diff-dir <dir>] [--tolerance <0-255>] | avascope cleanup | avascope diff --baseline <baseline.png> --current <current.png> --out <diff.png> [--tolerance <0-255>] | avascope screenshot --session <session-id> --top-level <top-level-id> --out <screenshot.png> | avascope preview <project.csproj> --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--sizes <w>x<h>[,<w>x<h>...]] [--contact-sheet <sheet.png>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>]";
+        return "Usage: avascope mcp | avascope doctor [--manifest-dir <dir>] [--preview-session-store <dir>] | avascope attach [--process <pid>] [--session <session-id>] | avascope list-top-levels --session <session-id> | avascope visual-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] | avascope logical-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] | avascope inspect-node --session <session-id> --top-level <top-level-id> --node <node-id> [--tree-kind visual|logical] | avascope find-nodes --session <session-id> --top-level <top-level-id> [--tree-kind visual|logical] [--type <type>] [--name <name>] [--automation-id <id>] [--text <text>] [--max-depth <n>] [--max-results <n>] | avascope input --session <session-id> --top-level <top-level-id> --action <action> [--x <x>] [--y <y>] [--text <text>] [--target-node <node-id>] [--key <key>] [--modifiers <modifiers>] | avascope close-session --session <session-id> | avascope diagnostics [--process <pid>] [--session <session-id>] [--max-sessions <n>] | avascope reload --session <session-id> | avascope create-preview-session <project.csproj> --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] [--display-name <name>] | avascope list-preview-sessions | avascope reload-preview-session --session <session-id> | avascope close-preview-session --session <session-id> | avascope watch-preview-session --session <session-id> --timeout-ms <ms> [--settle-ms <ms>] [--max-reloads <n>] [--watch <path>[,<path>...]] | avascope baseline-create <project.csproj> --view <view.axaml> --manifest <baseline.json> --sizes <w>x<h>[,<w>x<h>...] [--out-dir <dir>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] | avascope baseline-check --manifest <baseline.json> [--out-dir <dir>] [--diff-dir <dir>] [--tolerance <0-255>] | avascope cleanup | avascope diff --baseline <baseline.png> --current <current.png> --out <diff.png> [--tolerance <0-255>] | avascope screenshot --session <session-id> --top-level <top-level-id> --out <screenshot.png> | avascope preview <project.csproj> --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--sizes <w>x<h>[,<w>x<h>...]] [--contact-sheet <sheet.png>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>]";
     }
 
     private static string GetPreviewUsage()
@@ -1377,6 +1606,11 @@ internal static class Program
     private static string GetDiagnosticsUsage()
     {
         return "Usage: avascope diagnostics [--process <pid>] [--session <session-id>] [--max-sessions <n>]";
+    }
+
+    private static string GetDoctorUsage()
+    {
+        return "Usage: avascope doctor [--manifest-dir <dir>] [--preview-session-store <dir>]";
     }
 
     private static string GetReloadUsage()

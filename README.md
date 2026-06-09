@@ -14,7 +14,7 @@ AvaScope is a generic Avalonia inspection, preview, and automation stack for age
 - Runtime `inspect_node` computed visual/style/layout property values.
 - Multi-size preview, contact-sheet output, screenshot diff, and scoped preview-session cleanup workflows.
 - MCP stdio server with structured tools.
-- `avascope` CLI with preview and MCP handoff commands.
+- `avascope` CLI with doctor, preview, runtime inspection, diagnostics, and MCP handoff commands.
 - Getting-started sample app for the first preview and bridge workflow.
 
 ## Project Layout
@@ -155,6 +155,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.p
 Run the packaged Windows CLI/MCP bundle directly from the publish directory:
 
 ```powershell
+.\artifacts\executables\avascope-win-x64-framework-dependent\avascope.exe doctor
 .\artifacts\executables\avascope-win-x64-framework-dependent\avascope.exe mcp
 .\artifacts\executables\avascope-win-x64-framework-dependent\avascope.exe preview .\samples\AvaScope.GettingStartedApp\AvaScope.GettingStartedApp.csproj --view Views\MainView.axaml --out .\artifacts\samples\getting-started-preview-packaged.png --width 720 --height 420 --theme light --design-data-type AvaScope.GettingStartedApp.SamplePreviewData
 ```
@@ -297,9 +298,12 @@ dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll close-session --session
 Read local bridge and preview-host diagnostics:
 
 ```powershell
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll doctor
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll diagnostics
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll diagnostics --session session-id --max-sessions 10
 ```
+
+`doctor` reports CLI/MCP/PreviewHost co-location, bridge manifest discovery, preview-session store state, preview host readiness, and actionable issues without building or loading user projects. It exits non-zero when required co-located AvaScope assemblies or diagnostic records need attention.
 
 Compare screenshots with an explicit diff artifact:
 
@@ -372,7 +376,7 @@ Implemented tools:
 - `close_preview_session`
 - `reload`
 
-Planned but not implemented yet: runtime hot reload, drag/drop, full preview startup orchestration, self-contained artifacts, installer distribution, and broader visual-regression workflows.
+Planned but not implemented yet: runtime hot reload, drag/drop, full preview startup orchestration, installer distribution, macOS release policy, and CI-oriented visual-regression reporting.
 
 `diagnostics` reports AvaScope service metadata, local bridge manifest/pipe health, stale or invalid bridge manifests, preview host readiness, and stale or invalid preview-session metadata without building or loading user projects.
 

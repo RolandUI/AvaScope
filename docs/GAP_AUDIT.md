@@ -52,9 +52,9 @@ Next slice: richer resource-chain explanations can be added when public Avalonia
 
 ### CLI Runtime Workflows
 
-Status: current runtime command surface complete.
+Status: current runtime command surface plus CLI self-test complete.
 
-The CLI now supports `preview`, `mcp`, `attach`, `list-top-levels`, `screenshot`, `visual-tree`, `logical-tree`, `inspect-node`, `find-nodes`, `input`, `close-session`, `diagnostics`, `reload`, `diff`, `cleanup`, `create-preview-session`, `list-preview-sessions`, `reload-preview-session`, and `close-preview-session`. Runtime CLI commands drive the local bridge through `LocalBridgeClient`, return structured `ToolResult<T>` output, and have deterministic invalid-argument, no-session, and fake bridge named-pipe success tests for the top-level, screenshot, tree, inspect-node, find, input, close, diagnostics, and runtime reload-check paths.
+The CLI now supports `preview`, `mcp`, `doctor`, `attach`, `list-top-levels`, `screenshot`, `visual-tree`, `logical-tree`, `inspect-node`, `find-nodes`, `input`, `close-session`, `diagnostics`, `reload`, `diff`, `cleanup`, `create-preview-session`, `list-preview-sessions`, `reload-preview-session`, `close-preview-session`, and `watch-preview-session`. Runtime CLI commands drive the local bridge through `LocalBridgeClient`, return structured `ToolResult<T>` output, and have deterministic invalid-argument, no-session, and fake bridge named-pipe success tests for the top-level, screenshot, tree, inspect-node, find, input, close, diagnostics, and runtime reload-check paths.
 
 Completed slice: `preview --sizes` adds deterministic multi-size preview output and optional contact-sheet generation, while `diff` adds explicit same-size screenshot comparison with tolerance and structured pass/fail output.
 
@@ -64,7 +64,9 @@ Completed slice: `watch-preview-session` can watch the stored preview request's 
 
 Completed slice: `baseline-create` and `baseline-check` provide manifest-backed visual regression workflows over multi-size preview and screenshot diff primitives, with explicit current/diff artifact directories and non-zero check exits for changed variants.
 
-Next slice: richer runtime input; the one-shot `preview` command remains intentionally one-shot.
+Completed slice: `doctor` reports CLI/MCP/PreviewHost co-location, bridge manifest diagnostics, preview-session store diagnostics, and actionable readiness issues without loading user projects. Packaged release validation now runs doctor with isolated manifest/store paths before sample preview smoke.
+
+Next slice: preview profiles for repeated preview workflows; the one-shot `preview` command remains intentionally one-shot.
 
 ### Reload And Hot Preview
 
@@ -138,4 +140,4 @@ Next slice: CI can later add upload artifacts, self-contained outputs, or more R
 
 No public-alpha blocking slice remains after M50, and W9-W16 completed the stored feature-request first slices plus CLI preview sessions, file-watch reload, manifest-backed visual regression, source-backed typed binding diagnostics, target-aware TextBox input, preview startup parity, and opt-in self-contained distribution hardening.
 
-Selected next slice: W18 CLI doctor and self-test. This improves first-user and agent reliability before adding deeper runtime or preview behavior. Future W19-W25 work should continue through preview profiles, agent workflow documentation, runtime input, diagnostics history/provenance, faster live preview, visual regression CI reporting, and a release-candidate audit.
+Selected next slice: W19 preview profiles. W18 completed the CLI doctor/self-test improvement, so the next reliability improvement is reducing repeated preview command brittleness with project-local named profiles. Future W20-W25 work should continue through agent workflow documentation, runtime input, diagnostics history/provenance, faster live preview, visual regression CI reporting, and a release-candidate audit.

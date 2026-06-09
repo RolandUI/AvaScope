@@ -132,6 +132,49 @@ public sealed class ProtocolContractTests
     }
 
     [Fact]
+    public void DoctorResponseSerializesStableReadinessShape()
+    {
+        var generatedAt = new DateTimeOffset(2026, 6, 9, 9, 0, 0, TimeSpan.Zero);
+        var response = new DoctorResponse(
+            HealthResponse.Current(),
+            generatedAt,
+            DiagnosticStatuses.Available,
+            "C:\\avascope\\avascope.dll",
+            "C:\\avascope",
+            "C:\\avascope\\sessions",
+            "C:\\avascope\\preview-sessions",
+            [
+                new DoctorCheck(
+                    "mcp_assembly",
+                    DiagnosticStatuses.Available,
+                    "MCP server assembly is available.",
+                    "C:\\avascope\\AvaScope.Mcp.dll")
+            ],
+            [],
+            new PreviewHostDiagnostic(
+                DiagnosticStatuses.Available,
+                "C:\\avascope\\AvaScope.PreviewHost.dll",
+                DiagnosticProcessModes.IsolatedChildProcess,
+                HealthResponse.Current()));
+
+        var json = JsonSerializer.Serialize(response);
+        var node = JsonNode.Parse(json)!;
+
+        Assert.Equal("avascope", node["service"]!["serviceName"]!.GetValue<string>());
+        Assert.Equal(generatedAt, DateTimeOffset.Parse(node["generatedAt"]!.GetValue<string>(), CultureInfo.InvariantCulture));
+        Assert.Equal(DiagnosticStatuses.Available, node["status"]!.GetValue<string>());
+        Assert.Equal("C:\\avascope\\avascope.dll", node["cliAssemblyPath"]!.GetValue<string>());
+        Assert.Equal("C:\\avascope", node["baseDirectory"]!.GetValue<string>());
+        Assert.Equal("C:\\avascope\\sessions", node["manifestDirectory"]!.GetValue<string>());
+        Assert.Equal("C:\\avascope\\preview-sessions", node["previewSessionStoreDirectory"]!.GetValue<string>());
+        Assert.Equal("mcp_assembly", node["checks"]![0]!["name"]!.GetValue<string>());
+        Assert.Equal(DiagnosticStatuses.Available, node["checks"]![0]!["status"]!.GetValue<string>());
+        Assert.Equal("C:\\avascope\\AvaScope.Mcp.dll", node["checks"]![0]!["path"]!.GetValue<string>());
+        Assert.Equal(DiagnosticStatuses.Available, node["previewHost"]!["status"]!.GetValue<string>());
+        Assert.Empty(node["issues"]!.AsArray());
+    }
+
+    [Fact]
     public void ListSessionsResponseSerializesBoundedSummaryShape()
     {
         var createdAt = new DateTimeOffset(2026, 6, 6, 18, 30, 0, TimeSpan.Zero);

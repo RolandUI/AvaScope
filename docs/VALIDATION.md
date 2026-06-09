@@ -53,6 +53,13 @@ For CLI work, also run:
 dotnet test AvaScope.slnx --filter FullyQualifiedName~Cli
 ```
 
+For CLI doctor/self-test work, include:
+
+```powershell
+dotnet test AvaScope.slnx --filter FullyQualifiedName~CliSmokeTests.DoctorCommandReportsLocalReadiness
+dotnet test AvaScope.slnx --filter FullyQualifiedName~ProtocolContractTests.DoctorResponseSerializesStableReadinessShape
+```
+
 For CLI preview-session work, include the persistent-session smoke path:
 
 ```powershell
@@ -103,6 +110,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\verify-artifacts.ps1
 It also validates the getting-started preview path from the packaged Windows CLI:
 
 ```powershell
+.\artifacts\executables\avascope-win-x64-framework-dependent\avascope.exe doctor
 .\artifacts\executables\avascope-win-x64-framework-dependent\avascope.exe preview .\samples\AvaScope.GettingStartedApp\AvaScope.GettingStartedApp.csproj --view Views\MainView.axaml --out .\artifacts\samples\getting-started-preview-release.png --width 720 --height 420 --theme light --design-data-type AvaScope.GettingStartedApp.SamplePreviewData
 ```
 

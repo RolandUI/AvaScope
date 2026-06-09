@@ -23,15 +23,15 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `W18 CLI Doctor And Self-Test`
+- `W19 Preview Profiles`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-09`
-- Goal: add a first-class local self-test command that reports AvaScope runtime readiness, preview-host readiness, local bridge discovery state, preview-session store state, and packaged-command availability without loading user projects.
+- Goal: make repeated preview commands less brittle by allowing project-local named preview profiles.
 
 ## Next Action
 
-Implement `avascope doctor`, cover it with CLI smoke tests, document the command, validate, commit, and push W18.
+Implement `avascope.preview.json` profile loading for preview and preview-session creation, add a sample profile, cover it with CLI tests, document, validate, commit, and push W19.
 
 ## Latest Validation
 
@@ -79,6 +79,16 @@ Implement `avascope doctor`, cover it with CLI smoke tests, document the command
 - `2026-06-08`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.1.0 -DryRun` passed after W16 distribution hardening.
 - `2026-06-08`: `git check-ignore -v` confirmed regenerated W16 release artifacts remain ignored under `artifacts/`.
 - `2026-06-09`: `git diff --check` passed after W17 plan refresh and gap-audit alignment.
+- `2026-06-09`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after W18 CLI doctor/self-test.
+- `2026-06-09`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~ProtocolContractTests.DoctorResponseSerializesStableReadinessShape` passed after W18 CLI doctor/self-test.
+- `2026-06-09`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~CliSmokeTests.DoctorCommandReportsLocalReadiness` passed after W18 CLI doctor/self-test.
+- `2026-06-09`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~CliSmokeTests.DoctorCommandRejectsInvalidArguments` passed after W18 CLI doctor/self-test.
+- `2026-06-09`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli` passed with 85 tests after W18 CLI doctor/self-test.
+- `2026-06-09`: `dotnet test AvaScope.slnx --no-build --filter Protocol` passed with 36 tests after W18 CLI doctor/self-test.
+- `2026-06-09`: source CLI `avascope doctor --manifest-dir <temp> --preview-session-store <temp>` smoke passed after W18 CLI doctor/self-test.
+- `2026-06-09`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1` passed after W18 CLI doctor/self-test; Release build/test passed with 198 tests, 5 framework-dependent release artifacts verified, and packaged Windows sample preview smoke passed.
+- `2026-06-09`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1 -SkipTests` passed after adding packaged Windows doctor smoke to the release script.
+- `2026-06-09`: `git diff --check` passed after W18 CLI doctor/self-test.
 - `2026-06-08`: `dotnet test AvaScope.slnx -c Release --filter FullyQualifiedName~CliSmokeTests.CloseSessionCommandClosesThroughBridgePipe` passed after W8 CI failure hardening.
 - `2026-06-08`: `dotnet test AvaScope.slnx -c Release --no-build` passed with 179 tests after W8 CI failure hardening.
 - `2026-06-08`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.1.0 -DryRun` passed after W8 GitHub Release creation hardening.
@@ -1858,26 +1868,34 @@ Implement `avascope doctor`, cover it with CLI smoke tests, document the command
 
 ### W18 CLI Doctor And Self-Test
 
-- Status: `In Progress`
+- Status: `Done`
 - Goal: add a first-class local self-test command that reports AvaScope runtime readiness, preview-host readiness, local bridge discovery state, preview-session store state, and packaged-command availability without loading user projects.
 - Deliverables: CLI `doctor` command, structured protocol/core or CLI DTOs as needed, tests, README/validation updates, commit, push.
 - Progress:
-  - Pending: implement command parsing and structured JSON output.
-  - Pending: cover source and packaged-style command states with CLI smoke tests.
+  - Done: added `avascope doctor` with structured `DoctorResponse` and `DoctorCheck` protocol DTOs.
+  - Done: doctor reports CLI/MCP/PreviewHost co-location, bridge manifest directory state, bridge session diagnostics, preview-session store state, preview-session diagnostics, and actionable issues without loading user projects.
+  - Done: added deterministic source CLI smoke tests with isolated manifest/store paths.
+  - Done: added packaged Windows doctor smoke to the local release script with isolated manifest/store paths.
 - Acceptance Criteria:
-  - Doctor does not build or load user projects.
-  - Doctor reports service identity, CLI path/base directory, preview host availability, MCP assembly availability, bridge manifest directory state, preview-session store state, and actionable issues.
-  - Doctor can run with no arguments and supports bounded JSON output consistent with other CLI commands.
-  - Invalid arguments return deterministic CLI errors.
+  - Done: doctor does not build or load user projects.
+  - Done: doctor reports service identity, CLI path/base directory, preview host availability, MCP assembly availability, bridge manifest directory state, preview-session store state, and actionable issues.
+  - Done: doctor can run with no arguments and supports bounded JSON output consistent with other CLI commands.
+  - Done: invalid arguments return deterministic CLI errors.
 - Validation:
-  - Pending: `dotnet build AvaScope.slnx`
-  - Pending: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli`
-  - Pending: packaged CLI doctor smoke after local release validation
-  - Pending: `git diff --check`
+  - Passed: `dotnet build AvaScope.slnx`
+  - Passed: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~ProtocolContractTests.DoctorResponseSerializesStableReadinessShape`
+  - Passed: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~CliSmokeTests.DoctorCommandReportsLocalReadiness`
+  - Passed: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~CliSmokeTests.DoctorCommandRejectsInvalidArguments`
+  - Passed: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli`
+  - Passed: `dotnet test AvaScope.slnx --no-build --filter Protocol`
+  - Passed: source CLI doctor smoke with isolated manifest/store paths
+  - Passed: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1`
+  - Passed: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1 -SkipTests`
+  - Passed: `git diff --check`
 
 ### W19 Preview Profiles
 
-- Status: `Not Started`
+- Status: `In Progress`
 - Goal: make repeated preview commands less brittle by allowing project-local named preview profiles.
 - Deliverables: `avascope.preview.json` profile schema, CLI profile loading for preview and preview-session creation, sample profile, tests, documentation, commit, push.
 - Progress:
@@ -2145,6 +2163,7 @@ Implement `avascope doctor`, cover it with CLI smoke tests, document the command
 - `2026-06-08`: W14 expands runtime text input through the existing `key_text` action and `targetNodeId` request field instead of adding a new protocol action, because this preserves the current tool shape while making TextBox editing behavior more realistic.
 - `2026-06-08`: W15 keeps full desktop/single-view lifetime startup deferred; PreviewHost may reuse App.Initialize-created `Application.DataContext` as a fallback preview root DataContext without invoking `OnFrameworkInitializationCompleted()`.
 - `2026-06-09`: W17 selects CLI doctor/self-test as the next active slice after W16 because it improves onboarding, packaged-artifact sanity checks, and agent triage before deeper input, diagnostics, or live-preview behavior.
+- `2026-06-09`: W18 doctor treats stale or unavailable bridge/preview-session records as actionable issues and exits non-zero, while release-script doctor smoke uses isolated manifest/store paths so package validation is not affected by previous local user sessions.
 
 ## Change Log
 
@@ -2227,3 +2246,4 @@ Implement `avascope doctor`, cover it with CLI smoke tests, document the command
 - `2026-06-08`: Completed W15 by adding App.Initialize-created `Application.DataContext` fallback preview startup parity, PreviewHost smoke coverage, README/gap updates, and full-suite validation.
 - `2026-06-08`: Completed W16 by adding opt-in self-contained executable ZIP support, executable package kind manifest coverage, packaging cleanup process-lock detection, release script dry-runs, README/validation/gap updates, and full release validation.
 - `2026-06-09`: Completed W17 plan refresh with W17-W25 milestone definitions, active W18 focus, stale post-W16 next-action cleanup, gap-audit alignment, validation, commit, and push.
+- `2026-06-09`: Completed W18 by adding `avascope doctor`, doctor protocol DTOs, CLI/protocol smoke coverage, packaged release-script doctor smoke with isolated manifest/store paths, README/validation/gap updates, and release validation.

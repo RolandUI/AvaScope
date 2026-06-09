@@ -1806,6 +1806,72 @@ public sealed class CliSmokeTests
     }
 
     [Fact]
+    public async Task DoctorCommandReportsLocalReadiness()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var testRoot = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));
+        var manifestDirectory = Path.Combine(testRoot, "sessions");
+        var previewSessionStoreDirectory = Path.Combine(testRoot, "preview-sessions");
+        Directory.CreateDirectory(testRoot);
+
+        try
+        {
+            var result = await RunCliAsync(
+                cliAssembly,
+                "doctor",
+                "--manifest-dir",
+                manifestDirectory,
+                "--preview-session-store",
+                previewSessionStoreDirectory);
+
+            Assert.Equal(0, result.ExitCode);
+            Assert.True(string.IsNullOrWhiteSpace(result.StandardError), result.StandardError);
+
+            var payload = JsonSerializer.Deserialize<ToolResult<DoctorResponse>>(result.StandardOutput, JsonOptions);
+            Assert.NotNull(payload);
+            Assert.True(payload.Success, payload.Error?.Message);
+            Assert.Equal(DiagnosticStatuses.Available, payload.Value!.Status);
+            Assert.Equal(Path.GetFullPath(manifestDirectory), payload.Value.ManifestDirectory);
+            Assert.Equal(Path.GetFullPath(previewSessionStoreDirectory), payload.Value.PreviewSessionStoreDirectory);
+            Assert.Equal(DiagnosticStatuses.Available, payload.Value.PreviewHost!.Status);
+            Assert.Empty(payload.Value.BridgeSessions);
+            Assert.Empty(payload.Value.PreviewSessions);
+            Assert.Empty(payload.Value.Issues);
+            Assert.Contains(payload.Value.Checks, static check => check.Name == "cli_assembly" && check.Status == DiagnosticStatuses.Available);
+            Assert.Contains(payload.Value.Checks, static check => check.Name == "mcp_assembly" && check.Status == DiagnosticStatuses.Available);
+            Assert.Contains(payload.Value.Checks, static check => check.Name == "preview_host" && check.Status == DiagnosticStatuses.Available);
+            Assert.Contains(payload.Value.Checks, static check => check.Name == "bridge_sessions" && check.Status == DiagnosticStatuses.Available);
+            Assert.Contains(payload.Value.Checks, static check => check.Name == "preview_sessions" && check.Status == DiagnosticStatuses.Available);
+        }
+        finally
+        {
+            if (Directory.Exists(testRoot))
+            {
+                Directory.Delete(testRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task DoctorCommandRejectsInvalidArguments()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var result = await RunCliAsync(cliAssembly, "doctor", "--unknown", "value");
+
+        Assert.Equal(2, result.ExitCode);
+        Assert.True(string.IsNullOrWhiteSpace(result.StandardError), result.StandardError);
+
+        var payload = JsonSerializer.Deserialize<ToolResult<DoctorResponse>>(result.StandardOutput, JsonOptions);
+        Assert.NotNull(payload);
+        Assert.False(payload.Success);
+        Assert.Equal("invalid_cli_arguments", payload.Error!.Code);
+    }
+
+    [Fact]
     public async Task DiagnosticsCommandReadsBridgeHealthThroughPipe()
     {
         var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
