@@ -25,18 +25,23 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `Next Release Planning`
+- `R0.2.1-M2 Release Candidate And Version Bump`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-09`
-- Goal: define the next release target in `docs/RELEASE_PLAN.md` before implementation resumes.
+- Goal: close `v0.2.1` as a release candidate, bump the version, and publish through the guarded release workflow.
 
 ## Next Action
 
-Define the next release target and milestone map in `docs/RELEASE_PLAN.md`; do not start feature implementation until that release scope is recorded.
+Commit and push the completed R0.2.1-M1 theme-background fix, then run the v0.2.1 release gate before the version bump release commit.
 
 ## Latest Validation
 
+- `2026-06-09`: Targeted PreviewHost theme-background tests passed: `dotnet test AvaScope.slnx --filter "FullyQualifiedName~PreviewHostSmokeTests.PreviewHostUsesDarkFluentWindowBackgroundForTransparentRootControl|FullyQualifiedName~PreviewHostSmokeTests.PreviewHostKeepsAppWindowBackgroundStyleForTransparentRootControl"` passed with 2 tests.
+- `2026-06-09`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after R0.2.1-M1.
+- `2026-06-09`: `dotnet test AvaScope.slnx --no-build` passed with 212 tests after removing one closed AvaScope preview-session temp record that was unrelated stale diagnostics state.
+- `2026-06-09`: `git diff --check` passed after R0.2.1-M1.
+- `2026-06-09`: External dark preview smoke passed for `SettingsView.axaml` with output `artifacts/validation/v0.2.1-theme-background/SettingsView-dark.png`; the rendered canvas used the dark theme background.
 - `2026-06-08`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after W9 feature-ticket implementation.
 - `2026-06-08`: W9 targeted tests passed: protocol contract diagnostics/batch/diff/cleanup coverage, PreviewHost binding/resource/layout diagnostics, CLI multi-size preview/contact sheet, CLI screenshot diff, Bridge computed properties, Core preview-session cleanup, and MCP stdio tool listing.
 - `2026-06-08`: `dotnet test AvaScope.slnx --no-build` passed with 186 tests after W9 feature-ticket implementation.
@@ -2299,6 +2304,43 @@ Define the next release target and milestone map in `docs/RELEASE_PLAN.md`; do n
   - Passed: `git ls-remote --tags origin refs/tags/v0.2.0`
   - Passed: post-release hosted-runner fake pipe reader fix targeted Debug tests and full Release test suite
 
+### R0.2.1-M1 Theme-Aware Preview Wrapper Background
+
+- Status: `Done`
+- Goal: make PreviewHost wrapper windows use a theme-aware background for root controls that do not paint their own canvas.
+- Deliverables: PreviewHost background resolution fix, smoke tests for dark theme wrapper rendering and explicit app window-style precedence, development-plan/release-plan updates, validation, commit, push.
+- Progress:
+  - Done: defined `v0.2.1` patch release goals in `docs/RELEASE_PLAN.md`.
+  - Done: removed the hardcoded white local background from PreviewHost wrapper `Window` instances.
+  - Done: applied a render-time fallback that preserves existing `Window.Background`, resolves theme-aware background resources, and falls back by requested theme only when no app/theme resource is available.
+  - Done: added smoke coverage for dark Fluent background rendering and app-defined `Window` background style precedence.
+  - Done: validated the original `SettingsView.axaml` dark preview scenario against the Debug CLI/PreviewHost build.
+- Acceptance Criteria:
+  - Done: dark previews for non-`Window` root controls without a root background no longer render a white canvas.
+  - Done: project/app `Window` background styles are not overridden by the fallback host background.
+  - Done: requested preview theme variant continues to drive theme dictionary/resource lookup.
+- Validation:
+  - Passed: `dotnet test AvaScope.slnx --filter "FullyQualifiedName~PreviewHostSmokeTests.PreviewHostUsesDarkFluentWindowBackgroundForTransparentRootControl|FullyQualifiedName~PreviewHostSmokeTests.PreviewHostKeepsAppWindowBackgroundStyleForTransparentRootControl"`
+  - Passed: `dotnet build AvaScope.slnx`
+  - Passed: `dotnet test AvaScope.slnx --no-build`
+  - Passed: `git diff --check`
+  - Passed: `dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll preview C:\Users\soosr\Documents\GitHub\TradeR\TradeR\TradeR.csproj --view Views\SettingsView.axaml --out .\artifacts\validation\v0.2.1-theme-background\SettingsView-dark.png --width 1200 --height 900 --theme dark`
+
+### R0.2.1-M2 Release Candidate And Version Bump
+
+- Status: `In Progress`
+- Goal: close `v0.2.1` as a release candidate, bump the version, and publish through the guarded release workflow.
+- Deliverables: full release validation, `Directory.Build.props` version bump to `0.2.1`, release commit, push.
+- Progress:
+  - Done: R0.2.1-M1 reached `Done`.
+  - In Progress: commit and push the completed theme-background fix before running the release gate.
+- Acceptance Criteria:
+  - Pending: `Directory.Build.props` remains unchanged until all in-scope `v0.2.1` work is complete.
+  - Pending: local release commit guard passes for subject `Release 0.2.1` and `Release Candidate` state.
+  - Pending: published assets match the release manifest and the `v0.2.1` tag.
+- Validation:
+  - Pending: release gate commands from `docs/VALIDATION.md`.
+
 ## Decision Log
 
 - `2026-06-06`: Use `docs/DEVELOPMENT_PLAN.md` as the primary tracking document and keep `AGENTS.md` as the mandatory routing entrypoint.
@@ -2463,6 +2505,7 @@ Define the next release target and milestone map in `docs/RELEASE_PLAN.md`; do n
 - `2026-06-09`: Runtime target handoff is implemented as additive protocol context instead of replacing existing top-level, tree-kind, or node-id fields so older callers remain compatible while agents get an unambiguous object to carry forward.
 - `2026-06-09`: Preview failure triage keeps missing project/view/host/dotnet prerequisites in `phase=readiness`, project compilation in `phase=build`, and isolated XAML/render failures in `phase=render` so agents can decide whether retrying is useful.
 - `2026-06-09`: Persistent preview hosts remain deferred for `v0.2.0`; the watch response now carries explicit one-shot child-process lifecycle status and documents close, TTL, crash, and cleanup semantics.
+- `2026-06-09`: `v0.2.1` targets PreviewHost theme parity by resolving the wrapper `Window` background from applied app/window styles or requested theme resources instead of forcing a white local value on controls that do not paint their own root background.
 
 ## Change Log
 
@@ -2561,3 +2604,4 @@ Define the next release target and milestone map in `docs/RELEASE_PLAN.md`; do n
 - `2026-06-09`: Completed R0.2.0-M1 by adding runtime `target` context to tree/find/inspect/input/screenshot responses, actionable stale target error details, docs, and full validation.
 - `2026-06-09`: Completed R0.2.0-M2 by adding preview readiness/build/render failure triage, bounded error details, CLI/Core/PreviewHost tests, docs, and full validation.
 - `2026-06-09`: Completed R0.2.0-M3 by adding tool-visible live preview lifecycle status, documenting persistent-host deferral semantics, adding protocol/Core/CLI coverage, and full validation.
+- `2026-06-09`: Completed R0.2.1-M1 by making PreviewHost wrapper `Window` backgrounds theme-aware, preserving app `Window` background styles, adding dark preview smoke coverage, and validating the `SettingsView.axaml` dark preview scenario.

@@ -1200,6 +1200,237 @@ public sealed class PreviewHostSmokeTests
     }
 
     [Fact]
+    public async Task PreviewHostUsesDarkFluentWindowBackgroundForTransparentRootControl()
+    {
+        var hostAssembly = Path.Combine(AppContext.BaseDirectory, "AvaScope.PreviewHost.dll");
+        Assert.True(File.Exists(hostAssembly), $"Expected preview host assembly at {hostAssembly}.");
+
+        var testRoot = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(testRoot);
+
+        var projectPath = Path.Combine(testRoot, "DarkWindowBackgroundPreviewSample.csproj");
+        var appPath = Path.Combine(testRoot, "App.axaml");
+        var appCodeBehindPath = Path.Combine(testRoot, "App.axaml.cs");
+        var viewsDirectory = Path.Combine(testRoot, "Views");
+        Directory.CreateDirectory(viewsDirectory);
+
+        var viewPath = Path.Combine(viewsDirectory, "TransparentRootView.axaml");
+        var codeBehindPath = Path.Combine(viewsDirectory, "TransparentRootView.axaml.cs");
+        var requestPath = Path.Combine(testRoot, "request.json");
+        var outputPath = Path.Combine(testRoot, "preview.png");
+
+        await File.WriteAllTextAsync(projectPath, """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <Nullable>enable</Nullable>
+              </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="Avalonia" Version="12.0.4" />
+                <PackageReference Include="Avalonia.Themes.Fluent" Version="12.0.4" />
+              </ItemGroup>
+            </Project>
+            """);
+
+        await File.WriteAllTextAsync(appPath, """
+            <Application xmlns="https://github.com/avaloniaui"
+                         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                         x:Class="DarkWindowBackgroundPreviewSample.App">
+              <Application.Styles>
+                <FluentTheme />
+              </Application.Styles>
+            </Application>
+            """);
+
+        await File.WriteAllTextAsync(appCodeBehindPath, """
+            using Avalonia;
+            using Avalonia.Markup.Xaml;
+
+            namespace DarkWindowBackgroundPreviewSample;
+
+            public partial class App : Application
+            {
+                public override void Initialize()
+                {
+                    AvaloniaXamlLoader.Load(this);
+                }
+            }
+            """);
+
+        await File.WriteAllTextAsync(viewPath, """
+            <UserControl xmlns="https://github.com/avaloniaui"
+                         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                         x:Class="DarkWindowBackgroundPreviewSample.Views.TransparentRootView">
+              <Grid />
+            </UserControl>
+            """);
+
+        await File.WriteAllTextAsync(codeBehindPath, """
+            using Avalonia.Controls;
+
+            namespace DarkWindowBackgroundPreviewSample.Views;
+
+            public partial class TransparentRootView : UserControl
+            {
+                public TransparentRootView()
+                {
+                    InitializeComponent();
+                }
+            }
+            """);
+
+        await File.WriteAllTextAsync(
+            requestPath,
+            JsonSerializer.Serialize(
+                new PreviewRequest(
+                    outputPath,
+                    width: 180,
+                    height: 120,
+                    dpi: 96,
+                    projectPath: projectPath,
+                    viewPath: Path.Combine("Views", "TransparentRootView.axaml"),
+                    themeVariant: "dark"),
+                JsonOptions));
+
+        try
+        {
+            var result = await RunPreviewHostAsync(hostAssembly, requestPath, expectedExitCode: 0);
+
+            Assert.NotNull(result);
+            Assert.True(result.Success, result.Error?.Message);
+            Assert.Equal(Path.GetFullPath(outputPath), result.Value!.FilePath);
+            AssertCenterPixel(outputPath, red: 0x00, green: 0x00, blue: 0x00);
+        }
+        finally
+        {
+            await DeleteDirectoryWithRetryAsync(testRoot);
+        }
+    }
+
+    [Fact]
+    public async Task PreviewHostKeepsAppWindowBackgroundStyleForTransparentRootControl()
+    {
+        var hostAssembly = Path.Combine(AppContext.BaseDirectory, "AvaScope.PreviewHost.dll");
+        Assert.True(File.Exists(hostAssembly), $"Expected preview host assembly at {hostAssembly}.");
+
+        var testRoot = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(testRoot);
+
+        var projectPath = Path.Combine(testRoot, "StyledWindowBackgroundPreviewSample.csproj");
+        var appPath = Path.Combine(testRoot, "App.axaml");
+        var appCodeBehindPath = Path.Combine(testRoot, "App.axaml.cs");
+        var viewsDirectory = Path.Combine(testRoot, "Views");
+        Directory.CreateDirectory(viewsDirectory);
+
+        var viewPath = Path.Combine(viewsDirectory, "TransparentRootView.axaml");
+        var codeBehindPath = Path.Combine(viewsDirectory, "TransparentRootView.axaml.cs");
+        var requestPath = Path.Combine(testRoot, "request.json");
+        var outputPath = Path.Combine(testRoot, "preview.png");
+
+        await File.WriteAllTextAsync(projectPath, """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <Nullable>enable</Nullable>
+              </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="Avalonia" Version="12.0.4" />
+                <PackageReference Include="Avalonia.Themes.Fluent" Version="12.0.4" />
+              </ItemGroup>
+            </Project>
+            """);
+
+        await File.WriteAllTextAsync(appPath, """
+            <Application xmlns="https://github.com/avaloniaui"
+                         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                         x:Class="StyledWindowBackgroundPreviewSample.App">
+              <Application.Resources>
+                <ResourceDictionary>
+                  <ResourceDictionary.ThemeDictionaries>
+                    <ResourceDictionary x:Key="Light">
+                      <SolidColorBrush x:Key="PreviewWindowBackgroundBrush" Color="#FFE9ECEF" />
+                    </ResourceDictionary>
+                    <ResourceDictionary x:Key="Dark">
+                      <SolidColorBrush x:Key="PreviewWindowBackgroundBrush" Color="#FF123456" />
+                    </ResourceDictionary>
+                  </ResourceDictionary.ThemeDictionaries>
+                </ResourceDictionary>
+              </Application.Resources>
+              <Application.Styles>
+                <FluentTheme />
+                <Style Selector="Window">
+                  <Setter Property="Background" Value="{DynamicResource PreviewWindowBackgroundBrush}" />
+                </Style>
+              </Application.Styles>
+            </Application>
+            """);
+
+        await File.WriteAllTextAsync(appCodeBehindPath, """
+            using Avalonia;
+            using Avalonia.Markup.Xaml;
+
+            namespace StyledWindowBackgroundPreviewSample;
+
+            public partial class App : Application
+            {
+                public override void Initialize()
+                {
+                    AvaloniaXamlLoader.Load(this);
+                }
+            }
+            """);
+
+        await File.WriteAllTextAsync(viewPath, """
+            <UserControl xmlns="https://github.com/avaloniaui"
+                         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                         x:Class="StyledWindowBackgroundPreviewSample.Views.TransparentRootView">
+              <Grid />
+            </UserControl>
+            """);
+
+        await File.WriteAllTextAsync(codeBehindPath, """
+            using Avalonia.Controls;
+
+            namespace StyledWindowBackgroundPreviewSample.Views;
+
+            public partial class TransparentRootView : UserControl
+            {
+                public TransparentRootView()
+                {
+                    InitializeComponent();
+                }
+            }
+            """);
+
+        await File.WriteAllTextAsync(
+            requestPath,
+            JsonSerializer.Serialize(
+                new PreviewRequest(
+                    outputPath,
+                    width: 180,
+                    height: 120,
+                    dpi: 96,
+                    projectPath: projectPath,
+                    viewPath: Path.Combine("Views", "TransparentRootView.axaml"),
+                    themeVariant: "dark"),
+                JsonOptions));
+
+        try
+        {
+            var result = await RunPreviewHostAsync(hostAssembly, requestPath, expectedExitCode: 0);
+
+            Assert.NotNull(result);
+            Assert.True(result.Success, result.Error?.Message);
+            Assert.Equal(Path.GetFullPath(outputPath), result.Value!.FilePath);
+            AssertCenterPixel(outputPath, red: 0x12, green: 0x34, blue: 0x56);
+        }
+        finally
+        {
+            await DeleteDirectoryWithRetryAsync(testRoot);
+        }
+    }
+
+    [Fact]
     public async Task PreviewHostAppliesCompiledAppDataTemplatesBeforeProjectView()
     {
         var hostAssembly = Path.Combine(AppContext.BaseDirectory, "AvaScope.PreviewHost.dll");

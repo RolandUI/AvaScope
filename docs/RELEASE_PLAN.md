@@ -37,6 +37,38 @@ If the release includes public workflow or packaging changes, also validate the 
 
 ## Current Release Target
 
+- Release: `v0.2.1`
+- Target Version: `0.2.1`
+- Release State: `In Progress`
+- Scope Lock: `2026-06-09`
+- Release Commit: pending
+- Local Release Gate: pending
+- Published At: pending
+- GitHub Release: pending
+- Previous Release: `v0.2.0`
+
+### v0.2.1 Release Goals
+
+The `v0.2.1` release target is a patch release focused on preview theme parity for controls rendered inside the isolated PreviewHost wrapper window.
+
+1. `RG-0.2.1-1 Theme-Aware Preview Wrapper Background`: non-`Window` previews inherit a theme-appropriate host background instead of forcing a white canvas.
+   Success signal: a dark preview request for a root control without its own background renders against a dark/theme-derived background, while explicit project window styles still win.
+2. `RG-0.2.1-2 Guarded Patch Release`: `v0.2.1` ships only after the targeted fix is complete and the release gate passes.
+   Success signal: targeted preview-host tests, full build/test validation, release dry-run validation, and a `Release 0.2.1` commit complete before publishing.
+
+### v0.2.1 Milestone Map
+
+- `R0.2.1-M1 Theme-Aware Preview Wrapper Background` delivers `RG-0.2.1-1`; Status: `Done`.
+- `R0.2.1-M2 Release Candidate And Version Bump` delivers `RG-0.2.1-2`; Status: `In Progress`.
+
+### Explicit Deferrals
+
+- Persistent preview host processes remain out of scope for this patch release.
+- Broader design-time startup/lifetime execution remains out of scope.
+- No new remote inspection or control surface is introduced.
+
+## Released Target: v0.2.0
+
 - Release: `v0.2.0`
 - Target Version: `0.2.0`
 - Release State: `Released`

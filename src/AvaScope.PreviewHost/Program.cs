@@ -29,6 +29,17 @@ internal static class Program
     private const string XamlNamespace = "http://schemas.microsoft.com/winfx/2006/xaml";
     private const int MaximumPreviewDiagnostics = 100;
     private const double MinimumHitTargetSize = 24;
+    private static readonly string[] PreviewBackgroundResourceKeys =
+    [
+        "SystemRegionBrush",
+        "SystemControlPageBackgroundChromeLowBrush",
+        "SystemControlPageBackgroundChromeMediumLowBrush",
+        "SystemControlBackgroundChromeLowBrush",
+        "SystemControlBackgroundChromeMediumLowBrush",
+        "SystemControlPageBackgroundAltHighBrush",
+        "SystemControlBackgroundAltHighBrush",
+        "SystemRegionColor"
+    ];
 
     public static async Task<int> Main(string[] args)
     {
@@ -191,6 +202,8 @@ internal static class Program
         {
             AddSourceDiagnostics(diagnostics, sourceMetadata, content, window, resolvedThemeVariant, fullProjectPath);
             window.Show();
+            Dispatcher.UIThread.RunJobs();
+            EnsurePreviewBackground(content, window, resolvedThemeVariant);
             Dispatcher.UIThread.RunJobs();
             AddLayoutDiagnostics(diagnostics, window);
 
@@ -1649,16 +1662,11 @@ internal static class Program
             ? rootWindow
             : new Window
             {
-                Background = Brushes.White,
                 Content = content
             };
 
         window.Width = dimensions.Width;
         window.Height = dimensions.Height;
-        if (window.Background is null)
-        {
-            window.Background = Brushes.White;
-        }
 
         foreach (var style in projectApplicationScope.Styles)
         {
@@ -1673,6 +1681,61 @@ internal static class Program
         window.RequestedThemeVariant = themeVariant;
         window.SetRenderScaling(dpi / 96d);
         return window;
+    }
+
+    private static void EnsurePreviewBackground(
+        Control content,
+        Window window,
+        ThemeVariant? requestedTheme)
+    {
+        if (window.Background is not null)
+        {
+            return;
+        }
+
+        window.Background = ResolvePreviewBackground(content, window, requestedTheme);
+    }
+
+    private static IBrush ResolvePreviewBackground(
+        Control content,
+        Window window,
+        ThemeVariant? requestedTheme)
+    {
+        foreach (var key in PreviewBackgroundResourceKeys)
+        {
+            if (TryResolveResource(content, window, requestedTheme, key, out var value)
+                && TryConvertPreviewBackground(value, out var brush))
+            {
+                return brush;
+            }
+        }
+
+        return IsDarkTheme(requestedTheme, window) ? Brushes.Black : Brushes.White;
+    }
+
+    private static bool TryConvertPreviewBackground(object? value, out IBrush brush)
+    {
+        switch (value)
+        {
+            case IBrush resolvedBrush:
+                brush = resolvedBrush;
+                return true;
+            case Color color:
+                brush = new SolidColorBrush(color);
+                return true;
+            default:
+                brush = Brushes.Transparent;
+                return false;
+        }
+    }
+
+    private static bool IsDarkTheme(ThemeVariant? requestedTheme, Window window)
+    {
+        var theme = requestedTheme
+            ?? window.ActualThemeVariant
+            ?? Application.Current?.ActualThemeVariant
+            ?? ThemeVariant.Default;
+        return theme == ThemeVariant.Dark;
     }
 
     private static ToolResult<DesignDataResolution> ResolveDesignTimeDataContext(
