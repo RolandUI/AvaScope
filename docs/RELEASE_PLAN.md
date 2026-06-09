@@ -257,34 +257,35 @@ The `v0.7.0` release target is focused on visual regression and CI productizatio
 
 ### v0.8.0 Release Goals
 
-The `v0.8.0` release target is focused on protocol stabilization and integration readiness for MCP clients, CLI workflows, and future editor integrations.
+The `v0.8.0` release target is the last planned pre-1.0 product feature release. It is focused on agent-facing UI intelligence: accessibility/validation audits, visual issue overlays, suggested fixes, component/style inventory, and richer animation timeline diagnostics. Protocol stabilization is intentionally pushed into `v0.9.0` beta hardening so `v0.8.0` can still add meaningful user-facing capability.
 
-1. `RG-0.8.0-1 Protocol Versioning And Capability Negotiation`: make schema compatibility explicit across Protocol, Core, CLI, MCP, bridge, and PreviewHost.
-   Success signal: clients can query protocol/tool capabilities and handle additive fields without guessing package versions.
-2. `RG-0.8.0-2 Bounded Results And Pagination`: harden large-tree, diagnostics, baseline, and event outputs.
-   Success signal: large results are paged, filtered, depth-limited, or artifact-backed with predictable limits and continuation metadata.
-3. `RG-0.8.0-3 Error Taxonomy And Recovery Guidance`: normalize errors across runtime, preview, baseline, and packaging workflows.
-   Success signal: common failures include stable code, phase, severity, retryability, user action, and related paths/session ids.
-4. `RG-0.8.0-4 Integration Handoff Contracts`: document and validate how Rider, VS Code, Visual Studio, Cursor, Claude, Codex, and other MCP clients should consume AvaScope.
-   Success signal: integration docs describe launch, attach, preview, viewer, artifact, and cleanup workflows without relying on internal implementation details.
-5. `RG-0.8.0-5 Compatibility Test Matrix`: add tests and docs covering older clients/newer servers, newer clients/older bridge packages, and package version mismatches.
-   Success signal: incompatible combinations fail with actionable diagnostics rather than broken IPC or schema errors.
-6. `RG-0.8.0-6 Guarded Release`: ship only after compatibility tests, schema docs, integration docs, and release validation pass.
+1. `RG-0.8.0-1 Accessibility And Validation Audit`: inspect accessible names, automation ids, focus order, keyboard reachability, validation/error states, and obvious screen-reader metadata gaps where public Avalonia APIs make them reliable.
+   Success signal: CLI/MCP preview and runtime diagnostics can report bounded accessibility/validation issues with affected node context, severity, provenance, and suggested next action.
+2. `RG-0.8.0-2 Visual Issue Overlay Viewer`: generate a local file-backed overlay viewer for preview diagnostics, layout warnings, accessibility issues, and visual regression failures.
+   Success signal: users and agents can open one viewer that highlights affected bounds, issue categories, screenshots, frame strips, and diagnostic metadata without reading raw JSON first.
+3. `RG-0.8.0-3 Suggested Fix Diagnostics`: add conservative, source-aware fix suggestions for common issues such as missing automation metadata, missing binding context, clipped text, too-small hit targets, overlapping siblings, and missing resources.
+   Success signal: diagnostics include explicit `suggestion` entries with confidence/provenance and never mutate source files automatically.
+4. `RG-0.8.0-4 Component And Style Inventory`: expose a project/view inventory of controls, styles, classes, resources, templates, theme variants, and repeated component patterns.
+   Success signal: CLI/MCP can produce bounded inventory reports for a preview/session so agents can reason about design-system drift, repeated patterns, and style/resource usage.
+5. `RG-0.8.0-5 Rich Animation Timeline Diagnostics`: extend `v0.3.0` animation sampling with timeline issue grouping, overlay integration, frame-to-frame region summaries, and stable artifact handoff.
+   Success signal: animation diagnostics can group motion, clipping, final-state instability, and disappearing-content issues across sampled frames and link them to overlay/timeline artifacts.
+6. `RG-0.8.0-6 Guarded Feature Release`: ship only after accessibility, overlay, suggested-fix, inventory, animation-timeline, and release validation pass.
 
 ### v0.8.0 Milestone Map
 
-- `R0.8.0-M1 Protocol Capability Contract`; Status: `Planned`.
-- `R0.8.0-M2 Pagination And Artifact Handoff Limits`; Status: `Planned`.
-- `R0.8.0-M3 Unified Error Taxonomy`; Status: `Planned`.
-- `R0.8.0-M4 MCP/CLI/Editor Integration Documentation`; Status: `Planned`.
-- `R0.8.0-M5 Compatibility Matrix Tests`; Status: `Planned`.
+- `R0.8.0-M1 Accessibility And Validation Audit`; Status: `Planned`.
+- `R0.8.0-M2 Visual Issue Overlay Viewer`; Status: `Planned`.
+- `R0.8.0-M3 Suggested Fix Diagnostics`; Status: `Planned`.
+- `R0.8.0-M4 Component And Style Inventory`; Status: `Planned`.
+- `R0.8.0-M5 Rich Animation Timeline Diagnostics`; Status: `Planned`.
 - `R0.8.0-M6 Release Candidate And Version Bump`; Status: `Planned`.
 
 ### v0.8.0 Explicit Deferrals
 
-- Native editor plugins remain optional; this release requires integration-ready contracts and docs, not shipped IDE extensions.
+- Native editor plugins remain optional; this release improves artifact/viewer handoff but does not require shipped IDE extensions.
 - Remote multi-user inspection remains out of scope.
-- Breaking protocol cleanup must wait for `v1.0.0` planning unless a compatibility shim is added.
+- Automatic source editing remains out of scope; suggested fixes are advisory only.
+- Full WCAG certification, screen-reader simulation, and private accessibility/runtime hooks remain out of scope.
 
 ## Planned Target: v0.9.0
 
@@ -300,27 +301,27 @@ The `v0.8.0` release target is focused on protocol stabilization and integration
 
 ### v0.9.0 Release Goals
 
-The `v0.9.0` release target is beta hardening. The goal is to remove known blockers before the `v1.0.0` API and workflow freeze.
+The `v0.9.0` release target is beta hardening. The goal is to remove known blockers before the `v1.0.0` API and workflow freeze, including the protocol and integration stabilization intentionally deferred from `v0.8.0`.
 
-1. `RG-0.9.0-1 API And Package Audit`: review public DTOs, package dependencies, namespaces, command names, and SemVer behavior before 1.0 freeze.
-   Success signal: intended stable surfaces are documented, accidental public surfaces are removed or marked internal, and compatibility risk is recorded.
-2. `RG-0.9.0-2 Security And Safety Audit`: review runtime bridge activation, local IPC, file outputs, project-code execution, logs, and release artifacts.
+1. `RG-0.9.0-1 Protocol Versioning And Capability Negotiation`: make schema compatibility explicit across Protocol, Core, CLI, MCP, bridge, and PreviewHost.
+   Success signal: clients can query protocol/tool capabilities and handle additive fields without guessing package versions.
+2. `RG-0.9.0-2 API Package And Compatibility Audit`: review public DTOs, package dependencies, namespaces, command names, SemVer behavior, bounded-result limits, pagination, and old/new client compatibility before 1.0 freeze.
+   Success signal: intended stable surfaces are documented, accidental public surfaces are removed or marked internal, incompatible combinations fail with actionable diagnostics, and compatibility risk is recorded.
+3. `RG-0.9.0-3 Security And Safety Audit`: review runtime bridge activation, local IPC, file outputs, project-code execution, logs, and release artifacts.
    Success signal: threat model docs exist, local-only guarantees are tested, unsafe defaults are rejected, and production bridge activation remains explicit.
-3. `RG-0.9.0-3 Performance And Stress Validation`: run larger app/tree/preview/baseline scenarios with explicit budgets.
+4. `RG-0.9.0-4 Performance And Stress Validation`: run larger app/tree/preview/baseline scenarios with explicit budgets.
    Success signal: tests or validation scripts cover large visual trees, large diagnostics, repeated previews, persistent sessions, and baseline suites.
-4. `RG-0.9.0-4 Distribution Policy`: finalize supported platforms, framework-dependent/self-contained defaults, optional macOS lane, installer/signing decisions, and package publishing rules.
-   Success signal: release docs state what is supported for 1.0 and what remains unsupported.
-5. `RG-0.9.0-5 Documentation And Sample Audit`: make docs accurate, task-oriented, and versioned.
+5. `RG-0.9.0-5 Distribution Documentation And Sample Audit`: finalize supported platforms, framework-dependent/self-contained defaults, optional macOS lane, installer/signing decisions, package publishing rules, task docs, and samples.
    Success signal: README, validation, agent workflow, sample docs, release docs, troubleshooting, and migration notes cover the stable workflows.
 6. `RG-0.9.0-6 Guarded Beta Release`: ship only after beta audit validation, full release dry-runs, and all P0/P1 issues are fixed or explicitly accepted as non-blocking.
 
 ### v0.9.0 Milestone Map
 
-- `R0.9.0-M1 Public API And CLI/MCP Surface Audit`; Status: `Planned`.
-- `R0.9.0-M2 Security And Local-Only Safety Audit`; Status: `Planned`.
-- `R0.9.0-M3 Performance And Stress Validation`; Status: `Planned`.
-- `R0.9.0-M4 Distribution Policy And Artifact Matrix`; Status: `Planned`.
-- `R0.9.0-M5 Documentation, Samples, And Troubleshooting Audit`; Status: `Planned`.
+- `R0.9.0-M1 Protocol Capability And Versioning Contract`; Status: `Planned`.
+- `R0.9.0-M2 Public API Package And Compatibility Audit`; Status: `Planned`.
+- `R0.9.0-M3 Security And Local-Only Safety Audit`; Status: `Planned`.
+- `R0.9.0-M4 Performance And Stress Validation`; Status: `Planned`.
+- `R0.9.0-M5 Distribution, Documentation, Samples, And Troubleshooting Audit`; Status: `Planned`.
 - `R0.9.0-M6 Release Candidate And Version Bump`; Status: `Planned`.
 
 ### v0.9.0 Explicit Deferrals

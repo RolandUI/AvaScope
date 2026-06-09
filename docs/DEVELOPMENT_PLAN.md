@@ -37,6 +37,9 @@ Implement `R0.4.0-M1` as the first vertical slice of the `v0.4.0` runtime reliab
 
 ## Latest Validation
 
+- `2026-06-09`: `git diff --check` passed after revising `v0.8.0` into a product feature release and moving protocol/integration hardening to `v0.9.0`.
+- `2026-06-09`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-bug-reports.ps1` passed after the `v0.8.0` roadmap revision; 15 intake files scanned.
+- `2026-06-09`: Build/test validation was not run for the `v0.8.0` roadmap-only documentation revision because no source code, project file, or test code changed.
 - `2026-06-09`: `git diff --check` passed after planning the `v0.4.0` through `v1.0.0` release roadmap.
 - `2026-06-09`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-bug-reports.ps1` passed after roadmap planning and ledger status refresh; 15 intake files scanned.
 - `2026-06-09`: Build/test validation was not run for the roadmap-only documentation change because no source code, project file, or test code changed.
@@ -2636,12 +2639,14 @@ Implement `R0.4.0-M1` as the first vertical slice of the `v0.4.0` runtime reliab
 - `2026-06-09`: Animation support is tracked as a future diagnostics feature, not a Rider-style live designer clone; the useful agent surface is deterministic time-offset screenshots, bounded frame artifacts, and structured animation metadata/diagnostics.
 - `2026-06-09`: `v0.3.0` is scoped as a minor animation-diagnostics release because deterministic frame sampling, new artifact outputs, and CLI/MCP surfaces are additive product capabilities rather than patch-level fixes.
 - `2026-06-09`: `v0.3.0` animation sampling uses public `AvaloniaHeadlessPlatform.ForceRenderTimerTick(count)` in isolated PreviewHost child processes because Avalonia 12 animation clock types are not public; repeated offsets inside one request reuse the first successful frame for that offset to keep duplicate artifacts stable, while moving-property metadata remains explicit `not_available` provenance.
-- `2026-06-09`: The roadmap to `v1.0.0` is release-shaped rather than epic-shaped: `v0.4.0` hardens runtime attach/session reliability first, then `v0.5.0` preview fidelity, `v0.6.0` persistent live preview, `v0.7.0` visual regression CI, `v0.8.0` protocol/integration stability, `v0.9.0` beta hardening, and `v1.0.0` stable-surface verification.
+- `2026-06-09`: The roadmap to `v1.0.0` is release-shaped rather than epic-shaped: `v0.4.0` hardens runtime attach/session reliability first, then `v0.5.0` preview fidelity, `v0.6.0` persistent live preview, `v0.7.0` visual regression CI, `v0.8.0` agent-facing UI intelligence features, `v0.9.0` protocol/integration beta hardening, and `v1.0.0` stable-surface verification.
 - `2026-06-09`: `v0.4.0` starts with bridge session discovery and cleanup because stale manifests, ambiguous attach, dead processes, and mismatched targets are foundational reliability risks for every later runtime and editor workflow.
+- `2026-06-09`: `v0.8.0` remains a product feature release instead of a stabilization-only release: accessibility/validation audit, visual issue overlays, suggested fixes, component/style inventory, and richer animation timeline diagnostics are planned before the `v0.9.0` beta freeze.
 
 ## Change Log
 
 - `2026-06-09`: Planned the full release roadmap through `v1.0.0`, promoted `v0.4.0` as the current release target, and moved active focus to `R0.4.0-M1 Bridge Session Discovery And Cleanup`.
+- `2026-06-09`: Revised the `v0.8.0` roadmap from protocol-only stabilization into the final pre-1.0 product feature release and moved protocol/integration stabilization under `v0.9.0` beta hardening.
 - `2026-06-09`: Completed `v0.3.0` release with GitHub Release assets and tag verification, stabilized the follow-up master CI watcher timing flake, and moved active focus to next release planning.
 - `2026-06-09`: Completed `R0.3.0-M1` through `R0.3.0-M5` by adding animation sampling protocol DTOs, PreviewHost time-offset capture, Core frame strip/motion/viewer export, CLI `preview-animation`, MCP `preview_axaml_animation`, getting-started animation sample/profile, documentation, and targeted validation; moved active focus to `R0.3.0-M6`.
 - `2026-06-09`: Planned `v0.3.0` with release goals and milestones for animation sampling, PreviewHost time-offset capture, motion diagnostics, CLI/MCP/viewer workflow, sample documentation, and guarded release validation; moved active focus to `R0.3.0-M1`.
