@@ -92,21 +92,23 @@ CI validation runs restore, Release build, Release test, local library pack, loc
 
 ## Release
 
+Development is release-based. Define and complete the next target in `docs\RELEASE_PLAN.md` before increasing the repository version. The version bump is the release commit, not a planning step.
+
 Release publishing is handled by GitHub Actions. Add a repository secret named:
 
 ```text
 NUGET_API_KEY
 ```
 
-The release version is the `<Version>` value in `Directory.Build.props`. To release, increase that value, commit, and push to `master`:
+The release version is the `<Version>` value in `Directory.Build.props`. To release, first move the target in `docs\RELEASE_PLAN.md` to `Release Candidate` after the release gate passes. Then increase the version, commit, and push to `master`:
 
 ```powershell
-git add Directory.Build.props
-git commit -m "Release 0.1.1"
+git add Directory.Build.props docs\RELEASE_PLAN.md docs\DEVELOPMENT_PLAN.md
+git commit -m "Release 0.2.0"
 git push origin master
 ```
 
-The `Release` workflow reads `Directory.Build.props`, checks whether `v<Version>` already exists on the remote, and only releases when that tag is missing. If the version was already released, the workflow exits without publishing.
+The `Release` workflow reads `Directory.Build.props`, checks whether `v<Version>` already exists on the remote, and only releases when that tag is missing. Automatic publish on push also requires the commit subject to be exactly `Release <Version>` and `docs\RELEASE_PLAN.md` to declare the same target version in `Release Candidate` state. If the version was already released, the workflow exits without publishing.
 
 When a new version is detected, the workflow runs the full local release gate, dry-runs the publish set, publishes `AvaScope.Protocol`, `AvaScope.Core`, and `AvaScope.Bridge` to nuget.org and GitHub Packages in dependency order, then creates the `v<Version>` tag on the release commit.
 

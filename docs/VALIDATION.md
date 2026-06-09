@@ -136,6 +136,12 @@ Before marking a public-alpha readiness or release-workflow slice complete, run:
 powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1
 ```
 
+For release-based development, do not bump `Directory.Build.props` until the current target in `docs\RELEASE_PLAN.md` is ready to move to `Release Candidate`. The automatic publish path validates that the release commit subject is `Release <version>` and the release plan targets the same version:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-release-commit.ps1 -Version 0.2.0 -CommitSubject "Release 0.2.0" -RequiredState "Release Candidate"
+```
+
 The script wraps the release gate:
 
 ```powershell

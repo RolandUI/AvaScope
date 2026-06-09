@@ -82,6 +82,11 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
+      - name: Validate release commit
+        if: ${{ github.event_name == 'push' && steps.release_metadata.outputs.should_publish == 'true' }}
+        shell: pwsh
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-release-commit.ps1 -Version "${{ steps.release_metadata.outputs.version }}"
+
       - name: Create release artifacts
         if: ${{ steps.release_metadata.outputs.should_validate == 'true' }}
         shell: pwsh

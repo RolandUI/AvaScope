@@ -12,6 +12,8 @@ This document is the primary project-management source for autonomous agents wor
 - Commit and push each completed vertical slice or coherent milestone part. Record the commit hash in the handoff and, when practical, in this document.
 - Keep MCP, CLI, core runtime, bridge, preview host, and protocol concerns separated.
 - Do not introduce broad skeletons unless they directly support the active vertical slice.
+- From `2026-06-09` onward, development is release-based. Define the next release target in `docs/RELEASE_PLAN.md` before feature implementation and keep this plan aligned with that release scope.
+- Treat a `Directory.Build.props` version bump as the release commit only. Do not bump the version until the current release target is `Release Candidate` and the release gate has passed.
 
 ## Status Legend
 
@@ -23,15 +25,15 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `W25 Public Alpha Release Candidate`
-- Status: `Done`
+- `R0.2.0-M1 Runtime Workflow Hardening`
+- Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-09`
-- Goal: validate the post-W17 development period as a coherent public-alpha release-candidate state.
+- Goal: harden runtime node targeting and stale-node error behavior for the `v0.2.0` release target.
 
 ## Next Action
 
-No W17-W25 implementation action remains. Start the next development period by selecting a fresh milestone from the latest gap audit and product priorities.
+Implement `R0.2.0-M1` by making runtime node selection easier to carry across `find-nodes`, tree, inspect, screenshot, and input workflows while preserving the local-only bridge safety boundary.
 
 ## Latest Validation
 
@@ -129,6 +131,8 @@ No W17-W25 implementation action remains. Start the next development period by s
 - `2026-06-09`: packaged CLI doctor, MCP handoff, sample preview, baseline-create, baseline-check `--report`, and report parse smoke passed for W25 release-candidate validation.
 - `2026-06-09`: `git check-ignore -v` confirmed W25 generated release and baseline report artifacts remain ignored under `artifacts/`.
 - `2026-06-09`: `git diff --check` passed after W25 release-candidate audit updates.
+- `2026-06-09`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-release-commit.ps1 -Version 0.2.0 -CommitSubject "Release 0.2.0" -RequiredState "In Progress"` passed after release-based planning updates.
+- `2026-06-09`: `git diff --check` passed after release-based planning updates.
 - `2026-06-08`: `dotnet test AvaScope.slnx -c Release --filter FullyQualifiedName~CliSmokeTests.CloseSessionCommandClosesThroughBridgePipe` passed after W8 CI failure hardening.
 - `2026-06-08`: `dotnet test AvaScope.slnx -c Release --no-build` passed with 179 tests after W8 CI failure hardening.
 - `2026-06-08`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.1.0 -DryRun` passed after W8 GitHub Release creation hardening.
@@ -2091,6 +2095,118 @@ No W17-W25 implementation action remains. Start the next development period by s
   - Passed: `git check-ignore -v` for generated release and W25 baseline report artifacts
   - Passed: `git diff --check`
 
+### R0.2.0 Release Planning And Gate
+
+- Status: `Done`
+- Goal: move AvaScope development to release-based planning with an explicit `v0.2.0` target and a guarded release commit path.
+- Deliverables: release plan, release commit validation script, CI release guard, README/validation/gap/development-plan updates, commit, push.
+- Progress:
+  - Done: added `docs/RELEASE_PLAN.md` as the future release-scope source.
+  - Done: defined `v0.2.0` scope before starting implementation.
+  - Done: added `eng/validate-release-commit.ps1` so automatic release publishing on push requires commit subject `Release <version>` and a matching release-plan target.
+  - Done: wired the release guard into the GitHub `Release` workflow for automatic push-based publishing.
+  - Done: documented that `Directory.Build.props` version bumps are release commits, not planning commits.
+- Acceptance Criteria:
+  - Done: next release scope is visible before feature implementation starts.
+  - Done: automatic push-based release publishing is gated by release-plan state and release commit naming.
+  - Done: current repository version remains `0.1.0`; no version bump happens until the `v0.2.0` scope is complete.
+- Validation:
+  - Passed: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-release-commit.ps1 -Version 0.2.0 -CommitSubject "Release 0.2.0" -RequiredState "In Progress"`
+  - Passed: `git diff --check`
+
+### R0.2.0-M1 Runtime Workflow Hardening
+
+- Status: `In Progress`
+- Goal: make runtime node targeting easier and safer for agents using repeated CLI/MCP inspection and input workflows.
+- Deliverables: selector/targeting improvements, stale-node diagnostics, CLI/MCP documentation, tests, validation, commit, push.
+- Progress:
+  - Pending: audit current `find-nodes`, tree, `inspect-node`, `screenshot`, and `input` target handoff behavior.
+  - Pending: implement the smallest stable selector or target metadata improvement that avoids agents copying ambiguous values.
+  - Pending: return clearer stale-node or wrong-tree/top-level diagnostics without broadening runtime control.
+- Acceptance Criteria:
+  - Pending: an agent can find a node and use the returned targeting data in follow-up inspect/input workflows without guessing.
+  - Pending: stale or invalid node references return structured, actionable errors.
+  - Pending: no remote control, destructive actions, or private Avalonia hooks are introduced.
+- Validation:
+  - Pending: targeted protocol/Core/Bridge/CLI tests for the selected target handoff behavior.
+  - Pending: `dotnet build AvaScope.slnx`
+  - Pending: `dotnet test AvaScope.slnx --no-build`
+  - Pending: `git diff --check`
+
+### R0.2.0-M2 Preview Diagnostics Readiness
+
+- Status: `Not Started`
+- Goal: make preview failures more actionable before agents retry expensive or impossible render commands.
+- Deliverables: project/environment readiness diagnostics, CLI/MCP surface updates, docs, tests, validation, commit, push.
+- Progress:
+  - Pending: audit current preview-host, SDK, build, and project path diagnostics.
+  - Pending: add bounded readiness issues for missing SDK/build/project prerequisites where public tooling exposes reliable signals.
+  - Pending: document remaining diagnostics limits explicitly.
+- Acceptance Criteria:
+  - Pending: preview readiness errors distinguish missing local prerequisites from project build/render failures.
+  - Pending: diagnostics stay bounded and do not execute arbitrary user code outside existing preview request boundaries.
+- Validation:
+  - Pending: targeted PreviewHost/Core/CLI/MCP tests.
+  - Pending: `dotnet build AvaScope.slnx`
+  - Pending: `dotnet test AvaScope.slnx --no-build`
+  - Pending: `git diff --check`
+
+### R0.2.0-M3 Live Preview Lifecycle Decision
+
+- Status: `Not Started`
+- Goal: decide and implement the smallest safe live-preview improvement after unchanged-input skip events.
+- Deliverables: lifecycle decision record, implementation or explicit deferral, tests/docs, validation, commit, push.
+- Progress:
+  - Pending: evaluate persistent host process close, TTL, crash, and cleanup semantics.
+  - Pending: implement only if the lifecycle boundary is small and testable; otherwise document the deferral and next prerequisite.
+- Acceptance Criteria:
+  - Pending: live-preview behavior either improves measurably within the current isolation model or has a concrete documented deferral.
+  - Pending: no user project code runs inside MCP or the CLI process.
+- Validation:
+  - Pending: targeted preview-session tests or explicit validation note for a deferral-only slice.
+  - Pending: `dotnet build AvaScope.slnx`
+  - Pending: `dotnet test AvaScope.slnx --no-build`
+  - Pending: `git diff --check`
+
+### R0.2.0-M4 Visual Regression CI Integration
+
+- Status: `Not Started`
+- Goal: make baseline report/current/diff artifacts straightforward to publish from CI without changing local baseline command behavior.
+- Deliverables: workflow example or CI helper, docs, tests or script validation, commit, push.
+- Progress:
+  - Pending: design a minimal CI artifact upload path around existing `baseline-check --report`.
+  - Pending: keep baseline creation/check commands stable for local users.
+- Acceptance Criteria:
+  - Pending: CI users can upload JSON report, current image, and diff image artifacts from a documented workflow.
+  - Pending: existing `baseline-create` and `baseline-check` behavior remains compatible.
+- Validation:
+  - Pending: script/workflow validation appropriate to the implemented slice.
+  - Pending: `dotnet build AvaScope.slnx`
+  - Pending: `dotnet test AvaScope.slnx --no-build`
+  - Pending: `git diff --check`
+
+### R0.2.0-M5 Release Candidate And Version Bump
+
+- Status: `Not Started`
+- Goal: close `v0.2.0` as a release candidate, bump the version, and publish through the guarded release workflow.
+- Deliverables: audit refresh, full release validation, `Directory.Build.props` version bump to `0.2.0`, release commit, push.
+- Progress:
+  - Pending: confirm R0.2.0-M1 through R0.2.0-M4 are `Done` or explicitly deferred before release.
+  - Pending: move `docs/RELEASE_PLAN.md` release state to `Release Candidate`.
+  - Pending: run full release gate and GitHub Release dry-run for `v0.2.0`.
+  - Pending: commit with subject `Release 0.2.0` and push.
+- Acceptance Criteria:
+  - Pending: `Directory.Build.props` remains unchanged until all in-scope `v0.2.0` work is complete.
+  - Pending: automatic release workflow guard passes on the release commit.
+  - Pending: published assets match the release manifest and the `v0.2.0` tag.
+- Validation:
+  - Pending: `dotnet build AvaScope.slnx`
+  - Pending: `dotnet test AvaScope.slnx --no-build`
+  - Pending: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1`
+  - Pending: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.2.0 -DryRun`
+  - Pending: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-release-commit.ps1 -Version 0.2.0`
+  - Pending: `git diff --check`
+
 ## Decision Log
 
 - `2026-06-06`: Use `docs/DEVELOPMENT_PLAN.md` as the primary tracking document and keep `AGENTS.md` as the mandatory routing entrypoint.
@@ -2245,6 +2361,9 @@ No W17-W25 implementation action remains. Start the next development period by s
 - `2026-06-09`: W23 defers persistent preview host processes until close/TTL/crash semantics are designed; the faster live-preview slice instead skips unchanged-input file watcher bursts while preserving one-shot isolated PreviewHost rendering for real changes.
 - `2026-06-09`: W24 keeps baseline-check stdout and exit behavior compatible while adding optional report-file output, so CI can upload current images, diff images, and a stable machine-readable report without changing existing local workflows.
 - `2026-06-09`: W25 treats W17-W25 as a public-alpha release-candidate validation period rather than a publishing action; actual NuGet/GitHub Release upload remains gated by credentials and an explicit publish decision.
+- `2026-06-09`: AvaScope development is release-based from `v0.2.0` onward: future feature work must belong to a declared release target in `docs/RELEASE_PLAN.md`, and `Directory.Build.props` version changes are release commits only.
+- `2026-06-09`: Automatic push-based publishing now requires a release commit subject of `Release <version>` and a matching `docs/RELEASE_PLAN.md` target in `Release Candidate` state, reducing the chance that an accidental version bump publishes unfinished scope.
+- `2026-06-09`: `v0.2.0` is scoped around repeated agent usability: runtime workflow hardening, preview diagnostics readiness, live-preview lifecycle decision, visual-regression CI integration, and a guarded release candidate/version bump.
 
 ## Change Log
 
@@ -2335,3 +2454,4 @@ No W17-W25 implementation action remains. Start the next development period by s
 - `2026-06-09`: Completed W23 by adding unchanged-input skip events to preview-session watching, preserving isolated one-shot PreviewHost rendering, adding protocol/Core/CLI coverage, updating docs/gap tracking, and targeted validation; moved active focus to W24.
 - `2026-06-09`: Completed W24 by adding optional baseline-check JSON report output, report path propagation, protocol/CLI tests, sample report smoke validation, README/validation/gap updates, and targeted validation; moved active focus to W25.
 - `2026-06-09`: Completed W25 by refreshing the public-alpha audit, running full Debug and Release validation, validating GitHub Release dry-run assets, running packaged CLI doctor/MCP/baseline smokes, updating docs/gap tracking, and confirming generated artifacts remain ignored.
+- `2026-06-09`: Adopted release-based development for `v0.2.0`, added the release plan and release commit guard, updated release documentation, and moved active focus to `R0.2.0-M1 Runtime Workflow Hardening`.
