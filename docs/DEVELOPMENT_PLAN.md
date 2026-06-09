@@ -23,15 +23,15 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `W20 Agent Workflow Pack`
+- `W21 Runtime Interaction V2`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-09`
-- Goal: document and validate an agent-ready workflow that exercises preview, runtime bridge inspection, diagnostics, visual tree, input, screenshot, and diff commands from the packaged CLI.
+- Goal: expand runtime input where public Avalonia APIs and deterministic headless tests support it.
 
 ## Next Action
 
-Write the agent workflow pack, align sample documentation, validate docs and sample commands, commit, and push W20.
+Audit current runtime input support, select the smallest deterministic extension, implement it through protocol/bridge/CLI where needed, validate, commit, and push W21.
 
 ## Latest Validation
 
@@ -95,6 +95,10 @@ Write the agent workflow pack, align sample documentation, validate docs and sam
 - `2026-06-09`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli` passed with 87 tests after W19 preview profiles.
 - `2026-06-09`: source CLI `preview .\samples\AvaScope.GettingStartedApp\AvaScope.GettingStartedApp.csproj --profile main` smoke passed after W19 preview profiles.
 - `2026-06-09`: `git diff --check` passed after W19 preview profiles.
+- `2026-06-09`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1 -SkipTests` passed after W20 agent workflow pack documentation updates.
+- `2026-06-09`: packaged CLI `doctor --manifest-dir .\artifacts\samples\agent-workflow\sessions --preview-session-store .\artifacts\samples\agent-workflow\preview-sessions` passed after W20 agent workflow pack.
+- `2026-06-09`: packaged CLI `preview .\samples\AvaScope.GettingStartedApp\AvaScope.GettingStartedApp.csproj --profile main --out .\artifacts\samples\agent-workflow\main-preview.png` passed after W20 agent workflow pack.
+- `2026-06-09`: `git diff --check` passed after W20 agent workflow pack.
 - `2026-06-08`: `dotnet test AvaScope.slnx -c Release --filter FullyQualifiedName~CliSmokeTests.CloseSessionCommandClosesThroughBridgePipe` passed after W8 CI failure hardening.
 - `2026-06-08`: `dotnet test AvaScope.slnx -c Release --no-build` passed with 179 tests after W8 CI failure hardening.
 - `2026-06-08`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.1.0 -DryRun` passed after W8 GitHub Release creation hardening.
@@ -1924,23 +1928,27 @@ Write the agent workflow pack, align sample documentation, validate docs and sam
 
 ### W20 Agent Workflow Pack
 
-- Status: `In Progress`
+- Status: `Done`
 - Goal: document and validate an agent-ready workflow that exercises preview, runtime bridge inspection, diagnostics, visual tree, input, screenshot, and diff commands from the packaged CLI.
 - Deliverables: workflow documentation, sample walkthrough updates, validation commands, commit, push.
 - Progress:
-  - Pending: write a concise end-to-end workflow that is not TradeR-specific and can be followed by MCP clients or CLI users.
+  - Done: added `docs/AGENT_WORKFLOW.md` as a packaged-CLI runbook for doctor, preview profiles, preview sessions, runtime bridge inspection, screenshots, input, diff, baseline, and cleanup.
+  - Done: linked the workflow from root and sample README files.
+  - Done: added validation commands for packaged doctor and profile preview smoke paths.
 - Acceptance Criteria:
-  - README or dedicated docs page includes source and packaged CLI examples.
-  - The workflow explains safety boundaries and common failure triage through `doctor` and `diagnostics`.
-  - The sample README stays aligned with the root workflow.
+  - Done: README or dedicated docs page includes source and packaged CLI examples.
+  - Done: the workflow explains safety boundaries and common failure triage through `doctor` and `diagnostics`.
+  - Done: the sample README stays aligned with the root workflow.
 - Validation:
-  - Pending: documentation review
-  - Pending: sample packaged CLI smoke
-  - Pending: `git diff --check`
+  - Passed: documentation review
+  - Passed: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1 -SkipTests`
+  - Passed: packaged CLI doctor smoke with isolated manifest/store paths
+  - Passed: packaged CLI sample profile preview smoke
+  - Passed: `git diff --check`
 
 ### W21 Runtime Interaction V2
 
-- Status: `Not Started`
+- Status: `In Progress`
 - Goal: expand runtime input where public Avalonia APIs and deterministic headless tests support it.
 - Deliverables: richer non-destructive input behavior, protocol/CLI/MCP propagation if needed, bridge tests, documentation, commit, push.
 - Progress:
@@ -2176,6 +2184,7 @@ Write the agent workflow pack, align sample documentation, validate docs and sam
 - `2026-06-09`: W17 selects CLI doctor/self-test as the next active slice after W16 because it improves onboarding, packaged-artifact sanity checks, and agent triage before deeper input, diagnostics, or live-preview behavior.
 - `2026-06-09`: W18 doctor treats stale or unavailable bridge/preview-session records as actionable issues and exits non-zero, while release-script doctor smoke uses isolated manifest/store paths so package validation is not affected by previous local user sessions.
 - `2026-06-09`: W19 preview profiles are project-local JSON files and do not execute user code; explicit CLI arguments override profile values so one-off agent commands can safely specialize a stored profile.
+- `2026-06-09`: W20 uses packaged CLI examples as the primary agent workflow because they validate co-located CLI/MCP/PreviewHost behavior and are closer to public-alpha usage than Debug build commands.
 
 ## Change Log
 
@@ -2260,3 +2269,4 @@ Write the agent workflow pack, align sample documentation, validate docs and sam
 - `2026-06-09`: Completed W17 plan refresh with W17-W25 milestone definitions, active W18 focus, stale post-W16 next-action cleanup, gap-audit alignment, validation, commit, and push.
 - `2026-06-09`: Completed W18 by adding `avascope doctor`, doctor protocol DTOs, CLI/protocol smoke coverage, packaged release-script doctor smoke with isolated manifest/store paths, README/validation/gap updates, and release validation.
 - `2026-06-09`: Completed W19 by adding project-local preview profiles for `preview` and `create-preview-session`, a getting-started sample profile, CLI profile tests, README/sample/validation/gap updates, and sample profile smoke validation.
+- `2026-06-09`: Completed W20 by adding `docs/AGENT_WORKFLOW.md`, linking it from README and sample docs, documenting packaged CLI doctor/preview/runtime/diff/baseline workflows, and validating packaged doctor plus profile preview commands.

@@ -176,6 +176,8 @@ dotnet add path\to\YourApp.csproj package AvaScope.Bridge --version 0.1.0 --sour
 
 The repository includes a tiny Avalonia 12 sample app at `samples\AvaScope.GettingStartedApp`.
 
+For a full packaged-CLI runbook covering doctor, preview profiles, preview sessions, runtime bridge inspection, screenshots, input, and diff/baseline workflows, use `docs\AGENT_WORKFLOW.md`.
+
 Build AvaScope and render the sample preview:
 
 ```powershell

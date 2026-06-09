@@ -2,6 +2,8 @@
 
 This sample is a tiny Avalonia 12 app for validating the first AvaScope workflows.
 
+The full packaged-CLI agent runbook is in `docs\AGENT_WORKFLOW.md` from the repository root.
+
 Preview the main view:
 
 ```powershell

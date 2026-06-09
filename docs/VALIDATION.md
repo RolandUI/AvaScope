@@ -93,6 +93,14 @@ dotnet test AvaScope.slnx --filter FullyQualifiedName~CliSmokeTests.BaselineComm
 dotnet test AvaScope.slnx --filter FullyQualifiedName~ProtocolContractTests.PreviewBaselineResponsesSerializeStableShapes
 ```
 
+For agent workflow documentation work, validate the packaged CLI examples that do not require a live runtime bridge:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1 -SkipTests
+.\artifacts\executables\avascope-win-x64-framework-dependent\avascope.exe doctor --manifest-dir .\artifacts\samples\agent-workflow\sessions --preview-session-store .\artifacts\samples\agent-workflow\preview-sessions
+.\artifacts\executables\avascope-win-x64-framework-dependent\avascope.exe preview .\samples\AvaScope.GettingStartedApp\AvaScope.GettingStartedApp.csproj --profile main --out .\artifacts\samples\agent-workflow\main-preview.png
+```
+
 ## Public Alpha Release Validation
 
 Before marking a public-alpha readiness or release-workflow slice complete, run:
