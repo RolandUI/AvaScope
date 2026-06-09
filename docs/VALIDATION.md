@@ -84,6 +84,15 @@ dotnet test AvaScope.slnx --filter FullyQualifiedName~CliSmokeTests.ReloadPrevie
 dotnet test AvaScope.slnx --filter FullyQualifiedName~CliSmokeTests.WatchPreviewSessionCommandReloadsWhenWatchedFileChanges
 ```
 
+For live preview watcher changes, include:
+
+```powershell
+dotnet test AvaScope.slnx --filter FullyQualifiedName~ProtocolContractTests.PreviewWatchResponseSerializesEvents
+dotnet test AvaScope.slnx --filter FullyQualifiedName~PreviewSessionRegistryTests
+dotnet test AvaScope.slnx --filter FullyQualifiedName~PreviewHost
+dotnet test AvaScope.slnx --filter FullyQualifiedName~CliSmokeTests.WatchPreviewSessionCommandReloadsWhenWatchedFileChanges
+```
+
 For CLI preview profile work, include:
 
 ```powershell

@@ -23,15 +23,15 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `W23 Faster Live Preview`
+- `W24 Visual Regression CI Kit`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-09`
-- Goal: reduce live-preview reload friction while preserving the isolated child-process boundary for user code.
+- Goal: make baseline checking easier to run in CI and easier for agents to summarize.
 
 ## Next Action
 
-Compare the current one-shot preview-session reload/watch path with the smallest bounded live-preview improvement that preserves child-process isolation, implement it, validate, commit, and push W23.
+Audit the current baseline create/check response shape and artifact layout, add the smallest CI-friendly report output while preserving existing pass/fail behavior, validate, commit, and push W24.
 
 ## Latest Validation
 
@@ -109,6 +109,12 @@ Compare the current one-shot preview-session reload/watch path with the smallest
 - `2026-06-09`: `dotnet test AvaScope.slnx --no-build --filter Mcp` passed with 29 tests after W22 diagnostics issue provenance.
 - `2026-06-09`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli` passed with 89 tests after W22 diagnostics issue provenance.
 - `2026-06-09`: `git diff --check` passed after W22 diagnostics issue provenance.
+- `2026-06-09`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after W23 unchanged-input watch skip.
+- `2026-06-09`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~ProtocolContractTests.PreviewWatchResponseSerializesEvents` passed after W23 unchanged-input watch skip.
+- `2026-06-09`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewSessionRegistryTests` passed with 11 tests after W23 unchanged-input watch skip.
+- `2026-06-09`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewHost` passed with 31 tests after W23 unchanged-input watch skip.
+- `2026-06-09`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~CliSmokeTests.WatchPreviewSessionCommandReloadsWhenWatchedFileChanges` passed after W23 unchanged-input watch skip.
+- `2026-06-09`: `git diff --check` passed after W23 unchanged-input watch skip.
 - `2026-06-08`: `dotnet test AvaScope.slnx -c Release --filter FullyQualifiedName~CliSmokeTests.CloseSessionCommandClosesThroughBridgePipe` passed after W8 CI failure hardening.
 - `2026-06-08`: `dotnet test AvaScope.slnx -c Release --no-build` passed with 179 tests after W8 CI failure hardening.
 - `2026-06-08`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.1.0 -DryRun` passed after W8 GitHub Release creation hardening.
@@ -2003,24 +2009,29 @@ Compare the current one-shot preview-session reload/watch path with the smallest
 
 ### W23 Faster Live Preview
 
-- Status: `In Progress`
+- Status: `Done`
 - Goal: reduce live-preview reload friction while preserving the isolated child-process boundary for user code.
 - Deliverables: measured preview reload improvement or explicit deferral, process/session lifecycle tests, documentation, commit, push.
 - Progress:
-  - Pending: compare one-shot reload cost with a bounded, opt-in persistent-host design.
+  - Done: compared the current one-shot reload/watch path with a persistent-host design and kept persistent user-code processes deferred for the public-alpha boundary.
+  - Done: added watch-input snapshot detection so duplicate file watcher bursts that leave watched inputs unchanged produce a `skipped` event instead of launching another PreviewHost child process.
+  - Done: added protocol and Core watcher coverage plus CLI watch reload regression coverage.
+  - Done: documented skipped watch events and the continued one-shot isolated PreviewHost boundary.
 - Acceptance Criteria:
-  - User project assemblies are never loaded into MCP or CLI processes.
-  - Any persistent preview process has explicit close, TTL or idle shutdown, and crash recovery semantics.
-  - Existing one-shot preview behavior remains available.
+  - Done: user project assemblies are still loaded only in isolated PreviewHost child processes, never MCP or CLI.
+  - Done: persistent preview host processes remain deferred; no unmanaged persistent process lifecycle was introduced.
+  - Done: existing one-shot preview and real-change watch reload behavior remain available.
 - Validation:
-  - Pending: `dotnet build AvaScope.slnx`
-  - Pending: targeted Core/PreviewHost tests
-  - Pending: CLI watch reload smoke
-  - Pending: `git diff --check`
+  - Passed: `dotnet build AvaScope.slnx`
+  - Passed: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~ProtocolContractTests.PreviewWatchResponseSerializesEvents`
+  - Passed: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewSessionRegistryTests`
+  - Passed: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewHost`
+  - Passed: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~CliSmokeTests.WatchPreviewSessionCommandReloadsWhenWatchedFileChanges`
+  - Passed: `git diff --check`
 
 ### W24 Visual Regression CI Kit
 
-- Status: `Not Started`
+- Status: `In Progress`
 - Goal: make baseline checking easier to run in CI and easier for agents to summarize.
 - Deliverables: CI-friendly baseline report output, stable artifact layout, tests, validation docs, commit, push.
 - Progress:
@@ -2205,6 +2216,7 @@ Compare the current one-shot preview-session reload/watch path with the smallest
 - `2026-06-09`: W20 uses packaged CLI examples as the primary agent workflow because they validate co-located CLI/MCP/PreviewHost behavior and are closer to public-alpha usage than Debug build commands.
 - `2026-06-09`: W21 selected `clear_text` instead of drag/drop or richer pointer variants because targeted `TextBox` clearing can be implemented through stable public control state and deterministic headless tests while preserving the narrow non-destructive runtime control boundary.
 - `2026-06-09`: W22 keeps legacy diagnostics `issues` intact and adds Core-derived `diagnosticIssues` as a v2 provenance layer so CLI, MCP, and future agents get severity/source/status/path metadata without adapter-specific logic or private Avalonia hooks.
+- `2026-06-09`: W23 defers persistent preview host processes until close/TTL/crash semantics are designed; the faster live-preview slice instead skips unchanged-input file watcher bursts while preserving one-shot isolated PreviewHost rendering for real changes.
 
 ## Change Log
 
@@ -2292,3 +2304,4 @@ Compare the current one-shot preview-session reload/watch path with the smallest
 - `2026-06-09`: Completed W20 by adding `docs/AGENT_WORKFLOW.md`, linking it from README and sample docs, documenting packaged CLI doctor/preview/runtime/diff/baseline workflows, and validating packaged doctor plus profile preview commands.
 - `2026-06-09`: Completed W21 by adding runtime `clear_text` input for focused or targeted writable `TextBox` controls, bridge/CLI tests, README/workflow documentation, and targeted validation; moved active focus to W22.
 - `2026-06-09`: Completed W22 by adding bounded `diagnosticIssues` provenance to diagnostics responses, Core derivation from bridge/preview-host/preview-session records, protocol/Core/MCP/CLI tests, README/validation/gap updates, and targeted validation; moved active focus to W23.
+- `2026-06-09`: Completed W23 by adding unchanged-input skip events to preview-session watching, preserving isolated one-shot PreviewHost rendering, adding protocol/Core/CLI coverage, updating docs/gap tracking, and targeted validation; moved active focus to W24.

@@ -6,6 +6,7 @@ namespace AvaScope.Core;
 public sealed class PreviewSessionWatcher
 {
     private const int MaximumWatchEvents = 100;
+    private const int MaximumSnapshotEntries = 500;
     private readonly PreviewSessionRegistry _previewSessions;
     private readonly TimeProvider _timeProvider;
 
@@ -63,6 +64,7 @@ public sealed class PreviewSessionWatcher
         var events = new List<PreviewWatchEvent>();
         var reloadCount = 0;
         PreviewSessionSummary? latestSession = initialSession;
+        var inputSnapshot = CaptureWatchInputSnapshot(watchPaths);
 
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(options.Timeout);
@@ -84,6 +86,18 @@ public sealed class PreviewSessionWatcher
                     AddChangedEvent(events, extraEvent);
                 }
 
+                var nextInputSnapshot = CaptureWatchInputSnapshot(watchPaths);
+                if (string.Equals(inputSnapshot, nextInputSnapshot, StringComparison.Ordinal))
+                {
+                    AddEvent(events, new PreviewWatchEvent(
+                        PreviewWatchEventTypes.Skipped,
+                        _timeProvider.GetUtcNow(),
+                        firstEvent.Path,
+                        "unchanged_input_snapshot"));
+                    continue;
+                }
+
+                inputSnapshot = nextInputSnapshot;
                 var reloaded = await _previewSessions.ReloadAsync(sessionId, cancellationToken);
                 reloadCount++;
                 latestSession = reloaded.Success ? reloaded.Value : latestSession;
@@ -253,6 +267,66 @@ public sealed class PreviewSessionWatcher
             _timeProvider.GetUtcNow(),
             fileEvent.Path,
             fileEvent.ChangeKind));
+    }
+
+    private static string CaptureWatchInputSnapshot(IReadOnlyList<string> watchPaths)
+    {
+        var entries = new List<string>();
+        foreach (var path in watchPaths.OrderBy(static path => path, StringComparer.OrdinalIgnoreCase))
+        {
+            AddWatchPathSnapshot(entries, path);
+            if (entries.Count >= MaximumSnapshotEntries)
+            {
+                break;
+            }
+        }
+
+        return string.Join('\n', entries);
+    }
+
+    private static void AddWatchPathSnapshot(List<string> entries, string path)
+    {
+        if (entries.Count >= MaximumSnapshotEntries)
+        {
+            return;
+        }
+
+        var fullPath = Path.GetFullPath(path);
+        try
+        {
+            if (File.Exists(fullPath))
+            {
+                var file = new FileInfo(fullPath);
+                entries.Add($"file|{fullPath}|{file.Length}|{file.LastWriteTimeUtc.Ticks}");
+                return;
+            }
+
+            if (Directory.Exists(fullPath))
+            {
+                entries.Add($"directory|{fullPath}");
+                foreach (var filePath in Directory
+                    .EnumerateFiles(fullPath)
+                    .OrderBy(static filePath => filePath, StringComparer.OrdinalIgnoreCase))
+                {
+                    if (entries.Count >= MaximumSnapshotEntries - 1)
+                    {
+                        entries.Add("truncated");
+                        return;
+                    }
+
+                    var file = new FileInfo(filePath);
+                    entries.Add($"file|{Path.GetFullPath(filePath)}|{file.Length}|{file.LastWriteTimeUtc.Ticks}");
+                }
+
+                return;
+            }
+
+            entries.Add($"missing|{fullPath}");
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            entries.Add($"unavailable|{fullPath}|{exception.GetType().Name}");
+        }
     }
 
     private static void AddEvent(List<PreviewWatchEvent> events, PreviewWatchEvent watchEvent)

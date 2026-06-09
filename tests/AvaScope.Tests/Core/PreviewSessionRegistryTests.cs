@@ -375,6 +375,50 @@ public sealed class PreviewSessionRegistryTests : IDisposable
         Assert.Equal(created.Value.Session.SessionId, result.Value.SessionId);
     }
 
+    [Fact]
+    public async Task PreviewSessionWatcherSkipsReloadWhenWatchedInputsAreUnchanged()
+    {
+        var watchedDirectory = Path.Combine(_testRoot, "watched");
+        var watchedPath = Path.Combine(watchedDirectory, "WatchedView.axaml");
+        Directory.CreateDirectory(watchedDirectory);
+        await File.WriteAllTextAsync(watchedPath, "<UserControl />");
+
+        var previewSessions = new PreviewSessionRegistry(
+            new SessionRegistry(),
+            new PreviewHostClient(Path.Combine(_testRoot, "missing-host.dll")));
+        var created = await previewSessions.CreateAsync(new PreviewRequest(
+            Path.Combine(_testRoot, "preview.png"),
+            width: 100,
+            height: 100,
+            dpi: 96,
+            viewPath: watchedPath));
+        Assert.True(created.Success, created.Error?.Message);
+
+        var watcher = new PreviewSessionWatcher(previewSessions);
+        var watchTask = watcher.WatchAsync(
+            created.Value!.Session.SessionId,
+            new PreviewSessionWatchOptions(
+                TimeSpan.FromSeconds(3),
+                TimeSpan.FromMilliseconds(150),
+                maxReloads: 1,
+                [watchedDirectory]));
+
+        await Task.Delay(500);
+        var temporaryPath = Path.Combine(watchedDirectory, "temporary.txt");
+        await File.WriteAllTextAsync(temporaryPath, "transient");
+        File.Delete(temporaryPath);
+
+        var result = await watchTask;
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.True(result.Value!.TimedOut);
+        Assert.Equal(0, result.Value.ReloadCount);
+        Assert.Contains(result.Value.Events, static watchEvent => watchEvent.EventType == PreviewWatchEventTypes.Changed);
+        Assert.Contains(result.Value.Events, static watchEvent => watchEvent.EventType == PreviewWatchEventTypes.Skipped);
+        Assert.DoesNotContain(result.Value.Events, static watchEvent => watchEvent.EventType == PreviewWatchEventTypes.Reloaded);
+        Assert.Equal(created.Value.Session.SessionId, result.Value.SessionId);
+    }
+
     private sealed class ManualTimeProvider(DateTimeOffset utcNow) : TimeProvider
     {
         public DateTimeOffset UtcNow { get; set; } = utcNow;

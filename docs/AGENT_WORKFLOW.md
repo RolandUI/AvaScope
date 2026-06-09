@@ -74,7 +74,7 @@ Explicit CLI options override profile values.
 & $avascope close-preview-session --session <preview-session-id>
 ```
 
-Preview sessions persist request metadata only. Each render still runs through an isolated `AvaScope.PreviewHost` child process.
+Preview sessions persist request metadata only. Each render still runs through an isolated `AvaScope.PreviewHost` child process. Duplicate watcher bursts that leave the watched input snapshot unchanged are reported as `skipped` instead of launching another host process.
 
 ## 5. Inspect A Running App
 

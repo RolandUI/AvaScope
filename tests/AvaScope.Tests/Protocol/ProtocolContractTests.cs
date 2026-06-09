@@ -793,7 +793,12 @@ public sealed class ProtocolContractTests
                 new PreviewWatchEvent(
                     PreviewWatchEventTypes.Reloaded,
                     completedAt,
-                    reload: ToolResult<PreviewSessionSummary>.Ok(session))
+                    reload: ToolResult<PreviewSessionSummary>.Ok(session)),
+                new PreviewWatchEvent(
+                    PreviewWatchEventTypes.Skipped,
+                    completedAt.AddMilliseconds(10),
+                    "C:\\apps\\Sample\\Views\\MainView.axaml",
+                    "unchanged_input_snapshot")
             ],
             timedOut: false,
             reloadCount: 1,
@@ -809,6 +814,8 @@ public sealed class ProtocolContractTests
         Assert.Equal(PreviewWatchEventTypes.Changed, node["events"]![0]!["eventType"]!.GetValue<string>());
         Assert.Equal("Changed", node["events"]![0]!["changeKind"]!.GetValue<string>());
         Assert.True(node["events"]![1]!["reload"]!["success"]!.GetValue<bool>());
+        Assert.Equal(PreviewWatchEventTypes.Skipped, node["events"]![2]!["eventType"]!.GetValue<string>());
+        Assert.Equal("unchanged_input_snapshot", node["events"]![2]!["changeKind"]!.GetValue<string>());
         Assert.Equal("Watched preview", node["latestSession"]!["session"]!["displayName"]!.GetValue<string>());
     }
 

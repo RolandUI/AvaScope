@@ -74,13 +74,15 @@ Next slice: agent workflow documentation and validation; the one-shot `preview` 
 
 ### Reload And Hot Preview
 
-Status: preview-session reload MVP, durable MCP/CLI preview-session store, CLI file-watch reload, and runtime reload contract complete; runtime hot reload and persistent live preview host processes remain open.
+Status: preview-session reload MVP, durable MCP/CLI preview-session store, CLI file-watch reload, duplicate-burst skip, and runtime reload contract complete; runtime hot reload and persistent live preview host processes remain open.
 
 `reload` is listed in the intended MCP tool shape. Preview sessions now persist the original request plus latest render result as Core metadata and as per-session local JSON records for MCP and CLI hosts. MCP startup and CLI preview-session commands restore those preview records into `PreviewSessionRegistry`, and reload re-renders an existing preview session through the isolated preview host. Runtime bridge session ids are checked through the local bridge health path and return a structured `runtime_reload_not_supported` diagnostic. User code still runs only in one-shot preview host child processes. Runtime hot reload and persistent live preview host sessions are not implemented yet.
 
 Completed slice: runtime reload no longer falls through to a misleading preview `session_not_found` for active bridge sessions, and MCP-backed preview session records now survive MCP server process restarts.
 
 Completed slice: CLI file-watch reload adds bounded `watch-preview-session` events for changed files and preview-session reloads without keeping user project code loaded.
+
+Completed slice: `watch-preview-session` now snapshots watched inputs and reports unchanged duplicate file watcher bursts as `skipped`, avoiding unnecessary PreviewHost child-process launches while preserving one-shot isolated rendering for real input changes.
 
 ### Preview Resource Scope
 
@@ -144,4 +146,4 @@ Next slice: CI can later add upload artifacts, self-contained outputs, or more R
 
 No public-alpha blocking slice remains after M50, and W9-W16 completed the stored feature-request first slices plus CLI preview sessions, file-watch reload, manifest-backed visual regression, source-backed typed binding diagnostics, target-aware TextBox input, preview startup parity, and opt-in self-contained distribution hardening.
 
-Selected next slice: W23 faster live preview. W18 completed CLI doctor/self-test, W19 completed preview profiles, W20 added a validated packaged-CLI agent workflow, W21 added deterministic runtime `clear_text` input, and W22 added bounded diagnostics issue provenance. The next product improvement is reducing live-preview reload friction while preserving the isolated user-code process boundary. Future W24-W25 work should continue through visual regression CI reporting and a release-candidate audit.
+Selected next slice: W24 visual regression CI kit. W18 completed CLI doctor/self-test, W19 completed preview profiles, W20 added a validated packaged-CLI agent workflow, W21 added deterministic runtime `clear_text` input, W22 added bounded diagnostics issue provenance, and W23 reduced duplicate live-preview reloads with unchanged-input skip events. The next product improvement is making baseline-check output easier to upload and summarize in CI. W25 should finish with a release-candidate audit.
