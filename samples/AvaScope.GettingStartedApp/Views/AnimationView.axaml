@@ -1,0 +1,54 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="AvaScope.GettingStartedApp.Views.AnimationView">
+  <UserControl.Styles>
+    <Style Selector="Border.motion-target">
+      <Style.Animations>
+        <Animation Duration="0:0:0.45"
+                   FillMode="Forward">
+          <KeyFrame Cue="0%">
+            <Setter Property="Opacity" Value="0.35" />
+            <Setter Property="Width" Value="96" />
+          </KeyFrame>
+          <KeyFrame Cue="100%">
+            <Setter Property="Opacity" Value="1" />
+            <Setter Property="Width" Value="260" />
+          </KeyFrame>
+        </Animation>
+      </Style.Animations>
+    </Style>
+  </UserControl.Styles>
+
+  <Grid Background="{DynamicResource SampleWindowBrush}"
+        RowDefinitions="Auto,*"
+        RowSpacing="20"
+        Margin="24">
+    <StackPanel Spacing="6">
+      <TextBlock Text="Animation sampling"
+                 FontSize="26"
+                 FontWeight="SemiBold" />
+      <TextBlock Text="AvaScope renders deterministic time-offset frames for agent-readable motion diagnostics."
+                 TextWrapping="Wrap"
+                 Opacity="0.78" />
+    </StackPanel>
+
+    <Border Grid.Row="1"
+            BorderBrush="#33000000"
+            BorderThickness="1"
+            CornerRadius="6"
+            Padding="18">
+      <StackPanel Spacing="12">
+        <TextBlock Text="Width and opacity are animated by an Avalonia keyframe style."
+                   FontWeight="SemiBold" />
+        <Grid Height="72">
+          <Border Classes="motion-target"
+                  HorizontalAlignment="Left"
+                  VerticalAlignment="Center"
+                  Height="52"
+                  Background="{DynamicResource SampleAccentBrush}"
+                  CornerRadius="6" />
+        </Grid>
+      </StackPanel>
+    </Border>
+  </Grid>
+</UserControl>

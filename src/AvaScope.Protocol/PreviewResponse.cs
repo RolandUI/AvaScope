@@ -16,7 +16,8 @@ public sealed record PreviewResponse
         string? themeVariant = null,
         string? culture = null,
         string? designDataType = null,
-        IReadOnlyList<PreviewDiagnostic>? diagnostics = null)
+        IReadOnlyList<PreviewDiagnostic>? diagnostics = null,
+        int? animationTimeOffsetMs = null)
     {
         if (string.IsNullOrWhiteSpace(filePath))
         {
@@ -38,6 +39,11 @@ public sealed record PreviewResponse
             throw new ArgumentOutOfRangeException(nameof(dpi), dpi, "DPI must be positive.");
         }
 
+        if (animationTimeOffsetMs is < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(animationTimeOffsetMs), animationTimeOffsetMs, "Animation time offset must be zero or greater.");
+        }
+
         FilePath = filePath;
         PixelWidth = pixelWidth;
         PixelHeight = pixelHeight;
@@ -49,6 +55,7 @@ public sealed record PreviewResponse
         Culture = string.IsNullOrWhiteSpace(culture) ? null : culture;
         DesignDataType = string.IsNullOrWhiteSpace(designDataType) ? null : designDataType;
         Diagnostics = diagnostics ?? [];
+        AnimationTimeOffsetMs = animationTimeOffsetMs;
     }
 
     [JsonPropertyName("filePath")]
@@ -88,4 +95,8 @@ public sealed record PreviewResponse
 
     [JsonPropertyName("diagnostics")]
     public IReadOnlyList<PreviewDiagnostic> Diagnostics { get; }
+
+    [JsonPropertyName("animationTimeOffsetMs")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? AnimationTimeOffsetMs { get; }
 }

@@ -66,12 +66,18 @@ The `v0.3.0` release target is a minor release focused on deterministic animatio
 
 ### v0.3.0 Milestone Map
 
-- `R0.3.0-M1 Animation Sampling Contract` delivers `RG-0.3.0-1`; Status: `In Progress`.
-- `R0.3.0-M2 PreviewHost Time-Offset Frame Capture` delivers `RG-0.3.0-2`; Status: `Not Started`.
-- `R0.3.0-M3 Motion Diagnostics` delivers `RG-0.3.0-3`; Status: `Not Started`.
-- `R0.3.0-M4 CLI, MCP, And Viewer Workflow` delivers `RG-0.3.0-4`; Status: `Not Started`.
-- `R0.3.0-M5 Sample And Documentation` delivers `RG-0.3.0-5`; Status: `Not Started`.
-- `R0.3.0-M6 Release Candidate And Version Bump` delivers `RG-0.3.0-6`; Status: `Not Started`.
+- `R0.3.0-M1 Animation Sampling Contract` delivers `RG-0.3.0-1`; Status: `Done`.
+- `R0.3.0-M2 PreviewHost Time-Offset Frame Capture` delivers `RG-0.3.0-2`; Status: `Done`.
+- `R0.3.0-M3 Motion Diagnostics` delivers `RG-0.3.0-3`; Status: `Done`.
+- `R0.3.0-M4 CLI, MCP, And Viewer Workflow` delivers `RG-0.3.0-4`; Status: `Done`.
+- `R0.3.0-M5 Sample And Documentation` delivers `RG-0.3.0-5`; Status: `Done`.
+- `R0.3.0-M6 Release Candidate And Version Bump` delivers `RG-0.3.0-6`; Status: `In Progress`.
+
+### v0.3.0 Implementation Validation
+
+- `2026-06-09`: `dotnet build AvaScope.slnx --no-restore -v:minimal` passed with 0 warnings and 0 errors after animation sampling, viewer, sample, and documentation implementation.
+- `2026-06-09`: Animation targeted tests passed with 5 tests covering protocol serialization, Core frame/strip/viewer output, CLI `preview-animation`, MCP tool listing, and MCP invalid-offset validation.
+- `2026-06-09`: Source CLI `preview-animation .\samples\AvaScope.GettingStartedApp\AvaScope.GettingStartedApp.csproj --profile animation` passed with 4 successful frames, a frame strip, `motion.status=changed`, and a file-backed animation viewer URL.
 
 ### Explicit Deferrals
 
@@ -80,6 +86,7 @@ The `v0.3.0` release target is a minor release focused on deterministic animatio
 - Private Avalonia runtime hooks, CLR injection, and designer-private APIs remain out of scope.
 - Remote runtime inspection remains out of scope; bridge transport stays opt-in and local-only.
 - Animation metadata that cannot be obtained through reliable public APIs must be reported as `unknown` or `not_available`.
+- Strict manual animation clock injection remains out of scope because Avalonia 12 `IClock`/`Clock` are not public API; `v0.3.0` uses public headless render timer ticks and stable repeated-offset artifact reuse.
 
 ## Released Target: v0.2.2
 

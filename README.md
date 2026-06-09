@@ -250,6 +250,16 @@ dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll preview path\to\App.csp
 
 The command writes a structured JSON `ToolResult<PreviewBatchResponse>`. Each `entries[]` item has a deterministic per-size output path and an independent `ToolResult<PreviewResponse>`, so one failed size does not discard successful screenshots.
 
+Render deterministic animation time-offset samples:
+
+```powershell
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll preview-animation path\to\App.csproj --view Views\AnimatedView.axaml --out .\animation.png --time-offsets 0,150,900,900 --width 720 --height 420 --theme light --frame-strip .\animation-strip.png --viewer .\animation.html
+```
+
+The command writes per-offset PNG frames, an optional frame strip, and a structured `ToolResult<PreviewAnimationResponse>`. When `--viewer` is supplied, the response includes `viewer.previewUrl`, a `file://` URL for a self-contained HTML timeline viewer that embeds the sampled frames, motion summary, diagnostics, and JSON response.
+
+Animation sampling advances the public Avalonia headless render timer inside isolated PreviewHost child processes. Repeated offsets inside one request reuse the first successful frame for that offset so agents can produce stable duplicate artifacts. AvaScope reports pixel deltas and final-state stability diagnostics from sampled frames. Moving-node or property metadata is reported with explicit `not_available` provenance when reliable public Avalonia APIs do not expose it.
+
 Create and manage durable preview sessions from the CLI:
 
 ```powershell
@@ -410,6 +420,7 @@ Implemented tools:
 - `diagnostics`
 - `preview_axaml`
 - `preview_axaml_multi`
+- `preview_axaml_animation`
 - `cleanup`
 - `create_preview_session`
 - `list_preview_sessions`
@@ -472,6 +483,8 @@ Preview rendering is isolated in `AvaScope.PreviewHost`, launched as a child pro
 - writes a PNG and structured JSON result.
 
 Successful preview responses can include diagnostics for missing `DataContext`, unresolved resource keys, missing or invalid converter resources, conservative binding path failures, `x:DataType` binding path mismatches, missing inherited `x:DataType` on `CompiledBinding`, text clipping/truncation, clipped content, unreachable content, sibling overlap, and too-small hit targets. These diagnostics are advisory and do not fail an otherwise successful screenshot.
+
+Animation preview responses use the same isolated PreviewHost boundary and add explicit `animationTimeOffsetMs` frame sampling. `PreviewAnimationResponse` includes per-frame render results, optional `frameStripPath`, optional file-backed `viewer.previewUrl`, and motion diagnostics derived from sampled pixels.
 
 Preview session tools store the original preview request plus the latest render result as Core metadata. MCP-backed and CLI-created preview session records are also persisted as JSON under the local AvaScope temp preview-session store so they can be restored after the MCP server or CLI process restarts. They do not keep user project code loaded inside MCP or CLI; each render still goes through `AvaScope.PreviewHost`.
 

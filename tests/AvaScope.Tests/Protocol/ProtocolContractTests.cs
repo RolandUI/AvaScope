@@ -788,6 +788,80 @@ public sealed class ProtocolContractTests
     }
 
     [Fact]
+    public void PreviewAnimationRequestAndResponseSerializeStableShapes()
+    {
+        var sampledAt = new DateTimeOffset(2026, 6, 9, 14, 0, 0, TimeSpan.Zero);
+        var request = new PreviewAnimationRequest(
+            "C:\\previews\\animation.png",
+            [0, 150, 300],
+            320,
+            200,
+            96,
+            "C:\\apps\\Sample\\Sample.csproj",
+            "Views\\AnimatedView.axaml",
+            "dark",
+            "en-US",
+            "Sample.AnimationDesignData",
+            "C:\\previews\\animation-strip.png",
+            "C:\\previews\\animation.html");
+        var response = new PreviewAnimationResponse(
+            [
+                new PreviewAnimationFrame(
+                    150,
+                    "C:\\previews\\animation-02-150ms.png",
+                    ToolResult<PreviewResponse>.Ok(new PreviewResponse(
+                        "C:\\previews\\animation-02-150ms.png",
+                        320,
+                        200,
+                        96,
+                        sampledAt,
+                        animationTimeOffsetMs: 150)))
+            ],
+            "C:\\previews\\animation-strip.png",
+            new PreviewAnimationMotionSummary(
+                "changed",
+                3,
+                42,
+                64000,
+                0.065625,
+                128,
+                new Dictionary<string, string>
+                {
+                    ["metadataProvenance"] = "not_available"
+                }),
+            [
+                new PreviewDiagnostic(
+                    PreviewDiagnosticSeverities.Info,
+                    PreviewDiagnosticCategories.Animation,
+                    "animation_pixels_changed",
+                    "Frames changed.")
+            ],
+            sampledAt,
+            new PreviewAnimationViewerResponse(
+                "C:\\previews\\animation.html",
+                "file:///C:/previews/animation.html",
+                sampledAt.AddSeconds(1)));
+
+        var requestNode = JsonNode.Parse(JsonSerializer.Serialize(request))!;
+        var responseNode = JsonNode.Parse(JsonSerializer.Serialize(response))!;
+
+        Assert.Equal("C:\\previews\\animation.png", requestNode["outputPath"]!.GetValue<string>());
+        Assert.Equal(150, requestNode["timeOffsetsMs"]![1]!.GetValue<int>());
+        Assert.Equal(320, requestNode["width"]!.GetValue<double>());
+        Assert.Equal("Views\\AnimatedView.axaml", requestNode["viewPath"]!.GetValue<string>());
+        Assert.Equal("C:\\previews\\animation-strip.png", requestNode["frameStripPath"]!.GetValue<string>());
+        Assert.Equal("C:\\previews\\animation.html", requestNode["viewerPath"]!.GetValue<string>());
+        Assert.Equal(150, responseNode["frames"]![0]!["timeOffsetMs"]!.GetValue<int>());
+        Assert.True(responseNode["frames"]![0]!["render"]!["success"]!.GetValue<bool>());
+        Assert.Equal(150, responseNode["frames"]![0]!["render"]!["value"]!["animationTimeOffsetMs"]!.GetValue<int>());
+        Assert.Equal("changed", responseNode["motion"]!["status"]!.GetValue<string>());
+        Assert.Equal(42, responseNode["motion"]!["changedPixels"]!.GetValue<long>());
+        Assert.Equal("animation", responseNode["diagnostics"]![0]!["category"]!.GetValue<string>());
+        Assert.Equal("C:\\previews\\animation-strip.png", responseNode["frameStripPath"]!.GetValue<string>());
+        Assert.Equal("file:///C:/previews/animation.html", responseNode["viewer"]!["previewUrl"]!.GetValue<string>());
+    }
+
+    [Fact]
     public void PreviewDiffAndCleanupResponsesSerializeStableShapes()
     {
         var diff = new PreviewDiffResponse(

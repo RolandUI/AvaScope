@@ -228,6 +228,21 @@ public sealed class AvaScopeMcpToolsTests
     }
 
     [Fact]
+    public async Task PreviewAxamlAnimationRejectsInvalidOffsets()
+    {
+        var client = new PreviewHostClient(Path.Combine(AppContext.BaseDirectory, "AvaScope.PreviewHost.dll"));
+
+        var result = await AvaScopeMcpTools.PreviewAxamlAnimation(
+            client,
+            "animation.png",
+            "0,-1");
+
+        Assert.False(result.Success);
+        Assert.Null(result.Value);
+        Assert.Equal(CoreErrorCodes.InvalidPreviewRequest, result.Error!.Code);
+    }
+
+    [Fact]
     public async Task CreatePreviewSessionRejectsInvalidDimensions()
     {
         var previewSessions = CreatePreviewSessionRegistryWithMissingHost();

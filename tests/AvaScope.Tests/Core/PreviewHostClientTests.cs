@@ -72,6 +72,60 @@ public sealed class PreviewHostClientTests : IDisposable
     }
 
     [Fact]
+    public async Task RenderAnimationAsyncCreatesOffsetFramesStripAndMotionSummary()
+    {
+        Directory.CreateDirectory(_testRoot);
+
+        var hostAssembly = Path.Combine(AppContext.BaseDirectory, "AvaScope.PreviewHost.dll");
+        var viewPath = Path.Combine(_testRoot, "AnimationView.axaml");
+        var outputPath = Path.Combine(_testRoot, "animation.png");
+        var stripPath = Path.Combine(_testRoot, "animation-strip.png");
+        var viewerPath = Path.Combine(_testRoot, "animation.html");
+
+        await File.WriteAllTextAsync(viewPath, """
+            <UserControl xmlns="https://github.com/avaloniaui">
+              <Border Background="#FFFFFFFF">
+                <TextBlock Text="Animation frame sample" />
+              </Border>
+            </UserControl>
+            """);
+
+        var client = new PreviewHostClient(hostAssembly);
+        var result = await client.RenderAnimationAsync(new PreviewAnimationRequest(
+            outputPath,
+            [0, 33, 33],
+            width: 240,
+            height: 120,
+            dpi: 96,
+            viewPath: viewPath,
+            themeVariant: "light",
+            frameStripPath: stripPath,
+            viewerPath: viewerPath));
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(3, result.Value!.Frames.Count);
+        Assert.All(result.Value.Frames, frame => Assert.True(frame.Render.Success, frame.Render.Error?.Message));
+        Assert.Equal(0, result.Value.Frames[0].Render.Value!.AnimationTimeOffsetMs);
+        Assert.Equal(33, result.Value.Frames[1].Render.Value!.AnimationTimeOffsetMs);
+        Assert.Equal(33, result.Value.Frames[2].Render.Value!.AnimationTimeOffsetMs);
+        Assert.Contains(
+            result.Value.Frames[2].Render.Value!.Diagnostics,
+            static diagnostic => diagnostic.Code == "animation_frame_reused");
+        Assert.All(result.Value.Frames, frame => Assert.True(File.Exists(frame.OutputPath)));
+        Assert.Equal(Path.GetFullPath(stripPath), result.Value.FrameStripPath);
+        Assert.True(File.Exists(stripPath));
+        Assert.NotNull(result.Value.Viewer);
+        Assert.Equal(Path.GetFullPath(viewerPath), result.Value.Viewer!.ViewerPath);
+        Assert.Equal(new Uri(viewerPath).AbsoluteUri, result.Value.Viewer.PreviewUrl);
+        Assert.True(File.Exists(viewerPath));
+        var viewerHtml = await File.ReadAllTextAsync(viewerPath);
+        Assert.Contains("data:image/png;base64,", viewerHtml);
+        Assert.Contains("animation-json", viewerHtml);
+        Assert.Equal("static", result.Value.Motion.Status);
+        Assert.Contains(result.Value.Diagnostics, static diagnostic => diagnostic.Code == "animation_static_frames");
+    }
+
+    [Fact]
     public void GetDiagnosticsReportsAvailablePreviewHost()
     {
         var hostAssembly = Path.Combine(AppContext.BaseDirectory, "AvaScope.PreviewHost.dll");

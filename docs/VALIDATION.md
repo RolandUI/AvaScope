@@ -111,6 +111,16 @@ dotnet test AvaScope.slnx --filter FullyQualifiedName~AvaScopeMcpToolsTests.Prev
 dotnet test AvaScope.slnx --filter FullyQualifiedName~McpStdioSmokeTests.ServerStartsOverStdioAndListsInitialTools
 ```
 
+For animation preview work, include:
+
+```powershell
+dotnet test AvaScope.slnx --filter FullyQualifiedName~ProtocolContractTests.PreviewAnimationRequestAndResponseSerializeStableShapes
+dotnet test AvaScope.slnx --filter FullyQualifiedName~PreviewHostClientTests.RenderAnimationAsyncCreatesOffsetFramesStripAndMotionSummary
+dotnet test AvaScope.slnx --filter FullyQualifiedName~CliSmokeTests.PreviewAnimationCommandRendersOffsetFramesAndStrip
+dotnet test AvaScope.slnx --filter "FullyQualifiedName~McpStdioSmokeTests.ServerStartsOverStdioAndListsInitialTools|FullyQualifiedName~AvaScopeMcpToolsTests.PreviewAxamlAnimationRejectsInvalidOffsets"
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll preview-animation .\samples\AvaScope.GettingStartedApp\AvaScope.GettingStartedApp.csproj --profile animation
+```
+
 For live preview watcher changes, include:
 
 ```powershell

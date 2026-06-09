@@ -2,11 +2,15 @@ using System.Text.Json.Serialization;
 
 namespace AvaScope.Protocol;
 
-public sealed record PreviewRequest
+public sealed record PreviewAnimationRequest
 {
+    public const int MaximumFrameCount = 24;
+    public const int MaximumTimeOffsetMs = 60000;
+
     [JsonConstructor]
-    public PreviewRequest(
+    public PreviewAnimationRequest(
         string outputPath,
+        IReadOnlyList<int>? timeOffsetsMs,
         double? width = null,
         double? height = null,
         double dpi = 96,
@@ -15,7 +19,8 @@ public sealed record PreviewRequest
         string? themeVariant = null,
         string? culture = null,
         string? designDataType = null,
-        int? animationTimeOffsetMs = null)
+        string? frameStripPath = null,
+        string? viewerPath = null)
     {
         if (string.IsNullOrWhiteSpace(outputPath))
         {
@@ -37,12 +42,31 @@ public sealed record PreviewRequest
             throw new ArgumentOutOfRangeException(nameof(dpi), dpi, "DPI must be positive.");
         }
 
-        if (animationTimeOffsetMs is < 0)
+        if (timeOffsetsMs is null || timeOffsetsMs.Count == 0)
         {
-            throw new ArgumentOutOfRangeException(nameof(animationTimeOffsetMs), animationTimeOffsetMs, "Animation time offset must be zero or greater.");
+            throw new ArgumentException("At least one animation time offset is required.", nameof(timeOffsetsMs));
+        }
+
+        if (timeOffsetsMs.Count > MaximumFrameCount)
+        {
+            throw new ArgumentOutOfRangeException(nameof(timeOffsetsMs), timeOffsetsMs.Count, $"Animation sampling supports at most {MaximumFrameCount} frames.");
+        }
+
+        foreach (var offset in timeOffsetsMs)
+        {
+            if (offset < 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(timeOffsetsMs), offset, "Animation time offsets must be zero or greater.");
+            }
+
+            if (offset > MaximumTimeOffsetMs)
+            {
+                throw new ArgumentOutOfRangeException(nameof(timeOffsetsMs), offset, $"Animation time offsets must be at most {MaximumTimeOffsetMs}ms.");
+            }
         }
 
         OutputPath = outputPath;
+        TimeOffsetsMs = timeOffsetsMs.ToArray();
         Width = width;
         Height = height;
         Dpi = dpi;
@@ -51,11 +75,15 @@ public sealed record PreviewRequest
         ThemeVariant = string.IsNullOrWhiteSpace(themeVariant) ? null : themeVariant;
         Culture = string.IsNullOrWhiteSpace(culture) ? null : culture;
         DesignDataType = string.IsNullOrWhiteSpace(designDataType) ? null : designDataType;
-        AnimationTimeOffsetMs = animationTimeOffsetMs;
+        FrameStripPath = string.IsNullOrWhiteSpace(frameStripPath) ? null : frameStripPath;
+        ViewerPath = string.IsNullOrWhiteSpace(viewerPath) ? null : viewerPath;
     }
 
     [JsonPropertyName("outputPath")]
     public string OutputPath { get; }
+
+    [JsonPropertyName("timeOffsetsMs")]
+    public IReadOnlyList<int> TimeOffsetsMs { get; }
 
     [JsonPropertyName("width")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -88,7 +116,11 @@ public sealed record PreviewRequest
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? DesignDataType { get; }
 
-    [JsonPropertyName("animationTimeOffsetMs")]
+    [JsonPropertyName("frameStripPath")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public int? AnimationTimeOffsetMs { get; }
+    public string? FrameStripPath { get; }
+
+    [JsonPropertyName("viewerPath")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ViewerPath { get; }
 }

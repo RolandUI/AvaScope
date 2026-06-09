@@ -8,6 +8,16 @@
       "theme": "light",
       "designDataType": "AvaScope.GettingStartedApp.SamplePreviewData",
       "displayName": "Getting Started MainView"
+    },
+    "animation": {
+      "view": "Views/AnimationView.axaml",
+      "out": "../../artifacts/samples/getting-started-animation.png",
+      "width": 560,
+      "height": 260,
+      "theme": "light",
+      "timeOffsetsMs": "0,250,900,900",
+      "frameStripPath": "../../artifacts/samples/getting-started-animation-strip.png",
+      "viewerPath": "../../artifacts/samples/getting-started-animation.html"
     }
   }
 }

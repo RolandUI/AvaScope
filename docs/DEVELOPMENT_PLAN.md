@@ -25,18 +25,21 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `R0.3.0-M1 Animation Sampling Contract`
+- `R0.3.0-M6 Release Candidate And Version Bump`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-09`
-- Goal: define additive protocol, Core, CLI, and MCP contracts for deterministic animation time-offset sampling.
+- Goal: run the guarded `v0.3.0` release gate, move the target to `Release Candidate`, then prepare the final version bump release commit.
 
 ## Next Action
 
-Start `R0.3.0-M1` by designing the animation sampling request/response DTOs and choosing stable CLI/MCP command names without changing existing preview or screenshot compatibility.
+Run the full release gate for `v0.3.0`: full build/test, local release packaging, GitHub Release dry-run, packaged CLI animation smoke, bug-report validation, and `git diff --check`.
 
 ## Latest Validation
 
+- `2026-06-09`: `dotnet build AvaScope.slnx --no-restore -v:minimal` passed with 0 warnings and 0 errors after implementing `v0.3.0` animation sampling, viewer, sample, and documentation.
+- `2026-06-09`: Animation targeted tests passed with 5 tests: `ProtocolContractTests.PreviewAnimationRequestAndResponseSerializeStableShapes`, `PreviewHostClientTests.RenderAnimationAsyncCreatesOffsetFramesStripAndMotionSummary`, `CliSmokeTests.PreviewAnimationCommandRendersOffsetFramesAndStrip`, `McpStdioSmokeTests.ServerStartsOverStdioAndListsInitialTools`, and `AvaScopeMcpToolsTests.PreviewAxamlAnimationRejectsInvalidOffsets`.
+- `2026-06-09`: Source CLI `preview-animation .\samples\AvaScope.GettingStartedApp\AvaScope.GettingStartedApp.csproj --profile animation` passed with 4 successful frames, a frame strip, `motion.status=changed`, and a file-backed animation viewer URL.
 - `2026-06-09`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-bug-reports.ps1` and `git diff --check` passed after planning `v0.3.0` animation diagnostics release scope; 15 intake files scanned.
 - `2026-06-09`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-bug-reports.ps1` passed after storing `FEAT-0008`; 15 intake files scanned.
 - `2026-06-09`: GitHub Release workflow `27205089688` passed for `Release 0.2.2`; tag `v0.2.2` and six GitHub Release assets were published at `2026-06-09T12:17:17Z`.
@@ -2615,9 +2618,11 @@ Start `R0.3.0-M1` by designing the animation sampling request/response DTOs and 
 - `2026-06-09`: BUG-0003 binding diagnostics treat declared source `x:DataType` as authoritative for a binding path before falling back to root preview `DataContext`; layout diagnostics filter Avalonia framework/template internals instead of reporting them as user layout defects.
 - `2026-06-09`: Animation support is tracked as a future diagnostics feature, not a Rider-style live designer clone; the useful agent surface is deterministic time-offset screenshots, bounded frame artifacts, and structured animation metadata/diagnostics.
 - `2026-06-09`: `v0.3.0` is scoped as a minor animation-diagnostics release because deterministic frame sampling, new artifact outputs, and CLI/MCP surfaces are additive product capabilities rather than patch-level fixes.
+- `2026-06-09`: `v0.3.0` animation sampling uses public `AvaloniaHeadlessPlatform.ForceRenderTimerTick(count)` in isolated PreviewHost child processes because Avalonia 12 animation clock types are not public; repeated offsets inside one request reuse the first successful frame for that offset to keep duplicate artifacts stable, while moving-property metadata remains explicit `not_available` provenance.
 
 ## Change Log
 
+- `2026-06-09`: Completed `R0.3.0-M1` through `R0.3.0-M5` by adding animation sampling protocol DTOs, PreviewHost time-offset capture, Core frame strip/motion/viewer export, CLI `preview-animation`, MCP `preview_axaml_animation`, getting-started animation sample/profile, documentation, and targeted validation; moved active focus to `R0.3.0-M6`.
 - `2026-06-09`: Planned `v0.3.0` with release goals and milestones for animation sampling, PreviewHost time-offset capture, motion diagnostics, CLI/MCP/viewer workflow, sample documentation, and guarded release validation; moved active focus to `R0.3.0-M1`.
 - `2026-06-09`: Stored `FEAT-0008` for future animation diagnostics; no implementation was started and next release planning remains the active focus.
 - `2026-06-09`: Completed `v0.2.2` release with GitHub Release assets and tag verification; moved active focus to next release planning.

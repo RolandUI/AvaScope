@@ -464,6 +464,69 @@ public sealed class AvaScopeMcpTools
     }
 
     [McpServerTool(
+        Name = "preview_axaml_animation",
+        Title = "Preview AXAML animation",
+        ReadOnly = false,
+        Idempotent = false,
+        Destructive = false,
+        OpenWorld = false,
+        UseStructuredContent = true)]
+    [Description("Renders deterministic time-offset animation samples for an Avalonia .axaml preview through isolated preview host child processes.")]
+    public static async Task<ToolResult<PreviewAnimationResponse>> PreviewAxamlAnimation(
+        PreviewHostClient previewHostClient,
+        string outputPath,
+        string timeOffsetsMs,
+        double? width = null,
+        double? height = null,
+        double dpi = 96,
+        string? projectPath = null,
+        string? viewPath = null,
+        string? themeVariant = null,
+        string? culture = null,
+        string? designDataType = null,
+        string? frameStripPath = null,
+        string? viewerPath = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(previewHostClient);
+
+        if (!TryParseAnimationTimeOffsets(timeOffsetsMs, out var offsets))
+        {
+            return ToolResult<PreviewAnimationResponse>.Fail(new ProtocolError(
+                CoreErrorCodes.InvalidPreviewRequest,
+                $"timeOffsetsMs must be a comma-separated list of 0..{PreviewAnimationRequest.MaximumTimeOffsetMs} millisecond offsets."));
+        }
+
+        PreviewAnimationRequest request;
+        try
+        {
+            request = new PreviewAnimationRequest(
+                outputPath,
+                offsets!,
+                width,
+                height,
+                dpi,
+                projectPath,
+                viewPath,
+                themeVariant,
+                culture,
+                designDataType,
+                frameStripPath,
+                viewerPath);
+        }
+        catch (Exception exception) when (exception is ArgumentException or ArgumentOutOfRangeException)
+        {
+            return ToolResult<PreviewAnimationResponse>.Fail(new ProtocolError(
+                CoreErrorCodes.InvalidPreviewRequest,
+                exception.Message));
+        }
+
+        return ToToolResult(await previewHostClient.RenderAnimationAsync(
+            request,
+            cancellationToken));
+    }
+
+    [McpServerTool(
         Name = "cleanup",
         Title = "Cleanup",
         ReadOnly = false,
@@ -758,6 +821,36 @@ public sealed class AvaScopeMcpTools
         }
 
         viewports = parsed;
+        return true;
+    }
+
+    private static bool TryParseAnimationTimeOffsets(string text, out IReadOnlyList<int>? timeOffsetsMs)
+    {
+        timeOffsetsMs = null;
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return false;
+        }
+
+        var parsed = new List<int>();
+        foreach (var token in text.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            if (!int.TryParse(token, NumberStyles.Integer, CultureInfo.InvariantCulture, out var offset)
+                || offset < 0
+                || offset > PreviewAnimationRequest.MaximumTimeOffsetMs)
+            {
+                return false;
+            }
+
+            parsed.Add(offset);
+        }
+
+        if (parsed.Count == 0 || parsed.Count > PreviewAnimationRequest.MaximumFrameCount)
+        {
+            return false;
+        }
+
+        timeOffsetsMs = parsed;
         return true;
     }
 }

@@ -22,6 +22,7 @@ internal static class Program
         return args[0] switch
         {
             "preview" => await Preview(args[1..]),
+            "preview-animation" => await PreviewAnimation(args[1..]),
             "attach" => await Attach(args[1..]),
             "list-top-levels" => await ListTopLevels(args[1..]),
             "screenshot" => await Screenshot(args[1..]),
@@ -238,6 +239,144 @@ internal static class Program
         }
     }
 
+    private static async Task<int> PreviewAnimation(string[] args)
+    {
+        if (args.Length == 0)
+        {
+            WriteFailure<PreviewAnimationResponse>(InvalidCliArguments, GetPreviewAnimationUsage());
+            return 2;
+        }
+
+        var projectPath = args[0];
+        var options = ParseOptions(args[1..], GetPreviewAnimationUsage());
+        if (!options.Success)
+        {
+            WriteFailure<PreviewAnimationResponse>(InvalidCliArguments, options.Error!);
+            return 2;
+        }
+
+        if (!ValidateOptions(
+                options.Values,
+                GetPreviewAnimationUsage(),
+                "view",
+                "out",
+                "width",
+                "height",
+                "dpi",
+                "theme",
+                "culture",
+                "design-data-type",
+                "profile",
+                "profile-file",
+                "time-offsets",
+                "frame-strip",
+                "viewer"))
+        {
+            return 2;
+        }
+
+        if (!TryApplyPreviewProfile(projectPath, options.Values, GetPreviewAnimationUsage(), out var effectiveOptions, out var profileError))
+        {
+            WriteResult(ToolResult<PreviewAnimationResponse>.Fail(profileError!));
+            return 2;
+        }
+
+        if (!effectiveOptions.TryGetValue("view", out _)
+            || !effectiveOptions.TryGetValue("out", out _)
+            || !effectiveOptions.TryGetValue("time-offsets", out _))
+        {
+            WriteFailure<PreviewAnimationResponse>(InvalidCliArguments, GetPreviewAnimationUsage());
+            return 2;
+        }
+
+        if (!TryCreatePreviewAnimationRequest(projectPath, effectiveOptions, out var request, out var error))
+        {
+            WriteResult(ToolResult<PreviewAnimationResponse>.Fail(error!));
+            return 2;
+        }
+
+        var result = await new PreviewHostClient().RenderAnimationAsync(request!);
+        WriteResult(result);
+        return result.Success && result.Value!.Frames.Any(static frame => frame.Render.Success) ? 0 : 1;
+    }
+
+    private static bool TryCreatePreviewAnimationRequest(
+        string projectPath,
+        IReadOnlyDictionary<string, string> options,
+        out PreviewAnimationRequest? request,
+        out ProtocolError? error)
+    {
+        request = null;
+        error = null;
+
+        if (!TryParseAnimationTimeOffsets(options["time-offsets"], out var timeOffsetsMs))
+        {
+            error = new ProtocolError(
+                InvalidCliArguments,
+                $"time-offsets must be a comma-separated list of 0..{PreviewAnimationRequest.MaximumTimeOffsetMs} millisecond offsets.");
+            return false;
+        }
+
+        double? width = null;
+        if (options.TryGetValue("width", out var widthText))
+        {
+            if (!TryParsePositiveDouble(widthText, out var parsedWidth))
+            {
+                error = new ProtocolError(
+                    InvalidCliArguments,
+                    "Width, height, and dpi must be positive numbers.");
+                return false;
+            }
+
+            width = parsedWidth;
+        }
+
+        double? height = null;
+        if (options.TryGetValue("height", out var heightText))
+        {
+            if (!TryParsePositiveDouble(heightText, out var parsedHeight))
+            {
+                error = new ProtocolError(
+                    InvalidCliArguments,
+                    "Width, height, and dpi must be positive numbers.");
+                return false;
+            }
+
+            height = parsedHeight;
+        }
+
+        if (!TryParsePositiveDouble(options.GetValueOrDefault("dpi", "96"), out var dpi))
+        {
+            error = new ProtocolError(
+                InvalidCliArguments,
+                "Width, height, and dpi must be positive numbers.");
+            return false;
+        }
+
+        try
+        {
+            request = new PreviewAnimationRequest(
+                Path.GetFullPath(options["out"]),
+                timeOffsetsMs,
+                width,
+                height,
+                dpi,
+                Path.GetFullPath(projectPath),
+                options["view"],
+                options.GetValueOrDefault("theme"),
+                options.GetValueOrDefault("culture"),
+                options.GetValueOrDefault("design-data-type"),
+                options.TryGetValue("frame-strip", out var frameStripPath) ? Path.GetFullPath(frameStripPath) : null,
+                options.TryGetValue("viewer", out var viewerPath) ? Path.GetFullPath(viewerPath) : null);
+            return true;
+        }
+        catch (Exception exception) when (exception is ArgumentException or ArgumentOutOfRangeException or PathTooLongException)
+        {
+            error = new ProtocolError(CoreErrorCodes.InvalidPreviewRequest, exception.Message);
+            return false;
+        }
+    }
+
     private static bool TryApplyPreviewProfile(
         string projectPath,
         IReadOnlyDictionary<string, string> options,
@@ -379,6 +518,9 @@ internal static class Program
             "designDataType" or "design-data-type" => "design-data-type",
             "sizes" => "sizes",
             "contactSheet" or "contact-sheet" => "contact-sheet",
+            "timeOffsetsMs" or "time-offsets" => "time-offsets",
+            "frameStripPath" or "frame-strip" => "frame-strip",
+            "viewerPath" or "viewer" => "viewer",
             "displayName" or "display-name" => "display-name",
             _ => null
         };
@@ -397,7 +539,7 @@ internal static class Program
             return false;
         }
 
-        if (optionName is "out" or "contact-sheet" && !Path.IsPathRooted(optionValue!))
+        if (optionName is "out" or "contact-sheet" or "frame-strip" or "viewer" && !Path.IsPathRooted(optionValue!))
         {
             optionValue = Path.GetFullPath(Path.Combine(profileDirectory, optionValue!));
         }
@@ -1338,6 +1480,36 @@ internal static class Program
         return true;
     }
 
+    private static bool TryParseAnimationTimeOffsets(string text, out IReadOnlyList<int>? timeOffsetsMs)
+    {
+        timeOffsetsMs = null;
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return false;
+        }
+
+        var parsed = new List<int>();
+        foreach (var token in text.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            if (!int.TryParse(token, NumberStyles.Integer, CultureInfo.InvariantCulture, out var offset)
+                || offset < 0
+                || offset > PreviewAnimationRequest.MaximumTimeOffsetMs)
+            {
+                return false;
+            }
+
+            parsed.Add(offset);
+        }
+
+        if (parsed.Count == 0 || parsed.Count > PreviewAnimationRequest.MaximumFrameCount)
+        {
+            return false;
+        }
+
+        timeOffsetsMs = parsed;
+        return true;
+    }
+
     private static bool ValidateOptions(
         IReadOnlyDictionary<string, string> options,
         string usage,
@@ -1794,12 +1966,17 @@ internal static class Program
 
     private static string GetUsage()
     {
-        return "Usage: avascope mcp | avascope doctor [--manifest-dir <dir>] [--preview-session-store <dir>] | avascope attach [--process <pid>] [--session <session-id>] | avascope list-top-levels --session <session-id> | avascope visual-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] | avascope logical-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] | avascope inspect-node --session <session-id> --top-level <top-level-id> --node <node-id> [--tree-kind visual|logical] | avascope find-nodes --session <session-id> --top-level <top-level-id> [--tree-kind visual|logical] [--type <type>] [--name <name>] [--automation-id <id>] [--text <text>] [--max-depth <n>] [--max-results <n>] | avascope input --session <session-id> --top-level <top-level-id> --action <action> [--x <x>] [--y <y>] [--text <text>] [--target-node <node-id>] [--key <key>] [--modifiers <modifiers>] | avascope close-session --session <session-id> | avascope diagnostics [--process <pid>] [--session <session-id>] [--max-sessions <n>] | avascope reload --session <session-id> | avascope create-preview-session <project.csproj> [--profile <name>] [--profile-file <path>] --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] [--display-name <name>] | avascope list-preview-sessions | avascope reload-preview-session --session <session-id> | avascope close-preview-session --session <session-id> | avascope watch-preview-session --session <session-id> --timeout-ms <ms> [--settle-ms <ms>] [--max-reloads <n>] [--watch <path>[,<path>...]] | avascope preview-viewer --session <session-id> [--out <viewer.html>] | avascope baseline-create <project.csproj> --view <view.axaml> --manifest <baseline.json> --sizes <w>x<h>[,<w>x<h>...] [--out-dir <dir>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] | avascope baseline-check --manifest <baseline.json> [--out-dir <dir>] [--diff-dir <dir>] [--tolerance <0-255>] [--report <report.json>] | avascope cleanup | avascope diff --baseline <baseline.png> --current <current.png> --out <diff.png> [--tolerance <0-255>] | avascope screenshot --session <session-id> --top-level <top-level-id> --out <screenshot.png> | avascope preview <project.csproj> [--profile <name>] [--profile-file <path>] --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--sizes <w>x<h>[,<w>x<h>...]] [--contact-sheet <sheet.png>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>]";
+        return "Usage: avascope mcp | avascope doctor [--manifest-dir <dir>] [--preview-session-store <dir>] | avascope attach [--process <pid>] [--session <session-id>] | avascope list-top-levels --session <session-id> | avascope visual-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] | avascope logical-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] | avascope inspect-node --session <session-id> --top-level <top-level-id> --node <node-id> [--tree-kind visual|logical] | avascope find-nodes --session <session-id> --top-level <top-level-id> [--tree-kind visual|logical] [--type <type>] [--name <name>] [--automation-id <id>] [--text <text>] [--max-depth <n>] [--max-results <n>] | avascope input --session <session-id> --top-level <top-level-id> --action <action> [--x <x>] [--y <y>] [--text <text>] [--target-node <node-id>] [--key <key>] [--modifiers <modifiers>] | avascope close-session --session <session-id> | avascope diagnostics [--process <pid>] [--session <session-id>] [--max-sessions <n>] | avascope reload --session <session-id> | avascope create-preview-session <project.csproj> [--profile <name>] [--profile-file <path>] --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] [--display-name <name>] | avascope list-preview-sessions | avascope reload-preview-session --session <session-id> | avascope close-preview-session --session <session-id> | avascope watch-preview-session --session <session-id> --timeout-ms <ms> [--settle-ms <ms>] [--max-reloads <n>] [--watch <path>[,<path>...]] | avascope preview-viewer --session <session-id> [--out <viewer.html>] | avascope baseline-create <project.csproj> --view <view.axaml> --manifest <baseline.json> --sizes <w>x<h>[,<w>x<h>...] [--out-dir <dir>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] | avascope baseline-check --manifest <baseline.json> [--out-dir <dir>] [--diff-dir <dir>] [--tolerance <0-255>] [--report <report.json>] | avascope cleanup | avascope diff --baseline <baseline.png> --current <current.png> --out <diff.png> [--tolerance <0-255>] | avascope screenshot --session <session-id> --top-level <top-level-id> --out <screenshot.png> | avascope preview-animation <project.csproj> [--profile <name>] [--profile-file <path>] --view <view.axaml> --out <frame.png> --time-offsets <ms>[,<ms>...] [--frame-strip <strip.png>] [--viewer <viewer.html>] [--width <width>] [--height <height>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] | avascope preview <project.csproj> [--profile <name>] [--profile-file <path>] --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--sizes <w>x<h>[,<w>x<h>...]] [--contact-sheet <sheet.png>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>]";
     }
 
     private static string GetPreviewUsage()
     {
         return "Usage: avascope preview <project.csproj> [--profile <name>] [--profile-file <path>] --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--sizes <w>x<h>[,<w>x<h>...]] [--contact-sheet <sheet.png>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>]";
+    }
+
+    private static string GetPreviewAnimationUsage()
+    {
+        return "Usage: avascope preview-animation <project.csproj> [--profile <name>] [--profile-file <path>] --view <view.axaml> --out <frame.png> --time-offsets <ms>[,<ms>...] [--frame-strip <strip.png>] [--viewer <viewer.html>] [--width <width>] [--height <height>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>]";
     }
 
     private static string GetCreatePreviewSessionUsage()

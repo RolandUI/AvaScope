@@ -230,6 +230,92 @@ public sealed class CliSmokeTests
     }
 
     [Fact]
+    public async Task PreviewAnimationCommandRendersOffsetFramesAndStrip()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var testRoot = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(testRoot);
+
+        var projectPath = Path.Combine(testRoot, "CliAnimationPreviewSample.csproj");
+        var viewPath = Path.Combine(testRoot, "AnimationView.axaml");
+        var outputPath = Path.Combine(testRoot, "animation.png");
+        var stripPath = Path.Combine(testRoot, "animation-strip.png");
+        var viewerPath = Path.Combine(testRoot, "animation.html");
+
+        await File.WriteAllTextAsync(projectPath, """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+              </PropertyGroup>
+            </Project>
+            """);
+
+        await File.WriteAllTextAsync(viewPath, """
+            <UserControl xmlns="https://github.com/avaloniaui">
+              <Border Background="#FFFFFFFF">
+                <TextBlock Text="CLI animation preview smoke" />
+              </Border>
+            </UserControl>
+            """);
+
+        try
+        {
+            var result = await RunCliAsync(
+                cliAssembly,
+                "preview-animation",
+                projectPath,
+                "--view",
+                viewPath,
+                "--out",
+                outputPath,
+                "--time-offsets",
+                "0,33",
+                "--frame-strip",
+                stripPath,
+                "--viewer",
+                viewerPath,
+                "--width",
+                "180",
+                "--height",
+                "100");
+
+            Assert.Equal(0, result.ExitCode);
+            Assert.True(string.IsNullOrWhiteSpace(result.StandardError), result.StandardError);
+
+            var payload = JsonSerializer.Deserialize<ToolResult<PreviewAnimationResponse>>(result.StandardOutput, JsonOptions);
+            Assert.NotNull(payload);
+            Assert.True(payload.Success, payload.Error?.Message);
+            Assert.Equal(2, payload.Value!.Frames.Count);
+            Assert.Equal(Path.GetFullPath(stripPath), payload.Value.FrameStripPath);
+            Assert.True(File.Exists(stripPath));
+            Assert.NotNull(payload.Value.Viewer);
+            Assert.Equal(Path.GetFullPath(viewerPath), payload.Value.Viewer!.ViewerPath);
+            Assert.Equal(new Uri(viewerPath).AbsoluteUri, payload.Value.Viewer.PreviewUrl);
+            Assert.True(File.Exists(viewerPath));
+            var viewerHtml = await File.ReadAllTextAsync(viewerPath);
+            Assert.Contains("data:image/png;base64,", viewerHtml);
+            Assert.Contains("animation-json", viewerHtml);
+            Assert.All(payload.Value.Frames, frame =>
+            {
+                Assert.True(frame.Render.Success, frame.Render.Error?.Message);
+                Assert.True(File.Exists(frame.OutputPath));
+            });
+            Assert.Equal(0, payload.Value.Frames[0].Render.Value!.AnimationTimeOffsetMs);
+            Assert.Equal(33, payload.Value.Frames[1].Render.Value!.AnimationTimeOffsetMs);
+            Assert.Equal("static", payload.Value.Motion.Status);
+        }
+        finally
+        {
+            if (Directory.Exists(testRoot))
+            {
+                Directory.Delete(testRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
     public async Task PreviewCommandUsesProjectPreviewProfileAndAllowsExplicitOverrides()
     {
         var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");

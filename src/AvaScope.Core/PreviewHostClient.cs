@@ -152,6 +152,98 @@ public sealed class PreviewHostClient
             DateTimeOffset.UtcNow));
     }
 
+    public async Task<CoreResult<PreviewAnimationResponse>> RenderAnimationAsync(
+        PreviewAnimationRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var frames = new List<PreviewAnimationFrame>(request.TimeOffsetsMs.Count);
+        var cachedFrames = new Dictionary<int, PreviewAnimationFrame>();
+        foreach (var offset in request.TimeOffsetsMs)
+        {
+            var outputPath = CreateAnimationFrameOutputPath(request.OutputPath, offset, frames.Count);
+            if (cachedFrames.TryGetValue(offset, out var cachedFrame))
+            {
+                var copiedFrame = TryCreateCachedAnimationFrame(cachedFrame, outputPath);
+                if (!copiedFrame.Success)
+                {
+                    return CoreResult<PreviewAnimationResponse>.Fail(copiedFrame.Error!);
+                }
+
+                frames.Add(copiedFrame.Value!);
+                continue;
+            }
+
+            var frameRequest = new PreviewRequest(
+                outputPath,
+                request.Width,
+                request.Height,
+                request.Dpi,
+                request.ProjectPath,
+                request.ViewPath,
+                request.ThemeVariant,
+                request.Culture,
+                request.DesignDataType,
+                offset);
+
+            var result = await RenderAsync(frameRequest, cancellationToken);
+            frames.Add(new PreviewAnimationFrame(
+                offset,
+                outputPath,
+                result.Success
+                    ? ToolResult<PreviewResponse>.Ok(result.Value!)
+                    : ToolResult<PreviewResponse>.Fail(new ProtocolError(
+                        result.Error!.Code,
+                        result.Error.Message,
+                        result.Error.Details))));
+            if (result.Success)
+            {
+                cachedFrames[offset] = frames[^1];
+            }
+        }
+
+        var diagnostics = new List<PreviewDiagnostic>();
+        var motion = AnalyzeAnimationMotion(frames, diagnostics);
+        var fullFrameStripPath = string.IsNullOrWhiteSpace(request.FrameStripPath)
+            ? null
+            : Path.GetFullPath(request.FrameStripPath);
+        if (fullFrameStripPath is not null)
+        {
+            var stripResult = TryCreateFrameStrip(frames, fullFrameStripPath);
+            if (!stripResult.Success)
+            {
+                return CoreResult<PreviewAnimationResponse>.Fail(stripResult.Error!);
+            }
+        }
+
+        var sampledAt = DateTimeOffset.UtcNow;
+        var response = new PreviewAnimationResponse(
+            frames,
+            fullFrameStripPath,
+            motion,
+            diagnostics,
+            sampledAt);
+        if (!string.IsNullOrWhiteSpace(request.ViewerPath))
+        {
+            var viewerResult = new PreviewAnimationViewerExporter().Export(response, request.ViewerPath);
+            if (!viewerResult.Success)
+            {
+                return CoreResult<PreviewAnimationResponse>.Fail(viewerResult.Error!);
+            }
+
+            response = new PreviewAnimationResponse(
+                frames,
+                fullFrameStripPath,
+                motion,
+                diagnostics,
+                sampledAt,
+                viewerResult.Value);
+        }
+
+        return CoreResult<PreviewAnimationResponse>.Ok(response);
+    }
+
     private async Task<CoreResult<PreviewResponse>> RunPreviewHostAsync(
         string requestPath,
         CancellationToken cancellationToken)
@@ -338,6 +430,81 @@ public sealed class PreviewHostClient
         return Path.Combine(directory, fileName);
     }
 
+    private static string CreateAnimationFrameOutputPath(string baseOutputPath, int timeOffsetMs, int index)
+    {
+        var fullBasePath = Path.GetFullPath(baseOutputPath);
+        var directory = Path.GetDirectoryName(fullBasePath) ?? Environment.CurrentDirectory;
+        var stem = Path.GetFileNameWithoutExtension(fullBasePath);
+        var extension = Path.GetExtension(fullBasePath);
+        if (string.IsNullOrWhiteSpace(extension))
+        {
+            extension = ".png";
+        }
+
+        return Path.Combine(directory, $"{stem}-{index + 1:00}-{timeOffsetMs}ms{extension}");
+    }
+
+    private static CoreResult<PreviewAnimationFrame> TryCreateCachedAnimationFrame(
+        PreviewAnimationFrame cachedFrame,
+        string outputPath)
+    {
+        if (!cachedFrame.Render.Success || cachedFrame.Render.Value is null)
+        {
+            return CoreResult<PreviewAnimationFrame>.Fail(new CoreError(
+                CoreErrorCodes.PreviewHostFailed,
+                "Cached animation frame is not successful."));
+        }
+
+        var cachedRender = cachedFrame.Render.Value;
+        try
+        {
+            var directory = Path.GetDirectoryName(outputPath);
+            if (!string.IsNullOrWhiteSpace(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+
+            File.Copy(cachedRender.FilePath, outputPath, overwrite: true);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+        {
+            return CoreResult<PreviewAnimationFrame>.Fail(new CoreError(
+                CoreErrorCodes.PreviewHostFailed,
+                $"Cached animation frame could not be copied: {exception.Message}"));
+        }
+
+        var diagnostics = cachedRender.Diagnostics
+            .Append(new PreviewDiagnostic(
+                PreviewDiagnosticSeverities.Info,
+                PreviewDiagnosticCategories.Animation,
+                "animation_frame_reused",
+                "PreviewHost reused a previously rendered frame for a repeated animation time offset.",
+                details: new Dictionary<string, string>
+                {
+                    ["timeOffsetMs"] = cachedFrame.TimeOffsetMs.ToString(CultureInfo.InvariantCulture),
+                    ["sourceFramePath"] = Path.GetFullPath(cachedRender.FilePath)
+                }))
+            .ToArray();
+        var response = new PreviewResponse(
+            outputPath,
+            cachedRender.PixelWidth,
+            cachedRender.PixelHeight,
+            cachedRender.Dpi,
+            cachedRender.RenderedAt,
+            cachedRender.ProjectPath,
+            cachedRender.ViewPath,
+            cachedRender.ThemeVariant,
+            cachedRender.Culture,
+            cachedRender.DesignDataType,
+            diagnostics,
+            cachedRender.AnimationTimeOffsetMs);
+
+        return CoreResult<PreviewAnimationFrame>.Ok(new PreviewAnimationFrame(
+            cachedFrame.TimeOffsetMs,
+            outputPath,
+            ToolResult<PreviewResponse>.Ok(response)));
+    }
+
     private static string FormatSizeToken(double value)
     {
         return value.ToString("0.###", CultureInfo.InvariantCulture).Replace('.', '_');
@@ -416,6 +583,272 @@ public sealed class PreviewHostClient
         }
     }
 
+    private static CoreResult<bool> TryCreateFrameStrip(
+        IReadOnlyList<PreviewAnimationFrame> frames,
+        string frameStripPath)
+    {
+        try
+        {
+            var bitmaps = frames
+                .Where(static frame => frame.Render.Success && File.Exists(frame.Render.Value!.FilePath))
+                .Select(static frame => SKBitmap.Decode(frame.Render.Value!.FilePath))
+                .Where(static bitmap => bitmap is not null)
+                .Cast<SKBitmap>()
+                .ToArray();
+            try
+            {
+                if (bitmaps.Length == 0)
+                {
+                    return CoreResult<bool>.Fail(new CoreError(
+                        CoreErrorCodes.PreviewHostFailed,
+                        "Animation frame strip requires at least one successful frame image."));
+                }
+
+                var width = bitmaps.Sum(static bitmap => bitmap.Width);
+                var height = bitmaps.Max(static bitmap => bitmap.Height);
+                using var strip = new SKBitmap(width, height);
+                using var canvas = new SKCanvas(strip);
+                canvas.Clear(SKColors.Transparent);
+
+                var offsetX = 0;
+                foreach (var bitmap in bitmaps)
+                {
+                    canvas.DrawBitmap(bitmap, offsetX, 0);
+                    offsetX += bitmap.Width;
+                }
+
+                var directory = Path.GetDirectoryName(frameStripPath);
+                if (!string.IsNullOrEmpty(directory))
+                {
+                    Directory.CreateDirectory(directory);
+                }
+
+                using var image = SKImage.FromBitmap(strip);
+                using var data = image.Encode(SKEncodedImageFormat.Png, 100);
+                using var stream = File.Create(frameStripPath);
+                data.SaveTo(stream);
+                return CoreResult<bool>.Ok(true);
+            }
+            finally
+            {
+                foreach (var bitmap in bitmaps)
+                {
+                    bitmap.Dispose();
+                }
+            }
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException)
+        {
+            return CoreResult<bool>.Fail(new CoreError(
+                CoreErrorCodes.PreviewHostFailed,
+                $"Animation frame strip could not be created: {exception.Message}"));
+        }
+    }
+
+    private static PreviewAnimationMotionSummary AnalyzeAnimationMotion(
+        IReadOnlyList<PreviewAnimationFrame> frames,
+        List<PreviewDiagnostic> diagnostics)
+    {
+        var successfulFrames = frames
+            .Where(static frame => frame.Render.Success
+                && frame.Render.Value is not null
+                && File.Exists(frame.Render.Value.FilePath))
+            .ToArray();
+
+        if (successfulFrames.Length < 2)
+        {
+            diagnostics.Add(new PreviewDiagnostic(
+                PreviewDiagnosticSeverities.Warning,
+                PreviewDiagnosticCategories.Animation,
+                "animation_motion_not_available",
+                "Animation motion analysis requires at least two successful frame images.",
+                details: new Dictionary<string, string>
+                {
+                    ["successfulFrameCount"] = successfulFrames.Length.ToString(CultureInfo.InvariantCulture),
+                    ["requestedFrameCount"] = frames.Count.ToString(CultureInfo.InvariantCulture)
+                }));
+            return new PreviewAnimationMotionSummary(
+                "not_available",
+                successfulFrames.Length,
+                0,
+                0,
+                0,
+                0,
+                new Dictionary<string, string>
+                {
+                    ["reason"] = "insufficient_successful_frames"
+                });
+        }
+
+        using var first = SKBitmap.Decode(successfulFrames[0].Render.Value!.FilePath);
+        using var last = SKBitmap.Decode(successfulFrames[^1].Render.Value!.FilePath);
+        if (first is null || last is null)
+        {
+            diagnostics.Add(new PreviewDiagnostic(
+                PreviewDiagnosticSeverities.Warning,
+                PreviewDiagnosticCategories.Animation,
+                "animation_motion_not_available",
+                "Animation motion analysis could not decode the first or last successful frame image.",
+                details: new Dictionary<string, string>
+                {
+                    ["reason"] = "frame_decode_failed"
+                }));
+            return new PreviewAnimationMotionSummary(
+                "not_available",
+                successfulFrames.Length,
+                0,
+                0,
+                0,
+                0,
+                new Dictionary<string, string>
+                {
+                    ["reason"] = "frame_decode_failed"
+                });
+        }
+
+        if (first.Width != last.Width || first.Height != last.Height)
+        {
+            diagnostics.Add(new PreviewDiagnostic(
+                PreviewDiagnosticSeverities.Warning,
+                PreviewDiagnosticCategories.Animation,
+                "animation_frame_size_mismatch",
+                "Animation motion analysis requires same-size first and last frames.",
+                details: new Dictionary<string, string>
+                {
+                    ["firstWidth"] = first.Width.ToString(CultureInfo.InvariantCulture),
+                    ["firstHeight"] = first.Height.ToString(CultureInfo.InvariantCulture),
+                    ["lastWidth"] = last.Width.ToString(CultureInfo.InvariantCulture),
+                    ["lastHeight"] = last.Height.ToString(CultureInfo.InvariantCulture)
+                }));
+            return new PreviewAnimationMotionSummary(
+                "not_available",
+                successfulFrames.Length,
+                0,
+                0,
+                0,
+                0,
+                new Dictionary<string, string>
+                {
+                    ["reason"] = "frame_size_mismatch"
+                });
+        }
+
+        var comparison = CompareBitmaps(first, last);
+        var changedPercent = comparison.TotalPixels == 0
+            ? 0
+            : comparison.ChangedPixels * 100d / comparison.TotalPixels;
+        var status = comparison.ChangedPixels == 0 ? "static" : "changed";
+        diagnostics.Add(new PreviewDiagnostic(
+            PreviewDiagnosticSeverities.Info,
+            PreviewDiagnosticCategories.Animation,
+            comparison.ChangedPixels == 0 ? "animation_static_frames" : "animation_pixels_changed",
+            comparison.ChangedPixels == 0
+                ? "Sampled animation frames did not change between the first and last successful offsets."
+                : "Sampled animation frames changed between the first and last successful offsets.",
+            details: new Dictionary<string, string>
+            {
+                ["firstOffsetMs"] = successfulFrames[0].TimeOffsetMs.ToString(CultureInfo.InvariantCulture),
+                ["lastOffsetMs"] = successfulFrames[^1].TimeOffsetMs.ToString(CultureInfo.InvariantCulture),
+                ["changedPixels"] = comparison.ChangedPixels.ToString(CultureInfo.InvariantCulture),
+                ["totalPixels"] = comparison.TotalPixels.ToString(CultureInfo.InvariantCulture),
+                ["changedPercent"] = changedPercent.ToString("0.###", CultureInfo.InvariantCulture),
+                ["maxDelta"] = comparison.MaxDelta.ToString(CultureInfo.InvariantCulture),
+                ["metadataProvenance"] = "not_available"
+            }));
+
+        AddFinalStabilityDiagnostic(successfulFrames, diagnostics);
+
+        return new PreviewAnimationMotionSummary(
+            status,
+            successfulFrames.Length,
+            comparison.ChangedPixels,
+            comparison.TotalPixels,
+            changedPercent,
+            comparison.MaxDelta,
+            new Dictionary<string, string>
+            {
+                ["firstFramePath"] = Path.GetFullPath(successfulFrames[0].Render.Value!.FilePath),
+                ["lastFramePath"] = Path.GetFullPath(successfulFrames[^1].Render.Value!.FilePath),
+                ["metadataProvenance"] = "not_available"
+            });
+    }
+
+    private static void AddFinalStabilityDiagnostic(
+        IReadOnlyList<PreviewAnimationFrame> successfulFrames,
+        List<PreviewDiagnostic> diagnostics)
+    {
+        if (successfulFrames.Count < 3)
+        {
+            return;
+        }
+
+        using var previous = SKBitmap.Decode(successfulFrames[^2].Render.Value!.FilePath);
+        using var final = SKBitmap.Decode(successfulFrames[^1].Render.Value!.FilePath);
+        if (previous is null
+            || final is null
+            || previous.Width != final.Width
+            || previous.Height != final.Height)
+        {
+            return;
+        }
+
+        var comparison = CompareBitmaps(previous, final);
+        if (comparison.ChangedPixels == 0)
+        {
+            return;
+        }
+
+        var changedPercent = comparison.ChangedPixels * 100d / comparison.TotalPixels;
+        diagnostics.Add(new PreviewDiagnostic(
+            PreviewDiagnosticSeverities.Warning,
+            PreviewDiagnosticCategories.Animation,
+            "animation_final_state_unstable",
+            "The final sampled frame still differs from the preceding successful frame.",
+            details: new Dictionary<string, string>
+            {
+                ["previousOffsetMs"] = successfulFrames[^2].TimeOffsetMs.ToString(CultureInfo.InvariantCulture),
+                ["finalOffsetMs"] = successfulFrames[^1].TimeOffsetMs.ToString(CultureInfo.InvariantCulture),
+                ["changedPixels"] = comparison.ChangedPixels.ToString(CultureInfo.InvariantCulture),
+                ["changedPercent"] = changedPercent.ToString("0.###", CultureInfo.InvariantCulture),
+                ["maxDelta"] = comparison.MaxDelta.ToString(CultureInfo.InvariantCulture)
+            }));
+    }
+
+    private static BitmapComparison CompareBitmaps(SKBitmap first, SKBitmap second)
+    {
+        var totalPixels = (long)first.Width * first.Height;
+        long changedPixels = 0;
+        var maxDelta = 0;
+
+        for (var y = 0; y < first.Height; y++)
+        {
+            for (var x = 0; x < first.Width; x++)
+            {
+                var firstColor = first.GetPixel(x, y);
+                var secondColor = second.GetPixel(x, y);
+                var delta = Math.Max(
+                    Math.Max(
+                        Math.Abs(firstColor.Red - secondColor.Red),
+                        Math.Abs(firstColor.Green - secondColor.Green)),
+                    Math.Max(
+                        Math.Abs(firstColor.Blue - secondColor.Blue),
+                        Math.Abs(firstColor.Alpha - secondColor.Alpha)));
+                if (delta == 0)
+                {
+                    continue;
+                }
+
+                changedPixels++;
+                if (delta > maxDelta)
+                {
+                    maxDelta = delta;
+                }
+            }
+        }
+
+        return new BitmapComparison(changedPixels, totalPixels, maxDelta);
+    }
+
     private static void KillPreviewHost(Process process)
     {
         try
@@ -443,4 +876,6 @@ public sealed class PreviewHostClient
         {
         }
     }
+
+    private readonly record struct BitmapComparison(long ChangedPixels, long TotalPixels, int MaxDelta);
 }

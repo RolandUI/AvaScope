@@ -64,7 +64,25 @@ or add `avascope.preview.json` beside the project:
 
 Explicit CLI options override profile values.
 
-## 4. Use Durable Preview Sessions
+## 4. Sample An Animation
+
+The getting-started sample also includes an `animation` profile:
+
+```powershell
+& $avascope preview-animation .\samples\AvaScope.GettingStartedApp\AvaScope.GettingStartedApp.csproj --profile animation
+```
+
+The command returns `ToolResult<PreviewAnimationResponse>` with per-offset frame paths, an optional frame strip, motion diagnostics, and an optional `viewer.previewUrl`. Open the returned `file://` URL in the Codex in-app browser to review the sampled timeline without starting a server.
+
+For another app, pass explicit offsets and viewer paths:
+
+```powershell
+& $avascope preview-animation path\to\App.csproj --view Views\AnimatedView.axaml --out .\artifacts\samples\animation.png --time-offsets 0,150,900,900 --width 720 --height 420 --theme light --frame-strip .\artifacts\samples\animation-strip.png --viewer .\artifacts\samples\animation.html
+```
+
+Animation sampling advances Avalonia headless render timer ticks inside isolated PreviewHost child processes. Repeated offsets inside one request reuse the first successful frame for that offset so duplicate final artifacts are stable. It reports pixel deltas from sampled frames and uses `not_available` provenance where reliable public animation metadata is unavailable.
+
+## 5. Use Durable Preview Sessions
 
 ```powershell
 & $avascope create-preview-session .\samples\AvaScope.GettingStartedApp\AvaScope.GettingStartedApp.csproj --profile main
@@ -83,7 +101,7 @@ Preview failures include bounded `error.details.phase` values. Treat `readiness`
 
 `watch-preview-session` also returns `lifecycle`. In `v0.2.0`, persistent preview hosts are disabled; the lifecycle status documents one-shot child-process rendering plus the deferred close, TTL, crash, and cleanup requirements.
 
-## 5. Inspect A Running App
+## 6. Inspect A Running App
 
 Start the sample with the opt-in bridge:
 
@@ -107,7 +125,7 @@ Use the `target` object returned by `visual-tree`, `logical-tree`, `find-nodes`,
 
 Runtime bridge activation is always explicit and local-only. AvaScope does not open a network listener.
 
-## 6. Capture And Compare
+## 7. Capture And Compare
 
 ```powershell
 & $avascope screenshot --session <runtime-session-id> --top-level <topLevel:id> --out .\artifacts\samples\runtime-screenshot.png
@@ -127,7 +145,7 @@ For CI upload, collect the report/current/diff outputs into a single artifact di
 powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\collect-baseline-artifacts.ps1 -Report .\artifacts\samples\baselines\report.json -OutDir .\artifacts\samples\baselines\upload
 ```
 
-## 7. Send Narrow Runtime Input
+## 8. Send Narrow Runtime Input
 
 ```powershell
 & $avascope input --session <runtime-session-id> --top-level <topLevel:id> --action focus --target-node <node-id>
@@ -138,7 +156,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\collect-baseline-artif
 
 Runtime input is intentionally narrow and non-destructive. Unsupported actions return structured errors.
 
-## 8. Close And Clean Up
+## 9. Close And Clean Up
 
 ```powershell
 & $avascope close-session --session <runtime-session-id>

@@ -17,6 +17,14 @@ dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll preview .\samples\AvaSc
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll create-preview-session .\samples\AvaScope.GettingStartedApp\AvaScope.GettingStartedApp.csproj --profile main
 ```
 
+Preview the animation sample as deterministic time-offset frames:
+
+```powershell
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll preview-animation .\samples\AvaScope.GettingStartedApp\AvaScope.GettingStartedApp.csproj --profile animation
+```
+
+The `animation` profile renders `Views\AnimationView.axaml` at `0,250,900,900ms`, writes per-offset PNG frames, writes a frame strip, and returns a file-backed viewer `previewUrl`. The repeated final offset reuses the first `900ms` frame so the final artifact is stable inside the request. Open the URL to inspect the sampled timeline, pixel motion summary, and animation diagnostics. Animation metadata is best-effort: AvaScope reports pixel deltas and explicit `not_available` provenance when public Avalonia APIs do not expose reliable moving-property metadata.
+
 Run the app with the local-only bridge enabled:
 
 ```powershell

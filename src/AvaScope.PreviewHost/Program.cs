@@ -208,6 +208,8 @@ internal static class Program
             Dispatcher.UIThread.RunJobs();
             EnsurePreviewBackground(content, window, resolvedThemeVariant);
             Dispatcher.UIThread.RunJobs();
+            AddAnimationSamplingDiagnostic(diagnostics, request.AnimationTimeOffsetMs);
+            AdvanceAnimationOffset(request.AnimationTimeOffsetMs);
             AddLayoutDiagnostics(diagnostics, window);
 
             using var frame = window.CaptureRenderedFrame();
@@ -235,12 +237,61 @@ internal static class Program
                 request.ThemeVariant,
                 request.Culture,
                 request.DesignDataType,
-                diagnostics));
+                diagnostics,
+                request.AnimationTimeOffsetMs));
         }
         finally
         {
             window.Close();
         }
+    }
+
+    private static void AddAnimationSamplingDiagnostic(List<PreviewDiagnostic> diagnostics, int? timeOffsetMs)
+    {
+        if (timeOffsetMs is null)
+        {
+            return;
+        }
+
+        AddDiagnostic(diagnostics, new PreviewDiagnostic(
+            PreviewDiagnosticSeverities.Info,
+            PreviewDiagnosticCategories.Animation,
+            "animation_frame_sampled",
+            "PreviewHost captured an explicit animation time-offset frame.",
+            details: new Dictionary<string, string>
+            {
+                ["timeOffsetMs"] = timeOffsetMs.Value.ToString(CultureInfo.InvariantCulture),
+                ["headlessRenderTicks"] = CalculateHeadlessRenderTicks(timeOffsetMs.Value).ToString(CultureInfo.InvariantCulture),
+                ["timeControl"] = "headless_render_timer_tick"
+            }));
+    }
+
+    private static void AdvanceAnimationOffset(int? timeOffsetMs)
+    {
+        if (timeOffsetMs is null)
+        {
+            return;
+        }
+
+        Dispatcher.UIThread.RunJobs();
+        var renderTicks = CalculateHeadlessRenderTicks(timeOffsetMs.Value);
+        if (renderTicks > 0)
+        {
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick(renderTicks);
+        }
+
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    private static int CalculateHeadlessRenderTicks(int timeOffsetMs)
+    {
+        if (timeOffsetMs <= 0)
+        {
+            return 0;
+        }
+
+        const double frameDurationMs = 1000d / 60d;
+        return Math.Max(1, (int)Math.Ceiling(timeOffsetMs / frameDurationMs));
     }
 
     private static void AddSourceDiagnostics(
