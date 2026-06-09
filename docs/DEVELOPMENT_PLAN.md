@@ -25,18 +25,23 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `Next Release Planning`
+- `R0.2.2-M3 Release Candidate And Version Bump`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-09`
-- Goal: define the next release target in `docs/RELEASE_PLAN.md` before implementation resumes.
+- Goal: run the guarded `v0.2.2` release gate after the BUG-0003 diagnostics fix slice is committed.
 
 ## Next Action
 
-Define the next release target and milestone map in `docs/RELEASE_PLAN.md`; do not start feature implementation until that release scope is recorded.
+Run the `v0.2.2` release gate after the BUG-0003 diagnostics fix slice lands, then prepare the version bump release commit.
 
 ## Latest Validation
 
+- `2026-06-09`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-bug-reports.ps1` passed after marking `BUG-0003` fixed; 14 intake files scanned.
+- `2026-06-09`: `git diff --check` passed after BUG-0003 diagnostics fix implementation.
+- `2026-06-09`: `dotnet test tests/AvaScope.Tests/AvaScope.Tests.csproj --no-build` passed with 214 tests after BUG-0003 diagnostics false positive fixes.
+- `2026-06-09`: BUG-0003 targeted PreviewHost diagnostics tests passed with 4 tests: `PreviewHostUsesDataTemplateDataTypeForBindingDiagnostics`, `PreviewHostSuppressesFluentTemplateLayoutNoise`, `PreviewHostReturnsDataTypeBindingPathDiagnostics`, and `PreviewHostReturnsBindingResourceAndLayoutDiagnostics`.
+- `2026-06-09`: `dotnet build tests/AvaScope.Tests/AvaScope.Tests.csproj --no-restore -v:minimal` passed with 0 warnings and 0 errors after BUG-0003 implementation.
 - `2026-06-09`: Post-BUG-0003 CI stabilization targeted Release watch smoke passed 3 consecutive runs: `dotnet test AvaScope.slnx -c Release --filter FullyQualifiedName~CliSmokeTests.WatchPreviewSessionCommandReloadsWhenWatchedFileChanges`.
 - `2026-06-09`: `dotnet test AvaScope.slnx -c Release --no-build` passed with 212 tests after increasing the watch smoke settle window for Windows file watcher timing.
 - `2026-06-09`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-bug-reports.ps1` passed after storing `BUG-0003`; 14 intake files scanned.
@@ -2364,6 +2369,59 @@ Define the next release target and milestone map in `docs/RELEASE_PLAN.md`; do n
   - Passed: `gh release view v0.2.1`
   - Passed: `git ls-remote --tags origin refs/tags/v0.2.1`
 
+### R0.2.2-M1 DataTemplate Binding Diagnostics
+
+- Status: `Done`
+- Goal: fix BUG-0003 DataTemplate binding diagnostic false positives by validating template-contained bindings against their template item context.
+- Deliverables: DataTemplate-aware binding diagnostics, regression smoke tests, bug report status update, validation, commit, push.
+- Progress:
+  - Done: defined `v0.2.2` patch release goals in `docs/RELEASE_PLAN.md`.
+  - Done: `x:DataType` binding diagnostics now short-circuit the root preview `DataContext` fallback when a declared data type is available.
+  - Done: added `PreviewHostUsesDataTemplateDataTypeForBindingDiagnostics` to cover `ItemsControl.ItemTemplate` bindings with `x:CompileBindings="False"`.
+- Acceptance Criteria:
+  - Done: `ItemsControl.ItemTemplate` bindings with `x:DataType` do not warn against the root preview `DataContext`.
+  - Done: `DataTemplate x:CompileBindings="False"` does not force root-context binding warnings when `x:DataType` is known.
+  - Done: unresolved template `x:DataType` cases remain bounded advisory diagnostics instead of being silently misclassified.
+- Validation:
+  - Passed: `dotnet build tests/AvaScope.Tests/AvaScope.Tests.csproj --no-restore -v:minimal`
+  - Passed: targeted BUG-0003 PreviewHost diagnostics tests with 4 tests.
+  - Passed: `dotnet test tests/AvaScope.Tests/AvaScope.Tests.csproj --no-build`
+
+### R0.2.2-M2 Template-Aware Layout Diagnostics
+
+- Status: `Done`
+- Goal: reduce BUG-0003 layout diagnostic noise for Avalonia layer/template internals and metric-only clipping.
+- Deliverables: template-aware overlap filtering, text clipping tolerance, slider template hit-target handling, regression smoke tests, validation, commit, push.
+- Progress:
+  - Done: layout overlap diagnostics skip framework layer/template scopes and same-template sibling internals.
+  - Done: text clipping diagnostics tolerate small font metric height deltas.
+  - Done: slider-owned `RepeatButton` template parts no longer report independent hit-target warnings.
+  - Done: added `PreviewHostSuppressesFluentTemplateLayoutNoise` for Fluent tab, checkbox, and slider template coverage.
+- Acceptance Criteria:
+  - Done: full-window root layer/template internals do not produce `elements_overlap` warnings.
+  - Done: icon/control-template internal visuals do not produce noisy `elements_overlap` warnings.
+  - Done: small tab header font metric deltas do not produce `text_clipped` warnings.
+  - Done: slider internal `RepeatButton` parts are ignored through the owning `Slider`.
+- Validation:
+  - Passed: `dotnet build tests/AvaScope.Tests/AvaScope.Tests.csproj --no-restore -v:minimal`
+  - Passed: targeted BUG-0003 PreviewHost diagnostics tests with 4 tests.
+  - Passed: `dotnet test tests/AvaScope.Tests/AvaScope.Tests.csproj --no-build`
+
+### R0.2.2-M3 Release Candidate And Version Bump
+
+- Status: `In Progress`
+- Goal: close `v0.2.2` as a release candidate, bump the version, and publish through the guarded release workflow.
+- Deliverables: full release validation, `Directory.Build.props` version bump to `0.2.2`, release commit, push.
+- Progress:
+  - Done: R0.2.2-M1 and R0.2.2-M2 implementation validation passed.
+  - Pending: run the full `v0.2.2` release gate after the implementation slice lands.
+- Acceptance Criteria:
+  - Pending: `Directory.Build.props` remains unchanged until all in-scope `v0.2.2` work is complete.
+  - Pending: local release commit guard passes for subject `Release 0.2.2` and `Release Candidate` state.
+  - Pending: published assets match the release manifest and the `v0.2.2` tag.
+- Validation:
+  - Pending: release gate commands from `docs/VALIDATION.md`.
+
 ## Decision Log
 
 - `2026-06-06`: Use `docs/DEVELOPMENT_PLAN.md` as the primary tracking document and keep `AGENTS.md` as the mandatory routing entrypoint.
@@ -2529,9 +2587,12 @@ Define the next release target and milestone map in `docs/RELEASE_PLAN.md`; do n
 - `2026-06-09`: Preview failure triage keeps missing project/view/host/dotnet prerequisites in `phase=readiness`, project compilation in `phase=build`, and isolated XAML/render failures in `phase=render` so agents can decide whether retrying is useful.
 - `2026-06-09`: Persistent preview hosts remain deferred for `v0.2.0`; the watch response now carries explicit one-shot child-process lifecycle status and documents close, TTL, crash, and cleanup semantics.
 - `2026-06-09`: `v0.2.1` targets PreviewHost theme parity by resolving the wrapper `Window` background from applied app/window styles or requested theme resources instead of forcing a white local value on controls that do not paint their own root background.
+- `2026-06-09`: `v0.2.2` targets BUG-0003 as an AvaScope PreviewHost diagnostics bug, not a target-app workaround: DataTemplate binding scope and Avalonia template/layer layout noise should be handled inside AvaScope diagnostics.
+- `2026-06-09`: BUG-0003 binding diagnostics treat declared source `x:DataType` as authoritative for a binding path before falling back to root preview `DataContext`; layout diagnostics filter Avalonia framework/template internals instead of reporting them as user layout defects.
 
 ## Change Log
 
+- `2026-06-09`: Implemented BUG-0003 PreviewHost diagnostics fixes for DataTemplate binding scope, Fluent/template layout overlap noise, text metric tolerance, and slider internal hit-target warnings; moved active focus to `R0.2.2-M3`.
 - `2026-06-06`: Initial development plan created with M0-M8 milestones, tracking rules, acceptance criteria, and validation commands.
 - `2026-06-06`: Completed M0 foundation with shared build settings, validation documentation, test project, and Protocol/Core smoke tests; moved active focus to M1.
 - `2026-06-06`: Completed M1 protocol contracts with session ids, protocol version metadata, health/list_sessions DTOs, tool result/error shapes, and JSON serialization tests; moved active focus to M2.

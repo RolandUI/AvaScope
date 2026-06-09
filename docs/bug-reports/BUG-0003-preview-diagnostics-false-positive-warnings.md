@@ -1,7 +1,7 @@
 # BUG-0003: Preview diagnostics reports false positive warnings for DataTemplate bindings and template internals
 
-- Status: `Stored`
-- Fix Status: `Not started`
+- Status: `Fixed`
+- Fix Status: `Implemented for v0.2.2`
 - Stored: `2026-06-09`
 - Privacy Review: local absolute paths, personal directory names, and target-specific identifiers were replaced with placeholders or generic names.
 
@@ -15,6 +15,22 @@ AvaScope CLI `0.2.1` renders an external Avalonia `SettingsView.axaml` successfu
 - 2 `hit_target_too_small`
 
 At least the DataTemplate binding warnings and most template/layer overlap warnings appear to be AvaScope diagnostics issues rather than target app UI defects.
+
+## Resolution
+
+Fixed in the `v0.2.2` implementation slice:
+
+- Binding diagnostics now treat a declared source `x:DataType` as the authoritative context before falling back to the root preview `DataContext`.
+- `DataTemplate x:DataType` suppresses root-context `binding_path_not_found` false positives even when `x:CompileBindings="False"`.
+- Layout diagnostics ignore Avalonia framework/template overlap scopes such as root layer managers, content presenters, and same-template sibling internals.
+- Text clipping diagnostics tolerate small font metric height deltas.
+- Slider-owned `RepeatButton` template parts no longer report independent `hit_target_too_small` warnings.
+
+Validation:
+
+- `dotnet build tests/AvaScope.Tests/AvaScope.Tests.csproj --no-restore -v:minimal`
+- `dotnet test tests/AvaScope.Tests/AvaScope.Tests.csproj --no-build --filter "FullyQualifiedName~PreviewHostUsesDataTemplateDataTypeForBindingDiagnostics|FullyQualifiedName~PreviewHostSuppressesFluentTemplateLayoutNoise|FullyQualifiedName~PreviewHostReturnsDataTypeBindingPathDiagnostics|FullyQualifiedName~PreviewHostReturnsBindingResourceAndLayoutDiagnostics"`
+- `dotnet test tests/AvaScope.Tests/AvaScope.Tests.csproj --no-build`
 
 ## Environment
 

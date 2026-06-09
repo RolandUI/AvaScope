@@ -37,6 +37,47 @@ If the release includes public workflow or packaging changes, also validate the 
 
 ## Current Release Target
 
+- Release: `v0.2.2`
+- Target Version: `0.2.2`
+- Release State: `In Progress`
+- Scope Lock: `2026-06-09`
+- Release Commit: pending
+- Local Release Gate: pending
+- Published At: pending
+- GitHub Release: pending
+- Previous Release: `v0.2.1`
+
+### v0.2.2 Release Goals
+
+The `v0.2.2` release target is a patch release focused on reducing PreviewHost diagnostic false positives reported in `BUG-0003`.
+
+1. `RG-0.2.2-1 DataTemplate Binding Diagnostic Scope`: binding diagnostics under `DataTemplate` use the template item context when `x:DataType` is available instead of warning against the root preview `DataContext`.
+   Success signal: `ItemsControl.ItemTemplate` bindings to item properties no longer emit root-context `binding_path_not_found` warnings, including templates with `x:CompileBindings="False"`.
+2. `RG-0.2.2-2 Template-Aware Layout Diagnostic Noise Reduction`: layout diagnostics avoid noisy warnings for Avalonia layer/template internals and small font metric differences.
+   Success signal: PreviewHost does not report full-window root layer overlaps, icon/control-template internal overlaps, tab-header metric-only clipping, or slider internal `RepeatButton` hit-target warnings in targeted smoke coverage.
+3. `RG-0.2.2-3 Guarded Patch Release`: `v0.2.2` ships only after BUG-0003 is fixed and the release gate passes.
+   Success signal: targeted PreviewHost tests, full build/test validation, release dry-run validation, and a `Release 0.2.2` commit complete before publishing.
+
+### v0.2.2 Milestone Map
+
+- `R0.2.2-M1 DataTemplate Binding Diagnostics` delivers `RG-0.2.2-1`; Status: `Done`.
+- `R0.2.2-M2 Template-Aware Layout Diagnostics` delivers `RG-0.2.2-2`; Status: `Done`.
+- `R0.2.2-M3 Release Candidate And Version Bump` delivers `RG-0.2.2-3`; Status: `In Progress`.
+
+### v0.2.2 Implementation Validation
+
+- `2026-06-09`: `dotnet build tests/AvaScope.Tests/AvaScope.Tests.csproj --no-restore -v:minimal` passed with 0 warnings and 0 errors after BUG-0003 implementation.
+- `2026-06-09`: Targeted PreviewHost diagnostic tests passed with 4 tests: `PreviewHostUsesDataTemplateDataTypeForBindingDiagnostics`, `PreviewHostSuppressesFluentTemplateLayoutNoise`, `PreviewHostReturnsDataTypeBindingPathDiagnostics`, and `PreviewHostReturnsBindingResourceAndLayoutDiagnostics`.
+- `2026-06-09`: `dotnet test tests/AvaScope.Tests/AvaScope.Tests.csproj --no-build` passed with 214 tests.
+
+### Explicit Deferrals
+
+- Pixel-perfect visual clipping analysis remains out of scope; this patch uses bounded tolerances and template-aware filtering.
+- Broad Avalonia private runtime hooks remain out of scope.
+- No new remote inspection or control surface is introduced.
+
+## Released Target: v0.2.1
+
 - Release: `v0.2.1`
 - Target Version: `0.2.1`
 - Release State: `Released`

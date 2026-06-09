@@ -121,6 +121,131 @@ public sealed class PreviewHostSmokeTests
     }
 
     [Fact]
+    public async Task PreviewHostSuppressesFluentTemplateLayoutNoise()
+    {
+        var hostAssembly = Path.Combine(AppContext.BaseDirectory, "AvaScope.PreviewHost.dll");
+        Assert.True(File.Exists(hostAssembly), $"Expected preview host assembly at {hostAssembly}.");
+
+        var testRoot = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(testRoot);
+
+        var projectPath = Path.Combine(testRoot, "FluentTemplateDiagnosticsSample.csproj");
+        var appPath = Path.Combine(testRoot, "App.axaml");
+        var appCodeBehindPath = Path.Combine(testRoot, "App.axaml.cs");
+        var viewPath = Path.Combine(testRoot, "SettingsView.axaml");
+        var codeBehindPath = Path.Combine(testRoot, "SettingsView.axaml.cs");
+        var requestPath = Path.Combine(testRoot, "request.json");
+        var outputPath = Path.Combine(testRoot, "preview.png");
+
+        await File.WriteAllTextAsync(projectPath, """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <Nullable>enable</Nullable>
+              </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="Avalonia" Version="12.0.4" />
+                <PackageReference Include="Avalonia.Themes.Fluent" Version="12.0.4" />
+              </ItemGroup>
+            </Project>
+            """);
+
+        await File.WriteAllTextAsync(appPath, """
+            <Application xmlns="https://github.com/avaloniaui"
+                         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                         x:Class="FluentTemplateDiagnosticsSample.App">
+              <Application.Styles>
+                <FluentTheme />
+              </Application.Styles>
+            </Application>
+            """);
+
+        await File.WriteAllTextAsync(appCodeBehindPath, """
+            using Avalonia;
+            using Avalonia.Markup.Xaml;
+
+            namespace FluentTemplateDiagnosticsSample;
+
+            public partial class App : Application
+            {
+                public override void Initialize()
+                {
+                    AvaloniaXamlLoader.Load(this);
+                }
+            }
+            """);
+
+        await File.WriteAllTextAsync(viewPath, """
+            <UserControl xmlns="https://github.com/avaloniaui"
+                         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                         x:Class="FluentTemplateDiagnosticsSample.SettingsView">
+              <Border Padding="24">
+                <TabControl>
+                  <TabItem Header="General">
+                    <StackPanel Spacing="16">
+                      <CheckBox Content="Auto-connect on workspace open" />
+                      <Slider Minimum="1"
+                              Maximum="20"
+                              Value="4"
+                              Width="520"
+                              HorizontalAlignment="Left" />
+                    </StackPanel>
+                  </TabItem>
+                  <TabItem Header="System">
+                    <TextBlock Text="System" />
+                  </TabItem>
+                  <TabItem Header="Monitoring">
+                    <TextBlock Text="Monitoring" />
+                  </TabItem>
+                </TabControl>
+              </Border>
+            </UserControl>
+            """);
+
+        await File.WriteAllTextAsync(codeBehindPath, """
+            using Avalonia.Controls;
+
+            namespace FluentTemplateDiagnosticsSample;
+
+            public partial class SettingsView : UserControl
+            {
+                public SettingsView()
+                {
+                    InitializeComponent();
+                }
+            }
+            """);
+
+        var request = new PreviewRequest(
+            outputPath,
+            width: 900,
+            height: 620,
+            dpi: 96,
+            projectPath: projectPath,
+            viewPath: "SettingsView.axaml",
+            themeVariant: "dark");
+
+        await File.WriteAllTextAsync(requestPath, JsonSerializer.Serialize(request, JsonOptions));
+
+        try
+        {
+            var result = await RunPreviewHostAsync(hostAssembly, requestPath, expectedExitCode: 0);
+
+            Assert.NotNull(result);
+            Assert.True(result.Success, result.Error?.Message);
+            Assert.True(File.Exists(result.Value!.FilePath));
+            Assert.DoesNotContain(result.Value.Diagnostics, static item => item.Code == "elements_overlap");
+            Assert.DoesNotContain(result.Value.Diagnostics, static item => item.Code == "text_clipped");
+            Assert.DoesNotContain(result.Value.Diagnostics, static item => item.Code == "text_truncated");
+            Assert.DoesNotContain(result.Value.Diagnostics, static item => item.Code == "hit_target_too_small");
+        }
+        finally
+        {
+            await DeleteDirectoryWithRetryAsync(testRoot);
+        }
+    }
+
+    [Fact]
     public async Task PreviewHostReturnsDataTypeBindingPathDiagnostics()
     {
         var hostAssembly = Path.Combine(AppContext.BaseDirectory, "AvaScope.PreviewHost.dll");
@@ -212,6 +337,116 @@ public sealed class PreviewHostSmokeTests
             Assert.Equal("local:PreviewDesignData", diagnostic.Details!["dataTypeName"]);
             Assert.Equal("TypedBindingDiagnosticsSample.PreviewDesignData", diagnostic.Details["dataType"]);
             Assert.Equal("MissingTitle", diagnostic.Details["bindingPath"]);
+        }
+        finally
+        {
+            await DeleteDirectoryWithRetryAsync(testRoot);
+        }
+    }
+
+    [Fact]
+    public async Task PreviewHostUsesDataTemplateDataTypeForBindingDiagnostics()
+    {
+        var hostAssembly = Path.Combine(AppContext.BaseDirectory, "AvaScope.PreviewHost.dll");
+        Assert.True(File.Exists(hostAssembly), $"Expected preview host assembly at {hostAssembly}.");
+
+        var testRoot = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(testRoot);
+
+        var projectPath = Path.Combine(testRoot, "DataTemplateBindingDiagnosticsSample.csproj");
+        var viewPath = Path.Combine(testRoot, "SettingsView.axaml");
+        var codeBehindPath = Path.Combine(testRoot, "SettingsView.axaml.cs");
+        var viewModelPath = Path.Combine(testRoot, "SettingsViewModel.cs");
+        var requestPath = Path.Combine(testRoot, "request.json");
+        var outputPath = Path.Combine(testRoot, "preview.png");
+
+        await File.WriteAllTextAsync(projectPath, """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <Nullable>enable</Nullable>
+              </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="Avalonia" Version="12.0.4" />
+              </ItemGroup>
+            </Project>
+            """);
+
+        await File.WriteAllTextAsync(viewPath, """
+            <UserControl xmlns="https://github.com/avaloniaui"
+                         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                         xmlns:local="using:DataTemplateBindingDiagnosticsSample"
+                         x:Class="DataTemplateBindingDiagnosticsSample.SettingsView"
+                         x:DataType="local:SettingsViewModel"
+                         x:CompileBindings="False">
+              <ItemsControl ItemsSource="{Binding SystemProfileOptions}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="local:SystemProfileOptionViewModel">
+                    <StackPanel>
+                      <TextBlock Text="{Binding DisplayName}" />
+                      <CheckBox IsChecked="{Binding IsServerProfile}" />
+                    </StackPanel>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </UserControl>
+            """);
+
+        await File.WriteAllTextAsync(codeBehindPath, """
+            using Avalonia.Controls;
+
+            namespace DataTemplateBindingDiagnosticsSample;
+
+            public partial class SettingsView : UserControl
+            {
+                public SettingsView()
+                {
+                    InitializeComponent();
+                }
+            }
+            """);
+
+        await File.WriteAllTextAsync(viewModelPath, """
+            using System.Collections.Generic;
+
+            namespace DataTemplateBindingDiagnosticsSample;
+
+            public sealed class SettingsViewModel
+            {
+                public IReadOnlyList<SystemProfileOptionViewModel> SystemProfileOptions { get; } =
+                    new[] { new SystemProfileOptionViewModel() };
+            }
+
+            public sealed class SystemProfileOptionViewModel
+            {
+                public string DisplayName { get; } = "Server profile";
+
+                public bool IsServerProfile { get; } = true;
+            }
+            """);
+
+        var request = new PreviewRequest(
+            outputPath,
+            width: 420,
+            height: 240,
+            dpi: 96,
+            projectPath: projectPath,
+            viewPath: "SettingsView.axaml",
+            themeVariant: "light",
+            designDataType: "DataTemplateBindingDiagnosticsSample.SettingsViewModel");
+
+        await File.WriteAllTextAsync(requestPath, JsonSerializer.Serialize(request, JsonOptions));
+
+        try
+        {
+            var result = await RunPreviewHostAsync(hostAssembly, requestPath, expectedExitCode: 0);
+
+            Assert.NotNull(result);
+            Assert.True(result.Success, result.Error?.Message);
+            Assert.True(File.Exists(result.Value!.FilePath));
+            Assert.DoesNotContain(result.Value.Diagnostics, static item => item.Code == "binding_path_not_found");
+            Assert.DoesNotContain(result.Value.Diagnostics, static item => item.Code == "binding_datatype_path_not_found");
+            Assert.DoesNotContain(result.Value.Diagnostics, static item => item.Code == "binding_missing_datacontext");
         }
         finally
         {

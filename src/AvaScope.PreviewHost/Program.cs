@@ -8,6 +8,7 @@ using System.Xml;
 using System.Xml.Linq;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Templates;
 using Avalonia.Data.Converters;
 using Avalonia.Headless;
@@ -29,6 +30,8 @@ internal static class Program
     private const string XamlNamespace = "http://schemas.microsoft.com/winfx/2006/xaml";
     private const int MaximumPreviewDiagnostics = 100;
     private const double MinimumHitTargetSize = 24;
+    private const double TextLayoutWidthTolerance = 1;
+    private const double TextLayoutHeightTolerance = 4;
     private static readonly string[] PreviewBackgroundResourceKeys =
     [
         "SystemRegionBrush",
@@ -306,7 +309,10 @@ internal static class Program
                 continue;
             }
 
-            AddDataTypeBindingDiagnostics(diagnostics, sourceMetadata, binding, projectAssembly);
+            if (AddDataTypeBindingDiagnostics(diagnostics, sourceMetadata, binding, projectAssembly) != BindingDataTypeDiagnosticResult.NotApplicable)
+            {
+                continue;
+            }
 
             if (dataContext is null)
             {
@@ -419,7 +425,8 @@ internal static class Program
         Rect bounds,
         bool hasTrimming)
     {
-        if (desiredSize.Width <= bounds.Width + 0.5 && desiredSize.Height <= bounds.Height + 0.5)
+        if (desiredSize.Width <= bounds.Width + TextLayoutWidthTolerance
+            && desiredSize.Height <= bounds.Height + TextLayoutHeightTolerance)
         {
             return;
         }
@@ -444,6 +451,11 @@ internal static class Program
     private static void AddHitTargetDiagnostics(List<PreviewDiagnostic> diagnostics, Visual visual)
     {
         if (visual is not Button and not TextBox)
+        {
+            return;
+        }
+
+        if (visual is RepeatButton && HasVisualAncestor<Slider>(visual))
         {
             return;
         }
@@ -505,7 +517,7 @@ internal static class Program
 
     private static void AddOverlapDiagnostics(List<PreviewDiagnostic> diagnostics, Visual parent)
     {
-        if (IsIntentionalOverlayHost(parent))
+        if (IsIntentionalOverlayHost(parent) || IsFrameworkTemplateOverlapScope(parent))
         {
             return;
         }
@@ -526,6 +538,11 @@ internal static class Program
             {
                 var intersection = Intersect(children[outer].Bounds!.Value, children[inner].Bounds!.Value);
                 if (intersection is null || Area(intersection.Value) < 4)
+                {
+                    continue;
+                }
+
+                if (ShouldIgnoreOverlap(parent, children[outer].Visual, children[inner].Visual))
                 {
                     continue;
                 }
@@ -570,7 +587,7 @@ internal static class Program
         return false;
     }
 
-    private static void AddDataTypeBindingDiagnostics(
+    private static BindingDataTypeDiagnosticResult AddDataTypeBindingDiagnostics(
         List<PreviewDiagnostic> diagnostics,
         PreviewSourceMetadata sourceMetadata,
         SourceBindingReference binding,
@@ -580,7 +597,7 @@ internal static class Program
             || string.IsNullOrWhiteSpace(binding.DataTypeName)
             || string.IsNullOrWhiteSpace(binding.BindingPath))
         {
-            return;
+            return BindingDataTypeDiagnosticResult.NotApplicable;
         }
 
         if (!TryResolveBindingDataType(
@@ -603,14 +620,14 @@ internal static class Program
                     {
                         ["resolutionError"] = resolutionError ?? "unknown"
                     })));
-            return;
+            return BindingDataTypeDiagnosticResult.DiagnosticAdded;
         }
 
         if (dataType is null
             || !IsInspectableBindingPath(binding.BindingPath)
             || CanResolveBindingPath(dataType, binding.BindingPath))
         {
-            return;
+            return BindingDataTypeDiagnosticResult.Checked;
         }
 
         AddDiagnostic(diagnostics, new PreviewDiagnostic(
@@ -626,6 +643,7 @@ internal static class Program
                 {
                     ["dataType"] = dataType.FullName ?? dataType.Name
                 })));
+        return BindingDataTypeDiagnosticResult.DiagnosticAdded;
     }
 
     private static bool TryResolveBindingDataType(
@@ -920,6 +938,52 @@ internal static class Program
             || typeName.Contains("Overlay", StringComparison.OrdinalIgnoreCase)
             || typeName.Contains("Adorner", StringComparison.OrdinalIgnoreCase)
             || typeName.Contains("Popup", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool ShouldIgnoreOverlap(Visual parent, Visual first, Visual second)
+    {
+        if (IsFrameworkTemplateOverlapScope(first) || IsFrameworkTemplateOverlapScope(second))
+        {
+            return true;
+        }
+
+        var firstTemplatedParent = first.TemplatedParent;
+        var secondTemplatedParent = second.TemplatedParent;
+        if (firstTemplatedParent is not null && ReferenceEquals(firstTemplatedParent, secondTemplatedParent))
+        {
+            return true;
+        }
+
+        return parent.TemplatedParent is not null
+            && (first.TemplatedParent is not null || second.TemplatedParent is not null);
+    }
+
+    private static bool IsFrameworkTemplateOverlapScope(Visual visual)
+    {
+        var typeName = visual.GetType().Name;
+        var fullName = visual.GetType().FullName ?? typeName;
+        return visual is Window
+            || visual is Viewbox
+            || typeName is "ContentPresenter"
+            || string.Equals(fullName, "Avalonia.Controls.Primitives.VisualLayerManager", StringComparison.Ordinal)
+            || string.Equals(typeName, "VisualLayerManager", StringComparison.Ordinal);
+    }
+
+    private static bool HasVisualAncestor<T>(Visual visual)
+        where T : Visual
+    {
+        var current = visual.GetVisualParent();
+        while (current is not null)
+        {
+            if (current is T)
+            {
+                return true;
+            }
+
+            current = current.GetVisualParent();
+        }
+
+        return false;
     }
 
     private static void ApplyCulture(string? cultureName)
@@ -2228,6 +2292,13 @@ internal static class Program
     private static void WriteResult(ToolResult<PreviewResponse> result)
     {
         Console.WriteLine(JsonSerializer.Serialize(result, JsonOptions));
+    }
+
+    private enum BindingDataTypeDiagnosticResult
+    {
+        NotApplicable,
+        Checked,
+        DiagnosticAdded
     }
 
     private sealed record ProjectApplicationScope(
