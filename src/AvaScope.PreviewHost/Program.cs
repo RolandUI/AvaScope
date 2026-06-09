@@ -103,9 +103,16 @@ internal static class Program
 
     private static ToolResult<PreviewResponse> Render(PreviewRequest request)
     {
-        var fullOutputPath = Path.GetFullPath(request.OutputPath);
-        var fullProjectPath = ResolveProjectPath(request.ProjectPath);
-        var fullViewPath = ResolveViewPath(request.ViewPath, fullProjectPath);
+        var pathsResult = ResolvePreviewPaths(request);
+        if (!pathsResult.Success)
+        {
+            return ToolResult<PreviewResponse>.Fail(pathsResult.Error!);
+        }
+
+        var paths = pathsResult.Value!;
+        var fullOutputPath = paths.OutputPath;
+        var fullProjectPath = paths.ProjectPath;
+        var fullViewPath = paths.ViewPath;
         ApplyCulture(request.Culture);
         var buildError = BuildProject(fullProjectPath);
         if (buildError is not null)
@@ -914,6 +921,48 @@ internal static class Program
         CultureInfo.CurrentUICulture = culture;
     }
 
+    private static ToolResult<PreviewPaths> ResolvePreviewPaths(PreviewRequest request)
+    {
+        string fullOutputPath;
+        string? fullProjectPath;
+        string? fullViewPath;
+        try
+        {
+            fullOutputPath = Path.GetFullPath(request.OutputPath);
+            fullProjectPath = ResolveProjectPath(request.ProjectPath);
+            fullViewPath = ResolveViewPath(request.ViewPath, fullProjectPath);
+        }
+        catch (Exception exception) when (exception is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            return ToolResult<PreviewPaths>.Fail(new ProtocolError(
+                PreviewHostErrorCodes.InvalidRequest,
+                exception.Message,
+                CreateExceptionDetails("request", exception)));
+        }
+
+        if (fullProjectPath is not null && !File.Exists(fullProjectPath))
+        {
+            return ToolResult<PreviewPaths>.Fail(CreateReadinessError(
+                "project_file",
+                $"Preview project '{fullProjectPath}' was not found.",
+                fullProjectPath,
+                fullViewPath,
+                fullOutputPath));
+        }
+
+        if (fullViewPath is not null && !File.Exists(fullViewPath))
+        {
+            return ToolResult<PreviewPaths>.Fail(CreateReadinessError(
+                "view_file",
+                $"Preview view '{fullViewPath}' was not found.",
+                fullProjectPath,
+                fullViewPath,
+                fullOutputPath));
+        }
+
+        return ToolResult<PreviewPaths>.Ok(new PreviewPaths(fullOutputPath, fullProjectPath, fullViewPath));
+    }
+
     private static string? ResolveProjectPath(string? projectPath)
     {
         if (projectPath is null)
@@ -925,11 +974,6 @@ internal static class Program
         if (!string.Equals(Path.GetExtension(fullProjectPath), ".csproj", StringComparison.OrdinalIgnoreCase))
         {
             throw new ArgumentException("Project path must point to a .csproj file.", nameof(projectPath));
-        }
-
-        if (!File.Exists(fullProjectPath))
-        {
-            throw new FileNotFoundException($"Preview project '{fullProjectPath}' was not found.", fullProjectPath);
         }
 
         return fullProjectPath;
@@ -960,12 +1004,31 @@ internal static class Program
         process.StartInfo.ArgumentList.Add("--nologo");
         process.StartInfo.ArgumentList.Add("--disable-build-servers");
 
-        if (!process.Start())
+        try
         {
-            return CreateProjectBuildError(
-                $"Could not start project build for '{fullProjectPath}'.",
+            if (!process.Start())
+            {
+                return CreateReadinessError(
+                    "dotnet_cli",
+                    $"Could not start project build for '{fullProjectPath}'.",
+                    fullProjectPath,
+                    null,
+                    string.Empty,
+                    workingDirectory,
+                    command: $"dotnet build \"{fullProjectPath}\" --nologo --disable-build-servers");
+            }
+        }
+        catch (Exception exception) when (exception is System.ComponentModel.Win32Exception or InvalidOperationException)
+        {
+            return CreateReadinessError(
+                "dotnet_cli",
+                $"Could not start project build for '{fullProjectPath}': {exception.Message}",
                 fullProjectPath,
-                workingDirectory);
+                null,
+                string.Empty,
+                workingDirectory,
+                command: $"dotnet build \"{fullProjectPath}\" --nologo --disable-build-servers",
+                exception: exception);
         }
 
         var stdoutTask = process.StandardOutput.ReadToEndAsync();
@@ -1013,7 +1076,8 @@ internal static class Program
             ["phase"] = "build",
             ["projectPath"] = fullProjectPath,
             ["workingDirectory"] = workingDirectory,
-            ["command"] = $"dotnet build \"{fullProjectPath}\" --nologo --disable-build-servers"
+            ["command"] = $"dotnet build \"{fullProjectPath}\" --nologo --disable-build-servers",
+            ["nextAction"] = "Fix the project build output shown in outputTail, then retry the preview command."
         };
 
         if (exitCode is not null)
@@ -1042,7 +1106,8 @@ internal static class Program
         var details = new Dictionary<string, string>(StringComparer.Ordinal)
         {
             ["phase"] = "render",
-            ["outputPath"] = fullOutputPath
+            ["outputPath"] = fullOutputPath,
+            ["nextAction"] = "Inspect the render exception and view resources, then retry after the view can load in an isolated preview host."
         };
 
         if (fullProjectPath is not null)
@@ -1065,8 +1130,67 @@ internal static class Program
         return new Dictionary<string, string>(StringComparer.Ordinal)
         {
             ["phase"] = phase,
-            ["exceptionType"] = exception.GetType().FullName ?? exception.GetType().Name
+            ["exceptionType"] = exception.GetType().FullName ?? exception.GetType().Name,
+            ["nextAction"] = phase == "request"
+                ? "Check the preview request JSON and supplied paths before retrying."
+                : "Check the preview host error details before retrying."
         };
+    }
+
+    private static ProtocolError CreateReadinessError(
+        string requirement,
+        string message,
+        string? fullProjectPath,
+        string? fullViewPath,
+        string fullOutputPath,
+        string? workingDirectory = null,
+        string? command = null,
+        Exception? exception = null)
+    {
+        var details = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["phase"] = "readiness",
+            ["requirement"] = requirement,
+            ["nextAction"] = requirement switch
+            {
+                "project_file" => "Pass an existing .csproj path or omit projectPath for standalone AXAML preview.",
+                "view_file" => "Pass an existing .axaml view path, relative to the project directory when projectPath is set.",
+                "dotnet_cli" => "Install a compatible .NET SDK/runtime and ensure the dotnet executable is on PATH.",
+                _ => "Fix the reported local prerequisite before retrying the preview command."
+            }
+        };
+
+        if (!string.IsNullOrWhiteSpace(fullOutputPath))
+        {
+            details["outputPath"] = fullOutputPath;
+        }
+
+        if (fullProjectPath is not null)
+        {
+            details["projectPath"] = fullProjectPath;
+        }
+
+        if (fullViewPath is not null)
+        {
+            details["viewPath"] = fullViewPath;
+        }
+
+        if (!string.IsNullOrWhiteSpace(workingDirectory))
+        {
+            details["workingDirectory"] = workingDirectory;
+        }
+
+        if (!string.IsNullOrWhiteSpace(command))
+        {
+            details["command"] = command;
+        }
+
+        if (exception is not null)
+        {
+            details["exceptionType"] = exception.GetType().FullName ?? exception.GetType().Name;
+        }
+
+        return new ProtocolError(PreviewHostErrorCodes.ReadinessFailed, message, details);
     }
 
     private static IReadOnlyDictionary<string, string> CreateDesignMetadataDetails(
@@ -2072,6 +2196,11 @@ internal static class Program
     }
 
     private sealed record PreviewDimensions(double Width, double Height);
+
+    private sealed record PreviewPaths(
+        string OutputPath,
+        string? ProjectPath,
+        string? ViewPath);
 
     private sealed record SourceBindingReference(
         string ElementPath,

@@ -65,6 +65,10 @@ public sealed class PreviewHostClientTests : IDisposable
 
         Assert.False(result.Success);
         Assert.Equal(CoreErrorCodes.PreviewHostUnavailable, result.Error!.Code);
+        Assert.Equal("host", result.Error.Details!["phase"]);
+        Assert.Equal("host_assembly", result.Error.Details["requirement"]);
+        Assert.Equal(Path.GetFullPath(Path.Combine(_testRoot, "missing-host.dll")), result.Error.Details["hostAssemblyPath"]);
+        Assert.Contains("AvaScope.PreviewHost.dll", result.Error.Details["nextAction"], StringComparison.Ordinal);
     }
 
     [Fact]
@@ -95,5 +99,8 @@ public sealed class PreviewHostClientTests : IDisposable
         Assert.Equal(DiagnosticProcessModes.IsolatedChildProcess, diagnostics.ProcessMode);
         Assert.Null(diagnostics.Service);
         Assert.Equal(CoreErrorCodes.PreviewHostUnavailable, diagnostics.Error!.Code);
+        Assert.Equal("host", diagnostics.Error.Details!["phase"]);
+        Assert.Equal("host_assembly", diagnostics.Error.Details["requirement"]);
+        Assert.Contains("co-located", diagnostics.Error.Details["nextAction"], StringComparison.Ordinal);
     }
 }

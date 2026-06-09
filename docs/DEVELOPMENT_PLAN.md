@@ -25,15 +25,15 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `R0.2.0-M2 Preview Diagnostics Readiness`
+- `R0.2.0-M3 Live Preview Lifecycle Decision`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-09`
-- Goal: make preview failures more actionable before agents retry expensive or impossible render commands for the `v0.2.0` release target.
+- Goal: decide and implement the smallest safe live-preview lifecycle improvement after unchanged-input skip events for the `v0.2.0` release target.
 
 ## Next Action
 
-Implement `R0.2.0-M2` by auditing preview-host, SDK, build, and project-path diagnostics, then adding bounded readiness issues for reliable local prerequisite failures.
+Implement `R0.2.0-M3` by evaluating persistent preview host lifecycle boundaries and either shipping a small safe lifecycle improvement or recording an explicit deferral with close, TTL, crash, and cleanup semantics.
 
 ## Latest Validation
 
@@ -147,6 +147,10 @@ Implement `R0.2.0-M2` by auditing preview-host, SDK, build, and project-path dia
 - `2026-06-09`: runtime target handoff targeted tests passed: protocol contract shape, headless MCP bridge tree/screenshot/inspect/find/input paths, and CLI tree/find/input handoff smoke paths.
 - `2026-06-09`: `dotnet test AvaScope.slnx --no-build` passed with 207 tests after runtime target handoff implementation.
 - `2026-06-09`: `git diff --check` passed after runtime target handoff implementation.
+- `2026-06-09`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after preview failure triage implementation.
+- `2026-06-09`: preview failure triage targeted tests passed: PreviewHostClient readiness details, PreviewHost readiness/build/render diagnostics, and CLI readiness/build detail preservation.
+- `2026-06-09`: `dotnet test AvaScope.slnx --no-build` passed with 210 tests after preview failure triage implementation.
+- `2026-06-09`: `git diff --check` passed after preview failure triage implementation.
 - `2026-06-08`: `dotnet test AvaScope.slnx -c Release --filter FullyQualifiedName~CliSmokeTests.CloseSessionCommandClosesThroughBridgePipe` passed after W8 CI failure hardening.
 - `2026-06-08`: `dotnet test AvaScope.slnx -c Release --no-build` passed with 179 tests after W8 CI failure hardening.
 - `2026-06-08`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.1.0 -DryRun` passed after W8 GitHub Release creation hardening.
@@ -2154,25 +2158,27 @@ Implement `R0.2.0-M2` by auditing preview-host, SDK, build, and project-path dia
 
 ### R0.2.0-M2 Preview Diagnostics Readiness
 
-- Status: `In Progress`
+- Status: `Done`
 - Goal: make preview failures more actionable before agents retry expensive or impossible render commands.
 - Deliverables: project/environment readiness diagnostics, CLI/MCP surface updates, docs, tests, validation, commit, push.
 - Progress:
-  - Pending: audit current preview-host, SDK, build, and project path diagnostics.
-  - Pending: add bounded readiness issues for missing SDK/build/project prerequisites where public tooling exposes reliable signals.
-  - Pending: document remaining diagnostics limits explicitly.
+  - Done: audited preview host, Core client, CLI, SDK/build, project path, and view path diagnostics.
+  - Done: added `preview_readiness_failed` for local project/view prerequisites that can be checked before build/render.
+  - Done: added host-side details for missing co-located PreviewHost assemblies, dotnet process startup, host timeout, malformed host output, and host stderr.
+  - Done: preserved project build failures as `preview_project_build_failed` with bounded `outputTail`, `phase=build`, and `nextAction`.
+  - Done: documented readiness/build/render `error.details.phase` guidance in README, agent workflow docs, and validation guidance.
 - Acceptance Criteria:
-  - Pending: preview readiness errors distinguish missing local prerequisites from project build/render failures.
-  - Pending: diagnostics stay bounded and do not execute arbitrary user code outside existing preview request boundaries.
+  - Done: preview readiness errors distinguish missing local prerequisites from project build/render failures.
+  - Done: diagnostics stay bounded and do not execute arbitrary user code outside existing preview request boundaries.
 - Validation:
-  - Pending: targeted PreviewHost/Core/CLI/MCP tests.
-  - Pending: `dotnet build AvaScope.slnx`
-  - Pending: `dotnet test AvaScope.slnx --no-build`
-  - Pending: `git diff --check`
+  - Passed: `dotnet test AvaScope.slnx --no-build --filter "FullyQualifiedName~PreviewHostClientTests|FullyQualifiedName~PreviewHostSmokeTests|FullyQualifiedName~CliSmokeTests.PreviewCommandPreservesPreviewReadinessFailureDetails|FullyQualifiedName~CliSmokeTests.PreviewCommandPreservesPreviewFailureDetails"`
+  - Passed: `dotnet build AvaScope.slnx`
+  - Passed: `dotnet test AvaScope.slnx --no-build`
+  - Passed: `git diff --check`
 
 ### R0.2.0-M3 Live Preview Lifecycle Decision
 
-- Status: `Not Started`
+- Status: `In Progress`
 - Goal: decide and implement the smallest safe live-preview improvement after unchanged-input skip events.
 - Deliverables: lifecycle decision record, implementation or explicit deferral, tests/docs, validation, commit, push.
 - Progress:
@@ -2413,6 +2419,7 @@ Implement `R0.2.0-M2` by auditing preview-host, SDK, build, and project-path dia
 - `2026-06-09`: `v0.2.0` includes a Codex preview surface goal implemented through a local file-backed AvaScope viewer and MCP/CLI `previewUrl` handoff rather than depending on an undocumented native Codex sidebar extension.
 - `2026-06-09`: Codex preview surface uses a file-backed, self-contained HTML viewer first because Codex supports file-backed previews and this avoids a long-lived preview server or network listener while still returning a `previewUrl`.
 - `2026-06-09`: Runtime target handoff is implemented as additive protocol context instead of replacing existing top-level, tree-kind, or node-id fields so older callers remain compatible while agents get an unambiguous object to carry forward.
+- `2026-06-09`: Preview failure triage keeps missing project/view/host/dotnet prerequisites in `phase=readiness`, project compilation in `phase=build`, and isolated XAML/render failures in `phase=render` so agents can decide whether retrying is useful.
 
 ## Change Log
 
@@ -2509,3 +2516,4 @@ Implement `R0.2.0-M2` by auditing preview-host, SDK, build, and project-path dia
 - `2026-06-09`: Added Codex preview surface to the `v0.2.0` release goals and inserted `R0.2.0-M5 Codex Preview Surface` before release-candidate validation.
 - `2026-06-09`: Completed R0.2.0-M5 by adding file-backed preview viewer export, CLI `preview-viewer`, MCP `preview_viewer`, Codex in-app browser docs, targeted validation, and full test-suite validation.
 - `2026-06-09`: Completed R0.2.0-M1 by adding runtime `target` context to tree/find/inspect/input/screenshot responses, actionable stale target error details, docs, and full validation.
+- `2026-06-09`: Completed R0.2.0-M2 by adding preview readiness/build/render failure triage, bounded error details, CLI/Core/PreviewHost tests, docs, and full validation.

@@ -285,6 +285,108 @@ public sealed class PreviewHostSmokeTests
     }
 
     [Fact]
+    public async Task PreviewHostReturnsReadinessErrorWhenProjectFileIsMissing()
+    {
+        var hostAssembly = Path.Combine(AppContext.BaseDirectory, "AvaScope.PreviewHost.dll");
+        Assert.True(File.Exists(hostAssembly), $"Expected preview host assembly at {hostAssembly}.");
+
+        var testRoot = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(testRoot);
+
+        var projectPath = Path.Combine(testRoot, "Missing.csproj");
+        var viewPath = Path.Combine(testRoot, "MainView.axaml");
+        var requestPath = Path.Combine(testRoot, "request.json");
+        var outputPath = Path.Combine(testRoot, "preview.png");
+
+        await File.WriteAllTextAsync(viewPath, """
+            <UserControl xmlns="https://github.com/avaloniaui">
+              <TextBlock Text="Missing project should not render" />
+            </UserControl>
+            """);
+
+        var request = new PreviewRequest(
+            outputPath,
+            width: 240,
+            height: 160,
+            dpi: 96,
+            projectPath: projectPath,
+            viewPath: viewPath);
+
+        await File.WriteAllTextAsync(requestPath, JsonSerializer.Serialize(request, JsonOptions));
+
+        try
+        {
+            var result = await RunPreviewHostAsync(hostAssembly, requestPath, expectedExitCode: 1);
+
+            Assert.NotNull(result);
+            Assert.False(result.Success);
+            Assert.Equal("preview_readiness_failed", result.Error!.Code);
+            Assert.Equal("readiness", result.Error.Details!["phase"]);
+            Assert.Equal("project_file", result.Error.Details["requirement"]);
+            Assert.Equal(Path.GetFullPath(projectPath), result.Error.Details["projectPath"]);
+            Assert.Equal(Path.GetFullPath(viewPath), result.Error.Details["viewPath"]);
+            Assert.Contains("existing .csproj", result.Error.Details["nextAction"], StringComparison.Ordinal);
+            Assert.False(File.Exists(outputPath));
+        }
+        finally
+        {
+            await DeleteDirectoryWithRetryAsync(testRoot);
+        }
+    }
+
+    [Fact]
+    public async Task PreviewHostReturnsReadinessErrorWhenViewFileIsMissing()
+    {
+        var hostAssembly = Path.Combine(AppContext.BaseDirectory, "AvaScope.PreviewHost.dll");
+        Assert.True(File.Exists(hostAssembly), $"Expected preview host assembly at {hostAssembly}.");
+
+        var testRoot = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(testRoot);
+
+        var projectPath = Path.Combine(testRoot, "Sample.csproj");
+        var viewPath = Path.Combine(testRoot, "Views", "MissingView.axaml");
+        var requestPath = Path.Combine(testRoot, "request.json");
+        var outputPath = Path.Combine(testRoot, "preview.png");
+
+        await File.WriteAllTextAsync(projectPath, """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+              </PropertyGroup>
+            </Project>
+            """);
+
+        var request = new PreviewRequest(
+            outputPath,
+            width: 240,
+            height: 160,
+            dpi: 96,
+            projectPath: projectPath,
+            viewPath: Path.Combine("Views", "MissingView.axaml"));
+
+        await File.WriteAllTextAsync(requestPath, JsonSerializer.Serialize(request, JsonOptions));
+
+        try
+        {
+            var result = await RunPreviewHostAsync(hostAssembly, requestPath, expectedExitCode: 1);
+
+            Assert.NotNull(result);
+            Assert.False(result.Success);
+            Assert.Equal("preview_readiness_failed", result.Error!.Code);
+            Assert.Equal("readiness", result.Error.Details!["phase"]);
+            Assert.Equal("view_file", result.Error.Details["requirement"]);
+            Assert.Equal(Path.GetFullPath(projectPath), result.Error.Details["projectPath"]);
+            Assert.Equal(Path.GetFullPath(viewPath), result.Error.Details["viewPath"]);
+            Assert.Contains("existing .axaml", result.Error.Details["nextAction"], StringComparison.Ordinal);
+            Assert.False(File.Exists(outputPath));
+        }
+        finally
+        {
+            await DeleteDirectoryWithRetryAsync(testRoot);
+        }
+    }
+
+    [Fact]
     public async Task PreviewHostReturnsStructuredErrorWhenProjectBuildFails()
     {
         var hostAssembly = Path.Combine(AppContext.BaseDirectory, "AvaScope.PreviewHost.dll");
@@ -333,6 +435,7 @@ public sealed class PreviewHostSmokeTests
             Assert.Equal(Path.GetFullPath(projectPath), result.Error.Details["projectPath"]);
             Assert.Equal("1", result.Error.Details["exitCode"]);
             Assert.Contains("Build FAILED", result.Error.Details["outputTail"], StringComparison.Ordinal);
+            Assert.Contains("Fix the project build output", result.Error.Details["nextAction"], StringComparison.Ordinal);
             Assert.False(File.Exists(outputPath));
         }
         finally

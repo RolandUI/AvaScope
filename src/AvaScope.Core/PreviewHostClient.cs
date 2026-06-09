@@ -37,7 +37,8 @@ public sealed class PreviewHostClient
                 DiagnosticProcessModes.IsolatedChildProcess,
                 error: new ProtocolError(
                     CoreErrorCodes.PreviewHostUnavailable,
-                    $"Preview host assembly '{fullHostAssemblyPath}' was not found."));
+                    $"Preview host assembly '{fullHostAssemblyPath}' was not found.",
+                    CreateHostReadinessDetails(fullHostAssemblyPath, "host_assembly")));
         }
 
         return new PreviewHostDiagnostic(
@@ -55,9 +56,11 @@ public sealed class PreviewHostClient
 
         if (!File.Exists(HostAssemblyPath))
         {
+            var fullHostAssemblyPath = Path.GetFullPath(HostAssemblyPath);
             return CoreResult<PreviewResponse>.Fail(new CoreError(
                 CoreErrorCodes.PreviewHostUnavailable,
-                $"Preview host assembly '{HostAssemblyPath}' was not found."));
+                $"Preview host assembly '{fullHostAssemblyPath}' was not found.",
+                CreateHostReadinessDetails(fullHostAssemblyPath, "host_assembly")));
         }
 
         var requestDirectory = Path.Combine(
@@ -169,11 +172,22 @@ public sealed class PreviewHostClient
         process.StartInfo.ArgumentList.Add("--request");
         process.StartInfo.ArgumentList.Add(requestPath);
 
-        if (!process.Start())
+        try
+        {
+            if (!process.Start())
+            {
+                return CoreResult<PreviewResponse>.Fail(new CoreError(
+                    CoreErrorCodes.PreviewHostUnavailable,
+                    $"Could not start preview host '{HostAssemblyPath}'.",
+                    CreateHostReadinessDetails(HostAssemblyPath, "dotnet_cli")));
+            }
+        }
+        catch (Exception exception) when (exception is System.ComponentModel.Win32Exception or InvalidOperationException)
         {
             return CoreResult<PreviewResponse>.Fail(new CoreError(
                 CoreErrorCodes.PreviewHostUnavailable,
-                $"Could not start preview host '{HostAssemblyPath}'."));
+                $"Could not start preview host '{HostAssemblyPath}': {exception.Message}",
+                CreateHostReadinessDetails(HostAssemblyPath, "dotnet_cli", exception)));
         }
 
         var stdoutTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
@@ -191,7 +205,8 @@ public sealed class PreviewHostClient
             KillPreviewHost(process);
             return CoreResult<PreviewResponse>.Fail(new CoreError(
                 CoreErrorCodes.PreviewHostUnavailable,
-                "Preview host request timed out."));
+                "Preview host request timed out.",
+                CreateHostReadinessDetails(HostAssemblyPath, "host_timeout")));
         }
 
         var stdout = await stdoutTask;
@@ -201,7 +216,14 @@ public sealed class PreviewHostClient
         {
             return CoreResult<PreviewResponse>.Fail(new CoreError(
                 CoreErrorCodes.PreviewHostFailed,
-                stderr.Trim()));
+                stderr.Trim(),
+                new Dictionary<string, string>(StringComparer.Ordinal)
+                {
+                    ["phase"] = "host",
+                    ["hostAssemblyPath"] = Path.GetFullPath(HostAssemblyPath),
+                    ["outputTail"] = TrimOutput(stderr),
+                    ["nextAction"] = "Inspect preview host stderr and retry after the host can start cleanly."
+                }));
         }
 
         ToolResult<PreviewResponse>? result;
@@ -213,14 +235,23 @@ public sealed class PreviewHostClient
         {
             return CoreResult<PreviewResponse>.Fail(new CoreError(
                 CoreErrorCodes.PreviewHostFailed,
-                exception.Message));
+                exception.Message,
+                new Dictionary<string, string>(StringComparer.Ordinal)
+                {
+                    ["phase"] = "host",
+                    ["hostAssemblyPath"] = Path.GetFullPath(HostAssemblyPath),
+                    ["exceptionType"] = exception.GetType().FullName ?? exception.GetType().Name,
+                    ["outputTail"] = TrimOutput(stdout),
+                    ["nextAction"] = "Inspect preview host stdout and retry after it returns structured JSON."
+                }));
         }
 
         if (result is null)
         {
             return CoreResult<PreviewResponse>.Fail(new CoreError(
                 CoreErrorCodes.PreviewHostFailed,
-                "Preview host returned an empty response."));
+                "Preview host returned an empty response.",
+                CreateHostReadinessDetails(HostAssemblyPath, "host_response")));
         }
 
         if (!result.Success)
@@ -235,14 +266,58 @@ public sealed class PreviewHostClient
         {
             return CoreResult<PreviewResponse>.Fail(new CoreError(
                 CoreErrorCodes.PreviewHostFailed,
-                $"Preview host exited with code {process.ExitCode}."));
+                $"Preview host exited with code {process.ExitCode}.",
+                new Dictionary<string, string>(StringComparer.Ordinal)
+                {
+                    ["phase"] = "host",
+                    ["hostAssemblyPath"] = Path.GetFullPath(HostAssemblyPath),
+                    ["exitCode"] = process.ExitCode.ToString(CultureInfo.InvariantCulture),
+                    ["nextAction"] = "Inspect the preview host error details and retry after the host process exits successfully."
+                }));
         }
 
         return result.Value is null
             ? CoreResult<PreviewResponse>.Fail(new CoreError(
                 CoreErrorCodes.PreviewHostFailed,
-                "Preview host success response did not contain a value."))
+                "Preview host success response did not contain a value.",
+                CreateHostReadinessDetails(HostAssemblyPath, "host_response")))
             : CoreResult<PreviewResponse>.Ok(result.Value);
+    }
+
+    private static IReadOnlyDictionary<string, string> CreateHostReadinessDetails(
+        string hostAssemblyPath,
+        string requirement,
+        Exception? exception = null)
+    {
+        var details = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["phase"] = "host",
+            ["requirement"] = requirement,
+            ["hostAssemblyPath"] = Path.GetFullPath(hostAssemblyPath),
+            ["nextAction"] = requirement switch
+            {
+                "host_assembly" => "Build or package AvaScope so AvaScope.PreviewHost.dll is co-located with the caller.",
+                "dotnet_cli" => "Install a compatible .NET SDK/runtime and ensure the dotnet executable is on PATH.",
+                "host_timeout" => "Check whether the preview host or user project is hanging, then retry with a smaller preview request.",
+                _ => "Inspect the preview host process readiness before retrying."
+            }
+        };
+
+        if (exception is not null)
+        {
+            details["exceptionType"] = exception.GetType().FullName ?? exception.GetType().Name;
+        }
+
+        return details;
+    }
+
+    private static string TrimOutput(string output)
+    {
+        var normalized = output.Trim();
+        const int maximumLength = 4000;
+        return normalized.Length <= maximumLength
+            ? normalized
+            : normalized[^maximumLength..];
     }
 
     private static string CreateViewportOutputPath(string baseOutputPath, PreviewViewport viewport, int index)

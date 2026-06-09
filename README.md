@@ -419,7 +419,7 @@ Planned but not implemented yet: runtime hot reload, drag/drop, full preview sta
 
 `diagnostics` reports AvaScope service metadata, local bridge manifest/pipe health, stale or invalid bridge manifests, preview host readiness, and stale or invalid preview-session metadata without building or loading user projects. The response keeps the legacy `issues` list and also includes bounded `diagnosticIssues` entries with source, severity, status, provenance, and related path/session metadata for agent triage.
 
-Preview build/render failures preserve the stable `error.code` and `error.message` shape and may include bounded `error.details` fields such as `phase`, `projectPath`, `viewPath`, `outputPath`, `exitCode`, and `outputTail`.
+Preview readiness/build/render failures preserve the stable `error.code` and `error.message` shape and may include bounded `error.details` fields such as `phase`, `requirement`, `projectPath`, `viewPath`, `outputPath`, `exitCode`, `outputTail`, and `nextAction`. Readiness failures cover local prerequisites that can be checked before rendering, such as missing co-located PreviewHost assemblies, missing project files, missing view files, and unavailable `dotnet` process startup.
 
 ## Runtime Bridge
 
@@ -459,6 +459,7 @@ Preview rendering is isolated in `AvaScope.PreviewHost`, launched as a child pro
 
 - accepts a JSON `PreviewRequest`;
 - optionally runs `dotnet build` for the requested `.csproj`;
+- reports local readiness failures before build/render when project files, view files, host assemblies, or `dotnet` startup are missing;
 - loads compiled Avalonia resource XAML through `avares://` when possible;
 - loads compiled top-level `Application.Resources`, resource merged dictionaries, theme dictionaries, direct or included `Application.Styles`, `Application.DataTemplates`, and fallback `Application.DataContext` from `App.axaml`/`App.Initialize()` when present;
 - falls back to standalone runtime `.axaml` loading;

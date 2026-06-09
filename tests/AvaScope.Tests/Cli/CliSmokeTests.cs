@@ -896,6 +896,66 @@ public sealed class CliSmokeTests
     }
 
     [Fact]
+    public async Task PreviewCommandPreservesPreviewReadinessFailureDetails()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var testRoot = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(testRoot);
+
+        var projectPath = Path.Combine(testRoot, "CliReadinessPreviewSample.csproj");
+        var viewPath = Path.Combine(testRoot, "Views", "MissingView.axaml");
+        var outputPath = Path.Combine(testRoot, "preview.png");
+
+        await File.WriteAllTextAsync(projectPath, """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+              </PropertyGroup>
+            </Project>
+            """);
+
+        try
+        {
+            var result = await RunCliAsync(
+                cliAssembly,
+                "preview",
+                projectPath,
+                "--view",
+                Path.Combine("Views", "MissingView.axaml"),
+                "--out",
+                outputPath,
+                "--width",
+                "220",
+                "--height",
+                "140");
+
+            Assert.Equal(1, result.ExitCode);
+            Assert.True(string.IsNullOrWhiteSpace(result.StandardError), result.StandardError);
+
+            var payload = JsonSerializer.Deserialize<ToolResult<PreviewResponse>>(result.StandardOutput, JsonOptions);
+            Assert.NotNull(payload);
+            Assert.False(payload.Success);
+            Assert.Equal("preview_readiness_failed", payload.Error!.Code);
+            Assert.NotNull(payload.Error.Details);
+            Assert.Equal("readiness", payload.Error.Details!["phase"]);
+            Assert.Equal("view_file", payload.Error.Details["requirement"]);
+            Assert.Equal(Path.GetFullPath(projectPath), payload.Error.Details["projectPath"]);
+            Assert.Equal(Path.GetFullPath(viewPath), payload.Error.Details["viewPath"]);
+            Assert.Contains("existing .axaml", payload.Error.Details["nextAction"], StringComparison.Ordinal);
+            Assert.False(File.Exists(outputPath));
+        }
+        finally
+        {
+            if (Directory.Exists(testRoot))
+            {
+                Directory.Delete(testRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
     public async Task PreviewCommandPreservesPreviewFailureDetails()
     {
         var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");

@@ -79,6 +79,8 @@ Preview sessions persist request metadata only. Each render still runs through a
 
 `preview-viewer` returns a `previewUrl` pointing at a generated file-backed HTML viewer. Open that URL in the Codex in-app browser to review the rendered screenshot, preview metadata, diagnostics, and session JSON beside the thread without starting a server.
 
+Preview failures include bounded `error.details.phase` values. Treat `readiness` as a local prerequisite problem, `build` as user project build output, and `render` as isolated view loading or rendering failure.
+
 ## 5. Inspect A Running App
 
 Start the sample with the opt-in bridge:

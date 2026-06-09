@@ -54,6 +54,14 @@ For source-backed preview diagnostics work, include the typed-binding smoke path
 dotnet test AvaScope.slnx --filter FullyQualifiedName~PreviewHostSmokeTests.PreviewHostReturnsDataTypeBindingPathDiagnostics
 ```
 
+For preview failure triage/readiness work, include:
+
+```powershell
+dotnet test AvaScope.slnx --filter FullyQualifiedName~PreviewHostClientTests
+dotnet test AvaScope.slnx --filter FullyQualifiedName~PreviewHostSmokeTests
+dotnet test AvaScope.slnx --filter "FullyQualifiedName~CliSmokeTests.PreviewCommandPreservesPreviewReadinessFailureDetails|FullyQualifiedName~CliSmokeTests.PreviewCommandPreservesPreviewFailureDetails"
+```
+
 For CLI work, also run:
 
 ```powershell
