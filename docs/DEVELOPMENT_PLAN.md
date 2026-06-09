@@ -23,15 +23,15 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `Post-W16 Follow-up Selection`
+- `W18 CLI Doctor And Self-Test`
 - Status: `In Progress`
 - Owner: autonomous agent
-- Started: `2026-06-08`
-- Goal: choose the next product-aligned workstream after W10-W16 completion only after the completed W10-W16 work is committed, pushed, and handed off.
+- Started: `2026-06-09`
+- Goal: add a first-class local self-test command that reports AvaScope runtime readiness, preview-host readiness, local bridge discovery state, preview-session store state, and packaged-command availability without loading user projects.
 
 ## Next Action
 
-Commit and push W16, then hand off the completed W10-W16 run with validation evidence and remaining deferrals.
+Implement `avascope doctor`, cover it with CLI smoke tests, document the command, validate, commit, and push W18.
 
 ## Latest Validation
 
@@ -78,6 +78,7 @@ Commit and push W16, then hand off the completed W10-W16 run with validation evi
 - `2026-06-08`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-nuget.ps1 -DryRun` passed after W16 distribution hardening.
 - `2026-06-08`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.1.0 -DryRun` passed after W16 distribution hardening.
 - `2026-06-08`: `git check-ignore -v` confirmed regenerated W16 release artifacts remain ignored under `artifacts/`.
+- `2026-06-09`: `git diff --check` passed after W17 plan refresh and gap-audit alignment.
 - `2026-06-08`: `dotnet test AvaScope.slnx -c Release --filter FullyQualifiedName~CliSmokeTests.CloseSessionCommandClosesThroughBridgePipe` passed after W8 CI failure hardening.
 - `2026-06-08`: `dotnet test AvaScope.slnx -c Release --no-build` passed with 179 tests after W8 CI failure hardening.
 - `2026-06-08`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.1.0 -DryRun` passed after W8 GitHub Release creation hardening.
@@ -1840,6 +1841,164 @@ Commit and push W16, then hand off the completed W10-W16 run with validation evi
   - Passed: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-nuget.ps1 -DryRun`
   - Passed: `git diff --check`
 
+### W17 Plan Refresh And Alpha Gate
+
+- Status: `Done`
+- Goal: close the stale post-W16 planning state and define the next product-aligned development period before new implementation work begins.
+- Deliverables: refreshed `Current Focus`, `Next Action`, W17-W25 milestone definitions, audit alignment notes, validation, commit, push.
+- Progress:
+  - Done: selected CLI doctor/self-test as the next active slice because it improves first-user and agent reliability without broadening runtime safety boundaries.
+  - Done: recorded W17-W25 as the next milestone sequence covering diagnostics, profiles, agent workflow documentation, runtime input, preview performance, visual-regression CI, and release-candidate validation.
+- Acceptance Criteria:
+  - Done: exactly one milestone is marked `In Progress`.
+  - Done: W17-W25 have explicit goals, deliverables, acceptance criteria, and validation commands.
+  - Done: stale post-W16 handoff wording is replaced by an actionable W18 next action.
+- Validation:
+  - Passed: `git diff --check`
+
+### W18 CLI Doctor And Self-Test
+
+- Status: `In Progress`
+- Goal: add a first-class local self-test command that reports AvaScope runtime readiness, preview-host readiness, local bridge discovery state, preview-session store state, and packaged-command availability without loading user projects.
+- Deliverables: CLI `doctor` command, structured protocol/core or CLI DTOs as needed, tests, README/validation updates, commit, push.
+- Progress:
+  - Pending: implement command parsing and structured JSON output.
+  - Pending: cover source and packaged-style command states with CLI smoke tests.
+- Acceptance Criteria:
+  - Doctor does not build or load user projects.
+  - Doctor reports service identity, CLI path/base directory, preview host availability, MCP assembly availability, bridge manifest directory state, preview-session store state, and actionable issues.
+  - Doctor can run with no arguments and supports bounded JSON output consistent with other CLI commands.
+  - Invalid arguments return deterministic CLI errors.
+- Validation:
+  - Pending: `dotnet build AvaScope.slnx`
+  - Pending: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli`
+  - Pending: packaged CLI doctor smoke after local release validation
+  - Pending: `git diff --check`
+
+### W19 Preview Profiles
+
+- Status: `Not Started`
+- Goal: make repeated preview commands less brittle by allowing project-local named preview profiles.
+- Deliverables: `avascope.preview.json` profile schema, CLI profile loading for preview and preview-session creation, sample profile, tests, documentation, commit, push.
+- Progress:
+  - Pending: define profile file shape with named profiles and default values for view, output, size, DPI, theme, culture, design data type, and sizes/contact sheet.
+- Acceptance Criteria:
+  - Existing explicit CLI options remain compatible and override profile values.
+  - Missing or invalid profile files return structured diagnostics.
+  - The getting-started sample includes at least one valid profile.
+  - Profile loading does not execute user code.
+- Validation:
+  - Pending: `dotnet build AvaScope.slnx`
+  - Pending: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli`
+  - Pending: sample profile preview smoke
+  - Pending: `git diff --check`
+
+### W20 Agent Workflow Pack
+
+- Status: `Not Started`
+- Goal: document and validate an agent-ready workflow that exercises preview, runtime bridge inspection, diagnostics, visual tree, input, screenshot, and diff commands from the packaged CLI.
+- Deliverables: workflow documentation, sample walkthrough updates, validation commands, commit, push.
+- Progress:
+  - Pending: write a concise end-to-end workflow that is not TradeR-specific and can be followed by MCP clients or CLI users.
+- Acceptance Criteria:
+  - README or dedicated docs page includes source and packaged CLI examples.
+  - The workflow explains safety boundaries and common failure triage through `doctor` and `diagnostics`.
+  - The sample README stays aligned with the root workflow.
+- Validation:
+  - Pending: documentation review
+  - Pending: sample packaged CLI smoke
+  - Pending: `git diff --check`
+
+### W21 Runtime Interaction V2
+
+- Status: `Not Started`
+- Goal: expand runtime input where public Avalonia APIs and deterministic headless tests support it.
+- Deliverables: richer non-destructive input behavior, protocol/CLI/MCP propagation if needed, bridge tests, documentation, commit, push.
+- Progress:
+  - Pending: select the smallest deterministic input extension after auditing current pointer/key support.
+- Acceptance Criteria:
+  - Runtime bridge remains opt-in and local-only.
+  - No destructive runtime actions are introduced.
+  - Unsupported input variants return structured errors instead of inferred behavior.
+  - New input behavior is covered by headless bridge and CLI adapter tests.
+- Validation:
+  - Pending: `dotnet build AvaScope.slnx`
+  - Pending: `dotnet test AvaScope.slnx --no-build --filter Bridge`
+  - Pending: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli`
+  - Pending: `git diff --check`
+
+### W22 Diagnostics V2
+
+- Status: `Not Started`
+- Goal: improve diagnostics with bounded history and clearer severity/provenance without relying on private Avalonia internals.
+- Deliverables: diagnostics history/provenance slice, protocol/core/adapter updates, tests, documentation, commit, push.
+- Progress:
+  - Pending: audit existing diagnostics DTOs and select a public-API-backed improvement.
+- Acceptance Criteria:
+  - Diagnostics remain bounded and machine-readable.
+  - Any inferred or unavailable details are explicitly marked as advisory or unavailable.
+  - MCP and CLI expose the same diagnostic data shape through Core.
+- Validation:
+  - Pending: `dotnet build AvaScope.slnx`
+  - Pending: `dotnet test AvaScope.slnx --no-build --filter Protocol`
+  - Pending: `dotnet test AvaScope.slnx --no-build --filter Core`
+  - Pending: `dotnet test AvaScope.slnx --no-build --filter Mcp`
+  - Pending: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli`
+  - Pending: `git diff --check`
+
+### W23 Faster Live Preview
+
+- Status: `Not Started`
+- Goal: reduce live-preview reload friction while preserving the isolated child-process boundary for user code.
+- Deliverables: measured preview reload improvement or explicit deferral, process/session lifecycle tests, documentation, commit, push.
+- Progress:
+  - Pending: compare one-shot reload cost with a bounded, opt-in persistent-host design.
+- Acceptance Criteria:
+  - User project assemblies are never loaded into MCP or CLI processes.
+  - Any persistent preview process has explicit close, TTL or idle shutdown, and crash recovery semantics.
+  - Existing one-shot preview behavior remains available.
+- Validation:
+  - Pending: `dotnet build AvaScope.slnx`
+  - Pending: targeted Core/PreviewHost tests
+  - Pending: CLI watch reload smoke
+  - Pending: `git diff --check`
+
+### W24 Visual Regression CI Kit
+
+- Status: `Not Started`
+- Goal: make baseline checking easier to run in CI and easier for agents to summarize.
+- Deliverables: CI-friendly baseline report output, stable artifact layout, tests, validation docs, commit, push.
+- Progress:
+  - Pending: extend baseline check reporting without changing existing pass/fail behavior.
+- Acceptance Criteria:
+  - Baseline mismatches produce a stable machine-readable report and non-zero exit code.
+  - Current, baseline, and diff artifact paths are easy to upload from CI.
+  - Existing baseline commands remain compatible.
+- Validation:
+  - Pending: `dotnet build AvaScope.slnx`
+  - Pending: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli`
+  - Pending: sample baseline create/check smoke
+  - Pending: `git diff --check`
+
+### W25 Public Alpha Release Candidate
+
+- Status: `Not Started`
+- Goal: validate the post-W17 development period as a coherent public-alpha release-candidate state.
+- Deliverables: release-candidate audit refresh, full validation, packaged smoke checks, remaining deferrals, commit, push.
+- Progress:
+  - Pending: run after W18-W24 are complete.
+- Acceptance Criteria:
+  - Full local release gate passes.
+  - Packaged CLI `doctor`, preview, MCP handoff, sample preview, and baseline smoke paths pass.
+  - README, validation docs, gap audit, and public-alpha audit agree on current capabilities and deferrals.
+- Validation:
+  - Pending: `dotnet build AvaScope.slnx`
+  - Pending: `dotnet test AvaScope.slnx`
+  - Pending: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1`
+  - Pending: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.1.0 -DryRun`
+  - Pending: packaged CLI smoke commands
+  - Pending: `git diff --check`
+
 ## Decision Log
 
 - `2026-06-06`: Use `docs/DEVELOPMENT_PLAN.md` as the primary tracking document and keep `AGENTS.md` as the mandatory routing entrypoint.
@@ -1985,6 +2144,7 @@ Commit and push W16, then hand off the completed W10-W16 run with validation evi
 - `2026-06-08`: W13 deeper diagnostics use source metadata and built project assembly type resolution for `x:DataType` binding checks. They do not inspect private Avalonia binding-engine state, and unresolved type/provenance cases stay advisory structured diagnostics.
 - `2026-06-08`: W14 expands runtime text input through the existing `key_text` action and `targetNodeId` request field instead of adding a new protocol action, because this preserves the current tool shape while making TextBox editing behavior more realistic.
 - `2026-06-08`: W15 keeps full desktop/single-view lifetime startup deferred; PreviewHost may reuse App.Initialize-created `Application.DataContext` as a fallback preview root DataContext without invoking `OnFrameworkInitializationCompleted()`.
+- `2026-06-09`: W17 selects CLI doctor/self-test as the next active slice after W16 because it improves onboarding, packaged-artifact sanity checks, and agent triage before deeper input, diagnostics, or live-preview behavior.
 
 ## Change Log
 
@@ -2065,3 +2225,5 @@ Commit and push W16, then hand off the completed W10-W16 run with validation evi
 - `2026-06-08`: Completed W13 by adding source-backed `x:DataType` binding diagnostics in PreviewHost, typed-binding smoke coverage, README/validation/gap updates, and full-suite validation.
 - `2026-06-08`: Completed W14 by adding target-aware TextBox `key_text` input, selection replacement, read-only rejection, bridge/CLI tests, README/gap updates, and full-suite validation.
 - `2026-06-08`: Completed W15 by adding App.Initialize-created `Application.DataContext` fallback preview startup parity, PreviewHost smoke coverage, README/gap updates, and full-suite validation.
+- `2026-06-08`: Completed W16 by adding opt-in self-contained executable ZIP support, executable package kind manifest coverage, packaging cleanup process-lock detection, release script dry-runs, README/validation/gap updates, and full release validation.
+- `2026-06-09`: Completed W17 plan refresh with W17-W25 milestone definitions, active W18 focus, stale post-W16 next-action cleanup, gap-audit alignment, validation, commit, and push.

@@ -136,4 +136,6 @@ Next slice: CI can later add upload artifacts, self-contained outputs, or more R
 
 ## Selected Next Slice
 
-No public-alpha blocking slice remains after M50, and W9-W13 completed the stored feature-request first slices plus CLI preview sessions, file-watch reload, manifest-backed visual regression, and the first source-backed deeper diagnostics slice. Future post-W13 work can start from one of the recorded deferrals: richer input, broader preview startup orchestration, installer/self-contained distribution, or deeper binding/style/resource provenance where public APIs expose more reliable signals.
+No public-alpha blocking slice remains after M50, and W9-W16 completed the stored feature-request first slices plus CLI preview sessions, file-watch reload, manifest-backed visual regression, source-backed typed binding diagnostics, target-aware TextBox input, preview startup parity, and opt-in self-contained distribution hardening.
+
+Selected next slice: W18 CLI doctor and self-test. This improves first-user and agent reliability before adding deeper runtime or preview behavior. Future W19-W25 work should continue through preview profiles, agent workflow documentation, runtime input, diagnostics history/provenance, faster live preview, visual regression CI reporting, and a release-candidate audit.
