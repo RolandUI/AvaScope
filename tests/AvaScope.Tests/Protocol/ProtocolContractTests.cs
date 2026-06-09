@@ -108,7 +108,18 @@ public sealed class ProtocolContractTests
                 DiagnosticStatuses.Available,
                 "C:\\avascope\\AvaScope.PreviewHost.dll",
                 DiagnosticProcessModes.IsolatedChildProcess,
-                HealthResponse.Current()));
+                HealthResponse.Current()),
+            diagnosticIssues:
+            [
+                new DiagnosticIssue(
+                    DiagnosticIssueSources.Diagnostics,
+                    DiagnosticIssueSeverities.Warning,
+                    DiagnosticStatuses.Unavailable,
+                    "bridge_session_not_found",
+                    "No bridge session matched.",
+                    "diagnostics_summary",
+                    generatedAt)
+            ]);
 
         var json = JsonSerializer.Serialize(response);
         var node = JsonNode.Parse(json)!;
@@ -129,6 +140,10 @@ public sealed class ProtocolContractTests
         Assert.Equal(DiagnosticProcessModes.IsolatedChildProcess, node["previewHost"]!["processMode"]!.GetValue<string>());
         Assert.Equal("avascope", node["previewHost"]!["service"]!["serviceName"]!.GetValue<string>());
         Assert.Equal("bridge_session_not_found", node["issues"]![0]!["code"]!.GetValue<string>());
+        Assert.Equal(DiagnosticIssueSources.Diagnostics, node["diagnosticIssues"]![0]!["source"]!.GetValue<string>());
+        Assert.Equal(DiagnosticIssueSeverities.Warning, node["diagnosticIssues"]![0]!["severity"]!.GetValue<string>());
+        Assert.Equal(DiagnosticStatuses.Unavailable, node["diagnosticIssues"]![0]!["status"]!.GetValue<string>());
+        Assert.Equal("diagnostics_summary", node["diagnosticIssues"]![0]!["provenance"]!.GetValue<string>());
     }
 
     [Fact]

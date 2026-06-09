@@ -178,6 +178,12 @@ public sealed class LocalBridgeClientTests : IDisposable
         Assert.Empty(result.Value.BridgeSessions);
         var issue = Assert.Single(result.Value.Issues);
         Assert.Equal(CoreErrorCodes.BridgeSessionNotFound, issue.Code);
+        var diagnosticIssue = Assert.Single(result.Value.DiagnosticIssues);
+        Assert.Equal(DiagnosticIssueSources.Diagnostics, diagnosticIssue.Source);
+        Assert.Equal(DiagnosticIssueSeverities.Warning, diagnosticIssue.Severity);
+        Assert.Equal(DiagnosticStatuses.Unavailable, diagnosticIssue.Status);
+        Assert.Equal(CoreErrorCodes.BridgeSessionNotFound, diagnosticIssue.Code);
+        Assert.Equal("diagnostics_summary", diagnosticIssue.Provenance);
     }
 
     [Fact]
@@ -243,6 +249,35 @@ public sealed class LocalBridgeClientTests : IDisposable
                 Assert.Equal(CoreErrorCodes.BridgeManifestInvalid, unsupportedTransport.Error!.Code);
                 Assert.Contains("transport scope", unsupportedTransport.Error.Message, StringComparison.OrdinalIgnoreCase);
             });
+        Assert.Collection(
+            result.Value.DiagnosticIssues,
+            stale =>
+            {
+                Assert.Equal(DiagnosticIssueSources.BridgeSession, stale.Source);
+                Assert.Equal(DiagnosticIssueSeverities.Warning, stale.Severity);
+                Assert.Equal(DiagnosticStatuses.Stale, stale.Status);
+                Assert.Equal(CoreErrorCodes.BridgeIpcUnavailable, stale.Code);
+                Assert.Equal(staleManifest.SessionId.Value, stale.SessionId);
+                Assert.Equal(int.MaxValue, stale.ProcessId);
+                Assert.Equal(Path.GetFullPath(staleManifestPath), stale.Path);
+                Assert.Equal("bridge_session_manifest", stale.Provenance);
+            },
+            invalid =>
+            {
+                Assert.Equal(DiagnosticIssueSources.BridgeSession, invalid.Source);
+                Assert.Equal(DiagnosticIssueSeverities.Error, invalid.Severity);
+                Assert.Equal(DiagnosticStatuses.Invalid, invalid.Status);
+                Assert.Equal(CoreErrorCodes.BridgeManifestInvalid, invalid.Code);
+                Assert.Equal(Path.GetFullPath(invalidManifestPath), invalid.Path);
+            },
+            unsupportedTransport =>
+            {
+                Assert.Equal(DiagnosticIssueSources.BridgeSession, unsupportedTransport.Source);
+                Assert.Equal(DiagnosticIssueSeverities.Error, unsupportedTransport.Severity);
+                Assert.Equal(DiagnosticStatuses.Invalid, unsupportedTransport.Status);
+                Assert.Equal(CoreErrorCodes.BridgeManifestInvalid, unsupportedTransport.Code);
+                Assert.Equal(Path.GetFullPath(unsupportedTransportManifestPath), unsupportedTransport.Path);
+            });
     }
 
     [Fact]
@@ -272,5 +307,57 @@ public sealed class LocalBridgeClientTests : IDisposable
         Assert.Same(previewHost, result.Value!.PreviewHost);
         Assert.Empty(result.Value.BridgeSessions);
         Assert.Empty(result.Value.Issues);
+        Assert.Empty(result.Value.DiagnosticIssues);
+    }
+
+    [Fact]
+    public async Task DiagnosticsBuildsDiagnosticIssuesForPreviewHostAndPreviewSessions()
+    {
+        var client = new LocalBridgeClient(_manifestDirectory);
+        var previewHostPath = Path.Combine(AppContext.BaseDirectory, "missing-preview-host.dll");
+        var previewHost = new PreviewHostDiagnostic(
+            DiagnosticStatuses.Unavailable,
+            previewHostPath,
+            DiagnosticProcessModes.IsolatedChildProcess,
+            error: new ProtocolError(CoreErrorCodes.PreviewHostUnavailable, "Preview host is missing."));
+        var previewRecordPath = Path.Combine(_manifestDirectory, "preview-session.json");
+        var previewSessionId = new SessionId("preview-session-1");
+        var previewSession = new PreviewSessionDiagnostic(
+            DiagnosticStatuses.Stale,
+            previewRecordPath,
+            new SessionSummary(
+                previewSessionId,
+                SessionKinds.Preview,
+                SessionStates.Failed,
+                new DateTimeOffset(2026, 6, 9, 10, 0, 0, TimeSpan.Zero),
+                "Stale preview"),
+            error: new ProtocolError(CoreErrorCodes.PreviewSessionStoreFailed, "Preview session is stale."));
+
+        var result = await client.DiagnosticsAsync(
+            previewHost: previewHost,
+            previewSessions: [previewSession]);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Collection(
+            result.Value!.DiagnosticIssues,
+            host =>
+            {
+                Assert.Equal(DiagnosticIssueSources.PreviewHost, host.Source);
+                Assert.Equal(DiagnosticIssueSeverities.Error, host.Severity);
+                Assert.Equal(DiagnosticStatuses.Unavailable, host.Status);
+                Assert.Equal(CoreErrorCodes.PreviewHostUnavailable, host.Code);
+                Assert.Equal(Path.GetFullPath(previewHostPath), host.Path);
+                Assert.Equal("preview_host_assembly_probe", host.Provenance);
+            },
+            preview =>
+            {
+                Assert.Equal(DiagnosticIssueSources.PreviewSession, preview.Source);
+                Assert.Equal(DiagnosticIssueSeverities.Warning, preview.Severity);
+                Assert.Equal(DiagnosticStatuses.Stale, preview.Status);
+                Assert.Equal(CoreErrorCodes.PreviewSessionStoreFailed, preview.Code);
+                Assert.Equal(previewSessionId.Value, preview.SessionId);
+                Assert.Equal(Path.GetFullPath(previewRecordPath), preview.Path);
+                Assert.Equal("preview_session_store_record", preview.Provenance);
+            });
     }
 }

@@ -408,7 +408,7 @@ Implemented tools:
 
 Planned but not implemented yet: runtime hot reload, drag/drop, full preview startup orchestration, installer distribution, macOS release policy, and CI-oriented visual-regression reporting.
 
-`diagnostics` reports AvaScope service metadata, local bridge manifest/pipe health, stale or invalid bridge manifests, preview host readiness, and stale or invalid preview-session metadata without building or loading user projects.
+`diagnostics` reports AvaScope service metadata, local bridge manifest/pipe health, stale or invalid bridge manifests, preview host readiness, and stale or invalid preview-session metadata without building or loading user projects. The response keeps the legacy `issues` list and also includes bounded `diagnosticIssues` entries with source, severity, status, provenance, and related path/session metadata for agent triage.
 
 Preview build/render failures preserve the stable `error.code` and `error.message` shape and may include bounded `error.details` fields such as `phase`, `projectPath`, `viewPath`, `outputPath`, `exitCode`, and `outputTail`.
 

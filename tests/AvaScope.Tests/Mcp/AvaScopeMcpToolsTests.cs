@@ -191,6 +191,11 @@ public sealed class AvaScopeMcpToolsTests
         Assert.Empty(result.Value.BridgeSessions);
         var issue = Assert.Single(result.Value.Issues);
         Assert.Equal(CoreErrorCodes.BridgeSessionNotFound, issue.Code);
+        var diagnosticIssue = Assert.Single(result.Value.DiagnosticIssues);
+        Assert.Equal(DiagnosticIssueSources.Diagnostics, diagnosticIssue.Source);
+        Assert.Equal(DiagnosticIssueSeverities.Warning, diagnosticIssue.Severity);
+        Assert.Equal(CoreErrorCodes.BridgeSessionNotFound, diagnosticIssue.Code);
+        Assert.Equal("diagnostics_summary", diagnosticIssue.Provenance);
     }
 
     [Fact]

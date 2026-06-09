@@ -12,7 +12,8 @@ public sealed record DiagnosticsResponse
         IReadOnlyList<BridgeSessionDiagnostic>? bridgeSessions = null,
         IReadOnlyList<ProtocolError>? issues = null,
         PreviewHostDiagnostic? previewHost = null,
-        IReadOnlyList<PreviewSessionDiagnostic>? previewSessions = null)
+        IReadOnlyList<PreviewSessionDiagnostic>? previewSessions = null,
+        IReadOnlyList<DiagnosticIssue>? diagnosticIssues = null)
     {
         ArgumentNullException.ThrowIfNull(service);
 
@@ -28,6 +29,7 @@ public sealed record DiagnosticsResponse
         BridgeSessions = bridgeSessions ?? [];
         PreviewSessions = previewSessions ?? [];
         Issues = issues ?? [];
+        DiagnosticIssues = diagnosticIssues ?? [];
     }
 
     [JsonPropertyName("service")]
@@ -51,4 +53,7 @@ public sealed record DiagnosticsResponse
 
     [JsonPropertyName("issues")]
     public IReadOnlyList<ProtocolError> Issues { get; }
+
+    [JsonPropertyName("diagnosticIssues")]
+    public IReadOnlyList<DiagnosticIssue> DiagnosticIssues { get; }
 }

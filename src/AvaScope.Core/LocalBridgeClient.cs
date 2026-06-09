@@ -10,6 +10,7 @@ public sealed class LocalBridgeClient
 {
     private const int MaxMessageBytes = 1024 * 1024;
     private const int MaxDiagnosticsSessions = 100;
+    private const int MaxDiagnosticIssues = 200;
     private readonly TimeSpan _operationTimeout;
 
     public LocalBridgeClient()
@@ -395,14 +396,24 @@ public sealed class LocalBridgeClient
                 "No AvaScope bridge session manifest matched the requested diagnostics filters."));
         }
 
+        var generatedAt = DateTimeOffset.UtcNow;
+        var previewSessionDiagnostics = previewSessions ?? Array.Empty<PreviewSessionDiagnostic>();
+        var diagnosticIssues = BuildDiagnosticIssues(
+            issues,
+            bridgeSessions,
+            previewHost,
+            previewSessionDiagnostics,
+            generatedAt);
+
         return CoreResult<DiagnosticsResponse>.Ok(new DiagnosticsResponse(
             HealthResponse.Current(),
-            DateTimeOffset.UtcNow,
+            generatedAt,
             ManifestDirectory,
             bridgeSessions,
             issues,
             previewHost,
-            previewSessions));
+            previewSessionDiagnostics,
+            diagnosticIssues));
     }
 
     private async Task<CoreResult<TreeResponse>> TreeAsync(
@@ -503,6 +514,126 @@ public sealed class LocalBridgeClient
             DiagnosticTransportKinds.NamedPipe,
             manifest.PipeName,
             healthResult.Value);
+    }
+
+    private static IReadOnlyList<DiagnosticIssue> BuildDiagnosticIssues(
+        IReadOnlyList<ProtocolError> issues,
+        IReadOnlyList<BridgeSessionDiagnostic> bridgeSessions,
+        PreviewHostDiagnostic? previewHost,
+        IReadOnlyList<PreviewSessionDiagnostic> previewSessions,
+        DateTimeOffset observedAt)
+    {
+        var diagnosticIssues = new List<DiagnosticIssue>();
+
+        foreach (var issue in issues)
+        {
+            AddDiagnosticIssue(
+                diagnosticIssues,
+                new DiagnosticIssue(
+                    DiagnosticIssueSources.Diagnostics,
+                    IssueSeverityForError(issue.Code),
+                    IssueStatusForError(issue.Code),
+                    issue.Code,
+                    issue.Message,
+                    "diagnostics_summary",
+                    observedAt,
+                    details: issue.Details));
+        }
+
+        foreach (var bridgeSession in bridgeSessions)
+        {
+            if (bridgeSession.Error is null)
+            {
+                continue;
+            }
+
+            AddDiagnosticIssue(
+                diagnosticIssues,
+                new DiagnosticIssue(
+                    DiagnosticIssueSources.BridgeSession,
+                    IssueSeverityForStatus(bridgeSession.Status),
+                    bridgeSession.Status,
+                    bridgeSession.Error.Code,
+                    bridgeSession.Error.Message,
+                    "bridge_session_manifest",
+                    observedAt,
+                    bridgeSession.Session?.SessionId.Value,
+                    bridgeSession.ProcessId,
+                    bridgeSession.ManifestPath,
+                    bridgeSession.Error.Details));
+        }
+
+        if (previewHost?.Error is not null)
+        {
+            AddDiagnosticIssue(
+                diagnosticIssues,
+                new DiagnosticIssue(
+                    DiagnosticIssueSources.PreviewHost,
+                    IssueSeverityForStatus(previewHost.Status),
+                    previewHost.Status,
+                    previewHost.Error.Code,
+                    previewHost.Error.Message,
+                    "preview_host_assembly_probe",
+                    observedAt,
+                    path: previewHost.HostAssemblyPath,
+                    details: previewHost.Error.Details));
+        }
+
+        foreach (var previewSession in previewSessions)
+        {
+            if (previewSession.Error is null)
+            {
+                continue;
+            }
+
+            AddDiagnosticIssue(
+                diagnosticIssues,
+                new DiagnosticIssue(
+                    DiagnosticIssueSources.PreviewSession,
+                    IssueSeverityForStatus(previewSession.Status),
+                    previewSession.Status,
+                    previewSession.Error.Code,
+                    previewSession.Error.Message,
+                    "preview_session_store_record",
+                    observedAt,
+                    previewSession.Session?.SessionId.Value,
+                    path: previewSession.RecordPath,
+                    details: previewSession.Error.Details));
+        }
+
+        return diagnosticIssues;
+    }
+
+    private static void AddDiagnosticIssue(List<DiagnosticIssue> issues, DiagnosticIssue issue)
+    {
+        if (issues.Count < MaxDiagnosticIssues)
+        {
+            issues.Add(issue);
+        }
+    }
+
+    private static string IssueSeverityForError(string code)
+    {
+        return code is CoreErrorCodes.DiagnosticsTruncated or CoreErrorCodes.BridgeSessionNotFound
+            ? DiagnosticIssueSeverities.Warning
+            : DiagnosticIssueSeverities.Error;
+    }
+
+    private static string IssueStatusForError(string code)
+    {
+        return code is CoreErrorCodes.DiagnosticsTruncated
+            ? DiagnosticStatuses.Available
+            : DiagnosticStatuses.Unavailable;
+    }
+
+    private static string IssueSeverityForStatus(string status)
+    {
+        return status switch
+        {
+            DiagnosticStatuses.Stale => DiagnosticIssueSeverities.Warning,
+            DiagnosticStatuses.Available => DiagnosticIssueSeverities.Info,
+            _ => DiagnosticIssueSeverities.Error
+        };
     }
 
     private async Task<CoreResult<T>> SendAsync<T>(

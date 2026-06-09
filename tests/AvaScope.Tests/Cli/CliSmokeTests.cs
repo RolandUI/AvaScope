@@ -2124,6 +2124,7 @@ public sealed class CliSmokeTests
             Assert.Equal(pipeName, bridge.PipeName);
             Assert.NotNull(bridge.Health);
             Assert.Empty(payload.Value.Issues);
+            Assert.Empty(payload.Value.DiagnosticIssues);
         }
         finally
         {
@@ -2151,6 +2152,11 @@ public sealed class CliSmokeTests
         Assert.Empty(payload.Value!.BridgeSessions);
         var issue = Assert.Single(payload.Value.Issues);
         Assert.Equal(CoreErrorCodes.BridgeSessionNotFound, issue.Code);
+        var diagnosticIssue = Assert.Single(payload.Value.DiagnosticIssues);
+        Assert.Equal(DiagnosticIssueSources.Diagnostics, diagnosticIssue.Source);
+        Assert.Equal(DiagnosticIssueSeverities.Warning, diagnosticIssue.Severity);
+        Assert.Equal(CoreErrorCodes.BridgeSessionNotFound, diagnosticIssue.Code);
+        Assert.Equal("diagnostics_summary", diagnosticIssue.Provenance);
         Assert.NotNull(payload.Value.PreviewHost);
     }
 

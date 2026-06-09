@@ -71,6 +71,7 @@ public sealed class AvaScopeMcpBridgeToolsTests : IDisposable
         Assert.Equal("avascope", result.Value!.Service.ServiceName);
         Assert.Equal(DiagnosticStatuses.Available, result.Value.PreviewHost!.Status);
         Assert.Empty(result.Value.Issues);
+        Assert.Empty(result.Value.DiagnosticIssues);
         var bridge = Assert.Single(result.Value.BridgeSessions);
         Assert.Equal(DiagnosticStatuses.Available, bridge.Status);
         Assert.Equal(Path.GetFullPath(manifestPath), bridge.ManifestPath);

@@ -67,6 +67,15 @@ dotnet test AvaScope.slnx --filter FullyQualifiedName~CliSmokeTests.DoctorComman
 dotnet test AvaScope.slnx --filter FullyQualifiedName~ProtocolContractTests.DoctorResponseSerializesStableReadinessShape
 ```
 
+For diagnostics shape work, include:
+
+```powershell
+dotnet test AvaScope.slnx --filter Protocol
+dotnet test AvaScope.slnx --filter Core
+dotnet test AvaScope.slnx --filter Mcp
+dotnet test AvaScope.slnx --filter FullyQualifiedName~Cli
+```
+
 For CLI preview-session work, include the persistent-session smoke path:
 
 ```powershell

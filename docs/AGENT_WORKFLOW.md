@@ -29,7 +29,7 @@ Use default paths when diagnosing the user's current machine state:
 & $avascope diagnostics --max-sessions 10
 ```
 
-`doctor` exits non-zero when co-located AvaScope assemblies are missing or stale diagnostic records need attention. `diagnostics` returns the lower-level bridge and preview-host records.
+`doctor` exits non-zero when co-located AvaScope assemblies are missing or stale diagnostic records need attention. `diagnostics` returns the lower-level bridge and preview-host records plus bounded `diagnosticIssues` with source, severity, status, and provenance.
 
 ## 3. Preview A View
 

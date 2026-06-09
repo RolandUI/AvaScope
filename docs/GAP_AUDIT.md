@@ -24,7 +24,7 @@ Completed slice: protocol, bridge, and core diagnostics tests cover local-only m
 
 ### Diagnostics Tool
 
-Status: bridge diagnostics, preview failure details, preview binding/resource diagnostics, source-backed `x:DataType` binding diagnostics, preview layout warnings, and stale preview-session diagnostics first slices complete.
+Status: bridge diagnostics, preview failure details, preview binding/resource diagnostics, source-backed `x:DataType` binding diagnostics, preview layout warnings, stale preview-session diagnostics, and bounded diagnostic issue provenance slices complete.
 
 `diagnostics` is listed in the intended MCP tool shape. The first slice now reports service health, local bridge manifest path, process id, named-pipe transport, protocol health, stale manifests, invalid manifests, and unavailable IPC states. Current errors are still structured per operation; there is no historical last-error stream yet.
 
@@ -35,6 +35,8 @@ Completed slice: preview build/render failures can now include bounded `error.de
 Completed slice: successful preview responses can now include bounded advisory diagnostics for missing `DataContext`, missing or invalid binding converter resources, unresolved resource keys, conservative binding path failures, source-backed `x:DataType` binding path mismatches, missing inherited `x:DataType` on `CompiledBinding`, text clipping/truncation, clipped or unreachable content, sibling overlap, and too-small hit targets.
 
 Completed slice: `diagnostics` now includes preview-session store records so stale and invalid AvaScope-owned preview metadata can be identified without loading user projects.
+
+Completed slice: `diagnostics` now also returns bounded `diagnosticIssues` entries derived in Core from diagnostics summary issues, bridge manifests, preview-host readiness, and preview-session store records. Each issue includes source, severity, status, provenance, observed timestamp, and related path/session/process metadata where available while preserving the legacy `issues` list.
 
 Next slice: deeper binding-engine runtime telemetry and style/resource provenance parity remains limited to public Avalonia API availability.
 
@@ -142,4 +144,4 @@ Next slice: CI can later add upload artifacts, self-contained outputs, or more R
 
 No public-alpha blocking slice remains after M50, and W9-W16 completed the stored feature-request first slices plus CLI preview sessions, file-watch reload, manifest-backed visual regression, source-backed typed binding diagnostics, target-aware TextBox input, preview startup parity, and opt-in self-contained distribution hardening.
 
-Selected next slice: W22 diagnostics v2. W18 completed CLI doctor/self-test, W19 completed preview profiles, W20 added a validated packaged-CLI agent workflow, and W21 added deterministic runtime `clear_text` input. The next product improvement is bounded diagnostics history/provenance that improves agent triage without relying on private Avalonia internals. Future W23-W25 work should continue through faster live preview, visual regression CI reporting, and a release-candidate audit.
+Selected next slice: W23 faster live preview. W18 completed CLI doctor/self-test, W19 completed preview profiles, W20 added a validated packaged-CLI agent workflow, W21 added deterministic runtime `clear_text` input, and W22 added bounded diagnostics issue provenance. The next product improvement is reducing live-preview reload friction while preserving the isolated user-code process boundary. Future W24-W25 work should continue through visual regression CI reporting and a release-candidate audit.

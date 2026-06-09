@@ -23,15 +23,15 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `W22 Diagnostics V2`
+- `W23 Faster Live Preview`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-09`
-- Goal: improve diagnostics with bounded history and clearer severity/provenance without relying on private Avalonia internals.
+- Goal: reduce live-preview reload friction while preserving the isolated child-process boundary for user code.
 
 ## Next Action
 
-Audit existing diagnostics DTOs and runtime/preview diagnostic sources, select the smallest public-API-backed diagnostics v2 improvement, implement it through Core/adapters, validate, commit, and push W22.
+Compare the current one-shot preview-session reload/watch path with the smallest bounded live-preview improvement that preserves child-process isolation, implement it, validate, commit, and push W23.
 
 ## Latest Validation
 
@@ -103,6 +103,12 @@ Audit existing diagnostics DTOs and runtime/preview diagnostic sources, select t
 - `2026-06-09`: `dotnet test AvaScope.slnx --no-build --filter Bridge` passed with 65 tests after W21 runtime `clear_text` input.
 - `2026-06-09`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli` passed with 88 tests after W21 runtime `clear_text` input.
 - `2026-06-09`: `git diff --check` passed after W21 runtime `clear_text` input.
+- `2026-06-09`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors after W22 diagnostics issue provenance.
+- `2026-06-09`: `dotnet test AvaScope.slnx --no-build --filter Protocol` passed with 36 tests after W22 diagnostics issue provenance.
+- `2026-06-09`: `dotnet test AvaScope.slnx --no-build --filter Core` passed with 39 tests after W22 diagnostics issue provenance.
+- `2026-06-09`: `dotnet test AvaScope.slnx --no-build --filter Mcp` passed with 29 tests after W22 diagnostics issue provenance.
+- `2026-06-09`: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli` passed with 89 tests after W22 diagnostics issue provenance.
+- `2026-06-09`: `git diff --check` passed after W22 diagnostics issue provenance.
 - `2026-06-08`: `dotnet test AvaScope.slnx -c Release --filter FullyQualifiedName~CliSmokeTests.CloseSessionCommandClosesThroughBridgePipe` passed after W8 CI failure hardening.
 - `2026-06-08`: `dotnet test AvaScope.slnx -c Release --no-build` passed with 179 tests after W8 CI failure hardening.
 - `2026-06-08`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.1.0 -DryRun` passed after W8 GitHub Release creation hardening.
@@ -1974,26 +1980,30 @@ Audit existing diagnostics DTOs and runtime/preview diagnostic sources, select t
 
 ### W22 Diagnostics V2
 
-- Status: `In Progress`
+- Status: `Done`
 - Goal: improve diagnostics with bounded history and clearer severity/provenance without relying on private Avalonia internals.
 - Deliverables: diagnostics history/provenance slice, protocol/core/adapter updates, tests, documentation, commit, push.
 - Progress:
-  - Pending: audit existing diagnostics DTOs and select a public-API-backed improvement.
+  - Done: audited diagnostics DTOs and selected a backward-compatible `diagnosticIssues` response list as the smallest useful v2 improvement.
+  - Done: added protocol `DiagnosticIssue` plus stable source/severity constants.
+  - Done: Core derives bounded diagnostic issues from diagnostics summary errors, bridge session diagnostics, preview-host diagnostics, and preview-session store diagnostics.
+  - Done: CLI and MCP expose the same shape through the existing Core diagnostics response.
+  - Done: README, validation guidance, and gap audit document the new provenance surface.
 - Acceptance Criteria:
-  - Diagnostics remain bounded and machine-readable.
-  - Any inferred or unavailable details are explicitly marked as advisory or unavailable.
-  - MCP and CLI expose the same diagnostic data shape through Core.
+  - Done: diagnostics remain bounded and machine-readable; `diagnosticIssues` is capped in Core.
+  - Done: unavailable/stale/invalid states are explicit through `status`, `severity`, and `provenance` instead of inferred private details.
+  - Done: MCP and CLI expose the same diagnostic data shape through Core.
 - Validation:
-  - Pending: `dotnet build AvaScope.slnx`
-  - Pending: `dotnet test AvaScope.slnx --no-build --filter Protocol`
-  - Pending: `dotnet test AvaScope.slnx --no-build --filter Core`
-  - Pending: `dotnet test AvaScope.slnx --no-build --filter Mcp`
-  - Pending: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli`
-  - Pending: `git diff --check`
+  - Passed: `dotnet build AvaScope.slnx`
+  - Passed: `dotnet test AvaScope.slnx --no-build --filter Protocol`
+  - Passed: `dotnet test AvaScope.slnx --no-build --filter Core`
+  - Passed: `dotnet test AvaScope.slnx --no-build --filter Mcp`
+  - Passed: `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli`
+  - Passed: `git diff --check`
 
 ### W23 Faster Live Preview
 
-- Status: `Not Started`
+- Status: `In Progress`
 - Goal: reduce live-preview reload friction while preserving the isolated child-process boundary for user code.
 - Deliverables: measured preview reload improvement or explicit deferral, process/session lifecycle tests, documentation, commit, push.
 - Progress:
@@ -2194,6 +2204,7 @@ Audit existing diagnostics DTOs and runtime/preview diagnostic sources, select t
 - `2026-06-09`: W19 preview profiles are project-local JSON files and do not execute user code; explicit CLI arguments override profile values so one-off agent commands can safely specialize a stored profile.
 - `2026-06-09`: W20 uses packaged CLI examples as the primary agent workflow because they validate co-located CLI/MCP/PreviewHost behavior and are closer to public-alpha usage than Debug build commands.
 - `2026-06-09`: W21 selected `clear_text` instead of drag/drop or richer pointer variants because targeted `TextBox` clearing can be implemented through stable public control state and deterministic headless tests while preserving the narrow non-destructive runtime control boundary.
+- `2026-06-09`: W22 keeps legacy diagnostics `issues` intact and adds Core-derived `diagnosticIssues` as a v2 provenance layer so CLI, MCP, and future agents get severity/source/status/path metadata without adapter-specific logic or private Avalonia hooks.
 
 ## Change Log
 
@@ -2280,3 +2291,4 @@ Audit existing diagnostics DTOs and runtime/preview diagnostic sources, select t
 - `2026-06-09`: Completed W19 by adding project-local preview profiles for `preview` and `create-preview-session`, a getting-started sample profile, CLI profile tests, README/sample/validation/gap updates, and sample profile smoke validation.
 - `2026-06-09`: Completed W20 by adding `docs/AGENT_WORKFLOW.md`, linking it from README and sample docs, documenting packaged CLI doctor/preview/runtime/diff/baseline workflows, and validating packaged doctor plus profile preview commands.
 - `2026-06-09`: Completed W21 by adding runtime `clear_text` input for focused or targeted writable `TextBox` controls, bridge/CLI tests, README/workflow documentation, and targeted validation; moved active focus to W22.
+- `2026-06-09`: Completed W22 by adding bounded `diagnosticIssues` provenance to diagnostics responses, Core derivation from bridge/preview-host/preview-session records, protocol/Core/MCP/CLI tests, README/validation/gap updates, and targeted validation; moved active focus to W23.
