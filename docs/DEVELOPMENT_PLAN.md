@@ -25,18 +25,19 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `Next Release Planning`
+- `R0.3.0-M1 Animation Sampling Contract`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-06-09`
-- Goal: define the next release target in `docs/RELEASE_PLAN.md` before implementation resumes.
+- Goal: define additive protocol, Core, CLI, and MCP contracts for deterministic animation time-offset sampling.
 
 ## Next Action
 
-Define the next release target and milestone map in `docs/RELEASE_PLAN.md`; do not start feature implementation until that release scope is recorded.
+Start `R0.3.0-M1` by designing the animation sampling request/response DTOs and choosing stable CLI/MCP command names without changing existing preview or screenshot compatibility.
 
 ## Latest Validation
 
+- `2026-06-09`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-bug-reports.ps1` and `git diff --check` passed after planning `v0.3.0` animation diagnostics release scope; 15 intake files scanned.
 - `2026-06-09`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-bug-reports.ps1` passed after storing `FEAT-0008`; 15 intake files scanned.
 - `2026-06-09`: GitHub Release workflow `27205089688` passed for `Release 0.2.2`; tag `v0.2.2` and six GitHub Release assets were published at `2026-06-09T12:17:17Z`.
 - `2026-06-09`: GitHub CI workflow `27205089675` passed for `Release 0.2.2`.
@@ -2613,9 +2614,11 @@ Define the next release target and milestone map in `docs/RELEASE_PLAN.md`; do n
 - `2026-06-09`: `v0.2.2` targets BUG-0003 as an AvaScope PreviewHost diagnostics bug, not a target-app workaround: DataTemplate binding scope and Avalonia template/layer layout noise should be handled inside AvaScope diagnostics.
 - `2026-06-09`: BUG-0003 binding diagnostics treat declared source `x:DataType` as authoritative for a binding path before falling back to root preview `DataContext`; layout diagnostics filter Avalonia framework/template internals instead of reporting them as user layout defects.
 - `2026-06-09`: Animation support is tracked as a future diagnostics feature, not a Rider-style live designer clone; the useful agent surface is deterministic time-offset screenshots, bounded frame artifacts, and structured animation metadata/diagnostics.
+- `2026-06-09`: `v0.3.0` is scoped as a minor animation-diagnostics release because deterministic frame sampling, new artifact outputs, and CLI/MCP surfaces are additive product capabilities rather than patch-level fixes.
 
 ## Change Log
 
+- `2026-06-09`: Planned `v0.3.0` with release goals and milestones for animation sampling, PreviewHost time-offset capture, motion diagnostics, CLI/MCP/viewer workflow, sample documentation, and guarded release validation; moved active focus to `R0.3.0-M1`.
 - `2026-06-09`: Stored `FEAT-0008` for future animation diagnostics; no implementation was started and next release planning remains the active focus.
 - `2026-06-09`: Completed `v0.2.2` release with GitHub Release assets and tag verification; moved active focus to next release planning.
 - `2026-06-09`: Implemented BUG-0003 PreviewHost diagnostics fixes for DataTemplate binding scope, Fluent/template layout overlap noise, text metric tolerance, and slider internal hit-target warnings; moved active focus to `R0.2.2-M3`.

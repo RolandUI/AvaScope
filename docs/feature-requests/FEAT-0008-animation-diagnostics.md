@@ -1,7 +1,7 @@
 # FEAT-0008: Animation diagnostics
 
-- Status: `Backlog`
-- Implementation Status: `Not started`
+- Status: `Planned`
+- Implementation Status: `Planned for v0.3.0`
 - Priority: `P4`
 - Stored: `2026-06-09`
 - Source Order: `8`
@@ -38,4 +38,4 @@ The feature should favor agent-readable state and deterministic frame comparison
 
 ## Notes
 
-This is a future diagnostic capability. It should be considered after screenshot capture, visual tree inspection, preview rendering, diagnostics, and visual diff workflows are stable.
+This diagnostic capability is selected for the `v0.3.0` release. Implementation should start with additive protocol/tool contracts before PreviewHost rendering changes.

@@ -37,6 +37,52 @@ If the release includes public workflow or packaging changes, also validate the 
 
 ## Current Release Target
 
+- Release: `v0.3.0`
+- Target Version: `0.3.0`
+- Release State: `In Progress`
+- Scope Lock: `2026-06-09`
+- Release Commit: pending
+- Local Release Gate: pending
+- Published At: pending
+- GitHub Release: pending
+- Previous Release: `v0.2.2`
+
+### v0.3.0 Release Goals
+
+The `v0.3.0` release target is a minor release focused on deterministic animation diagnostics for agents and developers. The goal is not to clone Rider's interactive animation preview; AvaScope should expose time-sampled frames, bounded artifacts, and structured diagnostics that can be consumed through CLI and MCP.
+
+1. `RG-0.3.0-1 Animation Sampling Contract`: define additive protocol models and tool shapes for explicit animation time-offset sampling.
+   Success signal: CLI/MCP/Core can represent a request such as `0ms`, `150ms`, `300ms`, output frame paths, optional strip/contact-sheet paths, and bounded diagnostics without changing existing screenshot or preview response compatibility.
+2. `RG-0.3.0-2 PreviewHost Time-Offset Frame Capture`: PreviewHost can render a view at requested animation offsets in isolated child-process mode.
+   Success signal: a sample animated view produces deterministic per-offset PNG frames while preserving size, theme, DPI, culture, profile, design-data, and one-shot isolation semantics.
+3. `RG-0.3.0-3 Motion Diagnostics`: AvaScope reports agent-readable motion summaries and advisory issues derived from sampled frames and public Avalonia state where reliable.
+   Success signal: results can report moving nodes/properties where known, pixel/bounds deltas, final-state stability, clipping during motion, disappearing content, and explicit `unknown`/`not_available` provenance when metadata cannot be trusted.
+4. `RG-0.3.0-4 Agent Workflow Surface`: CLI, MCP, and file-backed viewer workflows make animation sampling usable from Codex and other MCP clients.
+   Success signal: users can request animation samples from the CLI and MCP, receive structured JSON plus artifact paths, and open a local viewer showing the sampled timeline or strip.
+5. `RG-0.3.0-5 Sample And Documentation`: the getting-started sample and docs include a small animation scenario and validated commands.
+   Success signal: sample docs show preview animation sampling, diagnostics interpretation, generated artifacts, and explicit limitations.
+6. `RG-0.3.0-6 Guarded Release`: `v0.3.0` ships only after the declared goals are complete or explicitly deferred.
+   Success signal: targeted tests, full build/test validation, release dry-run validation, packaged workflow smoke checks, and a `Release 0.3.0` commit complete before publishing.
+
+### v0.3.0 Milestone Map
+
+- `R0.3.0-M1 Animation Sampling Contract` delivers `RG-0.3.0-1`; Status: `In Progress`.
+- `R0.3.0-M2 PreviewHost Time-Offset Frame Capture` delivers `RG-0.3.0-2`; Status: `Not Started`.
+- `R0.3.0-M3 Motion Diagnostics` delivers `RG-0.3.0-3`; Status: `Not Started`.
+- `R0.3.0-M4 CLI, MCP, And Viewer Workflow` delivers `RG-0.3.0-4`; Status: `Not Started`.
+- `R0.3.0-M5 Sample And Documentation` delivers `RG-0.3.0-5`; Status: `Not Started`.
+- `R0.3.0-M6 Release Candidate And Version Bump` delivers `RG-0.3.0-6`; Status: `Not Started`.
+
+### Explicit Deferrals
+
+- Continuous live animation designer playback remains out of scope.
+- Persistent preview host processes remain out of scope unless separately required and designed with close, TTL, crash, and cleanup semantics.
+- Private Avalonia runtime hooks, CLR injection, and designer-private APIs remain out of scope.
+- Remote runtime inspection remains out of scope; bridge transport stays opt-in and local-only.
+- Animation metadata that cannot be obtained through reliable public APIs must be reported as `unknown` or `not_available`.
+
+## Released Target: v0.2.2
+
 - Release: `v0.2.2`
 - Target Version: `0.2.2`
 - Release State: `Released`
