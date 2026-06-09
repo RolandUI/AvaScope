@@ -44,15 +44,28 @@ If the release includes public workflow or packaging changes, also validate the 
 - Release Commit: pending until every `v0.2.0` milestone is `Done` and the release gate passes.
 - Previous Release: `v0.1.0`
 
-### v0.2.0 Scope
+### v0.2.0 Release Goals
 
-The `v0.2.0` release target is focused on making AvaScope easier for agents to use repeatedly against real Avalonia projects while preserving the current local-only safety boundary.
+The `v0.2.0` release target is focused on making AvaScope more reliable for repeated agent workflows against local Avalonia projects while preserving the current local-only safety boundary.
 
-1. Runtime workflow hardening: make runtime node targeting easier to carry from `find-nodes`/tree output into `inspect-node`, `screenshot`, and `input`, with clearer CLI/MCP errors for stale or mismatched nodes.
-2. Preview diagnostics readiness: improve project/environment diagnostics so preview failures identify missing SDK/build/host prerequisites before agents retry commands blindly.
-3. Live preview lifecycle decision: decide and implement the smallest safe improvement after unchanged-input skipping, or explicitly defer persistent preview host processes with documented close/TTL/crash semantics.
-4. Visual regression CI integration: add a repository-ready workflow example that uploads baseline report/current/diff artifacts without changing local baseline command behavior.
-5. Release candidate validation: refresh audits, run the full release gate, bump version to `0.2.0`, and publish through the existing release workflow.
+1. `RG-0.2.0-1 Runtime Target Handoff`: a node found through tree or search output can be carried into follow-up runtime commands without guessing which id, tree kind, or top-level context is required.
+   Success signal: `find-nodes`, tree, `inspect-node`, `screenshot`, and `input` workflows expose or accept consistent target context, and stale or mismatched references return structured actionable errors.
+2. `RG-0.2.0-2 Preview Failure Triage`: preview failures distinguish local environment readiness, project build failures, and render/runtime failures before agents retry commands.
+   Success signal: CLI/MCP diagnostics and preview responses report bounded readiness issues for missing SDK/build/host prerequisites where reliable signals are available.
+3. `RG-0.2.0-3 Live Preview Lifecycle`: live preview behavior has a concrete next step after unchanged-input skipping.
+   Success signal: either a small validated lifecycle improvement ships, or persistent preview host processes are explicitly deferred with close, TTL, crash, and cleanup semantics documented.
+4. `RG-0.2.0-4 Visual Regression CI Handoff`: visual baseline checks are ready to be consumed by CI without changing local baseline command behavior.
+   Success signal: a documented workflow or helper shows how to upload the JSON report, current image, and diff image artifacts produced by `baseline-check --report`.
+5. `RG-0.2.0-5 Guarded Release`: `v0.2.0` ships only after the declared goals are complete or explicitly deferred.
+   Success signal: audits are refreshed, the full release gate passes, `Directory.Build.props` is bumped to `0.2.0` in a `Release 0.2.0` commit, and the guarded release workflow publishes the matching version.
+
+### v0.2.0 Milestone Map
+
+- `R0.2.0-M1 Runtime Workflow Hardening` delivers `RG-0.2.0-1`.
+- `R0.2.0-M2 Preview Diagnostics Readiness` delivers `RG-0.2.0-2`.
+- `R0.2.0-M3 Live Preview Lifecycle Decision` delivers `RG-0.2.0-3`.
+- `R0.2.0-M4 Visual Regression CI Integration` delivers `RG-0.2.0-4`.
+- `R0.2.0-M5 Release Candidate And Version Bump` delivers `RG-0.2.0-5`.
 
 ### Explicit Deferrals
 

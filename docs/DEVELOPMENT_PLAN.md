@@ -134,6 +134,7 @@ Implement `R0.2.0-M1` by making runtime node selection easier to carry across `f
 - `2026-06-09`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-release-commit.ps1 -Version 0.2.0 -CommitSubject "Release 0.2.0" -RequiredState "In Progress"` passed after release-based planning updates.
 - `2026-06-09`: `git diff --check` passed after release-based planning updates.
 - `2026-06-09`: `git diff --check` passed after standalone AvaScope positioning cleanup.
+- `2026-06-09`: `git diff --check` passed after formal `v0.2.0` release-goal definition.
 - `2026-06-08`: `dotnet test AvaScope.slnx -c Release --filter FullyQualifiedName~CliSmokeTests.CloseSessionCommandClosesThroughBridgePipe` passed after W8 CI failure hardening.
 - `2026-06-08`: `dotnet test AvaScope.slnx -c Release --no-build` passed with 179 tests after W8 CI failure hardening.
 - `2026-06-08`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.1.0 -DryRun` passed after W8 GitHub Release creation hardening.
@@ -2100,19 +2101,22 @@ Implement `R0.2.0-M1` by making runtime node selection easier to carry across `f
 
 - Status: `Done`
 - Goal: move AvaScope development to release-based planning with an explicit `v0.2.0` target and a guarded release commit path.
-- Deliverables: release plan, release commit validation script, CI release guard, README/validation/gap/development-plan updates, commit, push.
+- Deliverables: release plan, release goal definitions, release commit validation script, CI release guard, README/validation/gap/development-plan updates, commit, push.
 - Progress:
   - Done: added `docs/RELEASE_PLAN.md` as the future release-scope source.
   - Done: defined `v0.2.0` scope before starting implementation.
+  - Done: formalized `RG-0.2.0-1` through `RG-0.2.0-5` with success signals and milestone mapping.
   - Done: added `eng/validate-release-commit.ps1` so automatic release publishing on push requires commit subject `Release <version>` and a matching release-plan target.
   - Done: wired the release guard into the GitHub `Release` workflow for automatic push-based publishing.
   - Done: documented that `Directory.Build.props` version bumps are release commits, not planning commits.
 - Acceptance Criteria:
   - Done: next release scope is visible before feature implementation starts.
+  - Done: each `v0.2.0` release goal has a success signal and maps to a release milestone.
   - Done: automatic push-based release publishing is gated by release-plan state and release commit naming.
   - Done: current repository version remains `0.1.0`; no version bump happens until the `v0.2.0` scope is complete.
 - Validation:
   - Passed: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-release-commit.ps1 -Version 0.2.0 -CommitSubject "Release 0.2.0" -RequiredState "In Progress"`
+  - Passed: release-goal search confirmed `RG-0.2.0-1` through `RG-0.2.0-5` in `docs/RELEASE_PLAN.md`
   - Passed: `git diff --check`
 
 ### R0.2.0-M1 Runtime Workflow Hardening
@@ -2366,6 +2370,7 @@ Implement `R0.2.0-M1` by making runtime node selection easier to carry across `f
 - `2026-06-09`: Automatic push-based publishing now requires a release commit subject of `Release <version>` and a matching `docs/RELEASE_PLAN.md` target in `Release Candidate` state, reducing the chance that an accidental version bump publishes unfinished scope.
 - `2026-06-09`: `v0.2.0` is scoped around repeated agent usability: runtime workflow hardening, preview diagnostics readiness, live-preview lifecycle decision, visual-regression CI integration, and a guarded release candidate/version bump.
 - `2026-06-09`: Project documentation should describe AvaScope as its own Avalonia inspection, preview, and automation project. Do not frame it around external projects, third-party tools, or comparison-based positioning.
+- `2026-06-09`: `v0.2.0` release goals use `RG-0.2.0-*` identifiers with success signals so release acceptance is evaluated against outcomes, not only task completion.
 
 ## Change Log
 
@@ -2458,3 +2463,4 @@ Implement `R0.2.0-M1` by making runtime node selection easier to carry across `f
 - `2026-06-09`: Completed W25 by refreshing the public-alpha audit, running full Debug and Release validation, validating GitHub Release dry-run assets, running packaged CLI doctor/MCP/baseline smokes, updating docs/gap tracking, and confirming generated artifacts remain ignored.
 - `2026-06-09`: Adopted release-based development for `v0.2.0`, added the release plan and release commit guard, updated release documentation, and moved active focus to `R0.2.0-M1 Runtime Workflow Hardening`.
 - `2026-06-09`: Cleaned project positioning references so docs present AvaScope as a standalone Avalonia project without external-product framing.
+- `2026-06-09`: Defined formal `v0.2.0` release goals with success signals and mapped them to R0.2.0-M1 through R0.2.0-M5.
