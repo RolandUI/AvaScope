@@ -37,6 +37,14 @@ Run the full release gate for `v0.3.0`: full build/test, local release packaging
 
 ## Latest Validation
 
+- `2026-06-09`: `dotnet build AvaScope.slnx` passed with 0 warnings and 0 errors on the `0.3.0` release-candidate working tree.
+- `2026-06-09`: `dotnet test AvaScope.slnx --no-build` passed with 218 tests on the `0.3.0` release-candidate working tree.
+- `2026-06-09`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1` passed for `v0.3.0` after stopping stale local artifact-hosted processes; Release build/test passed with 218 tests, three `0.3.0` packages, win-x64 and linux-x64 framework-dependent ZIPs, release manifest, packaged doctor smoke, and packaged sample preview smoke.
+- `2026-06-09`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.3.0 -DryRun` passed for `v0.3.0` assets.
+- `2026-06-09`: Packaged Windows CLI `preview-animation .\samples\AvaScope.GettingStartedApp\AvaScope.GettingStartedApp.csproj --profile animation` passed with 4 successful frames, a frame strip, `motion.status=changed`, `animation_frame_reused` for the repeated final offset, and a file-backed animation viewer URL.
+- `2026-06-09`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-bug-reports.ps1` passed for the `v0.3.0` release-candidate gate; 15 intake files scanned.
+- `2026-06-09`: `git diff --check` passed for the `v0.3.0` release-candidate working tree.
+- `2026-06-09`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-release-commit.ps1 -Version 0.3.0 -CommitSubject "Release 0.3.0" -RequiredState "Release Candidate"` passed for the `v0.3.0` release commit guard.
 - `2026-06-09`: `dotnet build AvaScope.slnx --no-restore -v:minimal` passed with 0 warnings and 0 errors after implementing `v0.3.0` animation sampling, viewer, sample, and documentation.
 - `2026-06-09`: Animation targeted tests passed with 5 tests: `ProtocolContractTests.PreviewAnimationRequestAndResponseSerializeStableShapes`, `PreviewHostClientTests.RenderAnimationAsyncCreatesOffsetFramesStripAndMotionSummary`, `CliSmokeTests.PreviewAnimationCommandRendersOffsetFramesAndStrip`, `McpStdioSmokeTests.ServerStartsOverStdioAndListsInitialTools`, and `AvaScopeMcpToolsTests.PreviewAxamlAnimationRejectsInvalidOffsets`.
 - `2026-06-09`: Source CLI `preview-animation .\samples\AvaScope.GettingStartedApp\AvaScope.GettingStartedApp.csproj --profile animation` passed with 4 successful frames, a frame strip, `motion.status=changed`, and a file-backed animation viewer URL.
