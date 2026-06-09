@@ -37,6 +37,8 @@ Define the next release target and milestone map in `docs/RELEASE_PLAN.md`; do n
 
 ## Latest Validation
 
+- `2026-06-09`: Post-BUG-0003 CI stabilization targeted Release watch smoke passed 3 consecutive runs: `dotnet test AvaScope.slnx -c Release --filter FullyQualifiedName~CliSmokeTests.WatchPreviewSessionCommandReloadsWhenWatchedFileChanges`.
+- `2026-06-09`: `dotnet test AvaScope.slnx -c Release --no-build` passed with 212 tests after increasing the watch smoke settle window for Windows file watcher timing.
 - `2026-06-09`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-bug-reports.ps1` passed after storing `BUG-0003`; 14 intake files scanned.
 - `2026-06-09`: Post-v0.2.1 CI stabilization targeted Release tests passed: `dotnet test AvaScope.slnx -c Release --filter "FullyQualifiedName~CliSmokeTests.WatchPreviewSessionCommandReloadsWhenWatchedFileChanges|FullyQualifiedName~AvaScopeMcpBridgeToolsTests.AttachToAppUsesLocalBridgeManifestAndPipeHealth"` passed with 2 tests.
 - `2026-06-09`: `dotnet test AvaScope.slnx -c Release --no-build` passed with 212 tests after stabilizing the watch file-write smoke path and explicit MCP bridge attach targeting.
@@ -2629,3 +2631,4 @@ Define the next release target and milestone map in `docs/RELEASE_PLAN.md`; do n
 - `2026-06-09`: Completed R0.2.1-M2 by validating the release gate, committing `Release 0.2.1`, pushing it to `master`, and confirming GitHub Release `v0.2.1` published with packages, executable ZIPs, and release manifest.
 - `2026-06-09`: Stabilized post-release CI by retrying the watch smoke test file rewrite when Windows briefly locks the watched AXAML file and by making the MCP bridge attach smoke target its own session id explicitly.
 - `2026-06-09`: Stored `BUG-0003` for preview diagnostic false positives involving DataTemplate binding context, template/layer overlap warnings, text clipping tolerance, and internal slider hit-target noise; no implementation was started.
+- `2026-06-09`: Stabilized the watch preview smoke after BUG-0003 intake by increasing the test settle window so Windows file watcher events do not trigger a reload while the changed AXAML file is still locked.

@@ -656,7 +656,7 @@ public sealed class CliSmokeTests
                 "--timeout-ms",
                 "15000",
                 "--settle-ms",
-                "100",
+                "1000",
                 "--max-reloads",
                 "1",
                 "--watch",
