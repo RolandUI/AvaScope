@@ -25,18 +25,19 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `Post-v0.6.0 CI Stabilization And Release Completion`
-- Status: `In Progress`
-- Owner: Codex
-- Started: `2026-06-10`
-- Goal: finish stabilizing the post-release watcher smoke cleanup on hosted Windows CI, verify follow-up CI/Release workflows, and then return the active focus to `R0.7.0-M1`.
+- `R0.7.0-M1 Baseline Suite Manifest`
+- Status: `Not Started`
+- Owner: unassigned
+- Started: pending
+- Goal: start the `v0.7.0` visual-regression productization release by designing and implementing named baseline suite manifests across projects, profiles, variants, and sizes.
 
 ## Next Action
 
-Push the watcher cleanup retry stabilization, verify the follow-up GitHub CI and Release no-op workflows, then return the active focus to `R0.7.0-M1 Baseline Suite Manifest`.
+Start `R0.7.0-M1 Baseline Suite Manifest` from `docs/RELEASE_PLAN.md` when the next implementation task is requested. Keep `v0.7.0` scoped to visual regression and CI productization unless the release plan is explicitly revised first.
 
 ## Latest Validation
 
+- `2026-06-10`: GitHub CI workflow `27287676017` passed after watcher-smoke cleanup retry stabilization; follow-up Release workflow `27287675726` no-oped successfully because `v0.6.0` already existed.
 - `2026-06-10`: GitHub CI workflow `27287102689` failed on the `Record v0.6.0 release completion` documentation commit because the watcher smoke temp directory cleanup hit a transient hosted Windows file lock on `MainView.axaml`.
 - `2026-06-10`: Added retrying watcher-smoke temp directory cleanup; targeted Release watcher smoke passed locally, and `dotnet test AvaScope.slnx -c Release --no-build` passed with 242 tests.
 - `2026-06-10`: GitHub CI workflow `27286438229` passed after post-release watcher stabilization; follow-up Release workflow `27286438001` no-oped successfully because `v0.6.0` already existed.

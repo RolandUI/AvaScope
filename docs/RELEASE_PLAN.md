@@ -263,6 +263,8 @@ The `v0.6.0` release target is focused on runtime debugging and agent validation
 - `2026-06-10`: `git ls-remote --tags origin refs/tags/v0.6.0` confirmed tag `v0.6.0` at release commit `4af5284`.
 - `2026-06-10`: GitHub CI workflow `27285678995` failed after publish in `CliSmokeTests.WatchPreviewSessionCommandReloadsWhenWatchedFileChanges` because the hosted runner missed the single watched-file event before the command timed out.
 - `2026-06-10`: Post-release CI stabilization commit `434f9dd` generated repeated watched-file writes and increased the watch smoke timeout/settle window; targeted Release smoke passed 4 consecutive local runs, local `dotnet test AvaScope.slnx -c Release --no-build` passed with 242 tests, GitHub CI workflow `27286438229` passed, and follow-up Release workflow `27286438001` no-oped successfully because `v0.6.0` already existed.
+- `2026-06-10`: GitHub CI workflow `27287102689` failed on the `Record v0.6.0 release completion` documentation commit because watcher-smoke temp directory cleanup hit a transient hosted Windows file lock on `MainView.axaml`.
+- `2026-06-10`: Post-release CI cleanup stabilization commit `b35def7` added retrying watcher-smoke temp directory cleanup; targeted Release watcher smoke passed locally, local `dotnet test AvaScope.slnx -c Release --no-build` passed with 242 tests, GitHub CI workflow `27287676017` passed, and follow-up Release workflow `27287675726` no-oped successfully because `v0.6.0` already existed.
 
 ### v0.6.0 Explicit Deferrals
 
