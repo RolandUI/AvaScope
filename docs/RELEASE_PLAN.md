@@ -195,7 +195,7 @@ The `v0.5.0` release target is focused on PreviewHost fidelity for normal Avalon
 - Release: `v0.6.0`
 - Target Version: `0.6.0`
 - Release State: `Planned`
-- Scope Lock: pending
+- Scope Lock: `2026-06-10`
 - Release Commit: pending
 - Local Release Gate: pending
 - Published At: pending
@@ -204,34 +204,43 @@ The `v0.5.0` release target is focused on PreviewHost fidelity for normal Avalon
 
 ### v0.6.0 Release Goals
 
-The `v0.6.0` release target is focused on persistent preview sessions and hot preview performance. The goal is to move beyond one-shot reloads while preserving process isolation and explicit lifecycle control.
+The `v0.6.0` release target is focused on persistent preview sessions plus runtime debugging and agent validation ergonomics requested after the `v0.5.0` release. The goal is to move beyond one-shot reloads and native OS workarounds while preserving process isolation, opt-in bridge activation, local-only runtime control, and explicit lifecycle cleanup.
 
 1. `RG-0.6.0-1 Persistent PreviewHost Lifecycle`: design and implement persistent preview host sessions with explicit close, TTL, crash, cancellation, and cleanup semantics.
    Success signal: long-running preview sessions cannot outlive their TTL silently, can be closed deterministically, and recover cleanly after child-process failure.
-2. `RG-0.6.0-2 Incremental Reload Workflow`: reduce preview reload cost through safe reuse, request hashing, build-output checks, and watched-input snapshots.
-   Success signal: unchanged inputs skip reloads, changed AXAML/resources trigger bounded reloads, and reload reasons are reported structurally.
-3. `RG-0.6.0-3 Hot AXAML Reload Boundary`: support hot reload of changed `.axaml` where public APIs and isolation make it reliable.
-   Success signal: supported reload paths are fast and deterministic; unsupported paths return explicit diagnostics instead of falling back to stale previews.
-4. `RG-0.6.0-4 Session Event Stream`: expose bounded preview-session events for agents and future editor integrations.
-   Success signal: CLI/MCP can report session started, rendered, skipped, reloaded, failed, closed, timed out, and cleaned events.
-5. `RG-0.6.0-5 Performance Budgets`: establish preview-session latency, memory, process-count, and artifact-size budgets.
-   Success signal: tests or validation scripts fail when persistent-session behavior leaks processes, grows artifacts unboundedly, or regresses beyond documented thresholds.
-6. `RG-0.6.0-6 Guarded Release`: ship only after lifecycle, reload, cleanup, performance, and release validation pass.
+2. `RG-0.6.0-2 Incremental Reload And Hot AXAML Boundary`: reduce preview reload cost through safe reuse, request hashing, build-output checks, watched-input snapshots, and supported `.axaml` reload paths.
+   Success signal: unchanged inputs skip reloads, changed AXAML/resources trigger bounded reloads, supported hot reload paths are deterministic, and unsupported paths return explicit diagnostics instead of stale previews.
+3. `RG-0.6.0-3 Runtime Input Expansion` (`FEAT-0009`): broaden non-destructive runtime input beyond simple button clicks.
+   Success signal: CLI/MCP/bridge workflows can switch tab/selectable controls, send common navigation keys and modifiers, and exercise wheel/drag/pan/scrollbar gestures where public Avalonia APIs make behavior deterministic.
+4. `RG-0.6.0-4 Runtime State Inspection` (`FEAT-0010`, `FEAT-0011`, `FEAT-0012`): expose scroll, binding/context, and opt-in custom control debug state.
+   Success signal: selected nodes can report ScrollViewer metrics, DataContext type, bounded binding path/value metadata where reliable, and app-provided debug fields through an explicit opt-in contract.
+5. `RG-0.6.0-5 Runtime Session And Launch Ergonomics` (`FEAT-0013`, `FEAT-0015`): reduce manual attach/setup friction for repeated agent workflows.
+   Success signal: users can select the latest active matching session safely, stale sessions stay out of default selection, and a bridge-enabled launch helper returns session/top-level/process/stdout/stderr details.
+6. `RG-0.6.0-6 Screenshot Assertions And Region Checks` (`FEAT-0014`): add focused pixel/region assertions on top of existing screenshot diff and baseline primitives.
+   Success signal: CLI/MCP workflows can crop or check regions for non-empty, mostly blank, changed, and unchanged conditions with structured pass/fail output and deterministic artifacts.
+7. `RG-0.6.0-7 Session Event Stream And Performance Budgets`: expose bounded preview-session events and establish latency, memory, process-count, and artifact-size budgets.
+   Success signal: CLI/MCP can report session started, rendered, skipped, reloaded, failed, closed, timed out, and cleaned events, and validation catches process leaks or budget regressions.
+8. `RG-0.6.0-8 Guarded Release`: ship only after lifecycle, runtime input/state, launch/session, region assertion, cleanup, performance, and release validation pass.
 
 ### v0.6.0 Milestone Map
 
 - `R0.6.0-M1 Persistent PreviewHost Lifecycle Contract`; Status: `Planned`.
 - `R0.6.0-M2 Preview Session Process Management`; Status: `Planned`.
 - `R0.6.0-M3 Incremental Reload And Watch Integration`; Status: `Planned`.
-- `R0.6.0-M4 Session Event Stream`; Status: `Planned`.
-- `R0.6.0-M5 Performance And Cleanup Validation`; Status: `Planned`.
-- `R0.6.0-M6 Release Candidate And Version Bump`; Status: `Planned`.
+- `R0.6.0-M4 Runtime Input Expansion`; Status: `Planned`.
+- `R0.6.0-M5 Runtime State Inspection`; Status: `Planned`.
+- `R0.6.0-M6 Runtime Session Selection And Launch Helper`; Status: `Planned`.
+- `R0.6.0-M7 Screenshot Region Assertions`; Status: `Planned`.
+- `R0.6.0-M8 Session Events, Performance, And Cleanup Validation`; Status: `Planned`.
+- `R0.6.0-M9 Release Candidate And Version Bump`; Status: `Planned`.
 
 ### v0.6.0 Explicit Deferrals
 
 - Runtime app hot reload remains separate from PreviewHost hot preview.
-- Process injection and no-code attach remain out of scope.
+- Process injection and no-code attach remain out of scope; the launch helper is limited to explicitly bridge-enabled local apps.
 - Persistent hosts must stay child processes; MCP server in-process user-code loading remains out of scope.
+- Destructive runtime actions, arbitrary process termination, and remote inspection remain out of scope.
+- Full visual-regression suite/report productization remains in `v0.7.0`; `v0.6.0` only adds focused screenshot region assertions.
 
 ## Planned Target: v0.7.0
 

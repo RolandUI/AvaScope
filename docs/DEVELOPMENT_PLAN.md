@@ -29,14 +29,16 @@ This document is the primary project-management source for autonomous agents wor
 - Status: `Not Started`
 - Owner: unassigned
 - Started: pending
-- Goal: define the persistent PreviewHost lifecycle contract for the next `v0.6.0` release without weakening PreviewHost process isolation.
+- Goal: define the expanded `v0.6.0` lifecycle contract for persistent PreviewHost sessions plus scheduled runtime debugging and agent validation tickets without weakening process isolation or local-only runtime safety.
 
 ## Next Action
 
-Start `R0.6.0-M1 Persistent PreviewHost Lifecycle Contract` from `docs/RELEASE_PLAN.md` when the next implementation task is requested.
+Start `R0.6.0-M1 Persistent PreviewHost Lifecycle Contract` from `docs/RELEASE_PLAN.md` when the next implementation task is requested, then continue through the expanded `v0.6.0` runtime input, runtime state inspection, launch/session ergonomics, and screenshot-region assertion milestones.
 
 ## Latest Validation
 
+- `2026-06-10`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-bug-reports.ps1` passed after storing `FEAT-0009` through `FEAT-0015` and expanding `v0.6.0`; 22 intake files scanned.
+- `2026-06-10`: `git diff --check` passed after the `v0.6.0` ticket scheduling documentation update.
 - `2026-06-10`: GitHub Release workflow `27277929158` passed for `Release 0.5.0`; tag `v0.5.0` and six GitHub Release assets were published at `2026-06-10T13:06:09Z`.
 - `2026-06-10`: GitHub CI workflow `27277929144` passed for `Release 0.5.0`.
 - `2026-06-10`: `gh release view v0.5.0` confirmed the public release URL and six uploaded assets.
@@ -1660,7 +1662,8 @@ Start `R0.6.0-M1 Persistent PreviewHost Lifecycle Contract` from `docs/RELEASE_P
   - Done: expanded intake validation to scan feature request tickets in addition to bug reports.
   - Done: created `docs/FEATURE_REQUESTS.md` and `docs/feature-requests/` for sanitized feature ticket records.
   - Done: stored `FEAT-0001` through `FEAT-0007`, preserving the requested priority order for binding/resource diagnostics, layout warnings, and computed style/resource inspection.
-  - Done: user explicitly authorized implementation of all stored feature tickets, so active work moved to W9.
+  - Done: stored `FEAT-0009` through `FEAT-0015` from the post-`v0.5.0` runtime/debugging wishlist and scheduled them for `v0.6.0`.
+  - Done: user explicitly authorized implementation of the original stored `FEAT-0001` through `FEAT-0007` tickets, so that historical work moved to W9.
 - Acceptance Criteria:
   - Every stored report has a stable `BUG-####` id, status, fix status, reproduction summary, actual result, and expected result where available.
   - Every stored feature request has a stable `FEAT-####` id, priority, status, implementation status, user need, desired behavior, and acceptance criteria where available.
@@ -2403,7 +2406,7 @@ Start `R0.6.0-M1 Persistent PreviewHost Lifecycle Contract` from `docs/RELEASE_P
   - Passed: `dotnet build AvaScope.slnx`
   - Passed: `dotnet test AvaScope.slnx --no-build`
   - Passed: `git diff --check`
-  - Passed: `dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll preview C:\Users\soosr\Documents\GitHub\TradeR\TradeR\TradeR.csproj --view Views\SettingsView.axaml --out .\artifacts\validation\v0.2.1-theme-background\SettingsView-dark.png --width 1200 --height 900 --theme dark`
+  - Passed: `dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll preview <target-app-root>\TargetApp.csproj --view Views\SettingsView.axaml --out .\artifacts\validation\v0.2.1-theme-background\SettingsView-dark.png --width 1200 --height 900 --theme dark`
 
 ### R0.2.1-M2 Release Candidate And Version Bump
 
@@ -2671,9 +2674,12 @@ Start `R0.6.0-M1 Persistent PreviewHost Lifecycle Contract` from `docs/RELEASE_P
 - `2026-06-09`: `v0.8.0` remains a product feature release instead of a stabilization-only release: accessibility/validation audit, visual issue overlays, suggested fixes, component/style inventory, and richer animation timeline diagnostics are planned before the `v0.9.0` beta freeze.
 - `2026-06-10`: `v0.5.0` preview fidelity uses additive protocol fields (`projectInfo` and diagnostic triage metadata) so existing clients can ignore the new data while agents get project graph, provenance, suggested action, and non-applicable context.
 - `2026-06-10`: Preview profile variants are project-local JSON overlays applied after the base profile and before explicit CLI options; variants do not introduce executable behavior or remote design-data loading.
+- `2026-06-10`: After `v0.5.0` shipped, the post-release runtime/debugging wishlist was accepted as `v0.6.0` scope: persistent preview remains in scope, and `FEAT-0009` through `FEAT-0015` add runtime input, state inspection, launch/session ergonomics, and focused screenshot assertions.
+- `2026-06-10`: `v0.6.0` launch helper scope is explicitly bridge-enabled local app launch only; no-code attach, process injection, arbitrary process termination, and remote inspection remain out of scope.
 
 ## Change Log
 
+- `2026-06-10`: Added `FEAT-0009` through `FEAT-0015` for post-`v0.5.0` runtime/debugging wishlist items and expanded the `v0.6.0` release plan to schedule those tickets alongside persistent preview lifecycle work.
 - `2026-06-10`: Completed `v0.5.0` release with PreviewHost fidelity improvements, packaged sample smoke, GitHub Release assets, tag verification, and green CI; moved next focus to `R0.6.0-M1 Persistent PreviewHost Lifecycle Contract`.
 - `2026-06-10`: Completed `R0.5.0-M1` through `R0.5.0-M5` with project/build-output preview metadata, diagnostic triage fields, resource/layout provenance defaults, CLI profile variants, getting-started sample variants, documentation, and targeted validation; moved active focus to `R0.5.0-M6 Release Candidate And Version Bump`.
 - `2026-06-10`: Completed `v0.4.0` release with runtime bridge reliability, packaged CLI runtime smoke, GitHub Release assets, tag verification, and green CI; moved active focus to `R0.5.0-M1 Project Graph And Build Diagnostics`.
