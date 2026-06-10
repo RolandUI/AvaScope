@@ -98,6 +98,45 @@ public sealed class LocalBridgeClientTests : IDisposable
     }
 
     [Fact]
+    public async Task AttachLatestToAppSelectsNewestActiveMatchingManifest()
+    {
+        Directory.CreateDirectory(_manifestDirectory);
+        var oldSessionId = SessionId.New();
+        var newSessionId = SessionId.New();
+        var processName = Process.GetCurrentProcess().ProcessName;
+        WriteManifest(
+            "old.json",
+            new BridgeSessionManifest(
+                oldSessionId,
+                Environment.ProcessId,
+                $"avascope-core-old-{Guid.NewGuid():N}",
+                DateTimeOffset.UtcNow.AddMinutes(-5),
+                "Old app",
+                processName: processName));
+        var pipeName = $"avascope-core-new-{Guid.NewGuid():N}";
+        WriteManifest(
+            "new.json",
+            new BridgeSessionManifest(
+                newSessionId,
+                Environment.ProcessId,
+                pipeName,
+                DateTimeOffset.UtcNow,
+                "New app",
+                processName: processName));
+        var serverTask = RespondToBridgeRequestAsync(
+            pipeName,
+            request => BridgeIpcResponse.Ok(request.RequestId, HealthResponse.Current()));
+        var client = new LocalBridgeClient(_manifestDirectory);
+
+        var result = await client.AttachLatestToAppAsync(processName: processName);
+        var request = await serverTask;
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(BridgeIpcMethods.Health, request.Method);
+        Assert.Equal(newSessionId, result.Value!.Session.SessionId);
+    }
+
+    [Fact]
     public async Task AttachToAppReturnsStructuredErrorWhenNoManifestMatches()
     {
         var client = new LocalBridgeClient(_manifestDirectory);

@@ -305,11 +305,20 @@ Attach to an active local bridge session:
 ```powershell
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll attach --process 1234
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll attach --process-name MyApp
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll attach --latest true --process-name MyApp
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll attach --session session-id
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll attach --manifest C:\Temp\AvaScope\sessions\session-id.json
 ```
 
-Use `--manifest-dir <dir>` on runtime CLI commands when the inspected app writes bridge manifests to a selected local directory. AvaScope never silently picks between multiple matching live manifests; retry with `--session`, `--process`, `--process-name`, or `--manifest` when attach is ambiguous.
+Use `--manifest-dir <dir>` on runtime CLI commands when the inspected app writes bridge manifests to a selected local directory. AvaScope never silently picks between multiple matching live manifests; retry with `--session`, `--process`, `--process-name`, or `--manifest` when attach is ambiguous. `--latest true` selects the newest active matching manifest while excluding stale process records and still fails if multiple candidates are equivalently latest.
+
+Launch an explicitly bridge-enabled local app and wait for its bridge session:
+
+```powershell
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll launch-app --command dotnet --args "run --project path\to\App.csproj" --env AVASCOPE_SAMPLE_BRIDGE=1 --manifest-dir C:\Temp\AvaScope\sessions --out-dir .\artifacts\launch
+```
+
+The helper sets `AVASCOPE_BRIDGE_MANIFEST_DIR` for the child process, captures stdout/stderr to deterministic files, waits for a bridge manifest from the launched process, and returns session, top-level when available, process, manifest, stdout, and stderr details. It does not inject into apps; the app must explicitly enable `AvaScopeBridge.Activate`.
 
 List top-level windows/views and capture a runtime screenshot from an active bridge session:
 
@@ -334,7 +343,7 @@ dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll inspect-node --session 
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll inspect-node --session session-id --top-level topLevel:1234 --node logical:5678 --tree-kind logical
 ```
 
-`inspect-node` includes bounded `computedProperties` for high-value visual, style, text, and layout properties. Provenance uses public Avalonia diagnostic priority where available and reports `unknown` or `not_available` instead of guessing private style/resource origins.
+`inspect-node` includes bounded `computedProperties` for high-value visual, style, text, and layout properties. Provenance uses public Avalonia diagnostic priority where available and reports `unknown` or `not_available` instead of guessing private style/resource origins. For selected runtime nodes it can also include `scrollState` for `ScrollViewer` metrics, `bindingState` with `DataContext` type and explicit binding metadata availability, and `debugState` fields from controls that implement the opt-in `IAvaScopeDebugStateProvider` bridge contract.
 
 Find runtime tree nodes by type, name, automation id, or text:
 
@@ -350,9 +359,11 @@ dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll input --session session
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll input --session session-id --top-level topLevel:1234 --action focus --target-node visual:5678
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll input --session session-id --top-level topLevel:1234 --action clear_text --target-node visual:5678
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll input --session session-id --top-level topLevel:1234 --action key_down --key Enter --modifiers Control+Shift --target-node visual:5678
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll input --session session-id --top-level topLevel:1234 --action select --target-node visual:tabControl --text 1
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll input --session session-id --top-level topLevel:1234 --action scroll --target-node visual:scrollViewer --y 120
 ```
 
-Input responses include `pointerButton` for supported pointer/click actions and `inputKey`/`keyModifiers` for routed key actions.
+Input responses include `pointerButton` for supported pointer/click actions, `inputKey`/`keyModifiers` for routed key actions, wheel/scroll deltas for scroll actions, and bounded metadata such as selected index/item or before/after scroll offsets.
 
 Close an active local bridge session:
 
@@ -378,6 +389,15 @@ dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll diff --baseline .\basel
 ```
 
 The command returns a structured `ToolResult<PreviewDiffResponse>`. A changed image exits non-zero while still returning the changed pixel count, changed percentage, max channel delta, and diff path.
+
+Check a focused screenshot region without mutating baselines:
+
+```powershell
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll assert-region --image .\screenshot.png --assert non_empty --x 20 --y 40 --width 200 --height 80 --crop-out .\region.png
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll assert-region --image .\current.png --baseline .\baseline.png --assert changed --x 0 --y 0 --width 300 --height 160 --min-changed-pixels 5 --tolerance 2
+```
+
+Supported assertions are `non_empty`, `mostly_blank`, `changed`, and `unchanged`. The command returns `ToolResult<ScreenshotRegionAssertionResponse>` with bounded pixel metrics and optional crop artifacts.
 
 Create and check a visual regression baseline set:
 
@@ -435,8 +455,10 @@ Implemented tools:
 - `health`
 - `list_sessions`
 - `attach_to_app`
+- `launch_app`
 - `list_top_levels`
 - `screenshot`
+- `assert_region`
 - `visual_tree`
 - `logical_tree`
 - `inspect_node`
@@ -492,6 +514,8 @@ Runtime input support is intentionally narrow:
 - `key_down` and `key_up` raise routed Avalonia key events on a focused input element or explicit target node id.
 - `key_text` writes to a focused `TextBox` or explicit `targetNodeId`, respects read-only targets, and replaces the current selection when one exists.
 - `clear_text` clears a focused or targeted writable `TextBox`, resets caret/selection to 0, and rejects read-only targets.
+- `select` sets `SelectedIndex` on targeted `SelectingItemsControl` instances such as `TabControl`, `ListBox`, and `ComboBox` using either an item index or exact item text.
+- `scroll` adjusts a targeted `ScrollViewer` offset through public Avalonia state and reports before/after offsets.
 
 ## Preview Host
 
@@ -513,7 +537,7 @@ Successful preview responses can include diagnostics for missing `DataContext`, 
 
 Animation preview responses use the same isolated PreviewHost boundary and add explicit `animationTimeOffsetMs` frame sampling. `PreviewAnimationResponse` includes per-frame render results, optional `frameStripPath`, optional file-backed `viewer.previewUrl`, and motion diagnostics derived from sampled pixels.
 
-Preview session tools store the original preview request plus the latest render result as Core metadata. MCP-backed and CLI-created preview session records are also persisted as JSON under the local AvaScope temp preview-session store so they can be restored after the MCP server or CLI process restarts. They do not keep user project code loaded inside MCP or CLI; each render still goes through `AvaScope.PreviewHost`.
+Preview session tools store the original preview request, latest render result, bounded session events, and lifecycle status as Core metadata. MCP-backed and CLI-created preview session records are also persisted as JSON under the local AvaScope temp preview-session store so they can be restored after the MCP server or CLI process restarts. They do not keep user project code loaded inside MCP or CLI; each render still goes through `AvaScope.PreviewHost`.
 
 `preview_viewer` and CLI `preview-viewer` export a local file-backed HTML viewer for a preview session's latest successful render. The response includes a `previewUrl` that can be opened in the Codex in-app browser. The generated viewer embeds the screenshot and bounded session metadata, so it remains local and does not require a preview server.
 

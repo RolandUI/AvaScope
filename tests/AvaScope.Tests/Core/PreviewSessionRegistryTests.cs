@@ -56,6 +56,8 @@ public sealed class PreviewSessionRegistryTests : IDisposable
         Assert.True(result.Value.LastRender.Success, result.Value.LastRender.Error?.Message);
         Assert.Equal(Path.GetFullPath(outputPath), result.Value.LastRender.Value!.FilePath);
         Assert.Equal(createdAt, result.Value.UpdatedAt);
+        Assert.Equal(PreviewWatchEventTypes.SessionCreated, Assert.Single(result.Value.Events).EventType);
+        Assert.False(result.Value.Lifecycle.PersistentHostEnabled);
         Assert.True(File.Exists(outputPath));
 
         var listed = Assert.Single(previewSessions.List());
@@ -69,6 +71,7 @@ public sealed class PreviewSessionRegistryTests : IDisposable
         Assert.True(closed.Success, closed.Error?.Message);
         Assert.Equal(SessionStates.Closed, closed.Value!.Session.State);
         Assert.Equal(timeProvider.UtcNow, closed.Value.UpdatedAt);
+        Assert.Contains(closed.Value.Events, item => item.EventType == PreviewWatchEventTypes.SessionClosed);
         Assert.Equal(SessionLifecycleState.Closed, sessionRegistry.Get(result.Value.Session.SessionId).Value!.State);
     }
 
@@ -132,6 +135,8 @@ public sealed class PreviewSessionRegistryTests : IDisposable
         Assert.True(reloaded.Value.LastRender.Success, reloaded.Value.LastRender.Error?.Message);
         Assert.Equal(Path.GetFullPath(outputPath), reloaded.Value.LastRender.Value!.FilePath);
         Assert.Equal(timeProvider.UtcNow, reloaded.Value.UpdatedAt);
+        Assert.Contains(reloaded.Value.Events, item => item.EventType == PreviewWatchEventTypes.SessionCreated);
+        Assert.Contains(reloaded.Value.Events, item => item.EventType == PreviewWatchEventTypes.Reloaded);
         Assert.Single(previewSessions.List());
         Assert.Single(sessionRegistry.List());
     }

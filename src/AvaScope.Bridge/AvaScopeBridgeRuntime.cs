@@ -26,6 +26,8 @@ public sealed class AvaScopeBridgeRuntime
     private const int DefaultFindResultLimit = 100;
     private const int MaximumTreeDepth = 64;
     private const int MaximumFindResultLimit = 1000;
+    private const int MaximumDebugFieldCount = 32;
+    private const int MaximumDebugValueLength = 500;
     private readonly ConcurrentDictionary<int, WeakReference<TopLevel>> _registeredTopLevels = new();
     private readonly ConcurrentDictionary<string, Pointer> _activePointers = new(StringComparer.Ordinal);
     private readonly SessionRegistry _sessionRegistry;
@@ -550,7 +552,10 @@ public sealed class AvaScopeBridgeRuntime
             GetBounds(node),
             GetClasses(node),
             GetComputedProperties(node),
-            CreateNodeTarget(topLevelId, TreeKinds.Visual, topLevel, node)));
+            CreateNodeTarget(topLevelId, TreeKinds.Visual, topLevel, node),
+            GetScrollState(topLevel, topLevelId, node),
+            GetBindingState(node),
+            GetDebugState(node)));
     }
 
     private CoreResult<InspectNodeResponse> InspectLogicalNode(ILogical root, TopLevel topLevel, string topLevelId, string nodeId)
@@ -574,7 +579,10 @@ public sealed class AvaScopeBridgeRuntime
             GetBounds(node),
             GetClasses(node),
             GetComputedProperties(node),
-            CreateNodeTarget(topLevelId, TreeKinds.Logical, topLevel, node)));
+            CreateNodeTarget(topLevelId, TreeKinds.Logical, topLevel, node),
+            GetScrollState(topLevel, topLevelId, node),
+            GetBindingState(node),
+            GetDebugState(node)));
     }
 
     private CoreResult<InputResponse> Input(
@@ -606,6 +614,8 @@ public sealed class AvaScopeBridgeRuntime
             InputActions.Focus => FocusTarget(topLevel, topLevelId, targetNodeId, x, y),
             InputActions.KeyDown => KeyInput(topLevel, topLevelId, InputActions.KeyDown, targetNodeId, inputKey, keyModifiers),
             InputActions.KeyUp => KeyInput(topLevel, topLevelId, InputActions.KeyUp, targetNodeId, inputKey, keyModifiers),
+            InputActions.Select => SelectTarget(topLevel, topLevelId, targetNodeId, inputText),
+            InputActions.Scroll => ScrollTarget(topLevel, topLevelId, targetNodeId, x, y),
             _ => CoreResult<InputResponse>.Fail(new CoreError(
                 BridgeErrorCodes.UnsupportedInputAction,
                 $"Input action '{action}' is not supported."))
@@ -1014,6 +1024,157 @@ public sealed class AvaScopeBridgeRuntime
             modifiers.Value.ToString()));
     }
 
+    private CoreResult<InputResponse> SelectTarget(
+        TopLevel topLevel,
+        string topLevelId,
+        string? targetNodeId,
+        string? selectionText)
+    {
+        if (string.IsNullOrWhiteSpace(targetNodeId))
+        {
+            return CoreResult<InputResponse>.Fail(new CoreError(
+                BridgeErrorCodes.InvalidInputRequest,
+                "Select input requires target node id."));
+        }
+
+        if (string.IsNullOrWhiteSpace(selectionText))
+        {
+            return CoreResult<InputResponse>.Fail(new CoreError(
+                BridgeErrorCodes.InvalidInputRequest,
+                "Select input requires text containing a selected index or item text."));
+        }
+
+        var node = FindNodeById(topLevel, targetNodeId.Trim());
+        if (node is null)
+        {
+            return CoreResult<InputResponse>.Fail(new CoreError(
+                BridgeErrorCodes.NodeNotFound,
+                $"Select target node '{targetNodeId}' was not found.",
+                CreateTargetErrorDetails(null, null, targetNodeId.Trim())));
+        }
+
+        var selector = node as SelectingItemsControl
+            ?? (node as Visual)?.FindAncestorOfType<SelectingItemsControl>();
+        if (selector is null)
+        {
+            return CoreResult<InputResponse>.Fail(new CoreError(
+                BridgeErrorCodes.UnsupportedInputAction,
+                "Select target is not a SelectingItemsControl."));
+        }
+
+        var requested = selectionText.Trim();
+        var previousIndex = selector.SelectedIndex;
+        var index = TryResolveSelectionIndex(selector, requested);
+        if (index is null)
+        {
+            return CoreResult<InputResponse>.Fail(new CoreError(
+                BridgeErrorCodes.UnsupportedInputAction,
+                $"Select target does not contain item '{requested}'.",
+                new Dictionary<string, string>
+                {
+                    ["targetNodeId"] = targetNodeId.Trim(),
+                    ["requestedSelection"] = requested,
+                    ["itemCount"] = selector.ItemCount.ToString(CultureInfo.InvariantCulture)
+                }));
+        }
+
+        selector.SelectedIndex = index.Value;
+        selector.Focus(NavigationMethod.Unspecified);
+
+        var metadata = new Dictionary<string, string>
+        {
+            ["selectionKind"] = int.TryParse(requested, NumberStyles.Integer, CultureInfo.InvariantCulture, out _)
+                ? "index"
+                : "text",
+            ["requestedSelection"] = requested,
+            ["previousSelectedIndex"] = previousIndex.ToString(CultureInfo.InvariantCulture),
+            ["selectedIndex"] = selector.SelectedIndex.ToString(CultureInfo.InvariantCulture),
+            ["selectedItem"] = FormatComputedValue(selector.SelectedItem),
+            ["itemCount"] = selector.ItemCount.ToString(CultureInfo.InvariantCulture)
+        };
+
+        return CoreResult<InputResponse>.Ok(new InputResponse(
+            SessionId,
+            topLevelId,
+            InputActions.Select,
+            handled: true,
+            DateTimeOffset.UtcNow,
+            CreateNodeId(selector, TreeKinds.Visual),
+            CreateNodeTarget(topLevelId, TreeKinds.Visual, topLevel, selector),
+            metadata: metadata));
+    }
+
+    private CoreResult<InputResponse> ScrollTarget(
+        TopLevel topLevel,
+        string topLevelId,
+        string? targetNodeId,
+        double? deltaX,
+        double? deltaY)
+    {
+        if (deltaX is null && deltaY is null)
+        {
+            return CoreResult<InputResponse>.Fail(new CoreError(
+                BridgeErrorCodes.InvalidInputRequest,
+                "Scroll input requires x or y delta."));
+        }
+
+        ScrollViewer? viewer;
+        if (!string.IsNullOrWhiteSpace(targetNodeId))
+        {
+            var node = FindNodeById(topLevel, targetNodeId.Trim());
+            if (node is null)
+            {
+                return CoreResult<InputResponse>.Fail(new CoreError(
+                    BridgeErrorCodes.NodeNotFound,
+                    $"Scroll target node '{targetNodeId}' was not found.",
+                    CreateTargetErrorDetails(null, null, targetNodeId.Trim())));
+            }
+
+            viewer = node as ScrollViewer ?? (node as Visual)?.FindAncestorOfType<ScrollViewer>();
+        }
+        else
+        {
+            var focused = topLevel.FocusManager?.GetFocusedElement();
+            viewer = focused as ScrollViewer ?? (focused as Visual)?.FindAncestorOfType<ScrollViewer>();
+        }
+
+        if (viewer is null)
+        {
+            return CoreResult<InputResponse>.Fail(new CoreError(
+                BridgeErrorCodes.UnsupportedInputAction,
+                "Scroll input requires a ScrollViewer target node or a focused element inside one."));
+        }
+
+        var previous = viewer.Offset;
+        var maximum = viewer.ScrollBarMaximum;
+        var next = new Vector(
+            Math.Clamp(previous.X + (deltaX ?? 0), 0, Math.Max(0, maximum.X)),
+            Math.Clamp(previous.Y + (deltaY ?? 0), 0, Math.Max(0, maximum.Y)));
+        viewer.Offset = next;
+
+        var metadata = new Dictionary<string, string>
+        {
+            ["previousOffsetX"] = previous.X.ToString("0.###", CultureInfo.InvariantCulture),
+            ["previousOffsetY"] = previous.Y.ToString("0.###", CultureInfo.InvariantCulture),
+            ["offsetX"] = viewer.Offset.X.ToString("0.###", CultureInfo.InvariantCulture),
+            ["offsetY"] = viewer.Offset.Y.ToString("0.###", CultureInfo.InvariantCulture),
+            ["maximumX"] = maximum.X.ToString("0.###", CultureInfo.InvariantCulture),
+            ["maximumY"] = maximum.Y.ToString("0.###", CultureInfo.InvariantCulture)
+        };
+
+        return CoreResult<InputResponse>.Ok(new InputResponse(
+            SessionId,
+            topLevelId,
+            InputActions.Scroll,
+            handled: true,
+            DateTimeOffset.UtcNow,
+            CreateNodeId(viewer, TreeKinds.Visual),
+            CreateNodeTarget(topLevelId, TreeKinds.Visual, topLevel, viewer),
+            wheelDeltaX: deltaX,
+            wheelDeltaY: deltaY,
+            metadata: metadata));
+    }
+
     private static CoreResult<Point> GetInputPoint(double? x, double? y)
     {
         if (x is null || y is null)
@@ -1100,6 +1261,34 @@ public sealed class AvaScopeBridgeRuntime
         }
 
         return CoreResult<Key>.Ok(key);
+    }
+
+    private static int? TryResolveSelectionIndex(SelectingItemsControl selector, string requested)
+    {
+        if (int.TryParse(requested, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedIndex))
+        {
+            return parsedIndex >= 0 && parsedIndex < selector.ItemCount
+                ? parsedIndex
+                : null;
+        }
+
+        for (var index = 0; index < selector.ItemCount; index++)
+        {
+            var item = selector.ItemsView[index];
+            var itemText = item switch
+            {
+                null => string.Empty,
+                ContentControl { Content: { } content } => content.ToString() ?? string.Empty,
+                _ => item.ToString() ?? string.Empty
+            };
+
+            if (string.Equals(itemText, requested, StringComparison.OrdinalIgnoreCase))
+            {
+                return index;
+            }
+        }
+
+        return null;
     }
 
     private static CoreResult<KeyModifiers> ParseKeyModifiers(string? keyModifiers)
@@ -1501,6 +1690,140 @@ public sealed class AvaScopeBridgeRuntime
         }
 
         return values;
+    }
+
+    private RuntimeScrollState? GetScrollState(TopLevel topLevel, string topLevelId, object node)
+    {
+        if (node is not ScrollViewer viewer)
+        {
+            return null;
+        }
+
+        var maximum = viewer.ScrollBarMaximum;
+        return new RuntimeScrollState(
+            "available",
+            new RuntimeVector(viewer.Offset.X, viewer.Offset.Y),
+            new RuntimeSize(viewer.Extent.Width, viewer.Extent.Height),
+            new RuntimeSize(viewer.Viewport.Width, viewer.Viewport.Height),
+            new RuntimeVector(maximum.X, maximum.Y),
+            viewer.HorizontalScrollBarVisibility.ToString(),
+            viewer.VerticalScrollBarVisibility.ToString(),
+            CreateContentLayoutMetrics(topLevel, topLevelId, viewer));
+    }
+
+    private RuntimeLayoutMetrics CreateContentLayoutMetrics(TopLevel topLevel, string topLevelId, ScrollViewer viewer)
+    {
+        if (viewer.Content is not object content)
+        {
+            return new RuntimeLayoutMetrics("not_available");
+        }
+
+        if (content is not Layoutable layoutable)
+        {
+            return new RuntimeLayoutMetrics(
+                "not_available",
+                nodeType: content.GetType().FullName ?? content.GetType().Name);
+        }
+
+        return new RuntimeLayoutMetrics(
+            "available",
+            CreateNodeId(layoutable, TreeKinds.Visual),
+            layoutable.GetType().FullName ?? layoutable.GetType().Name,
+            GetBounds(layoutable),
+            new RuntimeSize(layoutable.DesiredSize.Width, layoutable.DesiredSize.Height),
+            new RuntimeSize(layoutable.Bounds.Width, layoutable.Bounds.Height),
+            CreateNodeTarget(topLevelId, TreeKinds.Visual, topLevel, layoutable));
+    }
+
+    private static RuntimeBindingState GetBindingState(object node)
+    {
+        if (node is not StyledElement styledElement)
+        {
+            return new RuntimeBindingState(
+                "not_available",
+                bindingMetadataStatus: "not_available",
+                diagnostics:
+                [
+                    new ProtocolError(
+                        "runtime_binding_metadata_not_available",
+                        "Runtime binding state requires a StyledElement target.")
+                ]);
+        }
+
+        var dataContext = styledElement.DataContext;
+        var dataContextStatus = dataContext is null ? "not_available" : "available";
+        var diagnostics = new List<ProtocolError>
+        {
+            new(
+                "runtime_binding_path_metadata_not_available",
+                "Avalonia public runtime APIs did not expose stable binding path metadata for this selected node; computedProperties still report current safe property values.")
+        };
+
+        return new RuntimeBindingState(
+            dataContextStatus,
+            dataContext?.GetType().FullName ?? dataContext?.GetType().Name,
+            "not_available",
+            diagnostics: diagnostics);
+    }
+
+    private static RuntimeDebugState GetDebugState(object node)
+    {
+        if (node is not IAvaScopeDebugStateProvider provider)
+        {
+            return new RuntimeDebugState(
+                "not_enabled",
+                fieldCount: 0,
+                maximumFieldCount: MaximumDebugFieldCount,
+                maximumValueLength: MaximumDebugValueLength);
+        }
+
+        try
+        {
+            var fields = new Dictionary<string, string>(StringComparer.Ordinal);
+            var truncated = false;
+            foreach (var field in provider.GetAvaScopeDebugState())
+            {
+                if (fields.Count >= MaximumDebugFieldCount)
+                {
+                    truncated = true;
+                    break;
+                }
+
+                var key = string.IsNullOrWhiteSpace(field.Key)
+                    ? $"field_{fields.Count + 1}"
+                    : field.Key.Trim();
+                var value = field.Value ?? "null";
+                if (value.Length > MaximumDebugValueLength)
+                {
+                    value = value[..MaximumDebugValueLength];
+                    truncated = true;
+                }
+
+                fields[key] = value;
+            }
+
+            return new RuntimeDebugState(
+                "available",
+                fields,
+                node.GetType().FullName ?? node.GetType().Name,
+                truncated,
+                fields.Count,
+                MaximumDebugFieldCount,
+                MaximumDebugValueLength);
+        }
+        catch (Exception exception) when (exception is InvalidOperationException or NotSupportedException or ArgumentException)
+        {
+            return new RuntimeDebugState(
+                "error",
+                new Dictionary<string, string>
+                {
+                    ["error"] = exception.Message
+                },
+                node.GetType().FullName ?? node.GetType().Name,
+                fieldCount: 1,
+                maximumFieldCount: MaximumDebugFieldCount,
+                maximumValueLength: MaximumDebugValueLength);
+        }
     }
 
     private static IEnumerable<AvaloniaProperty> GetInspectableProperties(object node)

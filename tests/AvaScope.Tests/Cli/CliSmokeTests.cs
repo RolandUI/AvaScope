@@ -2236,6 +2236,105 @@ public sealed class CliSmokeTests
         }
     }
 
+    [Theory]
+    [InlineData("select", "1", null, null)]
+    [InlineData("scroll", null, "0", "40")]
+    public async Task InputCommandSendsExpandedInputThroughBridgePipe(
+        string action,
+        string? text,
+        string? x,
+        string? y)
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var sessionId = SessionId.New();
+        var pipeName = $"avascope-cli-test-{Guid.NewGuid():N}";
+        var manifestPath = WriteBridgeManifest(sessionId, pipeName);
+
+        var serverTask = RespondToBridgeRequestAsync(pipeName, request =>
+        {
+            Assert.Equal(BridgeIpcMethods.Input, request.Method);
+            Assert.Equal(action, request.Action);
+            Assert.Equal("visual:target", request.TargetNodeId);
+            if (text is not null)
+            {
+                Assert.Equal(text, request.InputText);
+            }
+
+            if (x is not null)
+            {
+                Assert.Equal(double.Parse(x, CultureInfo.InvariantCulture), request.X);
+            }
+
+            if (y is not null)
+            {
+                Assert.Equal(double.Parse(y, CultureInfo.InvariantCulture), request.Y);
+            }
+
+            return BridgeIpcResponse.Ok(
+                request.RequestId,
+                new InputResponse(
+                    sessionId,
+                    request.TopLevelId!,
+                    action,
+                    true,
+                    DateTimeOffset.UtcNow,
+                    request.TargetNodeId,
+                    metadata: new Dictionary<string, string>
+                    {
+                        ["action"] = action
+                    }));
+        });
+
+        try
+        {
+            var arguments = new List<string>
+            {
+                "input",
+                "--session",
+                sessionId.Value,
+                "--top-level",
+                "topLevel:cli",
+                "--action",
+                action,
+                "--target-node",
+                "visual:target"
+            };
+            if (text is not null)
+            {
+                arguments.AddRange(["--text", text]);
+            }
+
+            if (x is not null)
+            {
+                arguments.AddRange(["--x", x]);
+            }
+
+            if (y is not null)
+            {
+                arguments.AddRange(["--y", y]);
+            }
+
+            var result = await RunCliAsync(cliAssembly, arguments.ToArray());
+            var request = await serverTask;
+
+            Assert.Equal(0, result.ExitCode);
+            Assert.Equal(action, request.Action);
+            var payload = JsonSerializer.Deserialize<ToolResult<InputResponse>>(result.StandardOutput, JsonOptions);
+            Assert.NotNull(payload);
+            Assert.True(payload.Success, payload.Error?.Message);
+            Assert.Equal(action, payload.Value!.Metadata["action"]);
+        }
+        finally
+        {
+            if (File.Exists(manifestPath))
+            {
+                File.Delete(manifestPath);
+            }
+        }
+    }
+
     [Fact]
     public async Task InputCommandReturnsStructuredErrorWhenNoBridgeSessionMatches()
     {
@@ -2900,6 +2999,100 @@ public sealed class CliSmokeTests
     }
 
     [Fact]
+    public async Task AssertRegionCommandChecksNonEmptyRegionAndWritesCrop()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var testRoot = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(testRoot);
+        var imagePath = Path.Combine(testRoot, "current.png");
+        var cropPath = Path.Combine(testRoot, "crop.png");
+        WriteSolidPng(imagePath, 10, 10, SKColors.White, (2, 2, SKColors.Black));
+
+        try
+        {
+            var result = await RunCliAsync(
+                cliAssembly,
+                "assert-region",
+                "--image",
+                imagePath,
+                "--assert",
+                "non_empty",
+                "--x",
+                "0",
+                "--y",
+                "0",
+                "--width",
+                "4",
+                "--height",
+                "4",
+                "--crop-out",
+                cropPath);
+
+            Assert.Equal(0, result.ExitCode);
+            var payload = JsonSerializer.Deserialize<ToolResult<ScreenshotRegionAssertionResponse>>(result.StandardOutput, JsonOptions);
+            Assert.NotNull(payload);
+            Assert.True(payload.Success, payload.Error?.Message);
+            Assert.True(payload.Value!.Passed);
+            Assert.Equal(1, payload.Value.NonBlankPixels);
+            Assert.True(File.Exists(cropPath));
+        }
+        finally
+        {
+            if (Directory.Exists(testRoot))
+            {
+                Directory.Delete(testRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task LaunchAppCommandReturnsStructuredErrorWhenNoBridgeSessionAppears()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var testRoot = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));
+        var manifestDirectory = Path.Combine(testRoot, "manifests");
+        var outputDirectory = Path.Combine(testRoot, "launch");
+        Directory.CreateDirectory(testRoot);
+
+        try
+        {
+            var result = await RunCliAsync(
+                cliAssembly,
+                "launch-app",
+                "--command",
+                "dotnet",
+                "--args",
+                "--info",
+                "--manifest-dir",
+                manifestDirectory,
+                "--out-dir",
+                outputDirectory,
+                "--timeout-ms",
+                "3000");
+
+            Assert.Equal(1, result.ExitCode);
+            var payload = JsonSerializer.Deserialize<ToolResult<LaunchAppResponse>>(result.StandardOutput, JsonOptions);
+            Assert.NotNull(payload);
+            Assert.False(payload.Success);
+            Assert.Equal(CoreErrorCodes.BridgeSessionNotFound, payload.Error!.Code);
+            Assert.True(File.Exists(payload.Error.Details!["stdoutPath"]));
+            Assert.True(File.Exists(payload.Error.Details["stderrPath"]));
+            Assert.Equal(Path.GetFullPath(manifestDirectory), payload.Error.Details["manifestDirectory"]);
+        }
+        finally
+        {
+            if (Directory.Exists(testRoot))
+            {
+                Directory.Delete(testRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
     public void McpServerAssemblyIsCopiedBesideCli()
     {
         var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
@@ -3081,6 +3274,27 @@ public sealed class CliSmokeTests
             : Path.Combine(directory, fileName ?? $"{sessionId.Value}.json");
         File.WriteAllText(manifestPath, JsonSerializer.Serialize(manifest), Encoding.UTF8);
         return manifestPath;
+    }
+
+    private static void WriteSolidPng(
+        string path,
+        int width,
+        int height,
+        SKColor background,
+        params (int X, int Y, SKColor Color)[] pixels)
+    {
+        using var bitmap = new SKBitmap(width, height);
+        using var canvas = new SKCanvas(bitmap);
+        canvas.Clear(background);
+        foreach (var pixel in pixels)
+        {
+            bitmap.SetPixel(pixel.X, pixel.Y, pixel.Color);
+        }
+
+        using var image = SKImage.FromBitmap(bitmap);
+        using var data = image.Encode(SKEncodedImageFormat.Png, 100);
+        using var stream = File.Create(path);
+        data.SaveTo(stream);
     }
 
     private static async Task<BridgeIpcRequest> RespondToBridgeRequestAsync(

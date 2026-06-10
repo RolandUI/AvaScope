@@ -5,6 +5,7 @@ namespace AvaScope.Core;
 
 public sealed class PreviewSessionRegistry
 {
+    private const int MaximumSessionEvents = 100;
     private readonly ConcurrentDictionary<string, PreviewSessionRecord> _sessions = new(StringComparer.Ordinal);
     private readonly PreviewHostClient _previewHostClient;
     private readonly SessionRegistry _sessionRegistry;
@@ -58,6 +59,10 @@ public sealed class PreviewSessionRegistry
             : _sessionRegistry.MarkFailed(session.Id, renderResult.Error!).Value!;
         var updatedAt = _timeProvider.GetUtcNow();
         var record = new PreviewSessionRecord(session.Id, request, lastRender, updatedAt);
+        record.AddEvent(CreateSessionEvent(
+            PreviewWatchEventTypes.SessionCreated,
+            updatedAt,
+            renderResult.Success ? "initial_render_succeeded" : "initial_render_failed"));
 
         _sessions[session.Id.Value] = record;
 
@@ -109,6 +114,7 @@ public sealed class PreviewSessionRegistry
         }
 
         record.Touch(_timeProvider.GetUtcNow());
+        record.AddEvent(CreateSessionEvent(PreviewWatchEventTypes.SessionClosed, _timeProvider.GetUtcNow(), "closed_by_request"));
         var summary = record.Snapshot(ToProtocolSummary(closed.Value!));
         var stored = Store(summary);
         return stored.Success
@@ -146,7 +152,12 @@ public sealed class PreviewSessionRegistry
             ? _sessionRegistry.MarkActive(sessionId).Value!
             : _sessionRegistry.MarkFailed(sessionId, renderResult.Error!).Value!;
 
-        record.Update(lastRender, _timeProvider.GetUtcNow());
+        var updatedAt = _timeProvider.GetUtcNow();
+        record.Update(lastRender, updatedAt);
+        record.AddEvent(CreateSessionEvent(
+            renderResult.Success ? PreviewWatchEventTypes.Reloaded : PreviewWatchEventTypes.SessionReloadFailed,
+            updatedAt,
+            renderResult.Success ? "manual_reload_succeeded" : "manual_reload_failed"));
 
         var summary = record.Snapshot(ToProtocolSummary(snapshot));
         var stored = Store(summary);
@@ -179,7 +190,8 @@ public sealed class PreviewSessionRegistry
                 summary.Session.SessionId,
                 summary.Request,
                 summary.LastRender,
-                summary.UpdatedAt);
+                summary.UpdatedAt,
+                summary.Events);
         }
     }
 
@@ -288,9 +300,21 @@ public sealed class PreviewSessionRegistry
             ?? "Preview session";
     }
 
+    private static PreviewWatchEvent CreateSessionEvent(
+        string eventType,
+        DateTimeOffset timestamp,
+        string changeKind)
+    {
+        return new PreviewWatchEvent(
+            eventType,
+            timestamp,
+            changeKind: changeKind);
+    }
+
     private sealed class PreviewSessionRecord
     {
         private readonly object _syncRoot = new();
+        private readonly Queue<PreviewWatchEvent> _events;
         private ToolResult<PreviewResponse> _lastRender;
         private DateTimeOffset _updatedAt;
 
@@ -298,12 +322,18 @@ public sealed class PreviewSessionRegistry
             SessionId sessionId,
             PreviewRequest request,
             ToolResult<PreviewResponse> lastRender,
-            DateTimeOffset updatedAt)
+            DateTimeOffset updatedAt,
+            IReadOnlyList<PreviewWatchEvent>? events = null)
         {
             SessionId = sessionId;
             Request = request;
             _lastRender = lastRender;
             _updatedAt = updatedAt;
+            _events = new Queue<PreviewWatchEvent>(events ?? Array.Empty<PreviewWatchEvent>());
+            while (_events.Count > MaximumSessionEvents)
+            {
+                _events.Dequeue();
+            }
         }
 
         public SessionId SessionId { get; }
@@ -315,6 +345,18 @@ public sealed class PreviewSessionRegistry
             lock (_syncRoot)
             {
                 _updatedAt = updatedAt;
+            }
+        }
+
+        public void AddEvent(PreviewWatchEvent watchEvent)
+        {
+            lock (_syncRoot)
+            {
+                _events.Enqueue(watchEvent);
+                while (_events.Count > MaximumSessionEvents)
+                {
+                    _events.Dequeue();
+                }
             }
         }
 
@@ -333,7 +375,13 @@ public sealed class PreviewSessionRegistry
         {
             lock (_syncRoot)
             {
-                return new PreviewSessionSummary(session, Request, _lastRender, _updatedAt);
+                return new PreviewSessionSummary(
+                    session,
+                    Request,
+                    _lastRender,
+                    _updatedAt,
+                    _events.ToArray(),
+                    PreviewLifecycleStatus.OneShotIsolated);
             }
         }
     }

@@ -6,6 +6,7 @@ public sealed record BridgeSessionManifest
 {
     private const string RootDirectoryName = "AvaScope";
     private const string SessionDirectoryName = "sessions";
+    public const string DirectoryEnvironmentVariable = "AVASCOPE_BRIDGE_MANIFEST_DIR";
 
     [JsonConstructor]
     public BridgeSessionManifest(
@@ -71,7 +72,10 @@ public sealed record BridgeSessionManifest
 
     public static string GetDefaultDirectory()
     {
-        return Path.Combine(Path.GetTempPath(), RootDirectoryName, SessionDirectoryName);
+        var configuredDirectory = Environment.GetEnvironmentVariable(DirectoryEnvironmentVariable);
+        return string.IsNullOrWhiteSpace(configuredDirectory)
+            ? Path.Combine(Path.GetTempPath(), RootDirectoryName, SessionDirectoryName)
+            : configuredDirectory;
     }
 
     public static string GetDefaultPath(SessionId sessionId)

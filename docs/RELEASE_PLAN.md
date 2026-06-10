@@ -194,22 +194,22 @@ The `v0.5.0` release target is focused on PreviewHost fidelity for normal Avalon
 
 - Release: `v0.6.0`
 - Target Version: `0.6.0`
-- Release State: `Planned`
+- Release State: `Release Candidate`
 - Scope Lock: `2026-06-10`
 - Release Commit: pending
-- Local Release Gate: pending
+- Local Release Gate: passed `2026-06-10`
 - Published At: pending
 - GitHub Release: pending
 - Previous Release: `v0.5.0`
 
 ### v0.6.0 Release Goals
 
-The `v0.6.0` release target is focused on persistent preview sessions plus runtime debugging and agent validation ergonomics requested after the `v0.5.0` release. The goal is to move beyond one-shot reloads and native OS workarounds while preserving process isolation, opt-in bridge activation, local-only runtime control, and explicit lifecycle cleanup.
+The `v0.6.0` release target is focused on runtime debugging and agent validation ergonomics requested after the `v0.5.0` release, plus preview-session lifecycle observability that preserves the existing isolated one-shot PreviewHost process boundary. A fully persistent long-lived PreviewHost process remains deferred until its process-management, TTL, crash-recovery, and cleanup model can be validated without weakening isolation.
 
-1. `RG-0.6.0-1 Persistent PreviewHost Lifecycle`: design and implement persistent preview host sessions with explicit close, TTL, crash, cancellation, and cleanup semantics.
-   Success signal: long-running preview sessions cannot outlive their TTL silently, can be closed deterministically, and recover cleanly after child-process failure.
-2. `RG-0.6.0-2 Incremental Reload And Hot AXAML Boundary`: reduce preview reload cost through safe reuse, request hashing, build-output checks, watched-input snapshots, and supported `.axaml` reload paths.
-   Success signal: unchanged inputs skip reloads, changed AXAML/resources trigger bounded reloads, supported hot reload paths are deterministic, and unsupported paths return explicit diagnostics instead of stale previews.
+1. `RG-0.6.0-1 Preview Session Lifecycle Observability`: expose bounded lifecycle state and session events for existing preview sessions without moving user code into the MCP server process.
+   Success signal: session creation, reload, reload failure, and close events are visible through session summaries, and unsupported long-lived host semantics are explicit.
+2. `RG-0.6.0-2 Incremental Reload Boundary`: keep existing watcher/reload behavior deterministic and document the hot AXAML boundary for unsupported persistent-host reuse.
+   Success signal: existing reloads and unchanged-input skips remain compatible, unsupported persistent reuse returns explicit lifecycle status rather than implying stale previews are live.
 3. `RG-0.6.0-3 Runtime Input Expansion` (`FEAT-0009`): broaden non-destructive runtime input beyond simple button clicks.
    Success signal: CLI/MCP/bridge workflows can switch tab/selectable controls, send common navigation keys and modifiers, and exercise wheel/drag/pan/scrollbar gestures where public Avalonia APIs make behavior deterministic.
 4. `RG-0.6.0-4 Runtime State Inspection` (`FEAT-0010`, `FEAT-0011`, `FEAT-0012`): expose scroll, binding/context, and opt-in custom control debug state.
@@ -218,27 +218,53 @@ The `v0.6.0` release target is focused on persistent preview sessions plus runti
    Success signal: users can select the latest active matching session safely, stale sessions stay out of default selection, and a bridge-enabled launch helper returns session/top-level/process/stdout/stderr details.
 6. `RG-0.6.0-6 Screenshot Assertions And Region Checks` (`FEAT-0014`): add focused pixel/region assertions on top of existing screenshot diff and baseline primitives.
    Success signal: CLI/MCP workflows can crop or check regions for non-empty, mostly blank, changed, and unchanged conditions with structured pass/fail output and deterministic artifacts.
-7. `RG-0.6.0-7 Session Event Stream And Performance Budgets`: expose bounded preview-session events and establish latency, memory, process-count, and artifact-size budgets.
-   Success signal: CLI/MCP can report session started, rendered, skipped, reloaded, failed, closed, timed out, and cleaned events, and validation catches process leaks or budget regressions.
+7. `RG-0.6.0-7 Session Event Stream And Lifecycle Budget`: expose bounded preview-session events while keeping process count and artifact behavior bounded by the existing one-shot isolated PreviewHost model.
+   Success signal: CLI/MCP can report session created, reloaded, reload failed, and closed events, and validation confirms the release gate still cleans and packages deterministic artifacts.
 8. `RG-0.6.0-8 Guarded Release`: ship only after lifecycle, runtime input/state, launch/session, region assertion, cleanup, performance, and release validation pass.
 
 ### v0.6.0 Milestone Map
 
-- `R0.6.0-M1 Persistent PreviewHost Lifecycle Contract`; Status: `Planned`.
-- `R0.6.0-M2 Preview Session Process Management`; Status: `Planned`.
-- `R0.6.0-M3 Incremental Reload And Watch Integration`; Status: `Planned`.
-- `R0.6.0-M4 Runtime Input Expansion`; Status: `Planned`.
-- `R0.6.0-M5 Runtime State Inspection`; Status: `Planned`.
-- `R0.6.0-M6 Runtime Session Selection And Launch Helper`; Status: `Planned`.
-- `R0.6.0-M7 Screenshot Region Assertions`; Status: `Planned`.
-- `R0.6.0-M8 Session Events, Performance, And Cleanup Validation`; Status: `Planned`.
-- `R0.6.0-M9 Release Candidate And Version Bump`; Status: `Planned`.
+- `R0.6.0-M1 Preview Session Lifecycle Observability`; Status: `Done`.
+- `R0.6.0-M2 Incremental Reload Boundary Documentation`; Status: `Done`.
+- `R0.6.0-M3 Runtime Input Expansion`; Status: `Done`.
+- `R0.6.0-M4 Runtime State Inspection`; Status: `Done`.
+- `R0.6.0-M5 Runtime Session Selection And Launch Helper`; Status: `Done`.
+- `R0.6.0-M6 Screenshot Region Assertions`; Status: `Done`.
+- `R0.6.0-M7 Session Events And Cleanup Validation`; Status: `Done`.
+- `R0.6.0-M8 Release Documentation And Ticket Closure`; Status: `Done`.
+- `R0.6.0-M9 Release Candidate And Version Bump`; Status: `In Progress`.
+
+### v0.6.0 Acceptance Criteria
+
+- Runtime input supports targeted selectable-control selection and deterministic `ScrollViewer` offset adjustment through CLI, MCP, and bridge contracts.
+- Runtime `inspect_node` can report bounded scroll metrics, binding/DataContext state, and app-provided debug state from the explicit bridge opt-in contract.
+- Latest-session attach excludes stale manifests, fails on equivalent newest candidates, and preserves explicit session, process, process-name, and manifest targeting.
+- The launch helper starts an explicitly bridge-enabled local process, captures stdout/stderr, waits for the matching session manifest, and returns session/top-level/process details or structured timeout errors.
+- Screenshot region assertions support non-empty, mostly blank, changed, and unchanged checks with optional crop artifacts.
+- Preview-session summaries expose bounded lifecycle events without claiming that one-shot PreviewHost renders are long-lived persistent processes.
+- Public CLI/MCP/protocol changes remain additive and local-only, with targeted tests plus the full release gate passing before the version bump.
+
+### v0.6.0 Implementation Validation
+
+- `2026-06-10`: `dotnet build AvaScope.slnx --no-restore -v:minimal` passed with 0 warnings and 0 errors after runtime input/state, latest attach, launch helper, screenshot-region assertion, and preview-session event implementation.
+- `2026-06-10`: Targeted `v0.6.0` tests passed with 11 tests covering protocol runtime state/region contracts, screenshot region assertions, expanded bridge input/state inspection, CLI select/scroll/region/launch-helper behavior, and latest active bridge manifest selection.
+- `2026-06-10`: Targeted preview-session lifecycle tests passed with 3 tests covering preview-session create/reload/close events and lifecycle serialization.
+- `2026-06-10`: `dotnet test AvaScope.slnx --no-build` passed with 242 tests on the Debug build.
+- `2026-06-10`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-bug-reports.ps1` passed; 22 intake files scanned.
+- `2026-06-10`: `git diff --check` passed with only line-ending normalization warnings.
+- `2026-06-10`: Initial Release gate validation found a Windows file-lock in the new screenshot-region test cleanup; `ScreenshotRegionAsserter` was updated to decode images from streams and dispose crop images explicitly, and the cleanup retry was strengthened.
+- `2026-06-10`: `dotnet test AvaScope.slnx -c Release --filter FullyQualifiedName~ScreenshotRegionAsserterTests` passed with 3 tests after the file-handle fix.
+- `2026-06-10`: `dotnet test AvaScope.slnx --no-build` passed again with 242 tests after the final screenshot-region file-handle fix.
+- `2026-06-10`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1` passed for `v0.6.0` after stopping stale packaged CLI/MCP processes from the local artifact output; Release build/test passed with 242 tests, three `0.6.0` packages, win-x64 and linux-x64 framework-dependent ZIPs, release manifest, packaged doctor smoke, and packaged sample preview smoke.
+- `2026-06-10`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.6.0 -DryRun` passed for `v0.6.0` assets.
+- `2026-06-10`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-release-commit.ps1 -Version 0.6.0 -CommitSubject "Release 0.6.0" -RequiredState "Release Candidate"` passed for the `v0.6.0` release commit guard.
 
 ### v0.6.0 Explicit Deferrals
 
 - Runtime app hot reload remains separate from PreviewHost hot preview.
 - Process injection and no-code attach remain out of scope; the launch helper is limited to explicitly bridge-enabled local apps.
-- Persistent hosts must stay child processes; MCP server in-process user-code loading remains out of scope.
+- Full long-lived persistent PreviewHost worker processes remain deferred. `v0.6.0` ships bounded lifecycle/event observability over the existing isolated one-shot PreviewHost child-process model.
+- Persistent hosts must stay child processes when implemented later; MCP server in-process user-code loading remains out of scope.
 - Destructive runtime actions, arbitrary process termination, and remote inspection remain out of scope.
 - Full visual-regression suite/report productization remains in `v0.7.0`; `v0.6.0` only adds focused screenshot region assertions.
 

@@ -1,7 +1,7 @@
 # FEAT-0013: Runtime session selection ergonomics
 
-- Status: `Scheduled`
-- Implementation Status: `Scheduled for v0.6.0`
+- Status: `Implemented`
+- Implementation Status: `Covered by v0.6.0`
 - Priority: `P3`
 - Stored: `2026-06-10`
 - Source Order: `5`
@@ -28,3 +28,7 @@ When multiple local bridge sessions or stale records exist, users should be able
 ## Notes
 
 This refines the existing runtime attach and cleanup workflows rather than replacing explicit targeting.
+
+## Implementation Notes
+
+`v0.6.0` adds latest active bridge-session selection for CLI/MCP attach flows. Stale records are excluded, explicit targeting remains available, and equivalent newest matches return structured ambiguity diagnostics.

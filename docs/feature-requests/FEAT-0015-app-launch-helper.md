@@ -1,7 +1,7 @@
 # FEAT-0015: App launch helper
 
-- Status: `Scheduled`
-- Implementation Status: `Scheduled for v0.6.0`
+- Status: `Implemented`
+- Implementation Status: `Covered by v0.6.0`
 - Priority: `P2`
 - Stored: `2026-06-10`
 - Source Order: `7`
@@ -28,3 +28,7 @@ AvaScope should provide a helper that launches a local app with the AvaScope bri
 ## Notes
 
 This is intended for repeatable local agent workflows against bridge-enabled apps and should not weaken AvaScope's local-only security model.
+
+## Implementation Notes
+
+`v0.6.0` adds a local launch helper for explicitly bridge-enabled apps. It sets the bridge manifest directory for the child process, captures stdout/stderr to deterministic files, waits for the matching active manifest, and returns session/top-level/process details or structured timeout diagnostics.

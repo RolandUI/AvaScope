@@ -25,18 +25,30 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `R0.6.0-M1 Persistent PreviewHost Lifecycle Contract`
-- Status: `Not Started`
-- Owner: unassigned
-- Started: pending
-- Goal: define the expanded `v0.6.0` lifecycle contract for persistent PreviewHost sessions plus scheduled runtime debugging and agent validation tickets without weakening process isolation or local-only runtime safety.
+- `R0.6.0-M9 Release Candidate And Version Bump`
+- Status: `In Progress`
+- Owner: Codex
+- Started: `2026-06-10`
+- Goal: validate and release `v0.6.0` after completing the runtime input/state, latest attach, launch helper, screenshot-region assertion, and preview-session lifecycle-event scope.
 
 ## Next Action
 
-Start `R0.6.0-M1 Persistent PreviewHost Lifecycle Contract` from `docs/RELEASE_PLAN.md` when the next implementation task is requested, then continue through the expanded `v0.6.0` runtime input, runtime state inspection, launch/session ergonomics, and screenshot-region assertion milestones.
+Run the full `v0.6.0` release gate, move `docs/RELEASE_PLAN.md` to `Release Candidate` after it passes, bump `Directory.Build.props` to `0.6.0`, commit exactly `Release 0.6.0`, push `master`, and verify the GitHub release/tag/assets.
 
 ## Latest Validation
 
+- `2026-06-10`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-release-commit.ps1 -Version 0.6.0 -CommitSubject "Release 0.6.0" -RequiredState "Release Candidate"` passed for the `v0.6.0` release commit guard.
+- `2026-06-10`: `git diff --check` passed for the `v0.6.0` release-candidate working tree with only line-ending normalization warnings.
+- `2026-06-10`: `dotnet test AvaScope.slnx --no-build` passed again with 242 tests after the final screenshot-region file-handle fix.
+- `2026-06-10`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1` passed for `v0.6.0` after stopping stale packaged CLI/MCP processes from the local artifact output; Release build/test passed with 242 tests, three `0.6.0` packages, win-x64 and linux-x64 framework-dependent ZIPs, release manifest, packaged doctor smoke, and packaged sample preview smoke.
+- `2026-06-10`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.6.0 -DryRun` passed for `v0.6.0` assets.
+- `2026-06-10`: `dotnet test AvaScope.slnx -c Release --filter FullyQualifiedName~ScreenshotRegionAsserterTests` passed with 3 tests after fixing screenshot-region file-handle cleanup by stream-decoding images and disposing crop image handles explicitly.
+- `2026-06-10`: `dotnet test AvaScope.slnx --no-build` passed with 242 tests after `v0.6.0` implementation and documentation updates.
+- `2026-06-10`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-bug-reports.ps1` passed after marking `FEAT-0009` through `FEAT-0015` implemented; 22 intake files scanned.
+- `2026-06-10`: `git diff --check` passed after `v0.6.0` implementation and documentation updates with only line-ending normalization warnings.
+- `2026-06-10`: `dotnet build AvaScope.slnx --no-restore -v:minimal` passed with 0 warnings and 0 errors after `v0.6.0` runtime input/state, latest attach, launch helper, screenshot-region assertion, and preview-session lifecycle-event implementation.
+- `2026-06-10`: Targeted `v0.6.0` tests passed with 11 tests covering protocol runtime state/region contracts, screenshot region assertions, expanded bridge input/state inspection, CLI select/scroll/region/launch-helper behavior, and latest active bridge manifest selection.
+- `2026-06-10`: Targeted preview-session lifecycle tests passed with 3 tests covering preview-session create/reload/close events and lifecycle serialization.
 - `2026-06-10`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-bug-reports.ps1` passed after storing `FEAT-0009` through `FEAT-0015` and expanding `v0.6.0`; 22 intake files scanned.
 - `2026-06-10`: `git diff --check` passed after the `v0.6.0` ticket scheduling documentation update.
 - `2026-06-10`: GitHub Release workflow `27277929158` passed for `Release 0.5.0`; tag `v0.5.0` and six GitHub Release assets were published at `2026-06-10T13:06:09Z`.

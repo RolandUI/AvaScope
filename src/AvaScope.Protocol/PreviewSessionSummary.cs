@@ -9,12 +9,16 @@ public sealed record PreviewSessionSummary
         SessionSummary session,
         PreviewRequest request,
         ToolResult<PreviewResponse> lastRender,
-        DateTimeOffset updatedAt)
+        DateTimeOffset updatedAt,
+        IReadOnlyList<PreviewWatchEvent>? events = null,
+        PreviewLifecycleStatus? lifecycle = null)
     {
         Session = session ?? throw new ArgumentNullException(nameof(session));
         Request = request ?? throw new ArgumentNullException(nameof(request));
         LastRender = lastRender ?? throw new ArgumentNullException(nameof(lastRender));
         UpdatedAt = updatedAt;
+        Events = events ?? Array.Empty<PreviewWatchEvent>();
+        Lifecycle = lifecycle ?? PreviewLifecycleStatus.OneShotIsolated;
     }
 
     [JsonPropertyName("session")]
@@ -28,4 +32,10 @@ public sealed record PreviewSessionSummary
 
     [JsonPropertyName("updatedAt")]
     public DateTimeOffset UpdatedAt { get; }
+
+    [JsonPropertyName("events")]
+    public IReadOnlyList<PreviewWatchEvent> Events { get; }
+
+    [JsonPropertyName("lifecycle")]
+    public PreviewLifecycleStatus Lifecycle { get; }
 }

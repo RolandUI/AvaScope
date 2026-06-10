@@ -33,6 +33,7 @@ internal static class Program
             "input" => await Input(args[1..]),
             "close-session" => await CloseSession(args[1..]),
             "diagnostics" => await Diagnostics(args[1..]),
+            "launch-app" => await LaunchApp(args[1..]),
             "doctor" => await Doctor(args[1..]),
             "reload" => await Reload(args[1..]),
             "create-preview-session" => await CreatePreviewSession(args[1..]),
@@ -46,6 +47,7 @@ internal static class Program
             "cleanup" => Cleanup(args[1..]),
             "cleanup-bridge-sessions" => await CleanupBridgeSessions(args[1..]),
             "diff" => Diff(args[1..]),
+            "assert-region" => AssertRegion(args[1..]),
             "mcp" => await Mcp(),
             _ => UnknownCommand(args[0])
         };
@@ -1056,7 +1058,8 @@ internal static class Program
             return 2;
         }
 
-        if (!ValidateOptions(options.Values, GetAttachUsage(), "process", "process-name", "session", "manifest", "manifest-dir"))
+        if (!ValidateOptions(options.Values, GetAttachUsage(), "process", "process-name", "session", "manifest", "manifest-dir", "latest")
+            || !TryReadOptionalBoolean(options.Values, "latest", out var latest))
         {
             return 2;
         }
@@ -1088,11 +1091,16 @@ internal static class Program
             }
         }
 
-        var result = await CreateBridgeClient(options.Values).AttachToAppAsync(
-            processId,
-            sessionId,
-            options.Values.GetValueOrDefault("process-name"),
-            options.Values.GetValueOrDefault("manifest"));
+        var bridgeClient = CreateBridgeClient(options.Values);
+        var result = latest
+            ? await bridgeClient.AttachLatestToAppAsync(
+                processId,
+                options.Values.GetValueOrDefault("process-name"))
+            : await bridgeClient.AttachToAppAsync(
+                processId,
+                sessionId,
+                options.Values.GetValueOrDefault("process-name"),
+                options.Values.GetValueOrDefault("manifest"));
         WriteResult(result);
 
         return result.Success ? 0 : 1;
@@ -1436,6 +1444,46 @@ internal static class Program
         return issues.Count == 0 ? 0 : 1;
     }
 
+    private static async Task<int> LaunchApp(string[] args)
+    {
+        var options = ParseOptions(args, GetLaunchAppUsage());
+        if (!options.Success)
+        {
+            WriteFailure<LaunchAppResponse>(InvalidCliArguments, options.Error!);
+            return 2;
+        }
+
+        if (!ValidateOptions(
+                options.Values,
+                GetLaunchAppUsage(),
+                "command",
+                "args",
+                "working-dir",
+                "display-name",
+                "manifest-dir",
+                "out-dir",
+                "env",
+                "timeout-ms")
+            || !TryReadRequiredOption(options.Values, "command", GetLaunchAppUsage(), out var command)
+            || !TryReadOptionalPositiveInt(options.Values, "timeout-ms", out var timeoutMs)
+            || !TryReadOptionalEnvironmentVariables(options.Values, out var environment))
+        {
+            return 2;
+        }
+
+        var result = await new BridgeAppLauncher().LaunchAsync(
+            command!,
+            options.Values.GetValueOrDefault("args"),
+            options.Values.GetValueOrDefault("working-dir"),
+            options.Values.GetValueOrDefault("display-name"),
+            options.Values.GetValueOrDefault("manifest-dir"),
+            options.Values.GetValueOrDefault("out-dir"),
+            environment,
+            timeoutMs is null ? null : TimeSpan.FromMilliseconds(timeoutMs.Value));
+        WriteResult(result);
+        return result.Success ? 0 : 1;
+    }
+
     private static int Cleanup(string[] args)
     {
         var options = ParseOptions(args, GetCleanupUsage());
@@ -1502,6 +1550,79 @@ internal static class Program
             currentPath!,
             diffPath,
             tolerance);
+        WriteResult(result);
+        return result.Success && result.Value!.Passed ? 0 : 1;
+    }
+
+    private static int AssertRegion(string[] args)
+    {
+        var options = ParseOptions(args, GetAssertRegionUsage());
+        if (!options.Success)
+        {
+            WriteFailure<ScreenshotRegionAssertionResponse>(InvalidCliArguments, options.Error!);
+            return 2;
+        }
+
+        if (!ValidateOptions(
+                options.Values,
+                GetAssertRegionUsage(),
+                "image",
+                "assert",
+                "x",
+                "y",
+                "width",
+                "height",
+                "baseline",
+                "crop-out",
+                "tolerance",
+                "min-changed-pixels",
+                "mostly-blank-max-nonblank-percent")
+            || !TryReadRequiredOption(options.Values, "image", GetAssertRegionUsage(), out var imagePath)
+            || !TryReadRequiredOption(options.Values, "assert", GetAssertRegionUsage(), out var assertion)
+            || !TryReadRequiredNonNegativeInt(options.Values, "x", GetAssertRegionUsage(), out var x)
+            || !TryReadRequiredNonNegativeInt(options.Values, "y", GetAssertRegionUsage(), out var y)
+            || !TryReadRequiredPositiveInt(options.Values, "width", GetAssertRegionUsage(), out var width)
+            || !TryReadRequiredPositiveInt(options.Values, "height", GetAssertRegionUsage(), out var height))
+        {
+            return 2;
+        }
+
+        if (!TryParseDoubleInRange(options.Values.GetValueOrDefault("tolerance", "0"), 0, 255, out var tolerance))
+        {
+            WriteFailure<ScreenshotRegionAssertionResponse>(InvalidCliArguments, "tolerance must be between 0 and 255.");
+            return 2;
+        }
+
+        if (!TryParseDoubleInRange(options.Values.GetValueOrDefault("mostly-blank-max-nonblank-percent", "1"), 0, 100, out var mostlyBlankThreshold))
+        {
+            WriteFailure<ScreenshotRegionAssertionResponse>(
+                InvalidCliArguments,
+                "mostly-blank-max-nonblank-percent must be between 0 and 100.");
+            return 2;
+        }
+
+        long? minChangedPixels = null;
+        if (options.Values.TryGetValue("min-changed-pixels", out var minChangedPixelsText))
+        {
+            if (!long.TryParse(minChangedPixelsText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed)
+                || parsed < 1)
+            {
+                WriteFailure<ScreenshotRegionAssertionResponse>(InvalidCliArguments, "min-changed-pixels must be a positive integer.");
+                return 2;
+            }
+
+            minChangedPixels = parsed;
+        }
+
+        var result = new ScreenshotRegionAsserter().Assert(
+            imagePath!,
+            new ScreenshotRegion(x, y, width, height),
+            assertion!,
+            options.Values.GetValueOrDefault("baseline"),
+            options.Values.GetValueOrDefault("crop-out"),
+            tolerance,
+            minChangedPixels,
+            mostlyBlankThreshold);
         WriteResult(result);
         return result.Success && result.Value!.Passed ? 0 : 1;
     }
@@ -1853,6 +1974,26 @@ internal static class Program
         return true;
     }
 
+    private static bool TryReadOptionalBoolean(
+        IReadOnlyDictionary<string, string> options,
+        string optionName,
+        out bool value)
+    {
+        value = false;
+        if (!options.TryGetValue(optionName, out var text))
+        {
+            return true;
+        }
+
+        if (bool.TryParse(text, out value))
+        {
+            return true;
+        }
+
+        WriteFailure(InvalidCliArguments, $"{optionName} must be true or false.");
+        return false;
+    }
+
     private static bool TryReadOptionalNonNegativeInt(
         IReadOnlyDictionary<string, string> options,
         string optionName,
@@ -1942,6 +2083,29 @@ internal static class Program
         return true;
     }
 
+    private static bool TryReadRequiredNonNegativeInt(
+        IReadOnlyDictionary<string, string> options,
+        string optionName,
+        string usage,
+        out int value)
+    {
+        value = 0;
+        if (!TryReadRequiredOption(options, optionName, usage, out var text))
+        {
+            return false;
+        }
+
+        if (!int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed)
+            || parsed < 0)
+        {
+            WriteFailure(InvalidCliArguments, $"{optionName} must be a non-negative integer.");
+            return false;
+        }
+
+        value = parsed;
+        return true;
+    }
+
     private static bool TryReadOptionalWatchPaths(
         IReadOnlyDictionary<string, string> options,
         out IReadOnlyList<string>? watchPaths)
@@ -1964,6 +2128,33 @@ internal static class Program
         }
 
         watchPaths = paths;
+        return true;
+    }
+
+    private static bool TryReadOptionalEnvironmentVariables(
+        IReadOnlyDictionary<string, string> options,
+        out IReadOnlyDictionary<string, string> environment)
+    {
+        environment = new Dictionary<string, string>(StringComparer.Ordinal);
+        if (!options.TryGetValue("env", out var text) || string.IsNullOrWhiteSpace(text))
+        {
+            return true;
+        }
+
+        var values = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var token in text.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            var separator = token.IndexOf('=');
+            if (separator <= 0)
+            {
+                WriteFailure(InvalidCliArguments, "env must be a semicolon-separated list of KEY=VALUE entries.");
+                return false;
+            }
+
+            values[token[..separator]] = token[(separator + 1)..];
+        }
+
+        environment = values;
         return true;
     }
 
@@ -2025,6 +2216,8 @@ internal static class Program
             InputActions.KeyText => RequireText(action, inputText, "text"),
             InputActions.ClearText => true,
             InputActions.KeyDown or InputActions.KeyUp => RequireText(action, inputKey, "key"),
+            InputActions.Select => RequireTargetNode(action, targetNodeId) && RequireText(action, inputText, "text"),
+            InputActions.Scroll => RequireTargetNode(action, targetNodeId) && RequireAnyCoordinate(action, x, y),
             _ => false
         };
     }
@@ -2048,6 +2241,28 @@ internal static class Program
         }
 
         WriteFailure(InvalidCliArguments, $"{action} requires {optionName}.");
+        return false;
+    }
+
+    private static bool RequireTargetNode(string action, string? targetNodeId)
+    {
+        if (!string.IsNullOrWhiteSpace(targetNodeId))
+        {
+            return true;
+        }
+
+        WriteFailure(InvalidCliArguments, $"{action} requires target-node.");
+        return false;
+    }
+
+    private static bool RequireAnyCoordinate(string action, double? x, double? y)
+    {
+        if (x is not null || y is not null)
+        {
+            return true;
+        }
+
+        WriteFailure(InvalidCliArguments, $"{action} requires x or y delta.");
         return false;
     }
 
@@ -2098,7 +2313,7 @@ internal static class Program
 
     private static string GetUsage()
     {
-        return "Usage: avascope mcp | avascope doctor [--manifest-dir <dir>] [--preview-session-store <dir>] | avascope attach [--process <pid>] [--process-name <name>] [--session <session-id>] [--manifest <path>] [--manifest-dir <dir>] | avascope list-top-levels --session <session-id> [--manifest-dir <dir>] | avascope visual-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] [--manifest-dir <dir>] | avascope logical-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] [--manifest-dir <dir>] | avascope inspect-node --session <session-id> --top-level <top-level-id> --node <node-id> [--tree-kind visual|logical] [--manifest-dir <dir>] | avascope find-nodes --session <session-id> --top-level <top-level-id> [--tree-kind visual|logical] [--type <type>] [--name <name>] [--automation-id <id>] [--text <text>] [--max-depth <n>] [--max-results <n>] [--manifest-dir <dir>] | avascope input --session <session-id> --top-level <top-level-id> --action <action> [--x <x>] [--y <y>] [--text <text>] [--target-node <node-id>] [--key <key>] [--modifiers <modifiers>] [--manifest-dir <dir>] | avascope close-session --session <session-id> [--manifest-dir <dir>] | avascope diagnostics [--process <pid>] [--process-name <name>] [--session <session-id>] [--manifest <path>] [--manifest-dir <dir>] [--max-sessions <n>] | avascope reload --session <session-id> [--manifest-dir <dir>] | avascope create-preview-session <project.csproj> [--profile <name>] [--profile-file <path>] [--variant <name>] --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] [--display-name <name>] | avascope list-preview-sessions | avascope reload-preview-session --session <session-id> | avascope close-preview-session --session <session-id> | avascope watch-preview-session --session <session-id> --timeout-ms <ms> [--settle-ms <ms>] [--max-reloads <n>] [--watch <path>[,<path>...]] | avascope preview-viewer --session <session-id> [--out <viewer.html>] | avascope baseline-create <project.csproj> --view <view.axaml> --manifest <baseline.json> --sizes <w>x<h>[,<w>x<h>...] [--out-dir <dir>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] | avascope baseline-check --manifest <baseline.json> [--out-dir <dir>] [--diff-dir <dir>] [--tolerance <0-255>] [--report <report.json>] | avascope cleanup | avascope cleanup-bridge-sessions [--manifest-dir <dir>] | avascope diff --baseline <baseline.png> --current <current.png> --out <diff.png> [--tolerance <0-255>] | avascope screenshot --session <session-id> --top-level <top-level-id> --out <screenshot.png> [--manifest-dir <dir>] | avascope preview-animation <project.csproj> [--profile <name>] [--profile-file <path>] [--variant <name>] --view <view.axaml> --out <frame.png> --time-offsets <ms>[,<ms>...] [--frame-strip <strip.png>] [--viewer <viewer.html>] [--width <width>] [--height <height>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] | avascope preview <project.csproj> [--profile <name>] [--profile-file <path>] [--variant <name>] --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--sizes <w>x<h>[,<w>x<h>...]] [--contact-sheet <sheet.png>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>]";
+        return "Usage: avascope mcp | avascope doctor [--manifest-dir <dir>] [--preview-session-store <dir>] | avascope attach [--latest true|false] [--process <pid>] [--process-name <name>] [--session <session-id>] [--manifest <path>] [--manifest-dir <dir>] | avascope list-top-levels --session <session-id> [--manifest-dir <dir>] | avascope visual-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] [--manifest-dir <dir>] | avascope logical-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] [--manifest-dir <dir>] | avascope inspect-node --session <session-id> --top-level <top-level-id> --node <node-id> [--tree-kind visual|logical] [--manifest-dir <dir>] | avascope find-nodes --session <session-id> --top-level <top-level-id> [--tree-kind visual|logical] [--type <type>] [--name <name>] [--automation-id <id>] [--text <text>] [--max-depth <n>] [--max-results <n>] [--manifest-dir <dir>] | avascope input --session <session-id> --top-level <top-level-id> --action <action> [--x <x>] [--y <y>] [--text <text>] [--target-node <node-id>] [--key <key>] [--modifiers <modifiers>] [--manifest-dir <dir>] | avascope close-session --session <session-id> [--manifest-dir <dir>] | avascope diagnostics [--process <pid>] [--process-name <name>] [--session <session-id>] [--manifest <path>] [--manifest-dir <dir>] [--max-sessions <n>] | avascope launch-app --command <path> [--args <args>] [--env KEY=VALUE[;KEY=VALUE...]] [--timeout-ms <ms>] | avascope reload --session <session-id> [--manifest-dir <dir>] | avascope create-preview-session <project.csproj> [--profile <name>] [--profile-file <path>] [--variant <name>] --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] [--display-name <name>] | avascope list-preview-sessions | avascope reload-preview-session --session <session-id> | avascope close-preview-session --session <session-id> | avascope watch-preview-session --session <session-id> --timeout-ms <ms> [--settle-ms <ms>] [--max-reloads <n>] [--watch <path>[,<path>...]] | avascope preview-viewer --session <session-id> [--out <viewer.html>] | avascope baseline-create <project.csproj> --view <view.axaml> --manifest <baseline.json> --sizes <w>x<h>[,<w>x<h>...] [--out-dir <dir>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] | avascope baseline-check --manifest <baseline.json> [--out-dir <dir>] [--diff-dir <dir>] [--tolerance <0-255>] [--report <report.json>] | avascope cleanup | avascope cleanup-bridge-sessions [--manifest-dir <dir>] | avascope diff --baseline <baseline.png> --current <current.png> --out <diff.png> [--tolerance <0-255>] | avascope assert-region --image <image.png> --assert non_empty|mostly_blank|changed|unchanged --x <x> --y <y> --width <w> --height <h> [--baseline <baseline.png>] [--crop-out <crop.png>] [--tolerance <0-255>] [--min-changed-pixels <n>] | avascope screenshot --session <session-id> --top-level <top-level-id> --out <screenshot.png> [--manifest-dir <dir>] | avascope preview-animation <project.csproj> [--profile <name>] [--profile-file <path>] [--variant <name>] --view <view.axaml> --out <frame.png> --time-offsets <ms>[,<ms>...] [--frame-strip <strip.png>] [--viewer <viewer.html>] [--width <width>] [--height <height>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] | avascope preview <project.csproj> [--profile <name>] [--profile-file <path>] [--variant <name>] --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--sizes <w>x<h>[,<w>x<h>...]] [--contact-sheet <sheet.png>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>]";
     }
 
     private static string GetPreviewUsage()
@@ -2153,7 +2368,7 @@ internal static class Program
 
     private static string GetAttachUsage()
     {
-        return "Usage: avascope attach [--process <pid>] [--process-name <name>] [--session <session-id>] [--manifest <path>] [--manifest-dir <dir>]";
+        return "Usage: avascope attach [--latest true|false] [--process <pid>] [--process-name <name>] [--session <session-id>] [--manifest <path>] [--manifest-dir <dir>]";
     }
 
     private static string GetListTopLevelsUsage()
@@ -2196,6 +2411,11 @@ internal static class Program
         return "Usage: avascope diagnostics [--process <pid>] [--process-name <name>] [--session <session-id>] [--manifest <path>] [--manifest-dir <dir>] [--max-sessions <n>]";
     }
 
+    private static string GetLaunchAppUsage()
+    {
+        return "Usage: avascope launch-app --command <path> [--args <args>] [--working-dir <dir>] [--display-name <name>] [--manifest-dir <dir>] [--out-dir <dir>] [--env KEY=VALUE[;KEY=VALUE...]] [--timeout-ms <ms>]";
+    }
+
     private static string GetDoctorUsage()
     {
         return "Usage: avascope doctor [--manifest-dir <dir>] [--preview-session-store <dir>]";
@@ -2219,6 +2439,11 @@ internal static class Program
     private static string GetDiffUsage()
     {
         return "Usage: avascope diff --baseline <baseline.png> --current <current.png> --out <diff.png> [--tolerance <0-255>]";
+    }
+
+    private static string GetAssertRegionUsage()
+    {
+        return "Usage: avascope assert-region --image <image.png> --assert non_empty|mostly_blank|changed|unchanged --x <x> --y <y> --width <w> --height <h> [--baseline <baseline.png>] [--crop-out <crop.png>] [--tolerance <0-255>] [--min-changed-pixels <n>] [--mostly-blank-max-nonblank-percent <0-100>]";
     }
 
     private static string GetScreenshotUsage()
@@ -2261,7 +2486,9 @@ internal static class Program
         InputActions.KeyText,
         InputActions.ClearText,
         InputActions.KeyDown,
-        InputActions.KeyUp
+        InputActions.KeyUp,
+        InputActions.Select,
+        InputActions.Scroll
     ];
 
     private sealed record OptionParseResult(

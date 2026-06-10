@@ -1,7 +1,7 @@
 # FEAT-0009: Runtime input expansion
 
-- Status: `Scheduled`
-- Implementation Status: `Scheduled for v0.6.0`
+- Status: `Implemented`
+- Implementation Status: `Covered by v0.6.0`
 - Priority: `P0`
 - Stored: `2026-06-10`
 - Source Order: `1`
@@ -28,3 +28,7 @@ AvaScope runtime input should cover common agent validation workflows beyond sim
 ## Notes
 
 This is the highest-priority new runtime validation gap because tab/workspace switching and keyboard shortcuts are common agent verification steps.
+
+## Implementation Notes
+
+`v0.6.0` adds targeted `select` input for `SelectingItemsControl` instances and deterministic `scroll` input for `ScrollViewer` offsets through bridge, CLI, MCP, and protocol contracts. Drag/pan/thumb gestures remain limited to future public-API-safe slices.

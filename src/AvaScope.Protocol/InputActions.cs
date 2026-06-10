@@ -11,4 +11,6 @@ public static class InputActions
     public const string Focus = "focus";
     public const string KeyDown = "key_down";
     public const string KeyUp = "key_up";
+    public const string Select = "select";
+    public const string Scroll = "scroll";
 }

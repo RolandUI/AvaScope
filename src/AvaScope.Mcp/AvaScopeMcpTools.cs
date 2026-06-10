@@ -59,6 +59,7 @@ public sealed class AvaScopeMcpTools
         string? sessionId = null,
         string? manifestPath = null,
         string? manifestDirectory = null,
+        bool latest = false,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(bridgeClient);
@@ -69,6 +70,14 @@ public sealed class AvaScopeMcpTools
         }
 
         var client = CreateBridgeClient(bridgeClient, manifestDirectory);
+        if (latest)
+        {
+            return ToToolResult(await client.AttachLatestToAppAsync(
+                processId,
+                processName,
+                cancellationToken));
+        }
+
         return ToToolResult(await client.AttachToAppAsync(
             processId,
             parsedSessionId,
@@ -129,6 +138,49 @@ public sealed class AvaScopeMcpTools
             topLevelId,
             outputPath,
             cancellationToken));
+    }
+
+    [McpServerTool(
+        Name = "assert_region",
+        Title = "Assert region",
+        ReadOnly = true,
+        Idempotent = true,
+        Destructive = false,
+        OpenWorld = false,
+        UseStructuredContent = true)]
+    [Description("Checks a coordinate region in a local screenshot for non-empty, mostly blank, changed, or unchanged pixels.")]
+    public static ToolResult<ScreenshotRegionAssertionResponse> AssertRegion(
+        string imagePath,
+        string assertion,
+        int x,
+        int y,
+        int width,
+        int height,
+        string? baselinePath = null,
+        string? cropPath = null,
+        double tolerance = 0,
+        long? minChangedPixels = null,
+        double mostlyBlankMaxNonBlankPercent = 1)
+    {
+        try
+        {
+            var region = new ScreenshotRegion(x, y, width, height);
+            return ToToolResult(new ScreenshotRegionAsserter().Assert(
+                imagePath,
+                region,
+                assertion,
+                baselinePath,
+                cropPath,
+                tolerance,
+                minChangedPixels,
+                mostlyBlankMaxNonBlankPercent));
+        }
+        catch (ArgumentOutOfRangeException exception)
+        {
+            return ToolResult<ScreenshotRegionAssertionResponse>.Fail(new ProtocolError(
+                CoreErrorCodes.ImageRegionAssertionFailed,
+                exception.Message));
+        }
     }
 
     [McpServerTool(
@@ -371,6 +423,50 @@ public sealed class AvaScopeMcpTools
             cancellationToken,
             processName,
             manifestPath));
+    }
+
+    [McpServerTool(
+        Name = "launch_app",
+        Title = "Launch app",
+        ReadOnly = false,
+        Idempotent = false,
+        Destructive = false,
+        OpenWorld = false,
+        UseStructuredContent = true)]
+    [Description("Launches a local bridge-enabled app, captures stdout/stderr, waits for an AvaScope bridge session, and returns follow-up identifiers.")]
+    public static async Task<ToolResult<LaunchAppResponse>> LaunchApp(
+        string command,
+        string? arguments = null,
+        string? workingDirectory = null,
+        string? displayName = null,
+        string? manifestDirectory = null,
+        string? outputDirectory = null,
+        string? environment = null,
+        int timeoutMs = 15000,
+        CancellationToken cancellationToken = default)
+    {
+        if (timeoutMs < 1)
+        {
+            return ToolResult<LaunchAppResponse>.Fail(new ProtocolError(
+                CoreErrorCodes.InvalidBridgeRequest,
+                "timeoutMs must be positive."));
+        }
+
+        if (!TryParseEnvironment(environment, out var environmentVariables, out var error))
+        {
+            return ToolResult<LaunchAppResponse>.Fail(error!);
+        }
+
+        return ToToolResult(await new BridgeAppLauncher().LaunchAsync(
+            command,
+            arguments,
+            workingDirectory,
+            displayName,
+            manifestDirectory,
+            outputDirectory,
+            environmentVariables,
+            TimeSpan.FromMilliseconds(timeoutMs),
+            cancellationToken));
     }
 
     [McpServerTool(
@@ -863,6 +959,37 @@ public sealed class AvaScopeMcpTools
         }
 
         viewports = parsed;
+        return true;
+    }
+
+    private static bool TryParseEnvironment(
+        string? text,
+        out IReadOnlyDictionary<string, string> environment,
+        out ProtocolError? error)
+    {
+        environment = new Dictionary<string, string>(StringComparer.Ordinal);
+        error = null;
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return true;
+        }
+
+        var values = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var token in text.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            var separator = token.IndexOf('=');
+            if (separator <= 0)
+            {
+                error = new ProtocolError(
+                    CoreErrorCodes.InvalidBridgeRequest,
+                    "environment must be a semicolon-separated list of KEY=VALUE entries.");
+                return false;
+            }
+
+            values[token[..separator]] = token[(separator + 1)..];
+        }
+
+        environment = values;
         return true;
     }
 

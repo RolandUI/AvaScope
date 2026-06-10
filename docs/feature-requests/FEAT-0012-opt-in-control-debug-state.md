@@ -1,7 +1,7 @@
 # FEAT-0012: Opt-in custom control debug state
 
-- Status: `Scheduled`
-- Implementation Status: `Scheduled for v0.6.0`
+- Status: `Implemented`
+- Implementation Status: `Covered by v0.6.0`
 - Priority: `P2`
 - Stored: `2026-06-10`
 - Source Order: `4`
@@ -28,3 +28,7 @@ Custom controls should be able to expose app-owned debug values to AvaScope with
 ## Notes
 
 Motivating examples include plot bounds, scaled ranges, visible item ranges, render counters, and aggregate statistics, but the ticket should remain generic.
+
+## Implementation Notes
+
+`v0.6.0` adds `IAvaScopeDebugStateProvider` in the bridge package and returns bounded app-provided `debugState` fields during runtime node inspection only for controls that explicitly implement the contract.

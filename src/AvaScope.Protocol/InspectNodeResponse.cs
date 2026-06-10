@@ -18,7 +18,10 @@ public sealed record InspectNodeResponse
         NodeBounds? bounds = null,
         IReadOnlyList<string>? classes = null,
         IReadOnlyList<ComputedPropertyValue>? computedProperties = null,
-        RuntimeTargetContext? target = null)
+        RuntimeTargetContext? target = null,
+        RuntimeScrollState? scrollState = null,
+        RuntimeBindingState? bindingState = null,
+        RuntimeDebugState? debugState = null)
     {
         SessionId = sessionId ?? throw new ArgumentNullException(nameof(sessionId));
 
@@ -60,6 +63,9 @@ public sealed record InspectNodeResponse
         ComputedProperties = computedProperties ?? Array.Empty<ComputedPropertyValue>();
         ChildCount = childCount;
         Target = target ?? new RuntimeTargetContext(sessionId, topLevelId, treeKind, nodeId);
+        ScrollState = scrollState;
+        BindingState = bindingState;
+        DebugState = debugState;
     }
 
     [JsonPropertyName("sessionId")]
@@ -104,4 +110,16 @@ public sealed record InspectNodeResponse
 
     [JsonPropertyName("target")]
     public RuntimeTargetContext Target { get; }
+
+    [JsonPropertyName("scrollState")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public RuntimeScrollState? ScrollState { get; }
+
+    [JsonPropertyName("bindingState")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public RuntimeBindingState? BindingState { get; }
+
+    [JsonPropertyName("debugState")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public RuntimeDebugState? DebugState { get; }
 }

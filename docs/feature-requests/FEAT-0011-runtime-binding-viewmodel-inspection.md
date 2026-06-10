@@ -1,7 +1,7 @@
 # FEAT-0011: Runtime binding and ViewModel inspection
 
-- Status: `Scheduled`
-- Implementation Status: `Scheduled for v0.6.0`
+- Status: `Implemented`
+- Implementation Status: `Covered by v0.6.0`
 - Priority: `P1`
 - Stored: `2026-06-10`
 - Source Order: `3`
@@ -28,3 +28,7 @@ AvaScope should let users inspect runtime binding context and current bound valu
 ## Notes
 
 This complements preview binding diagnostics. It is runtime-focused and must preserve the local-only bridge boundary.
+
+## Implementation Notes
+
+`v0.6.0` adds bounded `bindingState` on runtime `inspect_node` responses with `DataContext` status/type and explicit `not_available` binding metadata provenance instead of inferred private binding details.

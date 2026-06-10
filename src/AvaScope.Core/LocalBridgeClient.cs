@@ -87,6 +87,24 @@ public sealed class LocalBridgeClient
             ResolveManifestPath(manifest, manifestPath)));
     }
 
+    public async Task<CoreResult<AttachToAppResponse>> AttachLatestToAppAsync(
+        int? processId = null,
+        string? processName = null,
+        CancellationToken cancellationToken = default)
+    {
+        var manifestResult = FindLatestManifest(processId, processName);
+        if (!manifestResult.Success)
+        {
+            return CoreResult<AttachToAppResponse>.Fail(manifestResult.Error!);
+        }
+
+        return await AttachToAppAsync(
+            manifestResult.Value!.ProcessId,
+            manifestResult.Value.SessionId,
+            processName,
+            cancellationToken: cancellationToken);
+    }
+
     public async Task<CoreResult<ListTopLevelsResponse>> ListTopLevelsAsync(
         SessionId sessionId,
         CancellationToken cancellationToken = default)
@@ -564,6 +582,33 @@ public sealed class LocalBridgeClient
                 "Multiple active AvaScope bridge sessions matched the requested filters. Specify a session id, process id, process name, or manifest path.",
                 BuildMultipleMatchDetails(matches)))
         };
+    }
+
+    private CoreResult<BridgeSessionManifest> FindLatestManifest(int? processId, string? processName)
+    {
+        var matches = ListSessionManifests()
+            .Where(manifest => MatchesManifestFilters(manifest, processId, null, processName))
+            .OrderByDescending(static manifest => manifest.CreatedAt)
+            .ThenByDescending(static manifest => manifest.ProcessId)
+            .ToArray();
+
+        if (matches.Length == 0)
+        {
+            return CoreResult<BridgeSessionManifest>.Fail(new CoreError(
+                CoreErrorCodes.BridgeSessionNotFound,
+                "No active AvaScope bridge session matched the latest-session filters.",
+                BuildLatestSelectionDetails(processId, processName)));
+        }
+
+        if (matches.Length > 1 && matches[0].CreatedAt == matches[1].CreatedAt)
+        {
+            return CoreResult<BridgeSessionManifest>.Fail(new CoreError(
+                CoreErrorCodes.MultipleBridgeSessions,
+                "Multiple active AvaScope bridge sessions are equally latest for the requested filters.",
+                BuildMultipleMatchDetails(matches.Where(match => match.CreatedAt == matches[0].CreatedAt).ToArray())));
+        }
+
+        return CoreResult<BridgeSessionManifest>.Ok(matches[0]);
     }
 
     private async Task<BridgeSessionDiagnostic> CreateDiagnosticAsync(
@@ -1153,6 +1198,29 @@ public sealed class LocalBridgeClient
             ["matchedProcesses"] = string.Join(",", matches.Select(static manifest => manifest.ProcessId.ToString(CultureInfo.InvariantCulture))),
             ["nextAction"] = "Retry with --session or --manifest to select one bridge session deterministically."
         };
+    }
+
+    private static IReadOnlyDictionary<string, string> BuildLatestSelectionDetails(
+        int? processId,
+        string? processName)
+    {
+        var details = new Dictionary<string, string>
+        {
+            ["selectionMode"] = "latest",
+            ["nextAction"] = "Run diagnostics to list active bridge manifests, then retry with a matching process id or process name."
+        };
+
+        if (processId is not null)
+        {
+            details["processId"] = processId.Value.ToString(CultureInfo.InvariantCulture);
+        }
+
+        if (!string.IsNullOrWhiteSpace(processName))
+        {
+            details["processName"] = processName.Trim();
+        }
+
+        return details;
     }
 
     private string ResolveManifestPath(BridgeSessionManifest manifest, string? manifestPath)

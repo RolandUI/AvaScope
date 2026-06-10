@@ -1,7 +1,7 @@
 # FEAT-0010: ScrollViewer state inspection
 
-- Status: `Scheduled`
-- Implementation Status: `Scheduled for v0.6.0`
+- Status: `Implemented`
+- Implementation Status: `Covered by v0.6.0`
 - Priority: `P1`
 - Stored: `2026-06-10`
 - Source Order: `2`
@@ -27,3 +27,7 @@ AvaScope should expose enough `ScrollViewer` state to diagnose scroll, scaling, 
 ## Notes
 
 This ticket is generic even though the motivating case is chart scroll and scaling diagnostics.
+
+## Implementation Notes
+
+`v0.6.0` adds `scrollState` on runtime `inspect_node` responses for selected `ScrollViewer` nodes, including offset, extent, viewport, scrollable maximum, and child layout metrics where public Avalonia state is available.

@@ -1,7 +1,7 @@
 # FEAT-0014: Screenshot assertions and region checks
 
-- Status: `Scheduled`
-- Implementation Status: `Scheduled for v0.6.0`
+- Status: `Implemented`
+- Implementation Status: `Covered by v0.6.0`
 - Priority: `P3`
 - Stored: `2026-06-10`
 - Source Order: `6`
@@ -28,3 +28,7 @@ AvaScope should support focused screenshot checks for agent validation, not only
 ## Notes
 
 This is a v0.6 targeted extension of the existing visual comparison foundation; broader CI report productization remains in the v0.7 roadmap.
+
+## Implementation Notes
+
+`v0.6.0` adds CLI/MCP screenshot region assertions for `non_empty`, `mostly_blank`, `changed`, and `unchanged`, with bounded pixel metrics and optional crop artifacts.

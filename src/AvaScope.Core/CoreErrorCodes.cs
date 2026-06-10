@@ -20,6 +20,7 @@ public static class CoreErrorCodes
     public const string PreviewBaselineManifestInvalid = "preview_baseline_manifest_invalid";
     public const string ImageDiffDimensionMismatch = "image_diff_dimension_mismatch";
     public const string ImageDiffFailed = "image_diff_failed";
+    public const string ImageRegionAssertionFailed = "image_region_assertion_failed";
     public const string PreviewHostFailed = "preview_host_failed";
     public const string PreviewHostUnavailable = "preview_host_unavailable";
     public const string PreviewSessionStoreFailed = "preview_session_store_failed";

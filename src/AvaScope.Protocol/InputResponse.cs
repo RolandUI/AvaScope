@@ -15,7 +15,10 @@ public sealed record InputResponse
         RuntimeTargetContext? target = null,
         string? inputKey = null,
         string? keyModifiers = null,
-        string? pointerButton = null)
+        string? pointerButton = null,
+        double? wheelDeltaX = null,
+        double? wheelDeltaY = null,
+        IReadOnlyDictionary<string, string>? metadata = null)
     {
         SessionId = sessionId ?? throw new ArgumentNullException(nameof(sessionId));
 
@@ -38,6 +41,9 @@ public sealed record InputResponse
         InputKey = string.IsNullOrWhiteSpace(inputKey) ? null : inputKey.Trim();
         KeyModifiers = string.IsNullOrWhiteSpace(keyModifiers) ? null : keyModifiers.Trim();
         PointerButton = string.IsNullOrWhiteSpace(pointerButton) ? null : pointerButton.Trim();
+        WheelDeltaX = wheelDeltaX;
+        WheelDeltaY = wheelDeltaY;
+        Metadata = metadata ?? new Dictionary<string, string>();
     }
 
     [JsonPropertyName("sessionId")]
@@ -73,6 +79,17 @@ public sealed record InputResponse
     [JsonPropertyName("pointerButton")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? PointerButton { get; }
+
+    [JsonPropertyName("wheelDeltaX")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public double? WheelDeltaX { get; }
+
+    [JsonPropertyName("wheelDeltaY")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public double? WheelDeltaY { get; }
+
+    [JsonPropertyName("metadata")]
+    public IReadOnlyDictionary<string, string> Metadata { get; }
 
     private static RuntimeTargetContext CreateTarget(
         SessionId sessionId,

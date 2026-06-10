@@ -629,6 +629,85 @@ public sealed class ProtocolContractTests
         Assert.Equal("focus", InputActions.Focus);
         Assert.Equal("key_down", InputActions.KeyDown);
         Assert.Equal("key_up", InputActions.KeyUp);
+        Assert.Equal("select", InputActions.Select);
+        Assert.Equal("scroll", InputActions.Scroll);
+    }
+
+    [Fact]
+    public void InspectNodeResponseSerializesRuntimeStateShape()
+    {
+        var response = new InspectNodeResponse(
+            new SessionId("session-1"),
+            "topLevel:abc",
+            TreeKinds.Visual,
+            "visual:scroll",
+            "Avalonia.Controls.ScrollViewer",
+            1,
+            scrollState: new RuntimeScrollState(
+                "available",
+                new RuntimeVector(10, 20),
+                new RuntimeSize(300, 400),
+                new RuntimeSize(100, 120),
+                new RuntimeVector(200, 280),
+                "Auto",
+                "Visible"),
+            bindingState: new RuntimeBindingState(
+                "available",
+                "Sample.ViewModel",
+                diagnostics:
+                [
+                    new ProtocolError("runtime_binding_path_metadata_not_available", "not available")
+                ]),
+            debugState: new RuntimeDebugState(
+                "available",
+                new Dictionary<string, string>
+                {
+                    ["visibleRange"] = "10..20"
+                },
+                "Sample.Control",
+                fieldCount: 1,
+                maximumFieldCount: 32,
+                maximumValueLength: 500));
+
+        var node = JsonNode.Parse(JsonSerializer.Serialize(response))!;
+
+        Assert.Equal("available", node["scrollState"]!["status"]!.GetValue<string>());
+        Assert.Equal(10, node["scrollState"]!["offset"]!["x"]!.GetValue<double>());
+        Assert.Equal(300, node["scrollState"]!["extent"]!["width"]!.GetValue<double>());
+        Assert.Equal("Sample.ViewModel", node["bindingState"]!["dataContextType"]!.GetValue<string>());
+        Assert.Equal("runtime_binding_path_metadata_not_available", node["bindingState"]!["diagnostics"]![0]!["code"]!.GetValue<string>());
+        Assert.Equal("available", node["debugState"]!["status"]!.GetValue<string>());
+        Assert.Equal("10..20", node["debugState"]!["fields"]!["visibleRange"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public void ScreenshotRegionAssertionResponseSerializesStableShape()
+    {
+        var response = new ScreenshotRegionAssertionResponse(
+            "C:\\shots\\current.png",
+            new ScreenshotRegion(4, 8, 20, 10, "toolbar"),
+            ScreenshotRegionAssertionModes.Changed,
+            passed: true,
+            pixelWidth: 320,
+            pixelHeight: 200,
+            totalPixels: 200,
+            nonBlankPixels: 50,
+            nonBlankPercent: 25,
+            changedPixels: 12,
+            changedPercent: 6,
+            maxDelta: 255,
+            tolerance: 1,
+            baselinePath: "C:\\shots\\baseline.png",
+            cropPath: "C:\\shots\\crop.png");
+
+        var node = JsonNode.Parse(JsonSerializer.Serialize(response))!;
+
+        Assert.Equal("changed", node["assertion"]!.GetValue<string>());
+        Assert.True(node["passed"]!.GetValue<bool>());
+        Assert.Equal("toolbar", node["region"]!["name"]!.GetValue<string>());
+        Assert.Equal(12, node["changedPixels"]!.GetValue<long>());
+        Assert.Equal(255, node["maxDelta"]!.GetValue<int>());
+        Assert.Equal(Path.GetFullPath("C:\\shots\\crop.png"), node["cropPath"]!.GetValue<string>());
     }
 
     [Fact]
@@ -1193,7 +1272,13 @@ public sealed class ProtocolContractTests
                     "light",
                     "ja-JP",
                     "Sample.PreviewDesignData")),
-                updatedAt)
+                updatedAt,
+                [
+                    new PreviewWatchEvent(
+                        PreviewWatchEventTypes.SessionCreated,
+                        updatedAt,
+                        changeKind: "initial_render_succeeded")
+                ])
         ]);
 
         var json = JsonSerializer.Serialize(response);
@@ -1212,6 +1297,8 @@ public sealed class ProtocolContractTests
         Assert.Equal("ja-JP", session["lastRender"]!["value"]!["culture"]!.GetValue<string>());
         Assert.Equal("Sample.PreviewDesignData", session["lastRender"]!["value"]!["designDataType"]!.GetValue<string>());
         Assert.Equal(updatedAt, DateTimeOffset.Parse(session["updatedAt"]!.GetValue<string>(), CultureInfo.InvariantCulture));
+        Assert.Equal("session_created", session["events"]![0]!["eventType"]!.GetValue<string>());
+        Assert.Equal("one_shot_isolated_child_process", session["lifecycle"]!["hostProcessMode"]!.GetValue<string>());
     }
 
     [Fact]
