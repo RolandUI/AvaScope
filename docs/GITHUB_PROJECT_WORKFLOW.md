@@ -82,7 +82,16 @@ Use the public `AvaScope Roadmap` GitHub Project for human-readable roadmap stat
 
 - https://github.com/users/RolandUI/projects/4
 
-The project includes a `Workflow Status` single-select field with these values:
+The active board should stay focused on open release work. Completed historical items may be archived from the project after their GitHub issues and milestones remain closed.
+
+The project includes these board-support fields:
+
+- `Workflow Status`: kanban column/status field.
+- `Progress`: coarse completion marker for cards.
+- `Release Phase`: release tracker, current slice, planned slice, or completed work.
+- `Roadmap Order`: numeric ordering inside a release.
+
+`Workflow Status` values:
 
 - Backlog
 - Ready
@@ -92,6 +101,13 @@ The project includes a `Workflow Status` single-select field with these values:
 - Blocked
 
 Keep `status:*` labels aligned with `Workflow Status` when moving work. The default GitHub `Status` field is also populated so the built-in board view separates open Todo work from Done items.
+
+GitHub's public Projects API currently supports project fields and items, but not saved view layout creation or saved view layout edits. If a board view is missing in the GitHub UI, create it manually with:
+
+- Layout: `Board`
+- Column/group field: `Workflow Status`
+- Sort: `Roadmap Order`
+- Visible card fields: `Progress`, `Release Phase`, `Milestone`, `Labels`
 
 ## Completion Rules
 
