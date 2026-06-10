@@ -25,18 +25,21 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `Post-v0.6.0 CI Stabilization And Release Completion`
-- Status: `In Progress`
-- Owner: Codex
-- Started: `2026-06-10`
-- Goal: stabilize the post-release CI watcher smoke, verify follow-up GitHub CI/Release workflows, and record the final `v0.6.0` release completion metadata.
+- `R0.7.0-M1 Baseline Suite Manifest`
+- Status: `Not Started`
+- Owner: unassigned
+- Started: pending
+- Goal: start the `v0.7.0` visual-regression productization release by designing and implementing named baseline suite manifests across projects, profiles, variants, and sizes.
 
 ## Next Action
 
-Push the watcher smoke stabilization, verify the follow-up GitHub CI and Release no-op workflows, then update `docs/RELEASE_PLAN.md` and this plan with the final `v0.6.0` release/tag/assets/workflow metadata.
+Start `R0.7.0-M1 Baseline Suite Manifest` from `docs/RELEASE_PLAN.md` when the next implementation task is requested. Keep `v0.7.0` scoped to visual regression and CI productization unless the release plan is explicitly revised first.
 
 ## Latest Validation
 
+- `2026-06-10`: GitHub CI workflow `27286438229` passed after post-release watcher stabilization; follow-up Release workflow `27286438001` no-oped successfully because `v0.6.0` already existed.
+- `2026-06-10`: `gh release view v0.6.0` confirmed the public release URL and six uploaded assets: three `0.6.0` `.nupkg` files, win-x64 and linux-x64 framework-dependent ZIPs, and `release-manifest.json`.
+- `2026-06-10`: `git ls-remote --tags origin refs/tags/v0.6.0` confirmed tag `v0.6.0` at release commit `4af5284`.
 - `2026-06-10`: GitHub Release workflow `27285679633` passed for `Release 0.6.0`; tag `v0.6.0` and six GitHub Release assets were published at `2026-06-10T15:11:44Z`.
 - `2026-06-10`: GitHub CI workflow `27285678995` failed after the `v0.6.0` release commit in `CliSmokeTests.WatchPreviewSessionCommandReloadsWhenWatchedFileChanges` because the CI runner missed the single watched-file event before the command timed out.
 - `2026-06-10`: Post-release watcher stabilization targeted Release smoke passed 4 consecutive runs after generating repeated watched-file writes and increasing the test timeout/settle window.

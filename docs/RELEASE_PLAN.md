@@ -39,9 +39,9 @@ If the release includes public workflow or packaging changes, also validate the 
 
 The roadmap below is the working plan to `v1.0.0`. It is intentionally release-shaped so every implementation slice remains shippable, validated, and reversible.
 
-- `v0.5.0` is released.
-- `v0.6.0` is the next planned release target and may be implemented next.
-- `v0.7.0` through `v1.0.0` are planned targets. Their scope may be refined before they become the current release target, but changes must be recorded here before implementation starts.
+- `v0.6.0` is released.
+- `v0.7.0` is the next planned release target and may be implemented next.
+- `v0.8.0` through `v1.0.0` are planned targets. Their scope may be refined before they become the current release target, but changes must be recorded here before implementation starts.
 - Each release must preserve the current product boundaries: MCP and CLI stay adapters over Core, runtime bridge activation stays opt-in and local-only, PreviewHost stays isolated from the MCP server, and private Avalonia/runtime hooks remain out of the default path.
 - Every release must include targeted tests, full build/test validation, release dry-run validation, documentation updates, and explicit deferrals.
 - A release may be split into a patch release if a P0/P1 regression blocks users or CI, but patch scope must remain defect-focused.
@@ -190,16 +190,16 @@ The `v0.5.0` release target is focused on PreviewHost fidelity for normal Avalon
 - Dependency-injection service startup, remote data loading, and long-lived design-data state remain out of scope.
 - Private Avalonia designer APIs remain out of scope.
 
-## Current Release Target: v0.6.0
+## Released Target: v0.6.0
 
 - Release: `v0.6.0`
 - Target Version: `0.6.0`
-- Release State: `Release Candidate`
+- Release State: `Released`
 - Scope Lock: `2026-06-10`
-- Release Commit: pending
+- Release Commit: `4af5284` (`Release 0.6.0`)
 - Local Release Gate: passed `2026-06-10`
-- Published At: pending
-- GitHub Release: pending
+- Published At: `2026-06-10T15:11:44Z`
+- GitHub Release: https://github.com/RolandUI/AvaScope/releases/tag/v0.6.0
 - Previous Release: `v0.5.0`
 
 ### v0.6.0 Release Goals
@@ -232,7 +232,7 @@ The `v0.6.0` release target is focused on runtime debugging and agent validation
 - `R0.6.0-M6 Screenshot Region Assertions`; Status: `Done`.
 - `R0.6.0-M7 Session Events And Cleanup Validation`; Status: `Done`.
 - `R0.6.0-M8 Release Documentation And Ticket Closure`; Status: `Done`.
-- `R0.6.0-M9 Release Candidate And Version Bump`; Status: `In Progress`.
+- `R0.6.0-M9 Release Candidate And Version Bump`; Status: `Done`.
 
 ### v0.6.0 Acceptance Criteria
 
@@ -258,6 +258,11 @@ The `v0.6.0` release target is focused on runtime debugging and agent validation
 - `2026-06-10`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1` passed for `v0.6.0` after stopping stale packaged CLI/MCP processes from the local artifact output; Release build/test passed with 242 tests, three `0.6.0` packages, win-x64 and linux-x64 framework-dependent ZIPs, release manifest, packaged doctor smoke, and packaged sample preview smoke.
 - `2026-06-10`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.6.0 -DryRun` passed for `v0.6.0` assets.
 - `2026-06-10`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-release-commit.ps1 -Version 0.6.0 -CommitSubject "Release 0.6.0" -RequiredState "Release Candidate"` passed for the `v0.6.0` release commit guard.
+- `2026-06-10`: GitHub Release workflow `27285679633` passed for `Release 0.6.0`; tag `v0.6.0` and six GitHub Release assets were published at `2026-06-10T15:11:44Z`.
+- `2026-06-10`: `gh release view v0.6.0` confirmed the public release URL and six uploaded assets: three `0.6.0` `.nupkg` files, win-x64 and linux-x64 framework-dependent ZIPs, and `release-manifest.json`.
+- `2026-06-10`: `git ls-remote --tags origin refs/tags/v0.6.0` confirmed tag `v0.6.0` at release commit `4af5284`.
+- `2026-06-10`: GitHub CI workflow `27285678995` failed after publish in `CliSmokeTests.WatchPreviewSessionCommandReloadsWhenWatchedFileChanges` because the hosted runner missed the single watched-file event before the command timed out.
+- `2026-06-10`: Post-release CI stabilization commit `434f9dd` generated repeated watched-file writes and increased the watch smoke timeout/settle window; targeted Release smoke passed 4 consecutive local runs, local `dotnet test AvaScope.slnx -c Release --no-build` passed with 242 tests, GitHub CI workflow `27286438229` passed, and follow-up Release workflow `27286438001` no-oped successfully because `v0.6.0` already existed.
 
 ### v0.6.0 Explicit Deferrals
 
@@ -268,7 +273,7 @@ The `v0.6.0` release target is focused on runtime debugging and agent validation
 - Destructive runtime actions, arbitrary process termination, and remote inspection remain out of scope.
 - Full visual-regression suite/report productization remains in `v0.7.0`; `v0.6.0` only adds focused screenshot region assertions.
 
-## Planned Target: v0.7.0
+## Current Release Target: v0.7.0
 
 - Release: `v0.7.0`
 - Target Version: `0.7.0`
