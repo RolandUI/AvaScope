@@ -37,6 +37,7 @@ Start `R0.7.0-M1 Baseline Suite Manifest` from `docs/RELEASE_PLAN.md` when the n
 
 ## Latest Validation
 
+- `2026-06-10`: GitHub CI workflow `27292094908` passed on the docs-only validation commit in 31 seconds; `Setup .NET`, `Restore`, `Build`, `Test`, `Pack libraries`, `Package executables`, and `Verify artifacts` were skipped, and only the documentation-only skip confirmation step ran. Follow-up Release workflow `27292094955` no-oped successfully because `v0.6.0` already existed.
 - `2026-06-10`: GitHub CI workflow `27291558979` passed after adding CI change classification; because `.github/workflows/ci.yml` changed, the classifier required full validation and Restore, Build, Test, Pack, executable packaging, and artifact verification all ran. Follow-up Release workflow `27291559430` no-oped successfully because `v0.6.0` already existed.
 - `2026-06-10`: `git diff --check` passed after adding the CI documentation-only fast path; local classifier simulation verified docs/Markdown-only changes skip full validation and source/workflow changes require it.
 - `2026-06-10`: GitHub CI workflow `27289598895` failed on the `Record v0.6.0 final CI stabilization` documentation commit in `CliSmokeTests.ListTopLevelsCommandReadsTopLevelsThroughBridgePipe` because the fake CLI bridge server timed out waiting for an IPC request on the hosted runner.
