@@ -89,10 +89,7 @@ public sealed class CliSmokeTests
         }
         finally
         {
-            if (Directory.Exists(testRoot))
-            {
-                Directory.Delete(testRoot, recursive: true);
-            }
+            await DeleteDirectoryWithRetryAsync(testRoot);
         }
     }
 
@@ -3175,6 +3172,32 @@ public sealed class CliSmokeTests
         }
 
         throw new IOException($"Timed out writing test file '{path}'.", lastException);
+    }
+
+    private static async Task DeleteDirectoryWithRetryAsync(string path)
+    {
+        Exception? lastException = null;
+        for (var attempt = 1; attempt <= 20; attempt++)
+        {
+            try
+            {
+                if (Directory.Exists(path))
+                {
+                    Directory.Delete(path, recursive: true);
+                }
+
+                return;
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                lastException = exception;
+                GC.Collect();
+                GC.WaitForPendingFinalizers();
+                await Task.Delay(TimeSpan.FromMilliseconds(100 * attempt));
+            }
+        }
+
+        throw new IOException($"Timed out deleting test directory '{path}'.", lastException);
     }
 
     private static void WriteSolidImage(string path, SKColor color, SKColor? changedPixel = null)
