@@ -25,15 +25,15 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `R0.7.0-M1 Baseline Suite Manifest`
-- Status: `Not Started`
-- Owner: unassigned
-- Started: pending
-- Goal: start the `v0.7.0` visual-regression productization release by implementing named baseline suite manifests.
+- `CI Documentation-Only Fast Path`
+- Status: `In Progress`
+- Owner: Codex
+- Started: `2026-06-10`
+- Goal: avoid running Restore/Build/Test/Pack CI steps when a push or pull request changes only documentation files, while keeping the CI check successful and preserving full validation for source, workflow, script, project, and release changes.
 
 ## Next Action
 
-Start `R0.7.0-M1 Baseline Suite Manifest` from `docs/RELEASE_PLAN.md` when the next implementation task begins; keep `v0.7.0` scoped to visual regression and CI productization unless the release plan is revised first.
+Implement the CI change classifier in `.github/workflows/ci.yml`, validate that workflow/source changes still run the full pipeline, then verify that a follow-up docs-only commit completes without Restore/Build/Test/Pack.
 
 ## Latest Validation
 
