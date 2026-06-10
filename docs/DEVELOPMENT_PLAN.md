@@ -25,18 +25,20 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `CI Documentation-Only Fast Path`
-- Status: `In Progress`
-- Owner: Codex
-- Started: `2026-06-10`
-- Goal: avoid running Restore/Build/Test/Pack CI steps when a push or pull request changes only documentation files, while keeping the CI check successful and preserving full validation for source, workflow, script, project, and release changes.
+- `R0.7.0-M1 Baseline Suite Manifest`
+- Status: `Not Started`
+- Owner: unassigned
+- Started: pending
+- Goal: start the `v0.7.0` visual-regression productization release by implementing named baseline suite manifests.
 
 ## Next Action
 
-Implement the CI change classifier in `.github/workflows/ci.yml`, validate that workflow/source changes still run the full pipeline, then verify that a follow-up docs-only commit completes without Restore/Build/Test/Pack.
+Start `R0.7.0-M1 Baseline Suite Manifest` from `docs/RELEASE_PLAN.md` when the next implementation task begins; keep `v0.7.0` scoped to visual regression and CI productization unless the release plan is revised first.
 
 ## Latest Validation
 
+- `2026-06-10`: GitHub CI workflow `27291558979` passed after adding CI change classification; because `.github/workflows/ci.yml` changed, the classifier required full validation and Restore, Build, Test, Pack, executable packaging, and artifact verification all ran. Follow-up Release workflow `27291559430` no-oped successfully because `v0.6.0` already existed.
+- `2026-06-10`: `git diff --check` passed after adding the CI documentation-only fast path; local classifier simulation verified docs/Markdown-only changes skip full validation and source/workflow changes require it.
 - `2026-06-10`: GitHub CI workflow `27289598895` failed on the `Record v0.6.0 final CI stabilization` documentation commit in `CliSmokeTests.ListTopLevelsCommandReadsTopLevelsThroughBridgePipe` because the fake CLI bridge server timed out waiting for an IPC request on the hosted runner.
 - `2026-06-10`: Isolated CLI smoke-test bridge manifests into a per-test-process directory and made the CLI fake bridge helper skip empty/non-JSON probe connections; the failing Release test passed 4 consecutive local runs, and `dotnet test AvaScope.slnx -c Release --no-build` passed with 242 tests.
 - `2026-06-10`: GitHub CI workflow `27289102252` passed after the bridge diagnostics fake-pipe helper skipped empty/non-JSON probe connections; follow-up Release workflow `27289102340` no-oped successfully because `v0.6.0` already existed.
