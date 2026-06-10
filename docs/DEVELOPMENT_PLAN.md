@@ -25,18 +25,22 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `R0.6.0-M9 Release Candidate And Version Bump`
+- `Post-v0.6.0 CI Stabilization And Release Completion`
 - Status: `In Progress`
 - Owner: Codex
 - Started: `2026-06-10`
-- Goal: validate and release `v0.6.0` after completing the runtime input/state, latest attach, launch helper, screenshot-region assertion, and preview-session lifecycle-event scope.
+- Goal: stabilize the post-release CI watcher smoke, verify follow-up GitHub CI/Release workflows, and record the final `v0.6.0` release completion metadata.
 
 ## Next Action
 
-Run the full `v0.6.0` release gate, move `docs/RELEASE_PLAN.md` to `Release Candidate` after it passes, bump `Directory.Build.props` to `0.6.0`, commit exactly `Release 0.6.0`, push `master`, and verify the GitHub release/tag/assets.
+Push the watcher smoke stabilization, verify the follow-up GitHub CI and Release no-op workflows, then update `docs/RELEASE_PLAN.md` and this plan with the final `v0.6.0` release/tag/assets/workflow metadata.
 
 ## Latest Validation
 
+- `2026-06-10`: GitHub Release workflow `27285679633` passed for `Release 0.6.0`; tag `v0.6.0` and six GitHub Release assets were published at `2026-06-10T15:11:44Z`.
+- `2026-06-10`: GitHub CI workflow `27285678995` failed after the `v0.6.0` release commit in `CliSmokeTests.WatchPreviewSessionCommandReloadsWhenWatchedFileChanges` because the CI runner missed the single watched-file event before the command timed out.
+- `2026-06-10`: Post-release watcher stabilization targeted Release smoke passed 4 consecutive runs after generating repeated watched-file writes and increasing the test timeout/settle window.
+- `2026-06-10`: `dotnet test AvaScope.slnx -c Release --no-build` passed with 242 tests after the post-release watcher stabilization.
 - `2026-06-10`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-release-commit.ps1 -Version 0.6.0 -CommitSubject "Release 0.6.0" -RequiredState "Release Candidate"` passed for the `v0.6.0` release commit guard.
 - `2026-06-10`: `git diff --check` passed for the `v0.6.0` release-candidate working tree with only line-ending normalization warnings.
 - `2026-06-10`: `dotnet test AvaScope.slnx --no-build` passed again with 242 tests after the final screenshot-region file-handle fix.

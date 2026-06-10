@@ -812,28 +812,34 @@ public sealed class CliSmokeTests
                 cliAssembly,
                 async () =>
                 {
-                    await Task.Delay(1000);
-                    await WriteAllTextWithRetryAsync(viewPath, """
-                        <UserControl xmlns="https://github.com/avaloniaui">
-                          <Border Background="#FFFFFFFF">
-                            <TextBlock Text="CLI preview watch changed" />
-                          </Border>
-                        </UserControl>
-                        """);
+                    await Task.Delay(2000);
+                    for (var attempt = 1; attempt <= 6; attempt++)
+                    {
+                        await WriteAllTextWithRetryAsync(viewPath, $$"""
+                            <UserControl xmlns="https://github.com/avaloniaui">
+                              <Border Background="#FFFFFFFF">
+                                <TextBlock Text="CLI preview watch changed {{attempt}}" />
+                              </Border>
+                            </UserControl>
+                            """);
+                        await Task.Delay(500);
+                    }
                 },
                 "watch-preview-session",
                 "--session",
                 sessionId,
                 "--timeout-ms",
-                "15000",
+                "30000",
                 "--settle-ms",
-                "1000",
+                "1500",
                 "--max-reloads",
                 "1",
                 "--watch",
                 viewPath);
 
-            Assert.Equal(0, watched.ExitCode);
+            Assert.True(
+                watched.ExitCode == 0,
+                $"Expected watch command to exit 0, got {watched.ExitCode}. stdout: {watched.StandardOutput} stderr: {watched.StandardError}");
             Assert.True(string.IsNullOrWhiteSpace(watched.StandardError), watched.StandardError);
 
             var payload = JsonSerializer.Deserialize<ToolResult<PreviewWatchResponse>>(
