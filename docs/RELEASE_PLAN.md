@@ -65,10 +65,10 @@ Required `v1.0.0` properties:
 
 - Release: `v0.4.0`
 - Target Version: `0.4.0`
-- Release State: `In Progress`
+- Release State: `Release Candidate`
 - Scope Lock: `2026-06-09`
 - Release Commit: pending
-- Local Release Gate: pending
+- Local Release Gate: passed on `2026-06-10`
 - Published At: pending
 - GitHub Release: pending
 - Previous Release: `v0.3.0`
@@ -91,12 +91,12 @@ The `v0.4.0` release target is focused on runtime bridge reliability, attach erg
 
 ### v0.4.0 Milestone Map
 
-- `R0.4.0-M1 Bridge Session Discovery And Cleanup` delivers `RG-0.4.0-1`; Status: `In Progress`.
-- `R0.4.0-M2 Attach Target Selection` delivers `RG-0.4.0-2`; Status: `Not Started`.
-- `R0.4.0-M3 Runtime Target Stability` delivers `RG-0.4.0-3`; Status: `Not Started`.
-- `R0.4.0-M4 Runtime Input Reliability` delivers `RG-0.4.0-4`; Status: `Not Started`.
-- `R0.4.0-M5 Runtime Diagnostics And Documentation` delivers `RG-0.4.0-5`; Status: `Not Started`.
-- `R0.4.0-M6 Release Candidate And Version Bump` delivers `RG-0.4.0-6`; Status: `Not Started`.
+- `R0.4.0-M1 Bridge Session Discovery And Cleanup` delivers `RG-0.4.0-1`; Status: `Done`.
+- `R0.4.0-M2 Attach Target Selection` delivers `RG-0.4.0-2`; Status: `Done`.
+- `R0.4.0-M3 Runtime Target Stability` delivers `RG-0.4.0-3`; Status: `Done`.
+- `R0.4.0-M4 Runtime Input Reliability` delivers `RG-0.4.0-4`; Status: `Done`.
+- `R0.4.0-M5 Runtime Diagnostics And Documentation` delivers `RG-0.4.0-5`; Status: `Done`.
+- `R0.4.0-M6 Release Candidate And Version Bump` delivers `RG-0.4.0-6`; Status: `Done`.
 
 ### v0.4.0 Acceptance Criteria
 
@@ -106,6 +106,18 @@ The `v0.4.0` release target is focused on runtime bridge reliability, attach erg
 - CLI and MCP runtime workflows preserve structured `ToolResult<T>` compatibility.
 - The getting-started sample validates at least one attach/list/tree/find/inspect/input/close workflow through the packaged CLI.
 - Runtime safety remains local-only and opt-in; no network listener, injection, production remote control, or destructive input action is introduced.
+
+### v0.4.0 Implementation Validation
+
+- `2026-06-10`: `dotnet build AvaScope.slnx --no-restore -v:minimal` passed with 0 warnings and 0 errors after runtime bridge reliability implementation.
+- `2026-06-10`: Runtime reliability targeted tests passed with 61 tests covering Core manifest selection/cleanup/diagnostics, protocol target/input/cleanup shapes, CLI manifest-path/process-name/custom-directory workflows, MCP cleanup and attach selection, MCP stdio tool listing, and headless bridge input metadata.
+- `2026-06-10`: `dotnet test AvaScope.slnx --no-build` passed with 228 tests after isolating diagnostics smoke tests from default preview-session temp records.
+- `2026-06-10`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1` passed for `v0.4.0` after stopping stale packaged CLI/dotnet processes from the local artifact output; Release build/test passed with 228 tests, three `0.4.0` packages, win-x64 and linux-x64 framework-dependent ZIPs, release manifest, packaged doctor smoke, and packaged sample preview smoke.
+- `2026-06-10`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.4.0 -DryRun` passed for `v0.4.0` assets.
+- `2026-06-10`: Packaged Windows CLI runtime smoke passed against `samples\AvaScope.GettingStartedApp`: `attach --process-name`, `list-top-levels`, `visual-tree`, `find-nodes`, `inspect-node`, `screenshot`, `input --action pointer_move`, and `close-session`.
+- `2026-06-10`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-bug-reports.ps1` passed; 15 intake files scanned.
+- `2026-06-10`: `git diff --check` passed with only line-ending normalization warnings.
+- `2026-06-10`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-release-commit.ps1 -Version 0.4.0 -CommitSubject "Release 0.4.0" -RequiredState "Release Candidate"` passed for the `v0.4.0` release commit guard.
 
 ### v0.4.0 Explicit Deferrals
 

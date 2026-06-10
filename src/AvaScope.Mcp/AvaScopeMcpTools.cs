@@ -55,7 +55,10 @@ public sealed class AvaScopeMcpTools
     public static async Task<ToolResult<AttachToAppResponse>> AttachToApp(
         LocalBridgeClient bridgeClient,
         int? processId = null,
+        string? processName = null,
         string? sessionId = null,
+        string? manifestPath = null,
+        string? manifestDirectory = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(bridgeClient);
@@ -65,7 +68,13 @@ public sealed class AvaScopeMcpTools
             return ToolResult<AttachToAppResponse>.Fail(error!);
         }
 
-        return ToToolResult(await bridgeClient.AttachToAppAsync(processId, parsedSessionId, cancellationToken));
+        var client = CreateBridgeClient(bridgeClient, manifestDirectory);
+        return ToToolResult(await client.AttachToAppAsync(
+            processId,
+            parsedSessionId,
+            processName,
+            manifestPath,
+            cancellationToken));
     }
 
     [McpServerTool(
@@ -336,7 +345,10 @@ public sealed class AvaScopeMcpTools
         PreviewHostClient previewHostClient,
         PreviewSessionStore? previewSessionStore = null,
         int? processId = null,
+        string? processName = null,
         string? sessionId = null,
+        string? manifestPath = null,
+        string? manifestDirectory = null,
         int maxSessions = 50,
         CancellationToken cancellationToken = default)
     {
@@ -349,13 +361,16 @@ public sealed class AvaScopeMcpTools
             return ToolResult<DiagnosticsResponse>.Fail(error!);
         }
 
-        return ToToolResult(await bridgeClient.DiagnosticsAsync(
+        var client = CreateBridgeClient(bridgeClient, manifestDirectory);
+        return ToToolResult(await client.DiagnosticsAsync(
             processId,
             parsedSessionId,
             maxSessions,
             previewHostClient.GetDiagnostics(),
             previewSessionStore.GetDiagnostics(),
-            cancellationToken));
+            cancellationToken,
+            processName,
+            manifestPath));
     }
 
     [McpServerTool(
@@ -540,6 +555,26 @@ public sealed class AvaScopeMcpTools
         ArgumentNullException.ThrowIfNull(previewSessionStore);
 
         return ToToolResult(previewSessionStore.CleanupStale());
+    }
+
+    [McpServerTool(
+        Name = "cleanup_bridge_sessions",
+        Title = "Cleanup bridge sessions",
+        ReadOnly = false,
+        Idempotent = true,
+        Destructive = false,
+        OpenWorld = false,
+        UseStructuredContent = true)]
+    [Description("Deletes stale or invalid AvaScope-owned local bridge manifests without killing application processes.")]
+    public static async Task<ToolResult<BridgeCleanupResponse>> CleanupBridgeSessions(
+        LocalBridgeClient bridgeClient,
+        string? manifestDirectory = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(bridgeClient);
+
+        var client = CreateBridgeClient(bridgeClient, manifestDirectory);
+        return ToToolResult(await client.CleanupBridgeManifestsAsync(cancellationToken));
     }
 
     [McpServerTool(
@@ -735,6 +770,13 @@ public sealed class AvaScopeMcpTools
                 result.Error!.Code,
                 result.Error.Message,
                 result.Error.Details));
+    }
+
+    private static LocalBridgeClient CreateBridgeClient(LocalBridgeClient bridgeClient, string? manifestDirectory)
+    {
+        return string.IsNullOrWhiteSpace(manifestDirectory)
+            ? bridgeClient
+            : new LocalBridgeClient(manifestDirectory);
     }
 
     private static bool TryParseOptionalSessionId(

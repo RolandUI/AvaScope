@@ -383,7 +383,7 @@ public sealed class AvaScopeBridgeRuntime
                 pixelSize.Width,
                 pixelSize.Height,
                 DateTimeOffset.UtcNow,
-                CreateTopLevelTarget(topLevelId)));
+                CreateTopLevelTarget(topLevelId, topLevel)));
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or NotSupportedException or InvalidOperationException)
         {
@@ -415,7 +415,8 @@ public sealed class AvaScopeBridgeRuntime
             topLevelId,
             TreeKinds.Visual,
             normalizedDepth,
-            SerializeVisualNode(topLevel, topLevelId, depth: 0, normalizedDepth)));
+            SerializeVisualNode(topLevel, topLevelId, topLevel, depth: 0, normalizedDepth),
+            CreateTreeTarget(topLevelId, TreeKinds.Visual, topLevel)));
     }
 
     private CoreResult<TreeResponse> GetLogicalTree(string topLevelId, int? maxDepth)
@@ -441,7 +442,8 @@ public sealed class AvaScopeBridgeRuntime
             topLevelId,
             TreeKinds.Logical,
             normalizedDepth,
-            SerializeLogicalNode(topLevel, topLevelId, depth: 0, normalizedDepth)));
+            SerializeLogicalNode(topLevel, topLevelId, topLevel, depth: 0, normalizedDepth),
+            CreateTreeTarget(topLevelId, TreeKinds.Logical, topLevel)));
     }
 
     private CoreResult<FindNodesResponse> FindNodes(
@@ -521,15 +523,15 @@ public sealed class AvaScopeBridgeRuntime
         {
             TreeKinds.Visual => InspectVisualNode(topLevel, topLevelId, nodeId),
             TreeKinds.Logical => topLevel is ILogical logical
-                ? InspectLogicalNode(logical, topLevelId, nodeId)
+                ? InspectLogicalNode(logical, topLevel, topLevelId, nodeId)
                 : NodeNotFound(topLevelId, treeKind, nodeId),
             _ => InvalidInspectRequest($"Tree kind '{treeKind}' is not supported for top-level '{topLevelId}'.")
         };
     }
 
-    private CoreResult<InspectNodeResponse> InspectVisualNode(Visual root, string topLevelId, string nodeId)
+    private CoreResult<InspectNodeResponse> InspectVisualNode(TopLevel topLevel, string topLevelId, string nodeId)
     {
-        var node = FindVisualNodeById(root, nodeId);
+        var node = FindVisualNodeById(topLevel, nodeId);
         if (node is null)
         {
             return NodeNotFound(topLevelId, TreeKinds.Visual, nodeId);
@@ -548,10 +550,10 @@ public sealed class AvaScopeBridgeRuntime
             GetBounds(node),
             GetClasses(node),
             GetComputedProperties(node),
-            CreateNodeTarget(topLevelId, TreeKinds.Visual, node)));
+            CreateNodeTarget(topLevelId, TreeKinds.Visual, topLevel, node)));
     }
 
-    private CoreResult<InspectNodeResponse> InspectLogicalNode(ILogical root, string topLevelId, string nodeId)
+    private CoreResult<InspectNodeResponse> InspectLogicalNode(ILogical root, TopLevel topLevel, string topLevelId, string nodeId)
     {
         var node = FindLogicalNodeById(root, nodeId);
         if (node is null)
@@ -572,7 +574,7 @@ public sealed class AvaScopeBridgeRuntime
             GetBounds(node),
             GetClasses(node),
             GetComputedProperties(node),
-            CreateNodeTarget(topLevelId, TreeKinds.Logical, node)));
+            CreateNodeTarget(topLevelId, TreeKinds.Logical, topLevel, node)));
     }
 
     private CoreResult<InputResponse> Input(
@@ -653,7 +655,8 @@ public sealed class AvaScopeBridgeRuntime
             InputActions.PointerMove,
             handled: true,
             DateTimeOffset.UtcNow,
-            CreateNodeId(inputTarget, TreeKinds.Visual)));
+            CreateNodeId(inputTarget, TreeKinds.Visual),
+            CreateNodeTarget(topLevelId, TreeKinds.Visual, topLevel, inputTarget)));
     }
 
     private CoreResult<InputResponse> PointerButton(
@@ -727,7 +730,9 @@ public sealed class AvaScopeBridgeRuntime
             action,
             handled: true,
             DateTimeOffset.UtcNow,
-            CreateNodeId(inputTarget, TreeKinds.Visual)));
+            CreateNodeId(inputTarget, TreeKinds.Visual),
+            CreateNodeTarget(topLevelId, TreeKinds.Visual, topLevel, inputTarget),
+            pointerButton: "left"));
     }
 
     private CoreResult<InputResponse> Click(TopLevel topLevel, string topLevelId, double? x, double? y)
@@ -756,7 +761,9 @@ public sealed class AvaScopeBridgeRuntime
             InputActions.Click,
             handled: true,
             DateTimeOffset.UtcNow,
-            CreateNodeId(button, TreeKinds.Visual)));
+            CreateNodeId(button, TreeKinds.Visual),
+            CreateNodeTarget(topLevelId, TreeKinds.Visual, topLevel, button),
+            pointerButton: "left"));
     }
 
     private CoreResult<InputResponse> KeyText(
@@ -834,7 +841,8 @@ public sealed class AvaScopeBridgeRuntime
             InputActions.KeyText,
             handled: true,
             DateTimeOffset.UtcNow,
-            CreateNodeId(textBox, TreeKinds.Visual)));
+            CreateNodeId(textBox, TreeKinds.Visual),
+            CreateNodeTarget(topLevelId, TreeKinds.Visual, topLevel, textBox)));
     }
 
     private CoreResult<InputResponse> ClearText(
@@ -895,7 +903,8 @@ public sealed class AvaScopeBridgeRuntime
             InputActions.ClearText,
             handled: true,
             DateTimeOffset.UtcNow,
-            CreateNodeId(textBox, TreeKinds.Visual)));
+            CreateNodeId(textBox, TreeKinds.Visual),
+            CreateNodeTarget(topLevelId, TreeKinds.Visual, topLevel, textBox)));
     }
 
     private CoreResult<InputResponse> FocusTarget(
@@ -927,7 +936,8 @@ public sealed class AvaScopeBridgeRuntime
             InputActions.Focus,
             handled: true,
             DateTimeOffset.UtcNow,
-            CreateNodeId(target.Value, TreeKinds.Visual)));
+            CreateNodeId(target.Value, TreeKinds.Visual),
+            CreateNodeTarget(topLevelId, TreeKinds.Visual, topLevel, target.Value)));
     }
 
     private CoreResult<InputResponse> KeyInput(
@@ -998,7 +1008,10 @@ public sealed class AvaScopeBridgeRuntime
             action,
             handled: true,
             DateTimeOffset.UtcNow,
-            CreateNodeId(target, TreeKinds.Visual)));
+            CreateNodeId(target, TreeKinds.Visual),
+            CreateNodeTarget(topLevelId, TreeKinds.Visual, topLevel, target),
+            key.Value.ToString(),
+            modifiers.Value.ToString()));
     }
 
     private static CoreResult<Point> GetInputPoint(double? x, double? y)
@@ -1302,32 +1315,33 @@ public sealed class AvaScopeBridgeRuntime
                 }));
     }
 
-    private TreeNodeSummary SerializeVisualNode(Visual visual, string topLevelId, int depth, int maxDepth)
+    private TreeNodeSummary SerializeVisualNode(Visual visual, string topLevelId, TopLevel topLevel, int depth, int maxDepth)
     {
         var children = depth >= maxDepth
             ? Array.Empty<TreeNodeSummary>()
             : visual.GetVisualChildren()
-                .Select(child => SerializeVisualNode(child, topLevelId, depth + 1, maxDepth))
+                .Select(child => SerializeVisualNode(child, topLevelId, topLevel, depth + 1, maxDepth))
                 .ToArray();
 
-        return CreateNodeSummary(topLevelId, visual, TreeKinds.Visual, children);
+        return CreateNodeSummary(topLevelId, visual, TreeKinds.Visual, topLevel, children);
     }
 
-    private TreeNodeSummary SerializeLogicalNode(ILogical logical, string topLevelId, int depth, int maxDepth)
+    private TreeNodeSummary SerializeLogicalNode(ILogical logical, string topLevelId, TopLevel topLevel, int depth, int maxDepth)
     {
         var children = depth >= maxDepth
             ? Array.Empty<TreeNodeSummary>()
             : logical.GetLogicalChildren()
-                .Select(child => SerializeLogicalNode(child, topLevelId, depth + 1, maxDepth))
+                .Select(child => SerializeLogicalNode(child, topLevelId, topLevel, depth + 1, maxDepth))
                 .ToArray();
 
-        return CreateNodeSummary(topLevelId, logical, TreeKinds.Logical, children);
+        return CreateNodeSummary(topLevelId, logical, TreeKinds.Logical, topLevel, children);
     }
 
     private TreeNodeSummary CreateNodeSummary(
         string topLevelId,
         object node,
         string treeKind,
+        TopLevel topLevel,
         IReadOnlyList<TreeNodeSummary> children)
     {
         return new TreeNodeSummary(
@@ -1339,17 +1353,39 @@ public sealed class AvaScopeBridgeRuntime
             GetBounds(node),
             GetClasses(node),
             children,
-            CreateNodeTarget(topLevelId, treeKind, node));
+            CreateNodeTarget(topLevelId, treeKind, topLevel, node));
     }
 
-    private RuntimeTargetContext CreateTopLevelTarget(string topLevelId)
+    private RuntimeTargetContext CreateTopLevelTarget(string topLevelId, TopLevel topLevel)
     {
-        return new RuntimeTargetContext(SessionId, topLevelId);
+        return new RuntimeTargetContext(
+            SessionId,
+            topLevelId,
+            capturedAt: DateTimeOffset.UtcNow,
+            topLevelGeneration: CreateObjectGeneration(topLevel));
     }
 
-    private RuntimeTargetContext CreateNodeTarget(string topLevelId, string treeKind, object node)
+    private RuntimeTargetContext CreateTreeTarget(string topLevelId, string treeKind, TopLevel topLevel)
     {
-        return new RuntimeTargetContext(SessionId, topLevelId, treeKind, CreateNodeId(node, treeKind));
+        return new RuntimeTargetContext(
+            SessionId,
+            topLevelId,
+            treeKind,
+            capturedAt: DateTimeOffset.UtcNow,
+            targetKind: "tree",
+            topLevelGeneration: CreateObjectGeneration(topLevel));
+    }
+
+    private RuntimeTargetContext CreateNodeTarget(string topLevelId, string treeKind, TopLevel topLevel, object node)
+    {
+        return new RuntimeTargetContext(
+            SessionId,
+            topLevelId,
+            treeKind,
+            CreateNodeId(node, treeKind),
+            DateTimeOffset.UtcNow,
+            topLevelGeneration: CreateObjectGeneration(topLevel),
+            nodeGeneration: CreateObjectGeneration(node));
     }
 
     private static IReadOnlyDictionary<string, string> CreateTargetErrorDetails(
@@ -1379,6 +1415,11 @@ public sealed class AvaScopeBridgeRuntime
     private static string CreateNodeId(object node, string treeKind)
     {
         return $"{treeKind}:{RuntimeHelpers.GetHashCode(node):x}";
+    }
+
+    private static string CreateObjectGeneration(object value)
+    {
+        return RuntimeHelpers.GetHashCode(value).ToString("x", CultureInfo.InvariantCulture);
     }
 
     private static string? GetName(object node)

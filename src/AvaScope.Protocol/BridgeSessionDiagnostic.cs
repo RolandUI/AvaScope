@@ -13,7 +13,11 @@ public sealed record BridgeSessionDiagnostic
         string? transport = null,
         string? pipeName = null,
         HealthResponse? health = null,
-        ProtocolError? error = null)
+        ProtocolError? error = null,
+        string? processName = null,
+        DateTimeOffset? checkedAt = null,
+        string? requestId = null,
+        bool cleanupCandidate = false)
     {
         if (string.IsNullOrWhiteSpace(status))
         {
@@ -48,6 +52,10 @@ public sealed record BridgeSessionDiagnostic
         PipeName = pipeName;
         Health = health;
         Error = error;
+        ProcessName = string.IsNullOrWhiteSpace(processName) ? null : processName.Trim();
+        CheckedAt = checkedAt;
+        RequestId = string.IsNullOrWhiteSpace(requestId) ? null : requestId.Trim();
+        CleanupCandidate = cleanupCandidate;
     }
 
     [JsonPropertyName("status")]
@@ -79,4 +87,19 @@ public sealed record BridgeSessionDiagnostic
     [JsonPropertyName("error")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public ProtocolError? Error { get; }
+
+    [JsonPropertyName("processName")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ProcessName { get; }
+
+    [JsonPropertyName("checkedAt")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public DateTimeOffset? CheckedAt { get; }
+
+    [JsonPropertyName("requestId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? RequestId { get; }
+
+    [JsonPropertyName("cleanupCandidate")]
+    public bool CleanupCandidate { get; }
 }

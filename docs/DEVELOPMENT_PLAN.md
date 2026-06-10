@@ -25,18 +25,27 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `R0.4.0-M1 Bridge Session Discovery And Cleanup`
+- `R0.4.0-M6 Release Candidate And Version Bump`
 - Status: `In Progress`
 - Owner: autonomous agent
-- Started: `2026-06-09`
-- Goal: start the `v0.4.0` runtime reliability release by making local bridge discovery and cleanup resilient to stale manifests, dead processes, duplicate records, and user-selected manifest directories.
+- Started: `2026-06-10`
+- Goal: complete the `v0.4.0` runtime reliability release gate, make the guarded version-bump release commit, push it, and verify the published GitHub release.
 
 ## Next Action
 
-Implement `R0.4.0-M1` as the first vertical slice of the `v0.4.0` runtime reliability release: inspect current bridge manifest discovery, add targeted cleanup/diagnostic behavior, validate with Core/CLI/MCP tests, and keep the release plan aligned.
+Commit `Release 0.4.0`, push it to `master`, and verify the GitHub Release workflow publishes tag `v0.4.0`, packages, executable ZIPs, and the release manifest.
 
 ## Latest Validation
 
+- `2026-06-10`: `dotnet build AvaScope.slnx --no-restore -v:minimal` passed with 0 warnings and 0 errors after implementing `v0.4.0` runtime bridge reliability.
+- `2026-06-10`: Runtime reliability targeted tests passed with 61 tests covering Core manifest selection/cleanup/diagnostics, protocol target/input/cleanup shapes, CLI manifest-path/process-name/custom-directory workflows, MCP cleanup and attach selection, MCP stdio tool listing, and headless bridge input metadata.
+- `2026-06-10`: `dotnet test AvaScope.slnx --no-build` passed with 228 tests after isolating diagnostics smoke tests from default preview-session temp records.
+- `2026-06-10`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1` passed for `v0.4.0` after stopping stale packaged CLI/dotnet processes from the local artifact output; Release build/test passed with 228 tests, three `0.4.0` packages, win-x64 and linux-x64 framework-dependent ZIPs, release manifest, packaged doctor smoke, and packaged sample preview smoke.
+- `2026-06-10`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.4.0 -DryRun` passed for `v0.4.0` assets.
+- `2026-06-10`: Packaged Windows CLI runtime smoke passed against `samples\AvaScope.GettingStartedApp`: `attach --process-name`, `list-top-levels`, `visual-tree`, `find-nodes`, `inspect-node`, `screenshot`, `input --action pointer_move`, and `close-session`.
+- `2026-06-10`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-bug-reports.ps1` passed; 15 intake files scanned.
+- `2026-06-10`: `git diff --check` passed with only line-ending normalization warnings.
+- `2026-06-10`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-release-commit.ps1 -Version 0.4.0 -CommitSubject "Release 0.4.0" -RequiredState "Release Candidate"` passed for the `v0.4.0` release commit guard.
 - `2026-06-09`: `git diff --check` passed after revising `v0.8.0` into a product feature release and moving protocol/integration hardening to `v0.9.0`.
 - `2026-06-09`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-bug-reports.ps1` passed after the `v0.8.0` roadmap revision; 15 intake files scanned.
 - `2026-06-09`: Build/test validation was not run for the `v0.8.0` roadmap-only documentation revision because no source code, project file, or test code changed.

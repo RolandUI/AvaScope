@@ -38,7 +38,10 @@ internal sealed class LocalBridgeServer : IDisposable
             pipeName,
             runtime.Session.CreatedAt,
             runtime.Session.DisplayName,
-            ToProtocolTransportScope(runtime.TransportScope));
+            ToProtocolTransportScope(runtime.TransportScope),
+            Environment.ProcessPath is { } processPath
+                ? Path.GetFileNameWithoutExtension(processPath)
+                : null);
 
         Directory.CreateDirectory(Path.GetDirectoryName(manifestPath)!);
         File.WriteAllText(manifestPath, JsonSerializer.Serialize(manifest), Encoding.UTF8);
@@ -241,7 +244,7 @@ internal sealed class LocalBridgeServer : IDisposable
                 closeAfterResponse: true)
             : Respond(BridgeIpcResponse.Fail(
                 request.RequestId,
-                new ProtocolError(result.Error!.Code, result.Error.Message)));
+                ToProtocolError(result.Error!)));
     }
 
     private async Task<BridgeIpcResponse> CaptureScreenshotAsync(
@@ -268,7 +271,7 @@ internal sealed class LocalBridgeServer : IDisposable
             ? BridgeIpcResponse.Ok(request.RequestId, result.Value)
             : BridgeIpcResponse.Fail(
                 request.RequestId,
-                new ProtocolError(result.Error!.Code, result.Error.Message));
+                ToProtocolError(result.Error!));
     }
 
     private async Task<BridgeIpcResponse> GetTreeAsync(
@@ -300,7 +303,7 @@ internal sealed class LocalBridgeServer : IDisposable
             ? BridgeIpcResponse.Ok(request.RequestId, result.Value)
             : BridgeIpcResponse.Fail(
                 request.RequestId,
-                new ProtocolError(result.Error!.Code, result.Error.Message));
+                ToProtocolError(result.Error!));
     }
 
     private async Task<BridgeIpcResponse> FindNodesAsync(
@@ -336,7 +339,7 @@ internal sealed class LocalBridgeServer : IDisposable
             ? BridgeIpcResponse.Ok(request.RequestId, result.Value)
             : BridgeIpcResponse.Fail(
                 request.RequestId,
-                new ProtocolError(result.Error!.Code, result.Error.Message));
+                ToProtocolError(result.Error!));
     }
 
     private async Task<BridgeIpcResponse> InspectNodeAsync(
@@ -374,7 +377,7 @@ internal sealed class LocalBridgeServer : IDisposable
             ? BridgeIpcResponse.Ok(request.RequestId, result.Value)
             : BridgeIpcResponse.Fail(
                 request.RequestId,
-                new ProtocolError(result.Error!.Code, result.Error.Message));
+                ToProtocolError(result.Error!));
     }
 
     private async Task<BridgeIpcResponse> InputAsync(
@@ -410,7 +413,7 @@ internal sealed class LocalBridgeServer : IDisposable
             ? BridgeIpcResponse.Ok(request.RequestId, result.Value)
             : BridgeIpcResponse.Fail(
                 request.RequestId,
-                new ProtocolError(result.Error!.Code, result.Error.Message));
+                ToProtocolError(result.Error!));
     }
 
     private static BridgeRequestResult Respond(
@@ -440,6 +443,11 @@ internal sealed class LocalBridgeServer : IDisposable
             SessionLifecycleState.Failed => SessionStates.Failed,
             _ => throw new ArgumentOutOfRangeException(nameof(state), state, "Unknown session state.")
         };
+    }
+
+    private static ProtocolError ToProtocolError(CoreError error)
+    {
+        return new ProtocolError(error.Code, error.Message, error.Details);
     }
 
     private sealed record BridgeRequestResult(

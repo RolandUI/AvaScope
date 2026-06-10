@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using System.IO.Pipes;
 using System.Text;
 using System.Text.Json;
 using AvaScope.Core;
@@ -59,6 +61,40 @@ public sealed class LocalBridgeClientTests : IDisposable
         Assert.Equal(liveManifest.SessionId, manifest.SessionId);
         Assert.Equal(Environment.ProcessId, manifest.ProcessId);
         Assert.Equal("Live app", manifest.DisplayName);
+    }
+
+    [Fact]
+    public async Task AttachToAppCanSelectManifestPathAndProcessName()
+    {
+        Directory.CreateDirectory(_manifestDirectory);
+        var sessionId = SessionId.New();
+        var pipeName = $"avascope-core-test-{Guid.NewGuid():N}";
+        var processName = Process.GetCurrentProcess().ProcessName;
+        var manifestPath = WriteManifest(
+            "selected.json",
+            new BridgeSessionManifest(
+                sessionId,
+                Environment.ProcessId,
+                pipeName,
+                DateTimeOffset.UtcNow,
+                "Selected app",
+                processName: processName));
+        var serverTask = RespondToBridgeRequestAsync(
+            pipeName,
+            request => BridgeIpcResponse.Ok(request.RequestId, HealthResponse.Current()));
+        var client = new LocalBridgeClient(Path.Combine(_manifestDirectory, "unused"));
+
+        var result = await client.AttachToAppAsync(
+            processName: processName + ".exe",
+            manifestPath: manifestPath);
+        var request = await serverTask;
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(BridgeIpcMethods.Health, request.Method);
+        Assert.Equal(sessionId, result.Value!.Session.SessionId);
+        Assert.Equal(Environment.ProcessId, result.Value.ProcessId);
+        Assert.Equal(processName, result.Value.ProcessName);
+        Assert.Equal(Path.GetFullPath(manifestPath), result.Value.ManifestPath);
     }
 
     [Fact]
@@ -281,6 +317,91 @@ public sealed class LocalBridgeClientTests : IDisposable
     }
 
     [Fact]
+    public async Task DiagnosticsReportsDuplicateAndIncompatibleBridgeManifests()
+    {
+        Directory.CreateDirectory(_manifestDirectory);
+        var duplicateSessionId = new SessionId("session-duplicate");
+        var incompatibleSessionId = new SessionId("session-incompatible");
+        var pipeName = $"avascope-core-test-{Guid.NewGuid():N}";
+        var createdAt = new DateTimeOffset(2026, 6, 10, 8, 0, 0, TimeSpan.Zero);
+        WriteManifest(
+            "duplicate-a.json",
+            new BridgeSessionManifest(duplicateSessionId, Environment.ProcessId, "avascope-duplicate-a", createdAt));
+        WriteManifest(
+            "duplicate-b.json",
+            new BridgeSessionManifest(duplicateSessionId, Environment.ProcessId, "avascope-duplicate-b", createdAt.AddSeconds(1)));
+        WriteManifest(
+            "incompatible.json",
+            new BridgeSessionManifest(
+                incompatibleSessionId,
+                Environment.ProcessId,
+                pipeName,
+                createdAt.AddSeconds(2),
+                processName: Process.GetCurrentProcess().ProcessName));
+        var serverTask = RespondToBridgeRequestAsync(
+            pipeName,
+            request => BridgeIpcResponse.Ok(
+                request.RequestId,
+                new HealthResponse(AvaScopeProtocol.ServiceName, new ProtocolVersion(2, 0))));
+        var client = new LocalBridgeClient(_manifestDirectory, TimeSpan.FromMilliseconds(100));
+
+        var result = await client.DiagnosticsAsync(sessionId: incompatibleSessionId);
+        var request = await serverTask;
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(BridgeIpcMethods.Health, request.Method);
+        var incompatible = Assert.Single(result.Value!.BridgeSessions);
+        Assert.Equal(DiagnosticStatuses.Incompatible, incompatible.Status);
+        Assert.Equal(CoreErrorCodes.BridgeProtocolIncompatible, incompatible.Error!.Code);
+        Assert.Equal(pipeName, incompatible.PipeName);
+        Assert.False(string.IsNullOrWhiteSpace(incompatible.RequestId));
+
+        var duplicateResult = await client.DiagnosticsAsync(maxSessions: 10);
+
+        Assert.True(duplicateResult.Success, duplicateResult.Error?.Message);
+        Assert.Contains(
+            duplicateResult.Value!.Issues,
+            issue => issue.Code == CoreErrorCodes.BridgeManifestDuplicate
+                && issue.Details is not null
+                && issue.Details["sessionId"] == duplicateSessionId.Value);
+    }
+
+    [Fact]
+    public async Task CleanupBridgeManifestsDeletesStaleAndInvalidRecordsOnly()
+    {
+        Directory.CreateDirectory(_manifestDirectory);
+        var staleManifestPath = WriteManifest(
+            "stale.json",
+            new BridgeSessionManifest(
+                new SessionId("session-stale"),
+                int.MaxValue,
+                "avascope-stale",
+                DateTimeOffset.UtcNow));
+        var invalidManifestPath = Path.Combine(_manifestDirectory, "invalid.json");
+        File.WriteAllText(invalidManifestPath, "{", Encoding.UTF8);
+        var liveManifestPath = WriteManifest(
+            "live.json",
+            new BridgeSessionManifest(
+                new SessionId("session-live"),
+                Environment.ProcessId,
+                "avascope-live",
+                DateTimeOffset.UtcNow));
+        var client = new LocalBridgeClient(_manifestDirectory, TimeSpan.FromMilliseconds(50));
+
+        var result = await client.CleanupBridgeManifestsAsync();
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(Path.GetFullPath(_manifestDirectory), result.Value!.ManifestDirectory);
+        Assert.Equal(2, result.Value.DeletedBridgeManifestRecords);
+        Assert.False(File.Exists(staleManifestPath));
+        Assert.False(File.Exists(invalidManifestPath));
+        Assert.True(File.Exists(liveManifestPath));
+        Assert.Contains(result.Value.CleanupCandidates, candidate => candidate.Status == DiagnosticStatuses.Stale);
+        Assert.Contains(result.Value.CleanupCandidates, candidate => candidate.Status == DiagnosticStatuses.Invalid);
+        Assert.Empty(result.Value.Issues);
+    }
+
+    [Fact]
     public async Task DiagnosticsRejectsInvalidSessionLimit()
     {
         var client = new LocalBridgeClient(_manifestDirectory);
@@ -359,5 +480,72 @@ public sealed class LocalBridgeClientTests : IDisposable
                 Assert.Equal(Path.GetFullPath(previewRecordPath), preview.Path);
                 Assert.Equal("preview_session_store_record", preview.Provenance);
             });
+    }
+
+    private string WriteManifest(string fileName, BridgeSessionManifest manifest)
+    {
+        var manifestPath = Path.Combine(_manifestDirectory, fileName);
+        File.WriteAllText(manifestPath, JsonSerializer.Serialize(manifest), Encoding.UTF8);
+        return manifestPath;
+    }
+
+    private static async Task<BridgeIpcRequest> RespondToBridgeRequestAsync(
+        string pipeName,
+        Func<BridgeIpcRequest, BridgeIpcResponse> responseFactory)
+    {
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        try
+        {
+            await using var pipe = new NamedPipeServerStream(
+                pipeName,
+                PipeDirection.InOut,
+                maxNumberOfServerInstances: 1,
+                PipeTransmissionMode.Byte,
+                PipeOptions.Asynchronous);
+
+            await pipe.WaitForConnectionAsync(cancellation.Token);
+            var requestLine = await ReadLineAsync(pipe, cancellation.Token);
+            var request = JsonSerializer.Deserialize<BridgeIpcRequest>(requestLine)
+                ?? throw new InvalidOperationException("Bridge IPC request payload was empty.");
+            var responseBytes = Encoding.UTF8.GetBytes(
+                JsonSerializer.Serialize(responseFactory(request)) + Environment.NewLine);
+            await pipe.WriteAsync(responseBytes, cancellation.Token);
+            await pipe.FlushAsync(cancellation.Token);
+            return request;
+        }
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+        {
+            throw new TimeoutException($"Timed out waiting for a bridge IPC request on pipe '{pipeName}'.");
+        }
+    }
+
+    private static async Task<string> ReadLineAsync(Stream stream, CancellationToken cancellationToken)
+    {
+        var bytes = new List<byte>();
+        var buffer = new byte[128];
+
+        while (true)
+        {
+            var read = await stream.ReadAsync(buffer.AsMemory(0, buffer.Length), cancellationToken);
+            if (read == 0)
+            {
+                break;
+            }
+
+            for (var index = 0; index < read; index++)
+            {
+                if (buffer[index] == (byte)'\n')
+                {
+                    return Encoding.UTF8.GetString(bytes.ToArray());
+                }
+
+                if (buffer[index] != (byte)'\r')
+                {
+                    bytes.Add(buffer[index]);
+                }
+            }
+        }
+
+        return Encoding.UTF8.GetString(bytes.ToArray());
     }
 }

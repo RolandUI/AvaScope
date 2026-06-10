@@ -293,14 +293,18 @@ Attach to an active local bridge session:
 
 ```powershell
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll attach --process 1234
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll attach --process-name MyApp
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll attach --session session-id
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll attach --manifest C:\Temp\AvaScope\sessions\session-id.json
 ```
+
+Use `--manifest-dir <dir>` on runtime CLI commands when the inspected app writes bridge manifests to a selected local directory. AvaScope never silently picks between multiple matching live manifests; retry with `--session`, `--process`, `--process-name`, or `--manifest` when attach is ambiguous.
 
 List top-level windows/views and capture a runtime screenshot from an active bridge session:
 
 ```powershell
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll list-top-levels --session session-id
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll screenshot --session session-id --top-level topLevel:1234 --out screenshot.png
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll list-top-levels --session session-id --manifest-dir C:\Temp\AvaScope\sessions
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll screenshot --session session-id --top-level topLevel:1234 --out screenshot.png --manifest-dir C:\Temp\AvaScope\sessions
 ```
 
 Read bounded runtime trees from an active bridge session:
@@ -310,7 +314,7 @@ dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll visual-tree --session s
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll logical-tree --session session-id --top-level topLevel:1234 --max-depth 4
 ```
 
-Runtime tree, search, inspect, input, and screenshot responses include a `target` object with the current `sessionId`, `topLevelId`, and, when applicable, `treeKind` and `nodeId`. Carry that object into follow-up commands instead of guessing which visual/logical node id or top-level context belongs together. Missing or stale node references return structured details with the requested `topLevelId`, `treeKind`, `nodeId`, and a `nextAction`.
+Runtime tree, search, inspect, input, and screenshot responses include a `target` object with the current `sessionId`, `topLevelId`, `targetKind`, `capturedAt`, top-level generation metadata, and, when applicable, `treeKind`, `nodeId`, and node generation metadata. Carry that object into follow-up commands instead of guessing which visual/logical node id or top-level context belongs together. Missing or stale node references return structured details with the requested `topLevelId`, `treeKind`, `nodeId`, request id when available, and a `nextAction`.
 
 Inspect a single runtime tree node by stable node id:
 
@@ -337,6 +341,8 @@ dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll input --session session
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll input --session session-id --top-level topLevel:1234 --action key_down --key Enter --modifiers Control+Shift --target-node visual:5678
 ```
 
+Input responses include `pointerButton` for supported pointer/click actions and `inputKey`/`keyModifiers` for routed key actions.
+
 Close an active local bridge session:
 
 ```powershell
@@ -349,9 +355,10 @@ Read local bridge and preview-host diagnostics:
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll doctor
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll diagnostics
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll diagnostics --session session-id --max-sessions 10
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll diagnostics --manifest C:\Temp\AvaScope\sessions\session-id.json
 ```
 
-`doctor` reports CLI/MCP/PreviewHost co-location, bridge manifest discovery, preview-session store state, preview host readiness, and actionable issues without building or loading user projects. It exits non-zero when required co-located AvaScope assemblies or diagnostic records need attention.
+`doctor` reports CLI/MCP/PreviewHost co-location, bridge manifest discovery, preview-session store state, preview host readiness, and actionable issues without building or loading user projects. It exits non-zero when required co-located AvaScope assemblies or diagnostic records need attention. `diagnostics` distinguishes active, stale, invalid, unauthorized, unavailable, and incompatible local bridge records, includes health-check request ids, reports duplicate manifest records, and preserves protocol mismatch details.
 
 Compare screenshots with an explicit diff artifact:
 
@@ -379,6 +386,14 @@ dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll cleanup
 ```
 
 Cleanup only removes stale or invalid JSON records from the local AvaScope preview-session store. It does not terminate processes by name.
+
+Delete stale or invalid AvaScope-owned bridge manifests:
+
+```powershell
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll cleanup-bridge-sessions --manifest-dir C:\Temp\AvaScope\sessions
+```
+
+Bridge cleanup deletes only stale or invalid local manifest JSON files. It does not kill processes and leaves live but unavailable or incompatible bridge-enabled apps in place for diagnostics.
 
 Check reload support for a runtime bridge session:
 
@@ -422,6 +437,7 @@ Implemented tools:
 - `preview_axaml_multi`
 - `preview_axaml_animation`
 - `cleanup`
+- `cleanup_bridge_sessions`
 - `create_preview_session`
 - `list_preview_sessions`
 - `preview_viewer`
@@ -430,7 +446,7 @@ Implemented tools:
 
 Planned but not implemented yet: runtime hot reload, drag/drop, full preview startup orchestration, installer distribution, macOS release policy, and CI-oriented visual-regression reporting.
 
-`diagnostics` reports AvaScope service metadata, local bridge manifest/pipe health, stale or invalid bridge manifests, preview host readiness, and stale or invalid preview-session metadata without building or loading user projects. The response keeps the legacy `issues` list and also includes bounded `diagnosticIssues` entries with source, severity, status, provenance, and related path/session metadata for agent triage.
+`diagnostics` reports AvaScope service metadata, local bridge manifest/pipe health, stale, invalid, unauthorized, unavailable, duplicate, and protocol-incompatible bridge records, preview host readiness, and stale or invalid preview-session metadata without building or loading user projects. The response keeps the legacy `issues` list and also includes bounded `diagnosticIssues` entries with source, severity, status, provenance, request ids, and related path/session metadata for agent triage.
 
 Preview readiness/build/render failures preserve the stable `error.code` and `error.message` shape and may include bounded `error.details` fields such as `phase`, `requirement`, `projectPath`, `viewPath`, `outputPath`, `exitCode`, `outputTail`, and `nextAction`. Readiness failures cover local prerequisites that can be checked before rendering, such as missing co-located PreviewHost assemblies, missing project files, missing view files, and unavailable `dotnet` process startup.
 

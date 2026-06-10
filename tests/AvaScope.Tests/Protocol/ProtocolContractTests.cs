@@ -561,13 +561,23 @@ public sealed class ProtocolContractTests
     public void InputResponseSerializesStableShape()
     {
         var executedAt = new DateTimeOffset(2026, 6, 7, 0, 0, 0, TimeSpan.Zero);
+        var capturedAt = executedAt.AddMilliseconds(-25);
         var response = new InputResponse(
             new SessionId("session-1"),
             "topLevel:abc",
             InputActions.Click,
             handled: true,
             executedAt,
-            "visual:button");
+            "visual:button",
+            new RuntimeTargetContext(
+                new SessionId("session-1"),
+                "topLevel:abc",
+                TreeKinds.Visual,
+                "visual:button",
+                capturedAt,
+                topLevelGeneration: "top-gen",
+                nodeGeneration: "node-gen"),
+            pointerButton: "left");
 
         var json = JsonSerializer.Serialize(response);
         var node = JsonNode.Parse(json)!;
@@ -582,6 +592,30 @@ public sealed class ProtocolContractTests
         Assert.Equal("topLevel:abc", node["target"]!["topLevelId"]!.GetValue<string>());
         Assert.Equal("visual", node["target"]!["treeKind"]!.GetValue<string>());
         Assert.Equal("visual:button", node["target"]!["nodeId"]!.GetValue<string>());
+        Assert.Equal("node", node["target"]!["targetKind"]!.GetValue<string>());
+        Assert.Equal(capturedAt, DateTimeOffset.Parse(node["target"]!["capturedAt"]!.GetValue<string>(), CultureInfo.InvariantCulture));
+        Assert.Equal("top-gen", node["target"]!["topLevelGeneration"]!.GetValue<string>());
+        Assert.Equal("node-gen", node["target"]!["nodeGeneration"]!.GetValue<string>());
+        Assert.Equal("left", node["pointerButton"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public void InputResponseSerializesKeyMetadataWhenProvided()
+    {
+        var response = new InputResponse(
+            new SessionId("session-1"),
+            "topLevel:abc",
+            InputActions.KeyDown,
+            handled: true,
+            DateTimeOffset.UnixEpoch,
+            "visual:textbox",
+            inputKey: "Enter",
+            keyModifiers: "Control, Shift");
+
+        var node = JsonNode.Parse(JsonSerializer.Serialize(response))!;
+
+        Assert.Equal("Enter", node["inputKey"]!.GetValue<string>());
+        Assert.Equal("Control, Shift", node["keyModifiers"]!.GetValue<string>());
     }
 
     [Fact]
@@ -900,6 +934,45 @@ public sealed class ProtocolContractTests
         Assert.Equal("C:\\diff.png", diffNode["diffPath"]!.GetValue<string>());
         Assert.Equal(1, cleanupNode["deletedPreviewSessionRecords"]!.GetValue<int>());
         Assert.Equal(DiagnosticStatuses.Stale, cleanupNode["stalePreviewSessions"]![0]!["status"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public void BridgeCleanupResponseSerializesStableShape()
+    {
+        var cleanedAt = new DateTimeOffset(2026, 6, 10, 8, 0, 0, TimeSpan.Zero);
+        var response = new BridgeCleanupResponse(
+            "C:\\avascope\\sessions",
+            1,
+            [
+                new BridgeSessionDiagnostic(
+                    DiagnosticStatuses.Stale,
+                    "C:\\avascope\\sessions\\session.json",
+                    new SessionSummary(
+                        new SessionId("runtime-1"),
+                        SessionKinds.Runtime,
+                        SessionStates.Failed,
+                        DateTimeOffset.UnixEpoch),
+                    1234,
+                    DiagnosticTransportKinds.NamedPipe,
+                    "avascope-1234-runtime-1",
+                    error: new ProtocolError("bridge_ipc_unavailable", "Process is gone."),
+                    processName: "SampleApp",
+                    checkedAt: cleanedAt,
+                    cleanupCandidate: true)
+            ],
+            ["C:\\avascope\\sessions\\session.json"],
+            [],
+            cleanedAt);
+
+        var node = JsonNode.Parse(JsonSerializer.Serialize(response))!;
+
+        Assert.Equal("C:\\avascope\\sessions", node["manifestDirectory"]!.GetValue<string>());
+        Assert.Equal(1, node["deletedBridgeManifestRecords"]!.GetValue<int>());
+        Assert.Equal(DiagnosticStatuses.Stale, node["cleanupCandidates"]![0]!["status"]!.GetValue<string>());
+        Assert.Equal("SampleApp", node["cleanupCandidates"]![0]!["processName"]!.GetValue<string>());
+        Assert.True(node["cleanupCandidates"]![0]!["cleanupCandidate"]!.GetValue<bool>());
+        Assert.Equal("C:\\avascope\\sessions\\session.json", node["deletedPaths"]![0]!.GetValue<string>());
+        Assert.Equal(cleanedAt, DateTimeOffset.Parse(node["cleanedAt"]!.GetValue<string>(), CultureInfo.InvariantCulture));
     }
 
     [Fact]

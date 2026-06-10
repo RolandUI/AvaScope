@@ -115,13 +115,16 @@ In another terminal:
 ```powershell
 & $avascope diagnostics --max-sessions 10
 & $avascope attach --session <runtime-session-id>
-& $avascope list-top-levels --session <runtime-session-id>
+& $avascope attach --process-name AvaScope.GettingStartedApp
+& $avascope list-top-levels --session <runtime-session-id> --manifest-dir <manifest-dir>
 & $avascope visual-tree --session <runtime-session-id> --top-level <topLevel:id> --max-depth 4
 & $avascope find-nodes --session <runtime-session-id> --top-level <topLevel:id> --type TextBlock --max-depth 6
 & $avascope inspect-node --session <runtime-session-id> --top-level <topLevel:id> --node <node-id>
 ```
 
-Use the `target` object returned by `visual-tree`, `logical-tree`, `find-nodes`, `inspect-node`, `screenshot`, and `input` as the handoff source for follow-up commands. It contains the current `sessionId`, `topLevelId`, and node `treeKind`/`nodeId` when a node is involved; stale nodes return structured details and a `nextAction`.
+Use `--manifest-dir` on follow-up runtime commands when the inspected app writes bridge manifests outside the default temp location. `attach` also accepts `--process`, `--process-name`, `--session`, and `--manifest` so agents can avoid ambiguous selection when multiple bridge-enabled apps are running.
+
+Use the `target` object returned by `visual-tree`, `logical-tree`, `find-nodes`, `inspect-node`, `screenshot`, and `input` as the handoff source for follow-up commands. It contains the current `sessionId`, `topLevelId`, `targetKind`, `capturedAt`, generation metadata, and node `treeKind`/`nodeId` when a node is involved; stale nodes return structured details and a `nextAction`.
 
 Runtime bridge activation is always explicit and local-only. AvaScope does not open a network listener.
 
@@ -161,6 +164,7 @@ Runtime input is intentionally narrow and non-destructive. Unsupported actions r
 ```powershell
 & $avascope close-session --session <runtime-session-id>
 & $avascope cleanup
+& $avascope cleanup-bridge-sessions --manifest-dir <manifest-dir>
 ```
 
-`cleanup` removes stale or invalid AvaScope-owned preview-session metadata. It does not terminate processes by name.
+`cleanup` removes stale or invalid AvaScope-owned preview-session metadata. `cleanup-bridge-sessions` removes stale or invalid local bridge manifest JSON files. Neither command terminates processes by name.

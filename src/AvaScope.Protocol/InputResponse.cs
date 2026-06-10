@@ -12,7 +12,10 @@ public sealed record InputResponse
         bool handled,
         DateTimeOffset executedAt,
         string? targetNodeId = null,
-        RuntimeTargetContext? target = null)
+        RuntimeTargetContext? target = null,
+        string? inputKey = null,
+        string? keyModifiers = null,
+        string? pointerButton = null)
     {
         SessionId = sessionId ?? throw new ArgumentNullException(nameof(sessionId));
 
@@ -32,6 +35,9 @@ public sealed record InputResponse
         ExecutedAt = executedAt;
         TargetNodeId = targetNodeId;
         Target = target ?? CreateTarget(sessionId, topLevelId, targetNodeId);
+        InputKey = string.IsNullOrWhiteSpace(inputKey) ? null : inputKey.Trim();
+        KeyModifiers = string.IsNullOrWhiteSpace(keyModifiers) ? null : keyModifiers.Trim();
+        PointerButton = string.IsNullOrWhiteSpace(pointerButton) ? null : pointerButton.Trim();
     }
 
     [JsonPropertyName("sessionId")]
@@ -55,6 +61,18 @@ public sealed record InputResponse
 
     [JsonPropertyName("target")]
     public RuntimeTargetContext Target { get; }
+
+    [JsonPropertyName("inputKey")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? InputKey { get; }
+
+    [JsonPropertyName("keyModifiers")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? KeyModifiers { get; }
+
+    [JsonPropertyName("pointerButton")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? PointerButton { get; }
 
     private static RuntimeTargetContext CreateTarget(
         SessionId sessionId,

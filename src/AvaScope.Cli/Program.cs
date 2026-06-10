@@ -44,6 +44,7 @@ internal static class Program
             "baseline-create" => await BaselineCreate(args[1..]),
             "baseline-check" => await BaselineCheck(args[1..]),
             "cleanup" => Cleanup(args[1..]),
+            "cleanup-bridge-sessions" => await CleanupBridgeSessions(args[1..]),
             "diff" => Diff(args[1..]),
             "mcp" => await Mcp(),
             _ => UnknownCommand(args[0])
@@ -942,6 +943,11 @@ internal static class Program
             PreviewSessionStore.CreateDefault());
     }
 
+    private static LocalBridgeClient CreateBridgeClient(IReadOnlyDictionary<string, string> options)
+    {
+        return new LocalBridgeClient(options.GetValueOrDefault("manifest-dir"));
+    }
+
     private static async Task<int> Attach(string[] args)
     {
         var options = ParseOptions(args, GetAttachUsage());
@@ -951,7 +957,7 @@ internal static class Program
             return 2;
         }
 
-        if (!ValidateOptions(options.Values, GetAttachUsage(), "process", "session"))
+        if (!ValidateOptions(options.Values, GetAttachUsage(), "process", "process-name", "session", "manifest", "manifest-dir"))
         {
             return 2;
         }
@@ -983,7 +989,11 @@ internal static class Program
             }
         }
 
-        var result = await new LocalBridgeClient().AttachToAppAsync(processId, sessionId);
+        var result = await CreateBridgeClient(options.Values).AttachToAppAsync(
+            processId,
+            sessionId,
+            options.Values.GetValueOrDefault("process-name"),
+            options.Values.GetValueOrDefault("manifest"));
         WriteResult(result);
 
         return result.Success ? 0 : 1;
@@ -998,13 +1008,13 @@ internal static class Program
             return 2;
         }
 
-        if (!ValidateOptions(options.Values, GetListTopLevelsUsage(), "session")
+        if (!ValidateOptions(options.Values, GetListTopLevelsUsage(), "session", "manifest-dir")
             || !TryReadRequiredSessionId(options.Values, GetListTopLevelsUsage(), out var sessionId))
         {
             return 2;
         }
 
-        var result = await new LocalBridgeClient().ListTopLevelsAsync(sessionId!);
+        var result = await CreateBridgeClient(options.Values).ListTopLevelsAsync(sessionId!);
         WriteResult(result);
 
         return result.Success ? 0 : 1;
@@ -1019,7 +1029,7 @@ internal static class Program
             return 2;
         }
 
-        if (!ValidateOptions(options.Values, usage, "session", "top-level", "max-depth")
+        if (!ValidateOptions(options.Values, usage, "session", "top-level", "max-depth", "manifest-dir")
             || !TryReadRequiredSessionId(options.Values, usage, out var sessionId)
             || !TryReadRequiredOption(options.Values, "top-level", usage, out var topLevelId)
             || !TryReadOptionalNonNegativeInt(options.Values, "max-depth", out var maxDepth))
@@ -1027,7 +1037,7 @@ internal static class Program
             return 2;
         }
 
-        var client = new LocalBridgeClient();
+        var client = CreateBridgeClient(options.Values);
         var result = string.Equals(treeKind, TreeKinds.Visual, StringComparison.Ordinal)
             ? await client.VisualTreeAsync(sessionId!, topLevelId!, maxDepth)
             : await client.LogicalTreeAsync(sessionId!, topLevelId!, maxDepth);
@@ -1045,7 +1055,7 @@ internal static class Program
             return 2;
         }
 
-        if (!ValidateOptions(options.Values, GetInspectNodeUsage(), "session", "top-level", "node", "tree-kind")
+        if (!ValidateOptions(options.Values, GetInspectNodeUsage(), "session", "top-level", "node", "tree-kind", "manifest-dir")
             || !TryReadRequiredSessionId(options.Values, GetInspectNodeUsage(), out var sessionId)
             || !TryReadRequiredOption(options.Values, "top-level", GetInspectNodeUsage(), out var topLevelId)
             || !TryReadRequiredOption(options.Values, "node", GetInspectNodeUsage(), out var nodeId)
@@ -1054,7 +1064,7 @@ internal static class Program
             return 2;
         }
 
-        var result = await new LocalBridgeClient().InspectNodeAsync(sessionId!, topLevelId!, treeKind, nodeId!);
+        var result = await CreateBridgeClient(options.Values).InspectNodeAsync(sessionId!, topLevelId!, treeKind, nodeId!);
         WriteResult(result);
 
         return result.Success ? 0 : 1;
@@ -1080,7 +1090,8 @@ internal static class Program
                 "automation-id",
                 "text",
                 "max-depth",
-                "max-results")
+                "max-results",
+                "manifest-dir")
             || !TryReadRequiredSessionId(options.Values, GetFindNodesUsage(), out var sessionId)
             || !TryReadRequiredOption(options.Values, "top-level", GetFindNodesUsage(), out var topLevelId)
             || !TryReadOptionalTreeKind(options.Values, out var treeKind)
@@ -1103,7 +1114,7 @@ internal static class Program
             return 2;
         }
 
-        var result = await new LocalBridgeClient().FindNodesAsync(
+        var result = await CreateBridgeClient(options.Values).FindNodesAsync(
             sessionId!,
             topLevelId!,
             treeKind,
@@ -1138,7 +1149,8 @@ internal static class Program
                 "text",
                 "target-node",
                 "key",
-                "modifiers")
+                "modifiers",
+                "manifest-dir")
             || !TryReadRequiredSessionId(options.Values, GetInputUsage(), out var sessionId)
             || !TryReadRequiredOption(options.Values, "top-level", GetInputUsage(), out var topLevelId)
             || !TryReadRequiredOption(options.Values, "action", GetInputUsage(), out var action)
@@ -1158,7 +1170,7 @@ internal static class Program
             return 2;
         }
 
-        var result = await new LocalBridgeClient().InputAsync(
+        var result = await CreateBridgeClient(options.Values).InputAsync(
             sessionId!,
             topLevelId!,
             action!,
@@ -1182,13 +1194,13 @@ internal static class Program
             return 2;
         }
 
-        if (!ValidateOptions(options.Values, GetReloadUsage(), "session")
+        if (!ValidateOptions(options.Values, GetReloadUsage(), "session", "manifest-dir")
             || !TryReadRequiredSessionId(options.Values, GetReloadUsage(), out var sessionId))
         {
             return 2;
         }
 
-        var result = await new LocalBridgeClient().ReloadRuntimeAsync(sessionId!);
+        var result = await CreateBridgeClient(options.Values).ReloadRuntimeAsync(sessionId!);
         WriteResult(result);
 
         return result.Success ? 0 : 1;
@@ -1203,7 +1215,7 @@ internal static class Program
             return 2;
         }
 
-        if (!ValidateOptions(options.Values, GetDiagnosticsUsage(), "process", "session", "max-sessions")
+        if (!ValidateOptions(options.Values, GetDiagnosticsUsage(), "process", "process-name", "session", "manifest", "manifest-dir", "max-sessions")
             || !TryReadOptionalProcessId(options.Values, out var processId)
             || !TryReadOptionalSessionId(options.Values, out var sessionId)
             || !TryReadOptionalDiagnosticsMaxSessions(options.Values, out var maxSessions))
@@ -1212,12 +1224,14 @@ internal static class Program
         }
 
         var previewSessionDiagnostics = PreviewSessionStore.CreateDefault().GetDiagnostics();
-        var result = await new LocalBridgeClient().DiagnosticsAsync(
+        var result = await CreateBridgeClient(options.Values).DiagnosticsAsync(
             processId,
             sessionId,
             maxSessions,
             new PreviewHostClient().GetDiagnostics(),
-            previewSessionDiagnostics);
+            previewSessionDiagnostics,
+            processName: options.Values.GetValueOrDefault("process-name"),
+            manifestPath: options.Values.GetValueOrDefault("manifest"));
         WriteResult(result);
 
         return result.Success ? 0 : 1;
@@ -1342,6 +1356,25 @@ internal static class Program
         return result.Success ? 0 : 1;
     }
 
+    private static async Task<int> CleanupBridgeSessions(string[] args)
+    {
+        var options = ParseOptions(args, GetCleanupBridgeSessionsUsage());
+        if (!options.Success)
+        {
+            WriteFailure<BridgeCleanupResponse>(InvalidCliArguments, options.Error!);
+            return 2;
+        }
+
+        if (!ValidateOptions(options.Values, GetCleanupBridgeSessionsUsage(), "manifest-dir"))
+        {
+            return 2;
+        }
+
+        var result = await CreateBridgeClient(options.Values).CleanupBridgeManifestsAsync();
+        WriteResult(result);
+        return result.Success && result.Value!.Issues.Count == 0 ? 0 : 1;
+    }
+
     private static int Diff(string[] args)
     {
         var options = ParseOptions(args, GetDiffUsage());
@@ -1383,13 +1416,13 @@ internal static class Program
             return 2;
         }
 
-        if (!ValidateOptions(options.Values, GetCloseSessionUsage(), "session")
+        if (!ValidateOptions(options.Values, GetCloseSessionUsage(), "session", "manifest-dir")
             || !TryReadRequiredSessionId(options.Values, GetCloseSessionUsage(), out var sessionId))
         {
             return 2;
         }
 
-        var result = await new LocalBridgeClient().CloseSessionAsync(sessionId!);
+        var result = await CreateBridgeClient(options.Values).CloseSessionAsync(sessionId!);
         WriteResult(result);
 
         return result.Success ? 0 : 1;
@@ -1404,7 +1437,7 @@ internal static class Program
             return 2;
         }
 
-        if (!ValidateOptions(options.Values, GetScreenshotUsage(), "session", "top-level", "out")
+        if (!ValidateOptions(options.Values, GetScreenshotUsage(), "session", "top-level", "out", "manifest-dir")
             || !TryReadRequiredSessionId(options.Values, GetScreenshotUsage(), out var sessionId)
             || !TryReadRequiredOption(options.Values, "top-level", GetScreenshotUsage(), out var topLevelId)
             || !TryReadRequiredOption(options.Values, "out", GetScreenshotUsage(), out var outputPath))
@@ -1412,7 +1445,7 @@ internal static class Program
             return 2;
         }
 
-        var result = await new LocalBridgeClient().CaptureScreenshotAsync(sessionId!, topLevelId!, outputPath!);
+        var result = await CreateBridgeClient(options.Values).CaptureScreenshotAsync(sessionId!, topLevelId!, outputPath!);
         WriteResult(result);
 
         return result.Success ? 0 : 1;
@@ -1966,7 +1999,7 @@ internal static class Program
 
     private static string GetUsage()
     {
-        return "Usage: avascope mcp | avascope doctor [--manifest-dir <dir>] [--preview-session-store <dir>] | avascope attach [--process <pid>] [--session <session-id>] | avascope list-top-levels --session <session-id> | avascope visual-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] | avascope logical-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] | avascope inspect-node --session <session-id> --top-level <top-level-id> --node <node-id> [--tree-kind visual|logical] | avascope find-nodes --session <session-id> --top-level <top-level-id> [--tree-kind visual|logical] [--type <type>] [--name <name>] [--automation-id <id>] [--text <text>] [--max-depth <n>] [--max-results <n>] | avascope input --session <session-id> --top-level <top-level-id> --action <action> [--x <x>] [--y <y>] [--text <text>] [--target-node <node-id>] [--key <key>] [--modifiers <modifiers>] | avascope close-session --session <session-id> | avascope diagnostics [--process <pid>] [--session <session-id>] [--max-sessions <n>] | avascope reload --session <session-id> | avascope create-preview-session <project.csproj> [--profile <name>] [--profile-file <path>] --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] [--display-name <name>] | avascope list-preview-sessions | avascope reload-preview-session --session <session-id> | avascope close-preview-session --session <session-id> | avascope watch-preview-session --session <session-id> --timeout-ms <ms> [--settle-ms <ms>] [--max-reloads <n>] [--watch <path>[,<path>...]] | avascope preview-viewer --session <session-id> [--out <viewer.html>] | avascope baseline-create <project.csproj> --view <view.axaml> --manifest <baseline.json> --sizes <w>x<h>[,<w>x<h>...] [--out-dir <dir>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] | avascope baseline-check --manifest <baseline.json> [--out-dir <dir>] [--diff-dir <dir>] [--tolerance <0-255>] [--report <report.json>] | avascope cleanup | avascope diff --baseline <baseline.png> --current <current.png> --out <diff.png> [--tolerance <0-255>] | avascope screenshot --session <session-id> --top-level <top-level-id> --out <screenshot.png> | avascope preview-animation <project.csproj> [--profile <name>] [--profile-file <path>] --view <view.axaml> --out <frame.png> --time-offsets <ms>[,<ms>...] [--frame-strip <strip.png>] [--viewer <viewer.html>] [--width <width>] [--height <height>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] | avascope preview <project.csproj> [--profile <name>] [--profile-file <path>] --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--sizes <w>x<h>[,<w>x<h>...]] [--contact-sheet <sheet.png>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>]";
+        return "Usage: avascope mcp | avascope doctor [--manifest-dir <dir>] [--preview-session-store <dir>] | avascope attach [--process <pid>] [--process-name <name>] [--session <session-id>] [--manifest <path>] [--manifest-dir <dir>] | avascope list-top-levels --session <session-id> [--manifest-dir <dir>] | avascope visual-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] [--manifest-dir <dir>] | avascope logical-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] [--manifest-dir <dir>] | avascope inspect-node --session <session-id> --top-level <top-level-id> --node <node-id> [--tree-kind visual|logical] [--manifest-dir <dir>] | avascope find-nodes --session <session-id> --top-level <top-level-id> [--tree-kind visual|logical] [--type <type>] [--name <name>] [--automation-id <id>] [--text <text>] [--max-depth <n>] [--max-results <n>] [--manifest-dir <dir>] | avascope input --session <session-id> --top-level <top-level-id> --action <action> [--x <x>] [--y <y>] [--text <text>] [--target-node <node-id>] [--key <key>] [--modifiers <modifiers>] [--manifest-dir <dir>] | avascope close-session --session <session-id> [--manifest-dir <dir>] | avascope diagnostics [--process <pid>] [--process-name <name>] [--session <session-id>] [--manifest <path>] [--manifest-dir <dir>] [--max-sessions <n>] | avascope reload --session <session-id> [--manifest-dir <dir>] | avascope create-preview-session <project.csproj> [--profile <name>] [--profile-file <path>] --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] [--display-name <name>] | avascope list-preview-sessions | avascope reload-preview-session --session <session-id> | avascope close-preview-session --session <session-id> | avascope watch-preview-session --session <session-id> --timeout-ms <ms> [--settle-ms <ms>] [--max-reloads <n>] [--watch <path>[,<path>...]] | avascope preview-viewer --session <session-id> [--out <viewer.html>] | avascope baseline-create <project.csproj> --view <view.axaml> --manifest <baseline.json> --sizes <w>x<h>[,<w>x<h>...] [--out-dir <dir>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] | avascope baseline-check --manifest <baseline.json> [--out-dir <dir>] [--diff-dir <dir>] [--tolerance <0-255>] [--report <report.json>] | avascope cleanup | avascope cleanup-bridge-sessions [--manifest-dir <dir>] | avascope diff --baseline <baseline.png> --current <current.png> --out <diff.png> [--tolerance <0-255>] | avascope screenshot --session <session-id> --top-level <top-level-id> --out <screenshot.png> [--manifest-dir <dir>] | avascope preview-animation <project.csproj> [--profile <name>] [--profile-file <path>] --view <view.axaml> --out <frame.png> --time-offsets <ms>[,<ms>...] [--frame-strip <strip.png>] [--viewer <viewer.html>] [--width <width>] [--height <height>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] | avascope preview <project.csproj> [--profile <name>] [--profile-file <path>] --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--sizes <w>x<h>[,<w>x<h>...]] [--contact-sheet <sheet.png>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>]";
     }
 
     private static string GetPreviewUsage()
@@ -2021,47 +2054,47 @@ internal static class Program
 
     private static string GetAttachUsage()
     {
-        return "Usage: avascope attach [--process <pid>] [--session <session-id>]";
+        return "Usage: avascope attach [--process <pid>] [--process-name <name>] [--session <session-id>] [--manifest <path>] [--manifest-dir <dir>]";
     }
 
     private static string GetListTopLevelsUsage()
     {
-        return "Usage: avascope list-top-levels --session <session-id>";
+        return "Usage: avascope list-top-levels --session <session-id> [--manifest-dir <dir>]";
     }
 
     private static string GetVisualTreeUsage()
     {
-        return "Usage: avascope visual-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>]";
+        return "Usage: avascope visual-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] [--manifest-dir <dir>]";
     }
 
     private static string GetLogicalTreeUsage()
     {
-        return "Usage: avascope logical-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>]";
+        return "Usage: avascope logical-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] [--manifest-dir <dir>]";
     }
 
     private static string GetInspectNodeUsage()
     {
-        return "Usage: avascope inspect-node --session <session-id> --top-level <top-level-id> --node <node-id> [--tree-kind visual|logical]";
+        return "Usage: avascope inspect-node --session <session-id> --top-level <top-level-id> --node <node-id> [--tree-kind visual|logical] [--manifest-dir <dir>]";
     }
 
     private static string GetFindNodesUsage()
     {
-        return "Usage: avascope find-nodes --session <session-id> --top-level <top-level-id> [--tree-kind visual|logical] [--type <type>] [--name <name>] [--automation-id <id>] [--text <text>] [--max-depth <n>] [--max-results <n>]";
+        return "Usage: avascope find-nodes --session <session-id> --top-level <top-level-id> [--tree-kind visual|logical] [--type <type>] [--name <name>] [--automation-id <id>] [--text <text>] [--max-depth <n>] [--max-results <n>] [--manifest-dir <dir>]";
     }
 
     private static string GetInputUsage()
     {
-        return "Usage: avascope input --session <session-id> --top-level <top-level-id> --action <action> [--x <x>] [--y <y>] [--text <text>] [--target-node <node-id>] [--key <key>] [--modifiers <modifiers>]";
+        return "Usage: avascope input --session <session-id> --top-level <top-level-id> --action <action> [--x <x>] [--y <y>] [--text <text>] [--target-node <node-id>] [--key <key>] [--modifiers <modifiers>] [--manifest-dir <dir>]";
     }
 
     private static string GetCloseSessionUsage()
     {
-        return "Usage: avascope close-session --session <session-id>";
+        return "Usage: avascope close-session --session <session-id> [--manifest-dir <dir>]";
     }
 
     private static string GetDiagnosticsUsage()
     {
-        return "Usage: avascope diagnostics [--process <pid>] [--session <session-id>] [--max-sessions <n>]";
+        return "Usage: avascope diagnostics [--process <pid>] [--process-name <name>] [--session <session-id>] [--manifest <path>] [--manifest-dir <dir>] [--max-sessions <n>]";
     }
 
     private static string GetDoctorUsage()
@@ -2071,12 +2104,17 @@ internal static class Program
 
     private static string GetReloadUsage()
     {
-        return "Usage: avascope reload --session <session-id>";
+        return "Usage: avascope reload --session <session-id> [--manifest-dir <dir>]";
     }
 
     private static string GetCleanupUsage()
     {
         return "Usage: avascope cleanup";
+    }
+
+    private static string GetCleanupBridgeSessionsUsage()
+    {
+        return "Usage: avascope cleanup-bridge-sessions [--manifest-dir <dir>]";
     }
 
     private static string GetDiffUsage()
@@ -2086,7 +2124,7 @@ internal static class Program
 
     private static string GetScreenshotUsage()
     {
-        return "Usage: avascope screenshot --session <session-id> --top-level <top-level-id> --out <screenshot.png>";
+        return "Usage: avascope screenshot --session <session-id> --top-level <top-level-id> --out <screenshot.png> [--manifest-dir <dir>]";
     }
 
     private static void WriteFailure(string code, string message)

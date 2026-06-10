@@ -416,6 +416,7 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
             Assert.True(down.Success, down.Error?.Message);
             Assert.True(down.Value!.Handled);
             Assert.False(string.IsNullOrWhiteSpace(down.Value.TargetNodeId));
+            Assert.Equal("left", down.Value.PointerButton);
             Assert.Equal(1, pointerPressed);
 
             var up = await AvaScopeMcpTools.Input(
@@ -429,6 +430,7 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
             Assert.True(up.Success, up.Error?.Message);
             Assert.True(up.Value!.Handled);
             Assert.False(string.IsNullOrWhiteSpace(up.Value.TargetNodeId));
+            Assert.Equal("left", up.Value.PointerButton);
             Assert.Equal(1, pointerReleased);
 
             var click = await AvaScopeMcpTools.Input(
@@ -441,6 +443,7 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
 
             Assert.True(click.Success, click.Error?.Message);
             Assert.True(click.Value!.Handled);
+            Assert.Equal("left", click.Value.PointerButton);
             Assert.Equal(1, clicked);
 
             Assert.True(textBox.Focus(NavigationMethod.Pointer));
@@ -556,6 +559,9 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
 
             Assert.True(keyDownResult.Success, keyDownResult.Error?.Message);
             Assert.True(keyDownResult.Value!.Handled);
+            Assert.Equal("Enter", keyDownResult.Value.InputKey);
+            Assert.Contains("Control", keyDownResult.Value.KeyModifiers, StringComparison.Ordinal);
+            Assert.Contains("Shift", keyDownResult.Value.KeyModifiers, StringComparison.Ordinal);
             Assert.Equal(1, keyDown);
 
             var keyUpResult = await AvaScopeMcpTools.Input(
@@ -567,6 +573,7 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
 
             Assert.True(keyUpResult.Success, keyUpResult.Error?.Message);
             Assert.True(keyUpResult.Value!.Handled);
+            Assert.Equal("Enter", keyUpResult.Value.InputKey);
             Assert.Equal(1, keyUp);
 
             var unsupported = await AvaScopeMcpTools.Input(

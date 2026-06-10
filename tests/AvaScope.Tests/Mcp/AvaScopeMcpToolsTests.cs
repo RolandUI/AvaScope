@@ -1,3 +1,4 @@
+using System.Text.Json;
 using AvaScope.Core;
 using AvaScope.Mcp;
 using AvaScope.Protocol;
@@ -180,8 +181,13 @@ public sealed class AvaScopeMcpToolsTests
     {
         var client = new LocalBridgeClient(CreateMissingManifestDirectory());
         var previewHostClient = CreatePreviewHostClient();
+        var previewSessionStore = new PreviewSessionStore(CreateMissingPreviewSessionDirectory());
 
-        var result = await AvaScopeMcpTools.Diagnostics(client, previewHostClient, sessionId: "session-missing");
+        var result = await AvaScopeMcpTools.Diagnostics(
+            client,
+            previewHostClient,
+            previewSessionStore,
+            sessionId: "session-missing");
 
         Assert.True(result.Success, result.Error?.Message);
         Assert.Null(result.Error);
@@ -209,6 +215,43 @@ public sealed class AvaScopeMcpToolsTests
         Assert.False(result.Success);
         Assert.Null(result.Value);
         Assert.Equal(CoreErrorCodes.InvalidBridgeRequest, result.Error!.Code);
+    }
+
+    [Fact]
+    public async Task CleanupBridgeSessionsDeletesStaleManifestFromSelectedDirectory()
+    {
+        var manifestDirectory = Path.Combine(
+            Path.GetTempPath(),
+            "AvaScope.Tests",
+            $"mcp-manifests-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(manifestDirectory);
+        var manifestPath = Path.Combine(manifestDirectory, "stale.json");
+        File.WriteAllText(
+            manifestPath,
+            JsonSerializer.Serialize(new BridgeSessionManifest(
+                new SessionId("session-stale"),
+                int.MaxValue,
+                "avascope-stale",
+                DateTimeOffset.UtcNow)));
+        var client = new LocalBridgeClient(CreateMissingManifestDirectory(), TimeSpan.FromMilliseconds(50));
+
+        try
+        {
+            var result = await AvaScopeMcpTools.CleanupBridgeSessions(client, manifestDirectory);
+
+            Assert.True(result.Success, result.Error?.Message);
+            Assert.Equal(Path.GetFullPath(manifestDirectory), result.Value!.ManifestDirectory);
+            Assert.Equal(1, result.Value.DeletedBridgeManifestRecords);
+            Assert.False(File.Exists(manifestPath));
+            Assert.Empty(result.Value.Issues);
+        }
+        finally
+        {
+            if (Directory.Exists(manifestDirectory))
+            {
+                Directory.Delete(manifestDirectory, recursive: true);
+            }
+        }
     }
 
     [Fact]
@@ -508,6 +551,14 @@ public sealed class AvaScopeMcpToolsTests
             Path.GetTempPath(),
             "AvaScope.Tests",
             $"missing-manifests-{Guid.NewGuid():N}");
+    }
+
+    private static string CreateMissingPreviewSessionDirectory()
+    {
+        return Path.Combine(
+            Path.GetTempPath(),
+            "AvaScope.Tests",
+            $"missing-preview-sessions-{Guid.NewGuid():N}");
     }
 
     private static PreviewHostClient CreatePreviewHostClient()

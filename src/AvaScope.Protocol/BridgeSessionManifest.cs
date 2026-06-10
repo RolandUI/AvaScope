@@ -14,7 +14,8 @@ public sealed record BridgeSessionManifest
         string pipeName,
         DateTimeOffset createdAt,
         string? displayName = null,
-        string? transportScope = null)
+        string? transportScope = null,
+        string? processName = null)
     {
         SessionId = sessionId ?? throw new ArgumentNullException(nameof(sessionId));
 
@@ -32,6 +33,7 @@ public sealed record BridgeSessionManifest
         PipeName = pipeName;
         CreatedAt = createdAt;
         DisplayName = displayName;
+        ProcessName = string.IsNullOrWhiteSpace(processName) ? null : processName.Trim();
         TransportScope = string.IsNullOrWhiteSpace(transportScope)
             ? BridgeTransportScopes.LocalOnly
             : transportScope;
@@ -59,6 +61,10 @@ public sealed record BridgeSessionManifest
     [JsonPropertyName("displayName")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? DisplayName { get; }
+
+    [JsonPropertyName("processName")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ProcessName { get; }
 
     [JsonPropertyName("transportScope")]
     public string TransportScope { get; }

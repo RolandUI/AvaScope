@@ -41,3 +41,5 @@ dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll diagnostics --max-sessi
 ```
 
 Use the reported session id with `list-top-levels`, `visual-tree`, `screenshot`, and the other runtime CLI commands documented in the root README.
+
+If diagnostics show stale sample bridge manifests after stopping the app, run `cleanup-bridge-sessions` from the repository root to remove stale local manifest JSON records without terminating processes.

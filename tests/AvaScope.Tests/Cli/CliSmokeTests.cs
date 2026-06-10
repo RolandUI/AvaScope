@@ -1145,6 +1145,58 @@ public sealed class CliSmokeTests
     }
 
     [Fact]
+    public async Task AttachCommandSelectsManifestPathAndProcessName()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var manifestDirectory = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));
+        var sessionId = SessionId.New();
+        var pipeName = $"avascope-cli-test-{Guid.NewGuid():N}";
+        var processName = Process.GetCurrentProcess().ProcessName;
+        var manifestPath = WriteBridgeManifest(
+            sessionId,
+            pipeName,
+            manifestDirectory,
+            processName: processName);
+        var serverTask = RespondToBridgeRequestAsync(pipeName, request =>
+        {
+            Assert.Equal(BridgeIpcMethods.Health, request.Method);
+            return BridgeIpcResponse.Ok(request.RequestId, HealthResponse.Current());
+        });
+
+        try
+        {
+            var result = await RunCliAsync(
+                cliAssembly,
+                "attach",
+                "--manifest",
+                manifestPath,
+                "--process-name",
+                processName + ".exe");
+            var request = await serverTask;
+
+            Assert.Equal(0, result.ExitCode);
+            Assert.Equal(BridgeIpcMethods.Health, request.Method);
+            Assert.True(string.IsNullOrWhiteSpace(result.StandardError), result.StandardError);
+
+            var payload = JsonSerializer.Deserialize<ToolResult<AttachToAppResponse>>(result.StandardOutput, JsonOptions);
+            Assert.NotNull(payload);
+            Assert.True(payload.Success, payload.Error?.Message);
+            Assert.Equal(sessionId, payload.Value!.Session.SessionId);
+            Assert.Equal(processName, payload.Value.ProcessName);
+            Assert.Equal(Path.GetFullPath(manifestPath), payload.Value.ManifestPath);
+        }
+        finally
+        {
+            if (Directory.Exists(manifestDirectory))
+            {
+                Directory.Delete(manifestDirectory, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
     public async Task ListTopLevelsCommandReturnsStructuredErrorWhenNoBridgeSessionMatches()
     {
         var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
@@ -1207,6 +1259,57 @@ public sealed class CliSmokeTests
             if (File.Exists(manifestPath))
             {
                 File.Delete(manifestPath);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task ListTopLevelsCommandUsesCustomManifestDirectory()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var manifestDirectory = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));
+        var sessionId = SessionId.New();
+        var pipeName = $"avascope-cli-test-{Guid.NewGuid():N}";
+        WriteBridgeManifest(sessionId, pipeName, manifestDirectory);
+        var expectedTopLevel = new TopLevelSummary(
+            "topLevel:custom",
+            "window",
+            "Custom Manifest Window",
+            640,
+            360,
+            1,
+            true);
+        var serverTask = RespondToBridgeRequestAsync(pipeName, request =>
+        {
+            Assert.Equal(BridgeIpcMethods.ListTopLevels, request.Method);
+            return BridgeIpcResponse.Ok(request.RequestId, new[] { expectedTopLevel });
+        });
+
+        try
+        {
+            var result = await RunCliAsync(
+                cliAssembly,
+                "list-top-levels",
+                "--session",
+                sessionId.Value,
+                "--manifest-dir",
+                manifestDirectory);
+            var request = await serverTask;
+
+            Assert.Equal(0, result.ExitCode);
+            Assert.Equal(BridgeIpcMethods.ListTopLevels, request.Method);
+            var payload = JsonSerializer.Deserialize<ToolResult<ListTopLevelsResponse>>(result.StandardOutput, JsonOptions);
+            Assert.NotNull(payload);
+            Assert.True(payload.Success, payload.Error?.Message);
+            Assert.Equal("topLevel:custom", Assert.Single(payload.Value!.TopLevels).Id);
+        }
+        finally
+        {
+            if (Directory.Exists(manifestDirectory))
+            {
+                Directory.Delete(manifestDirectory, recursive: true);
             }
         }
     }
@@ -2305,6 +2408,7 @@ public sealed class CliSmokeTests
         var sessionId = SessionId.New();
         var pipeName = $"avascope-cli-test-{Guid.NewGuid():N}";
         var manifestPath = WriteBridgeManifest(sessionId, pipeName);
+        var environment = CreateIsolatedPreviewSessionEnvironment();
 
         var serverTask = RespondToBridgeRequestAsync(pipeName, request =>
         {
@@ -2314,7 +2418,8 @@ public sealed class CliSmokeTests
 
         try
         {
-            var result = await RunCliAsync(
+            var result = await RunCliAsyncWithEnvironment(
+                environment,
                 cliAssembly,
                 "diagnostics",
                 "--session",
@@ -2353,8 +2458,14 @@ public sealed class CliSmokeTests
     {
         var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
         Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+        var environment = CreateIsolatedPreviewSessionEnvironment();
 
-        var result = await RunCliAsync(cliAssembly, "diagnostics", "--session", SessionId.New().Value);
+        var result = await RunCliAsyncWithEnvironment(
+            environment,
+            cliAssembly,
+            "diagnostics",
+            "--session",
+            SessionId.New().Value);
 
         Assert.Equal(0, result.ExitCode);
         Assert.True(string.IsNullOrWhiteSpace(result.StandardError), result.StandardError);
@@ -2609,6 +2720,51 @@ public sealed class CliSmokeTests
     }
 
     [Fact]
+    public async Task CleanupBridgeSessionsCommandDeletesStaleAndInvalidCustomManifestRecords()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var manifestDirectory = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(manifestDirectory);
+        var staleManifestPath = WriteBridgeManifest(
+            new SessionId("session-stale"),
+            "avascope-stale",
+            manifestDirectory,
+            processId: int.MaxValue);
+        var invalidManifestPath = Path.Combine(manifestDirectory, "invalid.json");
+        await File.WriteAllTextAsync(invalidManifestPath, "{");
+
+        try
+        {
+            var result = await RunCliAsync(
+                cliAssembly,
+                "cleanup-bridge-sessions",
+                "--manifest-dir",
+                manifestDirectory);
+
+            Assert.Equal(0, result.ExitCode);
+            Assert.True(string.IsNullOrWhiteSpace(result.StandardError), result.StandardError);
+            Assert.False(File.Exists(staleManifestPath));
+            Assert.False(File.Exists(invalidManifestPath));
+
+            var payload = JsonSerializer.Deserialize<ToolResult<BridgeCleanupResponse>>(result.StandardOutput, JsonOptions);
+            Assert.NotNull(payload);
+            Assert.True(payload.Success, payload.Error?.Message);
+            Assert.Equal(2, payload.Value!.DeletedBridgeManifestRecords);
+            Assert.Contains(payload.Value.CleanupCandidates, candidate => candidate.Status == DiagnosticStatuses.Stale);
+            Assert.Contains(payload.Value.CleanupCandidates, candidate => candidate.Status == DiagnosticStatuses.Invalid);
+        }
+        finally
+        {
+            if (Directory.Exists(manifestDirectory))
+            {
+                Directory.Delete(manifestDirectory, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
     public async Task DiffCommandWritesDiffAndReturnsChangedSummary()
     {
         var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
@@ -2671,6 +2827,17 @@ public sealed class CliSmokeTests
     private static async Task<CliResult> RunCliAsync(string cliAssembly, params string[] arguments)
     {
         return await RunCliAsyncFromDirectory(AppContext.BaseDirectory, cliAssembly, arguments);
+    }
+
+    private static IReadOnlyDictionary<string, string> CreateIsolatedPreviewSessionEnvironment()
+    {
+        return new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            [PreviewSessionStore.DirectoryEnvironmentVariable] = Path.Combine(
+                Path.GetTempPath(),
+                "AvaScope.Tests",
+                $"preview-sessions-{Guid.NewGuid():N}")
+        };
     }
 
     private static async Task<CliResult> RunCliAsyncWithEnvironment(
@@ -2804,17 +2971,29 @@ public sealed class CliSmokeTests
         return process;
     }
 
-    private static string WriteBridgeManifest(SessionId sessionId, string pipeName)
+    private static string WriteBridgeManifest(
+        SessionId sessionId,
+        string pipeName,
+        string? manifestDirectory = null,
+        string? fileName = null,
+        int? processId = null,
+        string? processName = null)
     {
-        Directory.CreateDirectory(BridgeSessionManifest.GetDefaultDirectory());
+        var directory = string.IsNullOrWhiteSpace(manifestDirectory)
+            ? BridgeSessionManifest.GetDefaultDirectory()
+            : manifestDirectory;
+        Directory.CreateDirectory(directory);
 
         var manifest = new BridgeSessionManifest(
             sessionId,
-            Environment.ProcessId,
+            processId ?? Environment.ProcessId,
             pipeName,
             DateTimeOffset.UtcNow,
-            "CLI fake bridge");
-        var manifestPath = BridgeSessionManifest.GetDefaultPath(sessionId);
+            "CLI fake bridge",
+            processName: processName);
+        var manifestPath = string.IsNullOrWhiteSpace(manifestDirectory)
+            ? BridgeSessionManifest.GetDefaultPath(sessionId)
+            : Path.Combine(directory, fileName ?? $"{sessionId.Value}.json");
         File.WriteAllText(manifestPath, JsonSerializer.Serialize(manifest), Encoding.UTF8);
         return manifestPath;
     }

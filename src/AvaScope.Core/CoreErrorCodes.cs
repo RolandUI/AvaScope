@@ -9,6 +9,10 @@ public static class CoreErrorCodes
     public const string BridgeIpcFailed = "bridge_ipc_failed";
     public const string BridgeIpcUnavailable = "bridge_ipc_unavailable";
     public const string BridgeManifestInvalid = "bridge_manifest_invalid";
+    public const string BridgeManifestUnauthorized = "bridge_manifest_unauthorized";
+    public const string BridgeManifestDuplicate = "bridge_manifest_duplicate";
+    public const string BridgeProtocolIncompatible = "bridge_protocol_incompatible";
+    public const string BridgeManifestCleanupFailed = "bridge_manifest_cleanup_failed";
     public const string DiagnosticsTruncated = "diagnostics_truncated";
     public const string InvalidBridgeRequest = "invalid_bridge_request";
     public const string InvalidPreviewRequest = "invalid_preview_request";

@@ -37,6 +37,26 @@ public sealed class AvaScopeMcpBridgeToolsTests : IDisposable
     }
 
     [Fact]
+    public async Task AttachToAppUsesProcessNameAndManifestDirectory()
+    {
+        var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Sample app"));
+        var manifestDirectory = Path.GetDirectoryName(runtime.SessionManifestPath)!;
+        var client = new LocalBridgeClient(Path.Combine(manifestDirectory, "missing"));
+
+        var result = await AvaScopeMcpTools.AttachToApp(
+            client,
+            processName: Environment.ProcessPath is { } processPath
+                ? Path.GetFileNameWithoutExtension(processPath)
+                : null,
+            manifestDirectory: manifestDirectory);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(runtime.SessionId, result.Value!.Session.SessionId);
+        Assert.Equal(Environment.ProcessId, result.Value.ProcessId);
+        Assert.Equal(Path.GetFullPath(runtime.SessionManifestPath!), result.Value.ManifestPath);
+    }
+
+    [Fact]
     public async Task CloseSessionUsesLocalBridgeManifestAndPipeHandshake()
     {
         var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Sample app"));
@@ -63,8 +83,16 @@ public sealed class AvaScopeMcpBridgeToolsTests : IDisposable
         var manifestPath = runtime.SessionManifestPath!;
         var client = new LocalBridgeClient(Path.GetDirectoryName(manifestPath)!);
         var previewHostClient = new PreviewHostClient(Path.Combine(AppContext.BaseDirectory, "AvaScope.PreviewHost.dll"));
+        var previewSessionStore = new PreviewSessionStore(Path.Combine(
+            Path.GetTempPath(),
+            "AvaScope.Tests",
+            $"mcp-bridge-preview-sessions-{Guid.NewGuid():N}"));
 
-        var result = await AvaScopeMcpTools.Diagnostics(client, previewHostClient, sessionId: runtime.SessionId.Value);
+        var result = await AvaScopeMcpTools.Diagnostics(
+            client,
+            previewHostClient,
+            previewSessionStore,
+            sessionId: runtime.SessionId.Value);
 
         Assert.True(result.Success, result.Error?.Message);
         Assert.Null(result.Error);
