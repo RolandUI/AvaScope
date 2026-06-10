@@ -25,18 +25,20 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `Post-v0.6.0 CI Stabilization And Release Completion`
-- Status: `In Progress`
-- Owner: Codex
-- Started: `2026-06-10`
-- Goal: finish stabilizing post-release hosted Windows CI timing-sensitive tests, verify follow-up CI/Release workflows, and then return the active focus to `R0.7.0-M1`.
+- `R0.7.0-M1 Baseline Suite Manifest`
+- Status: `Not Started`
+- Owner: unassigned
+- Started: pending
+- Goal: start the `v0.7.0` visual-regression productization release by implementing named baseline suite manifests.
 
 ## Next Action
 
-Push the bridge diagnostics fake-pipe timeout stabilization, verify the follow-up GitHub CI and Release no-op workflows, then return the active focus to `R0.7.0-M1 Baseline Suite Manifest`.
+Start `R0.7.0-M1 Baseline Suite Manifest` from `docs/RELEASE_PLAN.md` when the next implementation task begins; keep `v0.7.0` scoped to visual regression and CI productization unless the release plan is revised first.
 
 ## Latest Validation
 
+- `2026-06-10`: GitHub CI workflow `27289102252` passed after the bridge diagnostics fake-pipe helper skipped empty/non-JSON probe connections; follow-up Release workflow `27289102340` no-oped successfully because `v0.6.0` already existed.
+- `2026-06-10`: GitHub CI workflow `27288551198` failed on the `Stabilize bridge diagnostics smoke timeout` commit because the fake named-pipe helper still tried to parse an empty/non-JSON probe connection as JSON.
 - `2026-06-10`: GitHub CI workflow `27288017355` failed on the `Record v0.6.0 CI stabilization` documentation commit in `LocalBridgeClientTests.DiagnosticsReportsDuplicateAndIncompatibleBridgeManifests` because a 100 ms fake named-pipe timeout was too tight for the hosted runner.
 - `2026-06-10`: Increased the incompatible-bridge diagnostics fake-pipe test timeout to 5 seconds and made the fake pipe helper skip empty/non-JSON probe connections; targeted Release diagnostics test passed 4 consecutive local runs, and `dotnet test AvaScope.slnx -c Release --no-build` passed with 242 tests.
 - `2026-06-10`: GitHub CI workflow `27287676017` passed after watcher-smoke cleanup retry stabilization; follow-up Release workflow `27287675726` no-oped successfully because `v0.6.0` already existed.
