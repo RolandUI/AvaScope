@@ -1,18 +1,19 @@
 # AvaScope Development Plan
 
-This document is the primary project-management source for autonomous agents working on AvaScope. Update it whenever meaningful implementation, validation, or planning changes the project state.
+GitHub Issues and Milestones are the primary project-management source for autonomous agents working on AvaScope. This document is the compact local handoff and validation log. Update it whenever meaningful implementation, validation, or planning changes the active GitHub issue or release state.
 
 ## Project Operating Rules
 
 - Work in small vertical slices that produce buildable, testable behavior.
-- Keep exactly one `Current Focus` item active at a time.
-- Before implementing, compare the requested work with this plan. If the plan is stale, update the plan first.
+- Keep exactly one GitHub issue marked `status:in-progress` unless the user explicitly asks for parallel work.
+- Before implementing, inspect the selected GitHub issue, its milestone, `docs/GITHUB_PROJECT_WORKFLOW.md`, and this handoff log. If this document is stale, update it from GitHub before implementation.
 - Each meaningful implementation change must include relevant tests or an explicit validation note explaining why tests are not applicable.
-- Each completed slice must be validated with the listed commands before status moves to `Done`.
-- Commit and push each completed vertical slice or coherent milestone part. Record the commit hash in the handoff and, when practical, in this document.
+- Each completed slice must be validated with the listed commands before its issue moves to `status:done`.
+- Commit and push each completed vertical slice or coherent milestone part. Record the commit hash and validation in the GitHub issue and, when practical, in this document.
 - Keep MCP, CLI, core runtime, bridge, preview host, and protocol concerns separated.
 - Do not introduce broad skeletons unless they directly support the active vertical slice.
 - From `2026-06-09` onward, development is release-based. Define the next release target in `docs/RELEASE_PLAN.md` before feature implementation and keep this plan aligned with that release scope.
+- From `2026-06-10` onward, release execution is GitHub-driven. Each active release must have a GitHub milestone and implementation issues before feature work starts.
 - Treat a `Directory.Build.props` version bump as the release commit only. Do not bump the version until the current release target is `Release Candidate` and the release gate has passed.
 
 ## Status Legend
@@ -26,17 +27,20 @@ This document is the primary project-management source for autonomous agents wor
 ## Current Focus
 
 - `R0.7.0-M1 Baseline Suite Manifest`
-- Status: `Not Started`
+- GitHub Issue: https://github.com/RolandUI/AvaScope/issues/9
+- GitHub Milestone: `v0.7.0`
+- Status: `Ready`
 - Owner: unassigned
 - Started: pending
 - Goal: start the `v0.7.0` visual-regression productization release by implementing named baseline suite manifests.
 
 ## Next Action
 
-Start `R0.7.0-M1 Baseline Suite Manifest` from `docs/RELEASE_PLAN.md` when the next implementation task begins; keep `v0.7.0` scoped to visual regression and CI productization unless the release plan is revised first.
+Start GitHub issue #9 (`R0.7.0-M1 Baseline Suite Manifest`). Before implementation, replace its `status:ready` label with `status:in-progress`, add a start comment, and keep `v0.7.0` scoped to visual regression and CI productization unless issue #8 or `docs/RELEASE_PLAN.md` is revised first.
 
 ## Latest Validation
 
+- `2026-06-10`: Migrated project execution to GitHub Issues and Milestones. Closed malformed v0.6.0 issues #1-#7 as completed, closed the `v0.6.0` milestone, created release milestones `v0.7.0` through `v1.0.0`, created v0.7.0 tracking issue #8 and implementation issues #9-#14, and created blocked Project-board setup issue #15 pending GitHub Projects token scope.
 - `2026-06-10`: GitHub CI workflow `27292094908` passed on the docs-only validation commit in 31 seconds; `Setup .NET`, `Restore`, `Build`, `Test`, `Pack libraries`, `Package executables`, and `Verify artifacts` were skipped, and only the documentation-only skip confirmation step ran. Follow-up Release workflow `27292094955` no-oped successfully because `v0.6.0` already existed.
 - `2026-06-10`: GitHub CI workflow `27291558979` passed after adding CI change classification; because `.github/workflows/ci.yml` changed, the classifier required full validation and Restore, Build, Test, Pack, executable packaging, and artifact verification all ran. Follow-up Release workflow `27291559430` no-oped successfully because `v0.6.0` already existed.
 - `2026-06-10`: `git diff --check` passed after adding the CI documentation-only fast path; local classifier simulation verified docs/Markdown-only changes skip full validation and source/workflow changes require it.

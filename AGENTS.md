@@ -16,17 +16,18 @@ Development in this repository is expected to be performed 100% by autonomous co
 - If external credentials, account access, publishing permissions, or product decisions block completion, state the blocker precisely and stop at the nearest validated state.
 - Each meaningful change should include relevant tests or an explicit validation note explaining why tests are not applicable.
 
-## Development Plan Workflow
+## GitHub Project Workflow
 
-`docs/DEVELOPMENT_PLAN.md` is the primary project-management and progress-tracking source for this repository.
+GitHub Issues and Milestones are the primary project-management and progress-tracking source for this repository. `docs/DEVELOPMENT_PLAN.md` is a compact local handoff and validation log, not the primary backlog.
 
-- Every agent must inspect `docs/DEVELOPMENT_PLAN.md` before starting meaningful implementation work.
-- Development must follow the active `Current Focus`, `Next Action`, milestone status, acceptance criteria, and validation commands unless the requested task explicitly changes the plan.
-- Keep exactly one milestone or workstream marked as `In Progress`.
-- After each meaningful change, update the development plan with the new status, next action, validation result, and commit hash when practical.
-- If the development plan is stale or conflicts with the repository state, update the plan first, record the reason in its `Decision Log` or `Change Log`, then continue implementation.
-- Do not mark a milestone `Done` until its acceptance criteria and validation commands have passed.
-- Commit and push each completed vertical slice or coherent milestone part; do not leave commit, push, test, or validation work for the user.
+- Every agent must inspect the relevant GitHub issue, GitHub milestone, `docs/GITHUB_PROJECT_WORKFLOW.md`, and `docs/DEVELOPMENT_PLAN.md` before starting meaningful implementation work.
+- Development must follow the selected GitHub issue's scope, acceptance criteria, milestone, labels, and validation notes unless the requested task explicitly changes that scope.
+- Keep at most one issue marked `status:in-progress` unless the user explicitly asks for parallel work.
+- Before implementation, move the selected issue to `status:in-progress` and add a short start comment with the intended validation.
+- After each meaningful change, update the issue with commit hash, validation result, and any non-obvious decision; mirror only the latest active issue and validation summary in `docs/DEVELOPMENT_PLAN.md`.
+- If GitHub issues or milestones conflict with local docs, treat GitHub as current, update the local docs, and record the reason in the issue or development-plan log.
+- Do not close an issue until its acceptance criteria and validation commands have passed.
+- Commit and push each completed vertical slice or coherent milestone part; do not leave commit, push, test, validation, issue updates, or release handoff for the user.
 
 ## Product Goal
 

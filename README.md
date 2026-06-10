@@ -29,6 +29,10 @@ AvaScope is an Avalonia inspection, preview, and automation stack for agents and
 - `samples/AvaScope.GettingStartedApp`: tiny Avalonia app for first preview and bridge workflows.
 - `tests/AvaScope.Tests`: protocol, core, MCP, bridge, preview host, and CLI tests.
 
+## Project Management
+
+AvaScope execution is tracked in GitHub Issues and Milestones. Use `docs/GITHUB_PROJECT_WORKFLOW.md` for labels, status flow, milestone rules, and the Project board setup blocker. `docs/DEVELOPMENT_PLAN.md` is kept as a compact local handoff and validation log.
+
 ## Build And Test
 
 ```powershell

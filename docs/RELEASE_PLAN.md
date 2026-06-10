@@ -1,15 +1,16 @@
 # AvaScope Release Plan
 
-AvaScope development is release-based from `2026-06-09` onward. Each new version must have an explicit release target before implementation starts, and the version bump is the final release commit after the target scope is complete.
+AvaScope development is release-based from `2026-06-09` onward and GitHub-driven from `2026-06-10` onward. Each new version must have an explicit release target, GitHub milestone, and implementation issues before implementation starts. The version bump is the final release commit after the target scope is complete.
 
 ## Release Workflow
 
-1. Define the next release target in this file and mirror the active slice in `docs/DEVELOPMENT_PLAN.md`.
-2. Lock the intended release scope before implementation. Scope changes are allowed only when they are recorded here before the release commit.
-3. Complete each release milestone as a vertical slice with tests or an explicit validation note.
-4. Move the release target to `Release Candidate` only after every in-scope milestone is `Done` and the release gate passes.
-5. Make the release commit by increasing `Directory.Build.props` `<Version>` to the target version and committing with subject `Release <version>`.
-6. Push the release commit to `master`. The GitHub `Release` workflow validates, publishes packages/assets when credentials are available, and creates the matching `v<version>` tag.
+1. Define the next release target in this file and create the matching GitHub milestone.
+2. Create a release tracking issue plus vertical-slice implementation issues for the milestone.
+3. Lock the intended release scope before implementation. Scope changes are allowed only when they are recorded in the GitHub issue and, when release-level, here before the release commit.
+4. Complete each release issue as a vertical slice with tests or an explicit validation note.
+5. Move the release target to `Release Candidate` only after every in-scope GitHub issue is closed as completed and the release gate passes.
+6. Make the release commit by increasing `Directory.Build.props` `<Version>` to the target version and committing with subject `Release <version>`.
+7. Push the release commit to `master`. The GitHub `Release` workflow validates, publishes packages/assets when credentials are available, and creates the matching `v<version>` tag.
 
 The release commit must not include unfinished feature work. It should contain only the version bump and release-readiness metadata required to publish the already validated scope.
 
@@ -40,7 +41,7 @@ If the release includes public workflow or packaging changes, also validate the 
 The roadmap below is the working plan to `v1.0.0`. It is intentionally release-shaped so every implementation slice remains shippable, validated, and reversible.
 
 - `v0.6.0` is released.
-- `v0.7.0` is the next planned release target and may be implemented next.
+- `v0.7.0` is the current release target and may be implemented next through GitHub milestone `v0.7.0`, release issue #8, and implementation issue #9 first.
 - `v0.8.0` through `v1.0.0` are planned targets. Their scope may be refined before they become the current release target, but changes must be recorded here before implementation starts.
 - Each release must preserve the current product boundaries: MCP and CLI stay adapters over Core, runtime bridge activation stays opt-in and local-only, PreviewHost stays isolated from the MCP server, and private Avalonia/runtime hooks remain out of the default path.
 - Every release must include targeted tests, full build/test validation, release dry-run validation, documentation updates, and explicit deferrals.

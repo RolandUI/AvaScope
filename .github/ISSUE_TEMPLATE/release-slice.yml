@@ -1,0 +1,35 @@
+name: Release Slice
+description: Track one vertical slice inside a release milestone.
+title: "R<version>-M<number> "
+labels:
+  - type:feature
+  - status:backlog
+body:
+  - type: input
+    id: milestone
+    attributes:
+      label: Release Milestone
+      placeholder: v0.7.0
+    validations:
+      required: true
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      description: One vertical slice outcome.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance Criteria
+      description: Concrete requirements before the issue can close.
+    validations:
+      required: true
+  - type: textarea
+    id: validation
+    attributes:
+      label: Validation
+      description: Targeted and full validation required for this slice.
+    validations:
+      required: true

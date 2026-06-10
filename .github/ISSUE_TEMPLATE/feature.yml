@@ -1,0 +1,35 @@
+name: Feature
+description: Request or track a product capability.
+title: "[Feature] "
+labels:
+  - type:feature
+  - status:backlog
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What user or agent workflow is blocked or inefficient?
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      description: What should be built, changed, or explicitly excluded?
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance Criteria
+      description: Concrete conditions that must be true before this can close.
+    validations:
+      required: true
+  - type: textarea
+    id: validation
+    attributes:
+      label: Validation
+      description: Targeted tests, commands, or smoke checks expected for completion.
+    validations:
+      required: false
