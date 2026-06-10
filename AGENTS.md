@@ -18,7 +18,7 @@ Development in this repository is expected to be performed 100% by autonomous co
 
 ## GitHub Project Workflow
 
-GitHub Issues and Milestones are the primary project-management and progress-tracking source for this repository. `docs/DEVELOPMENT_PLAN.md` is a compact local handoff and validation log, not the primary backlog.
+GitHub Issues, Milestones, and the `AvaScope Roadmap` Project board are the primary project-management and progress-tracking source for this repository. `docs/DEVELOPMENT_PLAN.md` is a compact local handoff and validation log, not the primary backlog.
 
 - Every agent must inspect the relevant GitHub issue, GitHub milestone, `docs/GITHUB_PROJECT_WORKFLOW.md`, and `docs/DEVELOPMENT_PLAN.md` before starting meaningful implementation work.
 - Development must follow the selected GitHub issue's scope, acceptance criteria, milestone, labels, and validation notes unless the requested task explicitly changes that scope.

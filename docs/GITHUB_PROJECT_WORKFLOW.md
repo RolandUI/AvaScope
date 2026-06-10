@@ -8,7 +8,7 @@ Use this document for issue, milestone, label, and project-board conventions. Ke
 
 - Backlog and implementation work: GitHub Issues.
 - Release grouping: GitHub Milestones named `v<version>`, for example `v0.7.0`.
-- Active work state: `status:*` labels and the GitHub Project board when available.
+- Active work state: `status:*` labels and the GitHub Project board.
 - Roadmap intent and release scope: `docs/RELEASE_PLAN.md`.
 - Local handoff and validation log: `docs/DEVELOPMENT_PLAN.md`.
 
@@ -78,7 +78,11 @@ Release milestones use `v<major>.<minor>.<patch>` names.
 
 ## Project Board
 
-The intended board is `AvaScope Roadmap` with statuses:
+Use the public `AvaScope Roadmap` GitHub Project for human-readable roadmap state:
+
+- https://github.com/users/RolandUI/projects/4
+
+The project includes a `Workflow Status` single-select field with these values:
 
 - Backlog
 - Ready
@@ -87,15 +91,7 @@ The intended board is `AvaScope Roadmap` with statuses:
 - Done
 - Blocked
 
-Until the board exists, status labels are the canonical state.
-
-Current blocker: `gh project` access needs a token with Projects scopes. Refresh auth locally before creating or maintaining the board:
-
-```powershell
-gh auth refresh -s read:project -s project
-```
-
-Tracked by GitHub issue #15.
+Keep `status:*` labels aligned with `Workflow Status` when moving work. The default GitHub `Status` field is also populated so the built-in board view separates open Todo work from Done items.
 
 ## Completion Rules
 

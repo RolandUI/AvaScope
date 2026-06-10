@@ -31,7 +31,7 @@ AvaScope is an Avalonia inspection, preview, and automation stack for agents and
 
 ## Project Management
 
-AvaScope execution is tracked in GitHub Issues and Milestones. Use `docs/GITHUB_PROJECT_WORKFLOW.md` for labels, status flow, milestone rules, and the Project board setup blocker. `docs/DEVELOPMENT_PLAN.md` is kept as a compact local handoff and validation log.
+AvaScope execution is tracked in GitHub Issues, Milestones, and the public [AvaScope Roadmap](https://github.com/users/RolandUI/projects/4) Project board. Use `docs/GITHUB_PROJECT_WORKFLOW.md` for labels, status flow, milestone rules, and board maintenance. `docs/DEVELOPMENT_PLAN.md` is kept as a compact local handoff and validation log.
 
 ## Build And Test
 
