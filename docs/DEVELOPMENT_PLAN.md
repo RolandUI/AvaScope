@@ -38,7 +38,7 @@ Push the bridge diagnostics fake-pipe timeout stabilization, verify the follow-u
 ## Latest Validation
 
 - `2026-06-10`: GitHub CI workflow `27288017355` failed on the `Record v0.6.0 CI stabilization` documentation commit in `LocalBridgeClientTests.DiagnosticsReportsDuplicateAndIncompatibleBridgeManifests` because a 100 ms fake named-pipe timeout was too tight for the hosted runner.
-- `2026-06-10`: Increased the incompatible-bridge diagnostics fake-pipe test timeout to 5 seconds; targeted Release diagnostics test passed locally, and `dotnet test AvaScope.slnx -c Release --no-build` passed with 242 tests.
+- `2026-06-10`: Increased the incompatible-bridge diagnostics fake-pipe test timeout to 5 seconds and made the fake pipe helper skip empty/non-JSON probe connections; targeted Release diagnostics test passed 4 consecutive local runs, and `dotnet test AvaScope.slnx -c Release --no-build` passed with 242 tests.
 - `2026-06-10`: GitHub CI workflow `27287676017` passed after watcher-smoke cleanup retry stabilization; follow-up Release workflow `27287675726` no-oped successfully because `v0.6.0` already existed.
 - `2026-06-10`: GitHub CI workflow `27287102689` failed on the `Record v0.6.0 release completion` documentation commit because the watcher smoke temp directory cleanup hit a transient hosted Windows file lock on `MainView.axaml`.
 - `2026-06-10`: Added retrying watcher-smoke temp directory cleanup; targeted Release watcher smoke passed locally, and `dotnet test AvaScope.slnx -c Release --no-build` passed with 242 tests.

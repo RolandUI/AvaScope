@@ -535,22 +535,51 @@ public sealed class LocalBridgeClientTests : IDisposable
         using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(30));
         try
         {
-            await using var pipe = new NamedPipeServerStream(
-                pipeName,
-                PipeDirection.InOut,
-                maxNumberOfServerInstances: 1,
-                PipeTransmissionMode.Byte,
-                PipeOptions.Asynchronous);
+            while (true)
+            {
+                await using var pipe = new NamedPipeServerStream(
+                    pipeName,
+                    PipeDirection.InOut,
+                    maxNumberOfServerInstances: 1,
+                    PipeTransmissionMode.Byte,
+                    PipeOptions.Asynchronous);
 
-            await pipe.WaitForConnectionAsync(cancellation.Token);
-            var requestLine = await ReadLineAsync(pipe, cancellation.Token);
-            var request = JsonSerializer.Deserialize<BridgeIpcRequest>(requestLine)
-                ?? throw new InvalidOperationException("Bridge IPC request payload was empty.");
-            var responseBytes = Encoding.UTF8.GetBytes(
-                JsonSerializer.Serialize(responseFactory(request)) + Environment.NewLine);
-            await pipe.WriteAsync(responseBytes, cancellation.Token);
-            await pipe.FlushAsync(cancellation.Token);
-            return request;
+                await pipe.WaitForConnectionAsync(cancellation.Token);
+                var requestLine = await ReadLineAsync(pipe, cancellation.Token);
+                if (string.IsNullOrWhiteSpace(requestLine))
+                {
+                    continue;
+                }
+
+                BridgeIpcRequest? request;
+                try
+                {
+                    request = JsonSerializer.Deserialize<BridgeIpcRequest>(requestLine);
+                }
+                catch (JsonException)
+                {
+                    continue;
+                }
+
+                if (request is null)
+                {
+                    continue;
+                }
+
+                var responseBytes = Encoding.UTF8.GetBytes(
+                    JsonSerializer.Serialize(responseFactory(request)) + Environment.NewLine);
+                try
+                {
+                    await pipe.WriteAsync(responseBytes, cancellation.Token);
+                    await pipe.FlushAsync(cancellation.Token);
+                }
+                catch (IOException)
+                {
+                    return request;
+                }
+
+                return request;
+            }
         }
         catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
         {
