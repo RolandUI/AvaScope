@@ -25,15 +25,15 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `R0.4.0-M6 Release Candidate And Version Bump`
-- Status: `In Progress`
-- Owner: autonomous agent
-- Started: `2026-06-10`
-- Goal: complete the `v0.4.0` runtime reliability release gate, make the guarded version-bump release commit, push it, and verify the published GitHub release.
+- `R0.5.0-M1 Project Graph And Build Diagnostics`
+- Status: `Not Started`
+- Owner: unassigned
+- Started: pending
+- Goal: start the `v0.5.0` PreviewHost fidelity release by improving project graph, target-framework, build, and build-output diagnostics for normal Avalonia 12 project shapes.
 
 ## Next Action
 
-Commit `Release 0.4.0`, push it to `master`, and verify the GitHub Release workflow publishes tag `v0.4.0`, packages, executable ZIPs, and the release manifest.
+Begin `R0.5.0-M1 Project Graph And Build Diagnostics` from `docs/RELEASE_PLAN.md`; keep the work scoped to PreviewHost project loading diagnostics and update this plan before implementation if the release target has drifted.
 
 ## Latest Validation
 
@@ -46,6 +46,10 @@ Commit `Release 0.4.0`, push it to `master`, and verify the GitHub Release workf
 - `2026-06-10`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-bug-reports.ps1` passed; 15 intake files scanned.
 - `2026-06-10`: `git diff --check` passed with only line-ending normalization warnings.
 - `2026-06-10`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-release-commit.ps1 -Version 0.4.0 -CommitSubject "Release 0.4.0" -RequiredState "Release Candidate"` passed for the `v0.4.0` release commit guard.
+- `2026-06-10`: GitHub Release workflow `27264946927` passed for `Release 0.4.0`; tag `v0.4.0` and six GitHub Release assets were published at `2026-06-10T09:02:02Z`.
+- `2026-06-10`: GitHub CI workflow `27264946899` passed for `Release 0.4.0`.
+- `2026-06-10`: `gh release view v0.4.0` confirmed the public release URL and six uploaded assets.
+- `2026-06-10`: `git ls-remote --tags origin refs/tags/v0.4.0` confirmed tag `v0.4.0` at release commit `c3cbd16`.
 - `2026-06-09`: `git diff --check` passed after revising `v0.8.0` into a product feature release and moving protocol/integration hardening to `v0.9.0`.
 - `2026-06-09`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-bug-reports.ps1` passed after the `v0.8.0` roadmap revision; 15 intake files scanned.
 - `2026-06-09`: Build/test validation was not run for the `v0.8.0` roadmap-only documentation revision because no source code, project file, or test code changed.
@@ -2654,6 +2658,7 @@ Commit `Release 0.4.0`, push it to `master`, and verify the GitHub Release workf
 
 ## Change Log
 
+- `2026-06-10`: Completed `v0.4.0` release with runtime bridge reliability, packaged CLI runtime smoke, GitHub Release assets, tag verification, and green CI; moved active focus to `R0.5.0-M1 Project Graph And Build Diagnostics`.
 - `2026-06-09`: Planned the full release roadmap through `v1.0.0`, promoted `v0.4.0` as the current release target, and moved active focus to `R0.4.0-M1 Bridge Session Discovery And Cleanup`.
 - `2026-06-09`: Revised the `v0.8.0` roadmap from protocol-only stabilization into the final pre-1.0 product feature release and moved protocol/integration stabilization under `v0.9.0` beta hardening.
 - `2026-06-09`: Completed `v0.3.0` release with GitHub Release assets and tag verification, stabilized the follow-up master CI watcher timing flake, and moved active focus to next release planning.

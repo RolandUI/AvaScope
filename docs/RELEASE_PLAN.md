@@ -39,8 +39,8 @@ If the release includes public workflow or packaging changes, also validate the 
 
 The roadmap below is the working plan to `v1.0.0`. It is intentionally release-shaped so every implementation slice remains shippable, validated, and reversible.
 
-- `v0.4.0` is the current release target and may be implemented next.
-- `v0.5.0` through `v1.0.0` are planned targets. Their scope may be refined before they become the current release target, but changes must be recorded here before implementation starts.
+- `v0.5.0` is the current release target and may be implemented next.
+- `v0.6.0` through `v1.0.0` are planned targets. Their scope may be refined before they become the current release target, but changes must be recorded here before implementation starts.
 - Each release must preserve the current product boundaries: MCP and CLI stay adapters over Core, runtime bridge activation stays opt-in and local-only, PreviewHost stays isolated from the MCP server, and private Avalonia/runtime hooks remain out of the default path.
 - Every release must include targeted tests, full build/test validation, release dry-run validation, documentation updates, and explicit deferrals.
 - A release may be split into a patch release if a P0/P1 regression blocks users or CI, but patch scope must remain defect-focused.
@@ -61,16 +61,16 @@ Required `v1.0.0` properties:
 - Release artifacts are reproducible and verified for the supported platforms, and installation/upgrade documentation is complete.
 - No known P0/P1 bugs remain open; any deferred areas are documented as post-1.0 non-goals or future work.
 
-## Current Release Target
+## Released Target: v0.4.0
 
 - Release: `v0.4.0`
 - Target Version: `0.4.0`
-- Release State: `Release Candidate`
+- Release State: `Released`
 - Scope Lock: `2026-06-09`
-- Release Commit: pending
+- Release Commit: `c3cbd16` (`Release 0.4.0`)
 - Local Release Gate: passed on `2026-06-10`
-- Published At: pending
-- GitHub Release: pending
+- Published At: `2026-06-10T09:02:02Z`
+- GitHub Release: https://github.com/RolandUI/AvaScope/releases/tag/v0.4.0
 - Previous Release: `v0.3.0`
 
 ### v0.4.0 Release Goals
@@ -118,6 +118,10 @@ The `v0.4.0` release target is focused on runtime bridge reliability, attach erg
 - `2026-06-10`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-bug-reports.ps1` passed; 15 intake files scanned.
 - `2026-06-10`: `git diff --check` passed with only line-ending normalization warnings.
 - `2026-06-10`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-release-commit.ps1 -Version 0.4.0 -CommitSubject "Release 0.4.0" -RequiredState "Release Candidate"` passed for the `v0.4.0` release commit guard.
+- `2026-06-10`: GitHub Release workflow `27264946927` passed for `Release 0.4.0`; tag `v0.4.0` and six GitHub Release assets were published at `2026-06-10T09:02:02Z`.
+- `2026-06-10`: GitHub CI workflow `27264946899` passed for `Release 0.4.0`.
+- `2026-06-10`: `gh release view v0.4.0` confirmed the public release URL and six uploaded assets: three `0.4.0` `.nupkg` files, win-x64 and linux-x64 framework-dependent ZIPs, and `release-manifest.json`.
+- `2026-06-10`: `git ls-remote --tags origin refs/tags/v0.4.0` confirmed tag `v0.4.0` at release commit `c3cbd16`.
 
 ### v0.4.0 Explicit Deferrals
 
@@ -126,7 +130,7 @@ The `v0.4.0` release target is focused on runtime bridge reliability, attach erg
 - No-code attach, injection, CLR profiling, or private runtime hooks remain out of scope.
 - Remote inspection remains out of scope.
 
-## Planned Target: v0.5.0
+## Current Release Target
 
 - Release: `v0.5.0`
 - Target Version: `0.5.0`
