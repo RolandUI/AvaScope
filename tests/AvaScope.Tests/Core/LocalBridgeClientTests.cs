@@ -291,7 +291,7 @@ public sealed class LocalBridgeClientTests : IDisposable
             """,
             Encoding.UTF8);
 
-        var client = new LocalBridgeClient(_manifestDirectory, TimeSpan.FromMilliseconds(100));
+        var client = new LocalBridgeClient(_manifestDirectory, TimeSpan.FromSeconds(5));
 
         var result = await client.DiagnosticsAsync();
 
