@@ -12,6 +12,10 @@ namespace AvaScope.Tests.Cli;
 public sealed class CliSmokeTests
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly string IsolatedBridgeManifestDirectory = Path.Combine(
+        Path.GetTempPath(),
+        "AvaScope.Tests",
+        $"cli-bridge-manifests-{Guid.NewGuid():N}");
 
     [Fact]
     public async Task PreviewCommandRendersAxamlThroughPreviewHostClient()
@@ -3261,6 +3265,11 @@ public sealed class CliSmokeTests
             }
         };
 
+        if (environment is null || !environment.ContainsKey(BridgeSessionManifest.DirectoryEnvironmentVariable))
+        {
+            process.StartInfo.Environment[BridgeSessionManifest.DirectoryEnvironmentVariable] = IsolatedBridgeManifestDirectory;
+        }
+
         if (environment is not null)
         {
             foreach (var item in environment)
@@ -3287,7 +3296,7 @@ public sealed class CliSmokeTests
         string? processName = null)
     {
         var directory = string.IsNullOrWhiteSpace(manifestDirectory)
-            ? BridgeSessionManifest.GetDefaultDirectory()
+            ? IsolatedBridgeManifestDirectory
             : manifestDirectory;
         Directory.CreateDirectory(directory);
 
@@ -3298,9 +3307,7 @@ public sealed class CliSmokeTests
             DateTimeOffset.UtcNow,
             "CLI fake bridge",
             processName: processName);
-        var manifestPath = string.IsNullOrWhiteSpace(manifestDirectory)
-            ? BridgeSessionManifest.GetDefaultPath(sessionId)
-            : Path.Combine(directory, fileName ?? $"{sessionId.Value}.json");
+        var manifestPath = Path.Combine(directory, fileName ?? $"{sessionId.Value}.json");
         File.WriteAllText(manifestPath, JsonSerializer.Serialize(manifest), Encoding.UTF8);
         return manifestPath;
     }
@@ -3350,12 +3357,33 @@ public sealed class CliSmokeTests
                     continue;
                 }
 
-                var request = JsonSerializer.Deserialize<BridgeIpcRequest>(requestLine, JsonOptions)
-                    ?? throw new InvalidOperationException("Bridge IPC request payload was empty.");
+                BridgeIpcRequest? request;
+                try
+                {
+                    request = JsonSerializer.Deserialize<BridgeIpcRequest>(requestLine, JsonOptions);
+                }
+                catch (JsonException)
+                {
+                    continue;
+                }
+
+                if (request is null)
+                {
+                    continue;
+                }
+
                 var responseBytes = Encoding.UTF8.GetBytes(
                     JsonSerializer.Serialize(responseFactory(request), JsonOptions) + Environment.NewLine);
-                await pipe.WriteAsync(responseBytes, cancellation.Token);
-                await pipe.FlushAsync(cancellation.Token);
+                try
+                {
+                    await pipe.WriteAsync(responseBytes, cancellation.Token);
+                    await pipe.FlushAsync(cancellation.Token);
+                }
+                catch (IOException)
+                {
+                    return request;
+                }
+
                 return request;
             }
         }

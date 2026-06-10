@@ -37,6 +37,8 @@ Start `R0.7.0-M1 Baseline Suite Manifest` from `docs/RELEASE_PLAN.md` when the n
 
 ## Latest Validation
 
+- `2026-06-10`: GitHub CI workflow `27289598895` failed on the `Record v0.6.0 final CI stabilization` documentation commit in `CliSmokeTests.ListTopLevelsCommandReadsTopLevelsThroughBridgePipe` because the fake CLI bridge server timed out waiting for an IPC request on the hosted runner.
+- `2026-06-10`: Isolated CLI smoke-test bridge manifests into a per-test-process directory and made the CLI fake bridge helper skip empty/non-JSON probe connections; the failing Release test passed 4 consecutive local runs, and `dotnet test AvaScope.slnx -c Release --no-build` passed with 242 tests.
 - `2026-06-10`: GitHub CI workflow `27289102252` passed after the bridge diagnostics fake-pipe helper skipped empty/non-JSON probe connections; follow-up Release workflow `27289102340` no-oped successfully because `v0.6.0` already existed.
 - `2026-06-10`: GitHub CI workflow `27288551198` failed on the `Stabilize bridge diagnostics smoke timeout` commit because the fake named-pipe helper still tried to parse an empty/non-JSON probe connection as JSON.
 - `2026-06-10`: GitHub CI workflow `27288017355` failed on the `Record v0.6.0 CI stabilization` documentation commit in `LocalBridgeClientTests.DiagnosticsReportsDuplicateAndIncompatibleBridgeManifests` because a 100 ms fake named-pipe timeout was too tight for the hosted runner.

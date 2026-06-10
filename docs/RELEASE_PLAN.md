@@ -268,6 +268,8 @@ The `v0.6.0` release target is focused on runtime debugging and agent validation
 - `2026-06-10`: GitHub CI workflow `27288017355` failed on the `Record v0.6.0 CI stabilization` documentation commit in `LocalBridgeClientTests.DiagnosticsReportsDuplicateAndIncompatibleBridgeManifests` because the fake incompatible-bridge named-pipe helper used a 100 ms timeout that was too tight for the hosted runner.
 - `2026-06-10`: GitHub CI workflow `27288551198` failed on the `Stabilize bridge diagnostics smoke timeout` commit because the fake named-pipe helper still treated an empty/non-JSON probe connection as a JSON bridge request.
 - `2026-06-10`: Post-release fake-pipe stabilization commit `bdf5f8a` made the helper skip empty/non-JSON probe connections; targeted Release diagnostics test passed 4 consecutive local runs, local `dotnet test AvaScope.slnx -c Release --no-build` passed with 242 tests, GitHub CI workflow `27289102252` passed, and follow-up Release workflow `27289102340` no-oped successfully because `v0.6.0` already existed.
+- `2026-06-10`: GitHub CI workflow `27289598895` failed on the `Record v0.6.0 final CI stabilization` documentation commit in `CliSmokeTests.ListTopLevelsCommandReadsTopLevelsThroughBridgePipe` because the fake CLI bridge server timed out waiting for an IPC request on the hosted runner.
+- `2026-06-10`: Post-release CLI bridge smoke stabilization isolated CLI test bridge manifests into a per-test-process directory and skipped empty/non-JSON pipe probe connections; the failing Release test passed 4 consecutive local runs, and local `dotnet test AvaScope.slnx -c Release --no-build` passed with 242 tests.
 
 ### v0.6.0 Explicit Deferrals
 
