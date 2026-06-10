@@ -33,10 +33,11 @@ Use default paths when diagnosing the user's current machine state:
 
 ## 3. Preview A View
 
-The getting-started sample includes `avascope.preview.json` with a `main` profile:
+The getting-started sample includes `avascope.preview.json` with a `main` profile and named variants:
 
 ```powershell
 & $avascope preview .\samples\AvaScope.GettingStartedApp\AvaScope.GettingStartedApp.csproj --profile main --out .\artifacts\samples\agent-workflow\main-preview.png
+& $avascope preview .\samples\AvaScope.GettingStartedApp\AvaScope.GettingStartedApp.csproj --profile main --variant dark
 ```
 
 For another app, either pass explicit options:
@@ -56,13 +57,19 @@ or add `avascope.preview.json` beside the project:
       "width": 1440,
       "height": 900,
       "theme": "light",
-      "designDataType": "MyApp.Design.PreviewData"
+      "designDataType": "MyApp.Design.PreviewData",
+      "variants": {
+        "dark": {
+          "theme": "dark",
+          "out": "../../artifacts/samples/main-preview-dark.png"
+        }
+      }
     }
   }
 }
 ```
 
-Explicit CLI options override profile values.
+Variants are applied after the base profile and before explicit CLI options. Preview responses include `projectInfo` for project path, assembly name, target framework selection, build configuration, output assembly path, and App.axaml path when available.
 
 ## 4. Sample An Animation
 

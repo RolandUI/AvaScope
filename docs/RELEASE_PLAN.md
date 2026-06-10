@@ -134,10 +134,10 @@ The `v0.4.0` release target is focused on runtime bridge reliability, attach erg
 
 - Release: `v0.5.0`
 - Target Version: `0.5.0`
-- Release State: `Planned`
-- Scope Lock: pending
+- Release State: `Release Candidate`
+- Scope Lock: `2026-06-10`
 - Release Commit: pending
-- Local Release Gate: pending
+- Local Release Gate: passed `2026-06-10`
 - Published At: pending
 - GitHub Release: pending
 - Previous Release: `v0.4.0`
@@ -160,12 +160,12 @@ The `v0.5.0` release target is focused on PreviewHost fidelity for normal Avalon
 
 ### v0.5.0 Milestone Map
 
-- `R0.5.0-M1 Project Graph And Build Diagnostics`; Status: `Planned`.
-- `R0.5.0-M2 Resource And Style Provenance`; Status: `Planned`.
-- `R0.5.0-M3 Design Data Profiles And Variants`; Status: `Planned`.
-- `R0.5.0-M4 Preview Diagnostic Prioritization`; Status: `Planned`.
-- `R0.5.0-M5 Preview Fidelity Samples And Docs`; Status: `Planned`.
-- `R0.5.0-M6 Release Candidate And Version Bump`; Status: `Planned`.
+- `R0.5.0-M1 Project Graph And Build Diagnostics`; Status: `Done`.
+- `R0.5.0-M2 Resource And Style Provenance`; Status: `Done`.
+- `R0.5.0-M3 Design Data Profiles And Variants`; Status: `Done`.
+- `R0.5.0-M4 Preview Diagnostic Prioritization`; Status: `Done`.
+- `R0.5.0-M5 Preview Fidelity Samples And Docs`; Status: `Done`.
+- `R0.5.0-M6 Release Candidate And Version Bump`; Status: `Done`.
 
 ### v0.5.0 Explicit Deferrals
 

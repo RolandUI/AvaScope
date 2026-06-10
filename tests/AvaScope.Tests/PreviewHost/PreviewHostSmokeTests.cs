@@ -61,6 +61,71 @@ public sealed class PreviewHostSmokeTests
     }
 
     [Fact]
+    public async Task PreviewHostReturnsProjectInfoAndProjectGraphDiagnostics()
+    {
+        var hostAssembly = Path.Combine(AppContext.BaseDirectory, "AvaScope.PreviewHost.dll");
+        Assert.True(File.Exists(hostAssembly), $"Expected preview host assembly at {hostAssembly}.");
+
+        var testRoot = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(testRoot);
+
+        var projectPath = Path.Combine(testRoot, "ProjectInfoSample.csproj");
+        var viewPath = Path.Combine(testRoot, "ProjectInfoView.axaml");
+        var requestPath = Path.Combine(testRoot, "request.json");
+        var outputPath = Path.Combine(testRoot, "preview.png");
+
+        await File.WriteAllTextAsync(projectPath, """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFrameworks>net10.0</TargetFrameworks>
+                <AssemblyName>CustomPreviewAssembly</AssemblyName>
+              </PropertyGroup>
+            </Project>
+            """);
+
+        await File.WriteAllTextAsync(viewPath, """
+            <UserControl xmlns="https://github.com/avaloniaui">
+              <Border Background="#FFFFFFFF">
+                <TextBlock Text="Project info preview" />
+              </Border>
+            </UserControl>
+            """);
+
+        var request = new PreviewRequest(
+            outputPath,
+            width: 320,
+            height: 200,
+            dpi: 96,
+            projectPath: projectPath,
+            viewPath: "ProjectInfoView.axaml",
+            themeVariant: "light");
+
+        await File.WriteAllTextAsync(requestPath, JsonSerializer.Serialize(request, JsonOptions));
+
+        try
+        {
+            var result = await RunPreviewHostAsync(hostAssembly, requestPath, expectedExitCode: 0);
+
+            Assert.NotNull(result);
+            Assert.True(result.Success, result.Error?.Message);
+            Assert.NotNull(result.Value!.ProjectInfo);
+            Assert.Equal("CustomPreviewAssembly", result.Value.ProjectInfo!.AssemblyName);
+            Assert.Equal("net10.0", Assert.Single(result.Value.ProjectInfo.TargetFrameworks));
+            Assert.Equal("net10.0", result.Value.ProjectInfo.SelectedTargetFramework);
+            Assert.True(File.Exists(result.Value.ProjectInfo.OutputAssemblyPath), result.Value.ProjectInfo.OutputAssemblyPath);
+            var diagnostic = Assert.Single(result.Value.Diagnostics, static item => item.Code == "project_graph_resolved");
+            Assert.Equal("project", diagnostic.Category);
+            Assert.Equal("project_graph", diagnostic.Phase);
+            Assert.Equal("msbuild_project_file", diagnostic.Provenance);
+            Assert.False(string.IsNullOrWhiteSpace(diagnostic.SuggestedAction));
+        }
+        finally
+        {
+            await DeleteDirectoryWithRetryAsync(testRoot);
+        }
+    }
+
+    [Fact]
     public async Task PreviewHostReturnsBindingResourceAndLayoutDiagnostics()
     {
         var hostAssembly = Path.Combine(AppContext.BaseDirectory, "AvaScope.PreviewHost.dll");

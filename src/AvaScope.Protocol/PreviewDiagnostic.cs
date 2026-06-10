@@ -15,7 +15,11 @@ public sealed record PreviewDiagnostic
         string? propertyName = null,
         string? sourcePath = null,
         NodeBounds? bounds = null,
-        IReadOnlyDictionary<string, string>? details = null)
+        IReadOnlyDictionary<string, string>? details = null,
+        string? phase = null,
+        string? provenance = null,
+        string? suggestedAction = null,
+        string? suppressionReason = null)
     {
         if (string.IsNullOrWhiteSpace(severity))
         {
@@ -47,6 +51,12 @@ public sealed record PreviewDiagnostic
         SourcePath = string.IsNullOrWhiteSpace(sourcePath) ? null : sourcePath;
         Bounds = bounds;
         Details = details ?? new Dictionary<string, string>();
+        Phase = NormalizeOptionalText(phase) ?? TryGetDetail(Details, "phase");
+        Provenance = NormalizeOptionalText(provenance) ?? TryGetDetail(Details, "provenance");
+        SuggestedAction = NormalizeOptionalText(suggestedAction)
+            ?? TryGetDetail(Details, "suggestedAction")
+            ?? TryGetDetail(Details, "nextAction");
+        SuppressionReason = NormalizeOptionalText(suppressionReason) ?? TryGetDetail(Details, "suppressionReason");
     }
 
     [JsonPropertyName("severity")]
@@ -83,4 +93,32 @@ public sealed record PreviewDiagnostic
 
     [JsonPropertyName("details")]
     public IReadOnlyDictionary<string, string> Details { get; }
+
+    [JsonPropertyName("phase")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Phase { get; }
+
+    [JsonPropertyName("provenance")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Provenance { get; }
+
+    [JsonPropertyName("suggestedAction")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? SuggestedAction { get; }
+
+    [JsonPropertyName("suppressionReason")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? SuppressionReason { get; }
+
+    private static string? NormalizeOptionalText(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? null : value;
+    }
+
+    private static string? TryGetDetail(IReadOnlyDictionary<string, string> details, string key)
+    {
+        return details.TryGetValue(key, out var value) && !string.IsNullOrWhiteSpace(value)
+            ? value
+            : null;
+    }
 }

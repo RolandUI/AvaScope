@@ -7,7 +7,22 @@
       "height": 420,
       "theme": "light",
       "designDataType": "AvaScope.GettingStartedApp.SamplePreviewData",
-      "displayName": "Getting Started MainView"
+      "displayName": "Getting Started MainView",
+      "variants": {
+        "dark": {
+          "out": "../../artifacts/samples/getting-started-profile-preview-dark.png",
+          "theme": "dark"
+        },
+        "hu": {
+          "out": "../../artifacts/samples/getting-started-profile-preview-hu.png",
+          "culture": "hu-HU"
+        },
+        "compact": {
+          "out": "../../artifacts/samples/getting-started-profile-preview-compact.png",
+          "width": 420,
+          "height": 320
+        }
+      }
     },
     "animation": {
       "view": "Views/AnimationView.axaml",

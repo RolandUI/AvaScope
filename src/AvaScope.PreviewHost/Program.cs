@@ -29,6 +29,7 @@ internal static class Program
     private const string BlendDesignNamespace = "http://schemas.microsoft.com/expression/blend/2008";
     private const string XamlNamespace = "http://schemas.microsoft.com/winfx/2006/xaml";
     private const int MaximumPreviewDiagnostics = 100;
+    private const string DefaultBuildConfiguration = "Debug";
     private const double MinimumHitTargetSize = 24;
     private const double TextLayoutWidthTolerance = 1;
     private const double TextLayoutHeightTolerance = 4;
@@ -128,7 +129,15 @@ internal static class Program
         var fullProjectPath = paths.ProjectPath;
         var fullViewPath = paths.ViewPath;
         ApplyCulture(request.Culture);
-        var buildError = BuildProject(fullProjectPath);
+
+        var projectInfoResult = ResolveProjectInfo(fullProjectPath);
+        if (!projectInfoResult.Success)
+        {
+            return ToolResult<PreviewResponse>.Fail(projectInfoResult.Error!);
+        }
+
+        var projectInfo = projectInfoResult.Value;
+        var buildError = BuildProject(projectInfo);
         if (buildError is not null)
         {
             return ToolResult<PreviewResponse>.Fail(buildError);
@@ -163,6 +172,15 @@ internal static class Program
 
         var dimensions = dimensionsResult.Value!;
         var diagnostics = new List<PreviewDiagnostic>();
+        if (projectInfo is not null)
+        {
+            projectInfo = projectInfo with
+            {
+                OutputAssemblyPath = FindProjectAssemblyPath(projectInfo.ProjectPath, projectInfo)
+            };
+            AddProjectDiagnostics(diagnostics, projectInfo);
+        }
+
         var designData = CreateDesignData(fullProjectPath, request.DesignDataType);
         var projectApplicationScope = LoadProjectApplicationScope(fullProjectPath);
         var content = LoadContent(fullProjectPath, fullViewPath);
@@ -238,7 +256,8 @@ internal static class Program
                 request.Culture,
                 request.DesignDataType,
                 diagnostics,
-                request.AnimationTimeOffsetMs));
+                request.AnimationTimeOffsetMs,
+                projectInfo));
         }
         finally
         {
@@ -260,10 +279,65 @@ internal static class Program
             "PreviewHost captured an explicit animation time-offset frame.",
             details: new Dictionary<string, string>
             {
+                ["phase"] = "animation_sampling",
+                ["provenance"] = "headless_render_timer",
                 ["timeOffsetMs"] = timeOffsetMs.Value.ToString(CultureInfo.InvariantCulture),
                 ["headlessRenderTicks"] = CalculateHeadlessRenderTicks(timeOffsetMs.Value).ToString(CultureInfo.InvariantCulture),
-                ["timeControl"] = "headless_render_timer_tick"
+                ["timeControl"] = "headless_render_timer_tick",
+                ["suggestedAction"] = "Compare sampled frames or generated motion diagnostics when validating animation state."
             }));
+    }
+
+    private static void AddProjectDiagnostics(List<PreviewDiagnostic> diagnostics, PreviewProjectInfo projectInfo)
+    {
+        var details = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["phase"] = "project_graph",
+            ["provenance"] = "msbuild_project_file",
+            ["projectPath"] = projectInfo.ProjectPath,
+            ["projectDirectory"] = projectInfo.ProjectDirectory,
+            ["assemblyName"] = projectInfo.AssemblyName,
+            ["buildConfiguration"] = projectInfo.BuildConfiguration ?? DefaultBuildConfiguration,
+            ["suggestedAction"] = "Use the selected target framework and output assembly path when investigating preview load failures."
+        };
+
+        if (!string.IsNullOrWhiteSpace(projectInfo.TargetFramework))
+        {
+            details["targetFramework"] = projectInfo.TargetFramework;
+        }
+
+        if (projectInfo.TargetFrameworks.Count > 0)
+        {
+            details["targetFrameworks"] = string.Join(';', projectInfo.TargetFrameworks);
+        }
+
+        if (!string.IsNullOrWhiteSpace(projectInfo.SelectedTargetFramework))
+        {
+            details["selectedTargetFramework"] = projectInfo.SelectedTargetFramework;
+        }
+
+        if (!string.IsNullOrWhiteSpace(projectInfo.OutputAssemblyPath))
+        {
+            details["outputAssemblyPath"] = projectInfo.OutputAssemblyPath;
+        }
+        else
+        {
+            details["outputAssemblyPath"] = "not_available";
+            details["suppressionReason"] = "build_output_not_found";
+        }
+
+        if (!string.IsNullOrWhiteSpace(projectInfo.AppXamlPath))
+        {
+            details["appXamlPath"] = projectInfo.AppXamlPath;
+        }
+
+        AddDiagnostic(diagnostics, new PreviewDiagnostic(
+            PreviewDiagnosticSeverities.Info,
+            PreviewDiagnosticCategories.Project,
+            "project_graph_resolved",
+            "PreviewHost resolved project metadata for this render.",
+            sourcePath: projectInfo.ProjectPath,
+            details: details));
     }
 
     private static void AdvanceAnimationOffset(int? timeOffsetMs)
@@ -413,10 +487,13 @@ internal static class Program
                 sourcePath: resource.SourcePath,
                 details: new Dictionary<string, string>
                 {
+                    ["phase"] = "resource_lookup",
+                    ["provenance"] = "not_available",
                     ["elementPath"] = resource.ElementPath,
                     ["elementType"] = resource.ElementType,
                     ["resourceKey"] = resource.Key,
-                    ["resourceKind"] = resource.Kind
+                    ["resourceKind"] = resource.Kind,
+                    ["suggestedAction"] = "Check that the resource key is declared in the view, App.axaml, merged dictionaries, or the requested theme dictionary."
                 }));
         }
     }
@@ -853,8 +930,11 @@ internal static class Program
     {
         var details = new Dictionary<string, string>(StringComparer.Ordinal)
         {
+            ["phase"] = "source_analysis",
+            ["provenance"] = "xaml_source_metadata",
             ["elementPath"] = elementPath,
-            ["expression"] = expression
+            ["expression"] = expression,
+            ["suggestedAction"] = "Inspect the referenced XAML expression, DataContext, and resource scope for this element."
         };
 
         if (extra is not null)
@@ -923,6 +1003,20 @@ internal static class Program
         Rect bounds,
         IReadOnlyDictionary<string, string>? details = null)
     {
+        var diagnosticDetails = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["phase"] = "layout",
+            ["provenance"] = "headless_render_bounds",
+            ["suggestedAction"] = "Inspect the affected node bounds and adjust layout constraints, clipping, or sizing."
+        };
+        if (details is not null)
+        {
+            foreach (var item in details)
+            {
+                diagnosticDetails[item.Key] = item.Value;
+            }
+        }
+
         return new PreviewDiagnostic(
             PreviewDiagnosticSeverities.Warning,
             PreviewDiagnosticCategories.Layout,
@@ -931,7 +1025,7 @@ internal static class Program
             CreateNodeId(visual),
             visual.GetType().FullName ?? visual.GetType().Name,
             bounds: new NodeBounds(bounds.X, bounds.Y, bounds.Width, bounds.Height),
-            details: details);
+            details: diagnosticDetails);
     }
 
     private static void AddDiagnostic(List<PreviewDiagnostic> diagnostics, PreviewDiagnostic diagnostic)
@@ -1107,14 +1201,113 @@ internal static class Program
         return fullProjectPath;
     }
 
-    private static ProtocolError? BuildProject(string? fullProjectPath)
+    private static ToolResult<PreviewProjectInfo?> ResolveProjectInfo(string? fullProjectPath)
     {
         if (fullProjectPath is null)
+        {
+            return ToolResult<PreviewProjectInfo?>.Ok(null);
+        }
+
+        try
+        {
+            var document = XDocument.Load(fullProjectPath);
+            var projectDirectory = Path.GetDirectoryName(fullProjectPath) ?? Environment.CurrentDirectory;
+            var targetFramework = ReadProjectProperty(document, "TargetFramework");
+            var targetFrameworks = SplitTargetFrameworks(ReadProjectProperty(document, "TargetFrameworks"));
+            var selectedTargetFramework = SelectTargetFramework(targetFramework, targetFrameworks);
+            var assemblyName = ReadProjectProperty(document, "AssemblyName") ?? Path.GetFileNameWithoutExtension(fullProjectPath);
+            var appXamlPath = Path.Combine(projectDirectory, "App.axaml");
+
+            return ToolResult<PreviewProjectInfo?>.Ok(new PreviewProjectInfo(
+                fullProjectPath,
+                projectDirectory,
+                assemblyName,
+                targetFramework,
+                targetFrameworks,
+                selectedTargetFramework,
+                DefaultBuildConfiguration,
+                appXamlPath: File.Exists(appXamlPath) ? appXamlPath : null));
+        }
+        catch (XmlException)
+        {
+            return ToolResult<PreviewProjectInfo?>.Ok(CreateFallbackProjectInfo(fullProjectPath));
+        }
+        catch (Exception exception) when (exception is IOException
+            or UnauthorizedAccessException
+            or InvalidOperationException)
+        {
+            return ToolResult<PreviewProjectInfo?>.Fail(CreateReadinessError(
+                "project_graph",
+                $"Preview project metadata could not be loaded: {exception.Message}",
+                fullProjectPath,
+                null,
+                string.Empty,
+                Path.GetDirectoryName(fullProjectPath) ?? Environment.CurrentDirectory,
+                exception: exception));
+        }
+    }
+
+    private static PreviewProjectInfo CreateFallbackProjectInfo(string fullProjectPath)
+    {
+        var projectDirectory = Path.GetDirectoryName(fullProjectPath) ?? Environment.CurrentDirectory;
+        var appXamlPath = Path.Combine(projectDirectory, "App.axaml");
+        return new PreviewProjectInfo(
+            fullProjectPath,
+            projectDirectory,
+            Path.GetFileNameWithoutExtension(fullProjectPath),
+            buildConfiguration: DefaultBuildConfiguration,
+            appXamlPath: File.Exists(appXamlPath) ? appXamlPath : null);
+    }
+
+    private static string? ReadProjectProperty(XDocument document, string propertyName)
+    {
+        var value = document
+            .Descendants()
+            .Where(element => string.Equals(element.Name.LocalName, propertyName, StringComparison.Ordinal))
+            .Select(static element => element.Value.Trim())
+            .FirstOrDefault(static value => !string.IsNullOrWhiteSpace(value));
+        return string.IsNullOrWhiteSpace(value) ? null : value;
+    }
+
+    private static IReadOnlyList<string> SplitTargetFrameworks(string? targetFrameworks)
+    {
+        if (string.IsNullOrWhiteSpace(targetFrameworks))
+        {
+            return [];
+        }
+
+        return targetFrameworks
+            .Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(static value => !string.IsNullOrWhiteSpace(value))
+            .ToArray();
+    }
+
+    private static string? SelectTargetFramework(string? targetFramework, IReadOnlyList<string> targetFrameworks)
+    {
+        if (!string.IsNullOrWhiteSpace(targetFramework))
+        {
+            return targetFramework;
+        }
+
+        if (targetFrameworks.Count == 0)
         {
             return null;
         }
 
-        var workingDirectory = Path.GetDirectoryName(fullProjectPath) ?? Environment.CurrentDirectory;
+        return targetFrameworks.FirstOrDefault(static framework => string.Equals(framework, "net10.0", StringComparison.OrdinalIgnoreCase))
+            ?? targetFrameworks[0];
+    }
+
+    private static ProtocolError? BuildProject(PreviewProjectInfo? projectInfo)
+    {
+        if (projectInfo is null)
+        {
+            return null;
+        }
+
+        var workingDirectory = projectInfo.ProjectDirectory;
+        var arguments = CreateBuildArguments(projectInfo);
+        var command = FormatCommand("dotnet", arguments);
         using var process = new Process
         {
             StartInfo = new ProcessStartInfo
@@ -1127,10 +1320,10 @@ internal static class Program
             }
         };
 
-        process.StartInfo.ArgumentList.Add("build");
-        process.StartInfo.ArgumentList.Add(fullProjectPath);
-        process.StartInfo.ArgumentList.Add("--nologo");
-        process.StartInfo.ArgumentList.Add("--disable-build-servers");
+        foreach (var argument in arguments)
+        {
+            process.StartInfo.ArgumentList.Add(argument);
+        }
 
         try
         {
@@ -1138,24 +1331,24 @@ internal static class Program
             {
                 return CreateReadinessError(
                     "dotnet_cli",
-                    $"Could not start project build for '{fullProjectPath}'.",
-                    fullProjectPath,
+                    $"Could not start project build for '{projectInfo.ProjectPath}'.",
+                    projectInfo.ProjectPath,
                     null,
                     string.Empty,
                     workingDirectory,
-                    command: $"dotnet build \"{fullProjectPath}\" --nologo --disable-build-servers");
+                    command: command);
             }
         }
         catch (Exception exception) when (exception is System.ComponentModel.Win32Exception or InvalidOperationException)
         {
             return CreateReadinessError(
                 "dotnet_cli",
-                $"Could not start project build for '{fullProjectPath}': {exception.Message}",
-                fullProjectPath,
+                $"Could not start project build for '{projectInfo.ProjectPath}': {exception.Message}",
+                projectInfo.ProjectPath,
                 null,
                 string.Empty,
                 workingDirectory,
-                command: $"dotnet build \"{fullProjectPath}\" --nologo --disable-build-servers",
+                command: command,
                 exception: exception);
         }
 
@@ -1166,9 +1359,10 @@ internal static class Program
         {
             process.Kill(entireProcessTree: true);
             return CreateProjectBuildError(
-                $"Project build timed out for '{fullProjectPath}'.",
-                fullProjectPath,
+                $"Project build timed out for '{projectInfo.ProjectPath}'.",
+                projectInfo,
                 workingDirectory,
+                command,
                 timeoutMilliseconds: 60000);
         }
 
@@ -1185,16 +1379,47 @@ internal static class Program
         var outputTail = TrimBuildOutput(output);
         return CreateProjectBuildError(
             outputTail,
-            fullProjectPath,
+            projectInfo,
             workingDirectory,
+            command,
             exitCode: process.ExitCode,
             outputTail: outputTail);
     }
 
+    private static IReadOnlyList<string> CreateBuildArguments(PreviewProjectInfo projectInfo)
+    {
+        var arguments = new List<string>
+        {
+            "build",
+            projectInfo.ProjectPath,
+            "--nologo",
+            "--disable-build-servers",
+            "--configuration",
+            projectInfo.BuildConfiguration ?? DefaultBuildConfiguration
+        };
+
+        if (projectInfo.TargetFrameworks.Count > 0 && !string.IsNullOrWhiteSpace(projectInfo.SelectedTargetFramework))
+        {
+            arguments.Add($"-p:TargetFramework={projectInfo.SelectedTargetFramework}");
+        }
+
+        return arguments;
+    }
+
+    private static string FormatCommand(string fileName, IReadOnlyList<string> arguments)
+    {
+        return string.Join(
+            " ",
+            new[] { fileName }.Concat(arguments.Select(static argument => argument.Contains(' ')
+                ? $"\"{argument}\""
+                : argument)));
+    }
+
     private static ProtocolError CreateProjectBuildError(
         string message,
-        string fullProjectPath,
+        PreviewProjectInfo projectInfo,
         string workingDirectory,
+        string command,
         int? exitCode = null,
         string? outputTail = null,
         int? timeoutMilliseconds = null)
@@ -1202,11 +1427,30 @@ internal static class Program
         var details = new Dictionary<string, string>(StringComparer.Ordinal)
         {
             ["phase"] = "build",
-            ["projectPath"] = fullProjectPath,
+            ["provenance"] = "dotnet_build_output",
+            ["projectPath"] = projectInfo.ProjectPath,
             ["workingDirectory"] = workingDirectory,
-            ["command"] = $"dotnet build \"{fullProjectPath}\" --nologo --disable-build-servers",
-            ["nextAction"] = "Fix the project build output shown in outputTail, then retry the preview command."
+            ["command"] = command,
+            ["assemblyName"] = projectInfo.AssemblyName,
+            ["buildConfiguration"] = projectInfo.BuildConfiguration ?? DefaultBuildConfiguration,
+            ["nextAction"] = "Fix the project build output shown in outputTail, then retry the preview command.",
+            ["suggestedAction"] = "Fix the project build output shown in outputTail, then retry the preview command."
         };
+
+        if (!string.IsNullOrWhiteSpace(projectInfo.TargetFramework))
+        {
+            details["targetFramework"] = projectInfo.TargetFramework;
+        }
+
+        if (projectInfo.TargetFrameworks.Count > 0)
+        {
+            details["targetFrameworks"] = string.Join(';', projectInfo.TargetFrameworks);
+        }
+
+        if (!string.IsNullOrWhiteSpace(projectInfo.SelectedTargetFramework))
+        {
+            details["selectedTargetFramework"] = projectInfo.SelectedTargetFramework;
+        }
 
         if (exitCode is not null)
         {
@@ -1234,8 +1478,10 @@ internal static class Program
         var details = new Dictionary<string, string>(StringComparer.Ordinal)
         {
             ["phase"] = "render",
+            ["provenance"] = "preview_host",
             ["outputPath"] = fullOutputPath,
-            ["nextAction"] = "Inspect the render exception and view resources, then retry after the view can load in an isolated preview host."
+            ["nextAction"] = "Inspect the render exception and view resources, then retry after the view can load in an isolated preview host.",
+            ["suggestedAction"] = "Inspect the render exception and view resources, then retry after the view can load in an isolated preview host."
         };
 
         if (fullProjectPath is not null)
@@ -1258,8 +1504,12 @@ internal static class Program
         return new Dictionary<string, string>(StringComparer.Ordinal)
         {
             ["phase"] = phase,
+            ["provenance"] = "preview_host",
             ["exceptionType"] = exception.GetType().FullName ?? exception.GetType().Name,
             ["nextAction"] = phase == "request"
+                ? "Check the preview request JSON and supplied paths before retrying."
+                : "Check the preview host error details before retrying.",
+            ["suggestedAction"] = phase == "request"
                 ? "Check the preview request JSON and supplied paths before retrying."
                 : "Check the preview host error details before retrying."
         };
@@ -1278,12 +1528,22 @@ internal static class Program
         var details = new Dictionary<string, string>(StringComparer.Ordinal)
         {
             ["phase"] = "readiness",
+            ["provenance"] = "local_filesystem",
             ["requirement"] = requirement,
             ["nextAction"] = requirement switch
             {
                 "project_file" => "Pass an existing .csproj path or omit projectPath for standalone AXAML preview.",
                 "view_file" => "Pass an existing .axaml view path, relative to the project directory when projectPath is set.",
                 "dotnet_cli" => "Install a compatible .NET SDK/runtime and ensure the dotnet executable is on PATH.",
+                "project_graph" => "Fix the project file XML or unsupported project metadata before retrying.",
+                _ => "Fix the reported local prerequisite before retrying the preview command."
+            },
+            ["suggestedAction"] = requirement switch
+            {
+                "project_file" => "Pass an existing .csproj path or omit projectPath for standalone AXAML preview.",
+                "view_file" => "Pass an existing .axaml view path, relative to the project directory when projectPath is set.",
+                "dotnet_cli" => "Install a compatible .NET SDK/runtime and ensure the dotnet executable is on PATH.",
+                "project_graph" => "Fix the project file XML or unsupported project metadata before retrying.",
                 _ => "Fix the reported local prerequisite before retrying the preview command."
             }
         };
@@ -2304,7 +2564,7 @@ internal static class Program
         }
     }
 
-    private static string? FindProjectAssemblyPath(string fullProjectPath)
+    private static string? FindProjectAssemblyPath(string fullProjectPath, PreviewProjectInfo? projectInfo = null)
     {
         var projectDirectory = Path.GetDirectoryName(fullProjectPath);
         if (string.IsNullOrEmpty(projectDirectory))
@@ -2312,11 +2572,26 @@ internal static class Program
             return null;
         }
 
-        var assemblyName = Path.GetFileNameWithoutExtension(fullProjectPath);
-        var outputRoot = Path.Combine(projectDirectory, "bin", "Debug");
+        if (projectInfo is null)
+        {
+            var projectInfoResult = ResolveProjectInfo(fullProjectPath);
+            projectInfo = projectInfoResult.Success ? projectInfoResult.Value : null;
+        }
+
+        var assemblyName = projectInfo?.AssemblyName ?? Path.GetFileNameWithoutExtension(fullProjectPath);
+        var outputRoot = Path.Combine(projectDirectory, "bin", projectInfo?.BuildConfiguration ?? DefaultBuildConfiguration);
         if (!Directory.Exists(outputRoot))
         {
             return null;
+        }
+
+        if (!string.IsNullOrWhiteSpace(projectInfo?.SelectedTargetFramework))
+        {
+            var selectedOutput = Path.Combine(outputRoot, projectInfo.SelectedTargetFramework, $"{assemblyName}.dll");
+            if (File.Exists(selectedOutput))
+            {
+                return selectedOutput;
+            }
         }
 
         return Directory

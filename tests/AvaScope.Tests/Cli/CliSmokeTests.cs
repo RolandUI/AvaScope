@@ -391,6 +391,91 @@ public sealed class CliSmokeTests
     }
 
     [Fact]
+    public async Task PreviewCommandUsesProjectPreviewProfileVariantAndAllowsExplicitOverrides()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var testRoot = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(testRoot);
+
+        var projectPath = Path.Combine(testRoot, "CliProfileVariantPreviewSample.csproj");
+        var viewPath = Path.Combine(testRoot, "MainView.axaml");
+        var variantOutputPath = Path.Combine(testRoot, "profile-variant-preview.png");
+        var profilePath = Path.Combine(testRoot, "avascope.preview.json");
+
+        await File.WriteAllTextAsync(projectPath, """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+              </PropertyGroup>
+            </Project>
+            """);
+
+        await File.WriteAllTextAsync(viewPath, """
+            <UserControl xmlns="https://github.com/avaloniaui">
+              <Border Background="#FFFFFFFF">
+                <TextBlock Text="CLI profile variant preview smoke" />
+              </Border>
+            </UserControl>
+            """);
+
+        await File.WriteAllTextAsync(profilePath, $$"""
+            {
+              "profiles": {
+                "main": {
+                  "view": "MainView.axaml",
+                  "out": "base-preview.png",
+                  "width": 260,
+                  "height": 140,
+                  "theme": "light",
+                  "variants": {
+                    "dark-wide": {
+                      "out": "{{Path.GetFileName(variantOutputPath)}}",
+                      "width": 300,
+                      "theme": "dark"
+                    }
+                  }
+                }
+              }
+            }
+            """);
+
+        try
+        {
+            var result = await RunCliAsync(
+                cliAssembly,
+                "preview",
+                projectPath,
+                "--profile",
+                "main",
+                "--variant",
+                "dark-wide",
+                "--height",
+                "180");
+
+            Assert.Equal(0, result.ExitCode);
+            Assert.True(string.IsNullOrWhiteSpace(result.StandardError), result.StandardError);
+
+            var payload = JsonSerializer.Deserialize<ToolResult<PreviewResponse>>(result.StandardOutput, JsonOptions);
+            Assert.NotNull(payload);
+            Assert.True(payload.Success, payload.Error?.Message);
+            Assert.Equal(Path.GetFullPath(variantOutputPath), payload.Value!.FilePath);
+            Assert.Equal(300, payload.Value.PixelWidth);
+            Assert.Equal(180, payload.Value.PixelHeight);
+            Assert.Equal("dark", payload.Value.ThemeVariant);
+            Assert.True(File.Exists(payload.Value.FilePath));
+        }
+        finally
+        {
+            if (Directory.Exists(testRoot))
+            {
+                Directory.Delete(testRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
     public async Task PreviewSessionCommandsCreateListReloadAndClosePersistedSession()
     {
         var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");

@@ -7,9 +7,20 @@
   </Application.Styles>
 
   <Application.Resources>
-    <SolidColorBrush x:Key="SampleWindowBrush" Color="#FFF7F8FA" />
-    <SolidColorBrush x:Key="SampleAccentBrush" Color="#FF2563EB" />
-    <SolidColorBrush x:Key="SampleAccentTextBrush" Color="#FFFFFFFF" />
+    <ResourceDictionary>
+      <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Light">
+          <SolidColorBrush x:Key="SampleWindowBrush" Color="#FFF7F8FA" />
+          <SolidColorBrush x:Key="SampleAccentBrush" Color="#FF2563EB" />
+          <SolidColorBrush x:Key="SampleAccentTextBrush" Color="#FFFFFFFF" />
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Dark">
+          <SolidColorBrush x:Key="SampleWindowBrush" Color="#FF111827" />
+          <SolidColorBrush x:Key="SampleAccentBrush" Color="#FF38BDF8" />
+          <SolidColorBrush x:Key="SampleAccentTextBrush" Color="#FF06121F" />
+        </ResourceDictionary>
+      </ResourceDictionary.ThemeDictionaries>
+    </ResourceDictionary>
   </Application.Resources>
 
   <Application.DataTemplates>

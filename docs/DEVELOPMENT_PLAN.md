@@ -25,19 +25,29 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `R0.5.0-M1 Project Graph And Build Diagnostics`
-- Status: `Not Started`
-- Owner: unassigned
-- Started: pending
-- Goal: start the `v0.5.0` PreviewHost fidelity release by improving project graph, target-framework, build, and build-output diagnostics for normal Avalonia 12 project shapes.
+- `R0.5.0-M6 Release Candidate And Version Bump`
+- Status: `Review`
+- Owner: autonomous agent
+- Started: `2026-06-10`
+- Goal: complete the `v0.5.0` release gate, move the target to release-candidate state, bump the package version, and publish the guarded release.
 
 ## Next Action
 
-Begin `R0.5.0-M1 Project Graph And Build Diagnostics` from `docs/RELEASE_PLAN.md`; keep the work scoped to PreviewHost project loading diagnostics and update this plan before implementation if the release target has drifted.
+Run the release commit guard, publish dry-run, create the exact `Release 0.5.0` commit, push `master`, and verify the GitHub Release workflow, tag, assets, and CI.
 
 ## Latest Validation
 
+- `2026-06-10`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1` passed for the `v0.5.0` release-candidate working tree after stopping stale packaged CLI/MCP processes from the local artifact output; Release build/test passed with 231 tests, three local packages, win-x64 and linux-x64 framework-dependent ZIPs, release manifest, packaged doctor smoke, and packaged sample preview smoke.
+- `2026-06-10`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.5.0 -DryRun` passed for `v0.5.0` assets.
+- `2026-06-10`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-release-commit.ps1 -Version 0.5.0 -CommitSubject "Release 0.5.0" -RequiredState "Release Candidate"` passed for the `v0.5.0` release commit guard.
+- `2026-06-10`: `git diff --check` passed for the `v0.5.0` release-candidate working tree with only line-ending normalization warnings.
+- `2026-06-10`: `dotnet test AvaScope.slnx --no-build --filter "FullyQualifiedName~ProtocolContractTests.PreviewResponseSerializesProjectInfo|FullyQualifiedName~ProtocolContractTests.PreviewResponseSerializesDiagnostics|FullyQualifiedName~PreviewHostSmokeTests.PreviewHostReturnsProjectInfoAndProjectGraphDiagnostics|FullyQualifiedName~CliSmokeTests.PreviewCommandUsesProjectPreviewProfileVariantAndAllowsExplicitOverrides"` passed with 4 tests after the `v0.5.0` PreviewHost fidelity implementation.
+- `2026-06-10`: `dotnet test AvaScope.slnx --no-build` passed with 231 tests after the `v0.5.0` PreviewHost fidelity implementation.
+- `2026-06-10`: Source CLI sample previews passed for `samples\AvaScope.GettingStartedApp` profile variants `main --variant dark` and `main --variant hu`, producing themed/culture-specific artifacts with `projectInfo` and `project_graph_resolved` diagnostics.
+- `2026-06-10`: `git diff --check` passed after the `v0.5.0` PreviewHost fidelity implementation with only line-ending normalization warnings.
+- `2026-06-10`: `dotnet build AvaScope.slnx --no-restore -v:minimal` passed with 0 warnings and 0 errors after adding `v0.5.0` project metadata, diagnostic triage, profile variants, and sample coverage.
 - `2026-06-10`: `dotnet build AvaScope.slnx --no-restore -v:minimal` passed with 0 warnings and 0 errors after implementing `v0.4.0` runtime bridge reliability.
+- `2026-06-10`: NuGet package check confirmed Avalonia `12.0.4` remains the current stable Avalonia 12 line for the repo's referenced packages; no package-version change is needed for starting `v0.5.0`.
 - `2026-06-10`: Runtime reliability targeted tests passed with 61 tests covering Core manifest selection/cleanup/diagnostics, protocol target/input/cleanup shapes, CLI manifest-path/process-name/custom-directory workflows, MCP cleanup and attach selection, MCP stdio tool listing, and headless bridge input metadata.
 - `2026-06-10`: `dotnet test AvaScope.slnx --no-build` passed with 228 tests after isolating diagnostics smoke tests from default preview-session temp records.
 - `2026-06-10`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1` passed for `v0.4.0` after stopping stale packaged CLI/dotnet processes from the local artifact output; Release build/test passed with 228 tests, three `0.4.0` packages, win-x64 and linux-x64 framework-dependent ZIPs, release manifest, packaged doctor smoke, and packaged sample preview smoke.
@@ -2655,9 +2665,12 @@ Begin `R0.5.0-M1 Project Graph And Build Diagnostics` from `docs/RELEASE_PLAN.md
 - `2026-06-09`: The roadmap to `v1.0.0` is release-shaped rather than epic-shaped: `v0.4.0` hardens runtime attach/session reliability first, then `v0.5.0` preview fidelity, `v0.6.0` persistent live preview, `v0.7.0` visual regression CI, `v0.8.0` agent-facing UI intelligence features, `v0.9.0` protocol/integration beta hardening, and `v1.0.0` stable-surface verification.
 - `2026-06-09`: `v0.4.0` starts with bridge session discovery and cleanup because stale manifests, ambiguous attach, dead processes, and mismatched targets are foundational reliability risks for every later runtime and editor workflow.
 - `2026-06-09`: `v0.8.0` remains a product feature release instead of a stabilization-only release: accessibility/validation audit, visual issue overlays, suggested fixes, component/style inventory, and richer animation timeline diagnostics are planned before the `v0.9.0` beta freeze.
+- `2026-06-10`: `v0.5.0` preview fidelity uses additive protocol fields (`projectInfo` and diagnostic triage metadata) so existing clients can ignore the new data while agents get project graph, provenance, suggested action, and non-applicable context.
+- `2026-06-10`: Preview profile variants are project-local JSON overlays applied after the base profile and before explicit CLI options; variants do not introduce executable behavior or remote design-data loading.
 
 ## Change Log
 
+- `2026-06-10`: Completed `R0.5.0-M1` through `R0.5.0-M5` with project/build-output preview metadata, diagnostic triage fields, resource/layout provenance defaults, CLI profile variants, getting-started sample variants, documentation, and targeted validation; moved active focus to `R0.5.0-M6 Release Candidate And Version Bump`.
 - `2026-06-10`: Completed `v0.4.0` release with runtime bridge reliability, packaged CLI runtime smoke, GitHub Release assets, tag verification, and green CI; moved active focus to `R0.5.0-M1 Project Graph And Build Diagnostics`.
 - `2026-06-09`: Planned the full release roadmap through `v1.0.0`, promoted `v0.4.0` as the current release target, and moved active focus to `R0.4.0-M1 Bridge Session Discovery And Cleanup`.
 - `2026-06-09`: Revised the `v0.8.0` roadmap from protocol-only stabilization into the final pre-1.0 product feature release and moved protocol/integration stabilization under `v0.9.0` beta hardening.

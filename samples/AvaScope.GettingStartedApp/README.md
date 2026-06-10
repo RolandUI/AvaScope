@@ -14,8 +14,11 @@ The same settings are available through `avascope.preview.json` in this sample d
 
 ```powershell
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll preview .\samples\AvaScope.GettingStartedApp\AvaScope.GettingStartedApp.csproj --profile main
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll preview .\samples\AvaScope.GettingStartedApp\AvaScope.GettingStartedApp.csproj --profile main --variant dark
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll create-preview-session .\samples\AvaScope.GettingStartedApp\AvaScope.GettingStartedApp.csproj --profile main
 ```
+
+The `main` profile declares `dark`, `hu`, and `compact` variants. Variants override the base profile before explicit CLI options, so a command can still pass `--width`, `--height`, or `--out` for one-off runs.
 
 Preview the animation sample as deterministic time-offset frames:
 

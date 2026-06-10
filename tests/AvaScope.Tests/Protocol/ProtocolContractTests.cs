@@ -752,6 +752,36 @@ public sealed class ProtocolContractTests
     }
 
     [Fact]
+    public void PreviewResponseSerializesProjectInfo()
+    {
+        var renderedAt = new DateTimeOffset(2026, 6, 10, 11, 0, 0, TimeSpan.Zero);
+        var response = new PreviewResponse(
+            "C:\\previews\\main.png",
+            720,
+            420,
+            96,
+            renderedAt,
+            projectInfo: new PreviewProjectInfo(
+                "C:\\apps\\Sample\\Sample.csproj",
+                "C:\\apps\\Sample",
+                "Sample.Designer",
+                targetFrameworks: ["net10.0"],
+                selectedTargetFramework: "net10.0",
+                buildConfiguration: "Debug",
+                outputAssemblyPath: "C:\\apps\\Sample\\bin\\Debug\\net10.0\\Sample.Designer.dll",
+                appXamlPath: "C:\\apps\\Sample\\App.axaml"));
+
+        var json = JsonSerializer.Serialize(response);
+        var node = JsonNode.Parse(json)!;
+
+        Assert.Equal("C:\\apps\\Sample\\Sample.csproj", node["projectInfo"]!["projectPath"]!.GetValue<string>());
+        Assert.Equal("Sample.Designer", node["projectInfo"]!["assemblyName"]!.GetValue<string>());
+        Assert.Equal("net10.0", node["projectInfo"]!["targetFrameworks"]![0]!.GetValue<string>());
+        Assert.Equal("net10.0", node["projectInfo"]!["selectedTargetFramework"]!.GetValue<string>());
+        Assert.Equal("C:\\apps\\Sample\\bin\\Debug\\net10.0\\Sample.Designer.dll", node["projectInfo"]!["outputAssemblyPath"]!.GetValue<string>());
+    }
+
+    [Fact]
     public void PreviewResponseSerializesDiagnostics()
     {
         var renderedAt = new DateTimeOffset(2026, 6, 8, 8, 0, 0, TimeSpan.Zero);
@@ -776,7 +806,10 @@ public sealed class ProtocolContractTests
                     new Dictionary<string, string>
                     {
                         ["elementPath"] = "UserControl/TextBlock[1]"
-                    })
+                    },
+                    phase: "source_analysis",
+                    provenance: "xaml_source_metadata",
+                    suggestedAction: "Assign design-time data or fix the binding path.")
             ]);
 
         var json = JsonSerializer.Serialize(response);
@@ -786,6 +819,9 @@ public sealed class ProtocolContractTests
         Assert.Equal("warning", node["diagnostics"]![0]!["severity"]!.GetValue<string>());
         Assert.Equal("binding_missing_datacontext", node["diagnostics"]![0]!["code"]!.GetValue<string>());
         Assert.Equal("Text", node["diagnostics"]![0]!["propertyName"]!.GetValue<string>());
+        Assert.Equal("source_analysis", node["diagnostics"]![0]!["phase"]!.GetValue<string>());
+        Assert.Equal("xaml_source_metadata", node["diagnostics"]![0]!["provenance"]!.GetValue<string>());
+        Assert.Equal("Assign design-time data or fix the binding path.", node["diagnostics"]![0]!["suggestedAction"]!.GetValue<string>());
         Assert.Equal("UserControl/TextBlock[1]", node["diagnostics"]![0]!["details"]!["elementPath"]!.GetValue<string>());
     }
 

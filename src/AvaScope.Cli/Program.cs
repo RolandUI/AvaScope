@@ -111,6 +111,7 @@ internal static class Program
                 "design-data-type",
                 "profile",
                 "profile-file",
+                "variant",
                 "sizes",
                 "contact-sheet"))
         {
@@ -269,6 +270,7 @@ internal static class Program
                 "design-data-type",
                 "profile",
                 "profile-file",
+                "variant",
                 "time-offsets",
                 "frame-strip",
                 "viewer"))
@@ -390,6 +392,12 @@ internal static class Program
 
         if (!options.TryGetValue("profile", out var profileName))
         {
+            if (options.ContainsKey("variant"))
+            {
+                error = new ProtocolError(InvalidCliArguments, "--variant requires --profile.");
+                return false;
+            }
+
             return true;
         }
 
@@ -424,7 +432,12 @@ internal static class Program
         Dictionary<string, string> profileOptions;
         try
         {
-            if (!TryReadPreviewProfile(profileFilePath, profileName, out profileOptions!, out var profileReadError))
+            if (!TryReadPreviewProfile(
+                    profileFilePath,
+                    profileName,
+                    options.GetValueOrDefault("variant"),
+                    out profileOptions!,
+                    out var profileReadError))
             {
                 error = profileReadError;
                 return false;
@@ -448,6 +461,7 @@ internal static class Program
     private static bool TryReadPreviewProfile(
         string profileFilePath,
         string profileName,
+        string? variantName,
         out Dictionary<string, string> profileOptions,
         out ProtocolError? error)
     {
@@ -489,6 +503,90 @@ internal static class Program
         var profileDirectory = Path.GetDirectoryName(Path.GetFullPath(profileFilePath)) ?? Environment.CurrentDirectory;
         foreach (var property in selectedProfile.Value.EnumerateObject())
         {
+            if (string.Equals(property.Name, "variants", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            if (!TryMapPreviewProfileProperty(property, profileDirectory, out var optionName, out var optionValue, out error))
+            {
+                return false;
+            }
+
+            profileOptions[optionName!] = optionValue!;
+        }
+
+        if (!TryApplyPreviewProfileVariant(
+                selectedProfile.Value,
+                profileFilePath,
+                profileDirectory,
+                profileName,
+                variantName,
+                profileOptions,
+                out error))
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    private static bool TryApplyPreviewProfileVariant(
+        JsonElement selectedProfile,
+        string profileFilePath,
+        string profileDirectory,
+        string profileName,
+        string? variantName,
+        Dictionary<string, string> profileOptions,
+        out ProtocolError? error)
+    {
+        error = null;
+        if (string.IsNullOrWhiteSpace(variantName))
+        {
+            return true;
+        }
+
+        if (!selectedProfile.TryGetProperty("variants", out var variantsElement)
+            || variantsElement.ValueKind is not JsonValueKind.Object)
+        {
+            error = new ProtocolError(
+                InvalidCliArguments,
+                $"Preview profile '{profileName}' does not declare variants in {Path.GetFullPath(profileFilePath)}.");
+            return false;
+        }
+
+        JsonElement? selectedVariant = null;
+        foreach (var variantProperty in variantsElement.EnumerateObject())
+        {
+            if (string.Equals(variantProperty.Name, variantName, StringComparison.OrdinalIgnoreCase))
+            {
+                selectedVariant = variantProperty.Value;
+                break;
+            }
+        }
+
+        if (selectedVariant is null)
+        {
+            error = new ProtocolError(
+                InvalidCliArguments,
+                $"Preview profile variant '{variantName}' was not found in profile '{profileName}' from {Path.GetFullPath(profileFilePath)}.");
+            return false;
+        }
+
+        if (selectedVariant.Value.ValueKind is not JsonValueKind.Object)
+        {
+            error = new ProtocolError(InvalidCliArguments, $"Preview profile variant '{variantName}' must be a JSON object.");
+            return false;
+        }
+
+        foreach (var property in selectedVariant.Value.EnumerateObject())
+        {
+            if (string.Equals(property.Name, "variants", StringComparison.Ordinal))
+            {
+                error = new ProtocolError(InvalidCliArguments, "Preview profile variants cannot declare nested variants.");
+                return false;
+            }
+
             if (!TryMapPreviewProfileProperty(property, profileDirectory, out var optionName, out var optionValue, out error))
             {
                 return false;
@@ -614,6 +712,7 @@ internal static class Program
                 "design-data-type",
                 "profile",
                 "profile-file",
+                "variant",
                 "display-name"))
         {
             return 2;
@@ -1999,22 +2098,22 @@ internal static class Program
 
     private static string GetUsage()
     {
-        return "Usage: avascope mcp | avascope doctor [--manifest-dir <dir>] [--preview-session-store <dir>] | avascope attach [--process <pid>] [--process-name <name>] [--session <session-id>] [--manifest <path>] [--manifest-dir <dir>] | avascope list-top-levels --session <session-id> [--manifest-dir <dir>] | avascope visual-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] [--manifest-dir <dir>] | avascope logical-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] [--manifest-dir <dir>] | avascope inspect-node --session <session-id> --top-level <top-level-id> --node <node-id> [--tree-kind visual|logical] [--manifest-dir <dir>] | avascope find-nodes --session <session-id> --top-level <top-level-id> [--tree-kind visual|logical] [--type <type>] [--name <name>] [--automation-id <id>] [--text <text>] [--max-depth <n>] [--max-results <n>] [--manifest-dir <dir>] | avascope input --session <session-id> --top-level <top-level-id> --action <action> [--x <x>] [--y <y>] [--text <text>] [--target-node <node-id>] [--key <key>] [--modifiers <modifiers>] [--manifest-dir <dir>] | avascope close-session --session <session-id> [--manifest-dir <dir>] | avascope diagnostics [--process <pid>] [--process-name <name>] [--session <session-id>] [--manifest <path>] [--manifest-dir <dir>] [--max-sessions <n>] | avascope reload --session <session-id> [--manifest-dir <dir>] | avascope create-preview-session <project.csproj> [--profile <name>] [--profile-file <path>] --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] [--display-name <name>] | avascope list-preview-sessions | avascope reload-preview-session --session <session-id> | avascope close-preview-session --session <session-id> | avascope watch-preview-session --session <session-id> --timeout-ms <ms> [--settle-ms <ms>] [--max-reloads <n>] [--watch <path>[,<path>...]] | avascope preview-viewer --session <session-id> [--out <viewer.html>] | avascope baseline-create <project.csproj> --view <view.axaml> --manifest <baseline.json> --sizes <w>x<h>[,<w>x<h>...] [--out-dir <dir>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] | avascope baseline-check --manifest <baseline.json> [--out-dir <dir>] [--diff-dir <dir>] [--tolerance <0-255>] [--report <report.json>] | avascope cleanup | avascope cleanup-bridge-sessions [--manifest-dir <dir>] | avascope diff --baseline <baseline.png> --current <current.png> --out <diff.png> [--tolerance <0-255>] | avascope screenshot --session <session-id> --top-level <top-level-id> --out <screenshot.png> [--manifest-dir <dir>] | avascope preview-animation <project.csproj> [--profile <name>] [--profile-file <path>] --view <view.axaml> --out <frame.png> --time-offsets <ms>[,<ms>...] [--frame-strip <strip.png>] [--viewer <viewer.html>] [--width <width>] [--height <height>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] | avascope preview <project.csproj> [--profile <name>] [--profile-file <path>] --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--sizes <w>x<h>[,<w>x<h>...]] [--contact-sheet <sheet.png>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>]";
+        return "Usage: avascope mcp | avascope doctor [--manifest-dir <dir>] [--preview-session-store <dir>] | avascope attach [--process <pid>] [--process-name <name>] [--session <session-id>] [--manifest <path>] [--manifest-dir <dir>] | avascope list-top-levels --session <session-id> [--manifest-dir <dir>] | avascope visual-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] [--manifest-dir <dir>] | avascope logical-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] [--manifest-dir <dir>] | avascope inspect-node --session <session-id> --top-level <top-level-id> --node <node-id> [--tree-kind visual|logical] [--manifest-dir <dir>] | avascope find-nodes --session <session-id> --top-level <top-level-id> [--tree-kind visual|logical] [--type <type>] [--name <name>] [--automation-id <id>] [--text <text>] [--max-depth <n>] [--max-results <n>] [--manifest-dir <dir>] | avascope input --session <session-id> --top-level <top-level-id> --action <action> [--x <x>] [--y <y>] [--text <text>] [--target-node <node-id>] [--key <key>] [--modifiers <modifiers>] [--manifest-dir <dir>] | avascope close-session --session <session-id> [--manifest-dir <dir>] | avascope diagnostics [--process <pid>] [--process-name <name>] [--session <session-id>] [--manifest <path>] [--manifest-dir <dir>] [--max-sessions <n>] | avascope reload --session <session-id> [--manifest-dir <dir>] | avascope create-preview-session <project.csproj> [--profile <name>] [--profile-file <path>] [--variant <name>] --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] [--display-name <name>] | avascope list-preview-sessions | avascope reload-preview-session --session <session-id> | avascope close-preview-session --session <session-id> | avascope watch-preview-session --session <session-id> --timeout-ms <ms> [--settle-ms <ms>] [--max-reloads <n>] [--watch <path>[,<path>...]] | avascope preview-viewer --session <session-id> [--out <viewer.html>] | avascope baseline-create <project.csproj> --view <view.axaml> --manifest <baseline.json> --sizes <w>x<h>[,<w>x<h>...] [--out-dir <dir>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] | avascope baseline-check --manifest <baseline.json> [--out-dir <dir>] [--diff-dir <dir>] [--tolerance <0-255>] [--report <report.json>] | avascope cleanup | avascope cleanup-bridge-sessions [--manifest-dir <dir>] | avascope diff --baseline <baseline.png> --current <current.png> --out <diff.png> [--tolerance <0-255>] | avascope screenshot --session <session-id> --top-level <top-level-id> --out <screenshot.png> [--manifest-dir <dir>] | avascope preview-animation <project.csproj> [--profile <name>] [--profile-file <path>] [--variant <name>] --view <view.axaml> --out <frame.png> --time-offsets <ms>[,<ms>...] [--frame-strip <strip.png>] [--viewer <viewer.html>] [--width <width>] [--height <height>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] | avascope preview <project.csproj> [--profile <name>] [--profile-file <path>] [--variant <name>] --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--sizes <w>x<h>[,<w>x<h>...]] [--contact-sheet <sheet.png>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>]";
     }
 
     private static string GetPreviewUsage()
     {
-        return "Usage: avascope preview <project.csproj> [--profile <name>] [--profile-file <path>] --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--sizes <w>x<h>[,<w>x<h>...]] [--contact-sheet <sheet.png>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>]";
+        return "Usage: avascope preview <project.csproj> [--profile <name>] [--profile-file <path>] [--variant <name>] --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--sizes <w>x<h>[,<w>x<h>...]] [--contact-sheet <sheet.png>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>]";
     }
 
     private static string GetPreviewAnimationUsage()
     {
-        return "Usage: avascope preview-animation <project.csproj> [--profile <name>] [--profile-file <path>] --view <view.axaml> --out <frame.png> --time-offsets <ms>[,<ms>...] [--frame-strip <strip.png>] [--viewer <viewer.html>] [--width <width>] [--height <height>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>]";
+        return "Usage: avascope preview-animation <project.csproj> [--profile <name>] [--profile-file <path>] [--variant <name>] --view <view.axaml> --out <frame.png> --time-offsets <ms>[,<ms>...] [--frame-strip <strip.png>] [--viewer <viewer.html>] [--width <width>] [--height <height>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>]";
     }
 
     private static string GetCreatePreviewSessionUsage()
     {
-        return "Usage: avascope create-preview-session <project.csproj> [--profile <name>] [--profile-file <path>] --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] [--display-name <name>]";
+        return "Usage: avascope create-preview-session <project.csproj> [--profile <name>] [--profile-file <path>] [--variant <name>] --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] [--display-name <name>]";
     }
 
     private static string GetListPreviewSessionsUsage()

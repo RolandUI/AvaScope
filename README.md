@@ -10,7 +10,7 @@ AvaScope is an Avalonia inspection, preview, and automation stack for agents and
 - Local bridge discovery through session manifests and named pipes.
 - Runtime top-level listing, screenshots, bounded visual/logical trees, node search, and basic input.
 - Isolated preview host process for `.axaml` rendering.
-- Preview binding/resource diagnostics and advisory layout warnings.
+- Preview project/build-output metadata, binding/resource diagnostics, and advisory layout warnings.
 - Runtime `inspect_node` computed visual/style/layout property values.
 - Multi-size preview, contact-sheet output, screenshot diff, and scoped preview-session cleanup workflows.
 - File-backed preview viewer export with `previewUrl` handoff for Codex in-app browser workflows.
@@ -227,7 +227,17 @@ Repeated preview settings can live in `avascope.preview.json` beside the project
       "height": 420,
       "theme": "light",
       "designDataType": "MyApp.Design.PreviewData",
-      "displayName": "Main preview"
+      "displayName": "Main preview",
+      "variants": {
+        "dark": {
+          "theme": "dark",
+          "out": "../../artifacts/samples/main-preview-dark.png"
+        },
+        "hu": {
+          "culture": "hu-HU",
+          "out": "../../artifacts/samples/main-preview-hu.png"
+        }
+      }
     }
   }
 }
@@ -237,10 +247,11 @@ Use the profile from preview or durable preview-session commands:
 
 ```powershell
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll preview path\to\App.csproj --profile main
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll preview path\to\App.csproj --profile main --variant dark
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll create-preview-session path\to\App.csproj --profile main
 ```
 
-Explicit CLI options override profile values. Profile `out` and `contactSheet` paths are resolved relative to the profile file; `--profile-file <path>` can point to a non-default profile file.
+Named variants are applied after the base profile and before explicit CLI options, so `--height 600` still overrides a variant height. Profile `out`, `contactSheet`, `frameStripPath`, and `viewerPath` paths are resolved relative to the profile file; `--profile-file <path>` can point to a non-default profile file.
 
 Render multiple viewport sizes from one preview request:
 
