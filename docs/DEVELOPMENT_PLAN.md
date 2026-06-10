@@ -25,18 +25,22 @@ This document is the primary project-management source for autonomous agents wor
 
 ## Current Focus
 
-- `R0.5.0-M6 Release Candidate And Version Bump`
-- Status: `Review`
-- Owner: autonomous agent
-- Started: `2026-06-10`
-- Goal: complete the `v0.5.0` release gate, move the target to release-candidate state, bump the package version, and publish the guarded release.
+- `R0.6.0-M1 Persistent PreviewHost Lifecycle Contract`
+- Status: `Not Started`
+- Owner: unassigned
+- Started: pending
+- Goal: define the persistent PreviewHost lifecycle contract for the next `v0.6.0` release without weakening PreviewHost process isolation.
 
 ## Next Action
 
-Run the release commit guard, publish dry-run, create the exact `Release 0.5.0` commit, push `master`, and verify the GitHub Release workflow, tag, assets, and CI.
+Start `R0.6.0-M1 Persistent PreviewHost Lifecycle Contract` from `docs/RELEASE_PLAN.md` when the next implementation task is requested.
 
 ## Latest Validation
 
+- `2026-06-10`: GitHub Release workflow `27277929158` passed for `Release 0.5.0`; tag `v0.5.0` and six GitHub Release assets were published at `2026-06-10T13:06:09Z`.
+- `2026-06-10`: GitHub CI workflow `27277929144` passed for `Release 0.5.0`.
+- `2026-06-10`: `gh release view v0.5.0` confirmed the public release URL and six uploaded assets.
+- `2026-06-10`: `git ls-remote --tags origin refs/tags/v0.5.0` confirmed tag `v0.5.0` at release commit `e4b6029`.
 - `2026-06-10`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1` passed for the `v0.5.0` release-candidate working tree after stopping stale packaged CLI/MCP processes from the local artifact output; Release build/test passed with 231 tests, three local packages, win-x64 and linux-x64 framework-dependent ZIPs, release manifest, packaged doctor smoke, and packaged sample preview smoke.
 - `2026-06-10`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.5.0 -DryRun` passed for `v0.5.0` assets.
 - `2026-06-10`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-release-commit.ps1 -Version 0.5.0 -CommitSubject "Release 0.5.0" -RequiredState "Release Candidate"` passed for the `v0.5.0` release commit guard.
@@ -2670,6 +2674,7 @@ Run the release commit guard, publish dry-run, create the exact `Release 0.5.0` 
 
 ## Change Log
 
+- `2026-06-10`: Completed `v0.5.0` release with PreviewHost fidelity improvements, packaged sample smoke, GitHub Release assets, tag verification, and green CI; moved next focus to `R0.6.0-M1 Persistent PreviewHost Lifecycle Contract`.
 - `2026-06-10`: Completed `R0.5.0-M1` through `R0.5.0-M5` with project/build-output preview metadata, diagnostic triage fields, resource/layout provenance defaults, CLI profile variants, getting-started sample variants, documentation, and targeted validation; moved active focus to `R0.5.0-M6 Release Candidate And Version Bump`.
 - `2026-06-10`: Completed `v0.4.0` release with runtime bridge reliability, packaged CLI runtime smoke, GitHub Release assets, tag verification, and green CI; moved active focus to `R0.5.0-M1 Project Graph And Build Diagnostics`.
 - `2026-06-09`: Planned the full release roadmap through `v1.0.0`, promoted `v0.4.0` as the current release target, and moved active focus to `R0.4.0-M1 Bridge Session Discovery And Cleanup`.

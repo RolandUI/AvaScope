@@ -39,8 +39,9 @@ If the release includes public workflow or packaging changes, also validate the 
 
 The roadmap below is the working plan to `v1.0.0`. It is intentionally release-shaped so every implementation slice remains shippable, validated, and reversible.
 
-- `v0.5.0` is the current release target and may be implemented next.
-- `v0.6.0` through `v1.0.0` are planned targets. Their scope may be refined before they become the current release target, but changes must be recorded here before implementation starts.
+- `v0.5.0` is released.
+- `v0.6.0` is the next planned release target and may be implemented next.
+- `v0.7.0` through `v1.0.0` are planned targets. Their scope may be refined before they become the current release target, but changes must be recorded here before implementation starts.
 - Each release must preserve the current product boundaries: MCP and CLI stay adapters over Core, runtime bridge activation stays opt-in and local-only, PreviewHost stays isolated from the MCP server, and private Avalonia/runtime hooks remain out of the default path.
 - Every release must include targeted tests, full build/test validation, release dry-run validation, documentation updates, and explicit deferrals.
 - A release may be split into a patch release if a P0/P1 regression blocks users or CI, but patch scope must remain defect-focused.
@@ -130,16 +131,16 @@ The `v0.4.0` release target is focused on runtime bridge reliability, attach erg
 - No-code attach, injection, CLR profiling, or private runtime hooks remain out of scope.
 - Remote inspection remains out of scope.
 
-## Current Release Target
+## Completed Target: v0.5.0
 
 - Release: `v0.5.0`
 - Target Version: `0.5.0`
-- Release State: `Release Candidate`
+- Release State: `Released`
 - Scope Lock: `2026-06-10`
-- Release Commit: pending
+- Release Commit: `e4b6029`
 - Local Release Gate: passed `2026-06-10`
-- Published At: pending
-- GitHub Release: pending
+- Published At: `2026-06-10T13:06:09Z`
+- GitHub Release: https://github.com/RolandUI/AvaScope/releases/tag/v0.5.0
 - Previous Release: `v0.4.0`
 
 ### v0.5.0 Release Goals
@@ -167,13 +168,29 @@ The `v0.5.0` release target is focused on PreviewHost fidelity for normal Avalon
 - `R0.5.0-M5 Preview Fidelity Samples And Docs`; Status: `Done`.
 - `R0.5.0-M6 Release Candidate And Version Bump`; Status: `Done`.
 
+### v0.5.0 Implementation Validation
+
+- `2026-06-10`: NuGet package check confirmed Avalonia `12.0.4` remains the current stable Avalonia 12 line for the repo's referenced packages; no package-version change was needed.
+- `2026-06-10`: `dotnet build AvaScope.slnx --no-restore -v:minimal` passed with 0 warnings and 0 errors after adding `v0.5.0` project metadata, diagnostic triage, profile variants, and sample coverage.
+- `2026-06-10`: Targeted protocol, PreviewHost, and CLI profile-variant tests passed with 4 tests.
+- `2026-06-10`: `dotnet test AvaScope.slnx --no-build` passed with 231 tests.
+- `2026-06-10`: Source CLI sample previews passed for `samples\AvaScope.GettingStartedApp` profile variants `main --variant dark` and `main --variant hu`.
+- `2026-06-10`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1` passed for `v0.5.0`; Release build/test passed with 231 tests, three `0.5.0` packages, win-x64 and linux-x64 framework-dependent ZIPs, release manifest, packaged doctor smoke, and packaged sample preview smoke.
+- `2026-06-10`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.5.0 -DryRun` passed for `v0.5.0` assets.
+- `2026-06-10`: `git diff --check` passed with only line-ending normalization warnings.
+- `2026-06-10`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-release-commit.ps1 -Version 0.5.0 -CommitSubject "Release 0.5.0" -RequiredState "Release Candidate"` passed for the `v0.5.0` release commit guard.
+- `2026-06-10`: GitHub Release workflow `27277929158` passed for `Release 0.5.0`; tag `v0.5.0` and six GitHub Release assets were published at `2026-06-10T13:06:09Z`.
+- `2026-06-10`: GitHub CI workflow `27277929144` passed for `Release 0.5.0`.
+- `2026-06-10`: `gh release view v0.5.0` confirmed the public release URL and six uploaded assets: three `0.5.0` `.nupkg` files, win-x64 and linux-x64 framework-dependent ZIPs, and `release-manifest.json`.
+- `2026-06-10`: `git ls-remote --tags origin refs/tags/v0.5.0` confirmed tag `v0.5.0` at release commit `e4b6029`.
+
 ### v0.5.0 Explicit Deferrals
 
 - Full application startup/lifetime execution remains deferred unless a safe isolated model is designed.
 - Dependency-injection service startup, remote data loading, and long-lived design-data state remain out of scope.
 - Private Avalonia designer APIs remain out of scope.
 
-## Planned Target: v0.6.0
+## Current Release Target: v0.6.0
 
 - Release: `v0.6.0`
 - Target Version: `0.6.0`
