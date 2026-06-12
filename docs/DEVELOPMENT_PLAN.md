@@ -26,20 +26,22 @@ GitHub Issues and Milestones are the primary project-management source for auton
 
 ## Current Focus
 
-- `R0.8.0-M2 Thresholds, Masks, And Region Rules`
-- GitHub Issue: https://github.com/RolandUI/AvaScope/issues/21
+- `R0.8.0-M3 Agent Evidence Report Pack`
+- GitHub Issue: https://github.com/RolandUI/AvaScope/issues/22
 - GitHub Milestone: `v0.8.0`
 - Status: `Not Started`
 - Owner: unassigned
 - Started: not started
-- Goal: add practical comparison controls for real UI variance in agent validation suites.
+- Goal: produce uploadable report packs for preview, runtime, mutation, and baseline validation review.
 
 ## Next Action
 
-Move #21 to `status:in-progress`, add the start comment, then implement suite/variant comparison thresholds, masks, and region rules while preserving current strict baseline behavior by default.
+Move #22 to `status:in-progress`, add the start comment, then implement uploadable JSON/HTML/JUnit/SARIF-style report pack outputs for agent validation review.
 
 ## Latest Validation
 
+- `2026-06-12`: Completed local implementation for GitHub issue #21 `R0.8.0-M2 Thresholds, Masks, And Region Rules`. Added manifest-backed `comparisonRules` with tolerance, max changed pixel/percent thresholds, ignored regions, required region assertions, deterministic required-region crop artifacts, diff response threshold/mask metadata, suite default/entry/variant rule merging, bounded out-of-bounds mask diagnostics, and user/agent/validation documentation. Validation passed with `dotnet build AvaScope.slnx --no-restore -v:minimal`, focused #21 tests (`dotnet test AvaScope.slnx --no-build --filter "FullyQualifiedName~PreviewImageDifferTests|FullyQualifiedName~PreviewBaselineManagerTests|FullyQualifiedName~ProtocolContractTests.PreviewBaselineResponsesSerializeStableShapes|FullyQualifiedName~ProtocolContractTests.PreviewBaselineSuiteManifestSerializesStableShape|FullyQualifiedName~ProtocolContractTests.PreviewComparisonRulesAndRegionResultsSerializeStableShape|FullyQualifiedName~CliSmokeTests.BaselineCommandsCreateManifestPassCheckAndFailChangedCheck|FullyQualifiedName~CliSmokeTests.BaselineSuiteCommandCreatesManifestAndCheckPasses"`, 9 passed), full Debug tests (`dotnet test AvaScope.slnx --no-build`, 271 passed), and `git diff --check` with only LF/CRLF normalization warnings.
+- `2026-06-12`: Started GitHub issue #21 for `R0.8.0-M2 Thresholds, Masks, And Region Rules`. Moved the issue and project card to `status:in-progress` / `In Progress`, recorded intended validation in the issue, and scoped implementation to structured comparison controls for baseline suite entries and variants, deterministic artifacts, default strict compatibility, and reuse of existing diff/region primitives where practical.
 - `2026-06-12`: Completed local implementation for GitHub issue #20 `R0.8.0-M1 Baseline Suite Manifest`. Added structured suite manifest protocol DTOs, baseline entry provenance metadata, Core suite parsing and deterministic expansion, CLI `baseline-create --suite`, compatibility with existing `baseline-check --manifest`, focused Core/Protocol/CLI coverage, and agent/user/validation documentation. Validation passed with `dotnet build AvaScope.slnx --no-restore -v:minimal`, focused suite/baseline tests (`dotnet test AvaScope.slnx --no-build --filter "FullyQualifiedName~PreviewBaselineManagerTests|FullyQualifiedName~ProtocolContractTests.PreviewBaselineResponsesSerializeStableShapes|FullyQualifiedName~ProtocolContractTests.PreviewBaselineSuiteManifestSerializesStableShape|FullyQualifiedName~CliSmokeTests.BaselineCommandsCreateManifestPassCheckAndFailChangedCheck|FullyQualifiedName~CliSmokeTests.BaselineSuiteCommandCreatesManifestAndCheckPasses"`, 6 passed), full Debug tests (`dotnet test AvaScope.slnx --no-build`, 268 passed), and `git diff --check` with only LF/CRLF normalization warnings.
 - `2026-06-12`: Started GitHub issue #20 for `R0.8.0-M1 Baseline Suite Manifest`. Moved the issue and project card to `status:in-progress` / `In Progress`, recorded intended validation in the issue, and scoped implementation to structured suite manifests, deterministic per-variant expansion, output path generation, mutation preset references, invalid diagnostics, and compatibility with existing single-view baseline commands.
 - `2026-06-12`: GitHub Release workflow `27443577851` passed for `Release 0.7.0`; tag `v0.7.0` and six GitHub Release assets were published at `2026-06-12T21:24:17Z`. GitHub CI workflow `27443577826` failed after publish in `LocalBridgeClientTests.DiagnosticsReportsDuplicateAndIncompatibleBridgeManifests` because the fake incompatible-bridge named-pipe test used a 100 ms timeout, and in `BridgeHeadlessSmokeTests.ScreenshotCaptureForMissingTopLevelReturnsStructuredError` because the headless session disposed from a no-window path on the hosted runner. Post-release CI stabilization removed the artificial 100 ms pipe timeout, initialized the missing-top-level screenshot smoke with a minimal headless window, and passed local validation with `dotnet build AvaScope.slnx -c Release --no-restore -v:minimal`, the two targeted failing tests, and `dotnet test AvaScope.slnx -c Release --no-build` with 264 tests.

@@ -23,7 +23,8 @@ public sealed record PreviewBaselineSuiteExpansion
         string? profileFilePath = null,
         RuntimeTargetContext? runtimeTarget = null,
         IReadOnlyList<string>? mutationPresetIds = null,
-        int? animationTimeOffsetMs = null)
+        int? animationTimeOffsetMs = null,
+        PreviewComparisonRules? comparisonRules = null)
     {
         if (index < 0)
         {
@@ -88,6 +89,7 @@ public sealed record PreviewBaselineSuiteExpansion
         RuntimeTarget = runtimeTarget;
         MutationPresetIds = PreviewBaselineSuiteDefaults.Normalize(mutationPresetIds);
         AnimationTimeOffsetMs = animationTimeOffsetMs;
+        ComparisonRules = comparisonRules;
     }
 
     [JsonPropertyName("index")]
@@ -151,4 +153,8 @@ public sealed record PreviewBaselineSuiteExpansion
     [JsonPropertyName("animationTimeOffsetMs")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public int? AnimationTimeOffsetMs { get; }
+
+    [JsonPropertyName("comparisonRules")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PreviewComparisonRules? ComparisonRules { get; }
 }

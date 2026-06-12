@@ -451,7 +451,18 @@ For agent repeatability across multiple views, sizes, themes, cultures, animatio
     "themes": ["light", "dark"],
     "cultures": ["en-US"],
     "animationFramesMs": [0],
-    "mutationPresetIds": ["wide-layout"]
+    "mutationPresetIds": ["wide-layout"],
+    "comparisonRules": {
+      "tolerance": 2,
+      "maxChangedPixels": 25,
+      "ignoredRegions": [{ "x": 0, "y": 0, "width": 120, "height": 32, "name": "clock" }],
+      "requiredRegions": [
+        {
+          "region": { "x": 24, "y": 80, "width": 320, "height": 160, "name": "hero" },
+          "assertion": "unchanged"
+        }
+      ]
+    }
   },
   "mutationPresets": [
     {
@@ -478,7 +489,7 @@ dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll baseline-create --suite
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll baseline-check --manifest .\baselines\agent-main.json --out-dir .\artifacts\visual-current --diff-dir .\artifacts\visual-diff --report .\artifacts\visual-report.json --tolerance 2
 ```
 
-Suite creation expands to the same baseline manifest shape that `baseline-check` already consumes. In this slice, `runtimeTarget`, `profileName`, `profileVariant`, `profileFilePath`, and `mutationPresetIds` are recorded as structured provenance and agent handoff metadata; suite creation does not execute runtime mutations.
+Suite creation expands to the same baseline manifest shape that `baseline-check` already consumes. `comparisonRules` can be declared in suite defaults, entries, or explicit variants. Scalar values such as `tolerance`, `maxChangedPixels`, and `maxChangedPercent` are overridden by the more specific level, while `ignoredRegions` and `requiredRegions` are combined. If no rules are configured, baseline checks keep the existing strict behavior. In this slice, `runtimeTarget`, `profileName`, `profileVariant`, `profileFilePath`, and `mutationPresetIds` are recorded as structured provenance and agent handoff metadata; suite creation does not execute runtime mutations.
 
 For CI artifact upload, run `eng\collect-baseline-artifacts.ps1` after `baseline-check --report` and upload the helper output directory. See [VISUAL_REGRESSION_CI.md](VISUAL_REGRESSION_CI.md).
 

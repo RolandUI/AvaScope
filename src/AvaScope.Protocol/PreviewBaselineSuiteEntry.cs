@@ -20,6 +20,7 @@ public sealed record PreviewBaselineSuiteEntry
         IReadOnlyList<int>? animationFramesMs = null,
         RuntimeTargetContext? runtimeTarget = null,
         IReadOnlyList<string>? mutationPresetIds = null,
+        PreviewComparisonRules? comparisonRules = null,
         IReadOnlyList<PreviewBaselineSuiteVariant>? variants = null)
     {
         if (string.IsNullOrWhiteSpace(id))
@@ -49,6 +50,7 @@ public sealed record PreviewBaselineSuiteEntry
         AnimationFramesMs = animationFramesMs ?? [];
         RuntimeTarget = runtimeTarget;
         MutationPresetIds = PreviewBaselineSuiteDefaults.Normalize(mutationPresetIds);
+        ComparisonRules = comparisonRules;
         Variants = variants ?? [];
     }
 
@@ -98,6 +100,10 @@ public sealed record PreviewBaselineSuiteEntry
 
     [JsonPropertyName("mutationPresetIds")]
     public IReadOnlyList<string> MutationPresetIds { get; }
+
+    [JsonPropertyName("comparisonRules")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PreviewComparisonRules? ComparisonRules { get; }
 
     [JsonPropertyName("variants")]
     public IReadOnlyList<PreviewBaselineSuiteVariant> Variants { get; }

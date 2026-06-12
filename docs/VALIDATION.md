@@ -193,9 +193,11 @@ For visual regression workflow work, include:
 ```powershell
 dotnet test AvaScope.slnx --filter FullyQualifiedName~CliSmokeTests.BaselineCommandsCreateManifestPassCheckAndFailChangedCheck
 dotnet test AvaScope.slnx --filter FullyQualifiedName~CliSmokeTests.BaselineSuiteCommandCreatesManifestAndCheckPasses
+dotnet test AvaScope.slnx --filter FullyQualifiedName~PreviewImageDifferTests
 dotnet test AvaScope.slnx --filter FullyQualifiedName~PreviewBaselineManagerTests
 dotnet test AvaScope.slnx --filter FullyQualifiedName~ProtocolContractTests.PreviewBaselineResponsesSerializeStableShapes
 dotnet test AvaScope.slnx --filter FullyQualifiedName~ProtocolContractTests.PreviewBaselineSuiteManifestSerializesStableShape
+dotnet test AvaScope.slnx --filter FullyQualifiedName~ProtocolContractTests.PreviewComparisonRulesAndRegionResultsSerializeStableShape
 ```
 
 For CI report validation, run a sample baseline check with `--report <report.json>`, verify the report exists and contains the same `passed` and `entries` shape as stdout, then collect upload artifacts:

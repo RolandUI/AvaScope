@@ -1040,7 +1040,18 @@ public sealed class CliSmokeTests
                 themes: ["light"],
                 cultures: ["en-US"],
                 animationFramesMs: [0],
-                mutationPresetIds: ["wide"]),
+                mutationPresetIds: ["wide"],
+                comparisonRules: new PreviewComparisonRules(
+                    tolerance: 1,
+                    maxChangedPixels: 0,
+                    ignoredRegions:
+                    [
+                        new ScreenshotRegion(0, 0, 1, 1, "volatile-pixel")
+                    ],
+                    requiredRegions:
+                    [
+                        new PreviewRequiredRegion(new ScreenshotRegion(0, 0, 10, 10, "top-left"))
+                    ])),
             [
                 new PreviewBaselineMutationPreset(
                     "wide",
@@ -1085,6 +1096,11 @@ public sealed class CliSmokeTests
             Assert.Equal(0, first.AnimationTimeOffsetMs);
             Assert.Equal("wide", Assert.Single(first.MutationPresetIds));
             Assert.Equal(runtimeTarget, first.RuntimeTarget);
+            Assert.NotNull(first.ComparisonRules);
+            Assert.Equal(1, first.ComparisonRules!.Tolerance);
+            Assert.Equal(0, first.ComparisonRules.MaxChangedPixels);
+            Assert.Equal("volatile-pixel", Assert.Single(first.ComparisonRules.IgnoredRegions).Name);
+            Assert.Equal("top-left", Assert.Single(first.ComparisonRules.RequiredRegions).Region.Name);
             Assert.All(createPayload.Value.Manifest.Entries, entry =>
             {
                 Assert.True(File.Exists(entry.ImagePath), entry.ImagePath);
@@ -1109,7 +1125,17 @@ public sealed class CliSmokeTests
             Assert.True(passedPayload.Success, passedPayload.Error?.Message);
             Assert.True(passedPayload.Value!.Passed);
             Assert.Equal(2, passedPayload.Value.Entries.Count);
-            Assert.All(passedPayload.Value.Entries, entry => Assert.True(entry.Diff.Success, entry.Diff.Error?.Message));
+            Assert.All(passedPayload.Value.Entries, entry =>
+            {
+                Assert.True(entry.Diff.Success, entry.Diff.Error?.Message);
+                Assert.Equal(1, entry.Diff.Value!.Tolerance);
+                Assert.Equal(1, entry.Diff.Value.IgnoredPixelCount);
+                Assert.Equal(0, entry.Diff.Value.MaxChangedPixels);
+                var requiredRegion = Assert.Single(entry.RequiredRegionResults);
+                Assert.True(requiredRegion.Result.Success, requiredRegion.Result.Error?.Message);
+                Assert.True(requiredRegion.Result.Value!.Passed);
+                Assert.True(File.Exists(requiredRegion.Result.Value.CropPath));
+            });
         }
         finally
         {

@@ -16,7 +16,11 @@ public sealed record PreviewDiffResponse
         long totalPixels,
         double changedPercent,
         int maxDelta,
-        string? diffPath = null)
+        string? diffPath = null,
+        IReadOnlyList<ScreenshotRegion>? ignoredRegions = null,
+        long ignoredPixelCount = 0,
+        long? maxChangedPixels = null,
+        double? maxChangedPercent = null)
     {
         if (string.IsNullOrWhiteSpace(baselinePath))
         {
@@ -58,6 +62,21 @@ public sealed record PreviewDiffResponse
             throw new ArgumentOutOfRangeException(nameof(maxDelta), maxDelta, "Max delta must be between 0 and 255.");
         }
 
+        if (ignoredPixelCount < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(ignoredPixelCount), ignoredPixelCount, "Ignored pixel count cannot be negative.");
+        }
+
+        if (maxChangedPixels is < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(maxChangedPixels), maxChangedPixels, "Maximum changed pixels cannot be negative.");
+        }
+
+        if (maxChangedPercent is < 0 or > 100)
+        {
+            throw new ArgumentOutOfRangeException(nameof(maxChangedPercent), maxChangedPercent, "Maximum changed percent must be between 0 and 100.");
+        }
+
         BaselinePath = Path.GetFullPath(baselinePath);
         CurrentPath = Path.GetFullPath(currentPath);
         DiffPath = string.IsNullOrWhiteSpace(diffPath) ? null : Path.GetFullPath(diffPath);
@@ -69,6 +88,10 @@ public sealed record PreviewDiffResponse
         TotalPixels = totalPixels;
         ChangedPercent = changedPercent;
         MaxDelta = maxDelta;
+        IgnoredRegions = ignoredRegions ?? [];
+        IgnoredPixelCount = ignoredPixelCount;
+        MaxChangedPixels = maxChangedPixels;
+        MaxChangedPercent = maxChangedPercent;
     }
 
     [JsonPropertyName("baselinePath")]
@@ -104,4 +127,18 @@ public sealed record PreviewDiffResponse
 
     [JsonPropertyName("maxDelta")]
     public int MaxDelta { get; }
+
+    [JsonPropertyName("ignoredRegions")]
+    public IReadOnlyList<ScreenshotRegion> IgnoredRegions { get; }
+
+    [JsonPropertyName("ignoredPixelCount")]
+    public long IgnoredPixelCount { get; }
+
+    [JsonPropertyName("maxChangedPixels")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? MaxChangedPixels { get; }
+
+    [JsonPropertyName("maxChangedPercent")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public double? MaxChangedPercent { get; }
 }

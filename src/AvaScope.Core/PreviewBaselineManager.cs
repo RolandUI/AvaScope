@@ -160,7 +160,8 @@ public sealed class PreviewBaselineManager
                 expansion.ProfileFilePath,
                 expansion.RuntimeTarget,
                 expansion.MutationPresetIds,
-                expansion.AnimationTimeOffsetMs));
+                expansion.AnimationTimeOffsetMs,
+                expansion.ComparisonRules));
         }
 
         var manifest = new PreviewBaselineManifest(
@@ -233,6 +234,8 @@ public sealed class PreviewBaselineManager
             var token = CreateVariantToken(baseline.Index, baseline.Viewport);
             var currentPath = Path.Combine(fullOutputDirectory, $"current-{token}.png");
             var diffPath = Path.Combine(fullDiffDirectory, $"diff-{token}.png");
+            var comparisonRules = baseline.ComparisonRules;
+            var effectiveTolerance = comparisonRules?.Tolerance ?? tolerance;
             var request = new PreviewRequest(
                 currentPath,
                 baseline.Viewport.Width,
@@ -247,17 +250,36 @@ public sealed class PreviewBaselineManager
             var render = await _previewHostClient.RenderAsync(request, cancellationToken);
             var renderResult = ToToolResult(render);
             ToolResult<PreviewDiffResponse> diffResult;
+            IReadOnlyList<PreviewBaselineRegionCheckResult> requiredRegionResults = [];
             if (render.Success)
             {
                 var diff = _imageDiffer.Compare(
                     baseline.ImagePath,
                     render.Value!.FilePath,
                     diffPath,
-                    tolerance);
+                    effectiveTolerance,
+                    comparisonRules?.IgnoredRegions,
+                    comparisonRules?.MaxChangedPixels,
+                    comparisonRules?.MaxChangedPercent);
                 diffResult = ToToolResult(diff);
                 if (!diff.Success || !diff.Value!.Passed)
                 {
                     passed = false;
+                }
+
+                if (diff.Success && comparisonRules?.RequiredRegions.Count > 0)
+                {
+                    requiredRegionResults = EvaluateRequiredRegions(
+                        baseline,
+                        currentPath,
+                        fullDiffDirectory,
+                        token,
+                        effectiveTolerance,
+                        comparisonRules.RequiredRegions);
+                    if (requiredRegionResults.Any(static result => !result.Result.Success || !result.Result.Value!.Passed))
+                    {
+                        passed = false;
+                    }
                 }
             }
             else
@@ -274,7 +296,9 @@ public sealed class PreviewBaselineManager
                 currentPath,
                 diffPath,
                 renderResult,
-                diffResult));
+                diffResult,
+                comparisonRules,
+                requiredRegionResults));
         }
 
         var response = new PreviewBaselineCheckResponse(
@@ -293,6 +317,40 @@ public sealed class PreviewBaselineManager
         }
 
         return CoreResult<PreviewBaselineCheckResponse>.Ok(response);
+    }
+
+    private static IReadOnlyList<PreviewBaselineRegionCheckResult> EvaluateRequiredRegions(
+        PreviewBaselineEntry baseline,
+        string currentPath,
+        string diffDirectory,
+        string token,
+        double tolerance,
+        IReadOnlyList<PreviewRequiredRegion> requiredRegions)
+    {
+        var asserter = new ScreenshotRegionAsserter();
+        var results = new List<PreviewBaselineRegionCheckResult>(requiredRegions.Count);
+        for (var index = 0; index < requiredRegions.Count; index++)
+        {
+            var rule = requiredRegions[index];
+            var cropToken = Slug(rule.Region.Name ?? rule.Assertion);
+            var cropPath = Path.Combine(diffDirectory, $"required-region-{token}-{index + 1:00}-{cropToken}.png");
+            var assertion = asserter.Assert(
+                currentPath,
+                rule.Region,
+                rule.Assertion,
+                baseline.ImagePath,
+                cropPath,
+                tolerance,
+                rule.MinChangedPixels,
+                rule.MostlyBlankMaxNonBlankPercent ?? 1);
+            results.Add(new PreviewBaselineRegionCheckResult(
+                index,
+                rule.Region,
+                rule.Assertion,
+                ToToolResult(assertion)));
+        }
+
+        return results;
     }
 
     private static CoreResult<bool> WriteBaselineManifest(
@@ -481,6 +539,10 @@ public sealed class PreviewBaselineManager
                     var designData = variant.DesignDataType ?? defaultDesignData;
                     var frame = variant.AnimationTimeOffsetMs ?? defaultFrame;
                     var variantName = variant.Name ?? CreateVariantName(viewport, dpi, theme, culture, designData, frame);
+                    var comparisonRules = MergeComparisonRules(
+                        suite.Defaults?.ComparisonRules,
+                        entry.ComparisonRules,
+                        variant.ComparisonRules);
                     AddExpansion(
                         expansions,
                         suite,
@@ -497,7 +559,8 @@ public sealed class PreviewBaselineManager
                         profileFilePath,
                         variant.RuntimeTarget ?? entry.RuntimeTarget,
                         variantPresetIds,
-                        frame);
+                        frame,
+                        comparisonRules);
                 }
 
                 continue;
@@ -517,6 +580,9 @@ public sealed class PreviewBaselineManager
             foreach (var frame in SelectFrames(entry, suite.Defaults))
             {
                 var variantName = CreateVariantName(size, dpi, theme, culture, designData, frame);
+                var comparisonRules = MergeComparisonRules(
+                    suite.Defaults?.ComparisonRules,
+                    entry.ComparisonRules);
                 AddExpansion(
                     expansions,
                     suite,
@@ -533,7 +599,8 @@ public sealed class PreviewBaselineManager
                     profileFilePath,
                     entry.RuntimeTarget,
                     basePresetIds,
-                    frame);
+                    frame,
+                    comparisonRules);
             }
         }
 
@@ -561,7 +628,8 @@ public sealed class PreviewBaselineManager
         string? profileFilePath,
         RuntimeTargetContext? runtimeTarget,
         IReadOnlyList<string> mutationPresetIds,
-        int? animationFrameMs)
+        int? animationFrameMs,
+        PreviewComparisonRules? comparisonRules)
     {
         var index = expansions.Count;
         var imagePath = CreateSuiteImagePath(
@@ -590,7 +658,8 @@ public sealed class PreviewBaselineManager
             profileFilePath,
             runtimeTarget,
             mutationPresetIds,
-            animationFrameMs));
+            animationFrameMs,
+            comparisonRules));
     }
 
     private static CoreResult<IReadOnlyList<PreviewBaselineSuiteExpansion>> InvalidSuite(
@@ -702,6 +771,42 @@ public sealed class PreviewBaselineManager
             .Where(static value => !string.IsNullOrWhiteSpace(value))
             .Distinct(StringComparer.Ordinal)
             .ToArray();
+    }
+
+    private static PreviewComparisonRules? MergeComparisonRules(params PreviewComparisonRules?[] rules)
+    {
+        double? tolerance = null;
+        long? maxChangedPixels = null;
+        double? maxChangedPercent = null;
+        var ignoredRegions = new List<ScreenshotRegion>();
+        var requiredRegions = new List<PreviewRequiredRegion>();
+
+        foreach (var rule in rules)
+        {
+            if (rule is null)
+            {
+                continue;
+            }
+
+            tolerance = rule.Tolerance ?? tolerance;
+            maxChangedPixels = rule.MaxChangedPixels ?? maxChangedPixels;
+            maxChangedPercent = rule.MaxChangedPercent ?? maxChangedPercent;
+            ignoredRegions.AddRange(rule.IgnoredRegions);
+            requiredRegions.AddRange(rule.RequiredRegions);
+        }
+
+        return tolerance is null
+            && maxChangedPixels is null
+            && maxChangedPercent is null
+            && ignoredRegions.Count == 0
+            && requiredRegions.Count == 0
+                ? null
+                : new PreviewComparisonRules(
+                    tolerance,
+                    maxChangedPixels,
+                    maxChangedPercent,
+                    ignoredRegions,
+                    requiredRegions);
     }
 
     private static string ResolvePath(string baseDirectory, string path)

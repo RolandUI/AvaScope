@@ -10,7 +10,9 @@ public sealed record PreviewBaselineCheckEntry
         string currentImagePath,
         string diffPath,
         ToolResult<PreviewResponse> render,
-        ToolResult<PreviewDiffResponse> diff)
+        ToolResult<PreviewDiffResponse> diff,
+        PreviewComparisonRules? comparisonRules = null,
+        IReadOnlyList<PreviewBaselineRegionCheckResult>? requiredRegionResults = null)
     {
         if (string.IsNullOrWhiteSpace(currentImagePath))
         {
@@ -27,6 +29,8 @@ public sealed record PreviewBaselineCheckEntry
         DiffPath = Path.GetFullPath(diffPath);
         Render = render ?? throw new ArgumentNullException(nameof(render));
         Diff = diff ?? throw new ArgumentNullException(nameof(diff));
+        ComparisonRules = comparisonRules;
+        RequiredRegionResults = requiredRegionResults ?? [];
     }
 
     [JsonPropertyName("baseline")]
@@ -43,4 +47,11 @@ public sealed record PreviewBaselineCheckEntry
 
     [JsonPropertyName("diff")]
     public ToolResult<PreviewDiffResponse> Diff { get; }
+
+    [JsonPropertyName("comparisonRules")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PreviewComparisonRules? ComparisonRules { get; }
+
+    [JsonPropertyName("requiredRegionResults")]
+    public IReadOnlyList<PreviewBaselineRegionCheckResult> RequiredRegionResults { get; }
 }

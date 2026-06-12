@@ -35,14 +35,26 @@ public sealed class PreviewBaselineManagerTests
                     "compact",
                     "avascope.preview.json",
                     sizes: [new PreviewViewport(120, 70)],
-                    runtimeTarget: target)
+                    runtimeTarget: target,
+                    comparisonRules: new PreviewComparisonRules(
+                        maxChangedPixels: 4,
+                        requiredRegions:
+                        [
+                            new PreviewRequiredRegion(new ScreenshotRegion(0, 0, 12, 8, "hero"))
+                        ]))
             ],
             new PreviewBaselineSuiteDefaults(
                 dpis: [96],
                 themes: ["light", "dark"],
                 cultures: ["en-US"],
                 animationFramesMs: [0, 125],
-                mutationPresetIds: ["wide"]),
+                mutationPresetIds: ["wide"],
+                comparisonRules: new PreviewComparisonRules(
+                    tolerance: 2,
+                    ignoredRegions:
+                    [
+                        new ScreenshotRegion(0, 0, 4, 4, "clock")
+                    ])),
             [
                 new PreviewBaselineMutationPreset(
                     "wide",
@@ -82,6 +94,11 @@ public sealed class PreviewBaselineManagerTests
             Assert.Equal(target, first.RuntimeTarget);
             Assert.Equal("wide", Assert.Single(first.MutationPresetIds));
             Assert.Equal(0, first.AnimationTimeOffsetMs);
+            Assert.NotNull(first.ComparisonRules);
+            Assert.Equal(2, first.ComparisonRules!.Tolerance);
+            Assert.Equal(4, first.ComparisonRules.MaxChangedPixels);
+            Assert.Equal("clock", Assert.Single(first.ComparisonRules.IgnoredRegions).Name);
+            Assert.Equal("hero", Assert.Single(first.ComparisonRules.RequiredRegions).Region.Name);
             Assert.Equal(
                 Path.Combine(outputDirectory, "baseline-01-agent-suite-main-120x70-dpi96-light-en-us-t0ms-120x70-t0ms.png"),
                 first.ImagePath);

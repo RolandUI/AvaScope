@@ -12,7 +12,8 @@ public sealed record PreviewBaselineSuiteDefaults
         IReadOnlyList<string>? cultures = null,
         IReadOnlyList<string>? designDataTypes = null,
         IReadOnlyList<int>? animationFramesMs = null,
-        IReadOnlyList<string>? mutationPresetIds = null)
+        IReadOnlyList<string>? mutationPresetIds = null,
+        PreviewComparisonRules? comparisonRules = null)
     {
         ValidateDpis(dpis);
         ValidateAnimationFrames(animationFramesMs);
@@ -24,6 +25,7 @@ public sealed record PreviewBaselineSuiteDefaults
         DesignDataTypes = Normalize(designDataTypes);
         AnimationFramesMs = animationFramesMs ?? [];
         MutationPresetIds = Normalize(mutationPresetIds);
+        ComparisonRules = comparisonRules;
     }
 
     [JsonPropertyName("sizes")]
@@ -46,6 +48,10 @@ public sealed record PreviewBaselineSuiteDefaults
 
     [JsonPropertyName("mutationPresetIds")]
     public IReadOnlyList<string> MutationPresetIds { get; }
+
+    [JsonPropertyName("comparisonRules")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PreviewComparisonRules? ComparisonRules { get; }
 
     internal static IReadOnlyList<string> Normalize(IReadOnlyList<string>? values)
     {

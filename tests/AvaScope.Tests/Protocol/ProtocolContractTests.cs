@@ -1632,6 +1632,97 @@ public sealed class ProtocolContractTests
     }
 
     [Fact]
+    public void PreviewComparisonRulesAndRegionResultsSerializeStableShape()
+    {
+        var capturedAt = new DateTimeOffset(2026, 6, 12, 22, 30, 0, TimeSpan.Zero);
+        var rules = new PreviewComparisonRules(
+            tolerance: 2,
+            maxChangedPixels: 10,
+            maxChangedPercent: 1.5,
+            ignoredRegions:
+            [
+                new ScreenshotRegion(1, 2, 3, 4, "clock")
+            ],
+            requiredRegions:
+            [
+                new PreviewRequiredRegion(
+                    new ScreenshotRegion(5, 6, 7, 8, "hero"),
+                    ScreenshotRegionAssertionModes.Unchanged)
+            ]);
+        var baseline = new PreviewBaselineEntry(
+            0,
+            new PreviewViewport(10, 10),
+            "C:\\baselines\\main.png",
+            96,
+            projectPath: "C:\\apps\\Sample\\Sample.csproj",
+            viewPath: "Views\\MainView.axaml",
+            comparisonRules: rules);
+        var regionResponse = new ScreenshotRegionAssertionResponse(
+            "C:\\current\\main.png",
+            rules.RequiredRegions[0].Region,
+            rules.RequiredRegions[0].Assertion,
+            passed: true,
+            pixelWidth: 10,
+            pixelHeight: 10,
+            totalPixels: 56,
+            nonBlankPixels: 56,
+            nonBlankPercent: 100,
+            tolerance: 2,
+            baselinePath: baseline.ImagePath,
+            cropPath: "C:\\diff\\required-region-main.png");
+        var checkEntry = new PreviewBaselineCheckEntry(
+            baseline,
+            "C:\\current\\main.png",
+            "C:\\diff\\main.png",
+            ToolResult<PreviewResponse>.Ok(new PreviewResponse(
+                "C:\\current\\main.png",
+                10,
+                10,
+                96,
+                capturedAt)),
+            ToolResult<PreviewDiffResponse>.Ok(new PreviewDiffResponse(
+                baseline.ImagePath,
+                "C:\\current\\main.png",
+                passed: true,
+                pixelWidth: 10,
+                pixelHeight: 10,
+                tolerance: 2,
+                changedPixels: 1,
+                totalPixels: 88,
+                changedPercent: 1.136,
+                maxDelta: 255,
+                "C:\\diff\\main.png",
+                rules.IgnoredRegions,
+                ignoredPixelCount: 12,
+                maxChangedPixels: 10,
+                maxChangedPercent: 1.5)),
+            rules,
+            [
+                new PreviewBaselineRegionCheckResult(
+                    0,
+                    rules.RequiredRegions[0].Region,
+                    rules.RequiredRegions[0].Assertion,
+                    ToolResult<ScreenshotRegionAssertionResponse>.Ok(regionResponse))
+            ]);
+
+        var node = JsonNode.Parse(JsonSerializer.Serialize(checkEntry))!;
+
+        Assert.Equal(2, node["baseline"]!["comparisonRules"]!["tolerance"]!.GetValue<double>());
+        Assert.Equal(10, node["baseline"]!["comparisonRules"]!["maxChangedPixels"]!.GetValue<long>());
+        Assert.Equal(1.5, node["baseline"]!["comparisonRules"]!["maxChangedPercent"]!.GetValue<double>());
+        Assert.Equal("clock", node["baseline"]!["comparisonRules"]!["ignoredRegions"]![0]!["name"]!.GetValue<string>());
+        Assert.Equal("hero", node["baseline"]!["comparisonRules"]!["requiredRegions"]![0]!["region"]!["name"]!.GetValue<string>());
+        Assert.Equal(12, node["diff"]!["value"]!["ignoredPixelCount"]!.GetValue<long>());
+        Assert.Equal(10, node["diff"]!["value"]!["maxChangedPixels"]!.GetValue<long>());
+        Assert.Equal(1.5, node["diff"]!["value"]!["maxChangedPercent"]!.GetValue<double>());
+        Assert.Equal("clock", node["diff"]!["value"]!["ignoredRegions"]![0]!["name"]!.GetValue<string>());
+        Assert.Equal(0, node["requiredRegionResults"]![0]!["ruleIndex"]!.GetValue<int>());
+        Assert.Equal(ScreenshotRegionAssertionModes.Unchanged, node["requiredRegionResults"]![0]!["assertion"]!.GetValue<string>());
+        Assert.True(node["requiredRegionResults"]![0]!["result"]!["success"]!.GetValue<bool>());
+        Assert.Equal("C:\\diff\\required-region-main.png", node["requiredRegionResults"]![0]!["result"]!["value"]!["cropPath"]!.GetValue<string>());
+    }
+
+    [Fact]
     public void PreviewSessionSummarySerializesRequestAndLastRender()
     {
         var createdAt = new DateTimeOffset(2026, 6, 7, 4, 0, 0, TimeSpan.Zero);

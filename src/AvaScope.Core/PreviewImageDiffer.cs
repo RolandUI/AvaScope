@@ -10,7 +10,10 @@ public sealed class PreviewImageDiffer
         string baselinePath,
         string currentPath,
         string? diffPath = null,
-        double tolerance = 0)
+        double tolerance = 0,
+        IReadOnlyList<ScreenshotRegion>? ignoredRegions = null,
+        long? maxChangedPixels = null,
+        double? maxChangedPercent = null)
     {
         if (string.IsNullOrWhiteSpace(baselinePath))
         {
@@ -31,6 +34,20 @@ public sealed class PreviewImageDiffer
             return CoreResult<PreviewDiffResponse>.Fail(new CoreError(
                 CoreErrorCodes.ImageDiffFailed,
                 "Tolerance must be between 0 and 255."));
+        }
+
+        if (maxChangedPixels is < 0)
+        {
+            return CoreResult<PreviewDiffResponse>.Fail(new CoreError(
+                CoreErrorCodes.ImageDiffFailed,
+                "Maximum changed pixels cannot be negative."));
+        }
+
+        if (maxChangedPercent is < 0 or > 100)
+        {
+            return CoreResult<PreviewDiffResponse>.Fail(new CoreError(
+                CoreErrorCodes.ImageDiffFailed,
+                "Maximum changed percent must be between 0 and 100."));
         }
 
         var fullBaselinePath = Path.GetFullPath(baselinePath);
@@ -70,16 +87,43 @@ public sealed class PreviewImageDiffer
             }
 
             using var diff = fullDiffPath is null ? null : new SKBitmap(baseline.Width, baseline.Height);
+            var maskResult = CreateIgnoredRegionMask(ignoredRegions, baseline.Width, baseline.Height);
+            if (!maskResult.Success)
+            {
+                return CoreResult<PreviewDiffResponse>.Fail(maskResult.Error!);
+            }
+
+            var ignoredMask = maskResult.Value!.Mask;
+            var ignoredPixelCount = maskResult.Value.IgnoredPixelCount;
             long changedPixels = 0;
             var maxDelta = 0;
-            var totalPixels = (long)baseline.Width * baseline.Height;
+            var totalPixels = (long)baseline.Width * baseline.Height - ignoredPixelCount;
+            if (totalPixels < 1)
+            {
+                return CoreResult<PreviewDiffResponse>.Fail(new CoreError(
+                    CoreErrorCodes.ImageDiffFailed,
+                    "Ignored regions cover the entire image.",
+                    new Dictionary<string, string>
+                    {
+                        ["ignoredPixelCount"] = ignoredPixelCount.ToString(CultureInfo.InvariantCulture),
+                        ["pixelWidth"] = baseline.Width.ToString(CultureInfo.InvariantCulture),
+                        ["pixelHeight"] = baseline.Height.ToString(CultureInfo.InvariantCulture)
+                    }));
+            }
 
             for (var y = 0; y < baseline.Height; y++)
             {
                 for (var x = 0; x < baseline.Width; x++)
                 {
+                    var offset = y * baseline.Width + x;
                     var baselineColor = baseline.GetPixel(x, y);
                     var currentColor = current.GetPixel(x, y);
+                    if (ignoredMask is not null && ignoredMask[offset])
+                    {
+                        diff?.SetPixel(x, y, ToGray(currentColor));
+                        continue;
+                    }
+
                     var delta = MaxChannelDelta(baselineColor, currentColor);
                     maxDelta = Math.Max(maxDelta, delta);
                     var changed = delta > tolerance;
@@ -91,6 +135,12 @@ public sealed class PreviewImageDiffer
                     diff?.SetPixel(x, y, changed ? SKColors.Red : ToGray(currentColor));
                 }
             }
+
+            var changedPercent = totalPixels == 0 ? 0 : (double)changedPixels / totalPixels * 100;
+            var passed = maxChangedPixels is null && maxChangedPercent is null
+                ? changedPixels == 0
+                : (maxChangedPixels is null || changedPixels <= maxChangedPixels.Value)
+                    && (maxChangedPercent is null || changedPercent <= maxChangedPercent.Value);
 
             if (diff is not null && fullDiffPath is not null)
             {
@@ -109,15 +159,19 @@ public sealed class PreviewImageDiffer
             return CoreResult<PreviewDiffResponse>.Ok(new PreviewDiffResponse(
                 fullBaselinePath,
                 fullCurrentPath,
-                changedPixels == 0,
+                passed,
                 baseline.Width,
                 baseline.Height,
                 tolerance,
                 changedPixels,
                 totalPixels,
-                totalPixels == 0 ? 0 : (double)changedPixels / totalPixels * 100,
+                changedPercent,
                 maxDelta,
-                fullDiffPath));
+                fullDiffPath,
+                ignoredRegions,
+                ignoredPixelCount,
+                maxChangedPixels,
+                maxChangedPercent));
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException)
         {
@@ -139,4 +193,70 @@ public sealed class PreviewImageDiffer
         var gray = (byte)((color.Red + color.Green + color.Blue) / 3);
         return new SKColor(gray, gray, gray, color.Alpha);
     }
+
+    private static CoreResult<IgnoredRegionMask> CreateIgnoredRegionMask(
+        IReadOnlyList<ScreenshotRegion>? ignoredRegions,
+        int width,
+        int height)
+    {
+        if (ignoredRegions is null || ignoredRegions.Count == 0)
+        {
+            return CoreResult<IgnoredRegionMask>.Ok(new IgnoredRegionMask(null, 0));
+        }
+
+        var mask = new bool[width * height];
+        long ignoredPixels = 0;
+        for (var regionIndex = 0; regionIndex < ignoredRegions.Count; regionIndex++)
+        {
+            var region = ignoredRegions[regionIndex];
+            if (!IsRegionInside(region, width, height))
+            {
+                return CoreResult<IgnoredRegionMask>.Fail(new CoreError(
+                    CoreErrorCodes.ImageDiffFailed,
+                    "Ignored region is outside the image bounds.",
+                    new Dictionary<string, string>
+                    {
+                        ["regionIndex"] = regionIndex.ToString(CultureInfo.InvariantCulture),
+                        ["region"] = FormatRegion(region),
+                        ["imageWidth"] = width.ToString(CultureInfo.InvariantCulture),
+                        ["imageHeight"] = height.ToString(CultureInfo.InvariantCulture),
+                        ["nextAction"] = "Adjust the ignored region so it fits inside the rendered baseline image."
+                    }));
+            }
+
+            for (var y = region.Y; y < region.Y + region.Height; y++)
+            {
+                for (var x = region.X; x < region.X + region.Width; x++)
+                {
+                    var offset = y * width + x;
+                    if (mask[offset])
+                    {
+                        continue;
+                    }
+
+                    mask[offset] = true;
+                    ignoredPixels++;
+                }
+            }
+        }
+
+        return CoreResult<IgnoredRegionMask>.Ok(new IgnoredRegionMask(mask, ignoredPixels));
+    }
+
+    private static bool IsRegionInside(ScreenshotRegion region, int width, int height)
+    {
+        return region.X < width
+            && region.Y < height
+            && region.X + region.Width <= width
+            && region.Y + region.Height <= height;
+    }
+
+    private static string FormatRegion(ScreenshotRegion region)
+    {
+        return string.Create(
+            CultureInfo.InvariantCulture,
+            $"{region.X},{region.Y},{region.Width},{region.Height}");
+    }
+
+    private readonly record struct IgnoredRegionMask(bool[]? Mask, long IgnoredPixelCount);
 }

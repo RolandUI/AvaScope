@@ -14,7 +14,8 @@ public sealed record PreviewBaselineSuiteVariant
         string? designDataType = null,
         int? animationTimeOffsetMs = null,
         RuntimeTargetContext? runtimeTarget = null,
-        IReadOnlyList<string>? mutationPresetIds = null)
+        IReadOnlyList<string>? mutationPresetIds = null,
+        PreviewComparisonRules? comparisonRules = null)
     {
         if (dpi is <= 0)
         {
@@ -35,6 +36,7 @@ public sealed record PreviewBaselineSuiteVariant
         AnimationTimeOffsetMs = animationTimeOffsetMs;
         RuntimeTarget = runtimeTarget;
         MutationPresetIds = PreviewBaselineSuiteDefaults.Normalize(mutationPresetIds);
+        ComparisonRules = comparisonRules;
     }
 
     [JsonPropertyName("name")]
@@ -71,4 +73,8 @@ public sealed record PreviewBaselineSuiteVariant
 
     [JsonPropertyName("mutationPresetIds")]
     public IReadOnlyList<string> MutationPresetIds { get; }
+
+    [JsonPropertyName("comparisonRules")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PreviewComparisonRules? ComparisonRules { get; }
 }
