@@ -1,0 +1,78 @@
+name: AvaScope Visual Regression
+
+on:
+  workflow_dispatch:
+    inputs:
+      baseline_manifest:
+        description: Path to a committed AvaScope baseline manifest.
+        required: true
+        default: baselines/main.json
+      tolerance:
+        description: Pixel channel tolerance from 0 to 255.
+        required: true
+        default: "2"
+
+permissions:
+  contents: read
+
+jobs:
+  visual-regression:
+    name: AvaScope baseline check
+    runs-on: windows-latest
+
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+      DOTNET_NOLOGO: "1"
+      DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "1"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Build local AvaScope CLI package
+        shell: pwsh
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1 -SkipTests -RuntimeIdentifiers win-x64
+
+      - name: Run baseline validation
+        shell: pwsh
+        run: |
+          $avascope = ".\artifacts\executables\avascope-win-x64-framework-dependent\avascope.exe"
+          $root = ".\artifacts\visual-regression"
+          $report = Join-Path $root "report\baseline-check.json"
+          $reportPack = Join-Path $root "report-pack"
+          $current = Join-Path $root "current"
+          $diff = Join-Path $root "diff"
+
+          New-Item -ItemType Directory -Force -Path (Split-Path -Parent $report), $reportPack, $current, $diff | Out-Null
+
+          & $avascope baseline-check `
+            --manifest "${{ inputs.baseline_manifest }}" `
+            --out-dir $current `
+            --diff-dir $diff `
+            --report $report `
+            --report-pack $reportPack `
+            --tolerance "${{ inputs.tolerance }}"
+
+          $baselineExitCode = $LASTEXITCODE
+
+          if (-not (Test-Path -LiteralPath (Join-Path $reportPack "baseline-report.json"))) {
+            throw "AvaScope did not produce baseline-report.json."
+          }
+
+          exit $baselineExitCode
+
+      - name: Upload AvaScope visual-regression artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: avascope-visual-regression
+          path: |
+            artifacts/visual-regression/report
+            artifacts/visual-regression/report-pack
+            artifacts/visual-regression/current
+            artifacts/visual-regression/diff

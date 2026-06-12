@@ -205,6 +205,12 @@ dotnet test AvaScope.slnx --filter FullyQualifiedName~McpStdioSmokeTests.ServerS
 
 For CI report validation, run a sample baseline check with `--report <report.json> --report-pack <dir>`, verify the JSON report exists and contains the same `passed` and `entries` shape as stdout, then verify the report pack contains `baseline-report.json`, `baseline-report.html`, `baseline-junit.xml`, and `baseline.sarif.json`. The CLI response should include `reportPack.status`, pass/fail counts, metadata, and asset paths without inlining image payloads.
 
+For visual-regression GitHub Actions example work, include:
+
+```powershell
+dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~VisualRegressionWorkflowDocumentationTests
+```
+
 For legacy JSON-only artifact collection, run:
 
 ```powershell

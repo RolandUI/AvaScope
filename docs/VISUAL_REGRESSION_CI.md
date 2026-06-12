@@ -1,6 +1,6 @@
 # Visual Regression CI
 
-Use `baseline-check --report-pack` for CI and upload the generated review pack with the current and diff image directories.
+Use `baseline-check --report-pack` for CI and upload the generated review pack with the current and diff image directories. A complete copy-paste starting point is available at [docs/examples/github-actions/avascope-visual-regression.yml](examples/github-actions/avascope-visual-regression.yml).
 
 The baseline commands keep their local behavior:
 
@@ -37,6 +37,10 @@ The CLI response includes `reportPack.status`, pass/fail counts, environment met
 
 ## GitHub Actions Example
 
+The sample workflow is intentionally not installed under `.github/workflows/` so it does not change this repository's CI behavior. Copy it into a consuming repository as `.github/workflows/avascope-visual-regression.yml`, then set `baseline_manifest` to a committed AvaScope baseline manifest. If the project uses suite manifests, generate and commit the expanded baseline manifest with `baseline-create --suite <suite.json> --manifest <baseline.json>` before enabling the check.
+
+Minimal job shape:
+
 ```yaml
 - name: Run AvaScope visual baseline check
   shell: pwsh
@@ -55,6 +59,10 @@ The CLI response includes `reportPack.status`, pass/fail counts, environment met
 
     $baselineExitCode = $LASTEXITCODE
 
+    if (-not (Test-Path -LiteralPath (Join-Path $reportPack "baseline-report.json"))) {
+      throw "AvaScope did not produce baseline-report.json."
+    }
+
     exit $baselineExitCode
 
 - name: Upload AvaScope visual regression artifacts
@@ -69,4 +77,20 @@ The CLI response includes `reportPack.status`, pass/fail counts, environment met
       artifacts/visual-regression/diff
 ```
 
-The upload step uses `if: always()` so changed baselines still publish report assets and images for review. The baseline step preserves the original `baseline-check` exit code.
+The upload step uses `if: always()` so changed baselines still publish report assets and images for review. The baseline step preserves the original `baseline-check` exit code, so changed variants fail the job while still leaving reviewable artifacts.
+
+## Review And Failure Semantics
+
+- A passing baseline check exits `0` and uploads the report pack, current images, and diff images for auditability.
+- A changed baseline exits non-zero, but the upload step still runs; review `report-pack/baseline-report.html` first, then inspect `report-pack/baseline-report.json` or `baseline-junit.xml` for machine-readable failure details.
+- Missing or invalid manifests fail before meaningful artifacts exist; the workflow should treat that as setup failure, not a visual-regression failure.
+- Do not update committed baselines from this CI job. Refreshing baselines should be an explicit local or reviewed workflow, not an automatic pull-request side effect.
+
+## Release Workflow Separation
+
+This visual-regression workflow is separate from AvaScope release publishing:
+
+- It uses `permissions: contents: read`.
+- It does not require `NUGET_API_KEY`, `packages: write`, or `contents: write`.
+- It does not call `eng\publish-nuget.ps1` or `eng\publish-github-release.ps1`.
+- It may build a local AvaScope CLI package with `eng\create-local-release.ps1 -SkipTests`, but that only creates local artifacts for the job.
