@@ -286,6 +286,86 @@ public sealed class AvaScopeMcpToolsTests
     }
 
     [Fact]
+    public async Task BaselineCheckWritesReportAndReportPackPathsThroughPreviewHost()
+    {
+        var testRoot = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(testRoot);
+
+        var projectPath = Path.Combine(testRoot, "McpBaselineSample.csproj");
+        var viewPath = Path.Combine(testRoot, "MainView.axaml");
+        var manifestPath = Path.Combine(testRoot, "baseline", "baseline.json");
+        var baselineDirectory = Path.Combine(testRoot, "baseline", "images");
+        var currentDirectory = Path.Combine(testRoot, "current");
+        var diffDirectory = Path.Combine(testRoot, "diff");
+        var reportPath = Path.Combine(testRoot, "report", "baseline-check.json");
+        var reportPackDirectory = Path.Combine(testRoot, "report-pack");
+
+        await File.WriteAllTextAsync(projectPath, """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+              </PropertyGroup>
+            </Project>
+            """);
+
+        await File.WriteAllTextAsync(viewPath, """
+            <UserControl xmlns="https://github.com/avaloniaui">
+              <Border Background="#FFFFFFFF">
+                <TextBlock Text="MCP baseline check" />
+              </Border>
+            </UserControl>
+            """);
+
+        try
+        {
+            var client = CreatePreviewHostClient();
+            var created = await new PreviewBaselineManager(client).CreateAsync(
+                new PreviewRequest(
+                    Path.Combine(testRoot, "seed.png"),
+                    width: 80,
+                    height: 60,
+                    dpi: 96,
+                    projectPath: projectPath,
+                    viewPath: viewPath,
+                    themeVariant: "light"),
+                [new PreviewViewport(80, 60)],
+                manifestPath,
+                baselineDirectory);
+
+            Assert.True(created.Success, created.Error?.Message);
+
+            var result = await AvaScopeMcpTools.BaselineCheck(
+                client,
+                manifestPath,
+                outputDirectory: currentDirectory,
+                diffDirectory: diffDirectory,
+                tolerance: 0,
+                reportPath: reportPath,
+                reportPackDirectory: reportPackDirectory);
+
+            Assert.True(result.Success, result.Error?.Message);
+            Assert.True(result.Value!.Passed);
+            Assert.Equal(Path.GetFullPath(reportPath), result.Value.ReportPath);
+            Assert.True(File.Exists(reportPath));
+            Assert.NotNull(result.Value.ReportPack);
+            Assert.Equal("passed", result.Value.ReportPack!.Status);
+            Assert.Equal(Path.GetFullPath(reportPackDirectory), result.Value.ReportPack.ReportDirectory);
+            Assert.Equal(4, result.Value.ReportPack.Assets.Count);
+            Assert.All(result.Value.ReportPack.Assets, asset => Assert.True(File.Exists(asset.Path), asset.Path));
+            Assert.Contains(
+                result.Value.ReportPack.Assets,
+                asset => asset.Kind == "html" && File.ReadAllText(asset.Path).Contains("Baseline check passed", StringComparison.Ordinal));
+        }
+        finally
+        {
+            if (Directory.Exists(testRoot))
+            {
+                Directory.Delete(testRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
     public async Task CreatePreviewSessionRejectsInvalidDimensions()
     {
         var previewSessions = CreatePreviewSessionRegistryWithMissingHost();

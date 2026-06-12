@@ -30,7 +30,7 @@ AvaScope is designed around small, composable tool calls that an agent can chain
 4. Capture evidence as structured JSON plus file paths for screenshots, diffs, reports, or local HTML viewers.
 5. Close sessions and clean stale AvaScope-owned metadata explicitly.
 
-The `v0.7.0` release line adds the next control-plane layer. The current bridge and CLI/MCP surfaces support bounded reversible style/layout/text/class/resource mutations with mutation ids, reset operations, and before/after evidence packages containing screenshots, visual tree snapshots, and optional pixel diffs.
+The `v0.7.0` release line added the runtime control-plane layer: bounded reversible style/layout/text/class/resource mutations with mutation ids, reset operations, and before/after evidence packages containing screenshots, visual tree snapshots, and optional pixel diffs. The active `v0.8.0` line turns those agent experiments into repeatable validation workflows with baseline suites, comparison rules, and reviewable report packs.
 
 ## Project Layout
 
@@ -434,10 +434,19 @@ Create and check a visual regression baseline set:
 
 ```powershell
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll baseline-create path\to\App.csproj --view Views\MainView.axaml --manifest .\baselines\main.json --sizes 1440x900,1280x720 --out-dir .\baselines\main-images --theme light
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll baseline-check --manifest .\baselines\main.json --out-dir .\artifacts\visual-current --diff-dir .\artifacts\visual-diff --report .\artifacts\visual-report.json --tolerance 2
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll baseline-check --manifest .\baselines\main.json --out-dir .\artifacts\visual-current --diff-dir .\artifacts\visual-diff --report .\artifacts\visual-report.json --report-pack .\artifacts\visual-report-pack --tolerance 2
 ```
 
-`baseline-create` writes explicit baseline screenshots plus a JSON manifest. `baseline-check` re-renders the manifest variants, writes current and diff images to explicit output directories, can write a stable JSON report with `--report`, and exits non-zero when any variant changes. It does not update or replace baseline files.
+`baseline-create` writes explicit baseline screenshots plus a JSON manifest. `baseline-check` re-renders the manifest variants, writes current and diff images to explicit output directories, can write a stable JSON report with `--report`, can write an agent evidence pack with `--report-pack <dir>`, and exits non-zero when any variant changes. It does not update or replace baseline files.
+
+`--report-pack` writes bounded review assets for agent handoff:
+
+- `baseline-report.json`: machine-readable pack summary, baseline check result, grouped failures, and image paths.
+- `baseline-report.html`: local review page with grouped failures, environment metadata, baseline/current/diff image links, and suite/mutation provenance.
+- `baseline-junit.xml`: CI-friendly pass/fail summary.
+- `baseline.sarif.json`: SARIF-style failure summary for code-scanning or PR review surfaces.
+
+The CLI/MCP response only returns the report-pack status, counts, metadata, and asset paths through `reportPack`; it does not inline large images or unbounded report payloads.
 
 For agent repeatability across multiple views, sizes, themes, cultures, animation frames, and later runtime handoff, put the collection in a named suite manifest:
 
@@ -486,12 +495,12 @@ For agent repeatability across multiple views, sizes, themes, cultures, animatio
 
 ```powershell
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll baseline-create --suite .\baselines\agent-main-suite.json --manifest .\baselines\agent-main.json --out-dir .\baselines\agent-main-images
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll baseline-check --manifest .\baselines\agent-main.json --out-dir .\artifacts\visual-current --diff-dir .\artifacts\visual-diff --report .\artifacts\visual-report.json --tolerance 2
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll baseline-check --manifest .\baselines\agent-main.json --out-dir .\artifacts\visual-current --diff-dir .\artifacts\visual-diff --report .\artifacts\visual-report.json --report-pack .\artifacts\visual-report-pack --tolerance 2
 ```
 
 Suite creation expands to the same baseline manifest shape that `baseline-check` already consumes. `comparisonRules` can be declared in suite defaults, entries, or explicit variants. Scalar values such as `tolerance`, `maxChangedPixels`, and `maxChangedPercent` are overridden by the more specific level, while `ignoredRegions` and `requiredRegions` are combined. If no rules are configured, baseline checks keep the existing strict behavior. In this slice, `runtimeTarget`, `profileName`, `profileVariant`, `profileFilePath`, and `mutationPresetIds` are recorded as structured provenance and agent handoff metadata; suite creation does not execute runtime mutations.
 
-For CI artifact upload, run `eng\collect-baseline-artifacts.ps1` after `baseline-check --report` and upload the helper output directory. See [VISUAL_REGRESSION_CI.md](VISUAL_REGRESSION_CI.md).
+For CI artifact upload, prefer `baseline-check --report-pack <dir>` and upload that directory plus the configured current/diff directories. The older `eng\collect-baseline-artifacts.ps1` helper remains available for `--report` JSON-only workflows. See [VISUAL_REGRESSION_CI.md](VISUAL_REGRESSION_CI.md).
 
 Delete stale AvaScope-owned preview-session metadata:
 
@@ -563,7 +572,7 @@ Implemented tools:
 - `close_preview_session`
 - `reload`
 
-Planned but not implemented yet: runtime hot reload, drag/drop, full preview startup orchestration, installer distribution, macOS release policy, and CI-oriented visual-regression report packs.
+Planned but not implemented yet: runtime hot reload, drag/drop, full preview startup orchestration, installer distribution, macOS release policy, and broader hosted review integrations.
 
 `diagnostics` reports AvaScope service metadata, local bridge manifest/pipe health, stale, invalid, unauthorized, unavailable, duplicate, and protocol-incompatible bridge records, preview host readiness, and stale or invalid preview-session metadata without building or loading user projects. The response keeps the legacy `issues` list and also includes bounded `diagnosticIssues` entries with source, severity, status, provenance, request ids, and related path/session metadata for agent triage.
 

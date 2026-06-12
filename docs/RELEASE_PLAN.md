@@ -43,7 +43,7 @@ The roadmap below is the working plan to `v1.0.0`. It is intentionally release-s
 - `v0.6.0` is released.
 - `v0.7.0` is released.
 - `v0.7.0` starts the agent-first product direction: AvaScope becomes an agent control plane for inspecting, changing, validating, and explaining Avalonia UI behavior through structured CLI/MCP workflows.
-- `v0.8.0` is the next planned release target and may be implemented next through GitHub milestone `v0.8.0`, release issue #19, and implementation issue #20 first.
+- `v0.8.0` is the active release target through GitHub milestone `v0.8.0`, release issue #19, and implementation issue #22 currently in progress.
 - `v0.9.0` through `v1.0.0` are planned targets. Their scope may be refined before they become the current release target, but changes must be recorded here before implementation starts.
 - Each release must preserve the current product boundaries: MCP and CLI stay adapters over Core, runtime bridge activation stays opt-in and local-only, PreviewHost stays isolated from the MCP server, and private Avalonia/runtime hooks remain out of the default path.
 - Every release must include targeted tests, full build/test validation, release dry-run validation, documentation updates, and explicit deferrals.
@@ -282,7 +282,7 @@ The `v0.6.0` release target is focused on runtime debugging and agent validation
 - Full long-lived persistent PreviewHost worker processes remain deferred. `v0.6.0` ships bounded lifecycle/event observability over the existing isolated one-shot PreviewHost child-process model.
 - Persistent hosts must stay child processes when implemented later; MCP server in-process user-code loading remains out of scope.
 - Destructive runtime actions, arbitrary process termination, and remote inspection remain out of scope.
-- Full visual-regression suite/report productization remains in `v0.7.0`; `v0.6.0` only adds focused screenshot region assertions.
+- Full visual-regression suite/report productization remains in `v0.8.0`; `v0.6.0` only adds focused screenshot region assertions.
 
 ## Released Target: v0.7.0
 
@@ -343,12 +343,12 @@ The `v0.7.0` release target starts the agent-first product direction. The goal i
 - Broad arbitrary-property editing remains out of scope until property conversion, validation, rollback, and security behavior are proven for the first mutation set.
 - Cloud dashboard hosting remains out of scope.
 
-## Planned Target: v0.8.0
+## In Progress Target: v0.8.0
 
 - Release: `v0.8.0`
 - Target Version: `0.8.0`
-- Release State: `Planned`
-- Scope Lock: pending
+- Release State: `In Progress`
+- Scope Lock: `2026-06-12`
 - Release Commit: pending
 - Local Release Gate: pending
 - Published At: pending
@@ -375,7 +375,7 @@ The `v0.8.0` release target turns agent experiments into repeatable validation w
 
 - `R0.8.0-M1 Baseline Suite Manifest`; Status: `Done`.
 - `R0.8.0-M2 Thresholds, Masks, And Region Rules`; Status: `Done`.
-- `R0.8.0-M3 Agent Evidence Report Pack`; Status: `Planned`.
+- `R0.8.0-M3 Agent Evidence Report Pack`; Status: `Review`.
 - `R0.8.0-M4 GitHub Actions Example And Artifact Upload`; Status: `Planned`.
 - `R0.8.0-M5 MCP/CLI Agent Review Surface`; Status: `Planned`.
 - `R0.8.0-M6 Release Candidate And Version Bump`; Status: `Planned`.

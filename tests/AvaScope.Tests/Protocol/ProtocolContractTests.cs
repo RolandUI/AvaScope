@@ -1487,6 +1487,29 @@ public sealed class ProtocolContractTests
             ],
             null,
             createdAt));
+        var reportPack = new AgentEvidenceReportPackResponse(
+            "C:\\reports\\pack",
+            "failed",
+            createdAt,
+            totalEntries: 1,
+            passedEntries: 0,
+            failedEntries: 1,
+            [
+                new AgentEvidenceReportPackAsset(
+                    "html",
+                    "C:\\reports\\pack\\baseline-report.html",
+                    "text/html",
+                    "Review report.")
+            ],
+            new Dictionary<string, string>
+            {
+                ["os"] = "Windows"
+            },
+            new Dictionary<string, string>
+            {
+                ["kind"] = "preview-baseline-check",
+                ["mutationHistoryStatus"] = "preset_metadata_available"
+            });
         var check = new PreviewBaselineCheckResponse(
             "C:\\baselines\\baseline.json",
             passed: false,
@@ -1515,7 +1538,8 @@ public sealed class ProtocolContractTests
                         "C:\\diff\\diff-01-1440x900.png")))
             ],
             createdAt,
-            "C:\\reports\\baseline-check.json");
+            "C:\\reports\\baseline-check.json",
+            reportPack);
 
         var createNode = JsonNode.Parse(JsonSerializer.Serialize(create))!;
         var checkNode = JsonNode.Parse(JsonSerializer.Serialize(check))!;
@@ -1525,6 +1549,9 @@ public sealed class ProtocolContractTests
         Assert.Equal("C:\\baselines\\baseline-01-1440x900.png", createNode["manifest"]!["entries"]![0]!["imagePath"]!.GetValue<string>());
         Assert.False(checkNode["passed"]!.GetValue<bool>());
         Assert.Equal("C:\\reports\\baseline-check.json", checkNode["reportPath"]!.GetValue<string>());
+        Assert.Equal("failed", checkNode["reportPack"]!["status"]!.GetValue<string>());
+        Assert.Equal("html", checkNode["reportPack"]!["assets"]![0]!["kind"]!.GetValue<string>());
+        Assert.Equal("preset_metadata_available", checkNode["reportPack"]!["metadata"]!["mutationHistoryStatus"]!.GetValue<string>());
         Assert.Equal("C:\\diff\\diff-01-1440x900.png", checkNode["entries"]![0]!["diffPath"]!.GetValue<string>());
         Assert.False(checkNode["entries"]![0]!["diff"]!["value"]!["passed"]!.GetValue<bool>());
     }

@@ -204,6 +204,7 @@ public sealed class PreviewBaselineManager
         string diffDirectory,
         double tolerance,
         string? reportPath = null,
+        string? reportPackDirectory = null,
         CancellationToken cancellationToken = default)
     {
         if (tolerance < 0 || tolerance > 255)
@@ -225,6 +226,9 @@ public sealed class PreviewBaselineManager
         var fullOutputDirectory = Path.GetFullPath(outputDirectory);
         var fullDiffDirectory = Path.GetFullPath(diffDirectory);
         var fullReportPath = string.IsNullOrWhiteSpace(reportPath) ? null : Path.GetFullPath(reportPath);
+        var fullReportPackDirectory = string.IsNullOrWhiteSpace(reportPackDirectory)
+            ? null
+            : Path.GetFullPath(reportPackDirectory);
         Directory.CreateDirectory(fullOutputDirectory);
         Directory.CreateDirectory(fullDiffDirectory);
 
@@ -301,12 +305,31 @@ public sealed class PreviewBaselineManager
                 requiredRegionResults));
         }
 
+        var checkedAt = _timeProvider.GetUtcNow();
         var response = new PreviewBaselineCheckResponse(
             fullManifestPath,
             passed,
             entries,
-            _timeProvider.GetUtcNow(),
+            checkedAt,
             fullReportPath);
+        if (fullReportPackDirectory is not null)
+        {
+            var exported = new PreviewBaselineReportPackExporter(_timeProvider).Export(
+                response,
+                fullReportPackDirectory);
+            if (!exported.Success)
+            {
+                return CoreResult<PreviewBaselineCheckResponse>.Fail(exported.Error!);
+            }
+            response = new PreviewBaselineCheckResponse(
+                fullManifestPath,
+                passed,
+                entries,
+                checkedAt,
+                fullReportPath,
+                exported.Value!);
+        }
+
         if (fullReportPath is not null)
         {
             var written = WriteBaselineCheckReport(response, fullReportPath);

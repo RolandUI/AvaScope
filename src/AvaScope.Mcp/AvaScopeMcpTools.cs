@@ -701,6 +701,65 @@ public sealed class AvaScopeMcpTools
     }
 
     [McpServerTool(
+        Name = "baseline_check",
+        Title = "Baseline check",
+        ReadOnly = false,
+        Idempotent = false,
+        Destructive = false,
+        OpenWorld = false,
+        UseStructuredContent = true)]
+    [Description("Checks an AvaScope baseline manifest through isolated preview host renders and can write JSON and agent evidence report-pack artifacts.")]
+    public static async Task<ToolResult<PreviewBaselineCheckResponse>> BaselineCheck(
+        PreviewHostClient previewHostClient,
+        string manifestPath,
+        string? outputDirectory = null,
+        string? diffDirectory = null,
+        double tolerance = 0,
+        string? reportPath = null,
+        string? reportPackDirectory = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(previewHostClient);
+
+        if (string.IsNullOrWhiteSpace(manifestPath))
+        {
+            return ToolResult<PreviewBaselineCheckResponse>.Fail(new ProtocolError(
+                CoreErrorCodes.InvalidPreviewRequest,
+                "Baseline manifest path is required."));
+        }
+
+        string fullManifestPath;
+        string fullOutputDirectory;
+        string fullDiffDirectory;
+        try
+        {
+            fullManifestPath = Path.GetFullPath(manifestPath);
+            var manifestDirectory = Path.GetDirectoryName(fullManifestPath) ?? Environment.CurrentDirectory;
+            fullOutputDirectory = string.IsNullOrWhiteSpace(outputDirectory)
+                ? Path.Combine(manifestDirectory, "current-images")
+                : Path.GetFullPath(outputDirectory);
+            fullDiffDirectory = string.IsNullOrWhiteSpace(diffDirectory)
+                ? Path.Combine(manifestDirectory, "diff-images")
+                : Path.GetFullPath(diffDirectory);
+        }
+        catch (Exception exception) when (exception is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            return ToolResult<PreviewBaselineCheckResponse>.Fail(new ProtocolError(
+                CoreErrorCodes.InvalidPreviewRequest,
+                exception.Message));
+        }
+
+        return ToToolResult(await new PreviewBaselineManager(previewHostClient).CheckAsync(
+            fullManifestPath,
+            fullOutputDirectory,
+            fullDiffDirectory,
+            tolerance,
+            reportPath,
+            reportPackDirectory,
+            cancellationToken));
+    }
+
+    [McpServerTool(
         Name = "preview_axaml_multi",
         Title = "Preview AXAML multiple sizes",
         ReadOnly = false,

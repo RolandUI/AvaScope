@@ -195,12 +195,17 @@ dotnet test AvaScope.slnx --filter FullyQualifiedName~CliSmokeTests.BaselineComm
 dotnet test AvaScope.slnx --filter FullyQualifiedName~CliSmokeTests.BaselineSuiteCommandCreatesManifestAndCheckPasses
 dotnet test AvaScope.slnx --filter FullyQualifiedName~PreviewImageDifferTests
 dotnet test AvaScope.slnx --filter FullyQualifiedName~PreviewBaselineManagerTests
+dotnet test AvaScope.slnx --filter FullyQualifiedName~PreviewBaselineReportPackExporterTests
 dotnet test AvaScope.slnx --filter FullyQualifiedName~ProtocolContractTests.PreviewBaselineResponsesSerializeStableShapes
 dotnet test AvaScope.slnx --filter FullyQualifiedName~ProtocolContractTests.PreviewBaselineSuiteManifestSerializesStableShape
 dotnet test AvaScope.slnx --filter FullyQualifiedName~ProtocolContractTests.PreviewComparisonRulesAndRegionResultsSerializeStableShape
+dotnet test AvaScope.slnx --filter FullyQualifiedName~AvaScopeMcpToolsTests.BaselineCheckWritesReportAndReportPackPathsThroughPreviewHost
+dotnet test AvaScope.slnx --filter FullyQualifiedName~McpStdioSmokeTests.ServerStartsOverStdioAndListsInitialTools
 ```
 
-For CI report validation, run a sample baseline check with `--report <report.json>`, verify the report exists and contains the same `passed` and `entries` shape as stdout, then collect upload artifacts:
+For CI report validation, run a sample baseline check with `--report <report.json> --report-pack <dir>`, verify the JSON report exists and contains the same `passed` and `entries` shape as stdout, then verify the report pack contains `baseline-report.json`, `baseline-report.html`, `baseline-junit.xml`, and `baseline.sarif.json`. The CLI response should include `reportPack.status`, pass/fail counts, metadata, and asset paths without inlining image payloads.
+
+For legacy JSON-only artifact collection, run:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\collect-baseline-artifacts.ps1 -Report <report.json> -OutDir .\artifacts\visual-regression\upload

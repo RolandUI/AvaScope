@@ -60,7 +60,7 @@ Executable ZIPs and package artifacts are published from GitHub Releases when a 
 
 ## Project Status
 
-AvaScope is pre-1.0 and actively evolving. The current focus is the `v0.7.0` agent runtime control release: structured mutation contracts, reversible style/layout experiments, evidence artifacts, local-only safety, and CLI/MCP review surfaces. Public APIs and artifact shapes may still change before `v1.0.0`.
+AvaScope is pre-1.0 and actively evolving. The current focus is the `v0.8.0` agent validation release: baseline suites, comparison rules, reviewable evidence packs, and CI-ready artifact handoff on top of the runtime control surfaces shipped in `v0.7.0`. Public APIs and artifact shapes may still change before `v1.0.0`.
 
 Development is tracked in GitHub Issues, Milestones, and the public [AvaScope Roadmap](https://github.com/users/RolandUI/projects/4) Project board.
 

@@ -10,7 +10,8 @@ public sealed record PreviewBaselineCheckResponse
         bool passed,
         IReadOnlyList<PreviewBaselineCheckEntry>? entries,
         DateTimeOffset checkedAt,
-        string? reportPath = null)
+        string? reportPath = null,
+        AgentEvidenceReportPackResponse? reportPack = null)
     {
         if (string.IsNullOrWhiteSpace(manifestPath))
         {
@@ -22,6 +23,7 @@ public sealed record PreviewBaselineCheckResponse
         Entries = entries ?? [];
         CheckedAt = checkedAt;
         ReportPath = string.IsNullOrWhiteSpace(reportPath) ? null : Path.GetFullPath(reportPath);
+        ReportPack = reportPack;
     }
 
     [JsonPropertyName("manifestPath")]
@@ -39,4 +41,8 @@ public sealed record PreviewBaselineCheckResponse
     [JsonPropertyName("reportPath")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? ReportPath { get; }
+
+    [JsonPropertyName("reportPack")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public AgentEvidenceReportPackResponse? ReportPack { get; }
 }

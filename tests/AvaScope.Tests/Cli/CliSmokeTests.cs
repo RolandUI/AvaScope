@@ -918,6 +918,7 @@ public sealed class CliSmokeTests
             Assert.Single(createPayload.Value.Manifest.Entries);
             Assert.True(File.Exists(createPayload.Value.Manifest.Entries[0].ImagePath));
 
+            var passReportPackDirectory = Path.Combine(testRoot, "reports", "pack-pass");
             var passed = await RunCliAsync(
                 cliAssembly,
                 "baseline-check",
@@ -926,7 +927,9 @@ public sealed class CliSmokeTests
                 "--out-dir",
                 Path.Combine(testRoot, "current-pass"),
                 "--diff-dir",
-                Path.Combine(testRoot, "diff-pass"));
+                Path.Combine(testRoot, "diff-pass"),
+                "--report-pack",
+                passReportPackDirectory);
 
             Assert.Equal(0, passed.ExitCode);
             var passedPayload = JsonSerializer.Deserialize<ToolResult<PreviewBaselineCheckResponse>>(
@@ -935,6 +938,8 @@ public sealed class CliSmokeTests
             Assert.NotNull(passedPayload);
             Assert.True(passedPayload.Success, passedPayload.Error?.Message);
             Assert.True(passedPayload.Value!.Passed);
+            Assert.NotNull(passedPayload.Value.ReportPack);
+            Assert.Equal("passed", passedPayload.Value.ReportPack!.Status);
 
             await Task.Delay(1000);
             await File.WriteAllTextAsync(viewPath, """
@@ -944,6 +949,7 @@ public sealed class CliSmokeTests
                 """);
 
             var reportPath = Path.Combine(testRoot, "reports", "baseline-check.json");
+            var failedReportPackDirectory = Path.Combine(testRoot, "reports", "pack-fail");
             var failed = await RunCliAsync(
                 cliAssembly,
                 "baseline-check",
@@ -954,7 +960,9 @@ public sealed class CliSmokeTests
                 "--diff-dir",
                 Path.Combine(testRoot, "diff-fail"),
                 "--report",
-                reportPath);
+                reportPath,
+                "--report-pack",
+                failedReportPackDirectory);
 
             Assert.Equal(1, failed.ExitCode);
             var failedPayload = JsonSerializer.Deserialize<ToolResult<PreviewBaselineCheckResponse>>(
@@ -970,12 +978,25 @@ public sealed class CliSmokeTests
             Assert.True(File.Exists(entry.DiffPath));
             Assert.Equal(Path.GetFullPath(reportPath), failedPayload.Value.ReportPath);
             Assert.True(File.Exists(reportPath));
+            Assert.NotNull(failedPayload.Value.ReportPack);
+            Assert.Equal("failed", failedPayload.Value.ReportPack!.Status);
+            Assert.Equal(Path.GetFullPath(failedReportPackDirectory), failedPayload.Value.ReportPack.ReportDirectory);
+            Assert.Equal(4, failedPayload.Value.ReportPack.Assets.Count);
+            Assert.All(failedPayload.Value.ReportPack.Assets, asset => Assert.True(File.Exists(asset.Path), asset.Path));
+            Assert.Contains(
+                failedPayload.Value.ReportPack.Assets,
+                asset => asset.Kind == "html" && File.ReadAllText(asset.Path).Contains("Grouped Failures", StringComparison.Ordinal));
+            Assert.Contains(
+                failedPayload.Value.ReportPack.Assets,
+                asset => asset.Kind == "junit" && File.ReadAllText(asset.Path).Contains("failures=\"1\"", StringComparison.Ordinal));
             var reportPayload = JsonSerializer.Deserialize<PreviewBaselineCheckResponse>(
                 await File.ReadAllTextAsync(reportPath),
                 JsonOptions);
             Assert.NotNull(reportPayload);
             Assert.False(reportPayload.Passed);
             Assert.Equal(Path.GetFullPath(reportPath), reportPayload.ReportPath);
+            Assert.NotNull(reportPayload.ReportPack);
+            Assert.Equal(Path.GetFullPath(failedReportPackDirectory), reportPayload.ReportPack!.ReportDirectory);
             Assert.Equal(Path.GetFullPath(entry.CurrentImagePath), reportPayload.Entries[0].CurrentImagePath);
             Assert.Equal(Path.GetFullPath(entry.DiffPath), reportPayload.Entries[0].DiffPath);
         }
@@ -1107,6 +1128,7 @@ public sealed class CliSmokeTests
                 Assert.StartsWith(Path.GetFullPath(baselineDirectory), entry.ImagePath, StringComparison.OrdinalIgnoreCase);
             });
 
+            var reportPackDirectory = Path.Combine(testRoot, "suite-report-pack");
             var passed = await RunCliAsync(
                 cliAssembly,
                 "baseline-check",
@@ -1115,7 +1137,9 @@ public sealed class CliSmokeTests
                 "--out-dir",
                 Path.Combine(testRoot, "current-pass"),
                 "--diff-dir",
-                Path.Combine(testRoot, "diff-pass"));
+                Path.Combine(testRoot, "diff-pass"),
+                "--report-pack",
+                reportPackDirectory);
 
             Assert.Equal(0, passed.ExitCode);
             var passedPayload = JsonSerializer.Deserialize<ToolResult<PreviewBaselineCheckResponse>>(
@@ -1124,6 +1148,15 @@ public sealed class CliSmokeTests
             Assert.NotNull(passedPayload);
             Assert.True(passedPayload.Success, passedPayload.Error?.Message);
             Assert.True(passedPayload.Value!.Passed);
+            Assert.NotNull(passedPayload.Value.ReportPack);
+            Assert.Equal("passed", passedPayload.Value.ReportPack!.Status);
+            Assert.Equal(2, passedPayload.Value.ReportPack.TotalEntries);
+            Assert.Equal(0, passedPayload.Value.ReportPack.FailedEntries);
+            Assert.Equal(Path.GetFullPath(reportPackDirectory), passedPayload.Value.ReportPack.ReportDirectory);
+            Assert.All(passedPayload.Value.ReportPack.Assets, asset => Assert.True(File.Exists(asset.Path), asset.Path));
+            Assert.Contains(
+                passedPayload.Value.ReportPack.Assets,
+                asset => asset.Kind == "sarif" && File.ReadAllText(asset.Path).Contains("\"results\": []", StringComparison.Ordinal));
             Assert.Equal(2, passedPayload.Value.Entries.Count);
             Assert.All(passedPayload.Value.Entries, entry =>
             {
