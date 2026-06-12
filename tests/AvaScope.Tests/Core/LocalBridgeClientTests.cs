@@ -9,6 +9,8 @@ namespace AvaScope.Tests.Core;
 
 public sealed class LocalBridgeClientTests : IDisposable
 {
+    private static readonly TimeSpan BridgePipeTestTimeout = TimeSpan.FromSeconds(30);
+
     private readonly string _manifestDirectory = Path.Combine(
         Path.GetTempPath(),
         "AvaScope.Tests",
@@ -82,7 +84,7 @@ public sealed class LocalBridgeClientTests : IDisposable
         var serverTask = RespondToBridgeRequestAsync(
             pipeName,
             request => BridgeIpcResponse.Ok(request.RequestId, HealthResponse.Current()));
-        var client = new LocalBridgeClient(Path.Combine(_manifestDirectory, "unused"));
+        var client = new LocalBridgeClient(Path.Combine(_manifestDirectory, "unused"), BridgePipeTestTimeout);
 
         var result = await client.AttachToAppAsync(
             processName: processName + ".exe",
@@ -126,7 +128,7 @@ public sealed class LocalBridgeClientTests : IDisposable
         var serverTask = RespondToBridgeRequestAsync(
             pipeName,
             request => BridgeIpcResponse.Ok(request.RequestId, HealthResponse.Current()));
-        var client = new LocalBridgeClient(_manifestDirectory);
+        var client = new LocalBridgeClient(_manifestDirectory, BridgePipeTestTimeout);
 
         var result = await client.AttachLatestToAppAsync(processName: processName);
         var request = await serverTask;
@@ -294,7 +296,7 @@ public sealed class LocalBridgeClientTests : IDisposable
                             ["activeMutationCount"] = "0"
                         }));
             });
-        var client = new LocalBridgeClient(_manifestDirectory);
+        var client = new LocalBridgeClient(_manifestDirectory, BridgePipeTestTimeout);
 
         var result = await client.MutateNodeAsync(sessionId, request);
         var bridgeRequest = await serverTask;
@@ -372,7 +374,7 @@ public sealed class LocalBridgeClientTests : IDisposable
                             activeMutationIds: [entry.MutationId],
                             suggestedResetAllTarget: target)));
             });
-        var client = new LocalBridgeClient(_manifestDirectory);
+        var client = new LocalBridgeClient(_manifestDirectory, BridgePipeTestTimeout);
 
         var result = await client.MutationReviewAsync(sessionId, maxResults: 7);
         var bridgeRequest = await serverTask;
@@ -449,7 +451,7 @@ public sealed class LocalBridgeClientTests : IDisposable
                     _ => throw new InvalidOperationException("Unexpected bridge request index.")
                 };
             });
-        var client = new LocalBridgeClient(_manifestDirectory);
+        var client = new LocalBridgeClient(_manifestDirectory, BridgePipeTestTimeout);
 
         try
         {
@@ -673,7 +675,7 @@ public sealed class LocalBridgeClientTests : IDisposable
             request => BridgeIpcResponse.Ok(
                 request.RequestId,
                 new HealthResponse(AvaScopeProtocol.ServiceName, new ProtocolVersion(2, 0))));
-        var client = new LocalBridgeClient(_manifestDirectory);
+        var client = new LocalBridgeClient(_manifestDirectory, BridgePipeTestTimeout);
 
         var result = await client.DiagnosticsAsync(sessionId: incompatibleSessionId);
         var request = await serverTask;
