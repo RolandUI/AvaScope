@@ -33,7 +33,7 @@ The report pack writes:
 - `baseline-junit.xml`
 - `baseline.sarif.json`
 
-The CLI response includes `reportPack.status`, pass/fail counts, environment metadata, and asset paths. It does not inline screenshots or large report payloads. For legacy JSON-only workflows, `eng\collect-baseline-artifacts.ps1` can still collect `--report`, current images, and diff images into one helper output directory.
+The CLI response includes `agentReview` for bounded failure triage, plus `reportPack.status`, pass/fail counts, environment metadata, and asset paths. It does not inline screenshots or large report payloads. For legacy JSON-only workflows, `eng\collect-baseline-artifacts.ps1` can still collect `--report`, current images, and diff images into one helper output directory.
 
 ## GitHub Actions Example
 

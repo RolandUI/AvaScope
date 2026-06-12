@@ -104,7 +104,7 @@ Animation sampling advances Avalonia headless render timer ticks inside isolated
 
 Preview sessions persist request metadata only. Each render still runs through an isolated `AvaScope.PreviewHost` child process. Duplicate watcher bursts that leave the watched input snapshot unchanged are reported as `skipped` instead of launching another host process.
 
-`preview-viewer` returns a `previewUrl` pointing at a generated file-backed HTML viewer. Open that URL in the Codex in-app browser to review the rendered screenshot, preview metadata, diagnostics, and session JSON beside the thread without starting a server.
+`preview-viewer` returns a `previewUrl` pointing at a generated file-backed HTML viewer. Open that URL in the Codex in-app browser to review the rendered screenshot, preview metadata, diagnostics, and session JSON beside the thread without starting a server. Agents should read `agentReview.previewUrls` and `agentReview.reportPaths` first, then load the full session payload only when deeper context is needed.
 
 Preview failures include bounded `error.details.phase` values. Treat `readiness` as a local prerequisite problem, `build` as user project build output, and `render` as isolated view loading or rendering failure.
 
@@ -153,7 +153,7 @@ For preview-only visual regression:
 
 For repeatable agent validation suites, use `baseline-create --suite <suite.json> --manifest <baseline.json>`. The suite manifest can name multiple entries, variant defaults, explicit variants, profiles, runtime target metadata, mutation preset references, animation frame offsets, and `comparisonRules`. Rules support `tolerance`, `maxChangedPixels`, `maxChangedPercent`, `ignoredRegions`, and `requiredRegions`; defaults remain strict when no rules are configured. The generated baseline manifest remains compatible with `baseline-check --manifest`; runtime target and mutation preset fields are structured handoff metadata in this slice.
 
-For agent or CI review, prefer `--report-pack <dir>`. The response includes `reportPack.status`, pass/fail counts, environment metadata, and asset paths for JSON, HTML, JUnit XML, and SARIF-style summaries. Upload the report-pack directory with the current and diff image directories; agents should read the JSON/HTML paths instead of relying on terminal output.
+For agent or CI review, prefer `--report-pack <dir>`. The response includes `reportPack.status`, pass/fail counts, environment metadata, and asset paths for JSON, HTML, JUnit XML, and SARIF-style summaries. It also includes `agentReview` with a bounded failure shortlist, report paths, failed-entry current/diff artifact paths, and local review URLs. Upload the report-pack directory with the current and diff image directories; agents should inspect `agentReview` first and then read the JSON/HTML paths instead of relying on terminal output.
 
 For older JSON-only report workflows, collect the report/current/diff outputs into a single artifact directory:
 
@@ -189,7 +189,7 @@ For agent review, prefer the evidence wrapper when the result should be auditabl
 & $avascope mutation-review --session <runtime-session-id> --max-results 20 --out .\artifacts\samples\mutation-evidence\runtime-review.html
 ```
 
-Applied mutation responses include mutation ids, original/effective metadata, diagnostics, active mutation count, and explicit reset metadata. Evidence responses add before/after screenshots, before/after visual-tree JSON snapshots, optional diff PNGs, changed-pixel metrics, target summaries, and a local HTML review artifact so an agent can explain what changed without relying on terminal text or manual screenshot reading. `mutation-review` returns a bounded session-local history, active override list, reset handoff, and optional HTML artifact.
+Applied mutation responses include mutation ids, original/effective metadata, diagnostics, active mutation count, explicit reset metadata, and `agentReview.mutations` for quick handoff. Evidence responses add before/after screenshots, before/after visual-tree JSON snapshots, optional diff PNGs, changed-pixel metrics, target summaries, and a local HTML review artifact so an agent can explain what changed without relying on terminal text or manual screenshot reading. `mutation-review` returns a bounded session-local history, active override list, reset handoff, optional HTML artifact, and `agentReview.reviewUrls` for local review.
 
 Runtime mutations are temporary local overrides. Prefer `reset_mutation` or `reset_all` when keeping a session open; `close-session`, bridge deactivation, and top-level unregister also clear AvaScope's active mutation registry and attempt to restore active overrides.
 

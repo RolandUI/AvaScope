@@ -376,8 +376,8 @@ The `v0.8.0` release target turns agent experiments into repeatable validation w
 - `R0.8.0-M1 Baseline Suite Manifest`; Status: `Done`.
 - `R0.8.0-M2 Thresholds, Masks, And Region Rules`; Status: `Done`.
 - `R0.8.0-M3 Agent Evidence Report Pack`; Status: `Done`.
-- `R0.8.0-M4 GitHub Actions Example And Artifact Upload`; Status: `Review`.
-- `R0.8.0-M5 MCP/CLI Agent Review Surface`; Status: `Planned`.
+- `R0.8.0-M4 GitHub Actions Example And Artifact Upload`; Status: `Done`.
+- `R0.8.0-M5 MCP/CLI Agent Review Surface`; Status: `Review`.
 - `R0.8.0-M6 Release Candidate And Version Bump`; Status: `Planned`.
 
 ### v0.8.0 Explicit Deferrals

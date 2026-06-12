@@ -644,6 +644,9 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                 Assert.NotNull(review.Value.ResetHandoff.SuggestedResetAllTarget);
                 Assert.NotNull(review.Value.ReviewArtifact);
                 Assert.True(File.Exists(review.Value.ReviewArtifact!.ArtifactPath));
+                Assert.Equal("active_mutations", review.Value.AgentReview.Status);
+                Assert.Equal(widthMutation.Value.MutationId, Assert.Single(review.Value.AgentReview.Mutations).MutationId);
+                Assert.Contains(review.Value.AgentReview.ReviewUrls, url => url == new Uri(reviewPath).AbsoluteUri);
                 Assert.Contains(widthMutation.Value.MutationId, File.ReadAllText(review.Value.ReviewArtifact.ArtifactPath), StringComparison.Ordinal);
 
                 var resetWidth = await AvaScopeMcpTools.MutateNode(
@@ -765,6 +768,10 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                 Assert.True(File.Exists(evidence.Value.DiffPath));
                 Assert.NotNull(evidence.Value.ReviewArtifact);
                 Assert.True(File.Exists(evidence.Value.ReviewArtifact!.ArtifactPath));
+                Assert.Equal("captured", evidence.Value.AgentReview.Status);
+                Assert.Equal(evidence.Value.Mutation.MutationId, Assert.Single(evidence.Value.AgentReview.Mutations).MutationId);
+                Assert.Contains(evidence.Value.AgentReview.ArtifactPaths, path => path.Kind == "diff");
+                Assert.Contains(evidence.Value.AgentReview.ReviewUrls, url => url.EndsWith("-review.html", StringComparison.Ordinal));
                 var reviewHtml = File.ReadAllText(evidence.Value.ReviewArtifact.ArtifactPath);
                 Assert.Contains(evidence.Value.Mutation.MutationId, reviewHtml, StringComparison.Ordinal);
                 Assert.Contains("Before", reviewHtml, StringComparison.Ordinal);

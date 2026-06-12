@@ -363,6 +363,9 @@ public sealed class ProtocolContractTests
         Assert.Equal("240", responseNode["metadata"]!["effectiveValue"]!.GetValue<string>());
         Assert.Equal("true", responseNode["metadata"]!["resetSupported"]!.GetValue<string>());
         Assert.Empty(responseNode["diagnostics"]!.AsArray());
+        Assert.Equal(RuntimeMutationStatuses.Applied, responseNode["agentReview"]!["status"]!.GetValue<string>());
+        Assert.Equal("mutation:session-1:1", responseNode["agentReview"]!["mutations"]![0]!["mutationId"]!.GetValue<string>());
+        Assert.True(responseNode["agentReview"]!["mutations"]![0]!["active"]!.GetValue<bool>());
         Assert.Equal(evaluatedAt, DateTimeOffset.Parse(responseNode["evaluatedAt"]!.GetValue<string>(), CultureInfo.InvariantCulture));
     }
 
@@ -490,6 +493,11 @@ public sealed class ProtocolContractTests
         Assert.EndsWith("evidence-request-1-review.html", node["reviewArtifact"]!["artifactPath"]!.GetValue<string>());
         Assert.Equal("file:///C:/artifacts/evidence/evidence-request-1-review.html", node["reviewArtifact"]!["reviewUrl"]!.GetValue<string>());
         Assert.Equal("html", node["reviewArtifact"]!["format"]!.GetValue<string>());
+        Assert.Equal("captured", node["agentReview"]!["status"]!.GetValue<string>());
+        Assert.Equal("mutation:session-1:1", node["agentReview"]!["mutations"]![0]!["mutationId"]!.GetValue<string>());
+        Assert.Equal("diff_notice", node["agentReview"]!["failures"]![0]!["code"]!.GetValue<string>());
+        Assert.Contains("evidence-request-1-review.html", node["agentReview"]!["reviewUrls"]![0]!.GetValue<string>(), StringComparison.Ordinal);
+        Assert.Contains("evidence-request-1-diff.png", node["agentReview"]!["artifactPaths"]![5]!["path"]!.GetValue<string>(), StringComparison.Ordinal);
         Assert.Equal(capturedAt, DateTimeOffset.Parse(node["capturedAt"]!.GetValue<string>(), CultureInfo.InvariantCulture));
     }
 
@@ -564,6 +572,10 @@ public sealed class ProtocolContractTests
         Assert.Equal("visual:button", node["resetHandoff"]!["suggestedResetAllTarget"]!["nodeId"]!.GetValue<string>());
         Assert.Equal("local_session", node["metadata"]!["scope"]!.GetValue<string>());
         Assert.EndsWith("review.html", node["reviewArtifact"]!["artifactPath"]!.GetValue<string>());
+        Assert.Equal("active_mutations", node["agentReview"]!["status"]!.GetValue<string>());
+        Assert.Equal("mutation:session-1:1", node["agentReview"]!["mutations"]![0]!["mutationId"]!.GetValue<string>());
+        Assert.Equal("notice", node["agentReview"]!["failures"]![0]!["code"]!.GetValue<string>());
+        Assert.Equal("file:///C:/artifacts/review.html", node["agentReview"]!["reviewUrls"]![0]!.GetValue<string>());
         Assert.Equal(reviewedAt, DateTimeOffset.Parse(node["reviewedAt"]!.GetValue<string>(), CultureInfo.InvariantCulture));
     }
 
@@ -627,6 +639,9 @@ public sealed class ProtocolContractTests
         Assert.Equal("preview-session-1", node["session"]!["session"]!["sessionId"]!.GetValue<string>());
         Assert.Equal("C:\\preview\\main.avascope-preview.html", node["viewerPath"]!.GetValue<string>());
         Assert.Equal("file:///C:/preview/main.avascope-preview.html", node["previewUrl"]!.GetValue<string>());
+        Assert.Equal("available", node["agentReview"]!["status"]!.GetValue<string>());
+        Assert.Equal("file:///C:/preview/main.avascope-preview.html", node["agentReview"]!["previewUrls"]![0]!.GetValue<string>());
+        Assert.Equal("html", node["agentReview"]!["reportPaths"]![0]!["kind"]!.GetValue<string>());
         Assert.Equal(generatedAt, DateTimeOffset.Parse(node["generatedAt"]!.GetValue<string>(), CultureInfo.InvariantCulture));
     }
 
@@ -1554,6 +1569,11 @@ public sealed class ProtocolContractTests
         Assert.Equal("preset_metadata_available", checkNode["reportPack"]!["metadata"]!["mutationHistoryStatus"]!.GetValue<string>());
         Assert.Equal("C:\\diff\\diff-01-1440x900.png", checkNode["entries"]![0]!["diffPath"]!.GetValue<string>());
         Assert.False(checkNode["entries"]![0]!["diff"]!["value"]!["passed"]!.GetValue<bool>());
+        Assert.Equal("failed", checkNode["agentReview"]!["status"]!.GetValue<string>());
+        Assert.Equal("visual_diff_changed", checkNode["agentReview"]!["failures"]![0]!["code"]!.GetValue<string>());
+        Assert.Equal("html", checkNode["agentReview"]!["reportPaths"]![2]!["kind"]!.GetValue<string>());
+        Assert.Equal("file:///C:/reports/pack/baseline-report.html", checkNode["agentReview"]!["reviewUrls"]![0]!.GetValue<string>());
+        Assert.Equal("diff", checkNode["agentReview"]!["artifactPaths"]![2]!["kind"]!.GetValue<string>());
     }
 
     [Fact]

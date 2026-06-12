@@ -352,6 +352,9 @@ public sealed class AvaScopeMcpToolsTests
             Assert.Equal(Path.GetFullPath(reportPackDirectory), result.Value.ReportPack.ReportDirectory);
             Assert.Equal(4, result.Value.ReportPack.Assets.Count);
             Assert.All(result.Value.ReportPack.Assets, asset => Assert.True(File.Exists(asset.Path), asset.Path));
+            Assert.Equal("passed", result.Value.AgentReview.Status);
+            Assert.Contains(result.Value.AgentReview.ReportPaths, path => path.Path == Path.GetFullPath(reportPath));
+            Assert.Contains(result.Value.AgentReview.ReviewUrls, url => url.EndsWith("baseline-report.html", StringComparison.Ordinal));
             Assert.Contains(
                 result.Value.ReportPack.Assets,
                 asset => asset.Kind == "html" && File.ReadAllText(asset.Path).Contains("Baseline check passed", StringComparison.Ordinal));
@@ -480,6 +483,8 @@ public sealed class AvaScopeMcpToolsTests
             Assert.True(result.Success, result.Error?.Message);
             Assert.Equal(Path.GetFullPath(viewerPath), result.Value!.ViewerPath);
             Assert.Equal(new Uri(viewerPath).AbsoluteUri, result.Value.PreviewUrl);
+            Assert.Equal("available", result.Value.AgentReview.Status);
+            Assert.Contains(new Uri(viewerPath).AbsoluteUri, result.Value.AgentReview.PreviewUrls);
             Assert.Equal("preview-mcp-viewer", result.Value.Session.Session.SessionId.Value);
             Assert.True(File.Exists(viewerPath));
             Assert.Contains("MCP viewer preview", File.ReadAllText(viewerPath));

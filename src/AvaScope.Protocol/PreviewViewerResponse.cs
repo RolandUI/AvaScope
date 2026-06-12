@@ -38,4 +38,21 @@ public sealed record PreviewViewerResponse
 
     [JsonPropertyName("generatedAt")]
     public DateTimeOffset GeneratedAt { get; }
+
+    [JsonPropertyName("agentReview")]
+    public AgentReviewSurface AgentReview => new(
+        Session.LastRender.Success ? "available" : "render_failed",
+        Session.LastRender.Success
+            ? "Preview viewer is available for local review."
+            : "Preview viewer was generated for a failed preview session.",
+        [
+            $"session: {Session.Session.SessionId.Value}",
+            $"state: {Session.Session.State}"
+        ],
+        Session.LastRender.Success || Session.LastRender.Error is null
+            ? []
+            : [new AgentReviewFailure("preview", Session.LastRender.Error.Message, Session.LastRender.Error.Code)],
+        reportPaths: [new AgentReviewPath("html", ViewerPath, PreviewUrl, "Preview viewer HTML.")],
+        reviewUrls: [PreviewUrl],
+        previewUrls: [PreviewUrl]);
 }

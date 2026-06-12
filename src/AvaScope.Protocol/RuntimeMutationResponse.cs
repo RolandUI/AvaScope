@@ -96,4 +96,38 @@ public sealed record RuntimeMutationResponse
 
     [JsonPropertyName("metadata")]
     public IReadOnlyDictionary<string, string> Metadata { get; }
+
+    [JsonPropertyName("agentReview")]
+    public AgentReviewSurface AgentReview => new(
+        Status,
+        Applied
+            ? $"Runtime mutation '{Operation.Kind}' was applied."
+            : $"Runtime mutation '{Operation.Kind}' returned status '{Status}'.",
+        [
+            $"request: {RequestId}",
+            $"mutation: {MutationId}",
+            $"topLevel: {TopLevelId}"
+        ],
+        Diagnostics
+            .Select(static diagnostic => new AgentReviewFailure("mutation", diagnostic.Message, diagnostic.Code))
+            .ToArray(),
+        [
+            new AgentReviewMutationSummary(
+                MutationId,
+                Operation.Kind,
+                Status,
+                Applied,
+                IsActiveMutation(),
+                Target.NodeId,
+                Operation.PropertyName)
+        ],
+        truncated: Diagnostics.Count > AgentReviewSurface.MaximumFailureSummaries);
+
+    private bool IsActiveMutation()
+    {
+        return Applied
+            && string.Equals(Status, RuntimeMutationStatuses.Applied, StringComparison.Ordinal)
+            && Operation.Kind is not RuntimeMutationOperationKinds.ResetMutation
+            && Operation.Kind is not RuntimeMutationOperationKinds.ResetAll;
+    }
 }

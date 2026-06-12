@@ -590,6 +590,8 @@ public sealed class CliSmokeTests
             Assert.True(viewerPayload.Success, viewerPayload.Error?.Message);
             Assert.Equal(Path.GetFullPath(viewerPath), viewerPayload.Value!.ViewerPath);
             Assert.Equal(new Uri(viewerPath).AbsoluteUri, viewerPayload.Value.PreviewUrl);
+            Assert.Equal("available", viewerPayload.Value.AgentReview.Status);
+            Assert.Contains(new Uri(viewerPath).AbsoluteUri, viewerPayload.Value.AgentReview.PreviewUrls);
             Assert.Equal(sessionId, viewerPayload.Value.Session.Session.SessionId.Value);
             Assert.True(File.Exists(viewerPath));
             var viewerHtml = await File.ReadAllTextAsync(viewerPath);
@@ -983,6 +985,11 @@ public sealed class CliSmokeTests
             Assert.Equal(Path.GetFullPath(failedReportPackDirectory), failedPayload.Value.ReportPack.ReportDirectory);
             Assert.Equal(4, failedPayload.Value.ReportPack.Assets.Count);
             Assert.All(failedPayload.Value.ReportPack.Assets, asset => Assert.True(File.Exists(asset.Path), asset.Path));
+            Assert.Equal("failed", failedPayload.Value.AgentReview.Status);
+            Assert.Contains(failedPayload.Value.AgentReview.Failures, failure => failure.Code == "visual_diff_changed");
+            Assert.Contains(failedPayload.Value.AgentReview.ReportPaths, path => path.Path == Path.GetFullPath(reportPath));
+            Assert.Contains(failedPayload.Value.AgentReview.ArtifactPaths, path => path.Kind == "diff" && path.Path == Path.GetFullPath(entry.DiffPath));
+            Assert.Contains(failedPayload.Value.AgentReview.ReviewUrls, url => url.EndsWith("baseline-report.html", StringComparison.Ordinal));
             Assert.Contains(
                 failedPayload.Value.ReportPack.Assets,
                 asset => asset.Kind == "html" && File.ReadAllText(asset.Path).Contains("Grouped Failures", StringComparison.Ordinal));
@@ -999,6 +1006,7 @@ public sealed class CliSmokeTests
             Assert.Equal(Path.GetFullPath(failedReportPackDirectory), reportPayload.ReportPack!.ReportDirectory);
             Assert.Equal(Path.GetFullPath(entry.CurrentImagePath), reportPayload.Entries[0].CurrentImagePath);
             Assert.Equal(Path.GetFullPath(entry.DiffPath), reportPayload.Entries[0].DiffPath);
+            Assert.Equal("failed", reportPayload.AgentReview.Status);
         }
         finally
         {
@@ -2965,6 +2973,10 @@ public sealed class CliSmokeTests
             Assert.NotNull(payload.Value.ReviewArtifact);
             Assert.True(File.Exists(payload.Value.ReviewArtifact!.ArtifactPath));
             Assert.Equal("html", payload.Value.ReviewArtifact.Format);
+            Assert.Equal("captured", payload.Value.AgentReview.Status);
+            Assert.Equal("mutation:cli:evidence:1", Assert.Single(payload.Value.AgentReview.Mutations).MutationId);
+            Assert.Contains(payload.Value.AgentReview.ArtifactPaths, path => path.Kind == "after_screenshot");
+            Assert.Contains(payload.Value.AgentReview.ReviewUrls, url => url.EndsWith("-review.html", StringComparison.Ordinal));
             var reviewHtml = await File.ReadAllTextAsync(payload.Value.ReviewArtifact.ArtifactPath);
             Assert.Contains("mutation:cli:evidence:1", reviewHtml, StringComparison.Ordinal);
             Assert.Contains("Before", reviewHtml, StringComparison.Ordinal);
@@ -3071,6 +3083,9 @@ public sealed class CliSmokeTests
             Assert.Equal(RuntimeMutationOperationKinds.ResetMutation, payload.Value.ResetHandoff.ResetMutationOperation);
             Assert.NotNull(payload.Value.ReviewArtifact);
             Assert.Equal(Path.GetFullPath(reviewPath), payload.Value.ReviewArtifact!.ArtifactPath);
+            Assert.Equal("active_mutations", payload.Value.AgentReview.Status);
+            Assert.Equal("mutation:cli:review:1", Assert.Single(payload.Value.AgentReview.Mutations).MutationId);
+            Assert.Contains(payload.Value.AgentReview.ReviewUrls, url => url == new Uri(reviewPath).AbsoluteUri);
             Assert.True(File.Exists(payload.Value.ReviewArtifact.ArtifactPath));
             var reviewHtml = await File.ReadAllTextAsync(payload.Value.ReviewArtifact.ArtifactPath);
             Assert.Contains("mutation:cli:review:1", reviewHtml, StringComparison.Ordinal);

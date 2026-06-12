@@ -140,4 +140,68 @@ public sealed record RuntimeMutationEvidenceResponse
     [JsonPropertyName("reviewArtifact")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public RuntimeMutationReviewArtifact? ReviewArtifact { get; }
+
+    [JsonPropertyName("agentReview")]
+    public AgentReviewSurface AgentReview => CreateAgentReview();
+
+    private AgentReviewSurface CreateAgentReview()
+    {
+        var failures = Diagnostics
+            .Concat(Mutation.Diagnostics)
+            .Take(AgentReviewSurface.MaximumFailureSummaries)
+            .Select(static diagnostic => new AgentReviewFailure("mutation_evidence", diagnostic.Message, diagnostic.Code))
+            .ToArray();
+        var artifacts = CreateArtifactPaths().ToArray();
+        IReadOnlyList<string> reviewUrls = ReviewArtifact is null ? [] : [ReviewArtifact.ReviewUrl];
+        var status = Summary.Status;
+        var headline = Mutation.Applied
+            ? $"Mutation evidence captured for '{Mutation.Operation.Kind}'."
+            : $"Mutation evidence captured with mutation status '{Mutation.Status}'.";
+
+        return new AgentReviewSurface(
+            status,
+            headline,
+            [
+                $"request: {RequestId}",
+                $"mutation: {Mutation.MutationId}",
+                $"mutationStatus: {Mutation.Status}",
+                $"diffStatus: {Summary.DiffStatus}"
+            ],
+            failures,
+            [CreateMutationSummary(Mutation, active: Mutation.Applied)],
+            artifactPaths: artifacts,
+            reviewUrls: reviewUrls,
+            truncated: Diagnostics.Count + Mutation.Diagnostics.Count > AgentReviewSurface.MaximumFailureSummaries);
+    }
+
+    private IEnumerable<AgentReviewPath> CreateArtifactPaths()
+    {
+        yield return new AgentReviewPath("directory", ArtifactDirectory, description: "Mutation evidence artifact directory.");
+        yield return new AgentReviewPath("before_screenshot", BeforeScreenshotPath, description: "Before mutation screenshot.");
+        yield return new AgentReviewPath("after_screenshot", AfterScreenshotPath, description: "After mutation screenshot.");
+        yield return new AgentReviewPath("before_visual_tree", BeforeVisualTreePath, description: "Before mutation visual tree snapshot.");
+        yield return new AgentReviewPath("after_visual_tree", AfterVisualTreePath, description: "After mutation visual tree snapshot.");
+
+        if (DiffPath is not null)
+        {
+            yield return new AgentReviewPath("diff", DiffPath, description: "Before/after image diff.");
+        }
+
+        if (ReviewArtifact is not null)
+        {
+            yield return new AgentReviewPath(ReviewArtifact.Format, ReviewArtifact.ArtifactPath, ReviewArtifact.ReviewUrl, "Mutation evidence review artifact.");
+        }
+    }
+
+    private static AgentReviewMutationSummary CreateMutationSummary(RuntimeMutationResponse mutation, bool active)
+    {
+        return new AgentReviewMutationSummary(
+            mutation.MutationId,
+            mutation.Operation.Kind,
+            mutation.Status,
+            mutation.Applied,
+            active,
+            mutation.Target.NodeId,
+            mutation.Operation.PropertyName);
+    }
 }

@@ -72,4 +72,51 @@ public sealed record RuntimeMutationReviewResponse
     [JsonPropertyName("reviewArtifact")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public RuntimeMutationReviewArtifact? ReviewArtifact { get; }
+
+    [JsonPropertyName("agentReview")]
+    public AgentReviewSurface AgentReview => CreateAgentReview();
+
+    private AgentReviewSurface CreateAgentReview()
+    {
+        var mutationSummaries = ActiveMutations
+            .Take(AgentReviewSurface.MaximumMutationSummaries)
+            .Select(static entry => new AgentReviewMutationSummary(
+                entry.MutationId,
+                entry.Operation.Kind,
+                entry.Status,
+                entry.Applied,
+                entry.Active,
+                entry.Target.NodeId,
+                entry.Operation.PropertyName))
+            .ToArray();
+        var failures = History
+            .SelectMany(static entry => entry.Diagnostics.Select(diagnostic => new AgentReviewFailure(
+                $"mutation:{entry.Sequence.ToString(System.Globalization.CultureInfo.InvariantCulture)}",
+                diagnostic.Message,
+                diagnostic.Code)))
+            .Take(AgentReviewSurface.MaximumFailureSummaries)
+            .ToArray();
+        IReadOnlyList<AgentReviewPath> artifactPaths = ReviewArtifact is null
+            ? []
+            : [new AgentReviewPath(ReviewArtifact.Format, ReviewArtifact.ArtifactPath, ReviewArtifact.ReviewUrl, "Runtime mutation review artifact.")];
+        var status = ActiveMutationCount == 0 ? "clean" : "active_mutations";
+        var headline = ActiveMutationCount == 0
+            ? "No active runtime mutations."
+            : $"{ActiveMutationCount.ToString(System.Globalization.CultureInfo.InvariantCulture)} active runtime mutations.";
+
+        return new AgentReviewSurface(
+            status,
+            headline,
+            [
+                $"history: {HistoryCount.ToString(System.Globalization.CultureInfo.InvariantCulture)}",
+                $"active: {ActiveMutationCount.ToString(System.Globalization.CultureInfo.InvariantCulture)}",
+                $"resetOperation: {ResetHandoff.ResetAllOperation}"
+            ],
+            failures,
+            mutationSummaries,
+            artifactPaths: artifactPaths,
+            reviewUrls: ReviewArtifact is null ? [] : [ReviewArtifact.ReviewUrl],
+            truncated: ActiveMutations.Count > AgentReviewSurface.MaximumMutationSummaries
+                || History.Sum(static entry => entry.Diagnostics.Count) > AgentReviewSurface.MaximumFailureSummaries);
+    }
 }

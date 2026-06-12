@@ -301,7 +301,7 @@ dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll close-preview-session -
 
 Preview-session CLI commands persist metadata in the same local AvaScope preview-session store used by MCP. They store the original request and latest render result, then re-render through `AvaScope.PreviewHost` child processes on reload.
 
-`preview-viewer` writes a self-contained HTML viewer for the latest successful render and returns a structured `ToolResult<PreviewViewerResponse>` with `viewerPath` and `previewUrl`. Open the `file://` `previewUrl` in the Codex in-app browser to review the screenshot, metadata, diagnostics, and session JSON beside the thread. The viewer does not start a network listener.
+`preview-viewer` writes a self-contained HTML viewer for the latest successful render and returns a structured `ToolResult<PreviewViewerResponse>` with `viewerPath`, `previewUrl`, and `agentReview.previewUrls`. Open the `file://` `previewUrl` in the Codex in-app browser to review the screenshot, metadata, diagnostics, and session JSON beside the thread. The viewer does not start a network listener.
 
 Watch a preview session and reload when project or view files change:
 
@@ -392,9 +392,9 @@ dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll mutate-node-evidence --
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll mutation-review --session session-id --max-results 20 --out .\artifacts\mutation-evidence\review.html
 ```
 
-`mutate-node-evidence` runs a fixed local loop: before screenshot, before visual tree, mutation, after screenshot, after visual tree, optional image diff, and local HTML review artifact generation. The response is `ToolResult<RuntimeMutationEvidenceResponse>` with artifact file paths, mutation status, before/after target summaries, bounded diagnostics, changed-pixel metrics when diffing is enabled, and `reviewArtifact` with a file URL for human inspection. Use `--diff false` to skip pixel comparison and `--tolerance <0-255>` to allow channel tolerance in the diff.
+`mutate-node-evidence` runs a fixed local loop: before screenshot, before visual tree, mutation, after screenshot, after visual tree, optional image diff, and local HTML review artifact generation. The response is `ToolResult<RuntimeMutationEvidenceResponse>` with artifact file paths, mutation status, before/after target summaries, bounded diagnostics, changed-pixel metrics when diffing is enabled, `reviewArtifact` with a file URL for human inspection, and `agentReview` with a mutation summary plus bounded artifact/review URL handoff. Use `--diff false` to skip pixel comparison and `--tolerance <0-255>` to allow channel tolerance in the diff.
 
-`mutation-review` returns `ToolResult<RuntimeMutationReviewResponse>` for one local bridge session. It includes bounded mutation history, active override summaries, reset handoff metadata for `reset_mutation` / `reset_all`, and an optional HTML review artifact when `--out <review.html>` is supplied.
+`mutation-review` returns `ToolResult<RuntimeMutationReviewResponse>` for one local bridge session. It includes bounded mutation history, active override summaries, reset handoff metadata for `reset_mutation` / `reset_all`, an optional HTML review artifact when `--out <review.html>` is supplied, and `agentReview` with the active mutation shortlist and review URL.
 
 Close an active local bridge session:
 
@@ -437,7 +437,7 @@ dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll baseline-create path\to
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll baseline-check --manifest .\baselines\main.json --out-dir .\artifacts\visual-current --diff-dir .\artifacts\visual-diff --report .\artifacts\visual-report.json --report-pack .\artifacts\visual-report-pack --tolerance 2
 ```
 
-`baseline-create` writes explicit baseline screenshots plus a JSON manifest. `baseline-check` re-renders the manifest variants, writes current and diff images to explicit output directories, can write a stable JSON report with `--report`, can write an agent evidence pack with `--report-pack <dir>`, and exits non-zero when any variant changes. It does not update or replace baseline files.
+`baseline-create` writes explicit baseline screenshots plus a JSON manifest. `baseline-check` re-renders the manifest variants, writes current and diff images to explicit output directories, can write a stable JSON report with `--report`, can write an agent evidence pack with `--report-pack <dir>`, returns bounded `agentReview` triage metadata, and exits non-zero when any variant changes. It does not update or replace baseline files.
 
 `--report-pack` writes bounded review assets for agent handoff:
 
@@ -446,7 +446,7 @@ dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll baseline-check --manife
 - `baseline-junit.xml`: CI-friendly pass/fail summary.
 - `baseline.sarif.json`: SARIF-style failure summary for code-scanning or PR review surfaces.
 
-The CLI/MCP response only returns the report-pack status, counts, metadata, and asset paths through `reportPack`; it does not inline large images or unbounded report payloads.
+The CLI/MCP response returns `agentReview` for first-pass triage, then `reportPack` for status, counts, metadata, and asset paths. It does not inline large images or unbounded report payloads.
 
 For agent repeatability across multiple views, sizes, themes, cultures, animation frames, and later runtime handoff, put the collection in a named suite manifest:
 
