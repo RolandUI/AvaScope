@@ -276,6 +276,87 @@ public sealed class ProtocolContractTests
     }
 
     [Fact]
+    public void RuntimeMutationRequestAndResponseSerializeStableShapes()
+    {
+        var evaluatedAt = new DateTimeOffset(2026, 6, 12, 12, 0, 0, TimeSpan.Zero);
+        var target = new RuntimeTargetContext(
+            new SessionId("session-1"),
+            "topLevel:abc",
+            TreeKinds.Visual,
+            "visual:button",
+            evaluatedAt.AddSeconds(-1),
+            nodeGeneration: "node-generation-1");
+        var operation = new RuntimeMutationOperation(
+            RuntimeMutationOperationKinds.SetProperty,
+            propertyName: "Width",
+            value: "240",
+            valueType: "double");
+        var mutationRequest = new RuntimeMutationRequest(
+            "mutation-request-1",
+            target,
+            operation,
+            [RuntimeMutationCapabilityCatalog.RuntimeMutationContract],
+            new Dictionary<string, string>
+            {
+                ["source"] = "cli"
+            });
+        var ipcRequest = new BridgeIpcRequest(
+            mutationRequest.RequestId,
+            BridgeIpcMethods.MutateNode,
+            mutation: mutationRequest);
+        var response = new RuntimeMutationResponse(
+            mutationRequest.RequestId,
+            "mutation:session-1:1",
+            target.SessionId,
+            target.TopLevelId,
+            target,
+            operation,
+            RuntimeMutationStatuses.Unsupported,
+            applied: false,
+            evaluatedAt,
+            RuntimeMutationCapabilityCatalog.ContractOnly(),
+            [
+                new ProtocolError(
+                    RuntimeMutationErrorCodes.UnsupportedRuntimeMutationProperty,
+                    "Width is not supported yet.",
+                    new Dictionary<string, string>
+                    {
+                        ["propertyName"] = "Width"
+                    })
+            ]);
+
+        var requestNode = JsonNode.Parse(JsonSerializer.Serialize(mutationRequest))!;
+        var ipcNode = JsonNode.Parse(JsonSerializer.Serialize(ipcRequest))!;
+        var responseNode = JsonNode.Parse(JsonSerializer.Serialize(response))!;
+
+        Assert.Equal("mutation-request-1", requestNode["requestId"]!.GetValue<string>());
+        Assert.Equal("session-1", requestNode["target"]!["sessionId"]!.GetValue<string>());
+        Assert.Equal("topLevel:abc", requestNode["target"]!["topLevelId"]!.GetValue<string>());
+        Assert.Equal(TreeKinds.Visual, requestNode["target"]!["treeKind"]!.GetValue<string>());
+        Assert.Equal("visual:button", requestNode["target"]!["nodeId"]!.GetValue<string>());
+        Assert.Equal(RuntimeMutationOperationKinds.SetProperty, requestNode["operation"]!["kind"]!.GetValue<string>());
+        Assert.Equal("Width", requestNode["operation"]!["propertyName"]!.GetValue<string>());
+        Assert.Equal("240", requestNode["operation"]!["value"]!.GetValue<string>());
+        Assert.Equal(RuntimeMutationCapabilityCatalog.RuntimeMutationContract, requestNode["requestedCapabilities"]![0]!.GetValue<string>());
+        Assert.Equal("cli", requestNode["metadata"]!["source"]!.GetValue<string>());
+
+        Assert.Equal(BridgeIpcMethods.MutateNode, ipcNode["method"]!.GetValue<string>());
+        Assert.Equal("mutation-request-1", ipcNode["mutation"]!["requestId"]!.GetValue<string>());
+        Assert.Equal("Width", ipcNode["mutation"]!["operation"]!["propertyName"]!.GetValue<string>());
+
+        Assert.Equal("mutation:session-1:1", responseNode["mutationId"]!.GetValue<string>());
+        Assert.Equal(RuntimeMutationStatuses.Unsupported, responseNode["status"]!.GetValue<string>());
+        Assert.False(responseNode["applied"]!.GetValue<bool>());
+        Assert.Equal(RuntimeMutationCapabilityCatalog.RuntimeMutationContract, responseNode["capabilities"]![0]!["name"]!.GetValue<string>());
+        Assert.True(responseNode["capabilities"]![0]!["available"]!.GetValue<bool>());
+        Assert.Equal(RuntimeMutationCapabilityCatalog.StyleLayoutMutation, responseNode["capabilities"]![1]!["name"]!.GetValue<string>());
+        Assert.False(responseNode["capabilities"]![1]!["available"]!.GetValue<bool>());
+        Assert.Equal(RuntimeMutationErrorCodes.UnsupportedRuntimeMutationProperty, responseNode["diagnostics"]![0]!["code"]!.GetValue<string>());
+        Assert.Equal("Width", responseNode["diagnostics"]![0]!["details"]!["propertyName"]!.GetValue<string>());
+        Assert.Equal(evaluatedAt, DateTimeOffset.Parse(responseNode["evaluatedAt"]!.GetValue<string>(), CultureInfo.InvariantCulture));
+    }
+
+    [Fact]
     public void BridgeIpcResponseRoundTripsStructuredValue()
     {
         var response = BridgeIpcResponse.Ok("request-1", HealthResponse.Current());

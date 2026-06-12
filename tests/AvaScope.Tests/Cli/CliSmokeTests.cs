@@ -2439,6 +2439,182 @@ public sealed class CliSmokeTests
     }
 
     [Fact]
+    public async Task MutateNodeCommandSendsNoOpThroughBridgePipe()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var sessionId = SessionId.New();
+        var pipeName = $"avascope-cli-test-{Guid.NewGuid():N}";
+        var manifestPath = WriteBridgeManifest(sessionId, pipeName);
+
+        var serverTask = RespondToBridgeRequestAsync(pipeName, request =>
+        {
+            Assert.Equal(BridgeIpcMethods.MutateNode, request.Method);
+            Assert.Equal("cli-mutation-request-1", request.RequestId);
+            Assert.NotNull(request.Mutation);
+            Assert.Equal("cli-mutation-request-1", request.Mutation.RequestId);
+            Assert.Equal(sessionId, request.Mutation.Target.SessionId);
+            Assert.Equal("topLevel:cli", request.Mutation.Target.TopLevelId);
+            Assert.Equal(TreeKinds.Visual, request.Mutation.Target.TreeKind);
+            Assert.Equal("visual:button", request.Mutation.Target.NodeId);
+            Assert.Equal(RuntimeMutationOperationKinds.NoOp, request.Mutation.Operation.Kind);
+
+            return BridgeIpcResponse.Ok(
+                request.RequestId,
+                new RuntimeMutationResponse(
+                    request.Mutation.RequestId,
+                    "mutation:cli:1",
+                    sessionId,
+                    request.Mutation.Target.TopLevelId,
+                    request.Mutation.Target,
+                    request.Mutation.Operation,
+                    RuntimeMutationStatuses.NoOp,
+                    applied: false,
+                    DateTimeOffset.UtcNow,
+                    RuntimeMutationCapabilityCatalog.ContractOnly()));
+        });
+
+        try
+        {
+            var result = await RunCliAsync(
+                cliAssembly,
+                "mutate-node",
+                "--session",
+                sessionId.Value,
+                "--top-level",
+                "topLevel:cli",
+                "--node",
+                "visual:button",
+                "--operation",
+                RuntimeMutationOperationKinds.NoOp,
+                "--request-id",
+                "cli-mutation-request-1");
+            var request = await serverTask;
+
+            Assert.Equal(0, result.ExitCode);
+            Assert.Equal(BridgeIpcMethods.MutateNode, request.Method);
+            Assert.True(string.IsNullOrWhiteSpace(result.StandardError), result.StandardError);
+
+            var payload = JsonSerializer.Deserialize<ToolResult<RuntimeMutationResponse>>(result.StandardOutput, JsonOptions);
+            Assert.NotNull(payload);
+            Assert.True(payload.Success, payload.Error?.Message);
+            Assert.Equal("mutation:cli:1", payload.Value!.MutationId);
+            Assert.Equal(RuntimeMutationStatuses.NoOp, payload.Value.Status);
+            Assert.Empty(payload.Value.Diagnostics);
+        }
+        finally
+        {
+            if (File.Exists(manifestPath))
+            {
+                File.Delete(manifestPath);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task MutateNodeCommandReturnsUnsupportedDiagnosticsThroughBridgePipe()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var sessionId = SessionId.New();
+        var pipeName = $"avascope-cli-test-{Guid.NewGuid():N}";
+        var manifestPath = WriteBridgeManifest(sessionId, pipeName);
+
+        var serverTask = RespondToBridgeRequestAsync(pipeName, request =>
+        {
+            Assert.Equal(BridgeIpcMethods.MutateNode, request.Method);
+            Assert.NotNull(request.Mutation);
+            Assert.Equal(RuntimeMutationOperationKinds.SetProperty, request.Mutation.Operation.Kind);
+            Assert.Equal("Width", request.Mutation.Operation.PropertyName);
+            Assert.Equal("240", request.Mutation.Operation.Value);
+            Assert.Equal("double", request.Mutation.Operation.ValueType);
+
+            return BridgeIpcResponse.Ok(
+                request.RequestId,
+                new RuntimeMutationResponse(
+                    request.Mutation.RequestId,
+                    "mutation:cli:2",
+                    sessionId,
+                    request.Mutation.Target.TopLevelId,
+                    request.Mutation.Target,
+                    request.Mutation.Operation,
+                    RuntimeMutationStatuses.Unsupported,
+                    applied: false,
+                    DateTimeOffset.UtcNow,
+                    RuntimeMutationCapabilityCatalog.ContractOnly(),
+                    [
+                        new ProtocolError(
+                            RuntimeMutationErrorCodes.UnsupportedRuntimeMutationProperty,
+                            "Width is not supported yet.",
+                            new Dictionary<string, string>
+                            {
+                                ["propertyName"] = "Width"
+                            })
+                    ]));
+        });
+
+        try
+        {
+            var result = await RunCliAsync(
+                cliAssembly,
+                "mutate-node",
+                "--session",
+                sessionId.Value,
+                "--top-level",
+                "topLevel:cli",
+                "--node",
+                "visual:button",
+                "--operation",
+                RuntimeMutationOperationKinds.SetProperty,
+                "--property",
+                "Width",
+                "--value",
+                "240",
+                "--value-type",
+                "double");
+            await serverTask;
+
+            Assert.Equal(1, result.ExitCode);
+
+            var payload = JsonSerializer.Deserialize<ToolResult<RuntimeMutationResponse>>(result.StandardOutput, JsonOptions);
+            Assert.NotNull(payload);
+            Assert.True(payload.Success, payload.Error?.Message);
+            Assert.Equal(RuntimeMutationStatuses.Unsupported, payload.Value!.Status);
+            Assert.False(payload.Value.Applied);
+            Assert.True(payload.Value.Diagnostics.Count <= RuntimeMutationResponse.MaximumDiagnostics);
+            Assert.Equal(RuntimeMutationErrorCodes.UnsupportedRuntimeMutationProperty, Assert.Single(payload.Value.Diagnostics).Code);
+        }
+        finally
+        {
+            if (File.Exists(manifestPath))
+            {
+                File.Delete(manifestPath);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task MutateNodeCommandRejectsMissingRequiredArguments()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var result = await RunCliAsync(
+            cliAssembly,
+            "mutate-node",
+            "--session",
+            "missing");
+
+        Assert.Equal(2, result.ExitCode);
+        var payload = JsonSerializer.Deserialize<ToolResult<RuntimeMutationResponse>>(result.StandardOutput, JsonOptions);
+        Assert.NotNull(payload);
+        Assert.False(payload.Success);
+        Assert.Equal("invalid_cli_arguments", payload.Error!.Code);
+    }
+
+    [Fact]
     public async Task CloseSessionCommandClosesThroughBridgePipe()
     {
         var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");

@@ -219,6 +219,86 @@ public sealed class LocalBridgeClientTests : IDisposable
     }
 
     [Fact]
+    public async Task MutateNodeRejectsSessionMismatchWithoutIpc()
+    {
+        var client = new LocalBridgeClient(_manifestDirectory);
+        var selectedSessionId = new SessionId("selected-session");
+        var request = new RuntimeMutationRequest(
+            "mutation-request-1",
+            new RuntimeTargetContext(
+                new SessionId("target-session"),
+                "topLevel:abc",
+                TreeKinds.Visual,
+                "visual:node"),
+            new RuntimeMutationOperation(RuntimeMutationOperationKinds.NoOp));
+
+        var result = await client.MutateNodeAsync(selectedSessionId, request);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.False(result.Value!.Applied);
+        Assert.Equal(RuntimeMutationStatuses.Unavailable, result.Value.Status);
+        Assert.Equal(selectedSessionId, result.Value.SessionId);
+        Assert.Equal(RuntimeMutationErrorCodes.RuntimeMutationNonLocalSession, Assert.Single(result.Value.Diagnostics).Code);
+        Assert.Equal("target-session", result.Value.Diagnostics[0].Details!["targetSessionId"]);
+    }
+
+    [Fact]
+    public async Task MutateNodeSendsStructuredMutationThroughBridgePipe()
+    {
+        Directory.CreateDirectory(_manifestDirectory);
+        var sessionId = SessionId.New();
+        var pipeName = $"avascope-core-test-{Guid.NewGuid():N}";
+        WriteManifest(
+            "mutation.json",
+            new BridgeSessionManifest(
+                sessionId,
+                Environment.ProcessId,
+                pipeName,
+                DateTimeOffset.UtcNow,
+                "Mutation app"));
+        var request = new RuntimeMutationRequest(
+            "mutation-request-2",
+            new RuntimeTargetContext(sessionId, "topLevel:abc", TreeKinds.Visual, "visual:node"),
+            new RuntimeMutationOperation(RuntimeMutationOperationKinds.NoOp));
+        var serverTask = RespondToBridgeRequestAsync(
+            pipeName,
+            bridgeRequest =>
+            {
+                Assert.Equal(BridgeIpcMethods.MutateNode, bridgeRequest.Method);
+                Assert.Equal("mutation-request-2", bridgeRequest.RequestId);
+                Assert.NotNull(bridgeRequest.Mutation);
+                Assert.Equal("topLevel:abc", bridgeRequest.Mutation.Target.TopLevelId);
+                Assert.Equal("visual:node", bridgeRequest.Mutation.Target.NodeId);
+                Assert.Equal(RuntimeMutationOperationKinds.NoOp, bridgeRequest.Mutation.Operation.Kind);
+
+                return BridgeIpcResponse.Ok(
+                    bridgeRequest.RequestId,
+                    new RuntimeMutationResponse(
+                        bridgeRequest.Mutation.RequestId,
+                        "mutation:session:1",
+                        sessionId,
+                        bridgeRequest.Mutation.Target.TopLevelId,
+                        bridgeRequest.Mutation.Target,
+                        bridgeRequest.Mutation.Operation,
+                        RuntimeMutationStatuses.NoOp,
+                        applied: false,
+                        DateTimeOffset.UtcNow,
+                        RuntimeMutationCapabilityCatalog.ContractOnly()));
+            });
+        var client = new LocalBridgeClient(_manifestDirectory);
+
+        var result = await client.MutateNodeAsync(sessionId, request);
+        var bridgeRequest = await serverTask;
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(BridgeIpcMethods.MutateNode, bridgeRequest.Method);
+        Assert.Equal("mutation:session:1", result.Value!.MutationId);
+        Assert.Equal(RuntimeMutationStatuses.NoOp, result.Value.Status);
+        Assert.False(result.Value.Applied);
+        Assert.Empty(result.Value.Diagnostics);
+    }
+
+    [Fact]
     public async Task CloseSessionReturnsStructuredErrorWhenNoManifestMatches()
     {
         var client = new LocalBridgeClient(_manifestDirectory);

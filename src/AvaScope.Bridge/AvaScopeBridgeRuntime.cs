@@ -31,6 +31,7 @@ public sealed class AvaScopeBridgeRuntime
     private readonly ConcurrentDictionary<int, WeakReference<TopLevel>> _registeredTopLevels = new();
     private readonly ConcurrentDictionary<string, Pointer> _activePointers = new(StringComparer.Ordinal);
     private readonly SessionRegistry _sessionRegistry;
+    private long _mutationSequence;
     private LocalBridgeServer? _localServer;
 
     internal AvaScopeBridgeRuntime(
@@ -257,6 +258,22 @@ public sealed class AvaScopeBridgeRuntime
                 () => Input(topLevelId, action, x, y, inputText, targetNodeId, inputKey, keyModifiers),
                 DispatcherPriority.Background,
                 cancellationToken)
+            .GetTask();
+    }
+
+    public Task<CoreResult<RuntimeMutationResponse>> MutateNodeAsync(
+        RuntimeMutationRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        if (Dispatcher.UIThread.CheckAccess())
+        {
+            return Task.FromResult(MutateNode(request));
+        }
+
+        return Dispatcher.UIThread
+            .InvokeAsync(() => MutateNode(request), DispatcherPriority.Background, cancellationToken)
             .GetTask();
     }
 
@@ -620,6 +637,336 @@ public sealed class AvaScopeBridgeRuntime
                 BridgeErrorCodes.UnsupportedInputAction,
                 $"Input action '{action}' is not supported."))
         };
+    }
+
+    private CoreResult<RuntimeMutationResponse> MutateNode(RuntimeMutationRequest request)
+    {
+        Dispatcher.UIThread.VerifyAccess();
+
+        if (request.Target.SessionId != SessionId)
+        {
+            return MutationResponse(
+                request,
+                RuntimeMutationStatuses.Unavailable,
+                applied: false,
+                request.Target,
+                new ProtocolError(
+                    RuntimeMutationErrorCodes.RuntimeMutationNonLocalSession,
+                    "Runtime mutation target belongs to a different session.",
+                    new Dictionary<string, string>
+                    {
+                        ["currentSessionId"] = SessionId.Value,
+                        ["targetSessionId"] = request.Target.SessionId.Value,
+                        ["nextAction"] = "Refresh the target context from this bridge session before retrying."
+                    }));
+        }
+
+        var topLevel = FindTopLevel(request.Target.TopLevelId);
+        if (topLevel is null)
+        {
+            return MutationResponse(
+                request,
+                RuntimeMutationStatuses.StaleTarget,
+                applied: false,
+                request.Target,
+                CreateStaleMutationDiagnostic(
+                    "Top-level target is no longer available.",
+                    request.Target,
+                    "Call list-top-levels and refresh the visual or logical tree before retrying."));
+        }
+
+        var targetResult = ResolveMutationTarget(topLevel, request.Target);
+        if (!targetResult.Success)
+        {
+            return MutationResponse(
+                request,
+                RuntimeMutationStatuses.StaleTarget,
+                applied: false,
+                request.Target,
+                ToProtocolError(targetResult.Error!));
+        }
+
+        var currentTarget = targetResult.Value!.Target;
+        var validation = ValidateMutationOperation(request.Operation);
+        if (validation is not null)
+        {
+            return MutationResponse(
+                request,
+                MutationStatusForDiagnostic(validation.Code),
+                applied: false,
+                currentTarget,
+                validation);
+        }
+
+        return MutationResponse(
+            request,
+            RuntimeMutationStatuses.NoOp,
+            applied: false,
+            currentTarget);
+    }
+
+    private CoreResult<ResolvedMutationTarget> ResolveMutationTarget(TopLevel topLevel, RuntimeTargetContext target)
+    {
+        var currentTopLevelGeneration = CreateObjectGeneration(topLevel);
+        if (!string.IsNullOrWhiteSpace(target.TopLevelGeneration)
+            && !string.Equals(target.TopLevelGeneration, currentTopLevelGeneration, StringComparison.Ordinal))
+        {
+            return CoreResult<ResolvedMutationTarget>.Fail(new CoreError(
+                RuntimeMutationErrorCodes.RuntimeMutationTargetStale,
+                "Top-level target generation no longer matches the current runtime object.",
+                new Dictionary<string, string>
+                {
+                    ["topLevelId"] = target.TopLevelId,
+                    ["expectedTopLevelGeneration"] = target.TopLevelGeneration,
+                    ["actualTopLevelGeneration"] = currentTopLevelGeneration,
+                    ["nextAction"] = "Refresh the target context from visual-tree, logical-tree, find-nodes, or inspect-node before retrying."
+                }));
+        }
+
+        if (string.IsNullOrWhiteSpace(target.NodeId))
+        {
+            return CoreResult<ResolvedMutationTarget>.Ok(new ResolvedMutationTarget(
+                topLevel,
+                CreateTopLevelTarget(target.TopLevelId, topLevel)));
+        }
+
+        var node = FindNodeById(topLevel, target.NodeId);
+        if (node is null)
+        {
+            return CoreResult<ResolvedMutationTarget>.Fail(new CoreError(
+                RuntimeMutationErrorCodes.RuntimeMutationTargetStale,
+                $"Node '{target.NodeId}' was not found in top-level '{target.TopLevelId}'.",
+                CreateTargetErrorDetails(target.TopLevelId, target.TreeKind, target.NodeId)));
+        }
+
+        var currentTarget = CreateNodeTarget(target.TopLevelId, target.TreeKind!, topLevel, node);
+        if (!string.IsNullOrWhiteSpace(target.NodeGeneration)
+            && !string.Equals(target.NodeGeneration, currentTarget.NodeGeneration, StringComparison.Ordinal))
+        {
+            return CoreResult<ResolvedMutationTarget>.Fail(new CoreError(
+                RuntimeMutationErrorCodes.RuntimeMutationTargetStale,
+                "Node target generation no longer matches the current runtime object.",
+                new Dictionary<string, string>
+                {
+                    ["topLevelId"] = target.TopLevelId,
+                    ["treeKind"] = target.TreeKind!,
+                    ["nodeId"] = target.NodeId,
+                    ["expectedNodeGeneration"] = target.NodeGeneration,
+                    ["actualNodeGeneration"] = currentTarget.NodeGeneration ?? "not_available",
+                    ["nextAction"] = "Refresh the target context from visual-tree, logical-tree, find-nodes, or inspect-node before retrying."
+                }));
+        }
+
+        return CoreResult<ResolvedMutationTarget>.Ok(new ResolvedMutationTarget(node, currentTarget));
+    }
+
+    private static ProtocolError? ValidateMutationOperation(RuntimeMutationOperation operation)
+    {
+        return operation.Kind switch
+        {
+            RuntimeMutationOperationKinds.NoOp => null,
+            RuntimeMutationOperationKinds.SetProperty => ValidateSetPropertyOperation(operation),
+            RuntimeMutationOperationKinds.AddClass
+                or RuntimeMutationOperationKinds.RemoveClass
+                or RuntimeMutationOperationKinds.ToggleClass => ValidateClassOperation(operation),
+            RuntimeMutationOperationKinds.SetResource => ValidateSetResourceOperation(operation),
+            RuntimeMutationOperationKinds.RemoveResource => ValidateRemoveResourceOperation(operation),
+            _ => new ProtocolError(
+                RuntimeMutationErrorCodes.UnsupportedRuntimeMutationOperation,
+                $"Runtime mutation operation '{operation.Kind}' is not supported.",
+                new Dictionary<string, string>
+                {
+                    ["operation"] = operation.Kind,
+                    ["supportedOperations"] = RuntimeMutationOperationKinds.NoOp,
+                    ["nextAction"] = "Use the noop operation for contract checks, or wait for a later mutation capability to report this operation as available."
+                })
+        };
+    }
+
+    private static ProtocolError? ValidateSetPropertyOperation(RuntimeMutationOperation operation)
+    {
+        if (string.IsNullOrWhiteSpace(operation.PropertyName))
+        {
+            return new ProtocolError(
+                RuntimeMutationErrorCodes.InvalidRuntimeMutationRequest,
+                "set_property requires propertyName.",
+                new Dictionary<string, string>
+                {
+                    ["operation"] = operation.Kind,
+                    ["nextAction"] = "Provide a concrete Avalonia property name."
+                });
+        }
+
+        if (operation.Value is null)
+        {
+            return new ProtocolError(
+                RuntimeMutationErrorCodes.InvalidRuntimeMutationValue,
+                "set_property requires value.",
+                new Dictionary<string, string>
+                {
+                    ["operation"] = operation.Kind,
+                    ["propertyName"] = operation.PropertyName,
+                    ["nextAction"] = "Provide a string value and optional valueType for the requested property."
+                });
+        }
+
+        return new ProtocolError(
+            RuntimeMutationErrorCodes.UnsupportedRuntimeMutationProperty,
+            $"Runtime property mutation for '{operation.PropertyName}' is not enabled in this contract slice.",
+            new Dictionary<string, string>
+            {
+                ["operation"] = operation.Kind,
+                ["propertyName"] = operation.PropertyName,
+                ["capability"] = RuntimeMutationCapabilityCatalog.StyleLayoutMutation,
+                ["nextAction"] = "Query capabilities and retry only when style_layout_mutation is available."
+            });
+    }
+
+    private static ProtocolError? ValidateClassOperation(RuntimeMutationOperation operation)
+    {
+        if (string.IsNullOrWhiteSpace(operation.ClassName))
+        {
+            return new ProtocolError(
+                RuntimeMutationErrorCodes.InvalidRuntimeMutationRequest,
+                $"{operation.Kind} requires className.",
+                new Dictionary<string, string>
+                {
+                    ["operation"] = operation.Kind,
+                    ["nextAction"] = "Provide a style class name."
+                });
+        }
+
+        return CreateUnavailableMutationCapabilityDiagnostic(operation.Kind);
+    }
+
+    private static ProtocolError? ValidateSetResourceOperation(RuntimeMutationOperation operation)
+    {
+        if (string.IsNullOrWhiteSpace(operation.ResourceKey))
+        {
+            return new ProtocolError(
+                RuntimeMutationErrorCodes.InvalidRuntimeMutationRequest,
+                "set_resource requires resourceKey.",
+                new Dictionary<string, string>
+                {
+                    ["operation"] = operation.Kind,
+                    ["nextAction"] = "Provide a resource key."
+                });
+        }
+
+        if (operation.Value is null)
+        {
+            return new ProtocolError(
+                RuntimeMutationErrorCodes.InvalidRuntimeMutationValue,
+                "set_resource requires value.",
+                new Dictionary<string, string>
+                {
+                    ["operation"] = operation.Kind,
+                    ["resourceKey"] = operation.ResourceKey,
+                    ["nextAction"] = "Provide a resource value and optional valueType."
+                });
+        }
+
+        return CreateUnavailableMutationCapabilityDiagnostic(operation.Kind);
+    }
+
+    private static ProtocolError? ValidateRemoveResourceOperation(RuntimeMutationOperation operation)
+    {
+        return string.IsNullOrWhiteSpace(operation.ResourceKey)
+            ? new ProtocolError(
+                RuntimeMutationErrorCodes.InvalidRuntimeMutationRequest,
+                "remove_resource requires resourceKey.",
+                new Dictionary<string, string>
+                {
+                    ["operation"] = operation.Kind,
+                    ["nextAction"] = "Provide a resource key."
+                })
+            : CreateUnavailableMutationCapabilityDiagnostic(operation.Kind);
+    }
+
+    private static ProtocolError CreateUnavailableMutationCapabilityDiagnostic(string operation)
+    {
+        return new ProtocolError(
+            RuntimeMutationErrorCodes.RuntimeMutationCapabilityUnavailable,
+            $"Runtime mutation operation '{operation}' is not available yet.",
+            new Dictionary<string, string>
+            {
+                ["operation"] = operation,
+                ["capability"] = RuntimeMutationCapabilityCatalog.StyleLayoutMutation,
+                ["nextAction"] = "Query capabilities and retry only when the requested operation is reported as available."
+            });
+    }
+
+    private static string MutationStatusForDiagnostic(string code)
+    {
+        return code switch
+        {
+            RuntimeMutationErrorCodes.InvalidRuntimeMutationRequest
+                or RuntimeMutationErrorCodes.InvalidRuntimeMutationValue => RuntimeMutationStatuses.Rejected,
+            RuntimeMutationErrorCodes.RuntimeMutationCapabilityUnavailable
+                or RuntimeMutationErrorCodes.UnsupportedRuntimeMutationOperation
+                or RuntimeMutationErrorCodes.UnsupportedRuntimeMutationProperty => RuntimeMutationStatuses.Unsupported,
+            RuntimeMutationErrorCodes.RuntimeMutationTargetStale => RuntimeMutationStatuses.StaleTarget,
+            _ => RuntimeMutationStatuses.Unavailable
+        };
+    }
+
+    private CoreResult<RuntimeMutationResponse> MutationResponse(
+        RuntimeMutationRequest request,
+        string status,
+        bool applied,
+        RuntimeTargetContext target,
+        params ProtocolError[] diagnostics)
+    {
+        return CoreResult<RuntimeMutationResponse>.Ok(new RuntimeMutationResponse(
+            request.RequestId,
+            NextMutationId(),
+            SessionId,
+            target.TopLevelId,
+            target,
+            request.Operation,
+            status,
+            applied,
+            DateTimeOffset.UtcNow,
+            RuntimeMutationCapabilityCatalog.ContractOnly(),
+            diagnostics));
+    }
+
+    private static ProtocolError CreateStaleMutationDiagnostic(
+        string message,
+        RuntimeTargetContext target,
+        string nextAction)
+    {
+        var details = new Dictionary<string, string>
+        {
+            ["topLevelId"] = target.TopLevelId,
+            ["nextAction"] = nextAction
+        };
+
+        if (!string.IsNullOrWhiteSpace(target.TreeKind))
+        {
+            details["treeKind"] = target.TreeKind;
+        }
+
+        if (!string.IsNullOrWhiteSpace(target.NodeId))
+        {
+            details["nodeId"] = target.NodeId;
+        }
+
+        return new ProtocolError(
+            RuntimeMutationErrorCodes.RuntimeMutationTargetStale,
+            message,
+            details);
+    }
+
+    private string NextMutationId()
+    {
+        var next = Interlocked.Increment(ref _mutationSequence);
+        return $"mutation:{SessionId.Value}:{next.ToString(CultureInfo.InvariantCulture)}";
+    }
+
+    private static ProtocolError ToProtocolError(CoreError error)
+    {
+        return new ProtocolError(error.Code, error.Message, error.Details);
     }
 
     private CoreResult<InputResponse> PointerMove(TopLevel topLevel, string topLevelId, double? x, double? y)
@@ -1955,6 +2302,8 @@ public sealed class AvaScopeBridgeRuntime
             ? Array.Empty<TopLevelSummary>()
             : [InspectableTopLevel.FromTopLevel(topLevel, "singleView")];
     }
+
+    private sealed record ResolvedMutationTarget(object Node, RuntimeTargetContext Target);
 
     private sealed class TopLevelRegistration(
         ConcurrentDictionary<int, WeakReference<TopLevel>> registeredTopLevels,

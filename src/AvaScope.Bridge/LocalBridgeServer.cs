@@ -223,6 +223,7 @@ internal sealed class LocalBridgeServer : IDisposable
             BridgeIpcMethods.InspectNode => Respond(await InspectNodeAsync(request, cancellationToken)),
             BridgeIpcMethods.FindNodes => Respond(await FindNodesAsync(request, cancellationToken)),
             BridgeIpcMethods.Input => Respond(await InputAsync(request, cancellationToken)),
+            BridgeIpcMethods.MutateNode => Respond(await MutateNodeAsync(request, cancellationToken)),
             BridgeIpcMethods.CloseSession => CloseSession(request),
             _ => Respond(BridgeIpcResponse.Fail(
                 request.RequestId,
@@ -408,6 +409,42 @@ internal sealed class LocalBridgeServer : IDisposable
             request.InputKey,
             request.KeyModifiers,
             cancellationToken);
+
+        return result.Success
+            ? BridgeIpcResponse.Ok(request.RequestId, result.Value)
+            : BridgeIpcResponse.Fail(
+                request.RequestId,
+                ToProtocolError(result.Error!));
+    }
+
+    private async Task<BridgeIpcResponse> MutateNodeAsync(
+        BridgeIpcRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (request.Mutation is null)
+        {
+            return BridgeIpcResponse.Fail(
+                request.RequestId,
+                new ProtocolError(
+                    RuntimeMutationErrorCodes.InvalidRuntimeMutationRequest,
+                    "Mutation requests require a structured mutation payload."));
+        }
+
+        if (!string.Equals(request.RequestId, request.Mutation.RequestId, StringComparison.Ordinal))
+        {
+            return BridgeIpcResponse.Fail(
+                request.RequestId,
+                new ProtocolError(
+                    RuntimeMutationErrorCodes.InvalidRuntimeMutationRequest,
+                    "Mutation payload requestId must match the IPC requestId.",
+                    new Dictionary<string, string>
+                    {
+                        ["requestId"] = request.RequestId,
+                        ["mutationRequestId"] = request.Mutation.RequestId
+                    }));
+        }
+
+        var result = await _runtime.MutateNodeAsync(request.Mutation, cancellationToken);
 
         return result.Success
             ? BridgeIpcResponse.Ok(request.RequestId, result.Value)

@@ -360,6 +360,60 @@ public sealed class AvaScopeMcpTools
     }
 
     [McpServerTool(
+        Name = "mutate_node",
+        Title = "Mutate node",
+        ReadOnly = false,
+        Idempotent = false,
+        Destructive = false,
+        OpenWorld = false,
+        UseStructuredContent = true)]
+    [Description("Evaluates a local-only runtime UI mutation request against a selected node and returns capability-aware diagnostics.")]
+    public static async Task<ToolResult<RuntimeMutationResponse>> MutateNode(
+        LocalBridgeClient bridgeClient,
+        string sessionId,
+        string topLevelId,
+        string nodeId,
+        string operation,
+        string treeKind = TreeKinds.Visual,
+        string? propertyName = null,
+        string? value = null,
+        string? valueType = null,
+        string? className = null,
+        string? resourceKey = null,
+        string? requestId = null,
+        string? manifestDirectory = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(bridgeClient);
+
+        if (!TryParseRequiredSessionId(sessionId, out var parsedSessionId, out var error))
+        {
+            return ToolResult<RuntimeMutationResponse>.Fail(error!);
+        }
+
+        RuntimeMutationRequest request;
+        try
+        {
+            request = new RuntimeMutationRequest(
+                string.IsNullOrWhiteSpace(requestId) ? Guid.NewGuid().ToString("n") : requestId,
+                new RuntimeTargetContext(parsedSessionId!, topLevelId, treeKind, nodeId),
+                new RuntimeMutationOperation(operation, propertyName, value, valueType, className, resourceKey),
+                [RuntimeMutationCapabilityCatalog.RuntimeMutationContract]);
+        }
+        catch (Exception exception) when (exception is ArgumentException or ArgumentOutOfRangeException)
+        {
+            return ToolResult<RuntimeMutationResponse>.Fail(new ProtocolError(
+                CoreErrorCodes.InvalidBridgeRequest,
+                exception.Message));
+        }
+
+        return ToToolResult(await CreateBridgeClient(bridgeClient, manifestDirectory).MutateNodeAsync(
+            parsedSessionId!,
+            request,
+            cancellationToken));
+    }
+
+    [McpServerTool(
         Name = "close_session",
         Title = "Close session",
         ReadOnly = false,

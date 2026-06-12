@@ -336,6 +336,62 @@ public sealed class LocalBridgeClient
             cancellationToken);
     }
 
+    public async Task<CoreResult<RuntimeMutationResponse>> MutateNodeAsync(
+        SessionId sessionId,
+        RuntimeMutationRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(sessionId);
+        ArgumentNullException.ThrowIfNull(request);
+
+        if (request.Target.SessionId != sessionId)
+        {
+            return RuntimeMutationUnavailable(
+                sessionId,
+                request,
+                new ProtocolError(
+                    RuntimeMutationErrorCodes.RuntimeMutationNonLocalSession,
+                    "Runtime mutation requests must target the selected local bridge session.",
+                    new Dictionary<string, string>
+                    {
+                        ["selectedSessionId"] = sessionId.Value,
+                        ["targetSessionId"] = request.Target.SessionId.Value,
+                        ["nextAction"] = "Use a target context returned by this session's visual-tree, logical-tree, find-nodes, or inspect-node command."
+                    }));
+        }
+
+        var manifestResult = FindSingleManifest(null, sessionId);
+        if (!manifestResult.Success)
+        {
+            return CoreResult<RuntimeMutationResponse>.Fail(manifestResult.Error!);
+        }
+
+        var manifest = manifestResult.Value!;
+        if (!string.Equals(manifest.TransportScope, BridgeTransportScopes.LocalOnly, StringComparison.Ordinal))
+        {
+            return RuntimeMutationUnavailable(
+                sessionId,
+                request,
+                new ProtocolError(
+                    RuntimeMutationErrorCodes.RuntimeMutationNonLocalSession,
+                    "Runtime mutation is available only for local bridge sessions.",
+                    new Dictionary<string, string>
+                    {
+                        ["sessionId"] = sessionId.Value,
+                        ["transportScope"] = manifest.TransportScope,
+                        ["nextAction"] = "Attach to an app that exposes a local AvaScope bridge session."
+                    }));
+        }
+
+        return await SendAsync<RuntimeMutationResponse>(
+            manifest,
+            new BridgeIpcRequest(
+                request.RequestId,
+                BridgeIpcMethods.MutateNode,
+                mutation: request),
+            cancellationToken);
+    }
+
     public async Task<CoreResult<CloseSessionResponse>> CloseSessionAsync(
         SessionId sessionId,
         CancellationToken cancellationToken = default)
@@ -1265,7 +1321,53 @@ public sealed class LocalBridgeClient
             details["targetNodeId"] = request.TargetNodeId;
         }
 
+        if (request.Mutation is { } mutation)
+        {
+            details["mutationRequestId"] = mutation.RequestId;
+            details["mutationOperation"] = mutation.Operation.Kind;
+            details["mutationTargetTopLevelId"] = mutation.Target.TopLevelId;
+
+            if (!string.IsNullOrWhiteSpace(mutation.Target.NodeId))
+            {
+                details["mutationTargetNodeId"] = mutation.Target.NodeId;
+            }
+
+            if (!string.IsNullOrWhiteSpace(mutation.Operation.PropertyName))
+            {
+                details["mutationPropertyName"] = mutation.Operation.PropertyName;
+            }
+
+            if (!string.IsNullOrWhiteSpace(mutation.Operation.ClassName))
+            {
+                details["mutationClassName"] = mutation.Operation.ClassName;
+            }
+
+            if (!string.IsNullOrWhiteSpace(mutation.Operation.ResourceKey))
+            {
+                details["mutationResourceKey"] = mutation.Operation.ResourceKey;
+            }
+        }
+
         return details;
+    }
+
+    private static CoreResult<RuntimeMutationResponse> RuntimeMutationUnavailable(
+        SessionId sessionId,
+        RuntimeMutationRequest request,
+        ProtocolError diagnostic)
+    {
+        return CoreResult<RuntimeMutationResponse>.Ok(new RuntimeMutationResponse(
+            request.RequestId,
+            $"mutation:unavailable:{request.RequestId}",
+            sessionId,
+            request.Target.TopLevelId,
+            request.Target,
+            request.Operation,
+            RuntimeMutationStatuses.Unavailable,
+            applied: false,
+            DateTimeOffset.UtcNow,
+            RuntimeMutationCapabilityCatalog.ContractOnly(),
+            [diagnostic]));
     }
 
     private static string NewRequestId()

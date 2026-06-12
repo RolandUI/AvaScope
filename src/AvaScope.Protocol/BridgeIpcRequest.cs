@@ -26,7 +26,8 @@ public sealed record BridgeIpcRequest
         string? inputKey = null,
         string? keyModifiers = null,
         double? deltaX = null,
-        double? deltaY = null)
+        double? deltaY = null,
+        RuntimeMutationRequest? mutation = null)
     {
         if (string.IsNullOrWhiteSpace(requestId))
         {
@@ -59,6 +60,7 @@ public sealed record BridgeIpcRequest
         KeyModifiers = keyModifiers;
         DeltaX = deltaX;
         DeltaY = deltaY;
+        Mutation = mutation;
     }
 
     [JsonPropertyName("requestId")]
@@ -142,4 +144,8 @@ public sealed record BridgeIpcRequest
     [JsonPropertyName("deltaY")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public double? DeltaY { get; }
+
+    [JsonPropertyName("mutation")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public RuntimeMutationRequest? Mutation { get; }
 }

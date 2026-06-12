@@ -26,20 +26,21 @@ GitHub Issues and Milestones are the primary project-management source for auton
 
 ## Current Focus
 
-- `R0.7.0-M1 Runtime Mutation Contract`
-- GitHub Issue: https://github.com/RolandUI/AvaScope/issues/9
+- `R0.7.0-M2 Style And Layout Mutation Set`
+- GitHub Issue: https://github.com/RolandUI/AvaScope/issues/10
 - GitHub Milestone: `v0.7.0`
 - Status: `Ready`
 - Owner: unassigned
 - Started: pending
-- Goal: start the `v0.7.0` agent-first product direction by defining structured, reversible runtime UI mutation contracts for CLI/MCP/Protocol/Core/Bridge.
+- Goal: implement the first safe, reversible runtime style and layout mutation set on top of the completed mutation contract.
 
 ## Next Action
 
-Start GitHub issue #9 (`R0.7.0-M1 Runtime Mutation Contract`). Before implementation, replace its `status:ready` label with `status:in-progress`, add a start comment, and keep `v0.7.0` scoped to local-only agent runtime control, reversible mutations, evidence artifacts, and guarded release validation unless issue #8 or `docs/RELEASE_PLAN.md` is revised first.
+Start GitHub issue #10 (`R0.7.0-M2 Style And Layout Mutation Set`). Before implementation, move it from `status:backlog` to `status:in-progress`, add a start comment, and keep the work scoped to safe temporary mutations for width, height, min/max size, margin, padding, opacity, text, brushes, classes, selected resource overrides, and reset metadata.
 
 ## Latest Validation
 
+- `2026-06-12`: Completed GitHub issue #9 for the runtime mutation contract. Added Protocol DTOs/constants for mutation requests, operations, capabilities, statuses, diagnostics, and responses; added `mutate_node` bridge IPC, Core client, Bridge runtime validation, CLI `mutate-node`, and MCP `mutate_node` surfaces. The contract validates target session/top-level/node context, returns bounded diagnostics for stale targets, unsupported properties/operations, invalid values, unavailable capabilities, and session mismatch, and preserves existing inspection/input/screenshot/close-session behavior. Validation passed with `dotnet build AvaScope.slnx --no-restore -v:minimal`, focused mutation tests (`dotnet test AvaScope.slnx --no-build --filter "FullyQualifiedName~RuntimeMutationRequestAndResponseSerializeStableShapes|FullyQualifiedName~MutateNode|FullyQualifiedName~McpStdioSmokeTests.ServerStartsOverStdioAndListsInitialTools"`), full Debug tests (`dotnet test AvaScope.slnx --no-build`, 251 passed), and `git diff --check` (LF/CRLF warnings only).
 - `2026-06-12`: Completed GitHub issue #40 for the agent-tool documentation positioning refresh. Updated README, `docs/USER_GUIDE.md`, `docs/AGENT_WORKFLOW.md`, `samples/AvaScope.GettingStartedApp/README.md`, and `AGENTS.md` so AvaScope is described as an agent-focused local control plane for Avalonia apps, while planned `v0.7.0` runtime mutations remain clearly marked as future work. Validation passed with `git diff --check` (LF/CRLF warnings only), a stale-wording `rg` check, and a local markdown link/path existence check for changed docs.
 - `2026-06-12`: Created the remaining GitHub issue backlog through `v1.0.0`: `v0.8.0` issues #19-#25, `v0.9.0` issues #26-#32, and `v1.0.0` issues #33-#39. Added all new issues to the public `AvaScope Roadmap` Project with `Workflow Status=Backlog`, `Progress=0%`, release tracker/planned-slice phase values, and roadmap ordering. No implementation was started; current focus remains issue #9.
 - `2026-06-12`: Replanned `v0.7.0` through `v1.0.0` around the agent-first control-plane direction. Updated `docs/RELEASE_PLAN.md`, the current handoff focus, GitHub milestone descriptions, and v0.7.0 issues #8-#14 so the next release starts with reversible runtime mutation contracts, style/layout mutation, evidence artifacts, session safety, and CLI/MCP experiment review. Validated the docs-only change with `git diff --check` and an `rg` check confirming no external-tool comparison wording remains in the updated planning files.

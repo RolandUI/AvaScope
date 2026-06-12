@@ -114,6 +114,176 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
     }
 
     [Fact]
+    public async Task RuntimeMutationContractReturnsNoOpUnsupportedAndStaleDiagnostics()
+    {
+        using var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessTestApplication));
+
+        await session.Dispatch(() =>
+        {
+            var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Headless mutation sample"));
+            var targetText = new TextBlock
+            {
+                Name = "MutationTarget",
+                Text = "Mutation target",
+                Width = 120
+            };
+            var window = new Window
+            {
+                Title = "AvaScope Mutation Sample",
+                Width = 360,
+                Height = 240,
+                Content = targetText
+            };
+
+            window.Show();
+            using var registration = runtime.RegisterTopLevel(window);
+            Dispatcher.UIThread.RunJobs();
+
+            var topLevel = Assert.Single(runtime.ListTopLevelsAsync().GetAwaiter().GetResult());
+            var tree = runtime.GetVisualTreeAsync(topLevel.Id, maxDepth: 8).GetAwaiter().GetResult();
+            Assert.True(tree.Success, tree.Error?.Message);
+            var targetNode = FindNode(tree.Value!.Root, node => node.Name == "MutationTarget");
+            Assert.NotNull(targetNode);
+            Assert.NotNull(targetNode.Target);
+
+            var noop = runtime.MutateNodeAsync(new RuntimeMutationRequest(
+                "mutation-request-1",
+                targetNode.Target!,
+                new RuntimeMutationOperation(RuntimeMutationOperationKinds.NoOp))).GetAwaiter().GetResult();
+
+            Assert.True(noop.Success, noop.Error?.Message);
+            Assert.Equal(RuntimeMutationStatuses.NoOp, noop.Value!.Status);
+            Assert.False(noop.Value.Applied);
+            Assert.Empty(noop.Value.Diagnostics);
+            Assert.EndsWith(":1", noop.Value.MutationId, StringComparison.Ordinal);
+            Assert.Contains(noop.Value.Capabilities, capability =>
+                capability.Name == RuntimeMutationCapabilityCatalog.RuntimeMutationContract
+                && capability.Available);
+
+            var secondNoop = runtime.MutateNodeAsync(new RuntimeMutationRequest(
+                "mutation-request-2",
+                targetNode.Target!,
+                new RuntimeMutationOperation(RuntimeMutationOperationKinds.NoOp))).GetAwaiter().GetResult();
+
+            Assert.True(secondNoop.Success, secondNoop.Error?.Message);
+            Assert.NotEqual(noop.Value.MutationId, secondNoop.Value!.MutationId);
+            Assert.EndsWith(":2", secondNoop.Value.MutationId, StringComparison.Ordinal);
+
+            var unsupported = runtime.MutateNodeAsync(new RuntimeMutationRequest(
+                "mutation-request-3",
+                targetNode.Target!,
+                new RuntimeMutationOperation(
+                    RuntimeMutationOperationKinds.SetProperty,
+                    propertyName: "Width",
+                    value: "240",
+                    valueType: "double"))).GetAwaiter().GetResult();
+
+            Assert.True(unsupported.Success, unsupported.Error?.Message);
+            Assert.Equal(RuntimeMutationStatuses.Unsupported, unsupported.Value!.Status);
+            Assert.False(unsupported.Value.Applied);
+            var unsupportedDiagnostic = Assert.Single(unsupported.Value.Diagnostics);
+            Assert.Equal(RuntimeMutationErrorCodes.UnsupportedRuntimeMutationProperty, unsupportedDiagnostic.Code);
+            Assert.Equal("Width", unsupportedDiagnostic.Details!["propertyName"]);
+
+            var invalidValue = runtime.MutateNodeAsync(new RuntimeMutationRequest(
+                "mutation-request-4",
+                targetNode.Target!,
+                new RuntimeMutationOperation(
+                    RuntimeMutationOperationKinds.SetProperty,
+                    propertyName: "Width"))).GetAwaiter().GetResult();
+
+            Assert.True(invalidValue.Success, invalidValue.Error?.Message);
+            Assert.Equal(RuntimeMutationStatuses.Rejected, invalidValue.Value!.Status);
+            Assert.Equal(RuntimeMutationErrorCodes.InvalidRuntimeMutationValue, Assert.Single(invalidValue.Value.Diagnostics).Code);
+
+            var stale = runtime.MutateNodeAsync(new RuntimeMutationRequest(
+                "mutation-request-5",
+                new RuntimeTargetContext(runtime.SessionId, "topLevel:missing", TreeKinds.Visual, targetNode.NodeId),
+                new RuntimeMutationOperation(RuntimeMutationOperationKinds.NoOp))).GetAwaiter().GetResult();
+
+            Assert.True(stale.Success, stale.Error?.Message);
+            Assert.Equal(RuntimeMutationStatuses.StaleTarget, stale.Value!.Status);
+            Assert.Equal(RuntimeMutationErrorCodes.RuntimeMutationTargetStale, Assert.Single(stale.Value.Diagnostics).Code);
+
+            window.Close();
+        }, CancellationToken.None);
+    }
+
+    [Fact]
+    public async Task McpMutateNodeReturnsBoundedMutationContractResultsThroughLocalBridgePipe()
+    {
+        using var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessTestApplication));
+
+        await session.Dispatch(async () =>
+        {
+            var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Headless MCP mutation sample"));
+            var targetText = new TextBlock
+            {
+                Name = "McpMutationTarget",
+                Text = "MCP mutation target",
+                Width = 120
+            };
+            var window = new Window
+            {
+                Title = "AvaScope MCP Mutation Sample",
+                Width = 360,
+                Height = 240,
+                Content = targetText
+            };
+
+            window.Show();
+            using var registration = runtime.RegisterTopLevel(window);
+            Dispatcher.UIThread.RunJobs();
+
+            var client = new LocalBridgeClient(Path.GetDirectoryName(runtime.SessionManifestPath)!);
+            var topLevel = Assert.Single(await runtime.ListTopLevelsAsync());
+            var tree = await AvaScopeMcpTools.VisualTree(
+                client,
+                runtime.SessionId.Value,
+                topLevel.Id,
+                maxDepth: 8);
+            Assert.True(tree.Success, tree.Error?.Message);
+            var targetNode = FindNode(tree.Value!.Root, node => node.Name == "McpMutationTarget");
+            Assert.NotNull(targetNode);
+
+            var noop = await AvaScopeMcpTools.MutateNode(
+                client,
+                runtime.SessionId.Value,
+                topLevel.Id,
+                targetNode.NodeId,
+                RuntimeMutationOperationKinds.NoOp,
+                TreeKinds.Visual,
+                requestId: "mcp-mutation-request-1");
+
+            Assert.True(noop.Success, noop.Error?.Message);
+            Assert.Equal("mcp-mutation-request-1", noop.Value!.RequestId);
+            Assert.Equal(RuntimeMutationStatuses.NoOp, noop.Value.Status);
+            Assert.False(noop.Value.Applied);
+            Assert.Empty(noop.Value.Diagnostics);
+
+            var unsupported = await AvaScopeMcpTools.MutateNode(
+                client,
+                runtime.SessionId.Value,
+                topLevel.Id,
+                targetNode.NodeId,
+                RuntimeMutationOperationKinds.SetProperty,
+                TreeKinds.Visual,
+                propertyName: "Width",
+                value: "240",
+                valueType: "double",
+                requestId: "mcp-mutation-request-2");
+
+            Assert.True(unsupported.Success, unsupported.Error?.Message);
+            Assert.Equal(RuntimeMutationStatuses.Unsupported, unsupported.Value!.Status);
+            Assert.False(unsupported.Value.Applied);
+            Assert.True(unsupported.Value.Diagnostics.Count <= RuntimeMutationResponse.MaximumDiagnostics);
+            Assert.Equal(RuntimeMutationErrorCodes.UnsupportedRuntimeMutationProperty, Assert.Single(unsupported.Value.Diagnostics).Code);
+
+            window.Close();
+        }, CancellationToken.None);
+    }
+
+    [Fact]
     public async Task McpToolsListTopLevelsAndCaptureScreenshotThroughLocalBridgePipe()
     {
         using var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessTestApplication));

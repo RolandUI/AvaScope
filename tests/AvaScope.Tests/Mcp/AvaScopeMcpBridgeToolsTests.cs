@@ -113,6 +113,21 @@ public sealed class AvaScopeMcpBridgeToolsTests : IDisposable
         Assert.Null(bridge.Error);
     }
 
+    [Fact]
+    public async Task MutateNodeRejectsMissingSessionBeforeBridgeCall()
+    {
+        var result = await AvaScopeMcpTools.MutateNode(
+            new LocalBridgeClient(),
+            " ",
+            "topLevel:abc",
+            "visual:node",
+            RuntimeMutationOperationKinds.NoOp);
+
+        Assert.False(result.Success);
+        Assert.Equal(CoreErrorCodes.InvalidBridgeRequest, result.Error!.Code);
+        Assert.Null(result.Value);
+    }
+
     private static async Task WaitForAsync(Func<bool> predicate)
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
