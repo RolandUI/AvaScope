@@ -26,20 +26,21 @@ GitHub Issues and Milestones are the primary project-management source for auton
 
 ## Current Focus
 
-- `R0.7.0-M1 Baseline Suite Manifest`
+- `R0.7.0-M1 Runtime Mutation Contract`
 - GitHub Issue: https://github.com/RolandUI/AvaScope/issues/9
 - GitHub Milestone: `v0.7.0`
 - Status: `Ready`
 - Owner: unassigned
 - Started: pending
-- Goal: start the `v0.7.0` visual-regression productization release by implementing named baseline suite manifests.
+- Goal: start the `v0.7.0` agent-first product direction by defining structured, reversible runtime UI mutation contracts for CLI/MCP/Protocol/Core/Bridge.
 
 ## Next Action
 
-Start GitHub issue #9 (`R0.7.0-M1 Baseline Suite Manifest`). Before implementation, replace its `status:ready` label with `status:in-progress`, add a start comment, and keep `v0.7.0` scoped to visual regression and CI productization unless issue #8 or `docs/RELEASE_PLAN.md` is revised first.
+Start GitHub issue #9 (`R0.7.0-M1 Runtime Mutation Contract`). Before implementation, replace its `status:ready` label with `status:in-progress`, add a start comment, and keep `v0.7.0` scoped to local-only agent runtime control, reversible mutations, evidence artifacts, and guarded release validation unless issue #8 or `docs/RELEASE_PLAN.md` is revised first.
 
 ## Latest Validation
 
+- `2026-06-12`: Replanned `v0.7.0` through `v1.0.0` around the agent-first control-plane direction. Updated `docs/RELEASE_PLAN.md`, the current handoff focus, GitHub milestone descriptions, and v0.7.0 issues #8-#14 so the next release starts with reversible runtime mutation contracts, style/layout mutation, evidence artifacts, session safety, and CLI/MCP experiment review. Validated the docs-only change with `git diff --check` and an `rg` check confirming no external-tool comparison wording remains in the updated planning files.
 - `2026-06-10`: Started and completed GitHub issue #18 to make the root README public-facing. Moved the detailed former README content to `docs/USER_GUIDE.md`, replaced the root README with a 53-line overview and documentation index, and validated the documentation-only change with `git diff --check` plus a local Markdown link existence check.
 - `2026-06-10`: Improved the `AvaScope Roadmap` GitHub Project for human readability by adding `Progress`, `Release Phase`, and `Roadmap Order` fields, setting values for active v0.7.0 issues #8-#14, archiving completed historical project items #1-#7 and #15-#17, and updating the project readme with the recommended board/table views. Confirmed GitHub's public Projects schema exposes view layouts read-only and has no mutation for saved view layout creation/editing.
 - `2026-06-10`: Created and populated the public `AvaScope Roadmap` GitHub Project at https://github.com/users/RolandUI/projects/4. The project is linked to `RolandUI/AvaScope`, contains issues #1-#17, uses a `Workflow Status` field with Ready/Backlog/Done values for the current roadmap, and closed the previous blocker/fallback issues #15 and #17 as completed.
@@ -2704,7 +2705,7 @@ Start GitHub issue #9 (`R0.7.0-M1 Baseline Suite Manifest`). Before implementati
 - `2026-06-09`: `v0.2.1` targets PreviewHost theme parity by resolving the wrapper `Window` background from applied app/window styles or requested theme resources instead of forcing a white local value on controls that do not paint their own root background.
 - `2026-06-09`: `v0.2.2` targets BUG-0003 as an AvaScope PreviewHost diagnostics bug, not a target-app workaround: DataTemplate binding scope and Avalonia template/layer layout noise should be handled inside AvaScope diagnostics.
 - `2026-06-09`: BUG-0003 binding diagnostics treat declared source `x:DataType` as authoritative for a binding path before falling back to root preview `DataContext`; layout diagnostics filter Avalonia framework/template internals instead of reporting them as user layout defects.
-- `2026-06-09`: Animation support is tracked as a future diagnostics feature, not a Rider-style live designer clone; the useful agent surface is deterministic time-offset screenshots, bounded frame artifacts, and structured animation metadata/diagnostics.
+- `2026-06-09`: Animation support is tracked as a future diagnostics feature; the useful agent surface is deterministic time-offset screenshots, bounded frame artifacts, and structured animation metadata/diagnostics.
 - `2026-06-09`: `v0.3.0` is scoped as a minor animation-diagnostics release because deterministic frame sampling, new artifact outputs, and CLI/MCP surfaces are additive product capabilities rather than patch-level fixes.
 - `2026-06-09`: `v0.3.0` animation sampling uses public `AvaloniaHeadlessPlatform.ForceRenderTimerTick(count)` in isolated PreviewHost child processes because Avalonia 12 animation clock types are not public; repeated offsets inside one request reuse the first successful frame for that offset to keep duplicate artifacts stable, while moving-property metadata remains explicit `not_available` provenance.
 - `2026-06-09`: The roadmap to `v1.0.0` is release-shaped rather than epic-shaped: `v0.4.0` hardens runtime attach/session reliability first, then `v0.5.0` preview fidelity, `v0.6.0` persistent live preview, `v0.7.0` visual regression CI, `v0.8.0` agent-facing UI intelligence features, `v0.9.0` protocol/integration beta hardening, and `v1.0.0` stable-surface verification.
