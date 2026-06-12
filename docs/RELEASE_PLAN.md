@@ -287,10 +287,10 @@ The `v0.6.0` release target is focused on runtime debugging and agent validation
 
 - Release: `v0.7.0`
 - Target Version: `0.7.0`
-- Release State: `In Progress`
+- Release State: `Release Candidate`
 - Scope Lock: locked
 - Release Commit: pending
-- Local Release Gate: pending
+- Local Release Gate: passed `2026-06-12`
 - Published At: pending
 - GitHub Release: pending
 - Previous Release: `v0.6.0`
@@ -318,7 +318,15 @@ The `v0.7.0` release target starts the agent-first product direction. The goal i
 - `R0.7.0-M3 Mutation Evidence And Screenshot Loop`; Status: `Done`.
 - `R0.7.0-M4 Agent Session Safety And Reset Semantics`; Status: `Done`.
 - `R0.7.0-M5 CLI/MCP Runtime Experiment Review`; Status: `Done`.
-- `R0.7.0-M6 Release Candidate And Version Bump`; Status: `Planned`.
+- `R0.7.0-M6 Release Candidate And Version Bump`; Status: `In Progress`.
+
+### v0.7.0 Implementation Validation
+
+- `2026-06-12`: Release-candidate validation passed for `v0.7.0` with `dotnet build AvaScope.slnx --no-restore -v:minimal`, targeted `launch-app` lifecycle smoke tests, and full Debug tests (`dotnet test AvaScope.slnx --no-build`, 264 passed).
+- `2026-06-12`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1` passed for `v0.7.0`; Release build/test passed with 264 tests, three `0.7.0` packages, win-x64 and linux-x64 framework-dependent ZIPs, release manifest, packaged doctor smoke, and packaged sample preview smoke.
+- `2026-06-12`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.7.0 -DryRun` passed for the generated `0.7.0` assets.
+- `2026-06-12`: Packaged Windows CLI runtime smoke passed against `samples\AvaScope.GettingStartedApp` using `launch-app`, `attach`, `list-top-levels`, `visual-tree`, `find-nodes`, `mutate-node`, `screenshot`, `mutate-node-evidence`, `mutation-review`, `reset_all`, and `close-session`.
+- `2026-06-12`: `git diff --check` passed with only line-ending normalization warnings.
 
 ### v0.7.0 Explicit Deferrals
 

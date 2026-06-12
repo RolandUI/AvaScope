@@ -3604,6 +3604,60 @@ public sealed class CliSmokeTests
     }
 
     [Fact]
+    public async Task LaunchAppCommandReturnsTimeoutAndExitsWhenProcessKeepsRunningWithoutBridge()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var testRoot = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));
+        var manifestDirectory = Path.Combine(testRoot, "manifests");
+        var outputDirectory = Path.Combine(testRoot, "launch");
+        Directory.CreateDirectory(testRoot);
+
+        try
+        {
+            var startedAt = Stopwatch.StartNew();
+            var result = await RunCliAsync(
+                cliAssembly,
+                "launch-app",
+                "--command",
+                "powershell.exe",
+                "--args",
+                "-NoProfile -Command \"Start-Sleep -Seconds 5\"",
+                "--manifest-dir",
+                manifestDirectory,
+                "--out-dir",
+                outputDirectory,
+                "--timeout-ms",
+                "500");
+            startedAt.Stop();
+
+            Assert.Equal(1, result.ExitCode);
+            Assert.True(
+                startedAt.Elapsed < TimeSpan.FromSeconds(4),
+                $"launch-app should not wait for the child process to exit. Elapsed: {startedAt.Elapsed}");
+            var payload = JsonSerializer.Deserialize<ToolResult<LaunchAppResponse>>(result.StandardOutput, JsonOptions);
+            Assert.NotNull(payload);
+            Assert.False(payload.Success);
+            Assert.Equal(CoreErrorCodes.BridgeSessionNotFound, payload.Error!.Code);
+            Assert.Contains("Timed out waiting", payload.Error.Message, StringComparison.Ordinal);
+            Assert.True(payload.Error.Details!.TryGetValue("processId", out var processIdText));
+            Assert.True(int.Parse(processIdText, CultureInfo.InvariantCulture) > 0);
+            Assert.True(File.Exists(payload.Error.Details["stdoutPath"]));
+            Assert.True(File.Exists(payload.Error.Details["stderrPath"]));
+        }
+        finally
+        {
+            await DeleteDirectoryWithRetryAsync(testRoot);
+        }
+    }
+
+    [Fact]
     public void McpServerAssemblyIsCopiedBesideCli()
     {
         var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");

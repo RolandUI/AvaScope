@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Globalization;
+using System.Text;
 using AvaScope.Protocol;
 
 namespace AvaScope.Core;
@@ -46,19 +47,13 @@ public sealed class BridgeAppLauncher
         File.WriteAllText(stdoutPath, string.Empty);
         File.WriteAllText(stderrPath, string.Empty);
 
+        var fullWorkingDirectory = string.IsNullOrWhiteSpace(workingDirectory)
+            ? Environment.CurrentDirectory
+            : Path.GetFullPath(workingDirectory);
+        var detachedLauncher = OperatingSystem.IsWindows();
         var process = new Process
         {
-            StartInfo = new ProcessStartInfo
-            {
-                FileName = command,
-                Arguments = arguments ?? string.Empty,
-                WorkingDirectory = string.IsNullOrWhiteSpace(workingDirectory)
-                    ? Environment.CurrentDirectory
-                    : Path.GetFullPath(workingDirectory),
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false
-            },
+            StartInfo = CreateStartInfo(command, arguments, fullWorkingDirectory, detachedLauncher),
             EnableRaisingEvents = true
         };
 
@@ -90,8 +85,9 @@ public sealed class BridgeAppLauncher
             return Fail($"The configured app process could not be started: {exception.Message}");
         }
 
-        _ = CopyToFileUntilExitAsync(process.StandardOutput, stdoutPath);
-        _ = CopyToFileUntilExitAsync(process.StandardError, stderrPath);
+        var outputCancellation = new CancellationTokenSource();
+        _ = CopyToFileUntilExitAsync(process.StandardOutput, stdoutPath, outputCancellation.Token);
+        _ = CopyToFileUntilExitAsync(process.StandardError, stderrPath, outputCancellation.Token);
 
         var client = new LocalBridgeClient(fullManifestDirectory);
         var stopAt = DateTimeOffset.UtcNow + effectiveTimeout;
@@ -99,27 +95,41 @@ public sealed class BridgeAppLauncher
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            if (process.HasExited)
+            if (!detachedLauncher && process.HasExited)
             {
+                var details = CreateLaunchDetails(process, stdoutPath, stderrPath, fullManifestDirectory, displayName, process.ExitCode);
+                DetachLaunchProcess(process, outputCancellation);
+
                 return Fail(
                     "The launched app process exited before an AvaScope bridge session appeared.",
-                    CreateLaunchDetails(process, stdoutPath, stderrPath, fullManifestDirectory, displayName, process.ExitCode));
+                    details);
             }
 
-            var manifest = client
-                .ListSessionManifests()
-                .Where(session => session.ProcessId == process.Id)
-                .OrderByDescending(session => session.CreatedAt)
-                .FirstOrDefault();
+            if (detachedLauncher && process.HasExited && process.ExitCode != 0)
+            {
+                var details = CreateLaunchDetails(process, stdoutPath, stderrPath, fullManifestDirectory, displayName, process.ExitCode);
+                DetachLaunchProcess(process, outputCancellation);
+
+                return Fail(
+                    "The launch helper exited before an AvaScope bridge session appeared.",
+                    details);
+            }
+
+            var manifest = SelectLaunchedManifest(
+                client.ListSessionManifests(),
+                process.Id,
+                startedAt,
+                detachedLauncher);
             if (manifest is not null)
             {
                 var attach = await client.AttachToAppAsync(
-                    process.Id,
+                    manifest.ProcessId,
                     manifest.SessionId,
                     processName: null,
                     cancellationToken: cancellationToken);
                 if (!attach.Success)
                 {
+                    DetachLaunchProcess(process, outputCancellation);
                     return CoreResult<LaunchAppResponse>.Fail(attach.Error!);
                 }
 
@@ -128,37 +138,52 @@ public sealed class BridgeAppLauncher
                     ? topLevels.Value!.TopLevels.FirstOrDefault()?.Id
                     : null;
 
-                return CoreResult<LaunchAppResponse>.Ok(new LaunchAppResponse(
+                var response = new LaunchAppResponse(
                     attach.Value!.Session,
-                    process.Id,
-                    attach.Value.ProcessName ?? TryGetProcessName(process) ?? Path.GetFileNameWithoutExtension(command),
+                    manifest.ProcessId,
+                    attach.Value.ProcessName ?? TryGetProcessName(manifest.ProcessId) ?? manifest.ProcessName ?? Path.GetFileNameWithoutExtension(command),
                     stdoutPath,
                     stderrPath,
                     startedAt,
                     DateTimeOffset.UtcNow,
                     topLevelId,
-                    attach.Value.ManifestPath));
+                    attach.Value.ManifestPath);
+
+                DetachLaunchProcess(process, outputCancellation);
+                return CoreResult<LaunchAppResponse>.Ok(response);
             }
 
             await Task.Delay(TimeSpan.FromMilliseconds(100), cancellationToken);
         }
 
+        var timeoutDetails = CreateLaunchDetails(process, stdoutPath, stderrPath, fullManifestDirectory, displayName);
+        DetachLaunchProcess(process, outputCancellation);
+
         return Fail(
             "Timed out waiting for an AvaScope bridge session from the launched app.",
-            CreateLaunchDetails(process, stdoutPath, stderrPath, fullManifestDirectory, displayName));
+            timeoutDetails);
     }
 
-    private static async Task CopyToFileUntilExitAsync(StreamReader reader, string path)
+    private static async Task CopyToFileUntilExitAsync(StreamReader reader, string path, CancellationToken cancellationToken)
     {
         try
         {
             await using var stream = new FileStream(path, FileMode.Append, FileAccess.Write, FileShare.ReadWrite);
             await using var writer = new StreamWriter(stream);
-            while (await reader.ReadLineAsync() is { } line)
+            while (!cancellationToken.IsCancellationRequested)
             {
+                var line = await reader.ReadLineAsync(cancellationToken);
+                if (line is null)
+                {
+                    break;
+                }
+
                 await writer.WriteLineAsync(line);
-                await writer.FlushAsync();
+                await writer.FlushAsync(cancellationToken);
             }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
         }
         catch (ObjectDisposedException)
         {
@@ -166,6 +191,94 @@ public sealed class BridgeAppLauncher
         catch (IOException)
         {
         }
+    }
+
+    private static ProcessStartInfo CreateStartInfo(
+        string command,
+        string? arguments,
+        string workingDirectory,
+        bool detachedLauncher)
+    {
+        if (detachedLauncher)
+        {
+            return new ProcessStartInfo
+            {
+                FileName = "powershell.exe",
+                Arguments = $"-NoProfile -ExecutionPolicy Bypass -EncodedCommand {EncodePowerShellCommand(CreateWindowsLaunchScript(command, arguments, workingDirectory))}",
+                WorkingDirectory = workingDirectory,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+        }
+
+        return new ProcessStartInfo
+        {
+            FileName = command,
+            Arguments = arguments ?? string.Empty,
+            WorkingDirectory = workingDirectory,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false
+        };
+    }
+
+    private static string CreateWindowsLaunchScript(string command, string? arguments, string workingDirectory)
+    {
+        var script = new StringBuilder();
+        script.Append("$ErrorActionPreference = 'Stop'; ");
+        script.Append("Start-Process -FilePath ");
+        script.Append(ToPowerShellLiteral(command));
+
+        if (!string.IsNullOrWhiteSpace(arguments))
+        {
+            script.Append(" -ArgumentList ");
+            script.Append(ToPowerShellLiteral(arguments));
+        }
+
+        script.Append(" -WorkingDirectory ");
+        script.Append(ToPowerShellLiteral(workingDirectory));
+        return script.ToString();
+    }
+
+    private static string EncodePowerShellCommand(string command)
+    {
+        return Convert.ToBase64String(Encoding.Unicode.GetBytes(command));
+    }
+
+    private static string ToPowerShellLiteral(string value)
+    {
+        return $"'{value.Replace("'", "''")}'";
+    }
+
+    private static BridgeSessionManifest? SelectLaunchedManifest(
+        IEnumerable<BridgeSessionManifest> manifests,
+        int launcherProcessId,
+        DateTimeOffset startedAt,
+        bool detachedLauncher)
+    {
+        var orderedManifests = manifests
+            .OrderByDescending(static session => session.CreatedAt)
+            .ToArray();
+
+        if (!detachedLauncher)
+        {
+            var processMatch = orderedManifests.FirstOrDefault(session => session.ProcessId == launcherProcessId);
+            if (processMatch is not null)
+            {
+                return processMatch;
+            }
+        }
+
+        var earliestManifestTime = startedAt.AddSeconds(-1);
+        return orderedManifests.FirstOrDefault(session => session.CreatedAt >= earliestManifestTime);
+    }
+
+    private static void DetachLaunchProcess(Process process, CancellationTokenSource outputCancellation)
+    {
+        outputCancellation.Cancel();
+        process.Dispose();
     }
 
     private static IReadOnlyDictionary<string, string> CreateLaunchDetails(
@@ -206,6 +319,19 @@ public sealed class BridgeAppLauncher
             return process.HasExited ? null : process.ProcessName;
         }
         catch (InvalidOperationException)
+        {
+            return null;
+        }
+    }
+
+    private static string? TryGetProcessName(int processId)
+    {
+        try
+        {
+            using var process = Process.GetProcessById(processId);
+            return process.HasExited ? null : process.ProcessName;
+        }
+        catch (Exception exception) when (exception is ArgumentException or InvalidOperationException)
         {
             return null;
         }
