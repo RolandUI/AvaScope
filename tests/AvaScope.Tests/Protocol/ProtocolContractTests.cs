@@ -362,6 +362,125 @@ public sealed class ProtocolContractTests
     }
 
     [Fact]
+    public void RuntimeMutationEvidenceResponseSerializesStableShape()
+    {
+        var capturedAt = new DateTimeOffset(2026, 6, 12, 13, 0, 0, TimeSpan.Zero);
+        var sessionId = new SessionId("session-1");
+        var target = new RuntimeTargetContext(
+            sessionId,
+            "topLevel:abc",
+            TreeKinds.Visual,
+            "visual:button");
+        var operation = new RuntimeMutationOperation(
+            RuntimeMutationOperationKinds.SetProperty,
+            propertyName: "Background",
+            value: "#0000ff",
+            valueType: "brush");
+        var mutation = new RuntimeMutationResponse(
+            "evidence-request-1",
+            "mutation:session-1:1",
+            sessionId,
+            target.TopLevelId,
+            target,
+            operation,
+            RuntimeMutationStatuses.Applied,
+            applied: true,
+            capturedAt.AddSeconds(-1),
+            RuntimeMutationCapabilityCatalog.CurrentBridgeCapabilities());
+        var summary = new RuntimeMutationEvidenceSummary(
+            "captured",
+            RuntimeMutationStatuses.Applied,
+            mutationApplied: true,
+            screenshotsCaptured: true,
+            visualTreeSnapshotsCaptured: true,
+            diffStatus: "changed",
+            beforeVisualTreeNodeCount: 4,
+            afterVisualTreeNodeCount: 4,
+            beforeTargetFound: true,
+            afterTargetFound: true,
+            changedPixels: 42,
+            changedPixelPercentage: 12.5);
+        var response = new RuntimeMutationEvidenceResponse(
+            "evidence-request-1",
+            sessionId,
+            target.TopLevelId,
+            target,
+            mutation,
+            summary,
+            "C:\\artifacts\\evidence",
+            "C:\\artifacts\\evidence\\evidence-request-1-before.png",
+            "C:\\artifacts\\evidence\\evidence-request-1-after.png",
+            "C:\\artifacts\\evidence\\evidence-request-1-before-visual-tree.json",
+            "C:\\artifacts\\evidence\\evidence-request-1-after-visual-tree.json",
+            capturedAt,
+            "C:\\artifacts\\evidence\\evidence-request-1-diff.png",
+            new PreviewDiffResponse(
+                "C:\\artifacts\\evidence\\evidence-request-1-before.png",
+                "C:\\artifacts\\evidence\\evidence-request-1-after.png",
+                passed: false,
+                pixelWidth: 20,
+                pixelHeight: 10,
+                tolerance: 0,
+                changedPixels: 42,
+                totalPixels: 200,
+                changedPercent: 21,
+                maxDelta: 255,
+                diffPath: "C:\\artifacts\\evidence\\evidence-request-1-diff.png"),
+            new RuntimeMutationEvidenceTargetSummary(
+                "visual:button",
+                "Avalonia.Controls.Button",
+                name: "PrimaryButton",
+                text: "Before",
+                bounds: new NodeBounds(1, 2, 100, 32),
+                classes: ["primary"]),
+            new RuntimeMutationEvidenceTargetSummary(
+                "visual:button",
+                "Avalonia.Controls.Button",
+                name: "PrimaryButton",
+                text: "After",
+                bounds: new NodeBounds(1, 2, 100, 32),
+                classes: ["primary", "agent-mutated"]),
+            [
+                new ProtocolError(
+                    "diff_notice",
+                    "Diff captured.",
+                    new Dictionary<string, string>
+                    {
+                        ["artifact"] = "diff"
+                    })
+            ]);
+
+        var json = JsonSerializer.Serialize(response);
+        var node = JsonNode.Parse(json)!;
+
+        Assert.Equal("evidence-request-1", node["requestId"]!.GetValue<string>());
+        Assert.Equal("session-1", node["sessionId"]!.GetValue<string>());
+        Assert.Equal("topLevel:abc", node["topLevelId"]!.GetValue<string>());
+        Assert.Equal("visual:button", node["target"]!["nodeId"]!.GetValue<string>());
+        Assert.Equal("mutation:session-1:1", node["mutation"]!["mutationId"]!.GetValue<string>());
+        Assert.Equal("captured", node["summary"]!["status"]!.GetValue<string>());
+        Assert.True(node["summary"]!["mutationApplied"]!.GetValue<bool>());
+        Assert.True(node["summary"]!["screenshotsCaptured"]!.GetValue<bool>());
+        Assert.True(node["summary"]!["visualTreeSnapshotsCaptured"]!.GetValue<bool>());
+        Assert.Equal("changed", node["summary"]!["diffStatus"]!.GetValue<string>());
+        Assert.Equal(4, node["summary"]!["beforeVisualTreeNodeCount"]!.GetValue<int>());
+        Assert.Equal(42, node["summary"]!["changedPixels"]!.GetValue<long>());
+        Assert.Equal(12.5, node["summary"]!["changedPixelPercentage"]!.GetValue<double>());
+        Assert.Equal("C:\\artifacts\\evidence", node["artifactDirectory"]!.GetValue<string>());
+        Assert.EndsWith("evidence-request-1-before.png", node["beforeScreenshotPath"]!.GetValue<string>());
+        Assert.EndsWith("evidence-request-1-after.png", node["afterScreenshotPath"]!.GetValue<string>());
+        Assert.EndsWith("evidence-request-1-before-visual-tree.json", node["beforeVisualTreePath"]!.GetValue<string>());
+        Assert.EndsWith("evidence-request-1-after-visual-tree.json", node["afterVisualTreePath"]!.GetValue<string>());
+        Assert.EndsWith("evidence-request-1-diff.png", node["diffPath"]!.GetValue<string>());
+        Assert.Equal(42, node["diff"]!["changedPixels"]!.GetValue<long>());
+        Assert.Equal("Before", node["beforeTarget"]!["text"]!.GetValue<string>());
+        Assert.Equal("After", node["afterTarget"]!["text"]!.GetValue<string>());
+        Assert.Equal("agent-mutated", node["afterTarget"]!["classes"]![1]!.GetValue<string>());
+        Assert.Equal("diff_notice", node["diagnostics"]![0]!["code"]!.GetValue<string>());
+        Assert.Equal(capturedAt, DateTimeOffset.Parse(node["capturedAt"]!.GetValue<string>(), CultureInfo.InvariantCulture));
+    }
+
+    [Fact]
     public void BridgeIpcResponseRoundTripsStructuredValue()
     {
         var response = BridgeIpcResponse.Ok("request-1", HealthResponse.Current());

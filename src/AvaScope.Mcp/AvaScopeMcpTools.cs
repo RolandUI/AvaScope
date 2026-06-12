@@ -418,6 +418,73 @@ public sealed class AvaScopeMcpTools
     }
 
     [McpServerTool(
+        Name = "mutate_node_evidence",
+        Title = "Mutate node evidence",
+        ReadOnly = false,
+        Idempotent = false,
+        Destructive = false,
+        OpenWorld = false,
+        UseStructuredContent = true)]
+    [Description("Applies a local-only runtime UI mutation and captures before/after screenshots, visual tree snapshots, and optional diff artifacts.")]
+    public static async Task<ToolResult<RuntimeMutationEvidenceResponse>> MutateNodeEvidence(
+        LocalBridgeClient bridgeClient,
+        string sessionId,
+        string topLevelId,
+        string nodeId,
+        string operation,
+        string artifactDirectory,
+        string treeKind = TreeKinds.Visual,
+        string? propertyName = null,
+        string? value = null,
+        string? valueType = null,
+        string? className = null,
+        string? resourceKey = null,
+        string? mutationId = null,
+        string? requestId = null,
+        int maxDepth = 8,
+        bool includeDiff = true,
+        double tolerance = 0,
+        string? manifestDirectory = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(bridgeClient);
+
+        if (!TryParseRequiredSessionId(sessionId, out var parsedSessionId, out var error))
+        {
+            return ToolResult<RuntimeMutationEvidenceResponse>.Fail(error!);
+        }
+
+        RuntimeMutationRequest request;
+        try
+        {
+            request = new RuntimeMutationRequest(
+                string.IsNullOrWhiteSpace(requestId) ? Guid.NewGuid().ToString("n") : requestId,
+                new RuntimeTargetContext(parsedSessionId!, topLevelId, treeKind, nodeId),
+                new RuntimeMutationOperation(operation, propertyName, value, valueType, className, resourceKey, mutationId),
+                [
+                    RuntimeMutationCapabilityCatalog.RuntimeMutationContract,
+                    RuntimeMutationCapabilityCatalog.StyleLayoutMutation
+                ]);
+        }
+        catch (Exception exception) when (exception is ArgumentException or ArgumentOutOfRangeException)
+        {
+            return ToolResult<RuntimeMutationEvidenceResponse>.Fail(new ProtocolError(
+                CoreErrorCodes.InvalidBridgeRequest,
+                exception.Message));
+        }
+
+        return ToToolResult(await new RuntimeMutationEvidenceRunner().CaptureAsync(
+            CreateBridgeClient(bridgeClient, manifestDirectory),
+            parsedSessionId!,
+            request,
+            artifactDirectory,
+            maxDepth,
+            includeDiff,
+            tolerance,
+            cancellationToken));
+    }
+
+    [McpServerTool(
         Name = "close_session",
         Title = "Close session",
         ReadOnly = false,

@@ -287,8 +287,8 @@ The `v0.6.0` release target is focused on runtime debugging and agent validation
 
 - Release: `v0.7.0`
 - Target Version: `0.7.0`
-- Release State: `Planned`
-- Scope Lock: pending
+- Release State: `In Progress`
+- Scope Lock: locked
 - Release Commit: pending
 - Local Release Gate: pending
 - Published At: pending
@@ -313,9 +313,9 @@ The `v0.7.0` release target starts the agent-first product direction. The goal i
 
 ### v0.7.0 Milestone Map
 
-- `R0.7.0-M1 Runtime Mutation Contract`; Status: `Planned`.
-- `R0.7.0-M2 Style And Layout Mutation Set`; Status: `Planned`.
-- `R0.7.0-M3 Mutation Evidence And Screenshot Loop`; Status: `Planned`.
+- `R0.7.0-M1 Runtime Mutation Contract`; Status: `Done`.
+- `R0.7.0-M2 Style And Layout Mutation Set`; Status: `Done`.
+- `R0.7.0-M3 Mutation Evidence And Screenshot Loop`; Status: `Done`.
 - `R0.7.0-M4 Agent Session Safety And Reset Semantics`; Status: `Planned`.
 - `R0.7.0-M5 CLI/MCP Runtime Experiment Review`; Status: `Planned`.
 - `R0.7.0-M6 Release Candidate And Version Bump`; Status: `Planned`.

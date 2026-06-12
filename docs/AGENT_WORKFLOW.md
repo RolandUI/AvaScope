@@ -178,7 +178,13 @@ Runtime mutations use the same local bridge boundary and are reversible UI exper
 & $avascope mutate-node --session <runtime-session-id> --top-level <topLevel:id> --node <node-id> --operation reset_all
 ```
 
-Applied mutation responses include mutation ids, original/effective metadata, diagnostics, and explicit reset metadata. Mutation history review and before/after evidence packaging are planned as later `v0.7.0` slices.
+For agent review, prefer the evidence wrapper when the result should be auditable:
+
+```powershell
+& $avascope mutate-node-evidence --session <runtime-session-id> --top-level <topLevel:id> --node <node-id> --operation set_property --property Background --value "#0066ff" --value-type brush --out-dir .\artifacts\samples\mutation-evidence --request-id runtime-background-check
+```
+
+Applied mutation responses include mutation ids, original/effective metadata, diagnostics, and explicit reset metadata. Evidence responses add before/after screenshots, before/after visual-tree JSON snapshots, optional diff PNGs, changed-pixel metrics, and target summaries so an agent can explain what changed without relying on terminal text or manual screenshot reading. Mutation history review artifacts remain a later `v0.7.0` slice.
 
 ## 9. Close And Clean Up
 

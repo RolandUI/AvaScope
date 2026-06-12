@@ -308,6 +308,121 @@ public sealed class LocalBridgeClientTests : IDisposable
     }
 
     [Fact]
+    public async Task RuntimeMutationEvidenceRunnerCapturesSequencedArtifactsThroughBridgePipe()
+    {
+        Directory.CreateDirectory(_manifestDirectory);
+        var sessionId = SessionId.New();
+        var pipeName = $"avascope-core-evidence-{Guid.NewGuid():N}";
+        var artifactDirectory = Path.Combine(
+            Path.GetTempPath(),
+            "AvaScope.Tests",
+            $"core-evidence-{Guid.NewGuid():N}");
+        WriteManifest(
+            "mutation-evidence.json",
+            new BridgeSessionManifest(
+                sessionId,
+                Environment.ProcessId,
+                pipeName,
+                DateTimeOffset.UtcNow,
+                "Mutation evidence app"));
+        var request = new RuntimeMutationRequest(
+            "core-evidence",
+            new RuntimeTargetContext(sessionId, "topLevel:core", TreeKinds.Visual, "visual:target"),
+            new RuntimeMutationOperation(
+                RuntimeMutationOperationKinds.SetProperty,
+                propertyName: "Text",
+                value: "After",
+                valueType: "string"));
+        var serverTask = RespondToBridgeRequestsAsync(
+            pipeName,
+            expectedCount: 5,
+            (index, bridgeRequest) =>
+            {
+                return index switch
+                {
+                    0 => CreateEvidenceScreenshotResponse(
+                        bridgeRequest,
+                        sessionId,
+                        "topLevel:core",
+                        "core-evidence-before.png"),
+                    1 => CreateEvidenceTreeResponse(
+                        bridgeRequest,
+                        sessionId,
+                        "topLevel:core",
+                        expectedMaxDepth: 4,
+                        "Before"),
+                    2 => CreateEvidenceMutationResponse(
+                        bridgeRequest,
+                        sessionId,
+                        "topLevel:core"),
+                    3 => CreateEvidenceScreenshotResponse(
+                        bridgeRequest,
+                        sessionId,
+                        "topLevel:core",
+                        "core-evidence-after.png"),
+                    4 => CreateEvidenceTreeResponse(
+                        bridgeRequest,
+                        sessionId,
+                        "topLevel:core",
+                        expectedMaxDepth: 4,
+                        "After"),
+                    _ => throw new InvalidOperationException("Unexpected bridge request index.")
+                };
+            });
+        var client = new LocalBridgeClient(_manifestDirectory);
+
+        try
+        {
+            var result = await new RuntimeMutationEvidenceRunner().CaptureAsync(
+                client,
+                sessionId,
+                request,
+                artifactDirectory,
+                maxDepth: 4,
+                includeDiff: false);
+            var bridgeRequests = await serverTask;
+
+            Assert.True(result.Success, result.Error?.Message);
+            Assert.Equal(
+                [
+                    BridgeIpcMethods.Screenshot,
+                    BridgeIpcMethods.VisualTree,
+                    BridgeIpcMethods.MutateNode,
+                    BridgeIpcMethods.Screenshot,
+                    BridgeIpcMethods.VisualTree
+                ],
+                bridgeRequests.Select(static bridgeRequest => bridgeRequest.Method).ToArray());
+            Assert.Equal(Path.GetFullPath(artifactDirectory), result.Value!.ArtifactDirectory);
+            Assert.EndsWith("core-evidence-before.png", result.Value.BeforeScreenshotPath, StringComparison.Ordinal);
+            Assert.EndsWith("core-evidence-after.png", result.Value.AfterScreenshotPath, StringComparison.Ordinal);
+            Assert.EndsWith("core-evidence-before-visual-tree.json", result.Value.BeforeVisualTreePath, StringComparison.Ordinal);
+            Assert.EndsWith("core-evidence-after-visual-tree.json", result.Value.AfterVisualTreePath, StringComparison.Ordinal);
+            Assert.Null(result.Value.Diff);
+            Assert.Equal("not_requested", result.Value.Summary.DiffStatus);
+            Assert.Equal("captured", result.Value.Summary.Status);
+            Assert.Equal(RuntimeMutationStatuses.Applied, result.Value.Summary.MutationStatus);
+            Assert.True(result.Value.Summary.MutationApplied);
+            Assert.Equal(2, result.Value.Summary.BeforeVisualTreeNodeCount);
+            Assert.Equal(2, result.Value.Summary.AfterVisualTreeNodeCount);
+            Assert.True(result.Value.Summary.BeforeTargetFound);
+            Assert.True(result.Value.Summary.AfterTargetFound);
+            Assert.Equal("Before", result.Value.BeforeTarget!.Text);
+            Assert.Equal("After", result.Value.AfterTarget!.Text);
+            Assert.True(File.Exists(result.Value.BeforeVisualTreePath));
+            Assert.True(File.Exists(result.Value.AfterVisualTreePath));
+            Assert.Contains("Before", await File.ReadAllTextAsync(result.Value.BeforeVisualTreePath));
+            Assert.Contains("After", await File.ReadAllTextAsync(result.Value.AfterVisualTreePath));
+        }
+        finally
+        {
+            if (Directory.Exists(artifactDirectory))
+            {
+                Directory.Delete(artifactDirectory, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
     public async Task CloseSessionReturnsStructuredErrorWhenNoManifestMatches()
     {
         var client = new LocalBridgeClient(_manifestDirectory);
@@ -674,6 +789,168 @@ public sealed class LocalBridgeClientTests : IDisposable
         {
             throw new TimeoutException($"Timed out waiting for a bridge IPC request on pipe '{pipeName}'.");
         }
+    }
+
+    private static async Task<IReadOnlyList<BridgeIpcRequest>> RespondToBridgeRequestsAsync(
+        string pipeName,
+        int expectedCount,
+        Func<int, BridgeIpcRequest, BridgeIpcResponse> responseFactory)
+    {
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var requests = new List<BridgeIpcRequest>(expectedCount);
+        try
+        {
+            while (requests.Count < expectedCount)
+            {
+                await using var pipe = new NamedPipeServerStream(
+                    pipeName,
+                    PipeDirection.InOut,
+                    maxNumberOfServerInstances: 1,
+                    PipeTransmissionMode.Byte,
+                    PipeOptions.Asynchronous);
+
+                await pipe.WaitForConnectionAsync(cancellation.Token);
+                var requestLine = await ReadLineAsync(pipe, cancellation.Token);
+                if (string.IsNullOrWhiteSpace(requestLine))
+                {
+                    continue;
+                }
+
+                BridgeIpcRequest? request;
+                try
+                {
+                    request = JsonSerializer.Deserialize<BridgeIpcRequest>(requestLine);
+                }
+                catch (JsonException)
+                {
+                    continue;
+                }
+
+                if (request is null)
+                {
+                    continue;
+                }
+
+                var index = requests.Count;
+                requests.Add(request);
+                var responseBytes = Encoding.UTF8.GetBytes(
+                    JsonSerializer.Serialize(responseFactory(index, request)) + Environment.NewLine);
+                try
+                {
+                    await pipe.WriteAsync(responseBytes, cancellation.Token);
+                    await pipe.FlushAsync(cancellation.Token);
+                }
+                catch (IOException) when (requests.Count == expectedCount)
+                {
+                    return requests;
+                }
+            }
+
+            return requests;
+        }
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+        {
+            throw new TimeoutException($"Timed out waiting for {expectedCount} bridge IPC requests on pipe '{pipeName}'.");
+        }
+    }
+
+    private static BridgeIpcResponse CreateEvidenceScreenshotResponse(
+        BridgeIpcRequest request,
+        SessionId sessionId,
+        string topLevelId,
+        string expectedFileName)
+    {
+        Assert.Equal(BridgeIpcMethods.Screenshot, request.Method);
+        Assert.Equal(topLevelId, request.TopLevelId);
+        Assert.NotNull(request.OutputPath);
+        Assert.EndsWith(expectedFileName, request.OutputPath, StringComparison.Ordinal);
+
+        return BridgeIpcResponse.Ok(
+            request.RequestId,
+            new ScreenshotResponse(
+                sessionId,
+                topLevelId,
+                request.OutputPath!,
+                10,
+                10,
+                DateTimeOffset.UtcNow));
+    }
+
+    private static BridgeIpcResponse CreateEvidenceTreeResponse(
+        BridgeIpcRequest request,
+        SessionId sessionId,
+        string topLevelId,
+        int expectedMaxDepth,
+        string targetText)
+    {
+        Assert.Equal(BridgeIpcMethods.VisualTree, request.Method);
+        Assert.Equal(topLevelId, request.TopLevelId);
+        Assert.Equal(expectedMaxDepth, request.MaxDepth);
+
+        return BridgeIpcResponse.Ok(
+            request.RequestId,
+            CreateEvidenceTree(sessionId, topLevelId, expectedMaxDepth, targetText));
+    }
+
+    private static BridgeIpcResponse CreateEvidenceMutationResponse(
+        BridgeIpcRequest request,
+        SessionId sessionId,
+        string topLevelId)
+    {
+        Assert.Equal(BridgeIpcMethods.MutateNode, request.Method);
+        Assert.NotNull(request.Mutation);
+        Assert.Equal("core-evidence", request.Mutation.RequestId);
+        Assert.Equal(topLevelId, request.Mutation.Target.TopLevelId);
+        Assert.Equal("visual:target", request.Mutation.Target.NodeId);
+        Assert.Equal(RuntimeMutationOperationKinds.SetProperty, request.Mutation.Operation.Kind);
+        Assert.Equal("Text", request.Mutation.Operation.PropertyName);
+        Assert.Equal("After", request.Mutation.Operation.Value);
+
+        return BridgeIpcResponse.Ok(
+            request.RequestId,
+            new RuntimeMutationResponse(
+                request.Mutation.RequestId,
+                "mutation:core:1",
+                sessionId,
+                topLevelId,
+                request.Mutation.Target,
+                request.Mutation.Operation,
+                RuntimeMutationStatuses.Applied,
+                applied: true,
+                DateTimeOffset.UtcNow,
+                RuntimeMutationCapabilityCatalog.CurrentBridgeCapabilities()));
+    }
+
+    private static TreeResponse CreateEvidenceTree(
+        SessionId sessionId,
+        string topLevelId,
+        int depthLimit,
+        string targetText)
+    {
+        return new TreeResponse(
+            sessionId,
+            topLevelId,
+            TreeKinds.Visual,
+            depthLimit,
+            new TreeNodeSummary(
+                "visual:root",
+                "Avalonia.Controls.Window",
+                "EvidenceWindow",
+                children:
+                [
+                    new TreeNodeSummary(
+                        "visual:target",
+                        "Avalonia.Controls.TextBlock",
+                        "EvidenceTarget",
+                        text: targetText,
+                        bounds: new NodeBounds(1, 2, 100, 32),
+                        classes: ["evidence-target"],
+                        target: new RuntimeTargetContext(
+                            sessionId,
+                            topLevelId,
+                            TreeKinds.Visual,
+                            "visual:target"))
+                ]));
     }
 
     private static async Task<string> ReadLineAsync(Stream stream, CancellationToken cancellationToken)

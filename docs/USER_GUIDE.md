@@ -10,7 +10,7 @@ AvaScope is an agent-focused local control plane for Avalonia apps. It gives CLI
 - Opt-in runtime bridge for Avalonia apps.
 - Local bridge discovery through session manifests and named pipes.
 - Runtime top-level listing, screenshots, bounded visual/logical trees, node search, and basic input.
-- Reversible runtime `mutate-node` for selected safe style, layout, text, class, and resource experiments against bridge-enabled apps.
+- Reversible runtime `mutate-node` and `mutate-node-evidence` workflows for selected safe style, layout, text, class, and resource experiments against bridge-enabled apps.
 - Isolated preview host process for `.axaml` rendering.
 - Preview project/build-output metadata, binding/resource diagnostics, and advisory layout warnings.
 - Runtime `inspect_node` computed visual/style/layout property values.
@@ -30,7 +30,7 @@ AvaScope is designed around small, composable tool calls that an agent can chain
 4. Capture evidence as structured JSON plus file paths for screenshots, diffs, reports, or local HTML viewers.
 5. Close sessions and clean stale AvaScope-owned metadata explicitly.
 
-The `v0.7.0` release line adds the next control-plane layer. The current bridge and CLI/MCP surfaces support bounded reversible style/layout/text/class/resource mutations with mutation ids and reset operations; mutation history review and before/after evidence packaging are still planned follow-up slices.
+The `v0.7.0` release line adds the next control-plane layer. The current bridge and CLI/MCP surfaces support bounded reversible style/layout/text/class/resource mutations with mutation ids, reset operations, and before/after evidence packages containing screenshots, visual tree snapshots, and optional pixel diffs.
 
 ## Project Layout
 
@@ -383,6 +383,16 @@ dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll input --session session
 
 Input responses include `pointerButton` for supported pointer/click actions, `inputKey`/`keyModifiers` for routed key actions, wheel/scroll deltas for scroll actions, and bounded metadata such as selected index/item or before/after scroll offsets.
 
+Apply a reversible runtime mutation and capture an agent evidence package:
+
+```powershell
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll mutate-node --session session-id --top-level topLevel:1234 --node visual:5678 --operation set_property --property Width --value 240 --value-type double
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll mutate-node --session session-id --top-level topLevel:1234 --node visual:5678 --operation reset_mutation --mutation-id mutation-id
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll mutate-node-evidence --session session-id --top-level topLevel:1234 --node visual:5678 --operation set_property --property Background --value "#0066ff" --value-type brush --out-dir .\artifacts\mutation-evidence --request-id background-check
+```
+
+`mutate-node-evidence` runs a fixed local loop: before screenshot, before visual tree, mutation, after screenshot, after visual tree, and optional image diff. The response is `ToolResult<RuntimeMutationEvidenceResponse>` with artifact file paths, mutation status, before/after target summaries, bounded diagnostics, and changed-pixel metrics when diffing is enabled. Use `--diff false` to skip pixel comparison and `--tolerance <0-255>` to allow channel tolerance in the diff.
+
 Close an active local bridge session:
 
 ```powershell
@@ -483,6 +493,7 @@ Implemented tools:
 - `find_nodes`
 - `input`
 - `mutate_node`
+- `mutate_node_evidence`
 - `close_session`
 - `diagnostics`
 - `preview_axaml`
@@ -496,7 +507,7 @@ Implemented tools:
 - `close_preview_session`
 - `reload`
 
-Planned but not implemented yet: mutation history/review artifacts, automated before/after mutation evidence reports, runtime hot reload, drag/drop, full preview startup orchestration, installer distribution, macOS release policy, and CI-oriented visual-regression report packs.
+Planned but not implemented yet: mutation history/review index artifacts, runtime hot reload, drag/drop, full preview startup orchestration, installer distribution, macOS release policy, and CI-oriented visual-regression report packs.
 
 `diagnostics` reports AvaScope service metadata, local bridge manifest/pipe health, stale, invalid, unauthorized, unavailable, duplicate, and protocol-incompatible bridge records, preview host readiness, and stale or invalid preview-session metadata without building or loading user projects. The response keeps the legacy `issues` list and also includes bounded `diagnosticIssues` entries with source, severity, status, provenance, request ids, and related path/session metadata for agent triage.
 
