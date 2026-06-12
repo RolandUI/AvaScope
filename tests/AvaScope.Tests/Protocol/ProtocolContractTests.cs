@@ -1530,6 +1530,108 @@ public sealed class ProtocolContractTests
     }
 
     [Fact]
+    public void PreviewBaselineSuiteManifestSerializesStableShape()
+    {
+        var target = new RuntimeTargetContext(
+            new SessionId("session-suite"),
+            "topLevel:main",
+            TreeKinds.Visual,
+            "visual:root");
+        var operation = new RuntimeMutationOperation(
+            RuntimeMutationOperationKinds.SetProperty,
+            propertyName: "Width",
+            value: "320",
+            valueType: "double");
+        var suite = new PreviewBaselineSuiteManifest(
+            PreviewBaselineSuiteManifest.CurrentVersion,
+            "agent-suite",
+            [
+                new PreviewBaselineSuiteEntry(
+                    "main",
+                    "C:\\apps\\Sample\\Sample.csproj",
+                    "Views\\MainView.axaml",
+                    "main",
+                    "dark-wide",
+                    "C:\\apps\\Sample\\avascope.preview.json",
+                    sizes: [new PreviewViewport(320, 200)],
+                    themes: ["dark"],
+                    runtimeTarget: target,
+                    mutationPresetIds: ["wide"],
+                    variants:
+                    [
+                        new PreviewBaselineSuiteVariant(
+                            "dark-wide",
+                            new PreviewViewport(360, 240),
+                            144,
+                            "dark",
+                            "en-US",
+                            "Sample.DesignData",
+                            150,
+                            target,
+                            ["wide"])
+                    ])
+            ],
+            new PreviewBaselineSuiteDefaults(
+                sizes: [new PreviewViewport(320, 200)],
+                dpis: [96],
+                themes: ["light"],
+                cultures: ["en-US"],
+                animationFramesMs: [0],
+                mutationPresetIds: ["wide"]),
+            [
+                new PreviewBaselineMutationPreset(
+                    "wide",
+                    "Wider layout state.",
+                    [operation])
+            ]);
+        var baseline = new PreviewBaselineEntry(
+            0,
+            new PreviewViewport(360, 240),
+            "C:\\baselines\\suite\\main.png",
+            144,
+            "C:\\apps\\Sample\\Sample.csproj",
+            "Views\\MainView.axaml",
+            "dark",
+            "en-US",
+            "Sample.DesignData",
+            "agent-suite",
+            "main",
+            "dark-wide",
+            "main",
+            "dark-wide",
+            "C:\\apps\\Sample\\avascope.preview.json",
+            target,
+            ["wide"],
+            150);
+
+        var suiteNode = JsonNode.Parse(JsonSerializer.Serialize(suite))!;
+        var baselineNode = JsonNode.Parse(JsonSerializer.Serialize(baseline))!;
+
+        Assert.Equal(PreviewBaselineSuiteManifest.CurrentVersion, suiteNode["version"]!.GetValue<int>());
+        Assert.Equal("agent-suite", suiteNode["name"]!.GetValue<string>());
+        Assert.Equal(320, suiteNode["defaults"]!["sizes"]![0]!["width"]!.GetValue<double>());
+        Assert.Equal("wide", suiteNode["defaults"]!["mutationPresetIds"]![0]!.GetValue<string>());
+        Assert.Equal("main", suiteNode["entries"]![0]!["id"]!.GetValue<string>());
+        Assert.Equal("C:\\apps\\Sample\\Sample.csproj", suiteNode["entries"]![0]!["projectPath"]!.GetValue<string>());
+        Assert.Equal("C:\\apps\\Sample\\avascope.preview.json", suiteNode["entries"]![0]!["profileFilePath"]!.GetValue<string>());
+        Assert.Equal("session-suite", suiteNode["entries"]![0]!["runtimeTarget"]!["sessionId"]!.GetValue<string>());
+        Assert.Equal("dark-wide", suiteNode["entries"]![0]!["variants"]![0]!["name"]!.GetValue<string>());
+        Assert.Equal(150, suiteNode["entries"]![0]!["variants"]![0]!["animationTimeOffsetMs"]!.GetValue<int>());
+        Assert.Equal("wide", suiteNode["mutationPresets"]![0]!["id"]!.GetValue<string>());
+        Assert.Equal(RuntimeMutationOperationKinds.SetProperty, suiteNode["mutationPresets"]![0]!["operations"]![0]!["kind"]!.GetValue<string>());
+
+        Assert.Equal("agent-suite", baselineNode["suiteName"]!.GetValue<string>());
+        Assert.Equal("main", baselineNode["suiteEntryId"]!.GetValue<string>());
+        Assert.Equal("dark-wide", baselineNode["suiteVariantName"]!.GetValue<string>());
+        Assert.Equal("main", baselineNode["profileName"]!.GetValue<string>());
+        Assert.Equal("dark-wide", baselineNode["profileVariant"]!.GetValue<string>());
+        Assert.Equal("C:\\apps\\Sample\\avascope.preview.json", baselineNode["profileFilePath"]!.GetValue<string>());
+        Assert.Equal("session-suite", baselineNode["runtimeTarget"]!["sessionId"]!.GetValue<string>());
+        Assert.Equal("wide", baselineNode["mutationPresetIds"]![0]!.GetValue<string>());
+        Assert.Equal(150, baselineNode["animationTimeOffsetMs"]!.GetValue<int>());
+    }
+
+    [Fact]
     public void PreviewSessionSummarySerializesRequestAndLastRender()
     {
         var createdAt = new DateTimeOffset(2026, 6, 7, 4, 0, 0, TimeSpan.Zero);

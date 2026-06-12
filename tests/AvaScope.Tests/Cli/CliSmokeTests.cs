@@ -989,6 +989,135 @@ public sealed class CliSmokeTests
     }
 
     [Fact]
+    public async Task BaselineSuiteCommandCreatesManifestAndCheckPasses()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var testRoot = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(testRoot);
+
+        var projectPath = Path.Combine(testRoot, "CliBaselineSuiteSample.csproj");
+        var viewPath = Path.Combine(testRoot, "MainView.axaml");
+        var suitePath = Path.Combine(testRoot, "agent-suite.json");
+        var manifestPath = Path.Combine(testRoot, "baseline", "suite-baseline.json");
+        var baselineDirectory = Path.Combine(testRoot, "baseline", "images");
+        var runtimeTarget = new RuntimeTargetContext(
+            new SessionId("session-suite"),
+            "topLevel:main",
+            TreeKinds.Visual,
+            "visual:root");
+
+        await File.WriteAllTextAsync(projectPath, """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+              </PropertyGroup>
+            </Project>
+            """);
+
+        await File.WriteAllTextAsync(viewPath, """
+            <UserControl xmlns="https://github.com/avaloniaui">
+              <Border Background="#FFFFFFFF">
+                <TextBlock Text="suite baseline" />
+              </Border>
+            </UserControl>
+            """);
+
+        var suite = new PreviewBaselineSuiteManifest(
+            PreviewBaselineSuiteManifest.CurrentVersion,
+            "agent-suite",
+            [
+                new PreviewBaselineSuiteEntry(
+                    "main",
+                    projectPath,
+                    viewPath,
+                    sizes: [new PreviewViewport(80, 60), new PreviewViewport(100, 70)],
+                    runtimeTarget: runtimeTarget)
+            ],
+            new PreviewBaselineSuiteDefaults(
+                dpis: [96],
+                themes: ["light"],
+                cultures: ["en-US"],
+                animationFramesMs: [0],
+                mutationPresetIds: ["wide"]),
+            [
+                new PreviewBaselineMutationPreset(
+                    "wide",
+                    "Metadata-only width preset.",
+                    [
+                        new RuntimeMutationOperation(
+                            RuntimeMutationOperationKinds.SetProperty,
+                            propertyName: "Width",
+                            value: "100",
+                            valueType: "double")
+                    ])
+            ]);
+        await File.WriteAllTextAsync(suitePath, JsonSerializer.Serialize(suite, JsonOptions));
+
+        try
+        {
+            var created = await RunCliAsync(
+                cliAssembly,
+                "baseline-create",
+                "--suite",
+                suitePath,
+                "--manifest",
+                manifestPath,
+                "--out-dir",
+                baselineDirectory);
+
+            Assert.Equal(0, created.ExitCode);
+            Assert.True(string.IsNullOrWhiteSpace(created.StandardError), created.StandardError);
+
+            var createPayload = JsonSerializer.Deserialize<ToolResult<PreviewBaselineCreateResponse>>(
+                created.StandardOutput,
+                JsonOptions);
+            Assert.NotNull(createPayload);
+            Assert.True(createPayload.Success, createPayload.Error?.Message);
+            Assert.Equal(Path.GetFullPath(manifestPath), createPayload.Value!.ManifestPath);
+            Assert.Equal(2, createPayload.Value.Manifest.Entries.Count);
+            var first = createPayload.Value.Manifest.Entries[0];
+            Assert.Equal("agent-suite", first.SuiteName);
+            Assert.Equal("main", first.SuiteEntryId);
+            Assert.Equal("light", first.ThemeVariant);
+            Assert.Equal("en-US", first.Culture);
+            Assert.Equal(0, first.AnimationTimeOffsetMs);
+            Assert.Equal("wide", Assert.Single(first.MutationPresetIds));
+            Assert.Equal(runtimeTarget, first.RuntimeTarget);
+            Assert.All(createPayload.Value.Manifest.Entries, entry =>
+            {
+                Assert.True(File.Exists(entry.ImagePath), entry.ImagePath);
+                Assert.StartsWith(Path.GetFullPath(baselineDirectory), entry.ImagePath, StringComparison.OrdinalIgnoreCase);
+            });
+
+            var passed = await RunCliAsync(
+                cliAssembly,
+                "baseline-check",
+                "--manifest",
+                manifestPath,
+                "--out-dir",
+                Path.Combine(testRoot, "current-pass"),
+                "--diff-dir",
+                Path.Combine(testRoot, "diff-pass"));
+
+            Assert.Equal(0, passed.ExitCode);
+            var passedPayload = JsonSerializer.Deserialize<ToolResult<PreviewBaselineCheckResponse>>(
+                passed.StandardOutput,
+                JsonOptions);
+            Assert.NotNull(passedPayload);
+            Assert.True(passedPayload.Success, passedPayload.Error?.Message);
+            Assert.True(passedPayload.Value!.Passed);
+            Assert.Equal(2, passedPayload.Value.Entries.Count);
+            Assert.All(passedPayload.Value.Entries, entry => Assert.True(entry.Diff.Success, entry.Diff.Error?.Message));
+        }
+        finally
+        {
+            await DeleteDirectoryWithRetryAsync(testRoot);
+        }
+    }
+
+    [Fact]
     public async Task PreviewCommandResolvesRelativeProjectAndOutputPathsFromCallerWorkingDirectory()
     {
         var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");

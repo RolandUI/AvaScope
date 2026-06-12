@@ -439,6 +439,47 @@ dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll baseline-check --manife
 
 `baseline-create` writes explicit baseline screenshots plus a JSON manifest. `baseline-check` re-renders the manifest variants, writes current and diff images to explicit output directories, can write a stable JSON report with `--report`, and exits non-zero when any variant changes. It does not update or replace baseline files.
 
+For agent repeatability across multiple views, sizes, themes, cultures, animation frames, and later runtime handoff, put the collection in a named suite manifest:
+
+```json
+{
+  "version": 1,
+  "name": "agent-main-suite",
+  "defaults": {
+    "sizes": [{ "width": 1440, "height": 900 }, { "width": 1280, "height": 720 }],
+    "dpis": [96],
+    "themes": ["light", "dark"],
+    "cultures": ["en-US"],
+    "animationFramesMs": [0],
+    "mutationPresetIds": ["wide-layout"]
+  },
+  "mutationPresets": [
+    {
+      "id": "wide-layout",
+      "description": "Metadata handoff for a runtime width experiment.",
+      "operations": [
+        { "kind": "set_property", "propertyName": "Width", "value": "1440", "valueType": "double" }
+      ]
+    }
+  ],
+  "entries": [
+    {
+      "id": "main",
+      "projectPath": "path/to/App.csproj",
+      "viewPath": "Views/MainView.axaml",
+      "profileName": "main"
+    }
+  ]
+}
+```
+
+```powershell
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll baseline-create --suite .\baselines\agent-main-suite.json --manifest .\baselines\agent-main.json --out-dir .\baselines\agent-main-images
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll baseline-check --manifest .\baselines\agent-main.json --out-dir .\artifacts\visual-current --diff-dir .\artifacts\visual-diff --report .\artifacts\visual-report.json --tolerance 2
+```
+
+Suite creation expands to the same baseline manifest shape that `baseline-check` already consumes. In this slice, `runtimeTarget`, `profileName`, `profileVariant`, `profileFilePath`, and `mutationPresetIds` are recorded as structured provenance and agent handoff metadata; suite creation does not execute runtime mutations.
+
 For CI artifact upload, run `eng\collect-baseline-artifacts.ps1` after `baseline-check --report` and upload the helper output directory. See [VISUAL_REGRESSION_CI.md](VISUAL_REGRESSION_CI.md).
 
 Delete stale AvaScope-owned preview-session metadata:

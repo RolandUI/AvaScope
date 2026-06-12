@@ -2,22 +2,22 @@ using System.Text.Json.Serialization;
 
 namespace AvaScope.Protocol;
 
-public sealed record PreviewBaselineEntry
+public sealed record PreviewBaselineSuiteExpansion
 {
     [JsonConstructor]
-    public PreviewBaselineEntry(
+    public PreviewBaselineSuiteExpansion(
         int index,
+        string suiteName,
+        string entryId,
+        string variantName,
         PreviewViewport viewport,
         string imagePath,
         double dpi,
-        string? projectPath = null,
-        string? viewPath = null,
+        string projectPath,
+        string viewPath,
         string? themeVariant = null,
         string? culture = null,
         string? designDataType = null,
-        string? suiteName = null,
-        string? suiteEntryId = null,
-        string? suiteVariantName = null,
         string? profileName = null,
         string? profileVariant = null,
         string? profileFilePath = null,
@@ -27,17 +27,42 @@ public sealed record PreviewBaselineEntry
     {
         if (index < 0)
         {
-            throw new ArgumentOutOfRangeException(nameof(index), index, "Baseline entry index cannot be negative.");
+            throw new ArgumentOutOfRangeException(nameof(index), index, "Suite expansion index cannot be negative.");
+        }
+
+        if (string.IsNullOrWhiteSpace(suiteName))
+        {
+            throw new ArgumentException("Suite name cannot be empty.", nameof(suiteName));
+        }
+
+        if (string.IsNullOrWhiteSpace(entryId))
+        {
+            throw new ArgumentException("Suite entry id cannot be empty.", nameof(entryId));
+        }
+
+        if (string.IsNullOrWhiteSpace(variantName))
+        {
+            throw new ArgumentException("Suite variant name cannot be empty.", nameof(variantName));
         }
 
         if (string.IsNullOrWhiteSpace(imagePath))
         {
-            throw new ArgumentException("Baseline image path cannot be empty.", nameof(imagePath));
+            throw new ArgumentException("Suite expansion image path cannot be empty.", nameof(imagePath));
         }
 
         if (dpi <= 0)
         {
             throw new ArgumentOutOfRangeException(nameof(dpi), dpi, "DPI must be positive.");
+        }
+
+        if (string.IsNullOrWhiteSpace(projectPath))
+        {
+            throw new ArgumentException("Suite expansion project path cannot be empty.", nameof(projectPath));
+        }
+
+        if (string.IsNullOrWhiteSpace(viewPath))
+        {
+            throw new ArgumentException("Suite expansion view path cannot be empty.", nameof(viewPath));
         }
 
         if (animationTimeOffsetMs is < 0)
@@ -46,17 +71,17 @@ public sealed record PreviewBaselineEntry
         }
 
         Index = index;
+        SuiteName = suiteName;
+        EntryId = entryId;
+        VariantName = variantName;
         Viewport = viewport ?? throw new ArgumentNullException(nameof(viewport));
         ImagePath = Path.GetFullPath(imagePath);
         Dpi = dpi;
-        ProjectPath = string.IsNullOrWhiteSpace(projectPath) ? null : Path.GetFullPath(projectPath);
-        ViewPath = string.IsNullOrWhiteSpace(viewPath) ? null : viewPath;
+        ProjectPath = Path.GetFullPath(projectPath);
+        ViewPath = viewPath;
         ThemeVariant = string.IsNullOrWhiteSpace(themeVariant) ? null : themeVariant;
         Culture = string.IsNullOrWhiteSpace(culture) ? null : culture;
         DesignDataType = string.IsNullOrWhiteSpace(designDataType) ? null : designDataType;
-        SuiteName = string.IsNullOrWhiteSpace(suiteName) ? null : suiteName;
-        SuiteEntryId = string.IsNullOrWhiteSpace(suiteEntryId) ? null : suiteEntryId;
-        SuiteVariantName = string.IsNullOrWhiteSpace(suiteVariantName) ? null : suiteVariantName;
         ProfileName = string.IsNullOrWhiteSpace(profileName) ? null : profileName;
         ProfileVariant = string.IsNullOrWhiteSpace(profileVariant) ? null : profileVariant;
         ProfileFilePath = string.IsNullOrWhiteSpace(profileFilePath) ? null : Path.GetFullPath(profileFilePath);
@@ -68,6 +93,15 @@ public sealed record PreviewBaselineEntry
     [JsonPropertyName("index")]
     public int Index { get; }
 
+    [JsonPropertyName("suiteName")]
+    public string SuiteName { get; }
+
+    [JsonPropertyName("entryId")]
+    public string EntryId { get; }
+
+    [JsonPropertyName("variantName")]
+    public string VariantName { get; }
+
     [JsonPropertyName("viewport")]
     public PreviewViewport Viewport { get; }
 
@@ -78,12 +112,10 @@ public sealed record PreviewBaselineEntry
     public double Dpi { get; }
 
     [JsonPropertyName("projectPath")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? ProjectPath { get; }
+    public string ProjectPath { get; }
 
     [JsonPropertyName("viewPath")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? ViewPath { get; }
+    public string ViewPath { get; }
 
     [JsonPropertyName("themeVariant")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -96,18 +128,6 @@ public sealed record PreviewBaselineEntry
     [JsonPropertyName("designDataType")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? DesignDataType { get; }
-
-    [JsonPropertyName("suiteName")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? SuiteName { get; }
-
-    [JsonPropertyName("suiteEntryId")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? SuiteEntryId { get; }
-
-    [JsonPropertyName("suiteVariantName")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? SuiteVariantName { get; }
 
     [JsonPropertyName("profileName")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

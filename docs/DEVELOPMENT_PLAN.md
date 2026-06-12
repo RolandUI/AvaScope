@@ -26,20 +26,22 @@ GitHub Issues and Milestones are the primary project-management source for auton
 
 ## Current Focus
 
-- `R0.8.0-M1 Baseline Suite Manifest`
-- GitHub Issue: https://github.com/RolandUI/AvaScope/issues/20
+- `R0.8.0-M2 Thresholds, Masks, And Region Rules`
+- GitHub Issue: https://github.com/RolandUI/AvaScope/issues/21
 - GitHub Milestone: `v0.8.0`
 - Status: `Not Started`
 - Owner: unassigned
-- Started: pending
-- Goal: define the baseline collection manifest and CLI/MCP/Core workflow foundation for repeatable agent validation suites.
+- Started: not started
+- Goal: add practical comparison controls for real UI variance in agent validation suites.
 
 ## Next Action
 
-Close GitHub issue #14 and the `v0.7.0` release tracker after recording the successful post-release CI run. Then start GitHub issue #20 for `v0.8.0`.
+Move #21 to `status:in-progress`, add the start comment, then implement suite/variant comparison thresholds, masks, and region rules while preserving current strict baseline behavior by default.
 
 ## Latest Validation
 
+- `2026-06-12`: Completed local implementation for GitHub issue #20 `R0.8.0-M1 Baseline Suite Manifest`. Added structured suite manifest protocol DTOs, baseline entry provenance metadata, Core suite parsing and deterministic expansion, CLI `baseline-create --suite`, compatibility with existing `baseline-check --manifest`, focused Core/Protocol/CLI coverage, and agent/user/validation documentation. Validation passed with `dotnet build AvaScope.slnx --no-restore -v:minimal`, focused suite/baseline tests (`dotnet test AvaScope.slnx --no-build --filter "FullyQualifiedName~PreviewBaselineManagerTests|FullyQualifiedName~ProtocolContractTests.PreviewBaselineResponsesSerializeStableShapes|FullyQualifiedName~ProtocolContractTests.PreviewBaselineSuiteManifestSerializesStableShape|FullyQualifiedName~CliSmokeTests.BaselineCommandsCreateManifestPassCheckAndFailChangedCheck|FullyQualifiedName~CliSmokeTests.BaselineSuiteCommandCreatesManifestAndCheckPasses"`, 6 passed), full Debug tests (`dotnet test AvaScope.slnx --no-build`, 268 passed), and `git diff --check` with only LF/CRLF normalization warnings.
+- `2026-06-12`: Started GitHub issue #20 for `R0.8.0-M1 Baseline Suite Manifest`. Moved the issue and project card to `status:in-progress` / `In Progress`, recorded intended validation in the issue, and scoped implementation to structured suite manifests, deterministic per-variant expansion, output path generation, mutation preset references, invalid diagnostics, and compatibility with existing single-view baseline commands.
 - `2026-06-12`: GitHub Release workflow `27443577851` passed for `Release 0.7.0`; tag `v0.7.0` and six GitHub Release assets were published at `2026-06-12T21:24:17Z`. GitHub CI workflow `27443577826` failed after publish in `LocalBridgeClientTests.DiagnosticsReportsDuplicateAndIncompatibleBridgeManifests` because the fake incompatible-bridge named-pipe test used a 100 ms timeout, and in `BridgeHeadlessSmokeTests.ScreenshotCaptureForMissingTopLevelReturnsStructuredError` because the headless session disposed from a no-window path on the hosted runner. Post-release CI stabilization removed the artificial 100 ms pipe timeout, initialized the missing-top-level screenshot smoke with a minimal headless window, and passed local validation with `dotnet build AvaScope.slnx -c Release --no-restore -v:minimal`, the two targeted failing tests, and `dotnet test AvaScope.slnx -c Release --no-build` with 264 tests.
 - `2026-06-12`: Post-release CI stabilization commit `07367e2` passed GitHub CI workflow `27444154586` on `master`; Restore, Build, Test, Pack libraries, Package executables, and Verify artifacts all succeeded. Follow-up Release workflow `27444154583` no-oped successfully because `v0.7.0` already existed.
 - `2026-06-12`: Remote GitHub CI `27443036755` and Release `27443036762` failed during Release tests because `CliSmokeTests.WatchPreviewSessionCommandReloadsWhenWatchedFileChanges` reloaded while `MainView.axaml` was transiently locked on the hosted runner. Increased the watcher smoke settle window to `3000ms`, switched its cleanup to the existing retry helper, and validated the watcher plus `launch-app` lifecycle smoke in Release configuration 3 consecutive times.
