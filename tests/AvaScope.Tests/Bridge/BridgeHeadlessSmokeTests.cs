@@ -358,6 +358,7 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                 Assert.Equal(RuntimeMutationStatuses.Applied, resetAll.Value!.Status);
                 Assert.True(resetAll.Value.Applied);
                 Assert.Equal("4", resetAll.Value.Metadata["resetCount"]);
+                Assert.Equal("0", resetAll.Value.Metadata["activeMutationCount"]);
                 Assert.Equal("Before", targetText.Text);
                 Assert.DoesNotContain("agent-selected", targetSurface.Classes);
                 Assert.Equal(Brushes.Red.ToString(), targetSurface.Background?.ToString());
@@ -370,6 +371,155 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                 DeleteIfExists(beforePath);
                 DeleteIfExists(afterPath);
                 DeleteIfExists(diffPath);
+            }
+        }, CancellationToken.None);
+    }
+
+    [Fact]
+    public async Task RuntimeMutationDeactivateResetsActiveMutationsAndRejectsFurtherMutation()
+    {
+        using var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessTestApplication));
+
+        await session.Dispatch(() =>
+        {
+            var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Headless mutation close cleanup sample"));
+            var targetSurface = new Border
+            {
+                Name = "CloseCleanupSurface",
+                Width = 180,
+                Height = 120,
+                Background = Brushes.Red
+            };
+            var window = new Window
+            {
+                Title = "AvaScope Mutation Close Cleanup Sample",
+                Width = 360,
+                Height = 240,
+                Content = targetSurface
+            };
+
+            try
+            {
+                window.Show();
+                using var registration = runtime.RegisterTopLevel(window);
+                Dispatcher.UIThread.RunJobs();
+
+                var topLevel = Assert.Single(runtime.ListTopLevelsAsync().GetAwaiter().GetResult());
+                var tree = runtime.GetVisualTreeAsync(topLevel.Id, maxDepth: 8).GetAwaiter().GetResult();
+                Assert.True(tree.Success, tree.Error?.Message);
+                var targetNode = FindNode(tree.Value!.Root, node => node.Name == "CloseCleanupSurface");
+                Assert.NotNull(targetNode);
+                Assert.NotNull(targetNode.Target);
+
+                var background = runtime.MutateNodeAsync(new RuntimeMutationRequest(
+                    "close-cleanup-background",
+                    targetNode.Target!,
+                    new RuntimeMutationOperation(
+                        RuntimeMutationOperationKinds.SetProperty,
+                        propertyName: "Background",
+                        value: "#0000ff",
+                        valueType: "brush"))).GetAwaiter().GetResult();
+                Assert.True(background.Success, background.Error?.Message);
+                Assert.True(background.Value!.Applied);
+                Assert.Equal("1", background.Value.Metadata["activeMutationCount"]);
+                Assert.Equal(Brushes.Blue.ToString(), targetSurface.Background?.ToString());
+
+                var close = AvaScopeBridge.Deactivate();
+
+                Assert.True(close.Success, close.Error?.Message);
+                Assert.Equal(SessionLifecycleState.Closed, close.Value!.State);
+                Assert.False(AvaScopeBridge.IsActive);
+                Assert.Equal(Brushes.Red.ToString(), targetSurface.Background?.ToString());
+
+                var afterClose = runtime.MutateNodeAsync(new RuntimeMutationRequest(
+                    "after-close-noop",
+                    targetNode.Target!,
+                    new RuntimeMutationOperation(RuntimeMutationOperationKinds.NoOp))).GetAwaiter().GetResult();
+
+                Assert.True(afterClose.Success, afterClose.Error?.Message);
+                Assert.Equal(RuntimeMutationStatuses.Unavailable, afterClose.Value!.Status);
+                Assert.False(afterClose.Value.Applied);
+                Assert.Equal(CoreErrorCodes.SessionClosed, Assert.Single(afterClose.Value.Diagnostics).Code);
+            }
+            finally
+            {
+                window.Close();
+            }
+        }, CancellationToken.None);
+    }
+
+    [Fact]
+    public async Task RuntimeMutationTopLevelRegistrationDisposeResetsScopedMutations()
+    {
+        using var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessTestApplication));
+
+        await session.Dispatch(() =>
+        {
+            var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Headless mutation top-level cleanup sample"));
+            IDisposable? registration = null;
+            IDisposable? secondRegistration = null;
+            var targetText = new TextBlock
+            {
+                Name = "TopLevelCleanupText",
+                Text = "Cleanup",
+                Width = 120
+            };
+            var window = new Window
+            {
+                Title = "AvaScope Mutation TopLevel Cleanup Sample",
+                Width = 360,
+                Height = 240,
+                Content = targetText
+            };
+
+            try
+            {
+                window.Show();
+                registration = runtime.RegisterTopLevel(window);
+                Dispatcher.UIThread.RunJobs();
+
+                var topLevel = Assert.Single(runtime.ListTopLevelsAsync().GetAwaiter().GetResult());
+                var tree = runtime.GetVisualTreeAsync(topLevel.Id, maxDepth: 8).GetAwaiter().GetResult();
+                Assert.True(tree.Success, tree.Error?.Message);
+                var targetNode = FindNode(tree.Value!.Root, node => node.Name == "TopLevelCleanupText");
+                Assert.NotNull(targetNode);
+                Assert.NotNull(targetNode.Target);
+
+                var width = runtime.MutateNodeAsync(new RuntimeMutationRequest(
+                    "top-level-cleanup-width",
+                    targetNode.Target!,
+                    new RuntimeMutationOperation(
+                        RuntimeMutationOperationKinds.SetProperty,
+                        propertyName: "Width",
+                        value: "240",
+                        valueType: "double"))).GetAwaiter().GetResult();
+                Assert.True(width.Success, width.Error?.Message);
+                Assert.True(width.Value!.Applied);
+                Assert.Equal("1", width.Value.Metadata["activeMutationCount"]);
+                Assert.Equal(240, targetText.Width);
+
+                registration.Dispose();
+                registration = null;
+
+                Assert.Equal(120, targetText.Width);
+
+                secondRegistration = runtime.RegisterTopLevel(window);
+                var resetAll = runtime.MutateNodeAsync(new RuntimeMutationRequest(
+                    "top-level-cleanup-reset-all",
+                    targetNode.Target!,
+                    new RuntimeMutationOperation(RuntimeMutationOperationKinds.ResetAll))).GetAwaiter().GetResult();
+
+                Assert.True(resetAll.Success, resetAll.Error?.Message);
+                Assert.Equal(RuntimeMutationStatuses.NoOp, resetAll.Value!.Status);
+                Assert.False(resetAll.Value.Applied);
+                Assert.Equal("0", resetAll.Value.Metadata["resetCount"]);
+                Assert.Equal("0", resetAll.Value.Metadata["activeMutationCount"]);
+            }
+            finally
+            {
+                secondRegistration?.Dispose();
+                registration?.Dispose();
+                window.Close();
             }
         }, CancellationToken.None);
     }
@@ -443,6 +593,13 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
             Assert.True(widthMutation.Value.Applied);
             Assert.Equal(240, targetText.Width);
             Assert.Equal("Width", widthMutation.Value.Metadata["propertyName"]);
+            Assert.Equal("1", widthMutation.Value.Metadata["activeMutationCount"]);
+            var styleCapability = Assert.Single(widthMutation.Value.Capabilities, capability =>
+                capability.Name == RuntimeMutationCapabilityCatalog.StyleLayoutMutation);
+            Assert.True(styleCapability.Available);
+            Assert.Equal("local_only", styleCapability.Metadata["transport"]);
+            Assert.Equal("true", styleCapability.Metadata["temporary"]);
+            Assert.Equal("true", styleCapability.Metadata["reversible"]);
 
             var resetWidth = await AvaScopeMcpTools.MutateNode(
                 client,
@@ -459,6 +616,7 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
             Assert.True(resetWidth.Value.Applied);
             Assert.Equal(120, targetText.Width);
             Assert.Contains(widthMutation.Value.MutationId, resetWidth.Value.Metadata["resetMutationIds"], StringComparison.Ordinal);
+            Assert.Equal("0", resetWidth.Value.Metadata["activeMutationCount"]);
 
             window.Close();
         }, CancellationToken.None);

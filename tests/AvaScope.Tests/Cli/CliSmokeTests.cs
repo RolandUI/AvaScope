@@ -2628,7 +2628,8 @@ public sealed class CliSmokeTests
                     metadata: new Dictionary<string, string>
                     {
                         ["resetMutationIds"] = "mutation:cli:2",
-                        ["resetCount"] = "1"
+                        ["resetCount"] = "1",
+                        ["activeMutationCount"] = "0"
                     }));
         });
 
@@ -2655,6 +2656,12 @@ public sealed class CliSmokeTests
             Assert.True(payload.Success, payload.Error?.Message);
             Assert.Equal(RuntimeMutationStatuses.Applied, payload.Value!.Status);
             Assert.Equal("mutation:cli:2", payload.Value.Metadata["resetMutationIds"]);
+            Assert.Equal("0", payload.Value.Metadata["activeMutationCount"]);
+            var styleCapability = Assert.Single(payload.Value.Capabilities, capability =>
+                capability.Name == RuntimeMutationCapabilityCatalog.StyleLayoutMutation);
+            Assert.Equal("local_only", styleCapability.Metadata["transport"]);
+            Assert.Equal("true", styleCapability.Metadata["temporary"]);
+            Assert.Equal("true", styleCapability.Metadata["reversible"]);
         }
         finally
         {

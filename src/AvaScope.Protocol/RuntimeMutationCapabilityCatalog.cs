@@ -25,6 +25,9 @@ public static class RuntimeMutationCapabilityCatalog
                 supportedOperations: [RuntimeMutationOperationKinds.NoOp],
                 metadata: new Dictionary<string, string>
                 {
+                    ["scope"] = "local_session",
+                    ["transport"] = "local_only",
+                    ["temporary"] = "true",
                     ["maxDiagnostics"] = RuntimeMutationResponse.MaximumDiagnostics.ToString(
                         System.Globalization.CultureInfo.InvariantCulture)
                 }),
@@ -42,9 +45,36 @@ public static class RuntimeMutationCapabilityCatalog
                     RuntimeMutationOperationKinds.ResetMutation,
                     RuntimeMutationOperationKinds.ResetAll
                 ],
+                supportedProperties:
+                [
+                    "width",
+                    "height",
+                    "minWidth",
+                    "minHeight",
+                    "maxWidth",
+                    "maxHeight",
+                    "margin",
+                    "padding",
+                    "opacity",
+                    "text",
+                    "content",
+                    "background",
+                    "foreground",
+                    "class",
+                    "resource"
+                ],
                 reason: styleLayoutAvailable
                     ? null
-                    : "Style, layout, class, and resource mutation application is not available without an active local bridge.")
+                    : "Style, layout, class, and resource mutation application is not available without an active local bridge.",
+                metadata: new Dictionary<string, string>
+                {
+                    ["scope"] = "local_session",
+                    ["transport"] = "local_only",
+                    ["temporary"] = "true",
+                    ["reversible"] = styleLayoutAvailable ? "true" : "false",
+                    ["resetOperations"] = "reset_mutation,reset_all",
+                    ["closeCleanup"] = "reset_active_mutations"
+                })
         ];
     }
 }

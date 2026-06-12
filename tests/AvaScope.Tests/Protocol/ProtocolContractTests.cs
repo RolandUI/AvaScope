@@ -351,8 +351,13 @@ public sealed class ProtocolContractTests
         Assert.True(responseNode["applied"]!.GetValue<bool>());
         Assert.Equal(RuntimeMutationCapabilityCatalog.RuntimeMutationContract, responseNode["capabilities"]![0]!["name"]!.GetValue<string>());
         Assert.True(responseNode["capabilities"]![0]!["available"]!.GetValue<bool>());
+        Assert.Equal("local_only", responseNode["capabilities"]![0]!["metadata"]!["transport"]!.GetValue<string>());
+        Assert.Equal("true", responseNode["capabilities"]![0]!["metadata"]!["temporary"]!.GetValue<string>());
         Assert.Equal(RuntimeMutationCapabilityCatalog.StyleLayoutMutation, responseNode["capabilities"]![1]!["name"]!.GetValue<string>());
         Assert.True(responseNode["capabilities"]![1]!["available"]!.GetValue<bool>());
+        Assert.Equal("width", responseNode["capabilities"]![1]!["supportedProperties"]![0]!.GetValue<string>());
+        Assert.Equal("true", responseNode["capabilities"]![1]!["metadata"]!["reversible"]!.GetValue<string>());
+        Assert.Equal("reset_mutation,reset_all", responseNode["capabilities"]![1]!["metadata"]!["resetOperations"]!.GetValue<string>());
         Assert.Equal("Width", responseNode["metadata"]!["propertyName"]!.GetValue<string>());
         Assert.Equal("120", responseNode["metadata"]!["originalValue"]!.GetValue<string>());
         Assert.Equal("240", responseNode["metadata"]!["effectiveValue"]!.GetValue<string>());

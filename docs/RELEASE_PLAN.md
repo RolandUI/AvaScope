@@ -316,7 +316,7 @@ The `v0.7.0` release target starts the agent-first product direction. The goal i
 - `R0.7.0-M1 Runtime Mutation Contract`; Status: `Done`.
 - `R0.7.0-M2 Style And Layout Mutation Set`; Status: `Done`.
 - `R0.7.0-M3 Mutation Evidence And Screenshot Loop`; Status: `Done`.
-- `R0.7.0-M4 Agent Session Safety And Reset Semantics`; Status: `Planned`.
+- `R0.7.0-M4 Agent Session Safety And Reset Semantics`; Status: `Done`.
 - `R0.7.0-M5 CLI/MCP Runtime Experiment Review`; Status: `Planned`.
 - `R0.7.0-M6 Release Candidate And Version Bump`; Status: `Planned`.
 

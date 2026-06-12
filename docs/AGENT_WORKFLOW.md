@@ -186,6 +186,8 @@ For agent review, prefer the evidence wrapper when the result should be auditabl
 
 Applied mutation responses include mutation ids, original/effective metadata, diagnostics, and explicit reset metadata. Evidence responses add before/after screenshots, before/after visual-tree JSON snapshots, optional diff PNGs, changed-pixel metrics, and target summaries so an agent can explain what changed without relying on terminal text or manual screenshot reading. Mutation history review artifacts remain a later `v0.7.0` slice.
 
+Runtime mutations are temporary local overrides. Prefer `reset_mutation` or `reset_all` when keeping a session open; `close-session`, bridge deactivation, and top-level unregister also clear AvaScope's active mutation registry and attempt to restore active overrides.
+
 ## 9. Close And Clean Up
 
 ```powershell

@@ -70,9 +70,10 @@ public sealed class AvaScopeBridgeRuntime
         Dispatcher.UIThread.VerifyAccess();
 
         var key = InspectableTopLevel.GetRuntimeId(topLevel);
+        var topLevelId = InspectableTopLevel.CreateId(topLevel);
         _registeredTopLevels[key] = new WeakReference<TopLevel>(topLevel);
 
-        return new TopLevelRegistration(_registeredTopLevels, key);
+        return new TopLevelRegistration(() => UnregisterTopLevel(key, topLevelId));
     }
 
     public Task<IReadOnlyList<TopLevelSummary>> ListTopLevelsAsync(CancellationToken cancellationToken = default)
@@ -297,6 +298,7 @@ public sealed class AvaScopeBridgeRuntime
 
     internal CoreResult<SessionSnapshot> CloseSession()
     {
+        ResetActiveMutationsOnUiThread(static _ => true);
         return _sessionRegistry.Close(SessionId);
     }
 
@@ -652,6 +654,24 @@ public sealed class AvaScopeBridgeRuntime
     private CoreResult<RuntimeMutationResponse> MutateNode(RuntimeMutationRequest request)
     {
         Dispatcher.UIThread.VerifyAccess();
+
+        var session = _sessionRegistry.Get(SessionId);
+        if (!session.Success || session.Value!.State is not SessionLifecycleState.Active)
+        {
+            return MutationResponse(
+                request,
+                RuntimeMutationStatuses.Unavailable,
+                applied: false,
+                request.Target,
+                new ProtocolError(
+                    CoreErrorCodes.SessionClosed,
+                    "Runtime mutation session is closed.",
+                    new Dictionary<string, string>
+                    {
+                        ["sessionId"] = SessionId.Value,
+                        ["nextAction"] = "Attach to an active local bridge session before mutating runtime UI."
+                    }));
+        }
 
         if (request.Target.SessionId != SessionId)
         {
@@ -1040,7 +1060,7 @@ public sealed class AvaScopeBridgeRuntime
         RuntimeTargetContext currentTarget)
     {
         var targetMutationId = request.Operation.MutationId!;
-        if (!_activeMutations.TryRemove(targetMutationId, out var mutation))
+        if (!_activeMutations.TryGetValue(targetMutationId, out var mutation))
         {
             return MutationResponse(
                 request,
@@ -1069,11 +1089,6 @@ public sealed class AvaScopeBridgeRuntime
             .OrderByDescending(static mutation => mutation.Sequence)
             .ToArray();
 
-        foreach (var mutation in mutations)
-        {
-            _activeMutations.TryRemove(mutation.MutationId, out _);
-        }
-
         return ResetAppliedMutations(request, currentTarget, mutations, resetAll: true);
     }
 
@@ -1094,32 +1109,39 @@ public sealed class AvaScopeBridgeRuntime
                 metadata: noChangeMetadata);
         }
 
-        try
+        var resetMutations = new List<AppliedRuntimeMutation>(mutations.Count);
+        foreach (var mutation in mutations)
         {
-            foreach (var mutation in mutations)
+            try
             {
                 mutation.Reset();
+                resetMutations.Add(mutation);
+                _activeMutations.TryRemove(mutation.MutationId, out _);
             }
-        }
-        catch (Exception exception) when (exception is ArgumentException or InvalidOperationException or NotSupportedException)
-        {
-            return MutationResponse(
-                request,
-                RuntimeMutationStatuses.Unavailable,
-                applied: false,
-                currentTarget,
-                new ProtocolError(
-                    RuntimeMutationErrorCodes.InvalidRuntimeMutationRequest,
-                    $"Runtime mutation reset failed: {exception.Message}",
-                    new Dictionary<string, string>
-                    {
-                        ["resetAll"] = resetAll.ToString(CultureInfo.InvariantCulture),
-                        ["mutationCount"] = mutations.Count.ToString(CultureInfo.InvariantCulture)
-                    }));
+            catch (Exception exception) when (exception is ArgumentException or InvalidOperationException or NotSupportedException or ObjectDisposedException)
+            {
+                return MutationResponse(
+                    request,
+                    RuntimeMutationStatuses.Unavailable,
+                    applied: false,
+                    currentTarget,
+                    new ProtocolError(
+                        RuntimeMutationErrorCodes.InvalidRuntimeMutationRequest,
+                        $"Runtime mutation reset failed: {exception.Message}",
+                        new Dictionary<string, string>
+                        {
+                            ["failedMutationId"] = mutation.MutationId,
+                            ["resetAll"] = resetAll.ToString(CultureInfo.InvariantCulture),
+                            ["requestedMutationCount"] = mutations.Count.ToString(CultureInfo.InvariantCulture),
+                            ["resetCount"] = resetMutations.Count.ToString(CultureInfo.InvariantCulture),
+                            ["activeMutationCount"] = _activeMutations.Count.ToString(CultureInfo.InvariantCulture),
+                            ["nextAction"] = "Retry reset_mutation for the failed mutation id or close the local bridge session to force cleanup."
+                        }));
+            }
         }
 
         var identity = NextMutationIdentity();
-        var metadata = CreateResetMetadata(identity.Id, mutations, resetAll, DateTimeOffset.UtcNow);
+        var metadata = CreateResetMetadata(identity.Id, resetMutations, resetAll, DateTimeOffset.UtcNow);
 
         return MutationResponseWithMetadata(
             request,
@@ -1128,6 +1150,58 @@ public sealed class AvaScopeBridgeRuntime
             currentTarget,
             identity.Id,
             metadata);
+    }
+
+    private void UnregisterTopLevel(int key, string topLevelId)
+    {
+        _registeredTopLevels.TryRemove(key, out _);
+        ResetActiveMutationsOnUiThread(mutation => string.Equals(mutation.TopLevelId, topLevelId, StringComparison.Ordinal));
+    }
+
+    private void ResetActiveMutationsOnUiThread(Func<AppliedRuntimeMutation, bool> predicate)
+    {
+        if (_activeMutations.IsEmpty)
+        {
+            return;
+        }
+
+        if (Dispatcher.UIThread.CheckAccess())
+        {
+            ResetActiveMutations(predicate);
+            return;
+        }
+
+        Dispatcher.UIThread
+            .InvokeAsync(() => ResetActiveMutations(predicate), DispatcherPriority.Send)
+            .GetTask()
+            .GetAwaiter()
+            .GetResult();
+    }
+
+    private void ResetActiveMutations(Func<AppliedRuntimeMutation, bool> predicate)
+    {
+        Dispatcher.UIThread.VerifyAccess();
+
+        var mutations = _activeMutations.Values
+            .Where(predicate)
+            .OrderByDescending(static mutation => mutation.Sequence)
+            .ToArray();
+
+        foreach (var mutation in mutations)
+        {
+            if (!_activeMutations.TryRemove(mutation.MutationId, out var activeMutation))
+            {
+                continue;
+            }
+
+            try
+            {
+                activeMutation.Reset();
+            }
+            catch (Exception exception) when (exception is ArgumentException or InvalidOperationException or NotSupportedException or ObjectDisposedException)
+            {
+            }
+        }
     }
 
     private CoreResult<ResolvedMutationTarget> ResolveMutationTarget(TopLevel topLevel, RuntimeTargetContext target)
@@ -1394,6 +1468,13 @@ public sealed class AvaScopeBridgeRuntime
         IReadOnlyDictionary<string, string>? metadata = null,
         IReadOnlyList<ProtocolError>? diagnostics = null)
     {
+        var responseMetadata = metadata is null
+            ? null
+            : new Dictionary<string, string>(metadata, StringComparer.Ordinal)
+            {
+                ["activeMutationCount"] = _activeMutations.Count.ToString(CultureInfo.InvariantCulture)
+            };
+
         return CoreResult<RuntimeMutationResponse>.Ok(new RuntimeMutationResponse(
             request.RequestId,
             mutationId ?? NextMutationId(),
@@ -1406,7 +1487,7 @@ public sealed class AvaScopeBridgeRuntime
             DateTimeOffset.UtcNow,
             RuntimeMutationCapabilityCatalog.CurrentBridgeCapabilities(),
             diagnostics,
-            metadata));
+            responseMetadata));
     }
 
     private static CoreResult<MutableAvaloniaProperty> ResolveMutableProperty(object node, string propertyName)
@@ -1781,6 +1862,7 @@ public sealed class AvaScopeBridgeRuntime
         var metadata = new Dictionary<string, string>(StringComparer.Ordinal)
         {
             ["operation"] = operation.Kind,
+            ["sessionId"] = resolvedTarget.Target.SessionId.Value,
             ["topLevelId"] = resolvedTarget.Target.TopLevelId,
             ["targetKind"] = resolvedTarget.Target.TargetKind ?? "node",
             ["nodeType"] = resolvedTarget.Node.GetType().FullName ?? resolvedTarget.Node.GetType().Name,
@@ -3339,13 +3421,16 @@ public sealed class AvaScopeBridgeRuntime
 
     private sealed record ResolvedMutationTarget(object Node, RuntimeTargetContext Target);
 
-    private sealed class TopLevelRegistration(
-        ConcurrentDictionary<int, WeakReference<TopLevel>> registeredTopLevels,
-        int key) : IDisposable
+    private sealed class TopLevelRegistration(Action unregister) : IDisposable
     {
+        private int _disposed;
+
         public void Dispose()
         {
-            registeredTopLevels.TryRemove(key, out _);
+            if (Interlocked.Exchange(ref _disposed, 1) == 0)
+            {
+                unregister();
+            }
         }
     }
 }

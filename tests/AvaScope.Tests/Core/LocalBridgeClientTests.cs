@@ -290,7 +290,8 @@ public sealed class LocalBridgeClientTests : IDisposable
                         metadata: new Dictionary<string, string>
                         {
                             ["resetMutationIds"] = "mutation:session:existing",
-                            ["resetCount"] = "1"
+                            ["resetCount"] = "1",
+                            ["activeMutationCount"] = "0"
                         }));
             });
         var client = new LocalBridgeClient(_manifestDirectory);
@@ -304,6 +305,12 @@ public sealed class LocalBridgeClientTests : IDisposable
         Assert.Equal(RuntimeMutationStatuses.Applied, result.Value.Status);
         Assert.True(result.Value.Applied);
         Assert.Equal("mutation:session:existing", result.Value.Metadata["resetMutationIds"]);
+        Assert.Equal("0", result.Value.Metadata["activeMutationCount"]);
+        var styleCapability = Assert.Single(result.Value.Capabilities, capability =>
+            capability.Name == RuntimeMutationCapabilityCatalog.StyleLayoutMutation);
+        Assert.Equal("local_only", styleCapability.Metadata["transport"]);
+        Assert.Equal("true", styleCapability.Metadata["temporary"]);
+        Assert.Equal("true", styleCapability.Metadata["reversible"]);
         Assert.Empty(result.Value.Diagnostics);
     }
 

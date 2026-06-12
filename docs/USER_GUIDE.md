@@ -533,6 +533,8 @@ Runtime safety boundary:
 - Bridge IPC uses local named pipes; the server is created with current-user-only pipe access where the platform supports it.
 - CLI and MCP runtime commands only attach to active local manifests and do not open network listeners.
 - Runtime control remains intentionally narrow and non-destructive for public alpha.
+- Runtime mutations are temporary local overrides. They are not source edits and are not persisted by AvaScope.
+- `reset_mutation`, `reset_all`, top-level unregister, `close-session`, and bridge deactivation attempt to restore active runtime mutations and clear AvaScope's active mutation registry.
 - Runtime target handoff uses structured `target` context in command output; it does not add remote control or private Avalonia hooks.
 
 Runtime input support is intentionally narrow:
