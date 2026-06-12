@@ -334,6 +334,7 @@ The `v0.7.0` release target starts the agent-first product direction. The goal i
 - `2026-06-12`: `git ls-remote --tags origin refs/tags/v0.7.0` confirmed tag `v0.7.0` at release commit `d944e1e`.
 - `2026-06-12`: GitHub CI workflow `27443577826` failed after publish in `LocalBridgeClientTests.DiagnosticsReportsDuplicateAndIncompatibleBridgeManifests` because the fake incompatible-bridge named-pipe test used a 100 ms timeout, and in `BridgeHeadlessSmokeTests.ScreenshotCaptureForMissingTopLevelReturnsStructuredError` because the headless session disposed from a no-window path on the hosted runner.
 - `2026-06-12`: Post-release CI stabilization removed the artificial 100 ms pipe timeout from the incompatible-bridge diagnostics test and initialized the missing-top-level screenshot smoke with a minimal headless window. Local validation passed with `dotnet build AvaScope.slnx -c Release --no-restore -v:minimal`, the two targeted failing tests, and `dotnet test AvaScope.slnx -c Release --no-build` with 264 tests.
+- `2026-06-12`: Post-release CI stabilization commit `07367e2` passed GitHub CI workflow `27444154586`; Restore, Build, Test, Pack libraries, Package executables, and Verify artifacts all succeeded. Follow-up Release workflow `27444154583` no-oped successfully because `v0.7.0` already existed.
 
 ### v0.7.0 Explicit Deferrals
 

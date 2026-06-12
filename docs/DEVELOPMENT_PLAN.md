@@ -26,21 +26,22 @@ GitHub Issues and Milestones are the primary project-management source for auton
 
 ## Current Focus
 
-- `R0.7.0-M6 Release Candidate And Version Bump`
-- GitHub Issue: https://github.com/RolandUI/AvaScope/issues/14
-- GitHub Milestone: `v0.7.0`
-- Status: `In Progress`
+- `R0.8.0-M1 Baseline Suite Manifest`
+- GitHub Issue: https://github.com/RolandUI/AvaScope/issues/20
+- GitHub Milestone: `v0.8.0`
+- Status: `Not Started`
 - Owner: unassigned
-- Started: `2026-06-12`
-- Goal: validate and publish `v0.7.0` after all in-scope agent runtime control milestones are complete.
+- Started: pending
+- Goal: define the baseline collection manifest and CLI/MCP/Core workflow foundation for repeatable agent validation suites.
 
 ## Next Action
 
-Commit and push the post-release CI stabilization for `v0.7.0`, verify the follow-up GitHub CI run passes, then close GitHub issue #14 and the `v0.7.0` release tracker. After that, move the active focus to the first `v0.8.0` issue.
+Close GitHub issue #14 and the `v0.7.0` release tracker after recording the successful post-release CI run. Then start GitHub issue #20 for `v0.8.0`.
 
 ## Latest Validation
 
 - `2026-06-12`: GitHub Release workflow `27443577851` passed for `Release 0.7.0`; tag `v0.7.0` and six GitHub Release assets were published at `2026-06-12T21:24:17Z`. GitHub CI workflow `27443577826` failed after publish in `LocalBridgeClientTests.DiagnosticsReportsDuplicateAndIncompatibleBridgeManifests` because the fake incompatible-bridge named-pipe test used a 100 ms timeout, and in `BridgeHeadlessSmokeTests.ScreenshotCaptureForMissingTopLevelReturnsStructuredError` because the headless session disposed from a no-window path on the hosted runner. Post-release CI stabilization removed the artificial 100 ms pipe timeout, initialized the missing-top-level screenshot smoke with a minimal headless window, and passed local validation with `dotnet build AvaScope.slnx -c Release --no-restore -v:minimal`, the two targeted failing tests, and `dotnet test AvaScope.slnx -c Release --no-build` with 264 tests.
+- `2026-06-12`: Post-release CI stabilization commit `07367e2` passed GitHub CI workflow `27444154586` on `master`; Restore, Build, Test, Pack libraries, Package executables, and Verify artifacts all succeeded. Follow-up Release workflow `27444154583` no-oped successfully because `v0.7.0` already existed.
 - `2026-06-12`: Remote GitHub CI `27443036755` and Release `27443036762` failed during Release tests because `CliSmokeTests.WatchPreviewSessionCommandReloadsWhenWatchedFileChanges` reloaded while `MainView.axaml` was transiently locked on the hosted runner. Increased the watcher smoke settle window to `3000ms`, switched its cleanup to the existing retry helper, and validated the watcher plus `launch-app` lifecycle smoke in Release configuration 3 consecutive times.
 - `2026-06-12`: `v0.7.0` release-candidate gate passed. Validation included `dotnet build AvaScope.slnx --no-restore -v:minimal`, targeted `launch-app` lifecycle smoke tests (2 passed), full Debug tests (`dotnet test AvaScope.slnx --no-build`, 264 passed), `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1` (Release build/test 264 passed, three `0.7.0` packages, win-x64/linux-x64 framework-dependent ZIPs, manifest, packaged doctor smoke, packaged sample preview smoke), `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.7.0 -DryRun`, packaged Windows CLI runtime smoke (`launch-app`, `attach`, `list-top-levels`, `visual-tree`, `find-nodes`, `mutate-node`, `screenshot`, `mutate-node-evidence`, `mutation-review`, `reset_all`, `close-session`), and `git diff --check` with only line-ending normalization warnings.
 - `2026-06-12`: Started GitHub issue #14 for the `v0.7.0` release candidate and version bump. Moved the issue and project card to `status:in-progress` / `In Progress`, marked the release plan as `Release Candidate`, bumped the working-tree package version to `0.7.0`, and scoped validation to the release gate plus packaged CLI runtime smoke before committing `Release 0.7.0`.
