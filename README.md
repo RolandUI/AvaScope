@@ -1,24 +1,25 @@
 # AvaScope
 
-Inspection and preview tools for Avalonia.
+Agent control plane for Avalonia apps.
 
-AvaScope is a local-first toolkit for developers and AI agents working with Avalonia apps. It can inspect running UI trees, render `.axaml` previews in an isolated process, capture screenshots, send narrow non-destructive input, and run visual checks from a CLI or MCP client.
+AvaScope is a local-first agent tool for understanding, validating, and controlling Avalonia UI through structured CLI and MCP workflows. It helps an agent inspect running UI trees, render `.axaml` previews in an isolated process, capture screenshots, send narrow non-destructive input, collect diagnostics, and produce evidence artifacts without relying on unstructured screen reading.
 
 AvaScope targets Avalonia 12 and `net10.0`.
 
 ## What It Provides
 
-- Runtime inspection for bridge-enabled Avalonia apps.
+- Agent-oriented control loops: inspect UI state, preview variants, act through local runtime commands, capture evidence, and decide the next step from structured results.
+- Runtime inspection and narrow runtime control for bridge-enabled Avalonia apps.
 - Headless preview rendering for project-backed `.axaml` views.
-- Screenshot capture, focused region assertions, image diffs, and baseline checks.
-- Structured diagnostics for preview readiness, build failures, bindings, resources, layout, and local bridge sessions.
+- Screenshot capture, focused region assertions, image diffs, and baseline checks for local evidence and CI handoff.
+- Structured diagnostics for preview readiness, build failures, bindings, resources, layout, local bridge sessions, and agent triage.
 - A command-line tool, an MCP stdio server, and reusable protocol/core libraries.
 
 ## Tools
 
-- `avascope` CLI: local commands for previewing, diagnostics, runtime attach, tree inspection, screenshots, input, diffs, and baselines.
+- `avascope` CLI: local commands for previewing, diagnostics, runtime attach, tree inspection, screenshots, input, diffs, baselines, and agent evidence workflows.
 - `AvaScope.Mcp`: a stdio MCP server for agent clients such as Codex, Claude, Cursor, Rider, VS Code, and Visual Studio.
-- `AvaScope.Bridge`: an opt-in package that a local Avalonia app can load to expose inspectable top-levels.
+- `AvaScope.Bridge`: an opt-in package that a local Avalonia app can load to expose inspectable top-levels and local runtime control.
 - `AvaScope.PreviewHost`: an isolated child process that builds/loads project views and renders previews without loading user code into the CLI or MCP server.
 - `AvaScope.Protocol` and `AvaScope.Core`: shared contracts and reusable runtime/preview plumbing.
 
@@ -55,11 +56,11 @@ Executable ZIPs and package artifacts are published from GitHub Releases when a 
 - Bridge discovery and control are local-only through session manifests and local named pipes.
 - Preview rendering runs user project code only inside `AvaScope.PreviewHost`, not inside MCP or the CLI process.
 - MCP is a thin adapter over reusable local libraries and uses structured results instead of unbounded UI payloads.
-- Runtime control is intentionally narrow and non-destructive in the current pre-1.0 line.
+- Runtime control is intentionally narrow and non-destructive in the current pre-1.0 line. The `v0.7.0` roadmap extends this into reversible runtime UI mutations with explicit reset and evidence semantics.
 
 ## Project Status
 
-AvaScope is pre-1.0 and actively evolving. The current focus is visual-regression and CI productization for the `v0.7.0` release line. Public APIs and artifact shapes may still change before `v1.0.0`.
+AvaScope is pre-1.0 and actively evolving. The current focus is the `v0.7.0` agent runtime control release: structured mutation contracts, reversible style/layout experiments, evidence artifacts, local-only safety, and CLI/MCP review surfaces. Public APIs and artifact shapes may still change before `v1.0.0`.
 
 Development is tracked in GitHub Issues, Milestones, and the public [AvaScope Roadmap](https://github.com/users/RolandUI/projects/4) Project board.
 

@@ -1,8 +1,8 @@
 # AvaScope Getting Started Sample
 
-This sample is a tiny Avalonia 12 app for validating the first AvaScope workflows.
+This sample is a tiny Avalonia 12 app for validating the first AvaScope agent workflows.
 
-The full packaged-CLI agent runbook is in `docs\AGENT_WORKFLOW.md` from the repository root.
+The full packaged-CLI agent runbook is in `docs\AGENT_WORKFLOW.md` from the repository root. It shows the local control-plane loop: readiness checks, previews, runtime inspection, evidence capture, input, and cleanup.
 
 Preview the main view:
 

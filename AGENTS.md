@@ -1,6 +1,6 @@
 # AvaScope AGENTS.md
 
-AvaScope is an Avalonia inspection, preview, and automation toolkit for AI agents and developers.
+AvaScope is an agent-focused local control plane for Avalonia apps.
 
 This repository starts from an empty project. Preserve this file as the project context for future agents.
 
@@ -31,10 +31,12 @@ GitHub Issues, Milestones, and the `AvaScope Roadmap` Project board are the prim
 
 ## Product Goal
 
-Build an Avalonia UI inspection, preview, and automation stack that can be used by:
+Build an Avalonia UI control-plane stack that helps agents inspect, preview, safely control, validate, and explain local Avalonia applications through structured tool calls.
+
+Primary users and surfaces:
 
 - MCP clients such as Codex, Claude, Cursor, Rider, VS Code, and Visual Studio.
-- A CLI for local developer workflows.
+- A CLI for local agent and developer workflows.
 - Future editor integrations.
 - Future visual regression or CI workflows.
 
@@ -43,7 +45,7 @@ Build an Avalonia UI inspection, preview, and automation stack that can be used 
 - Product/repo name: `AvaScope`.
 - CLI command target: `avascope`.
 - MCP server name target: `avascope`.
-- Suggested tagline: `Inspection and preview tools for Avalonia.`
+- Suggested tagline: `Agent control plane for Avalonia apps.`
 - Keep naming AvaScope-specific. Do not introduce alternate product names.
 
 ## Core Architecture
@@ -66,8 +68,8 @@ Agent / IDE / CLI
 Suggested projects:
 
 - `AvaScope.Protocol`: shared request/response DTOs and transport-neutral contracts.
-- `AvaScope.Core`: shared inspection model, session management, node identity, serialization.
-- `AvaScope.Bridge`: opt-in package loaded by Avalonia applications for runtime inspection.
+- `AvaScope.Core`: shared inspection/control model, session management, node identity, serialization, and evidence plumbing.
+- `AvaScope.Bridge`: opt-in package loaded by Avalonia applications for runtime inspection and local control.
 - `AvaScope.PreviewHost`: isolated process that loads projects/views and renders previews.
 - `AvaScope.Headless`: headless Avalonia rendering and screenshot helpers.
 - `AvaScope.Mcp`: stdio MCP server exposing the reusable engine to AI clients.
@@ -85,6 +87,7 @@ Near-term target:
 - Inspect node properties, classes, bounds, resources, and binding diagnostics where possible.
 - Find nodes by type, name, automation id, text, or path.
 - Send basic input: click, pointer move, key text.
+- Apply reversible runtime UI mutations for selected safe style/layout/text properties, with mutation history, reset semantics, and before/after evidence artifacts.
 
 Design-time target:
 
@@ -98,6 +101,7 @@ Long-term target:
 
 - Hot reload or reload a changed `.axaml` into a preview session.
 - Show binding errors, layout warnings, missing resource diagnostics, and style resolution details.
+- Derive source-aware suggestions from runtime mutations, diagnostics, preview metadata, and visual evidence without automatically editing source files unless a later guarded workflow explicitly allows it.
 - Optional no-code attach mode may be explored later, but it is not the default foundation.
 
 ## Important Technical Principles
@@ -125,7 +129,7 @@ AvaScope can execute or load user application code. Treat that as a security bou
 
 ## MCP Tool Shape
 
-Initial MCP tools should be small and composable:
+Agent-facing MCP tools should be small and composable:
 
 - `list_sessions`
 - `attach_to_app`
@@ -140,7 +144,9 @@ Initial MCP tools should be small and composable:
 - `reload`
 - `diagnostics`
 
-Tool results should favor structured JSON plus file paths for generated screenshots. Avoid returning huge unbounded trees by default; support depth limits and node filters.
+Tool results should favor structured JSON plus file paths for generated screenshots, reports, and review artifacts. Avoid returning huge unbounded trees by default; support depth limits and node filters.
+
+Runtime mutation tool names and schemas are finalized through the `v0.7.0` issues, but the shape must stay aligned with the agent control-plane model: explicit targets, bounded operations, mutation ids, validation diagnostics, reset semantics, and before/after evidence.
 
 ## CLI Shape
 

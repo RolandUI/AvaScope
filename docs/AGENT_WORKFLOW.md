@@ -1,6 +1,8 @@
 # AvaScope Agent Workflow
 
-This workflow is for agents and developers validating AvaScope against a local Avalonia project. It uses the packaged CLI path when available because that is closest to public-alpha usage.
+This workflow is for agents using AvaScope as a local control plane for an Avalonia project. It uses the packaged CLI path when available because that is closest to public-alpha usage.
+
+The intended agent loop is: check readiness, preview the UI, inspect a running app, act through bounded local commands, capture evidence, and clean up explicit local state. AvaScope returns structured JSON and file paths so an agent can make follow-up decisions without parsing screenshots or terminal text as the source of truth.
 
 ## 1. Create A Local Release
 
@@ -165,6 +167,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\collect-baseline-artif
 ```
 
 Runtime input is intentionally narrow and non-destructive. Unsupported actions return structured errors.
+
+Future `v0.7.0` runtime mutation workflows will build on the same local bridge boundary. They are planned as reversible UI experiments with mutation history, reset semantics, and before/after evidence, not as implicit source edits.
 
 ## 9. Close And Clean Up
 
