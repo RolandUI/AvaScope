@@ -832,7 +832,7 @@ public sealed class CliSmokeTests
                 "--timeout-ms",
                 "30000",
                 "--settle-ms",
-                "3000",
+                "6000",
                 "--max-reloads",
                 "1",
                 "--watch",
