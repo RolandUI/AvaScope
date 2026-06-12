@@ -326,6 +326,7 @@ The `v0.7.0` release target starts the agent-first product direction. The goal i
 - `2026-06-12`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1` passed for `v0.7.0`; Release build/test passed with 264 tests, three `0.7.0` packages, win-x64 and linux-x64 framework-dependent ZIPs, release manifest, packaged doctor smoke, and packaged sample preview smoke.
 - `2026-06-12`: `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.7.0 -DryRun` passed for the generated `0.7.0` assets.
 - `2026-06-12`: Packaged Windows CLI runtime smoke passed against `samples\AvaScope.GettingStartedApp` using `launch-app`, `attach`, `list-top-levels`, `visual-tree`, `find-nodes`, `mutate-node`, `screenshot`, `mutate-node-evidence`, `mutation-review`, `reset_all`, and `close-session`.
+- `2026-06-12`: Hosted-runner watcher smoke stabilization passed in Release configuration 3 consecutive times after increasing the watcher settle window to avoid reloading while the changed AXAML file is transiently locked.
 - `2026-06-12`: `git diff --check` passed with only line-ending normalization warnings.
 
 ### v0.7.0 Explicit Deferrals

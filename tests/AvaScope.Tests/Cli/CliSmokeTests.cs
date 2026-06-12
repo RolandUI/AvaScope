@@ -832,7 +832,7 @@ public sealed class CliSmokeTests
                 "--timeout-ms",
                 "30000",
                 "--settle-ms",
-                "1500",
+                "3000",
                 "--max-reloads",
                 "1",
                 "--watch",
@@ -859,10 +859,7 @@ public sealed class CliSmokeTests
         }
         finally
         {
-            if (Directory.Exists(testRoot))
-            {
-                Directory.Delete(testRoot, recursive: true);
-            }
+            await DeleteDirectoryWithRetryAsync(testRoot);
         }
     }
 
