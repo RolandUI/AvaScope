@@ -99,17 +99,35 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
         await session.Dispatch(() =>
         {
             var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Headless sample"));
+            var window = new Window
+            {
+                Title = "AvaScope Missing TopLevel Sample",
+                Width = 160,
+                Height = 120,
+                Content = new TextBlock { Text = "Missing top-level target" }
+            };
             var screenshotPath = Path.Combine(
                 Path.GetTempPath(),
                 "AvaScope.Tests",
                 $"{Guid.NewGuid():N}.png");
 
-            var result = runtime.CaptureScreenshotAsync("topLevel:missing", screenshotPath).GetAwaiter().GetResult();
+            try
+            {
+                window.Show();
+                using var registration = runtime.RegisterTopLevel(window);
+                Dispatcher.UIThread.RunJobs();
 
-            Assert.False(result.Success);
-            Assert.Null(result.Value);
-            Assert.Equal(BridgeErrorCodes.TopLevelNotFound, result.Error!.Code);
-            Assert.False(File.Exists(screenshotPath));
+                var result = runtime.CaptureScreenshotAsync("topLevel:missing", screenshotPath).GetAwaiter().GetResult();
+
+                Assert.False(result.Success);
+                Assert.Null(result.Value);
+                Assert.Equal(BridgeErrorCodes.TopLevelNotFound, result.Error!.Code);
+                Assert.False(File.Exists(screenshotPath));
+            }
+            finally
+            {
+                window.Close();
+            }
         }, CancellationToken.None);
     }
 

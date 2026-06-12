@@ -41,9 +41,10 @@ If the release includes public workflow or packaging changes, also validate the 
 The roadmap below is the working plan to `v1.0.0`. It is intentionally release-shaped so every implementation slice remains shippable, validated, and reversible.
 
 - `v0.6.0` is released.
-- `v0.7.0` is the current release target and may be implemented next through GitHub milestone `v0.7.0`, release issue #8, and implementation issue #9 first.
+- `v0.7.0` is released.
 - `v0.7.0` starts the agent-first product direction: AvaScope becomes an agent control plane for inspecting, changing, validating, and explaining Avalonia UI behavior through structured CLI/MCP workflows.
-- `v0.8.0` through `v1.0.0` are planned targets. Their scope may be refined before they become the current release target, but changes must be recorded here before implementation starts.
+- `v0.8.0` is the next planned release target and may be implemented next through GitHub milestone `v0.8.0`, release issue #19, and implementation issue #20 first.
+- `v0.9.0` through `v1.0.0` are planned targets. Their scope may be refined before they become the current release target, but changes must be recorded here before implementation starts.
 - Each release must preserve the current product boundaries: MCP and CLI stay adapters over Core, runtime bridge activation stays opt-in and local-only, PreviewHost stays isolated from the MCP server, and private Avalonia/runtime hooks remain out of the default path.
 - Every release must include targeted tests, full build/test validation, release dry-run validation, documentation updates, and explicit deferrals.
 - A release may be split into a patch release if a P0/P1 regression blocks users or CI, but patch scope must remain defect-focused.
@@ -283,16 +284,16 @@ The `v0.6.0` release target is focused on runtime debugging and agent validation
 - Destructive runtime actions, arbitrary process termination, and remote inspection remain out of scope.
 - Full visual-regression suite/report productization remains in `v0.7.0`; `v0.6.0` only adds focused screenshot region assertions.
 
-## Current Release Target: v0.7.0
+## Released Target: v0.7.0
 
 - Release: `v0.7.0`
 - Target Version: `0.7.0`
-- Release State: `Release Candidate`
+- Release State: `Released`
 - Scope Lock: locked
-- Release Commit: pending
+- Release Commit: `d944e1e` (`Release 0.7.0`)
 - Local Release Gate: passed `2026-06-12`
-- Published At: pending
-- GitHub Release: pending
+- Published At: `2026-06-12T21:24:17Z`
+- GitHub Release: https://github.com/RolandUI/AvaScope/releases/tag/v0.7.0
 - Previous Release: `v0.6.0`
 
 ### v0.7.0 Release Goals
@@ -318,7 +319,7 @@ The `v0.7.0` release target starts the agent-first product direction. The goal i
 - `R0.7.0-M3 Mutation Evidence And Screenshot Loop`; Status: `Done`.
 - `R0.7.0-M4 Agent Session Safety And Reset Semantics`; Status: `Done`.
 - `R0.7.0-M5 CLI/MCP Runtime Experiment Review`; Status: `Done`.
-- `R0.7.0-M6 Release Candidate And Version Bump`; Status: `In Progress`.
+- `R0.7.0-M6 Release Candidate And Version Bump`; Status: `Done`.
 
 ### v0.7.0 Implementation Validation
 
@@ -328,6 +329,11 @@ The `v0.7.0` release target starts the agent-first product direction. The goal i
 - `2026-06-12`: Packaged Windows CLI runtime smoke passed against `samples\AvaScope.GettingStartedApp` using `launch-app`, `attach`, `list-top-levels`, `visual-tree`, `find-nodes`, `mutate-node`, `screenshot`, `mutate-node-evidence`, `mutation-review`, `reset_all`, and `close-session`.
 - `2026-06-12`: Hosted-runner watcher smoke stabilization passed in Release configuration 3 consecutive times after increasing the watcher settle window to avoid reloading while the changed AXAML file is transiently locked.
 - `2026-06-12`: `git diff --check` passed with only line-ending normalization warnings.
+- `2026-06-12`: GitHub Release workflow `27443577851` passed for `Release 0.7.0`; tag `v0.7.0` and six GitHub Release assets were published at `2026-06-12T21:24:17Z`.
+- `2026-06-12`: `gh release view v0.7.0` confirmed the public release URL and six uploaded assets: three `0.7.0` `.nupkg` files, win-x64 and linux-x64 framework-dependent ZIPs, and `release-manifest.json`.
+- `2026-06-12`: `git ls-remote --tags origin refs/tags/v0.7.0` confirmed tag `v0.7.0` at release commit `d944e1e`.
+- `2026-06-12`: GitHub CI workflow `27443577826` failed after publish in `LocalBridgeClientTests.DiagnosticsReportsDuplicateAndIncompatibleBridgeManifests` because the fake incompatible-bridge named-pipe test used a 100 ms timeout, and in `BridgeHeadlessSmokeTests.ScreenshotCaptureForMissingTopLevelReturnsStructuredError` because the headless session disposed from a no-window path on the hosted runner.
+- `2026-06-12`: Post-release CI stabilization removed the artificial 100 ms pipe timeout from the incompatible-bridge diagnostics test and initialized the missing-top-level screenshot smoke with a minimal headless window. Local validation passed with `dotnet build AvaScope.slnx -c Release --no-restore -v:minimal`, the two targeted failing tests, and `dotnet test AvaScope.slnx -c Release --no-build` with 264 tests.
 
 ### v0.7.0 Explicit Deferrals
 

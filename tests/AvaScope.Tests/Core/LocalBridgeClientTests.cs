@@ -673,7 +673,7 @@ public sealed class LocalBridgeClientTests : IDisposable
             request => BridgeIpcResponse.Ok(
                 request.RequestId,
                 new HealthResponse(AvaScopeProtocol.ServiceName, new ProtocolVersion(2, 0))));
-        var client = new LocalBridgeClient(_manifestDirectory, TimeSpan.FromMilliseconds(100));
+        var client = new LocalBridgeClient(_manifestDirectory);
 
         var result = await client.DiagnosticsAsync(sessionId: incompatibleSessionId);
         var request = await serverTask;
