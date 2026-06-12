@@ -2777,6 +2777,118 @@ public sealed class CliSmokeTests
             Assert.EndsWith("cli-evidence-after.png", payload.Value.AfterScreenshotPath, StringComparison.Ordinal);
             Assert.True(File.Exists(payload.Value.BeforeVisualTreePath));
             Assert.True(File.Exists(payload.Value.AfterVisualTreePath));
+            Assert.NotNull(payload.Value.ReviewArtifact);
+            Assert.True(File.Exists(payload.Value.ReviewArtifact!.ArtifactPath));
+            Assert.Equal("html", payload.Value.ReviewArtifact.Format);
+            var reviewHtml = await File.ReadAllTextAsync(payload.Value.ReviewArtifact.ArtifactPath);
+            Assert.Contains("mutation:cli:evidence:1", reviewHtml, StringComparison.Ordinal);
+            Assert.Contains("Before", reviewHtml, StringComparison.Ordinal);
+            Assert.Contains("After", reviewHtml, StringComparison.Ordinal);
+        }
+        finally
+        {
+            if (File.Exists(manifestPath))
+            {
+                File.Delete(manifestPath);
+            }
+
+            if (Directory.Exists(artifactDirectory))
+            {
+                Directory.Delete(artifactDirectory, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task MutationReviewCommandReadsHistoryAndWritesArtifactThroughBridgePipe()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var sessionId = SessionId.New();
+        var pipeName = $"avascope-cli-review-{Guid.NewGuid():N}";
+        var manifestPath = WriteBridgeManifest(sessionId, pipeName);
+        var artifactDirectory = Path.Combine(
+            Path.GetTempPath(),
+            "AvaScope.Tests",
+            $"cli-review-{Guid.NewGuid():N}");
+        var reviewPath = Path.Combine(artifactDirectory, "review.html");
+        var target = new RuntimeTargetContext(sessionId, "topLevel:cli", TreeKinds.Visual, "visual:button");
+        var operation = new RuntimeMutationOperation(
+            RuntimeMutationOperationKinds.SetProperty,
+            propertyName: "Text",
+            value: "After",
+            valueType: "string");
+        var entry = new RuntimeMutationReviewEntry(
+            1,
+            "cli-review-request-1",
+            "mutation:cli:review:1",
+            sessionId,
+            target.TopLevelId,
+            target,
+            operation,
+            RuntimeMutationStatuses.Applied,
+            applied: true,
+            active: true,
+            DateTimeOffset.UtcNow,
+            metadata: new Dictionary<string, string>
+            {
+                ["propertyName"] = "Text"
+            });
+        var serverTask = RespondToBridgeRequestAsync(pipeName, request =>
+        {
+            Assert.Equal(BridgeIpcMethods.MutationReview, request.Method);
+            Assert.Equal(5, request.MaxResults);
+
+            return BridgeIpcResponse.Ok(
+                request.RequestId,
+                new RuntimeMutationReviewResponse(
+                    sessionId,
+                    DateTimeOffset.UtcNow,
+                    historyCount: 1,
+                    activeMutationCount: 1,
+                    history: [entry],
+                    activeMutations: [entry],
+                    resetHandoff: new RuntimeMutationResetHandoff(
+                        sessionId,
+                        activeMutationCount: 1,
+                        activeMutationIds: [entry.MutationId],
+                        suggestedResetAllTarget: target),
+                    metadata: new Dictionary<string, string>
+                    {
+                        ["scope"] = "local_session"
+                    }));
+        });
+
+        try
+        {
+            var result = await RunCliAsync(
+                cliAssembly,
+                "mutation-review",
+                "--session",
+                sessionId.Value,
+                "--max-results",
+                "5",
+                "--out",
+                reviewPath);
+            var bridgeRequest = await serverTask;
+
+            Assert.Equal(0, result.ExitCode);
+            Assert.Equal(BridgeIpcMethods.MutationReview, bridgeRequest.Method);
+            Assert.True(string.IsNullOrWhiteSpace(result.StandardError), result.StandardError);
+
+            var payload = JsonSerializer.Deserialize<ToolResult<RuntimeMutationReviewResponse>>(result.StandardOutput, JsonOptions);
+            Assert.NotNull(payload);
+            Assert.True(payload.Success, payload.Error?.Message);
+            Assert.Equal(1, payload.Value!.HistoryCount);
+            Assert.Equal(1, payload.Value.ActiveMutationCount);
+            Assert.Equal("mutation:cli:review:1", Assert.Single(payload.Value.ActiveMutations).MutationId);
+            Assert.Equal(RuntimeMutationOperationKinds.ResetMutation, payload.Value.ResetHandoff.ResetMutationOperation);
+            Assert.NotNull(payload.Value.ReviewArtifact);
+            Assert.Equal(Path.GetFullPath(reviewPath), payload.Value.ReviewArtifact!.ArtifactPath);
+            Assert.True(File.Exists(payload.Value.ReviewArtifact.ArtifactPath));
+            var reviewHtml = await File.ReadAllTextAsync(payload.Value.ReviewArtifact.ArtifactPath);
+            Assert.Contains("mutation:cli:review:1", reviewHtml, StringComparison.Ordinal);
         }
         finally
         {

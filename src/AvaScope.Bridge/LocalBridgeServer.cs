@@ -224,6 +224,7 @@ internal sealed class LocalBridgeServer : IDisposable
             BridgeIpcMethods.FindNodes => Respond(await FindNodesAsync(request, cancellationToken)),
             BridgeIpcMethods.Input => Respond(await InputAsync(request, cancellationToken)),
             BridgeIpcMethods.MutateNode => Respond(await MutateNodeAsync(request, cancellationToken)),
+            BridgeIpcMethods.MutationReview => Respond(await MutationReviewAsync(request, cancellationToken)),
             BridgeIpcMethods.CloseSession => CloseSession(request),
             _ => Respond(BridgeIpcResponse.Fail(
                 request.RequestId,
@@ -445,6 +446,19 @@ internal sealed class LocalBridgeServer : IDisposable
         }
 
         var result = await _runtime.MutateNodeAsync(request.Mutation, cancellationToken);
+
+        return result.Success
+            ? BridgeIpcResponse.Ok(request.RequestId, result.Value)
+            : BridgeIpcResponse.Fail(
+                request.RequestId,
+                ToProtocolError(result.Error!));
+    }
+
+    private async Task<BridgeIpcResponse> MutationReviewAsync(
+        BridgeIpcRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await _runtime.MutationReviewAsync(request.MaxResults, cancellationToken);
 
         return result.Success
             ? BridgeIpcResponse.Ok(request.RequestId, result.Value)

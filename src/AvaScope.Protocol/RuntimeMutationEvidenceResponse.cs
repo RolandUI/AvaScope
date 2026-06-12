@@ -24,7 +24,8 @@ public sealed record RuntimeMutationEvidenceResponse
         PreviewDiffResponse? diff = null,
         RuntimeMutationEvidenceTargetSummary? beforeTarget = null,
         RuntimeMutationEvidenceTargetSummary? afterTarget = null,
-        IReadOnlyList<ProtocolError>? diagnostics = null)
+        IReadOnlyList<ProtocolError>? diagnostics = null,
+        RuntimeMutationReviewArtifact? reviewArtifact = null)
     {
         if (string.IsNullOrWhiteSpace(requestId))
         {
@@ -78,6 +79,7 @@ public sealed record RuntimeMutationEvidenceResponse
         BeforeTarget = beforeTarget;
         AfterTarget = afterTarget;
         Diagnostics = (diagnostics ?? []).Take(MaximumDiagnostics).ToArray();
+        ReviewArtifact = reviewArtifact;
     }
 
     [JsonPropertyName("requestId")]
@@ -134,4 +136,8 @@ public sealed record RuntimeMutationEvidenceResponse
 
     [JsonPropertyName("diagnostics")]
     public IReadOnlyList<ProtocolError> Diagnostics { get; }
+
+    [JsonPropertyName("reviewArtifact")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public RuntimeMutationReviewArtifact? ReviewArtifact { get; }
 }

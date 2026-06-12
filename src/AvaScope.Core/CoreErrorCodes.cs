@@ -25,5 +25,6 @@ public static class CoreErrorCodes
     public const string PreviewHostUnavailable = "preview_host_unavailable";
     public const string PreviewSessionStoreFailed = "preview_session_store_failed";
     public const string PreviewViewerUnavailable = "preview_viewer_unavailable";
+    public const string RuntimeMutationReviewUnavailable = "runtime_mutation_review_unavailable";
     public const string RuntimeReloadNotSupported = "runtime_reload_not_supported";
 }

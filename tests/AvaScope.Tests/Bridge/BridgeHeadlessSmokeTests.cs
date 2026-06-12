@@ -545,6 +545,10 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                 Height = 240,
                 Content = targetText
             };
+            var reviewPath = Path.Combine(
+                Path.GetTempPath(),
+                "AvaScope.Tests",
+                $"{Guid.NewGuid():N}-mutation-review.html");
 
             window.Show();
             using var registration = runtime.RegisterTopLevel(window);
@@ -601,6 +605,26 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
             Assert.Equal("true", styleCapability.Metadata["temporary"]);
             Assert.Equal("true", styleCapability.Metadata["reversible"]);
 
+            var review = await AvaScopeMcpTools.MutationReview(
+                client,
+                runtime.SessionId.Value,
+                maxResults: 10,
+                artifactPath: reviewPath);
+
+            Assert.True(review.Success, review.Error?.Message);
+            Assert.Equal(1, review.Value!.ActiveMutationCount);
+            Assert.True(review.Value.HistoryCount >= 2);
+            var activeMutation = Assert.Single(review.Value.ActiveMutations);
+            Assert.Equal(widthMutation.Value.MutationId, activeMutation.MutationId);
+            Assert.Equal("Width", activeMutation.Metadata["propertyName"]);
+            Assert.Equal(widthMutation.Value.MutationId, Assert.Single(review.Value.ResetHandoff.ActiveMutationIds));
+            Assert.Equal(RuntimeMutationOperationKinds.ResetMutation, review.Value.ResetHandoff.ResetMutationOperation);
+            Assert.Equal(RuntimeMutationOperationKinds.ResetAll, review.Value.ResetHandoff.ResetAllOperation);
+            Assert.NotNull(review.Value.ResetHandoff.SuggestedResetAllTarget);
+            Assert.NotNull(review.Value.ReviewArtifact);
+            Assert.True(File.Exists(review.Value.ReviewArtifact!.ArtifactPath));
+            Assert.Contains(widthMutation.Value.MutationId, File.ReadAllText(review.Value.ReviewArtifact.ArtifactPath), StringComparison.Ordinal);
+
             var resetWidth = await AvaScopeMcpTools.MutateNode(
                 client,
                 runtime.SessionId.Value,
@@ -618,6 +642,16 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
             Assert.Contains(widthMutation.Value.MutationId, resetWidth.Value.Metadata["resetMutationIds"], StringComparison.Ordinal);
             Assert.Equal("0", resetWidth.Value.Metadata["activeMutationCount"]);
 
+            var reviewAfterReset = await AvaScopeMcpTools.MutationReview(
+                client,
+                runtime.SessionId.Value,
+                maxResults: 10);
+            Assert.True(reviewAfterReset.Success, reviewAfterReset.Error?.Message);
+            Assert.Equal(0, reviewAfterReset.Value!.ActiveMutationCount);
+            Assert.Empty(reviewAfterReset.Value.ActiveMutations);
+            Assert.Contains(reviewAfterReset.Value.History, entry => entry.MutationId == resetWidth.Value.MutationId);
+
+            DeleteIfExists(reviewPath);
             window.Close();
         }, CancellationToken.None);
     }
@@ -702,6 +736,12 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                 Assert.True(File.Exists(evidence.Value.AfterVisualTreePath));
                 Assert.NotNull(evidence.Value.DiffPath);
                 Assert.True(File.Exists(evidence.Value.DiffPath));
+                Assert.NotNull(evidence.Value.ReviewArtifact);
+                Assert.True(File.Exists(evidence.Value.ReviewArtifact!.ArtifactPath));
+                var reviewHtml = File.ReadAllText(evidence.Value.ReviewArtifact.ArtifactPath);
+                Assert.Contains(evidence.Value.Mutation.MutationId, reviewHtml, StringComparison.Ordinal);
+                Assert.Contains("Before", reviewHtml, StringComparison.Ordinal);
+                Assert.Contains("After", reviewHtml, StringComparison.Ordinal);
                 Assert.Equal(Brushes.Blue.ToString(), targetSurface.Background?.ToString());
             }
             finally

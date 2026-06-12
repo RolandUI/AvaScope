@@ -10,7 +10,7 @@ AvaScope is an agent-focused local control plane for Avalonia apps. It gives CLI
 - Opt-in runtime bridge for Avalonia apps.
 - Local bridge discovery through session manifests and named pipes.
 - Runtime top-level listing, screenshots, bounded visual/logical trees, node search, and basic input.
-- Reversible runtime `mutate-node` and `mutate-node-evidence` workflows for selected safe style, layout, text, class, and resource experiments against bridge-enabled apps.
+- Reversible runtime `mutate-node`, `mutate-node-evidence`, and `mutation-review` workflows for selected safe style, layout, text, class, and resource experiments against bridge-enabled apps.
 - Isolated preview host process for `.axaml` rendering.
 - Preview project/build-output metadata, binding/resource diagnostics, and advisory layout warnings.
 - Runtime `inspect_node` computed visual/style/layout property values.
@@ -389,9 +389,12 @@ Apply a reversible runtime mutation and capture an agent evidence package:
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll mutate-node --session session-id --top-level topLevel:1234 --node visual:5678 --operation set_property --property Width --value 240 --value-type double
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll mutate-node --session session-id --top-level topLevel:1234 --node visual:5678 --operation reset_mutation --mutation-id mutation-id
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll mutate-node-evidence --session session-id --top-level topLevel:1234 --node visual:5678 --operation set_property --property Background --value "#0066ff" --value-type brush --out-dir .\artifacts\mutation-evidence --request-id background-check
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll mutation-review --session session-id --max-results 20 --out .\artifacts\mutation-evidence\review.html
 ```
 
-`mutate-node-evidence` runs a fixed local loop: before screenshot, before visual tree, mutation, after screenshot, after visual tree, and optional image diff. The response is `ToolResult<RuntimeMutationEvidenceResponse>` with artifact file paths, mutation status, before/after target summaries, bounded diagnostics, and changed-pixel metrics when diffing is enabled. Use `--diff false` to skip pixel comparison and `--tolerance <0-255>` to allow channel tolerance in the diff.
+`mutate-node-evidence` runs a fixed local loop: before screenshot, before visual tree, mutation, after screenshot, after visual tree, optional image diff, and local HTML review artifact generation. The response is `ToolResult<RuntimeMutationEvidenceResponse>` with artifact file paths, mutation status, before/after target summaries, bounded diagnostics, changed-pixel metrics when diffing is enabled, and `reviewArtifact` with a file URL for human inspection. Use `--diff false` to skip pixel comparison and `--tolerance <0-255>` to allow channel tolerance in the diff.
+
+`mutation-review` returns `ToolResult<RuntimeMutationReviewResponse>` for one local bridge session. It includes bounded mutation history, active override summaries, reset handoff metadata for `reset_mutation` / `reset_all`, and an optional HTML review artifact when `--out <review.html>` is supplied.
 
 Close an active local bridge session:
 
@@ -494,6 +497,7 @@ Implemented tools:
 - `input`
 - `mutate_node`
 - `mutate_node_evidence`
+- `mutation_review`
 - `close_session`
 - `diagnostics`
 - `preview_axaml`
@@ -507,7 +511,7 @@ Implemented tools:
 - `close_preview_session`
 - `reload`
 
-Planned but not implemented yet: mutation history/review index artifacts, runtime hot reload, drag/drop, full preview startup orchestration, installer distribution, macOS release policy, and CI-oriented visual-regression report packs.
+Planned but not implemented yet: runtime hot reload, drag/drop, full preview startup orchestration, installer distribution, macOS release policy, and CI-oriented visual-regression report packs.
 
 `diagnostics` reports AvaScope service metadata, local bridge manifest/pipe health, stale, invalid, unauthorized, unavailable, duplicate, and protocol-incompatible bridge records, preview host readiness, and stale or invalid preview-session metadata without building or loading user projects. The response keeps the legacy `issues` list and also includes bounded `diagnosticIssues` entries with source, severity, status, provenance, request ids, and related path/session metadata for agent triage.
 
@@ -534,6 +538,7 @@ Runtime safety boundary:
 - CLI and MCP runtime commands only attach to active local manifests and do not open network listeners.
 - Runtime control remains intentionally narrow and non-destructive for public alpha.
 - Runtime mutations are temporary local overrides. They are not source edits and are not persisted by AvaScope.
+- Mutation review history is session-local and bounded; it is intended for current agent handoff, not durable audit storage.
 - `reset_mutation`, `reset_all`, top-level unregister, `close-session`, and bridge deactivation attempt to restore active runtime mutations and clear AvaScope's active mutation registry.
 - Runtime target handoff uses structured `target` context in command output; it does not add remote control or private Avalonia hooks.
 

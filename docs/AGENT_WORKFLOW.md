@@ -182,9 +182,10 @@ For agent review, prefer the evidence wrapper when the result should be auditabl
 
 ```powershell
 & $avascope mutate-node-evidence --session <runtime-session-id> --top-level <topLevel:id> --node <node-id> --operation set_property --property Background --value "#0066ff" --value-type brush --out-dir .\artifacts\samples\mutation-evidence --request-id runtime-background-check
+& $avascope mutation-review --session <runtime-session-id> --max-results 20 --out .\artifacts\samples\mutation-evidence\runtime-review.html
 ```
 
-Applied mutation responses include mutation ids, original/effective metadata, diagnostics, and explicit reset metadata. Evidence responses add before/after screenshots, before/after visual-tree JSON snapshots, optional diff PNGs, changed-pixel metrics, and target summaries so an agent can explain what changed without relying on terminal text or manual screenshot reading. Mutation history review artifacts remain a later `v0.7.0` slice.
+Applied mutation responses include mutation ids, original/effective metadata, diagnostics, active mutation count, and explicit reset metadata. Evidence responses add before/after screenshots, before/after visual-tree JSON snapshots, optional diff PNGs, changed-pixel metrics, target summaries, and a local HTML review artifact so an agent can explain what changed without relying on terminal text or manual screenshot reading. `mutation-review` returns a bounded session-local history, active override list, reset handoff, and optional HTML artifact.
 
 Runtime mutations are temporary local overrides. Prefer `reset_mutation` or `reset_all` when keeping a session open; `close-session`, bridge deactivation, and top-level unregister also clear AvaScope's active mutation registry and attempt to restore active overrides.
 

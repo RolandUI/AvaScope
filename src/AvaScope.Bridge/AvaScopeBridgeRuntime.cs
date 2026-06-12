@@ -30,6 +30,8 @@ public sealed class AvaScopeBridgeRuntime
     private const int MaximumFindResultLimit = 1000;
     private const int MaximumDebugFieldCount = 32;
     private const int MaximumDebugValueLength = 500;
+    private const int MaximumMutationHistoryEntries = 128;
+    private const int DefaultMutationReviewLimit = 50;
     private const string MutationValueKindBrush = "brush";
     private const string MutationValueKindDouble = "double";
     private const string MutationValueKindLayoutDouble = "layout_double";
@@ -40,8 +42,10 @@ public sealed class AvaScopeBridgeRuntime
     private readonly ConcurrentDictionary<int, WeakReference<TopLevel>> _registeredTopLevels = new();
     private readonly ConcurrentDictionary<string, Pointer> _activePointers = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, AppliedRuntimeMutation> _activeMutations = new(StringComparer.Ordinal);
+    private readonly ConcurrentQueue<RuntimeMutationReviewEntry> _mutationHistory = new();
     private readonly SessionRegistry _sessionRegistry;
     private long _mutationSequence;
+    private long _mutationHistorySequence;
     private LocalBridgeServer? _localServer;
 
     internal AvaScopeBridgeRuntime(
@@ -285,6 +289,20 @@ public sealed class AvaScopeBridgeRuntime
 
         return Dispatcher.UIThread
             .InvokeAsync(() => MutateNode(request), DispatcherPriority.Background, cancellationToken)
+            .GetTask();
+    }
+
+    public Task<CoreResult<RuntimeMutationReviewResponse>> MutationReviewAsync(
+        int? maxResults = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (Dispatcher.UIThread.CheckAccess())
+        {
+            return Task.FromResult(CreateMutationReview(maxResults));
+        }
+
+        return Dispatcher.UIThread
+            .InvokeAsync(() => CreateMutationReview(maxResults), DispatcherPriority.Background, cancellationToken)
             .GetTask();
     }
 
@@ -655,6 +673,19 @@ public sealed class AvaScopeBridgeRuntime
     {
         Dispatcher.UIThread.VerifyAccess();
 
+        var result = EvaluateMutation(request);
+        if (result.Success && result.Value is not null)
+        {
+            RecordMutationResponse(result.Value);
+        }
+
+        return result;
+    }
+
+    private CoreResult<RuntimeMutationResponse> EvaluateMutation(RuntimeMutationRequest request)
+    {
+        Dispatcher.UIThread.VerifyAccess();
+
         var session = _sessionRegistry.Get(SessionId);
         if (!session.Success || session.Value!.State is not SessionLifecycleState.Active)
         {
@@ -821,6 +852,8 @@ public sealed class AvaScopeBridgeRuntime
         var activeMutation = new AppliedRuntimeMutation(
             identity.Id,
             identity.Sequence,
+            request.RequestId,
+            request.Operation,
             request.Operation.Kind,
             resolvedTarget.Target.TopLevelId,
             resolvedTarget.Target.TreeKind,
@@ -909,6 +942,8 @@ public sealed class AvaScopeBridgeRuntime
         var activeMutation = new AppliedRuntimeMutation(
             identity.Id,
             identity.Sequence,
+            request.RequestId,
+            request.Operation,
             request.Operation.Kind,
             resolvedTarget.Target.TopLevelId,
             resolvedTarget.Target.TreeKind,
@@ -1035,6 +1070,8 @@ public sealed class AvaScopeBridgeRuntime
         var activeMutation = new AppliedRuntimeMutation(
             identity.Id,
             identity.Sequence,
+            request.RequestId,
+            request.Operation,
             request.Operation.Kind,
             resolvedTarget.Target.TopLevelId,
             resolvedTarget.Target.TreeKind,
@@ -1202,6 +1239,146 @@ public sealed class AvaScopeBridgeRuntime
             {
             }
         }
+    }
+
+    private CoreResult<RuntimeMutationReviewResponse> CreateMutationReview(int? maxResults)
+    {
+        Dispatcher.UIThread.VerifyAccess();
+
+        if (maxResults is < 1 or > RuntimeMutationReviewResponse.MaximumEntries)
+        {
+            return CoreResult<RuntimeMutationReviewResponse>.Fail(new CoreError(
+                CoreErrorCodes.InvalidBridgeRequest,
+                $"Mutation review maxResults must be between 1 and {RuntimeMutationReviewResponse.MaximumEntries.ToString(CultureInfo.InvariantCulture)}."));
+        }
+
+        var limit = maxResults ?? DefaultMutationReviewLimit;
+        var activeMutations = _activeMutations.Values
+            .OrderByDescending(static mutation => mutation.Sequence)
+            .ToArray();
+        var activeIds = activeMutations
+            .Select(static mutation => mutation.MutationId)
+            .ToHashSet(StringComparer.Ordinal);
+        var rawHistory = _mutationHistory.ToArray();
+        var historyByMutationId = rawHistory
+            .GroupBy(static entry => entry.MutationId, StringComparer.Ordinal)
+            .ToDictionary(
+                static group => group.Key,
+                static group => group.OrderByDescending(static entry => entry.Sequence).First(),
+                StringComparer.Ordinal);
+
+        var history = rawHistory
+            .OrderByDescending(static entry => entry.Sequence)
+            .Take(limit)
+            .Select(entry => WithActiveState(entry, activeIds.Contains(entry.MutationId)))
+            .ToArray();
+        var active = activeMutations
+            .Take(limit)
+            .Select(mutation => historyByMutationId.TryGetValue(mutation.MutationId, out var historyEntry)
+                ? WithActiveState(historyEntry, active: true)
+                : ToReviewEntry(mutation, active: true))
+            .ToArray();
+        var metadata = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["scope"] = "local_session",
+            ["transport"] = "local_only",
+            ["temporary"] = "true",
+            ["maxResults"] = limit.ToString(CultureInfo.InvariantCulture),
+            ["historyTruncated"] = (rawHistory.Length > history.Length).ToString(CultureInfo.InvariantCulture),
+            ["activeMutationsTruncated"] = (activeMutations.Length > active.Length).ToString(CultureInfo.InvariantCulture)
+        };
+        var resetHandoff = new RuntimeMutationResetHandoff(
+            SessionId,
+            activeMutations.Length,
+            activeMutations.Select(static mutation => mutation.MutationId).ToArray(),
+            suggestedResetAllTarget: active.FirstOrDefault()?.Target,
+            nextAction: activeMutations.Length == 0
+                ? "No active runtime mutations are currently registered for this local bridge session."
+                : "Use reset_mutation with a listed mutation id, or reset_all with the suggested target to clear active runtime overrides.");
+
+        return CoreResult<RuntimeMutationReviewResponse>.Ok(new RuntimeMutationReviewResponse(
+            SessionId,
+            DateTimeOffset.UtcNow,
+            rawHistory.Length,
+            activeMutations.Length,
+            history,
+            active,
+            resetHandoff,
+            metadata));
+    }
+
+    private void RecordMutationResponse(RuntimeMutationResponse response)
+    {
+        var sequence = Interlocked.Increment(ref _mutationHistorySequence);
+        _mutationHistory.Enqueue(ToReviewEntry(
+            response,
+            sequence,
+            response.Applied && _activeMutations.ContainsKey(response.MutationId)));
+
+        while (_mutationHistory.Count > MaximumMutationHistoryEntries
+            && _mutationHistory.TryDequeue(out _))
+        {
+        }
+    }
+
+    private RuntimeMutationReviewEntry ToReviewEntry(
+        AppliedRuntimeMutation mutation,
+        bool active)
+    {
+        return new RuntimeMutationReviewEntry(
+            mutation.Sequence,
+            mutation.RequestId,
+            mutation.MutationId,
+            SessionId,
+            mutation.TopLevelId,
+            new RuntimeTargetContext(SessionId, mutation.TopLevelId, mutation.TreeKind, mutation.NodeId),
+            mutation.Operation,
+            RuntimeMutationStatuses.Applied,
+            applied: true,
+            active,
+            mutation.AppliedAt,
+            metadata: mutation.Metadata);
+    }
+
+    private static RuntimeMutationReviewEntry ToReviewEntry(
+        RuntimeMutationResponse response,
+        long sequence,
+        bool active)
+    {
+        return new RuntimeMutationReviewEntry(
+            sequence,
+            response.RequestId,
+            response.MutationId,
+            response.SessionId,
+            response.TopLevelId,
+            response.Target,
+            response.Operation,
+            response.Status,
+            response.Applied,
+            active,
+            response.EvaluatedAt,
+            response.Diagnostics,
+            response.Metadata);
+    }
+
+    private static RuntimeMutationReviewEntry WithActiveState(
+        RuntimeMutationReviewEntry entry,
+        bool active)
+    {
+        return new RuntimeMutationReviewEntry(
+            entry.Sequence,
+            entry.RequestId,
+            entry.MutationId,
+            entry.SessionId,
+            entry.TopLevelId,
+            entry.Target,
+            entry.Operation,
+            entry.Status,
+            entry.Applied,
+            active,
+            entry.EvaluatedAt,
+            entry.Diagnostics,
+            entry.Metadata);
     }
 
     private CoreResult<ResolvedMutationTarget> ResolveMutationTarget(TopLevel topLevel, RuntimeTargetContext target)
@@ -3410,6 +3587,8 @@ public sealed class AvaScopeBridgeRuntime
     private sealed record AppliedRuntimeMutation(
         string MutationId,
         long Sequence,
+        string RequestId,
+        RuntimeMutationOperation Operation,
         string OperationKind,
         string TopLevelId,
         string? TreeKind,

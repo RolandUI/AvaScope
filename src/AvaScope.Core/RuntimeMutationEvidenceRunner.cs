@@ -176,7 +176,7 @@ public sealed class RuntimeMutationEvidenceRunner
             diff?.ChangedPixels,
             diff?.ChangedPercent);
 
-        return CoreResult<RuntimeMutationEvidenceResponse>.Ok(new RuntimeMutationEvidenceResponse(
+        var response = new RuntimeMutationEvidenceResponse(
             request.RequestId,
             sessionId,
             request.Target.TopLevelId,
@@ -193,7 +193,32 @@ public sealed class RuntimeMutationEvidenceRunner
             diff,
             beforeTarget is null ? null : ToEvidenceTargetSummary(beforeTarget),
             afterTarget is null ? null : ToEvidenceTargetSummary(afterTarget),
-            diagnostics));
+            diagnostics);
+        var reviewArtifact = new RuntimeMutationReviewExporter().ExportEvidence(response);
+        if (!reviewArtifact.Success)
+        {
+            return CoreResult<RuntimeMutationEvidenceResponse>.Fail(reviewArtifact.Error!);
+        }
+
+        return CoreResult<RuntimeMutationEvidenceResponse>.Ok(new RuntimeMutationEvidenceResponse(
+            response.RequestId,
+            response.SessionId,
+            response.TopLevelId,
+            response.Target,
+            response.Mutation,
+            response.Summary,
+            response.ArtifactDirectory,
+            response.BeforeScreenshotPath,
+            response.AfterScreenshotPath,
+            response.BeforeVisualTreePath,
+            response.AfterVisualTreePath,
+            response.CapturedAt,
+            response.DiffPath,
+            response.Diff,
+            response.BeforeTarget,
+            response.AfterTarget,
+            response.Diagnostics,
+            reviewArtifact.Value));
     }
 
     private static async Task<CoreResult<string>> WriteTreeSnapshotAsync(

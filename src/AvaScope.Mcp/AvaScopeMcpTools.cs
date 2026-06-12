@@ -485,6 +485,64 @@ public sealed class AvaScopeMcpTools
     }
 
     [McpServerTool(
+        Name = "mutation_review",
+        Title = "Mutation review",
+        ReadOnly = false,
+        Idempotent = false,
+        Destructive = false,
+        OpenWorld = false,
+        UseStructuredContent = true)]
+    [Description("Returns a bounded local runtime mutation history, active override summary, and reset handoff for one bridge session.")]
+    public static async Task<ToolResult<RuntimeMutationReviewResponse>> MutationReview(
+        LocalBridgeClient bridgeClient,
+        string sessionId,
+        int? maxResults = null,
+        string? artifactPath = null,
+        string? manifestDirectory = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(bridgeClient);
+
+        if (!TryParseRequiredSessionId(sessionId, out var parsedSessionId, out var error))
+        {
+            return ToolResult<RuntimeMutationReviewResponse>.Fail(error!);
+        }
+
+        if (maxResults is < 1 or > RuntimeMutationReviewResponse.MaximumEntries)
+        {
+            return ToolResult<RuntimeMutationReviewResponse>.Fail(new ProtocolError(
+                CoreErrorCodes.InvalidBridgeRequest,
+                $"maxResults must be between 1 and {RuntimeMutationReviewResponse.MaximumEntries.ToString(CultureInfo.InvariantCulture)}."));
+        }
+
+        var result = await CreateBridgeClient(bridgeClient, manifestDirectory).MutationReviewAsync(
+            parsedSessionId!,
+            maxResults,
+            cancellationToken);
+        if (!result.Success)
+        {
+            return ToToolResult(result);
+        }
+
+        var response = result.Value!;
+        if (!string.IsNullOrWhiteSpace(artifactPath))
+        {
+            var artifact = new RuntimeMutationReviewExporter().ExportReview(response, artifactPath);
+            if (!artifact.Success)
+            {
+                return ToolResult<RuntimeMutationReviewResponse>.Fail(new ProtocolError(
+                    artifact.Error!.Code,
+                    artifact.Error.Message,
+                    artifact.Error.Details));
+            }
+
+            response = WithReviewArtifact(response, artifact.Value!);
+        }
+
+        return ToolResult<RuntimeMutationReviewResponse>.Ok(response);
+    }
+
+    [McpServerTool(
         Name = "close_session",
         Title = "Close session",
         ReadOnly = false,
@@ -991,6 +1049,22 @@ public sealed class AvaScopeMcpTools
                 result.Error!.Code,
                 result.Error.Message,
                 result.Error.Details));
+    }
+
+    private static RuntimeMutationReviewResponse WithReviewArtifact(
+        RuntimeMutationReviewResponse response,
+        RuntimeMutationReviewArtifact artifact)
+    {
+        return new RuntimeMutationReviewResponse(
+            response.SessionId,
+            response.ReviewedAt,
+            response.HistoryCount,
+            response.ActiveMutationCount,
+            response.History,
+            response.ActiveMutations,
+            response.ResetHandoff,
+            response.Metadata,
+            artifact);
     }
 
     private static LocalBridgeClient CreateBridgeClient(LocalBridgeClient bridgeClient, string? manifestDirectory)

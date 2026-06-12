@@ -315,6 +315,79 @@ public sealed class LocalBridgeClientTests : IDisposable
     }
 
     [Fact]
+    public async Task MutationReviewReadsBoundedHistoryThroughBridgePipe()
+    {
+        Directory.CreateDirectory(_manifestDirectory);
+        var sessionId = SessionId.New();
+        var pipeName = $"avascope-core-review-{Guid.NewGuid():N}";
+        WriteManifest(
+            "mutation-review.json",
+            new BridgeSessionManifest(
+                sessionId,
+                Environment.ProcessId,
+                pipeName,
+                DateTimeOffset.UtcNow,
+                "Mutation review app"));
+        var target = new RuntimeTargetContext(sessionId, "topLevel:abc", TreeKinds.Visual, "visual:node");
+        var operation = new RuntimeMutationOperation(
+            RuntimeMutationOperationKinds.SetProperty,
+            propertyName: "Width",
+            value: "240",
+            valueType: "double");
+        var entry = new RuntimeMutationReviewEntry(
+            1,
+            "mutation-review-request-1",
+            "mutation:session:1",
+            sessionId,
+            target.TopLevelId,
+            target,
+            operation,
+            RuntimeMutationStatuses.Applied,
+            applied: true,
+            active: true,
+            DateTimeOffset.UtcNow,
+            metadata: new Dictionary<string, string>
+            {
+                ["propertyName"] = "Width"
+            });
+        var serverTask = RespondToBridgeRequestAsync(
+            pipeName,
+            bridgeRequest =>
+            {
+                Assert.Equal(BridgeIpcMethods.MutationReview, bridgeRequest.Method);
+                Assert.Equal(7, bridgeRequest.MaxResults);
+
+                return BridgeIpcResponse.Ok(
+                    bridgeRequest.RequestId,
+                    new RuntimeMutationReviewResponse(
+                        sessionId,
+                        DateTimeOffset.UtcNow,
+                        historyCount: 1,
+                        activeMutationCount: 1,
+                        history: [entry],
+                        activeMutations: [entry],
+                        resetHandoff: new RuntimeMutationResetHandoff(
+                            sessionId,
+                            activeMutationCount: 1,
+                            activeMutationIds: [entry.MutationId],
+                            suggestedResetAllTarget: target)));
+            });
+        var client = new LocalBridgeClient(_manifestDirectory);
+
+        var result = await client.MutationReviewAsync(sessionId, maxResults: 7);
+        var bridgeRequest = await serverTask;
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(BridgeIpcMethods.MutationReview, bridgeRequest.Method);
+        Assert.Equal(1, result.Value!.HistoryCount);
+        Assert.Equal(1, result.Value.ActiveMutationCount);
+        Assert.Equal("mutation:session:1", Assert.Single(result.Value.ActiveMutations).MutationId);
+        Assert.Equal(RuntimeMutationOperationKinds.ResetMutation, result.Value.ResetHandoff.ResetMutationOperation);
+        Assert.Equal(RuntimeMutationOperationKinds.ResetAll, result.Value.ResetHandoff.ResetAllOperation);
+        Assert.Equal(target.NodeId, result.Value.ResetHandoff.SuggestedResetAllTarget!.NodeId);
+    }
+
+    [Fact]
     public async Task RuntimeMutationEvidenceRunnerCapturesSequencedArtifactsThroughBridgePipe()
     {
         Directory.CreateDirectory(_manifestDirectory);
@@ -417,8 +490,15 @@ public sealed class LocalBridgeClientTests : IDisposable
             Assert.Equal("After", result.Value.AfterTarget!.Text);
             Assert.True(File.Exists(result.Value.BeforeVisualTreePath));
             Assert.True(File.Exists(result.Value.AfterVisualTreePath));
+            Assert.NotNull(result.Value.ReviewArtifact);
+            Assert.True(File.Exists(result.Value.ReviewArtifact!.ArtifactPath));
+            Assert.Equal("html", result.Value.ReviewArtifact.Format);
             Assert.Contains("Before", await File.ReadAllTextAsync(result.Value.BeforeVisualTreePath));
             Assert.Contains("After", await File.ReadAllTextAsync(result.Value.AfterVisualTreePath));
+            var reviewHtml = await File.ReadAllTextAsync(result.Value.ReviewArtifact.ArtifactPath);
+            Assert.Contains("mutation:core:1", reviewHtml, StringComparison.Ordinal);
+            Assert.Contains("Before", reviewHtml, StringComparison.Ordinal);
+            Assert.Contains("After", reviewHtml, StringComparison.Ordinal);
         }
         finally
         {

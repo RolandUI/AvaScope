@@ -453,7 +453,12 @@ public sealed class ProtocolContractTests
                     {
                         ["artifact"] = "diff"
                     })
-            ]);
+            ],
+            new RuntimeMutationReviewArtifact(
+                "C:\\artifacts\\evidence\\evidence-request-1-review.html",
+                "file:///C:/artifacts/evidence/evidence-request-1-review.html",
+                "html",
+                capturedAt.AddSeconds(1)));
 
         var json = JsonSerializer.Serialize(response);
         var node = JsonNode.Parse(json)!;
@@ -482,7 +487,84 @@ public sealed class ProtocolContractTests
         Assert.Equal("After", node["afterTarget"]!["text"]!.GetValue<string>());
         Assert.Equal("agent-mutated", node["afterTarget"]!["classes"]![1]!.GetValue<string>());
         Assert.Equal("diff_notice", node["diagnostics"]![0]!["code"]!.GetValue<string>());
+        Assert.EndsWith("evidence-request-1-review.html", node["reviewArtifact"]!["artifactPath"]!.GetValue<string>());
+        Assert.Equal("file:///C:/artifacts/evidence/evidence-request-1-review.html", node["reviewArtifact"]!["reviewUrl"]!.GetValue<string>());
+        Assert.Equal("html", node["reviewArtifact"]!["format"]!.GetValue<string>());
         Assert.Equal(capturedAt, DateTimeOffset.Parse(node["capturedAt"]!.GetValue<string>(), CultureInfo.InvariantCulture));
+    }
+
+    [Fact]
+    public void RuntimeMutationReviewResponseSerializesStableShape()
+    {
+        var reviewedAt = new DateTimeOffset(2026, 6, 12, 14, 0, 0, TimeSpan.Zero);
+        var sessionId = new SessionId("session-1");
+        var target = new RuntimeTargetContext(sessionId, "topLevel:abc", TreeKinds.Visual, "visual:button");
+        var operation = new RuntimeMutationOperation(
+            RuntimeMutationOperationKinds.SetProperty,
+            propertyName: "Width",
+            value: "240",
+            valueType: "double");
+        var entry = new RuntimeMutationReviewEntry(
+            1,
+            "mutation-request-1",
+            "mutation:session-1:1",
+            sessionId,
+            target.TopLevelId,
+            target,
+            operation,
+            RuntimeMutationStatuses.Applied,
+            applied: true,
+            active: true,
+            reviewedAt.AddSeconds(-2),
+            [
+                new ProtocolError("notice", "Mutation captured.")
+            ],
+            new Dictionary<string, string>
+            {
+                ["propertyName"] = "Width",
+                ["originalValue"] = "120",
+                ["effectiveValue"] = "240"
+            });
+        var response = new RuntimeMutationReviewResponse(
+            sessionId,
+            reviewedAt,
+            historyCount: 1,
+            activeMutationCount: 1,
+            history: [entry],
+            activeMutations: [entry],
+            resetHandoff: new RuntimeMutationResetHandoff(
+                sessionId,
+                activeMutationCount: 1,
+                activeMutationIds: [entry.MutationId],
+                suggestedResetAllTarget: target,
+                nextAction: "Reset active runtime overrides."),
+            metadata: new Dictionary<string, string>
+            {
+                ["scope"] = "local_session",
+                ["maxResults"] = "50"
+            },
+            reviewArtifact: new RuntimeMutationReviewArtifact(
+                "C:\\artifacts\\review.html",
+                "file:///C:/artifacts/review.html",
+                "html",
+                reviewedAt.AddSeconds(1)));
+
+        var json = JsonSerializer.Serialize(response);
+        var node = JsonNode.Parse(json)!;
+
+        Assert.Equal("session-1", node["sessionId"]!.GetValue<string>());
+        Assert.Equal(1, node["historyCount"]!.GetValue<int>());
+        Assert.Equal(1, node["activeMutationCount"]!.GetValue<int>());
+        Assert.Equal("mutation:session-1:1", node["history"]![0]!["mutationId"]!.GetValue<string>());
+        Assert.True(node["history"]![0]!["active"]!.GetValue<bool>());
+        Assert.Equal("Width", node["activeMutations"]![0]!["operation"]!["propertyName"]!.GetValue<string>());
+        Assert.Equal(RuntimeMutationOperationKinds.ResetMutation, node["resetHandoff"]!["resetMutationOperation"]!.GetValue<string>());
+        Assert.Equal(RuntimeMutationOperationKinds.ResetAll, node["resetHandoff"]!["resetAllOperation"]!.GetValue<string>());
+        Assert.Equal("mutation:session-1:1", node["resetHandoff"]!["activeMutationIds"]![0]!.GetValue<string>());
+        Assert.Equal("visual:button", node["resetHandoff"]!["suggestedResetAllTarget"]!["nodeId"]!.GetValue<string>());
+        Assert.Equal("local_session", node["metadata"]!["scope"]!.GetValue<string>());
+        Assert.EndsWith("review.html", node["reviewArtifact"]!["artifactPath"]!.GetValue<string>());
+        Assert.Equal(reviewedAt, DateTimeOffset.Parse(node["reviewedAt"]!.GetValue<string>(), CultureInfo.InvariantCulture));
     }
 
     [Fact]

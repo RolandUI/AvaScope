@@ -392,6 +392,49 @@ public sealed class LocalBridgeClient
             cancellationToken);
     }
 
+    public async Task<CoreResult<RuntimeMutationReviewResponse>> MutationReviewAsync(
+        SessionId sessionId,
+        int? maxResults = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(sessionId);
+
+        if (maxResults is < 1 or > RuntimeMutationReviewResponse.MaximumEntries)
+        {
+            return CoreResult<RuntimeMutationReviewResponse>.Fail(new CoreError(
+                CoreErrorCodes.InvalidBridgeRequest,
+                $"Mutation review maxResults must be between 1 and {RuntimeMutationReviewResponse.MaximumEntries.ToString(CultureInfo.InvariantCulture)}."));
+        }
+
+        var manifestResult = FindSingleManifest(null, sessionId);
+        if (!manifestResult.Success)
+        {
+            return CoreResult<RuntimeMutationReviewResponse>.Fail(manifestResult.Error!);
+        }
+
+        var manifest = manifestResult.Value!;
+        if (!string.Equals(manifest.TransportScope, BridgeTransportScopes.LocalOnly, StringComparison.Ordinal))
+        {
+            return CoreResult<RuntimeMutationReviewResponse>.Fail(new CoreError(
+                RuntimeMutationErrorCodes.RuntimeMutationNonLocalSession,
+                "Runtime mutation review is available only for local bridge sessions.",
+                new Dictionary<string, string>
+                {
+                    ["sessionId"] = sessionId.Value,
+                    ["transportScope"] = manifest.TransportScope,
+                    ["nextAction"] = "Attach to an app that exposes a local AvaScope bridge session."
+                }));
+        }
+
+        return await SendAsync<RuntimeMutationReviewResponse>(
+            manifest,
+            new BridgeIpcRequest(
+                NewRequestId(),
+                BridgeIpcMethods.MutationReview,
+                maxResults: maxResults),
+            cancellationToken);
+    }
+
     public async Task<CoreResult<CloseSessionResponse>> CloseSessionAsync(
         SessionId sessionId,
         CancellationToken cancellationToken = default)
