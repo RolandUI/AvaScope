@@ -7,6 +7,16 @@ public static class RuntimeMutationCapabilityCatalog
 
     public static IReadOnlyList<RuntimeMutationCapability> ContractOnly()
     {
+        return CreateCapabilities(styleLayoutAvailable: false);
+    }
+
+    public static IReadOnlyList<RuntimeMutationCapability> CurrentBridgeCapabilities()
+    {
+        return CreateCapabilities(styleLayoutAvailable: true);
+    }
+
+    private static IReadOnlyList<RuntimeMutationCapability> CreateCapabilities(bool styleLayoutAvailable)
+    {
         return
         [
             new RuntimeMutationCapability(
@@ -20,7 +30,7 @@ public static class RuntimeMutationCapabilityCatalog
                 }),
             new RuntimeMutationCapability(
                 StyleLayoutMutation,
-                available: false,
+                available: styleLayoutAvailable,
                 supportedOperations:
                 [
                     RuntimeMutationOperationKinds.SetProperty,
@@ -28,9 +38,13 @@ public static class RuntimeMutationCapabilityCatalog
                     RuntimeMutationOperationKinds.RemoveClass,
                     RuntimeMutationOperationKinds.ToggleClass,
                     RuntimeMutationOperationKinds.SetResource,
-                    RuntimeMutationOperationKinds.RemoveResource
+                    RuntimeMutationOperationKinds.RemoveResource,
+                    RuntimeMutationOperationKinds.ResetMutation,
+                    RuntimeMutationOperationKinds.ResetAll
                 ],
-                reason: "Style, layout, class, and resource mutation application is not enabled in this contract slice.")
+                reason: styleLayoutAvailable
+                    ? null
+                    : "Style, layout, class, and resource mutation application is not available without an active local bridge.")
         ];
     }
 }

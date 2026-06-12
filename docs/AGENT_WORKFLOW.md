@@ -168,7 +168,17 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\collect-baseline-artif
 
 Runtime input is intentionally narrow and non-destructive. Unsupported actions return structured errors.
 
-Future `v0.7.0` runtime mutation workflows will build on the same local bridge boundary. They are planned as reversible UI experiments with mutation history, reset semantics, and before/after evidence, not as implicit source edits.
+Runtime mutations use the same local bridge boundary and are reversible UI experiments, not implicit source edits:
+
+```powershell
+& $avascope mutate-node --session <runtime-session-id> --top-level <topLevel:id> --node <node-id> --operation set_property --property Width --value 240 --value-type double
+& $avascope mutate-node --session <runtime-session-id> --top-level <topLevel:id> --node <node-id> --operation add_class --class agent-selected
+& $avascope mutate-node --session <runtime-session-id> --top-level <topLevel:id> --node <node-id> --operation set_resource --resource-key AccentBrush --value "#0066ff" --value-type brush
+& $avascope mutate-node --session <runtime-session-id> --top-level <topLevel:id> --node <node-id> --operation reset_mutation --mutation-id <mutation-id>
+& $avascope mutate-node --session <runtime-session-id> --top-level <topLevel:id> --node <node-id> --operation reset_all
+```
+
+Applied mutation responses include mutation ids, original/effective metadata, diagnostics, and explicit reset metadata. Mutation history review and before/after evidence packaging are planned as later `v0.7.0` slices.
 
 ## 9. Close And Clean Up
 

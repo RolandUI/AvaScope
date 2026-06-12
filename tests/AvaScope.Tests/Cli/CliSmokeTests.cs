@@ -2596,6 +2596,76 @@ public sealed class CliSmokeTests
     }
 
     [Fact]
+    public async Task MutateNodeCommandSendsResetMutationThroughBridgePipe()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var sessionId = SessionId.New();
+        var pipeName = $"avascope-cli-test-{Guid.NewGuid():N}";
+        var manifestPath = WriteBridgeManifest(sessionId, pipeName);
+
+        var serverTask = RespondToBridgeRequestAsync(pipeName, request =>
+        {
+            Assert.Equal(BridgeIpcMethods.MutateNode, request.Method);
+            Assert.NotNull(request.Mutation);
+            Assert.Equal(RuntimeMutationOperationKinds.ResetMutation, request.Mutation.Operation.Kind);
+            Assert.Equal("mutation:cli:2", request.Mutation.Operation.MutationId);
+
+            return BridgeIpcResponse.Ok(
+                request.RequestId,
+                new RuntimeMutationResponse(
+                    request.Mutation.RequestId,
+                    "mutation:cli:3",
+                    sessionId,
+                    request.Mutation.Target.TopLevelId,
+                    request.Mutation.Target,
+                    request.Mutation.Operation,
+                    RuntimeMutationStatuses.Applied,
+                    applied: true,
+                    DateTimeOffset.UtcNow,
+                    RuntimeMutationCapabilityCatalog.CurrentBridgeCapabilities(),
+                    metadata: new Dictionary<string, string>
+                    {
+                        ["resetMutationIds"] = "mutation:cli:2",
+                        ["resetCount"] = "1"
+                    }));
+        });
+
+        try
+        {
+            var result = await RunCliAsync(
+                cliAssembly,
+                "mutate-node",
+                "--session",
+                sessionId.Value,
+                "--top-level",
+                "topLevel:cli",
+                "--node",
+                "visual:button",
+                "--operation",
+                RuntimeMutationOperationKinds.ResetMutation,
+                "--mutation-id",
+                "mutation:cli:2");
+            await serverTask;
+
+            Assert.Equal(0, result.ExitCode);
+            var payload = JsonSerializer.Deserialize<ToolResult<RuntimeMutationResponse>>(result.StandardOutput, JsonOptions);
+            Assert.NotNull(payload);
+            Assert.True(payload.Success, payload.Error?.Message);
+            Assert.Equal(RuntimeMutationStatuses.Applied, payload.Value!.Status);
+            Assert.Equal("mutation:cli:2", payload.Value.Metadata["resetMutationIds"]);
+        }
+        finally
+        {
+            if (File.Exists(manifestPath))
+            {
+                File.Delete(manifestPath);
+            }
+        }
+    }
+
+    [Fact]
     public async Task MutateNodeCommandRejectsMissingRequiredArguments()
     {
         var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");

@@ -3,6 +3,8 @@ using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Controls.Primitives;
+using Avalonia.Controls.Presenters;
+using Avalonia.Data;
 using Avalonia.Diagnostics;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -28,8 +30,16 @@ public sealed class AvaScopeBridgeRuntime
     private const int MaximumFindResultLimit = 1000;
     private const int MaximumDebugFieldCount = 32;
     private const int MaximumDebugValueLength = 500;
+    private const string MutationValueKindBrush = "brush";
+    private const string MutationValueKindDouble = "double";
+    private const string MutationValueKindLayoutDouble = "layout_double";
+    private const string MutationValueKindMaxLayoutDouble = "max_layout_double";
+    private const string MutationValueKindOpacity = "opacity";
+    private const string MutationValueKindString = "string";
+    private const string MutationValueKindThickness = "thickness";
     private readonly ConcurrentDictionary<int, WeakReference<TopLevel>> _registeredTopLevels = new();
     private readonly ConcurrentDictionary<string, Pointer> _activePointers = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, AppliedRuntimeMutation> _activeMutations = new(StringComparer.Ordinal);
     private readonly SessionRegistry _sessionRegistry;
     private long _mutationSequence;
     private LocalBridgeServer? _localServer;
@@ -698,11 +708,426 @@ public sealed class AvaScopeBridgeRuntime
                 validation);
         }
 
-        return MutationResponse(
+        return ApplyMutation(request, targetResult.Value!);
+    }
+
+    private CoreResult<RuntimeMutationResponse> ApplyMutation(
+        RuntimeMutationRequest request,
+        ResolvedMutationTarget resolvedTarget)
+    {
+        return request.Operation.Kind switch
+        {
+            RuntimeMutationOperationKinds.NoOp => MutationResponse(
+                request,
+                RuntimeMutationStatuses.NoOp,
+                applied: false,
+                resolvedTarget.Target),
+            RuntimeMutationOperationKinds.SetProperty => ApplyPropertyMutation(request, resolvedTarget),
+            RuntimeMutationOperationKinds.AddClass
+                or RuntimeMutationOperationKinds.RemoveClass
+                or RuntimeMutationOperationKinds.ToggleClass => ApplyClassMutation(request, resolvedTarget),
+            RuntimeMutationOperationKinds.SetResource
+                or RuntimeMutationOperationKinds.RemoveResource => ApplyResourceMutation(request, resolvedTarget),
+            RuntimeMutationOperationKinds.ResetMutation => ResetMutation(request, resolvedTarget.Target),
+            RuntimeMutationOperationKinds.ResetAll => ResetAllMutations(request, resolvedTarget.Target),
+            _ => MutationResponse(
+                request,
+                RuntimeMutationStatuses.Unsupported,
+                applied: false,
+                resolvedTarget.Target,
+                new ProtocolError(
+                    RuntimeMutationErrorCodes.UnsupportedRuntimeMutationOperation,
+                    $"Runtime mutation operation '{request.Operation.Kind}' is not supported."))
+        };
+    }
+
+    private CoreResult<RuntimeMutationResponse> ApplyPropertyMutation(
+        RuntimeMutationRequest request,
+        ResolvedMutationTarget resolvedTarget)
+    {
+        var propertyResult = ResolveMutableProperty(resolvedTarget.Node, request.Operation.PropertyName!);
+        if (!propertyResult.Success)
+        {
+            return MutationResponse(
+                request,
+                MutationStatusForDiagnostic(propertyResult.Error!.Code),
+                applied: false,
+                resolvedTarget.Target,
+                ToProtocolError(propertyResult.Error));
+        }
+
+        var property = propertyResult.Value!;
+        var valueResult = ConvertMutationValue(request.Operation, property.ValueKind);
+        if (!valueResult.Success)
+        {
+            return MutationResponse(
+                request,
+                RuntimeMutationStatuses.Rejected,
+                applied: false,
+                resolvedTarget.Target,
+                ToProtocolError(valueResult.Error!));
+        }
+
+        var original = CapturePropertySnapshot(property.Owner, property.Property);
+        var identity = NextMutationIdentity();
+        var appliedAt = DateTimeOffset.UtcNow;
+
+        try
+        {
+            property.Owner.SetValue(property.Property, valueResult.Value!.Value!, BindingPriority.LocalValue);
+        }
+        catch (Exception exception) when (exception is ArgumentException or InvalidCastException or InvalidOperationException or NotSupportedException)
+        {
+            return MutationResponse(
+                request,
+                RuntimeMutationStatuses.Rejected,
+                applied: false,
+                resolvedTarget.Target,
+                CreateInvalidMutationValueDiagnostic(
+                    request.Operation,
+                    $"Value '{request.Operation.Value}' could not be assigned to property '{property.PropertyName}': {exception.Message}"));
+        }
+
+        var effective = CapturePropertySnapshot(property.Owner, property.Property);
+        var metadata = CreateAppliedMutationMetadata(
+            identity.Id,
+            request.Operation,
+            resolvedTarget,
+            property.PropertyName,
+            original,
+            effective,
+            appliedAt);
+        var shouldRestoreLocalValue = original.Priority == BindingPriority.LocalValue || original.HasLocalValue;
+        var activeMutation = new AppliedRuntimeMutation(
+            identity.Id,
+            identity.Sequence,
+            request.Operation.Kind,
+            resolvedTarget.Target.TopLevelId,
+            resolvedTarget.Target.TreeKind,
+            resolvedTarget.Target.NodeId,
+            resolvedTarget.Node.GetType().FullName ?? resolvedTarget.Node.GetType().Name,
+            appliedAt,
+            metadata,
+            () => ResetAvaloniaProperty(property.Owner, property.Property, original.Value, shouldRestoreLocalValue));
+
+        _activeMutations[identity.Id] = activeMutation;
+
+        return MutationResponseWithMetadata(
             request,
-            RuntimeMutationStatuses.NoOp,
-            applied: false,
-            currentTarget);
+            RuntimeMutationStatuses.Applied,
+            applied: true,
+            resolvedTarget.Target,
+            identity.Id,
+            metadata);
+    }
+
+    private CoreResult<RuntimeMutationResponse> ApplyClassMutation(
+        RuntimeMutationRequest request,
+        ResolvedMutationTarget resolvedTarget)
+    {
+        if (resolvedTarget.Node is not StyledElement styledElement)
+        {
+            return MutationResponse(
+                request,
+                RuntimeMutationStatuses.Unsupported,
+                applied: false,
+                resolvedTarget.Target,
+                new ProtocolError(
+                    RuntimeMutationErrorCodes.UnsupportedRuntimeMutationProperty,
+                    "Class mutations require a StyledElement target.",
+                    new Dictionary<string, string>
+                    {
+                        ["operation"] = request.Operation.Kind,
+                        ["nodeType"] = resolvedTarget.Node.GetType().FullName ?? resolvedTarget.Node.GetType().Name,
+                        ["nextAction"] = "Retry with a StyledElement node from the visual or logical tree."
+                    }));
+        }
+
+        var className = request.Operation.ClassName!;
+        var wasPresent = styledElement.Classes.Contains(className);
+        var shouldBePresent = request.Operation.Kind switch
+        {
+            RuntimeMutationOperationKinds.AddClass => true,
+            RuntimeMutationOperationKinds.RemoveClass => false,
+            RuntimeMutationOperationKinds.ToggleClass => !wasPresent,
+            _ => wasPresent
+        };
+
+        if (wasPresent == shouldBePresent)
+        {
+            var noChangeMetadata = CreateClassMutationMetadata(
+                null,
+                request.Operation,
+                resolvedTarget,
+                className,
+                wasPresent,
+                shouldBePresent,
+                DateTimeOffset.UtcNow,
+                resetSupported: false);
+
+            return MutationResponseWithMetadata(
+                request,
+                RuntimeMutationStatuses.NoOp,
+                applied: false,
+                resolvedTarget.Target,
+                metadata: noChangeMetadata);
+        }
+
+        var identity = NextMutationIdentity();
+        var appliedAt = DateTimeOffset.UtcNow;
+        SetClassPresence(styledElement, className, shouldBePresent);
+
+        var metadata = CreateClassMutationMetadata(
+            identity.Id,
+            request.Operation,
+            resolvedTarget,
+            className,
+            wasPresent,
+            shouldBePresent,
+            appliedAt,
+            resetSupported: true);
+        var activeMutation = new AppliedRuntimeMutation(
+            identity.Id,
+            identity.Sequence,
+            request.Operation.Kind,
+            resolvedTarget.Target.TopLevelId,
+            resolvedTarget.Target.TreeKind,
+            resolvedTarget.Target.NodeId,
+            resolvedTarget.Node.GetType().FullName ?? resolvedTarget.Node.GetType().Name,
+            appliedAt,
+            metadata,
+            () => SetClassPresence(styledElement, className, wasPresent));
+
+        _activeMutations[identity.Id] = activeMutation;
+
+        return MutationResponseWithMetadata(
+            request,
+            RuntimeMutationStatuses.Applied,
+            applied: true,
+            resolvedTarget.Target,
+            identity.Id,
+            metadata);
+    }
+
+    private CoreResult<RuntimeMutationResponse> ApplyResourceMutation(
+        RuntimeMutationRequest request,
+        ResolvedMutationTarget resolvedTarget)
+    {
+        if (resolvedTarget.Node is not StyledElement styledElement)
+        {
+            return MutationResponse(
+                request,
+                RuntimeMutationStatuses.Unsupported,
+                applied: false,
+                resolvedTarget.Target,
+                new ProtocolError(
+                    RuntimeMutationErrorCodes.UnsupportedRuntimeMutationProperty,
+                    "Resource mutations require a StyledElement target.",
+                    new Dictionary<string, string>
+                    {
+                        ["operation"] = request.Operation.Kind,
+                        ["nodeType"] = resolvedTarget.Node.GetType().FullName ?? resolvedTarget.Node.GetType().Name,
+                        ["nextAction"] = "Retry with a StyledElement node from the visual or logical tree."
+                    }));
+        }
+
+        var resourceKey = request.Operation.ResourceKey!;
+        var hadLocalResource = styledElement.Resources.TryGetValue(resourceKey, out var originalValue);
+        var originalSnapshot = CreateValueSnapshot(originalValue, hadLocalResource ? "local_resource" : "missing", hadLocalResource);
+
+        if (request.Operation.Kind == RuntimeMutationOperationKinds.RemoveResource && !hadLocalResource)
+        {
+            var noChangeMetadata = CreateResourceMutationMetadata(
+                null,
+                request.Operation,
+                resolvedTarget,
+                resourceKey,
+                originalSnapshot,
+                originalSnapshot,
+                DateTimeOffset.UtcNow,
+                resetSupported: false);
+
+            return MutationResponseWithMetadata(
+                request,
+                RuntimeMutationStatuses.NoOp,
+                applied: false,
+                resolvedTarget.Target,
+                metadata: noChangeMetadata);
+        }
+
+        ConvertedMutationValue? converted = null;
+        if (request.Operation.Kind == RuntimeMutationOperationKinds.SetResource)
+        {
+            var conversionResult = ConvertResourceMutationValue(request.Operation);
+            if (!conversionResult.Success)
+            {
+                return MutationResponse(
+                    request,
+                    RuntimeMutationStatuses.Rejected,
+                    applied: false,
+                    resolvedTarget.Target,
+                    ToProtocolError(conversionResult.Error!));
+            }
+
+            converted = conversionResult.Value!;
+        }
+
+        var identity = NextMutationIdentity();
+        var appliedAt = DateTimeOffset.UtcNow;
+
+        try
+        {
+            if (request.Operation.Kind == RuntimeMutationOperationKinds.RemoveResource)
+            {
+                styledElement.Resources.Remove(resourceKey);
+            }
+            else
+            {
+                styledElement.Resources[resourceKey] = converted!.Value;
+            }
+        }
+        catch (Exception exception) when (exception is ArgumentException or InvalidOperationException or NotSupportedException)
+        {
+            return MutationResponse(
+                request,
+                RuntimeMutationStatuses.Rejected,
+                applied: false,
+                resolvedTarget.Target,
+                CreateInvalidMutationValueDiagnostic(
+                    request.Operation,
+                    $"Resource key '{resourceKey}' could not be changed: {exception.Message}"));
+        }
+
+        styledElement.Resources.TryGetValue(resourceKey, out var effectiveResource);
+        var effectiveSnapshot = CreateValueSnapshot(
+            effectiveResource,
+            request.Operation.Kind == RuntimeMutationOperationKinds.RemoveResource ? "missing" : "local_resource",
+            request.Operation.Kind != RuntimeMutationOperationKinds.RemoveResource);
+        var metadata = CreateResourceMutationMetadata(
+            identity.Id,
+            request.Operation,
+            resolvedTarget,
+            resourceKey,
+            originalSnapshot,
+            effectiveSnapshot,
+            appliedAt,
+            resetSupported: true);
+        var activeMutation = new AppliedRuntimeMutation(
+            identity.Id,
+            identity.Sequence,
+            request.Operation.Kind,
+            resolvedTarget.Target.TopLevelId,
+            resolvedTarget.Target.TreeKind,
+            resolvedTarget.Target.NodeId,
+            resolvedTarget.Node.GetType().FullName ?? resolvedTarget.Node.GetType().Name,
+            appliedAt,
+            metadata,
+            () => ResetResource(styledElement, resourceKey, hadLocalResource, originalValue));
+
+        _activeMutations[identity.Id] = activeMutation;
+
+        return MutationResponseWithMetadata(
+            request,
+            RuntimeMutationStatuses.Applied,
+            applied: true,
+            resolvedTarget.Target,
+            identity.Id,
+            metadata);
+    }
+
+    private CoreResult<RuntimeMutationResponse> ResetMutation(
+        RuntimeMutationRequest request,
+        RuntimeTargetContext currentTarget)
+    {
+        var targetMutationId = request.Operation.MutationId!;
+        if (!_activeMutations.TryRemove(targetMutationId, out var mutation))
+        {
+            return MutationResponse(
+                request,
+                RuntimeMutationStatuses.Rejected,
+                applied: false,
+                currentTarget,
+                new ProtocolError(
+                    RuntimeMutationErrorCodes.RuntimeMutationResetTargetNotFound,
+                    $"Runtime mutation '{targetMutationId}' is not active and cannot be reset.",
+                    new Dictionary<string, string>
+                    {
+                        ["mutationId"] = targetMutationId,
+                        ["activeMutationCount"] = _activeMutations.Count.ToString(CultureInfo.InvariantCulture),
+                        ["nextAction"] = "Reset only mutation ids returned by applied mutation responses, or call reset_all for the current session."
+                    }));
+        }
+
+        return ResetAppliedMutations(request, currentTarget, [mutation], resetAll: false);
+    }
+
+    private CoreResult<RuntimeMutationResponse> ResetAllMutations(
+        RuntimeMutationRequest request,
+        RuntimeTargetContext currentTarget)
+    {
+        var mutations = _activeMutations.Values
+            .OrderByDescending(static mutation => mutation.Sequence)
+            .ToArray();
+
+        foreach (var mutation in mutations)
+        {
+            _activeMutations.TryRemove(mutation.MutationId, out _);
+        }
+
+        return ResetAppliedMutations(request, currentTarget, mutations, resetAll: true);
+    }
+
+    private CoreResult<RuntimeMutationResponse> ResetAppliedMutations(
+        RuntimeMutationRequest request,
+        RuntimeTargetContext currentTarget,
+        IReadOnlyList<AppliedRuntimeMutation> mutations,
+        bool resetAll)
+    {
+        if (mutations.Count == 0)
+        {
+            var noChangeMetadata = CreateResetMetadata(null, [], resetAll, DateTimeOffset.UtcNow);
+            return MutationResponseWithMetadata(
+                request,
+                RuntimeMutationStatuses.NoOp,
+                applied: false,
+                currentTarget,
+                metadata: noChangeMetadata);
+        }
+
+        try
+        {
+            foreach (var mutation in mutations)
+            {
+                mutation.Reset();
+            }
+        }
+        catch (Exception exception) when (exception is ArgumentException or InvalidOperationException or NotSupportedException)
+        {
+            return MutationResponse(
+                request,
+                RuntimeMutationStatuses.Unavailable,
+                applied: false,
+                currentTarget,
+                new ProtocolError(
+                    RuntimeMutationErrorCodes.InvalidRuntimeMutationRequest,
+                    $"Runtime mutation reset failed: {exception.Message}",
+                    new Dictionary<string, string>
+                    {
+                        ["resetAll"] = resetAll.ToString(CultureInfo.InvariantCulture),
+                        ["mutationCount"] = mutations.Count.ToString(CultureInfo.InvariantCulture)
+                    }));
+        }
+
+        var identity = NextMutationIdentity();
+        var metadata = CreateResetMetadata(identity.Id, mutations, resetAll, DateTimeOffset.UtcNow);
+
+        return MutationResponseWithMetadata(
+            request,
+            RuntimeMutationStatuses.Applied,
+            applied: true,
+            currentTarget,
+            identity.Id,
+            metadata);
     }
 
     private CoreResult<ResolvedMutationTarget> ResolveMutationTarget(TopLevel topLevel, RuntimeTargetContext target)
@@ -771,14 +1196,16 @@ public sealed class AvaScopeBridgeRuntime
                 or RuntimeMutationOperationKinds.ToggleClass => ValidateClassOperation(operation),
             RuntimeMutationOperationKinds.SetResource => ValidateSetResourceOperation(operation),
             RuntimeMutationOperationKinds.RemoveResource => ValidateRemoveResourceOperation(operation),
+            RuntimeMutationOperationKinds.ResetMutation => ValidateResetMutationOperation(operation),
+            RuntimeMutationOperationKinds.ResetAll => null,
             _ => new ProtocolError(
                 RuntimeMutationErrorCodes.UnsupportedRuntimeMutationOperation,
                 $"Runtime mutation operation '{operation.Kind}' is not supported.",
                 new Dictionary<string, string>
                 {
                     ["operation"] = operation.Kind,
-                    ["supportedOperations"] = RuntimeMutationOperationKinds.NoOp,
-                    ["nextAction"] = "Use the noop operation for contract checks, or wait for a later mutation capability to report this operation as available."
+                    ["supportedOperations"] = string.Join(",", GetSupportedMutationOperations()),
+                    ["nextAction"] = "Use one of the supported runtime mutation operations reported by capabilities."
                 })
         };
     }
@@ -810,16 +1237,7 @@ public sealed class AvaScopeBridgeRuntime
                 });
         }
 
-        return new ProtocolError(
-            RuntimeMutationErrorCodes.UnsupportedRuntimeMutationProperty,
-            $"Runtime property mutation for '{operation.PropertyName}' is not enabled in this contract slice.",
-            new Dictionary<string, string>
-            {
-                ["operation"] = operation.Kind,
-                ["propertyName"] = operation.PropertyName,
-                ["capability"] = RuntimeMutationCapabilityCatalog.StyleLayoutMutation,
-                ["nextAction"] = "Query capabilities and retry only when style_layout_mutation is available."
-            });
+        return null;
     }
 
     private static ProtocolError? ValidateClassOperation(RuntimeMutationOperation operation)
@@ -836,7 +1254,7 @@ public sealed class AvaScopeBridgeRuntime
                 });
         }
 
-        return CreateUnavailableMutationCapabilityDiagnostic(operation.Kind);
+        return null;
     }
 
     private static ProtocolError? ValidateSetResourceOperation(RuntimeMutationOperation operation)
@@ -866,7 +1284,7 @@ public sealed class AvaScopeBridgeRuntime
                 });
         }
 
-        return CreateUnavailableMutationCapabilityDiagnostic(operation.Kind);
+        return null;
     }
 
     private static ProtocolError? ValidateRemoveResourceOperation(RuntimeMutationOperation operation)
@@ -880,19 +1298,54 @@ public sealed class AvaScopeBridgeRuntime
                     ["operation"] = operation.Kind,
                     ["nextAction"] = "Provide a resource key."
                 })
-            : CreateUnavailableMutationCapabilityDiagnostic(operation.Kind);
+            : null;
     }
 
-    private static ProtocolError CreateUnavailableMutationCapabilityDiagnostic(string operation)
+    private static ProtocolError? ValidateResetMutationOperation(RuntimeMutationOperation operation)
+    {
+        return string.IsNullOrWhiteSpace(operation.MutationId)
+            ? new ProtocolError(
+                RuntimeMutationErrorCodes.InvalidRuntimeMutationRequest,
+                "reset_mutation requires mutationId.",
+                new Dictionary<string, string>
+                {
+                    ["operation"] = operation.Kind,
+                    ["nextAction"] = "Provide the mutationId returned by an applied mutation response."
+                })
+            : null;
+    }
+
+    private static IReadOnlyList<string> GetSupportedMutationOperations()
+    {
+        return
+        [
+            RuntimeMutationOperationKinds.NoOp,
+            RuntimeMutationOperationKinds.SetProperty,
+            RuntimeMutationOperationKinds.AddClass,
+            RuntimeMutationOperationKinds.RemoveClass,
+            RuntimeMutationOperationKinds.ToggleClass,
+            RuntimeMutationOperationKinds.SetResource,
+            RuntimeMutationOperationKinds.RemoveResource,
+            RuntimeMutationOperationKinds.ResetMutation,
+            RuntimeMutationOperationKinds.ResetAll
+        ];
+    }
+
+    private static ProtocolError CreateUnsupportedPropertyDiagnostic(
+        string operation,
+        string propertyName,
+        object node)
     {
         return new ProtocolError(
-            RuntimeMutationErrorCodes.RuntimeMutationCapabilityUnavailable,
-            $"Runtime mutation operation '{operation}' is not available yet.",
+            RuntimeMutationErrorCodes.UnsupportedRuntimeMutationProperty,
+            $"Runtime property mutation for '{propertyName}' is not supported on node type '{node.GetType().FullName ?? node.GetType().Name}'.",
             new Dictionary<string, string>
             {
                 ["operation"] = operation,
-                ["capability"] = RuntimeMutationCapabilityCatalog.StyleLayoutMutation,
-                ["nextAction"] = "Query capabilities and retry only when the requested operation is reported as available."
+                ["propertyName"] = propertyName,
+                ["nodeType"] = node.GetType().FullName ?? node.GetType().Name,
+                ["supportedProperties"] = "width,height,minWidth,minHeight,maxWidth,maxHeight,margin,padding,opacity,text,content,background,foreground",
+                ["nextAction"] = "Retry with a supported property for the selected node type."
             });
     }
 
@@ -901,7 +1354,8 @@ public sealed class AvaScopeBridgeRuntime
         return code switch
         {
             RuntimeMutationErrorCodes.InvalidRuntimeMutationRequest
-                or RuntimeMutationErrorCodes.InvalidRuntimeMutationValue => RuntimeMutationStatuses.Rejected,
+                or RuntimeMutationErrorCodes.InvalidRuntimeMutationValue
+                or RuntimeMutationErrorCodes.RuntimeMutationResetTargetNotFound => RuntimeMutationStatuses.Rejected,
             RuntimeMutationErrorCodes.RuntimeMutationCapabilityUnavailable
                 or RuntimeMutationErrorCodes.UnsupportedRuntimeMutationOperation
                 or RuntimeMutationErrorCodes.UnsupportedRuntimeMutationProperty => RuntimeMutationStatuses.Unsupported,
@@ -927,8 +1381,551 @@ public sealed class AvaScopeBridgeRuntime
             status,
             applied,
             DateTimeOffset.UtcNow,
-            RuntimeMutationCapabilityCatalog.ContractOnly(),
+            RuntimeMutationCapabilityCatalog.CurrentBridgeCapabilities(),
             diagnostics));
+    }
+
+    private CoreResult<RuntimeMutationResponse> MutationResponseWithMetadata(
+        RuntimeMutationRequest request,
+        string status,
+        bool applied,
+        RuntimeTargetContext target,
+        string? mutationId = null,
+        IReadOnlyDictionary<string, string>? metadata = null,
+        IReadOnlyList<ProtocolError>? diagnostics = null)
+    {
+        return CoreResult<RuntimeMutationResponse>.Ok(new RuntimeMutationResponse(
+            request.RequestId,
+            mutationId ?? NextMutationId(),
+            SessionId,
+            target.TopLevelId,
+            target,
+            request.Operation,
+            status,
+            applied,
+            DateTimeOffset.UtcNow,
+            RuntimeMutationCapabilityCatalog.CurrentBridgeCapabilities(),
+            diagnostics,
+            metadata));
+    }
+
+    private static CoreResult<MutableAvaloniaProperty> ResolveMutableProperty(object node, string propertyName)
+    {
+        var normalized = NormalizeMutationName(propertyName);
+
+        if (node is Layoutable layoutable)
+        {
+            var layoutProperty = normalized switch
+            {
+                "width" => new MutableAvaloniaProperty(layoutable, Layoutable.WidthProperty, "Width", MutationValueKindLayoutDouble),
+                "height" => new MutableAvaloniaProperty(layoutable, Layoutable.HeightProperty, "Height", MutationValueKindLayoutDouble),
+                "minwidth" => new MutableAvaloniaProperty(layoutable, Layoutable.MinWidthProperty, "MinWidth", MutationValueKindDouble),
+                "minheight" => new MutableAvaloniaProperty(layoutable, Layoutable.MinHeightProperty, "MinHeight", MutationValueKindDouble),
+                "maxwidth" => new MutableAvaloniaProperty(layoutable, Layoutable.MaxWidthProperty, "MaxWidth", MutationValueKindMaxLayoutDouble),
+                "maxheight" => new MutableAvaloniaProperty(layoutable, Layoutable.MaxHeightProperty, "MaxHeight", MutationValueKindMaxLayoutDouble),
+                "margin" => new MutableAvaloniaProperty(layoutable, Layoutable.MarginProperty, "Margin", MutationValueKindThickness),
+                _ => null
+            };
+
+            if (layoutProperty is not null)
+            {
+                return CoreResult<MutableAvaloniaProperty>.Ok(layoutProperty);
+            }
+        }
+
+        if (node is Visual visual && normalized == "opacity")
+        {
+            return CoreResult<MutableAvaloniaProperty>.Ok(new MutableAvaloniaProperty(
+                visual,
+                Visual.OpacityProperty,
+                "Opacity",
+                MutationValueKindOpacity));
+        }
+
+        if (normalized == "padding")
+        {
+            var paddingProperty = node switch
+            {
+                TextBlock textBlock => new MutableAvaloniaProperty(textBlock, TextBlock.PaddingProperty, "Padding", MutationValueKindThickness),
+                ContentPresenter presenter => new MutableAvaloniaProperty(presenter, ContentPresenter.PaddingProperty, "Padding", MutationValueKindThickness),
+                Decorator decorator => new MutableAvaloniaProperty(decorator, Decorator.PaddingProperty, "Padding", MutationValueKindThickness),
+                TemplatedControl templatedControl => new MutableAvaloniaProperty(templatedControl, TemplatedControl.PaddingProperty, "Padding", MutationValueKindThickness),
+                _ => null
+            };
+
+            if (paddingProperty is not null)
+            {
+                return CoreResult<MutableAvaloniaProperty>.Ok(paddingProperty);
+            }
+        }
+
+        if (normalized == "text")
+        {
+            var textProperty = node switch
+            {
+                TextBlock textBlock => new MutableAvaloniaProperty(textBlock, TextBlock.TextProperty, "Text", MutationValueKindString),
+                TextBox textBox => new MutableAvaloniaProperty(textBox, TextBox.TextProperty, "Text", MutationValueKindString),
+                ContentControl contentControl => new MutableAvaloniaProperty(contentControl, ContentControl.ContentProperty, "Content", MutationValueKindString),
+                _ => null
+            };
+
+            if (textProperty is not null)
+            {
+                return CoreResult<MutableAvaloniaProperty>.Ok(textProperty);
+            }
+        }
+
+        if (normalized == "content" && node is ContentControl content)
+        {
+            return CoreResult<MutableAvaloniaProperty>.Ok(new MutableAvaloniaProperty(
+                content,
+                ContentControl.ContentProperty,
+                "Content",
+                MutationValueKindString));
+        }
+
+        if (normalized == "background")
+        {
+            var backgroundProperty = node switch
+            {
+                TextBlock textBlock => new MutableAvaloniaProperty(textBlock, TextBlock.BackgroundProperty, "Background", MutationValueKindBrush),
+                Border border => new MutableAvaloniaProperty(border, Border.BackgroundProperty, "Background", MutationValueKindBrush),
+                Panel panel => new MutableAvaloniaProperty(panel, Panel.BackgroundProperty, "Background", MutationValueKindBrush),
+                ContentPresenter presenter => new MutableAvaloniaProperty(presenter, ContentPresenter.BackgroundProperty, "Background", MutationValueKindBrush),
+                TemplatedControl templatedControl => new MutableAvaloniaProperty(templatedControl, TemplatedControl.BackgroundProperty, "Background", MutationValueKindBrush),
+                _ => null
+            };
+
+            if (backgroundProperty is not null)
+            {
+                return CoreResult<MutableAvaloniaProperty>.Ok(backgroundProperty);
+            }
+        }
+
+        if (normalized == "foreground")
+        {
+            var foregroundProperty = node switch
+            {
+                TextBlock textBlock => new MutableAvaloniaProperty(textBlock, TextBlock.ForegroundProperty, "Foreground", MutationValueKindBrush),
+                ContentPresenter presenter => new MutableAvaloniaProperty(presenter, ContentPresenter.ForegroundProperty, "Foreground", MutationValueKindBrush),
+                TemplatedControl templatedControl => new MutableAvaloniaProperty(templatedControl, TemplatedControl.ForegroundProperty, "Foreground", MutationValueKindBrush),
+                _ => null
+            };
+
+            if (foregroundProperty is not null)
+            {
+                return CoreResult<MutableAvaloniaProperty>.Ok(foregroundProperty);
+            }
+        }
+
+        return CoreResult<MutableAvaloniaProperty>.Fail(new CoreError(
+            RuntimeMutationErrorCodes.UnsupportedRuntimeMutationProperty,
+            $"Runtime property mutation for '{propertyName}' is not supported on this node.",
+            CreateUnsupportedPropertyDiagnostic(RuntimeMutationOperationKinds.SetProperty, propertyName, node).Details));
+    }
+
+    private static CoreResult<ConvertedMutationValue> ConvertMutationValue(
+        RuntimeMutationOperation operation,
+        string valueKind)
+    {
+        var value = operation.Value;
+        if (value is null)
+        {
+            return CoreResult<ConvertedMutationValue>.Fail(new CoreError(
+                RuntimeMutationErrorCodes.InvalidRuntimeMutationValue,
+                $"{operation.Kind} requires value."));
+        }
+
+        try
+        {
+            return valueKind switch
+            {
+                MutationValueKindBrush => CoreResult<ConvertedMutationValue>.Ok(new ConvertedMutationValue(ParseBrushValue(value))),
+                MutationValueKindDouble => CoreResult<ConvertedMutationValue>.Ok(new ConvertedMutationValue(ParseFiniteNonNegativeDouble(value, operation.PropertyName))),
+                MutationValueKindLayoutDouble => CoreResult<ConvertedMutationValue>.Ok(new ConvertedMutationValue(ParseLayoutDouble(value, allowAuto: true, allowInfinity: false, operation.PropertyName))),
+                MutationValueKindMaxLayoutDouble => CoreResult<ConvertedMutationValue>.Ok(new ConvertedMutationValue(ParseLayoutDouble(value, allowAuto: false, allowInfinity: true, operation.PropertyName))),
+                MutationValueKindOpacity => CoreResult<ConvertedMutationValue>.Ok(new ConvertedMutationValue(ParseOpacity(value))),
+                MutationValueKindString => CoreResult<ConvertedMutationValue>.Ok(new ConvertedMutationValue(value)),
+                MutationValueKindThickness => CoreResult<ConvertedMutationValue>.Ok(new ConvertedMutationValue(Thickness.Parse(value))),
+                _ => CoreResult<ConvertedMutationValue>.Fail(new CoreError(
+                    RuntimeMutationErrorCodes.InvalidRuntimeMutationValue,
+                    $"Runtime mutation value kind '{valueKind}' is not supported."))
+            };
+        }
+        catch (Exception exception) when (exception is ArgumentException or FormatException or OverflowException)
+        {
+            return CoreResult<ConvertedMutationValue>.Fail(new CoreError(
+                RuntimeMutationErrorCodes.InvalidRuntimeMutationValue,
+                exception.Message,
+                new Dictionary<string, string>
+                {
+                    ["operation"] = operation.Kind,
+                    ["propertyName"] = operation.PropertyName ?? "not_available",
+                    ["value"] = value,
+                    ["valueType"] = operation.ValueType ?? valueKind
+                }));
+        }
+    }
+
+    private static CoreResult<ConvertedMutationValue> ConvertResourceMutationValue(RuntimeMutationOperation operation)
+    {
+        var value = operation.Value;
+        if (value is null)
+        {
+            return CoreResult<ConvertedMutationValue>.Fail(new CoreError(
+                RuntimeMutationErrorCodes.InvalidRuntimeMutationValue,
+                "set_resource requires value."));
+        }
+
+        var valueType = NormalizeMutationName(operation.ValueType ?? "string");
+        try
+        {
+            return valueType switch
+            {
+                "brush" => CoreResult<ConvertedMutationValue>.Ok(new ConvertedMutationValue(ParseBrushValue(value))),
+                "color" => CoreResult<ConvertedMutationValue>.Ok(new ConvertedMutationValue(new SolidColorBrush(Color.Parse(value)))),
+                "double" or "number" => CoreResult<ConvertedMutationValue>.Ok(new ConvertedMutationValue(ParseInvariantDouble(value, "resource"))),
+                "bool" or "boolean" => CoreResult<ConvertedMutationValue>.Ok(new ConvertedMutationValue(bool.Parse(value))),
+                "thickness" => CoreResult<ConvertedMutationValue>.Ok(new ConvertedMutationValue(Thickness.Parse(value))),
+                "null" => CoreResult<ConvertedMutationValue>.Ok(new ConvertedMutationValue(null)),
+                "string" => CoreResult<ConvertedMutationValue>.Ok(new ConvertedMutationValue(value)),
+                _ => CoreResult<ConvertedMutationValue>.Fail(new CoreError(
+                    RuntimeMutationErrorCodes.InvalidRuntimeMutationValue,
+                    $"Resource mutation valueType '{operation.ValueType}' is not supported.",
+                    new Dictionary<string, string>
+                    {
+                        ["resourceKey"] = operation.ResourceKey ?? "not_available",
+                        ["supportedValueTypes"] = "string,double,bool,brush,color,thickness,null"
+                    }))
+            };
+        }
+        catch (Exception exception) when (exception is ArgumentException or FormatException or OverflowException)
+        {
+            return CoreResult<ConvertedMutationValue>.Fail(new CoreError(
+                RuntimeMutationErrorCodes.InvalidRuntimeMutationValue,
+                exception.Message,
+                new Dictionary<string, string>
+                {
+                    ["operation"] = operation.Kind,
+                    ["resourceKey"] = operation.ResourceKey ?? "not_available",
+                    ["value"] = value,
+                    ["valueType"] = operation.ValueType ?? "string"
+                }));
+        }
+    }
+
+    private static object? ParseBrushValue(string value)
+    {
+        return string.Equals(value, "null", StringComparison.OrdinalIgnoreCase)
+            ? null
+            : Brush.Parse(value);
+    }
+
+    private static double ParseOpacity(string value)
+    {
+        var parsed = ParseInvariantDouble(value, "Opacity");
+        if (parsed < 0 || parsed > 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(value), "Opacity must be between 0 and 1.");
+        }
+
+        return parsed;
+    }
+
+    private static double ParseFiniteNonNegativeDouble(string value, string? propertyName)
+    {
+        var parsed = ParseInvariantDouble(value, propertyName ?? "value");
+        if (!double.IsFinite(parsed) || parsed < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(value), $"{propertyName ?? "Value"} must be a finite non-negative number.");
+        }
+
+        return parsed;
+    }
+
+    private static double ParseLayoutDouble(
+        string value,
+        bool allowAuto,
+        bool allowInfinity,
+        string? propertyName)
+    {
+        if (allowAuto && string.Equals(value, "auto", StringComparison.OrdinalIgnoreCase))
+        {
+            return double.NaN;
+        }
+
+        if (allowInfinity && string.Equals(value, "infinity", StringComparison.OrdinalIgnoreCase))
+        {
+            return double.PositiveInfinity;
+        }
+
+        var parsed = ParseInvariantDouble(value, propertyName ?? "value");
+        if (double.IsNaN(parsed) || parsed < 0 || (!allowInfinity && double.IsInfinity(parsed)))
+        {
+            throw new ArgumentOutOfRangeException(nameof(value), $"{propertyName ?? "Value"} must be a non-negative layout number.");
+        }
+
+        return parsed;
+    }
+
+    private static double ParseInvariantDouble(string value, string propertyName)
+    {
+        if (!double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed))
+        {
+            throw new FormatException($"{propertyName} value '{value}' is not a valid invariant-culture number.");
+        }
+
+        return parsed;
+    }
+
+    private static PropertyValueSnapshot CapturePropertySnapshot(AvaloniaObject owner, AvaloniaProperty property)
+    {
+        try
+        {
+            var diagnostic = owner.GetDiagnostic(property);
+            return new PropertyValueSnapshot(
+                diagnostic.Value,
+                diagnostic.Value?.GetType().FullName ?? "null",
+                FormatComputedValue(diagnostic.Value),
+                diagnostic.Priority,
+                MapComputedSource(diagnostic.Priority),
+                owner.IsSet(property));
+        }
+        catch (InvalidOperationException)
+        {
+            var value = owner.GetValue(property);
+            return new PropertyValueSnapshot(
+                value,
+                value?.GetType().FullName ?? "null",
+                FormatComputedValue(value),
+                BindingPriority.Unset,
+                "not_available",
+                owner.IsSet(property));
+        }
+    }
+
+    private static PropertyValueSnapshot CreateValueSnapshot(object? value, string source, bool hasLocalValue)
+    {
+        return new PropertyValueSnapshot(
+            value,
+            value?.GetType().FullName ?? "null",
+            FormatComputedValue(value),
+            BindingPriority.Unset,
+            source,
+            hasLocalValue);
+    }
+
+    private static IReadOnlyDictionary<string, string> CreateAppliedMutationMetadata(
+        string mutationId,
+        RuntimeMutationOperation operation,
+        ResolvedMutationTarget resolvedTarget,
+        string propertyName,
+        PropertyValueSnapshot original,
+        PropertyValueSnapshot effective,
+        DateTimeOffset appliedAt)
+    {
+        var metadata = CreateBaseMutationMetadata(mutationId, operation, resolvedTarget, appliedAt);
+        metadata["propertyName"] = propertyName;
+        AddValueMetadata(metadata, "original", original);
+        AddValueMetadata(metadata, "effective", effective);
+        metadata["resetSupported"] = "true";
+        return metadata;
+    }
+
+    private static IReadOnlyDictionary<string, string> CreateClassMutationMetadata(
+        string? mutationId,
+        RuntimeMutationOperation operation,
+        ResolvedMutationTarget resolvedTarget,
+        string className,
+        bool wasPresent,
+        bool isPresent,
+        DateTimeOffset appliedAt,
+        bool resetSupported)
+    {
+        var metadata = CreateBaseMutationMetadata(mutationId, operation, resolvedTarget, appliedAt);
+        metadata["className"] = className;
+        metadata["originalValue"] = wasPresent ? "present" : "absent";
+        metadata["originalValueType"] = "class_presence";
+        metadata["originalValueSource"] = "classes";
+        metadata["effectiveValue"] = isPresent ? "present" : "absent";
+        metadata["effectiveValueType"] = "class_presence";
+        metadata["effectiveValueSource"] = "classes";
+        metadata["resetSupported"] = resetSupported.ToString(CultureInfo.InvariantCulture);
+        return metadata;
+    }
+
+    private static IReadOnlyDictionary<string, string> CreateResourceMutationMetadata(
+        string? mutationId,
+        RuntimeMutationOperation operation,
+        ResolvedMutationTarget resolvedTarget,
+        string resourceKey,
+        PropertyValueSnapshot original,
+        PropertyValueSnapshot effective,
+        DateTimeOffset appliedAt,
+        bool resetSupported)
+    {
+        var metadata = CreateBaseMutationMetadata(mutationId, operation, resolvedTarget, appliedAt);
+        metadata["resourceKey"] = resourceKey;
+        AddValueMetadata(metadata, "original", original);
+        AddValueMetadata(metadata, "effective", effective);
+        metadata["resetSupported"] = resetSupported.ToString(CultureInfo.InvariantCulture);
+        return metadata;
+    }
+
+    private static Dictionary<string, string> CreateBaseMutationMetadata(
+        string? mutationId,
+        RuntimeMutationOperation operation,
+        ResolvedMutationTarget resolvedTarget,
+        DateTimeOffset appliedAt)
+    {
+        var metadata = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["operation"] = operation.Kind,
+            ["topLevelId"] = resolvedTarget.Target.TopLevelId,
+            ["targetKind"] = resolvedTarget.Target.TargetKind ?? "node",
+            ["nodeType"] = resolvedTarget.Node.GetType().FullName ?? resolvedTarget.Node.GetType().Name,
+            ["appliedAt"] = appliedAt.ToString("O", CultureInfo.InvariantCulture)
+        };
+
+        if (!string.IsNullOrWhiteSpace(mutationId))
+        {
+            metadata["mutationId"] = mutationId;
+        }
+
+        if (!string.IsNullOrWhiteSpace(resolvedTarget.Target.TreeKind))
+        {
+            metadata["treeKind"] = resolvedTarget.Target.TreeKind!;
+        }
+
+        if (!string.IsNullOrWhiteSpace(resolvedTarget.Target.NodeId))
+        {
+            metadata["nodeId"] = resolvedTarget.Target.NodeId!;
+        }
+
+        return metadata;
+    }
+
+    private static void AddValueMetadata(
+        IDictionary<string, string> metadata,
+        string prefix,
+        PropertyValueSnapshot snapshot)
+    {
+        metadata[$"{prefix}Value"] = snapshot.ValueText;
+        metadata[$"{prefix}ValueType"] = snapshot.ValueType;
+        metadata[$"{prefix}ValueSource"] = snapshot.Source;
+        metadata[$"{prefix}HadLocalValue"] = snapshot.HasLocalValue.ToString(CultureInfo.InvariantCulture);
+    }
+
+    private static IReadOnlyDictionary<string, string> CreateResetMetadata(
+        string? mutationId,
+        IReadOnlyList<AppliedRuntimeMutation> mutations,
+        bool resetAll,
+        DateTimeOffset resetAt)
+    {
+        var metadata = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["operation"] = resetAll ? RuntimeMutationOperationKinds.ResetAll : RuntimeMutationOperationKinds.ResetMutation,
+            ["resetAll"] = resetAll.ToString(CultureInfo.InvariantCulture),
+            ["resetCount"] = mutations.Count.ToString(CultureInfo.InvariantCulture),
+            ["resetAt"] = resetAt.ToString("O", CultureInfo.InvariantCulture),
+            ["resetOrder"] = resetAll ? "reverse_application_order" : "single"
+        };
+
+        if (!string.IsNullOrWhiteSpace(mutationId))
+        {
+            metadata["mutationId"] = mutationId;
+        }
+
+        if (mutations.Count > 0)
+        {
+            metadata["resetMutationIds"] = string.Join(",", mutations.Select(static mutation => mutation.MutationId));
+            metadata["resetOperationKinds"] = string.Join(",", mutations.Select(static mutation => mutation.OperationKind));
+            metadata["resetTargets"] = string.Join(",", mutations.Select(static mutation => mutation.NodeId ?? mutation.TopLevelId));
+        }
+
+        return metadata;
+    }
+
+    private static void ResetAvaloniaProperty(
+        AvaloniaObject owner,
+        AvaloniaProperty property,
+        object? originalValue,
+        bool restoreLocalValue)
+    {
+        if (restoreLocalValue)
+        {
+            owner.SetValue(property, originalValue!, BindingPriority.LocalValue);
+            return;
+        }
+
+        owner.ClearValue(property);
+    }
+
+    private static void SetClassPresence(StyledElement styledElement, string className, bool isPresent)
+    {
+        if (isPresent)
+        {
+            if (!styledElement.Classes.Contains(className))
+            {
+                styledElement.Classes.Add(className);
+            }
+
+            return;
+        }
+
+        styledElement.Classes.Remove(className);
+    }
+
+    private static void ResetResource(
+        StyledElement styledElement,
+        string resourceKey,
+        bool hadLocalResource,
+        object? originalValue)
+    {
+        if (hadLocalResource)
+        {
+            styledElement.Resources[resourceKey] = originalValue;
+            return;
+        }
+
+        styledElement.Resources.Remove(resourceKey);
+    }
+
+    private static string NormalizeMutationName(string value)
+    {
+        return value
+            .Replace("-", string.Empty, StringComparison.Ordinal)
+            .Replace("_", string.Empty, StringComparison.Ordinal)
+            .Trim()
+            .ToLowerInvariant();
+    }
+
+    private static ProtocolError CreateInvalidMutationValueDiagnostic(
+        RuntimeMutationOperation operation,
+        string message)
+    {
+        var details = new Dictionary<string, string>
+        {
+            ["operation"] = operation.Kind,
+            ["value"] = operation.Value ?? "null"
+        };
+
+        if (!string.IsNullOrWhiteSpace(operation.PropertyName))
+        {
+            details["propertyName"] = operation.PropertyName!;
+        }
+
+        if (!string.IsNullOrWhiteSpace(operation.ResourceKey))
+        {
+            details["resourceKey"] = operation.ResourceKey!;
+        }
+
+        if (!string.IsNullOrWhiteSpace(operation.ValueType))
+        {
+            details["valueType"] = operation.ValueType!;
+        }
+
+        return new ProtocolError(RuntimeMutationErrorCodes.InvalidRuntimeMutationValue, message, details);
     }
 
     private static ProtocolError CreateStaleMutationDiagnostic(
@@ -960,8 +1957,15 @@ public sealed class AvaScopeBridgeRuntime
 
     private string NextMutationId()
     {
+        return NextMutationIdentity().Id;
+    }
+
+    private RuntimeMutationIdentity NextMutationIdentity()
+    {
         var next = Interlocked.Increment(ref _mutationSequence);
-        return $"mutation:{SessionId.Value}:{next.ToString(CultureInfo.InvariantCulture)}";
+        return new RuntimeMutationIdentity(
+            $"mutation:{SessionId.Value}:{next.ToString(CultureInfo.InvariantCulture)}",
+            next);
     }
 
     private static ProtocolError ToProtocolError(CoreError error)
@@ -2302,6 +3306,36 @@ public sealed class AvaScopeBridgeRuntime
             ? Array.Empty<TopLevelSummary>()
             : [InspectableTopLevel.FromTopLevel(topLevel, "singleView")];
     }
+
+    private sealed record RuntimeMutationIdentity(string Id, long Sequence);
+
+    private sealed record ConvertedMutationValue(object? Value);
+
+    private sealed record MutableAvaloniaProperty(
+        AvaloniaObject Owner,
+        AvaloniaProperty Property,
+        string PropertyName,
+        string ValueKind);
+
+    private sealed record PropertyValueSnapshot(
+        object? Value,
+        string ValueType,
+        string ValueText,
+        BindingPriority Priority,
+        string Source,
+        bool HasLocalValue);
+
+    private sealed record AppliedRuntimeMutation(
+        string MutationId,
+        long Sequence,
+        string OperationKind,
+        string TopLevelId,
+        string? TreeKind,
+        string? NodeId,
+        string NodeType,
+        DateTimeOffset AppliedAt,
+        IReadOnlyDictionary<string, string> Metadata,
+        Action Reset);
 
     private sealed record ResolvedMutationTarget(object Node, RuntimeTargetContext Target);
 

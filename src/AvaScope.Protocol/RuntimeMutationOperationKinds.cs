@@ -9,4 +9,6 @@ public static class RuntimeMutationOperationKinds
     public const string ToggleClass = "toggle_class";
     public const string SetResource = "set_resource";
     public const string RemoveResource = "remove_resource";
+    public const string ResetMutation = "reset_mutation";
+    public const string ResetAll = "reset_all";
 }

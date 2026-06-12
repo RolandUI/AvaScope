@@ -5,6 +5,7 @@ namespace AvaScope.Protocol;
 public sealed record RuntimeMutationResponse
 {
     public const int MaximumDiagnostics = 16;
+    public const int MaximumMetadataEntries = 48;
 
     [JsonConstructor]
     public RuntimeMutationResponse(
@@ -18,7 +19,8 @@ public sealed record RuntimeMutationResponse
         bool applied,
         DateTimeOffset evaluatedAt,
         IReadOnlyList<RuntimeMutationCapability>? capabilities = null,
-        IReadOnlyList<ProtocolError>? diagnostics = null)
+        IReadOnlyList<ProtocolError>? diagnostics = null,
+        IReadOnlyDictionary<string, string>? metadata = null)
     {
         if (string.IsNullOrWhiteSpace(requestId))
         {
@@ -51,6 +53,12 @@ public sealed record RuntimeMutationResponse
         EvaluatedAt = evaluatedAt;
         Capabilities = capabilities ?? [];
         Diagnostics = (diagnostics ?? []).Take(MaximumDiagnostics).ToArray();
+        Metadata = metadata is null
+            ? new Dictionary<string, string>()
+            : metadata.Take(MaximumMetadataEntries).ToDictionary(
+                static item => item.Key,
+                static item => item.Value,
+                StringComparer.Ordinal);
     }
 
     [JsonPropertyName("requestId")]
@@ -85,4 +93,7 @@ public sealed record RuntimeMutationResponse
 
     [JsonPropertyName("diagnostics")]
     public IReadOnlyList<ProtocolError> Diagnostics { get; }
+
+    [JsonPropertyName("metadata")]
+    public IReadOnlyDictionary<string, string> Metadata { get; }
 }

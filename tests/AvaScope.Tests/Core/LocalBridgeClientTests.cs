@@ -259,7 +259,9 @@ public sealed class LocalBridgeClientTests : IDisposable
         var request = new RuntimeMutationRequest(
             "mutation-request-2",
             new RuntimeTargetContext(sessionId, "topLevel:abc", TreeKinds.Visual, "visual:node"),
-            new RuntimeMutationOperation(RuntimeMutationOperationKinds.NoOp));
+            new RuntimeMutationOperation(
+                RuntimeMutationOperationKinds.ResetMutation,
+                mutationId: "mutation:session:existing"));
         var serverTask = RespondToBridgeRequestAsync(
             pipeName,
             bridgeRequest =>
@@ -269,7 +271,8 @@ public sealed class LocalBridgeClientTests : IDisposable
                 Assert.NotNull(bridgeRequest.Mutation);
                 Assert.Equal("topLevel:abc", bridgeRequest.Mutation.Target.TopLevelId);
                 Assert.Equal("visual:node", bridgeRequest.Mutation.Target.NodeId);
-                Assert.Equal(RuntimeMutationOperationKinds.NoOp, bridgeRequest.Mutation.Operation.Kind);
+                Assert.Equal(RuntimeMutationOperationKinds.ResetMutation, bridgeRequest.Mutation.Operation.Kind);
+                Assert.Equal("mutation:session:existing", bridgeRequest.Mutation.Operation.MutationId);
 
                 return BridgeIpcResponse.Ok(
                     bridgeRequest.RequestId,
@@ -280,10 +283,15 @@ public sealed class LocalBridgeClientTests : IDisposable
                         bridgeRequest.Mutation.Target.TopLevelId,
                         bridgeRequest.Mutation.Target,
                         bridgeRequest.Mutation.Operation,
-                        RuntimeMutationStatuses.NoOp,
-                        applied: false,
+                        RuntimeMutationStatuses.Applied,
+                        applied: true,
                         DateTimeOffset.UtcNow,
-                        RuntimeMutationCapabilityCatalog.ContractOnly()));
+                        RuntimeMutationCapabilityCatalog.CurrentBridgeCapabilities(),
+                        metadata: new Dictionary<string, string>
+                        {
+                            ["resetMutationIds"] = "mutation:session:existing",
+                            ["resetCount"] = "1"
+                        }));
             });
         var client = new LocalBridgeClient(_manifestDirectory);
 
@@ -293,8 +301,9 @@ public sealed class LocalBridgeClientTests : IDisposable
         Assert.True(result.Success, result.Error?.Message);
         Assert.Equal(BridgeIpcMethods.MutateNode, bridgeRequest.Method);
         Assert.Equal("mutation:session:1", result.Value!.MutationId);
-        Assert.Equal(RuntimeMutationStatuses.NoOp, result.Value.Status);
-        Assert.False(result.Value.Applied);
+        Assert.Equal(RuntimeMutationStatuses.Applied, result.Value.Status);
+        Assert.True(result.Value.Applied);
+        Assert.Equal("mutation:session:existing", result.Value.Metadata["resetMutationIds"]);
         Assert.Empty(result.Value.Diagnostics);
     }
 

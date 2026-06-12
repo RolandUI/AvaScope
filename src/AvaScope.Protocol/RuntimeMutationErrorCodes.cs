@@ -9,4 +9,5 @@ public static class RuntimeMutationErrorCodes
     public const string RuntimeMutationCapabilityUnavailable = "runtime_mutation_capability_unavailable";
     public const string UnsupportedRuntimeMutationOperation = "unsupported_runtime_mutation_operation";
     public const string UnsupportedRuntimeMutationProperty = "unsupported_runtime_mutation_property";
+    public const string RuntimeMutationResetTargetNotFound = "runtime_mutation_reset_target_not_found";
 }

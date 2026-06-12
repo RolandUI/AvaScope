@@ -26,20 +26,22 @@ GitHub Issues and Milestones are the primary project-management source for auton
 
 ## Current Focus
 
-- `R0.7.0-M2 Style And Layout Mutation Set`
-- GitHub Issue: https://github.com/RolandUI/AvaScope/issues/10
+- `R0.7.0-M3 Mutation Evidence And Screenshot Loop`
+- GitHub Issue: https://github.com/RolandUI/AvaScope/issues/11
 - GitHub Milestone: `v0.7.0`
 - Status: `Ready`
 - Owner: unassigned
 - Started: pending
-- Goal: implement the first safe, reversible runtime style and layout mutation set on top of the completed mutation contract.
+- Goal: make runtime mutations reviewable through before/after screenshots, tree snapshots, bounded summaries, and optional diff/baseline evidence.
 
 ## Next Action
 
-Start GitHub issue #10 (`R0.7.0-M2 Style And Layout Mutation Set`). Before implementation, move it from `status:backlog` to `status:in-progress`, add a start comment, and keep the work scoped to safe temporary mutations for width, height, min/max size, margin, padding, opacity, text, brushes, classes, selected resource overrides, and reset metadata.
+Start GitHub issue #11 (`R0.7.0-M3 Mutation Evidence And Screenshot Loop`). Before implementation, move it from `status:ready` to `status:in-progress`, add a start comment, and keep the work scoped to before/after runtime mutation artifacts, bounded summaries, deterministic artifact paths, and screenshot/diff compatibility.
 
 ## Latest Validation
 
+- `2026-06-12`: Completed GitHub issue #10 for the runtime style/layout mutation set. Added safe reversible bridge mutations for width, height, min/max size, margin, padding, opacity, text/content, background, foreground, classes, and selected local resource overrides; added mutation response metadata for original/effective values, active mutation ids, and reset results; added `reset_mutation` and `reset_all` operations through Protocol, CLI, MCP, Core, and Bridge. Validation passed with `dotnet build AvaScope.slnx --no-restore -v:minimal`, focused mutation tests (`dotnet test AvaScope.slnx --no-build --filter "FullyQualifiedName~RuntimeMutationRequestAndResponseSerializeStableShapes|FullyQualifiedName~RuntimeMutation|FullyQualifiedName~MutateNode"`, 11 passed), full Debug tests (`dotnet test AvaScope.slnx --no-build`, 253 passed), and `git diff --check` (LF/CRLF warnings only).
+- `2026-06-12`: Started GitHub issue #10 for the runtime style/layout mutation set. Moved the issue and project card to `status:in-progress` / `In Progress`, recorded the intended validation in the issue, and scoped implementation to reversible local-only mutations plus reset semantics.
 - `2026-06-12`: Completed GitHub issue #9 for the runtime mutation contract. Added Protocol DTOs/constants for mutation requests, operations, capabilities, statuses, diagnostics, and responses; added `mutate_node` bridge IPC, Core client, Bridge runtime validation, CLI `mutate-node`, and MCP `mutate_node` surfaces. The contract validates target session/top-level/node context, returns bounded diagnostics for stale targets, unsupported properties/operations, invalid values, unavailable capabilities, and session mismatch, and preserves existing inspection/input/screenshot/close-session behavior. Validation passed with `dotnet build AvaScope.slnx --no-restore -v:minimal`, focused mutation tests (`dotnet test AvaScope.slnx --no-build --filter "FullyQualifiedName~RuntimeMutationRequestAndResponseSerializeStableShapes|FullyQualifiedName~MutateNode|FullyQualifiedName~McpStdioSmokeTests.ServerStartsOverStdioAndListsInitialTools"`), full Debug tests (`dotnet test AvaScope.slnx --no-build`, 251 passed), and `git diff --check` (LF/CRLF warnings only).
 - `2026-06-12`: Completed GitHub issue #40 for the agent-tool documentation positioning refresh. Updated README, `docs/USER_GUIDE.md`, `docs/AGENT_WORKFLOW.md`, `samples/AvaScope.GettingStartedApp/README.md`, and `AGENTS.md` so AvaScope is described as an agent-focused local control plane for Avalonia apps, while planned `v0.7.0` runtime mutations remain clearly marked as future work. Validation passed with `git diff --check` (LF/CRLF warnings only), a stale-wording `rg` check, and a local markdown link/path existence check for changed docs.
 - `2026-06-12`: Created the remaining GitHub issue backlog through `v1.0.0`: `v0.8.0` issues #19-#25, `v0.9.0` issues #26-#32, and `v1.0.0` issues #33-#39. Added all new issues to the public `AvaScope Roadmap` Project with `Workflow Status=Backlog`, `Progress=0%`, release tracker/planned-slice phase values, and roadmap ordering. No implementation was started; current focus remains issue #9.

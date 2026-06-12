@@ -56,7 +56,7 @@ Executable ZIPs and package artifacts are published from GitHub Releases when a 
 - Bridge discovery and control are local-only through session manifests and local named pipes.
 - Preview rendering runs user project code only inside `AvaScope.PreviewHost`, not inside MCP or the CLI process.
 - MCP is a thin adapter over reusable local libraries and uses structured results instead of unbounded UI payloads.
-- Runtime control is intentionally narrow and non-destructive in the current pre-1.0 line. The `v0.7.0` roadmap extends this into reversible runtime UI mutations with explicit reset and evidence semantics.
+- Runtime control is intentionally narrow and non-destructive in the current pre-1.0 line. Bridge-enabled apps support bounded reversible runtime UI mutations for selected style, layout, text, class, and resource experiments; broader evidence/review workflows remain part of the `v0.7.0` roadmap.
 
 ## Project Status
 

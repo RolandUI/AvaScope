@@ -11,7 +11,8 @@ public sealed record RuntimeMutationOperation
         string? value = null,
         string? valueType = null,
         string? className = null,
-        string? resourceKey = null)
+        string? resourceKey = null,
+        string? mutationId = null)
     {
         if (string.IsNullOrWhiteSpace(kind))
         {
@@ -24,6 +25,7 @@ public sealed record RuntimeMutationOperation
         ValueType = string.IsNullOrWhiteSpace(valueType) ? null : valueType.Trim();
         ClassName = string.IsNullOrWhiteSpace(className) ? null : className.Trim();
         ResourceKey = string.IsNullOrWhiteSpace(resourceKey) ? null : resourceKey.Trim();
+        MutationId = string.IsNullOrWhiteSpace(mutationId) ? null : mutationId.Trim();
     }
 
     [JsonPropertyName("kind")]
@@ -48,4 +50,8 @@ public sealed record RuntimeMutationOperation
     [JsonPropertyName("resourceKey")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? ResourceKey { get; }
+
+    [JsonPropertyName("mutationId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? MutationId { get; }
 }

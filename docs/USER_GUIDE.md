@@ -10,6 +10,7 @@ AvaScope is an agent-focused local control plane for Avalonia apps. It gives CLI
 - Opt-in runtime bridge for Avalonia apps.
 - Local bridge discovery through session manifests and named pipes.
 - Runtime top-level listing, screenshots, bounded visual/logical trees, node search, and basic input.
+- Reversible runtime `mutate-node` for selected safe style, layout, text, class, and resource experiments against bridge-enabled apps.
 - Isolated preview host process for `.axaml` rendering.
 - Preview project/build-output metadata, binding/resource diagnostics, and advisory layout warnings.
 - Runtime `inspect_node` computed visual/style/layout property values.
@@ -29,7 +30,7 @@ AvaScope is designed around small, composable tool calls that an agent can chain
 4. Capture evidence as structured JSON plus file paths for screenshots, diffs, reports, or local HTML viewers.
 5. Close sessions and clean stale AvaScope-owned metadata explicitly.
 
-The `v0.7.0` release line adds the next control-plane layer: reversible runtime UI mutations for style/layout experiments, mutation history, reset semantics, and before/after evidence. Until that implementation lands, documentation marks mutation workflows as planned rather than available commands.
+The `v0.7.0` release line adds the next control-plane layer. The current bridge and CLI/MCP surfaces support bounded reversible style/layout/text/class/resource mutations with mutation ids and reset operations; mutation history review and before/after evidence packaging are still planned follow-up slices.
 
 ## Project Layout
 
@@ -481,6 +482,7 @@ Implemented tools:
 - `inspect_node`
 - `find_nodes`
 - `input`
+- `mutate_node`
 - `close_session`
 - `diagnostics`
 - `preview_axaml`
@@ -494,7 +496,7 @@ Implemented tools:
 - `close_preview_session`
 - `reload`
 
-Planned but not implemented yet: reversible runtime UI mutations, runtime hot reload, drag/drop, full preview startup orchestration, installer distribution, macOS release policy, and CI-oriented visual-regression report packs.
+Planned but not implemented yet: mutation history/review artifacts, automated before/after mutation evidence reports, runtime hot reload, drag/drop, full preview startup orchestration, installer distribution, macOS release policy, and CI-oriented visual-regression report packs.
 
 `diagnostics` reports AvaScope service metadata, local bridge manifest/pipe health, stale, invalid, unauthorized, unavailable, duplicate, and protocol-incompatible bridge records, preview host readiness, and stale or invalid preview-session metadata without building or loading user projects. The response keeps the legacy `issues` list and also includes bounded `diagnosticIssues` entries with source, severity, status, provenance, request ids, and related path/session metadata for agent triage.
 
@@ -576,4 +578,4 @@ Current preview limitations:
 - Preview project build and view loading happen in `AvaScope.PreviewHost`, not inside the MCP server process.
 - The MCP server is a thin adapter over Core.
 - Tool results use structured JSON and file paths instead of unbounded payloads where practical.
-- Runtime mutations planned for `v0.7.0` must remain local-only, reversible, bounded, and auditable before they become part of the stable tool set.
+- Runtime mutations remain local-only, reversible, bounded, and auditable. The current safe mutation set is intentionally limited to selected public Avalonia properties, classes, and local resource overrides.

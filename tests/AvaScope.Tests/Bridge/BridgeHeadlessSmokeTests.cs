@@ -169,7 +169,7 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
             Assert.NotEqual(noop.Value.MutationId, secondNoop.Value!.MutationId);
             Assert.EndsWith(":2", secondNoop.Value.MutationId, StringComparison.Ordinal);
 
-            var unsupported = runtime.MutateNodeAsync(new RuntimeMutationRequest(
+            var widthMutation = runtime.MutateNodeAsync(new RuntimeMutationRequest(
                 "mutation-request-3",
                 targetNode.Target!,
                 new RuntimeMutationOperation(
@@ -178,15 +178,48 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                     value: "240",
                     valueType: "double"))).GetAwaiter().GetResult();
 
+            Assert.True(widthMutation.Success, widthMutation.Error?.Message);
+            Assert.Equal(RuntimeMutationStatuses.Applied, widthMutation.Value!.Status);
+            Assert.True(widthMutation.Value.Applied);
+            Assert.Equal(240, targetText.Width);
+            Assert.Equal("Width", widthMutation.Value.Metadata["propertyName"]);
+            Assert.Equal("120", widthMutation.Value.Metadata["originalValue"]);
+            Assert.Equal("240", widthMutation.Value.Metadata["effectiveValue"]);
+            Assert.Contains(widthMutation.Value.Capabilities, capability =>
+                capability.Name == RuntimeMutationCapabilityCatalog.StyleLayoutMutation
+                && capability.Available);
+
+            var resetWidth = runtime.MutateNodeAsync(new RuntimeMutationRequest(
+                "mutation-request-4",
+                targetNode.Target!,
+                new RuntimeMutationOperation(
+                    RuntimeMutationOperationKinds.ResetMutation,
+                    mutationId: widthMutation.Value.MutationId))).GetAwaiter().GetResult();
+
+            Assert.True(resetWidth.Success, resetWidth.Error?.Message);
+            Assert.Equal(RuntimeMutationStatuses.Applied, resetWidth.Value!.Status);
+            Assert.True(resetWidth.Value.Applied);
+            Assert.Equal(120, targetText.Width);
+            Assert.Contains(widthMutation.Value.MutationId, resetWidth.Value.Metadata["resetMutationIds"], StringComparison.Ordinal);
+
+            var unsupported = runtime.MutateNodeAsync(new RuntimeMutationRequest(
+                "mutation-request-5",
+                targetNode.Target!,
+                new RuntimeMutationOperation(
+                    RuntimeMutationOperationKinds.SetProperty,
+                    propertyName: "UnsupportedProperty",
+                    value: "240",
+                    valueType: "double"))).GetAwaiter().GetResult();
+
             Assert.True(unsupported.Success, unsupported.Error?.Message);
             Assert.Equal(RuntimeMutationStatuses.Unsupported, unsupported.Value!.Status);
             Assert.False(unsupported.Value.Applied);
             var unsupportedDiagnostic = Assert.Single(unsupported.Value.Diagnostics);
             Assert.Equal(RuntimeMutationErrorCodes.UnsupportedRuntimeMutationProperty, unsupportedDiagnostic.Code);
-            Assert.Equal("Width", unsupportedDiagnostic.Details!["propertyName"]);
+            Assert.Equal("UnsupportedProperty", unsupportedDiagnostic.Details!["propertyName"]);
 
             var invalidValue = runtime.MutateNodeAsync(new RuntimeMutationRequest(
-                "mutation-request-4",
+                "mutation-request-6",
                 targetNode.Target!,
                 new RuntimeMutationOperation(
                     RuntimeMutationOperationKinds.SetProperty,
@@ -197,7 +230,7 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
             Assert.Equal(RuntimeMutationErrorCodes.InvalidRuntimeMutationValue, Assert.Single(invalidValue.Value.Diagnostics).Code);
 
             var stale = runtime.MutateNodeAsync(new RuntimeMutationRequest(
-                "mutation-request-5",
+                "mutation-request-7",
                 new RuntimeTargetContext(runtime.SessionId, "topLevel:missing", TreeKinds.Visual, targetNode.NodeId),
                 new RuntimeMutationOperation(RuntimeMutationOperationKinds.NoOp))).GetAwaiter().GetResult();
 
@@ -206,6 +239,138 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
             Assert.Equal(RuntimeMutationErrorCodes.RuntimeMutationTargetStale, Assert.Single(stale.Value.Diagnostics).Code);
 
             window.Close();
+        }, CancellationToken.None);
+    }
+
+    [Fact]
+    public async Task RuntimeMutationAppliesClassesResourcesTextAndScreenshotObservableBackgroundThenResetAll()
+    {
+        using var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessTestApplication));
+
+        await session.Dispatch(() =>
+        {
+            var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Headless mutation apply sample"));
+            var originalResourceBrush = Brushes.Green;
+            var targetText = new TextBlock
+            {
+                Name = "MutationText",
+                Text = "Before",
+                Foreground = Brushes.White
+            };
+            var targetSurface = new Border
+            {
+                Name = "MutationSurface",
+                Width = 180,
+                Height = 120,
+                Background = Brushes.Red,
+                Child = targetText
+            };
+            targetSurface.Resources["AccentBrush"] = originalResourceBrush;
+            var window = new Window
+            {
+                Title = "AvaScope Mutation Apply Sample",
+                Width = 360,
+                Height = 240,
+                Content = targetSurface
+            };
+
+            var beforePath = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", $"{Guid.NewGuid():N}-before.png");
+            var afterPath = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", $"{Guid.NewGuid():N}-after.png");
+            var diffPath = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", $"{Guid.NewGuid():N}-diff.png");
+
+            try
+            {
+                window.Show();
+                using var registration = runtime.RegisterTopLevel(window);
+                Dispatcher.UIThread.RunJobs();
+
+                var topLevel = Assert.Single(runtime.ListTopLevelsAsync().GetAwaiter().GetResult());
+                var tree = runtime.GetVisualTreeAsync(topLevel.Id, maxDepth: 8).GetAwaiter().GetResult();
+                Assert.True(tree.Success, tree.Error?.Message);
+                var surfaceNode = FindNode(tree.Value!.Root, node => node.Name == "MutationSurface");
+                var textNode = FindNode(tree.Value.Root, node => node.Name == "MutationText");
+                Assert.NotNull(surfaceNode);
+                Assert.NotNull(surfaceNode.Target);
+                Assert.NotNull(textNode);
+                Assert.NotNull(textNode.Target);
+
+                var before = runtime.CaptureScreenshotAsync(topLevel.Id, beforePath).GetAwaiter().GetResult();
+                Assert.True(before.Success, before.Error?.Message);
+
+                var background = runtime.MutateNodeAsync(new RuntimeMutationRequest(
+                    "apply-background",
+                    surfaceNode.Target!,
+                    new RuntimeMutationOperation(
+                        RuntimeMutationOperationKinds.SetProperty,
+                        propertyName: "Background",
+                        value: "#0000ff",
+                        valueType: "brush"))).GetAwaiter().GetResult();
+                var text = runtime.MutateNodeAsync(new RuntimeMutationRequest(
+                    "apply-text",
+                    textNode.Target!,
+                    new RuntimeMutationOperation(
+                        RuntimeMutationOperationKinds.SetProperty,
+                        propertyName: "Text",
+                        value: "After",
+                        valueType: "string"))).GetAwaiter().GetResult();
+                var addClass = runtime.MutateNodeAsync(new RuntimeMutationRequest(
+                    "apply-class",
+                    surfaceNode.Target!,
+                    new RuntimeMutationOperation(
+                        RuntimeMutationOperationKinds.AddClass,
+                        className: "agent-selected"))).GetAwaiter().GetResult();
+                var resource = runtime.MutateNodeAsync(new RuntimeMutationRequest(
+                    "apply-resource",
+                    surfaceNode.Target!,
+                    new RuntimeMutationOperation(
+                        RuntimeMutationOperationKinds.SetResource,
+                        value: "#00ff00",
+                        valueType: "brush",
+                        resourceKey: "AccentBrush"))).GetAwaiter().GetResult();
+
+                Assert.True(background.Success, background.Error?.Message);
+                Assert.True(background.Value!.Applied);
+                Assert.True(text.Success, text.Error?.Message);
+                Assert.True(text.Value!.Applied);
+                Assert.True(addClass.Success, addClass.Error?.Message);
+                Assert.True(addClass.Value!.Applied);
+                Assert.True(resource.Success, resource.Error?.Message);
+                Assert.True(resource.Value!.Applied);
+                Assert.Equal("After", targetText.Text);
+                Assert.Contains("agent-selected", targetSurface.Classes);
+                Assert.True(targetSurface.Resources.TryGetValue("AccentBrush", out var mutatedResource));
+                Assert.NotSame(originalResourceBrush, mutatedResource);
+
+                Dispatcher.UIThread.RunJobs();
+                var after = runtime.CaptureScreenshotAsync(topLevel.Id, afterPath).GetAwaiter().GetResult();
+                Assert.True(after.Success, after.Error?.Message);
+                var diff = new PreviewImageDiffer().Compare(beforePath, afterPath, diffPath);
+                Assert.True(diff.Success, diff.Error?.Message);
+                Assert.False(diff.Value!.Passed);
+                Assert.True(diff.Value.ChangedPixels > 0);
+
+                var resetAll = runtime.MutateNodeAsync(new RuntimeMutationRequest(
+                    "reset-all",
+                    surfaceNode.Target!,
+                    new RuntimeMutationOperation(RuntimeMutationOperationKinds.ResetAll))).GetAwaiter().GetResult();
+
+                Assert.True(resetAll.Success, resetAll.Error?.Message);
+                Assert.Equal(RuntimeMutationStatuses.Applied, resetAll.Value!.Status);
+                Assert.True(resetAll.Value.Applied);
+                Assert.Equal("4", resetAll.Value.Metadata["resetCount"]);
+                Assert.Equal("Before", targetText.Text);
+                Assert.DoesNotContain("agent-selected", targetSurface.Classes);
+                Assert.Equal(Brushes.Red.ToString(), targetSurface.Background?.ToString());
+                Assert.True(targetSurface.Resources.TryGetValue("AccentBrush", out var resetResource));
+                Assert.Same(originalResourceBrush, resetResource);
+            }
+            finally
+            {
+                window.Close();
+                DeleteIfExists(beforePath);
+                DeleteIfExists(afterPath);
+                DeleteIfExists(diffPath);
+            }
         }, CancellationToken.None);
     }
 
@@ -261,7 +426,7 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
             Assert.False(noop.Value.Applied);
             Assert.Empty(noop.Value.Diagnostics);
 
-            var unsupported = await AvaScopeMcpTools.MutateNode(
+            var widthMutation = await AvaScopeMcpTools.MutateNode(
                 client,
                 runtime.SessionId.Value,
                 topLevel.Id,
@@ -273,11 +438,27 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                 valueType: "double",
                 requestId: "mcp-mutation-request-2");
 
-            Assert.True(unsupported.Success, unsupported.Error?.Message);
-            Assert.Equal(RuntimeMutationStatuses.Unsupported, unsupported.Value!.Status);
-            Assert.False(unsupported.Value.Applied);
-            Assert.True(unsupported.Value.Diagnostics.Count <= RuntimeMutationResponse.MaximumDiagnostics);
-            Assert.Equal(RuntimeMutationErrorCodes.UnsupportedRuntimeMutationProperty, Assert.Single(unsupported.Value.Diagnostics).Code);
+            Assert.True(widthMutation.Success, widthMutation.Error?.Message);
+            Assert.Equal(RuntimeMutationStatuses.Applied, widthMutation.Value!.Status);
+            Assert.True(widthMutation.Value.Applied);
+            Assert.Equal(240, targetText.Width);
+            Assert.Equal("Width", widthMutation.Value.Metadata["propertyName"]);
+
+            var resetWidth = await AvaScopeMcpTools.MutateNode(
+                client,
+                runtime.SessionId.Value,
+                topLevel.Id,
+                targetNode.NodeId,
+                RuntimeMutationOperationKinds.ResetMutation,
+                TreeKinds.Visual,
+                mutationId: widthMutation.Value.MutationId,
+                requestId: "mcp-mutation-request-3");
+
+            Assert.True(resetWidth.Success, resetWidth.Error?.Message);
+            Assert.Equal(RuntimeMutationStatuses.Applied, resetWidth.Value!.Status);
+            Assert.True(resetWidth.Value.Applied);
+            Assert.Equal(120, targetText.Width);
+            Assert.Contains(widthMutation.Value.MutationId, resetWidth.Value.Metadata["resetMutationIds"], StringComparison.Ordinal);
 
             window.Close();
         }, CancellationToken.None);
@@ -938,6 +1119,14 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
         }
 
         return null;
+    }
+
+    private static void DeleteIfExists(string path)
+    {
+        if (File.Exists(path))
+        {
+            File.Delete(path);
+        }
     }
 
     private static PreviewSessionRegistry CreatePreviewSessionRegistryWithMissingHost()

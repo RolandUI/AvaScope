@@ -380,6 +380,7 @@ public sealed class AvaScopeMcpTools
         string? valueType = null,
         string? className = null,
         string? resourceKey = null,
+        string? mutationId = null,
         string? requestId = null,
         string? manifestDirectory = null,
         CancellationToken cancellationToken = default)
@@ -397,8 +398,11 @@ public sealed class AvaScopeMcpTools
             request = new RuntimeMutationRequest(
                 string.IsNullOrWhiteSpace(requestId) ? Guid.NewGuid().ToString("n") : requestId,
                 new RuntimeTargetContext(parsedSessionId!, topLevelId, treeKind, nodeId),
-                new RuntimeMutationOperation(operation, propertyName, value, valueType, className, resourceKey),
-                [RuntimeMutationCapabilityCatalog.RuntimeMutationContract]);
+                new RuntimeMutationOperation(operation, propertyName, value, valueType, className, resourceKey, mutationId),
+                [
+                    RuntimeMutationCapabilityCatalog.RuntimeMutationContract,
+                    RuntimeMutationCapabilityCatalog.StyleLayoutMutation
+                ]);
         }
         catch (Exception exception) when (exception is ArgumentException or ArgumentOutOfRangeException)
         {

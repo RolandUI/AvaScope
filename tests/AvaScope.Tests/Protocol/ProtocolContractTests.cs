@@ -295,7 +295,10 @@ public sealed class ProtocolContractTests
             "mutation-request-1",
             target,
             operation,
-            [RuntimeMutationCapabilityCatalog.RuntimeMutationContract],
+            [
+                RuntimeMutationCapabilityCatalog.RuntimeMutationContract,
+                RuntimeMutationCapabilityCatalog.StyleLayoutMutation
+            ],
             new Dictionary<string, string>
             {
                 ["source"] = "cli"
@@ -311,19 +314,17 @@ public sealed class ProtocolContractTests
             target.TopLevelId,
             target,
             operation,
-            RuntimeMutationStatuses.Unsupported,
-            applied: false,
+            RuntimeMutationStatuses.Applied,
+            applied: true,
             evaluatedAt,
-            RuntimeMutationCapabilityCatalog.ContractOnly(),
-            [
-                new ProtocolError(
-                    RuntimeMutationErrorCodes.UnsupportedRuntimeMutationProperty,
-                    "Width is not supported yet.",
-                    new Dictionary<string, string>
-                    {
-                        ["propertyName"] = "Width"
-                    })
-            ]);
+            RuntimeMutationCapabilityCatalog.CurrentBridgeCapabilities(),
+            metadata: new Dictionary<string, string>
+            {
+                ["propertyName"] = "Width",
+                ["originalValue"] = "120",
+                ["effectiveValue"] = "240",
+                ["resetSupported"] = "true"
+            });
 
         var requestNode = JsonNode.Parse(JsonSerializer.Serialize(mutationRequest))!;
         var ipcNode = JsonNode.Parse(JsonSerializer.Serialize(ipcRequest))!;
@@ -338,6 +339,7 @@ public sealed class ProtocolContractTests
         Assert.Equal("Width", requestNode["operation"]!["propertyName"]!.GetValue<string>());
         Assert.Equal("240", requestNode["operation"]!["value"]!.GetValue<string>());
         Assert.Equal(RuntimeMutationCapabilityCatalog.RuntimeMutationContract, requestNode["requestedCapabilities"]![0]!.GetValue<string>());
+        Assert.Equal(RuntimeMutationCapabilityCatalog.StyleLayoutMutation, requestNode["requestedCapabilities"]![1]!.GetValue<string>());
         Assert.Equal("cli", requestNode["metadata"]!["source"]!.GetValue<string>());
 
         Assert.Equal(BridgeIpcMethods.MutateNode, ipcNode["method"]!.GetValue<string>());
@@ -345,14 +347,17 @@ public sealed class ProtocolContractTests
         Assert.Equal("Width", ipcNode["mutation"]!["operation"]!["propertyName"]!.GetValue<string>());
 
         Assert.Equal("mutation:session-1:1", responseNode["mutationId"]!.GetValue<string>());
-        Assert.Equal(RuntimeMutationStatuses.Unsupported, responseNode["status"]!.GetValue<string>());
-        Assert.False(responseNode["applied"]!.GetValue<bool>());
+        Assert.Equal(RuntimeMutationStatuses.Applied, responseNode["status"]!.GetValue<string>());
+        Assert.True(responseNode["applied"]!.GetValue<bool>());
         Assert.Equal(RuntimeMutationCapabilityCatalog.RuntimeMutationContract, responseNode["capabilities"]![0]!["name"]!.GetValue<string>());
         Assert.True(responseNode["capabilities"]![0]!["available"]!.GetValue<bool>());
         Assert.Equal(RuntimeMutationCapabilityCatalog.StyleLayoutMutation, responseNode["capabilities"]![1]!["name"]!.GetValue<string>());
-        Assert.False(responseNode["capabilities"]![1]!["available"]!.GetValue<bool>());
-        Assert.Equal(RuntimeMutationErrorCodes.UnsupportedRuntimeMutationProperty, responseNode["diagnostics"]![0]!["code"]!.GetValue<string>());
-        Assert.Equal("Width", responseNode["diagnostics"]![0]!["details"]!["propertyName"]!.GetValue<string>());
+        Assert.True(responseNode["capabilities"]![1]!["available"]!.GetValue<bool>());
+        Assert.Equal("Width", responseNode["metadata"]!["propertyName"]!.GetValue<string>());
+        Assert.Equal("120", responseNode["metadata"]!["originalValue"]!.GetValue<string>());
+        Assert.Equal("240", responseNode["metadata"]!["effectiveValue"]!.GetValue<string>());
+        Assert.Equal("true", responseNode["metadata"]!["resetSupported"]!.GetValue<string>());
+        Assert.Empty(responseNode["diagnostics"]!.AsArray());
         Assert.Equal(evaluatedAt, DateTimeOffset.Parse(responseNode["evaluatedAt"]!.GetValue<string>(), CultureInfo.InvariantCulture));
     }
 
