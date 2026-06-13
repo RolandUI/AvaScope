@@ -2102,6 +2102,108 @@ public sealed class CliSmokeTests
     }
 
     [Fact]
+    public async Task AuditUiCommandBuildsBoundedReportFromVisualTreeThroughBridgePipe()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var sessionId = SessionId.New();
+        var pipeName = $"avascope-cli-audit-{Guid.NewGuid():N}";
+        var manifestPath = WriteBridgeManifest(sessionId, pipeName);
+        var buttonTarget = new RuntimeTargetContext(sessionId, "topLevel:cli", TreeKinds.Visual, "visual:button");
+        var tree = new TreeResponse(
+            sessionId,
+            "topLevel:cli",
+            TreeKinds.Visual,
+            4,
+            new TreeNodeSummary(
+                "visual:root",
+                "Avalonia.Controls.Window",
+                children:
+                [
+                    new TreeNodeSummary(
+                        "visual:button",
+                        "Avalonia.Controls.Button",
+                        target: buttonTarget,
+                        accessibilityState: new RuntimeAccessibilityState(
+                            "test",
+                            focusable: true,
+                            isTabStop: true)),
+                    new TreeNodeSummary(
+                        "visual:textbox",
+                        "Avalonia.Controls.TextBox",
+                        automationId: "EmailInput",
+                        target: new RuntimeTargetContext(sessionId, "topLevel:cli", TreeKinds.Visual, "visual:textbox"),
+                        accessibilityState: new RuntimeAccessibilityState(
+                            "test",
+                            automationName: "Email",
+                            focusable: true,
+                            isTabStop: true),
+                        validationState: new RuntimeValidationState(
+                            "has_errors",
+                            "test",
+                            hasErrors: true,
+                            errorCount: 1,
+                            errors: ["Email is required"]))
+                ]),
+            new RuntimeTargetContext(sessionId, "topLevel:cli", TreeKinds.Visual));
+
+        var serverTask = RespondToBridgeRequestAsync(pipeName, request =>
+        {
+            Assert.Equal(BridgeIpcMethods.VisualTree, request.Method);
+            Assert.Equal("topLevel:cli", request.TopLevelId);
+            Assert.Equal(4, request.MaxDepth);
+            return BridgeIpcResponse.Ok(request.RequestId, tree);
+        });
+
+        try
+        {
+            var result = await RunCliAsync(
+                cliAssembly,
+                "audit-ui",
+                "--session",
+                sessionId.Value,
+                "--top-level",
+                "topLevel:cli",
+                "--max-depth",
+                "4",
+                "--max-issues",
+                "2",
+                "--max-inventory",
+                "3");
+            var request = await serverTask;
+
+            Assert.Equal(0, result.ExitCode);
+            Assert.Equal(BridgeIpcMethods.VisualTree, request.Method);
+            Assert.True(string.IsNullOrWhiteSpace(result.StandardError), result.StandardError);
+
+            var payload = JsonSerializer.Deserialize<ToolResult<UiAuditResponse>>(result.StandardOutput, JsonOptions);
+            Assert.NotNull(payload);
+            Assert.True(payload.Success, payload.Error?.Message);
+            Assert.Equal(sessionId, payload.Value!.SessionId);
+            Assert.Equal("topLevel:cli", payload.Value.TopLevelId);
+            Assert.Equal(TreeKinds.Visual, payload.Value.TreeKind);
+            Assert.Equal(3, payload.Value.Summary.TotalNodes);
+            Assert.Equal(2, payload.Value.Summary.ActionableNodes);
+            Assert.Equal(3, payload.Value.Summary.IssueCount);
+            Assert.Equal(2, payload.Value.Issues.Count);
+            Assert.True(payload.Value.Summary.Truncated);
+            Assert.Contains(payload.Value.Issues, issue => issue.Code == "accessibility.missing_accessible_name");
+            Assert.Contains(payload.Value.Issues, issue => issue.Code == "accessibility.missing_automation_id");
+            Assert.Contains(payload.Value.Inventory, item => item.Category == "control" && item.Name == "Button");
+            Assert.Equal("issues_found", payload.Value.AgentReview.Status);
+            Assert.Contains("issues: 3", payload.Value.AgentReview.Summary, StringComparer.Ordinal);
+        }
+        finally
+        {
+            if (File.Exists(manifestPath))
+            {
+                File.Delete(manifestPath);
+            }
+        }
+    }
+
+    [Fact]
     public async Task FindNodesCommandRejectsMissingFilters()
     {
         var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");

@@ -804,7 +804,17 @@ public sealed class ProtocolContractTests
                             new SessionId("session-1"),
                             "topLevel:abc",
                             TreeKinds.Visual,
-                            "visual:text"))
+                            "visual:text"),
+                        accessibilityState: new RuntimeAccessibilityState(
+                            "avalonia_public_automation_properties",
+                            automationName: "Title",
+                            focusable: false,
+                            isTabStop: false),
+                        validationState: new RuntimeValidationState(
+                            "clean",
+                            "avalonia_public_data_validation_errors",
+                            hasErrors: false,
+                            errorCount: 0))
                 ]));
 
         var json = JsonSerializer.Serialize(response);
@@ -821,6 +831,10 @@ public sealed class ProtocolContractTests
         Assert.Equal("root", node["root"]!["classes"]![0]!.GetValue<string>());
         Assert.Equal("title-text", node["root"]!["children"]![0]!["automationId"]!.GetValue<string>());
         Assert.Equal("AvaScope", node["root"]!["children"]![0]!["text"]!.GetValue<string>());
+        Assert.Equal("Title", node["root"]!["children"]![0]!["accessibilityState"]!["automationName"]!.GetValue<string>());
+        Assert.False(node["root"]!["children"]![0]!["accessibilityState"]!["focusable"]!.GetValue<bool>());
+        Assert.Equal("clean", node["root"]!["children"]![0]!["validationState"]!["status"]!.GetValue<string>());
+        Assert.False(node["root"]!["children"]![0]!["validationState"]!["hasErrors"]!.GetValue<bool>());
         Assert.Equal("session-1", node["target"]!["sessionId"]!.GetValue<string>());
         Assert.Equal("topLevel:abc", node["target"]!["topLevelId"]!.GetValue<string>());
         Assert.Equal("visual", node["target"]!["treeKind"]!.GetValue<string>());
@@ -1026,6 +1040,82 @@ public sealed class ProtocolContractTests
         Assert.Equal("runtime_binding_path_metadata_not_available", node["bindingState"]!["diagnostics"]![0]!["code"]!.GetValue<string>());
         Assert.Equal("available", node["debugState"]!["status"]!.GetValue<string>());
         Assert.Equal("10..20", node["debugState"]!["fields"]!["visibleRange"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public void UiAuditResponseSerializesStableShape()
+    {
+        var sessionId = new SessionId("session-1");
+        var auditedAt = new DateTimeOffset(2026, 6, 13, 1, 0, 0, TimeSpan.Zero);
+        var target = new RuntimeTargetContext(sessionId, "topLevel:abc", TreeKinds.Visual, "visual:button");
+        var response = new UiAuditResponse(
+            sessionId,
+            "topLevel:abc",
+            TreeKinds.Visual,
+            8,
+            auditedAt,
+            new UiAuditSummary(
+                totalNodes: 4,
+                actionableNodes: 1,
+                nodesWithAutomationId: 0,
+                nodesWithAccessibilityName: 0,
+                nodesWithValidationMetadata: 1,
+                nodesWithValidationErrors: 1,
+                distinctControlTypes: 3,
+                distinctClasses: 1,
+                repeatedPatternCount: 1,
+                issueCount: 1,
+                inventoryItemCount: 2,
+                accessibilityStatus: "issues_found",
+                validationStatus: "errors_found",
+                focusOrderStatus: "available"),
+            issues:
+            [
+                new UiAuditIssue(
+                    "ui-audit:1",
+                    "accessibility",
+                    "warning",
+                    "accessibility.missing_automation_id",
+                    "Missing automation id.",
+                    "runtime_tree+public_avalonia_metadata",
+                    target,
+                    "Add AutomationProperties.AutomationId.",
+                    "visual:button",
+                    "Avalonia.Controls.Button",
+                    "SaveButton")
+            ],
+            inventory:
+            [
+                new UiInventoryItem(
+                    "inventory:control:button",
+                    "control",
+                    "Button",
+                    1,
+                    "runtime_tree",
+                    sampleTargets: [target]),
+                new UiInventoryItem(
+                    "inventory:resource:resource-dictionaries",
+                    "resource",
+                    "resource_dictionaries",
+                    0,
+                    "not_available",
+                    "not_available")
+            ],
+            target: new RuntimeTargetContext(sessionId, "topLevel:abc", TreeKinds.Visual));
+
+        var node = JsonNode.Parse(JsonSerializer.Serialize(response))!;
+
+        Assert.Equal("session-1", node["sessionId"]!.GetValue<string>());
+        Assert.Equal("topLevel:abc", node["topLevelId"]!.GetValue<string>());
+        Assert.Equal(TreeKinds.Visual, node["treeKind"]!.GetValue<string>());
+        Assert.Equal(4, node["summary"]!["totalNodes"]!.GetValue<int>());
+        Assert.Equal("issues_found", node["summary"]!["accessibilityStatus"]!.GetValue<string>());
+        Assert.Equal("accessibility.missing_automation_id", node["issues"]![0]!["code"]!.GetValue<string>());
+        Assert.Equal("visual:button", node["issues"]![0]!["target"]!["nodeId"]!.GetValue<string>());
+        Assert.Equal("Button", node["inventory"]![0]!["name"]!.GetValue<string>());
+        Assert.Equal("not_available", node["inventory"]![1]!["status"]!.GetValue<string>());
+        Assert.Equal("issues_found", node["agentReview"]!["status"]!.GetValue<string>());
+        Assert.Equal("issues: 1", node["agentReview"]!["summary"]![2]!.GetValue<string>());
     }
 
     [Fact]

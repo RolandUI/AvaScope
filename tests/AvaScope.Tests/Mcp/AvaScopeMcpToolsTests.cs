@@ -147,6 +147,21 @@ public sealed class AvaScopeMcpToolsTests
     }
 
     [Fact]
+    public async Task AuditUiRejectsEmptySessionId()
+    {
+        var client = new LocalBridgeClient(CreateMissingManifestDirectory());
+
+        var result = await AvaScopeMcpTools.AuditUi(
+            client,
+            " ",
+            "topLevel:abc");
+
+        Assert.False(result.Success);
+        Assert.Null(result.Value);
+        Assert.Equal(CoreErrorCodes.InvalidBridgeRequest, result.Error!.Code);
+    }
+
+    [Fact]
     public async Task InputRejectsEmptySessionId()
     {
         var client = new LocalBridgeClient(CreateMissingManifestDirectory());

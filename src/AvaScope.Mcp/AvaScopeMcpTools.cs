@@ -318,6 +318,58 @@ public sealed class AvaScopeMcpTools
     }
 
     [McpServerTool(
+        Name = "audit_ui",
+        Title = "Audit UI",
+        ReadOnly = true,
+        Idempotent = true,
+        Destructive = false,
+        OpenWorld = false,
+        UseStructuredContent = true)]
+    [Description("Returns a bounded accessibility, validation, and component inventory audit from a runtime visual or logical tree.")]
+    public static async Task<ToolResult<UiAuditResponse>> AuditUi(
+        LocalBridgeClient bridgeClient,
+        string sessionId,
+        string topLevelId,
+        string treeKind = TreeKinds.Visual,
+        int? maxDepth = null,
+        int? maxIssues = null,
+        int? maxInventoryItems = null,
+        string? manifestDirectory = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(bridgeClient);
+
+        if (!TryParseRequiredSessionId(sessionId, out var parsedSessionId, out var error))
+        {
+            return ToolResult<UiAuditResponse>.Fail(error!);
+        }
+
+        var client = CreateBridgeClient(bridgeClient, manifestDirectory);
+        CoreResult<TreeResponse> tree = treeKind switch
+        {
+            TreeKinds.Visual => await client.VisualTreeAsync(parsedSessionId!, topLevelId, maxDepth, cancellationToken),
+            TreeKinds.Logical => await client.LogicalTreeAsync(parsedSessionId!, topLevelId, maxDepth, cancellationToken),
+            _ => CoreResult<TreeResponse>.Fail(new CoreError(
+                CoreErrorCodes.InvalidBridgeRequest,
+                $"Tree kind '{treeKind}' is not supported.",
+                new Dictionary<string, string>
+                {
+                    ["supportedTreeKinds"] = $"{TreeKinds.Visual},{TreeKinds.Logical}"
+                }))
+        };
+
+        if (!tree.Success)
+        {
+            return ToolResult<UiAuditResponse>.Fail(new ProtocolError(
+                tree.Error!.Code,
+                tree.Error.Message,
+                tree.Error.Details));
+        }
+
+        return ToToolResult(new UiAuditBuilder().Create(tree.Value!, maxIssues, maxInventoryItems));
+    }
+
+    [McpServerTool(
         Name = "input",
         Title = "Input",
         ReadOnly = false,

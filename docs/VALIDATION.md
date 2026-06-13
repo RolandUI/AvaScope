@@ -194,6 +194,12 @@ For `v0.9.0` source-aware runtime suggestion work, include:
 dotnet test AvaScope.slnx --no-build --filter "FullyQualifiedName~ProtocolContractTests.RuntimeMutationReviewResponseSerializesStableShape|FullyQualifiedName~RuntimeSourceSuggestionBuilderTests|FullyQualifiedName~CliSmokeTests.MutationReviewCommandReadsHistoryAndWritesArtifactThroughBridgePipe|FullyQualifiedName~BridgeHeadlessSmokeTests.McpMutateNodeReturnsBoundedMutationContractResultsThroughLocalBridgePipe|FullyQualifiedName~McpStdioSmokeTests.ServerStartsOverStdioAndListsInitialTools"
 ```
 
+For `v0.9.0` accessibility, validation, and component inventory work, include:
+
+```powershell
+dotnet test AvaScope.slnx --no-build --filter "FullyQualifiedName~ProtocolContractTests.TreeResponseSerializesBoundedNodeShape|FullyQualifiedName~ProtocolContractTests.UiAuditResponseSerializesStableShape|FullyQualifiedName~UiAuditBuilderTests|FullyQualifiedName~CliSmokeTests.AuditUiCommandBuildsBoundedReportFromVisualTreeThroughBridgePipe|FullyQualifiedName~AvaScopeMcpToolsTests.AuditUiRejectsEmptySessionId|FullyQualifiedName~BridgeHeadlessSmokeTests.McpToolsListTopLevelsAndCaptureScreenshotThroughLocalBridgePipe|FullyQualifiedName~McpStdioSmokeTests.ServerStartsOverStdioAndListsInitialTools"
+```
+
 For visual regression workflow work, include:
 
 ```powershell

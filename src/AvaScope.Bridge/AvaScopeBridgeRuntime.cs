@@ -602,7 +602,9 @@ public sealed class AvaScopeBridgeRuntime
             CreateNodeTarget(topLevelId, TreeKinds.Visual, topLevel, node),
             GetScrollState(topLevel, topLevelId, node),
             GetBindingState(node),
-            GetDebugState(node)));
+            GetDebugState(node),
+            GetAccessibilityState(node),
+            GetValidationState(node)));
     }
 
     private CoreResult<InspectNodeResponse> InspectLogicalNode(ILogical root, TopLevel topLevel, string topLevelId, string nodeId)
@@ -629,7 +631,9 @@ public sealed class AvaScopeBridgeRuntime
             CreateNodeTarget(topLevelId, TreeKinds.Logical, topLevel, node),
             GetScrollState(topLevel, topLevelId, node),
             GetBindingState(node),
-            GetDebugState(node)));
+            GetDebugState(node),
+            GetAccessibilityState(node),
+            GetValidationState(node)));
     }
 
     private CoreResult<InputResponse> Input(
@@ -3155,7 +3159,9 @@ public sealed class AvaScopeBridgeRuntime
             GetBounds(node),
             GetClasses(node),
             children,
-            CreateNodeTarget(topLevelId, treeKind, topLevel, node));
+            CreateNodeTarget(topLevelId, treeKind, topLevel, node),
+            GetAccessibilityState(node),
+            GetValidationState(node));
     }
 
     private RuntimeTargetContext CreateTopLevelTarget(string topLevelId, TopLevel topLevel)
@@ -3268,6 +3274,48 @@ public sealed class AvaScopeBridgeRuntime
         return node is StyledElement styledElement
             ? styledElement.Classes.ToArray()
             : Array.Empty<string>();
+    }
+
+    private static RuntimeAccessibilityState? GetAccessibilityState(object node)
+    {
+        if (node is not StyledElement styledElement)
+        {
+            return null;
+        }
+
+        var labeledBy = AutomationProperties.GetLabeledBy(styledElement);
+        var inputElement = node as InputElement;
+        return new RuntimeAccessibilityState(
+            "avalonia_public_automation_properties",
+            AutomationProperties.GetName(styledElement),
+            AutomationProperties.GetHelpText(styledElement),
+            AutomationProperties.GetAccessKey(styledElement),
+            labeledBy is null ? null : FirstNonEmpty(GetName(labeledBy), GetText(labeledBy), labeledBy.GetType().Name),
+            AutomationProperties.GetControlTypeOverride(styledElement)?.ToString(),
+            inputElement?.Focusable,
+            inputElement is null ? null : inputElement.GetValue(KeyboardNavigation.IsTabStopProperty),
+            inputElement is null ? null : inputElement.GetValue(KeyboardNavigation.TabIndexProperty),
+            inputElement?.IsEnabled);
+    }
+
+    private static RuntimeValidationState? GetValidationState(object node)
+    {
+        if (node is not Control control)
+        {
+            return null;
+        }
+
+        var hasErrors = DataValidationErrors.GetHasErrors(control);
+        var errors = (DataValidationErrors.GetErrors(control) ?? [])
+            .Select(FormatValidationError)
+            .Where(static error => !string.IsNullOrWhiteSpace(error))
+            .ToArray();
+        return new RuntimeValidationState(
+            hasErrors ? "has_errors" : "clean",
+            "avalonia_public_data_validation_errors",
+            hasErrors,
+            errors.Length,
+            errors);
     }
 
     private static IReadOnlyList<ComputedPropertyValue> GetComputedProperties(object node)
@@ -3496,6 +3544,21 @@ public sealed class AvaScopeBridgeRuntime
             IFormattable formattable => formattable.ToString(null, CultureInfo.InvariantCulture),
             _ => value.ToString() ?? value.GetType().FullName ?? "value"
         };
+    }
+
+    private static string FormatValidationError(object? value)
+    {
+        return value switch
+        {
+            null => "null",
+            Exception exception => exception.Message,
+            _ => FormatComputedValue(value)
+        };
+    }
+
+    private static string? FirstNonEmpty(params string?[] values)
+    {
+        return values.FirstOrDefault(static value => !string.IsNullOrWhiteSpace(value))?.Trim();
     }
 
     private static string MapComputedSource(Avalonia.Data.BindingPriority priority)

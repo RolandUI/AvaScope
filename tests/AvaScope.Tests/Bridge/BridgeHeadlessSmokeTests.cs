@@ -822,13 +822,26 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                 Foreground = Brushes.Red
             };
             AutomationProperties.SetAutomationId(textBlock, "pipe-text");
+            AutomationProperties.SetName(textBlock, "Pipe text");
+            var actionButton = new Button
+            {
+                Name = "PipeButton",
+                Content = "Run audit"
+            };
 
             var window = new Window
             {
                 Title = "AvaScope Pipe Sample",
                 Width = 360,
                 Height = 240,
-                Content = textBlock
+                Content = new StackPanel
+                {
+                    Children =
+                    {
+                        textBlock,
+                        actionButton
+                    }
+                }
             };
 
             window.Show();
@@ -927,11 +940,33 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
             Assert.Equal(pipeTextNode.NodeId, inspected.Value.Target.NodeId);
             Assert.Equal("PipeText", inspected.Value.Name);
             Assert.Equal("pipe-text", inspected.Value.AutomationId);
+            Assert.NotNull(inspected.Value.AccessibilityState);
+            Assert.Equal("Pipe text", inspected.Value.AccessibilityState!.AutomationName);
+            Assert.NotNull(inspected.Value.ValidationState);
+            Assert.Equal("clean", inspected.Value.ValidationState!.Status);
             Assert.Contains("TextBlock", inspected.Value.NodeType, StringComparison.Ordinal);
             Assert.True(inspected.Value.Bounds is { Width: >= 0, Height: >= 0 });
             Assert.True(inspected.Value.ChildCount >= 0);
             Assert.Contains(inspected.Value.ComputedProperties, property => property.Name == "FontSize" && property.Value == "18");
             Assert.Contains(inspected.Value.ComputedProperties, property => property.Name == "Foreground" && property.Source == "local");
+
+            var audit = await AvaScopeMcpTools.AuditUi(
+                client,
+                runtime.SessionId.Value,
+                topLevel.Id,
+                TreeKinds.Visual,
+                maxDepth: 8,
+                maxIssues: 20,
+                maxInventoryItems: 20);
+
+            Assert.True(audit.Success, audit.Error?.Message);
+            Assert.Equal(runtime.SessionId, audit.Value!.SessionId);
+            Assert.Equal(topLevel.Id, audit.Value.TopLevelId);
+            Assert.Contains(audit.Value.Inventory, item => item.Category == "control" && item.Name == "Button");
+            Assert.Contains(audit.Value.Issues, issue =>
+                issue.Code == "accessibility.missing_automation_id"
+                && issue.Name == "PipeButton");
+            Assert.Equal("issues_found", audit.Value.AgentReview.Status);
 
             var missingInspect = await AvaScopeMcpTools.InspectNode(
                 client,

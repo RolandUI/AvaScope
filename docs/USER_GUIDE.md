@@ -361,7 +361,7 @@ dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll inspect-node --session 
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll inspect-node --session session-id --top-level topLevel:1234 --node logical:5678 --tree-kind logical
 ```
 
-`inspect-node` includes bounded `computedProperties` for high-value visual, style, text, and layout properties. Provenance uses public Avalonia diagnostic priority where available and reports `unknown` or `not_available` instead of guessing private style/resource origins. For selected runtime nodes it can also include `scrollState` for `ScrollViewer` metrics, `bindingState` with `DataContext` type and explicit binding metadata availability, and `debugState` fields from controls that implement the opt-in `IAvaScopeDebugStateProvider` bridge contract.
+`inspect-node` includes bounded `computedProperties` for high-value visual, style, text, and layout properties. Provenance uses public Avalonia diagnostic priority where available and reports `unknown` or `not_available` instead of guessing private style/resource origins. For selected runtime nodes it can also include `scrollState` for `ScrollViewer` metrics, `bindingState` with `DataContext` type and explicit binding metadata availability, `accessibilityState` from public automation/focus metadata, `validationState` from `DataValidationErrors`, and `debugState` fields from controls that implement the opt-in `IAvaScopeDebugStateProvider` bridge contract.
 
 Find runtime tree nodes by type, name, automation id, or text:
 
@@ -369,6 +369,14 @@ Find runtime tree nodes by type, name, automation id, or text:
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll find-nodes --session session-id --top-level topLevel:1234 --type TextBlock --max-depth 6
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll find-nodes --session session-id --top-level topLevel:1234 --tree-kind logical --automation-id save-button --max-results 10
 ```
+
+Build a bounded accessibility, validation, and component inventory report from the runtime tree:
+
+```powershell
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll audit-ui --session session-id --top-level topLevel:1234 --tree-kind visual --max-depth 8 --max-issues 100 --max-inventory 100
+```
+
+`audit-ui` returns `ToolResult<UiAuditResponse>` with `summary`, bounded `issues`, bounded `inventory`, and `agentReview`. It reports actionable controls missing accessible names or stable automation ids, keyboard focus metadata, runtime validation errors, control/class/component-pattern counts, and explicit `not_available` inventory entries for style/resource/template/theme scopes that the runtime tree cannot prove reliably.
 
 Send local-only runtime input to an active bridge session:
 
@@ -557,6 +565,7 @@ Implemented tools:
 - `logical_tree`
 - `inspect_node`
 - `find_nodes`
+- `audit_ui`
 - `input`
 - `mutate_node`
 - `mutate_node_evidence`

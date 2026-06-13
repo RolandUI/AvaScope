@@ -38,6 +38,7 @@ public sealed class McpStdioSmokeTests
         Assert.Contains("mutate_node", toolNames);
         Assert.Contains("mutate_node_evidence", toolNames);
         Assert.Contains("mutation_review", toolNames);
+        Assert.Contains("audit_ui", toolNames);
         Assert.Contains("preview_axaml", toolNames);
         Assert.Contains("preview_axaml_multi", toolNames);
         Assert.Contains("preview_axaml_animation", toolNames);

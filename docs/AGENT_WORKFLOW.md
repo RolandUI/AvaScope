@@ -129,11 +129,14 @@ In another terminal:
 & $avascope visual-tree --session <runtime-session-id> --top-level <topLevel:id> --max-depth 4
 & $avascope find-nodes --session <runtime-session-id> --top-level <topLevel:id> --type TextBlock --max-depth 6
 & $avascope inspect-node --session <runtime-session-id> --top-level <topLevel:id> --node <node-id>
+& $avascope audit-ui --session <runtime-session-id> --top-level <topLevel:id> --max-depth 8 --max-issues 100 --max-inventory 100
 ```
 
 Use `--manifest-dir` on follow-up runtime commands when the inspected app writes bridge manifests outside the default temp location. `attach` also accepts `--process`, `--process-name`, `--session`, and `--manifest` so agents can avoid ambiguous selection when multiple bridge-enabled apps are running.
 
-Use the `target` object returned by `visual-tree`, `logical-tree`, `find-nodes`, `inspect-node`, `screenshot`, and `input` as the handoff source for follow-up commands. It contains the current `sessionId`, `topLevelId`, `targetKind`, `capturedAt`, generation metadata, and node `treeKind`/`nodeId` when a node is involved; stale nodes return structured details and a `nextAction`.
+Use the `target` object returned by `visual-tree`, `logical-tree`, `find-nodes`, `inspect-node`, `audit-ui`, `screenshot`, and `input` as the handoff source for follow-up commands. It contains the current `sessionId`, `topLevelId`, `targetKind`, `capturedAt`, generation metadata, and node `treeKind`/`nodeId` when a node is involved; stale nodes return structured details and a `nextAction`.
+
+`audit-ui` builds a bounded accessibility, validation, and component inventory report from the runtime tree. It reports missing accessible names, missing stable automation ids, keyboard focus metadata, runtime validation errors, control/class/component-pattern inventory, and explicit `not_available` entries for style/resource/template/theme scopes that the runtime tree cannot prove reliably.
 
 Runtime bridge activation is always explicit and local-only. AvaScope does not open a network listener.
 

@@ -21,7 +21,9 @@ public sealed record InspectNodeResponse
         RuntimeTargetContext? target = null,
         RuntimeScrollState? scrollState = null,
         RuntimeBindingState? bindingState = null,
-        RuntimeDebugState? debugState = null)
+        RuntimeDebugState? debugState = null,
+        RuntimeAccessibilityState? accessibilityState = null,
+        RuntimeValidationState? validationState = null)
     {
         SessionId = sessionId ?? throw new ArgumentNullException(nameof(sessionId));
 
@@ -66,6 +68,8 @@ public sealed record InspectNodeResponse
         ScrollState = scrollState;
         BindingState = bindingState;
         DebugState = debugState;
+        AccessibilityState = accessibilityState;
+        ValidationState = validationState;
     }
 
     [JsonPropertyName("sessionId")]
@@ -122,4 +126,12 @@ public sealed record InspectNodeResponse
     [JsonPropertyName("debugState")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public RuntimeDebugState? DebugState { get; }
+
+    [JsonPropertyName("accessibilityState")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public RuntimeAccessibilityState? AccessibilityState { get; }
+
+    [JsonPropertyName("validationState")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public RuntimeValidationState? ValidationState { get; }
 }

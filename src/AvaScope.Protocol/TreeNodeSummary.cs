@@ -14,7 +14,9 @@ public sealed record TreeNodeSummary
         NodeBounds? bounds = null,
         IReadOnlyList<string>? classes = null,
         IReadOnlyList<TreeNodeSummary>? children = null,
-        RuntimeTargetContext? target = null)
+        RuntimeTargetContext? target = null,
+        RuntimeAccessibilityState? accessibilityState = null,
+        RuntimeValidationState? validationState = null)
     {
         if (string.IsNullOrWhiteSpace(nodeId))
         {
@@ -35,6 +37,8 @@ public sealed record TreeNodeSummary
         Classes = classes ?? Array.Empty<string>();
         Children = children ?? Array.Empty<TreeNodeSummary>();
         Target = target;
+        AccessibilityState = accessibilityState;
+        ValidationState = validationState;
     }
 
     [JsonPropertyName("nodeId")]
@@ -68,4 +72,12 @@ public sealed record TreeNodeSummary
     [JsonPropertyName("target")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public RuntimeTargetContext? Target { get; }
+
+    [JsonPropertyName("accessibilityState")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public RuntimeAccessibilityState? AccessibilityState { get; }
+
+    [JsonPropertyName("validationState")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public RuntimeValidationState? ValidationState { get; }
 }
