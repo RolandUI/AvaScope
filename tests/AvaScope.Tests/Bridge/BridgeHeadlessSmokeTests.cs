@@ -1450,124 +1450,131 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
     [Fact]
     public async Task McpExpandedInputAndRuntimeStateInspectionUseBridgeOnly()
     {
-        using var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessTestApplication));
+        var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessTestApplication));
 
-        await session.Dispatch(async () =>
+        try
         {
-            var tabControl = new TabControl
+            await session.Dispatch(async () =>
             {
-                Name = "TabTarget",
-                Items =
+                var tabControl = new TabControl
                 {
-                    new TabItem { Header = "First", Content = "First content" },
-                    new TabItem { Header = "Second", Content = "Second content" }
-                }
-            };
-            var debugPanel = new DebugStatePanel
-            {
-                Name = "DebugPanel",
-                Width = 120,
-                Height = 260,
-                DataContext = new RuntimeStateViewModel()
-            };
-            var scrollViewer = new ScrollViewer
-            {
-                Name = "ScrollTarget",
-                Width = 120,
-                Height = 80,
-                Content = debugPanel
-            };
+                    Name = "TabTarget",
+                    Items =
+                    {
+                        new TabItem { Header = "First", Content = "First content" },
+                        new TabItem { Header = "Second", Content = "Second content" }
+                    }
+                };
+                var debugPanel = new DebugStatePanel
+                {
+                    Name = "DebugPanel",
+                    Width = 120,
+                    Height = 260,
+                    DataContext = new RuntimeStateViewModel()
+                };
+                var scrollViewer = new ScrollViewer
+                {
+                    Name = "ScrollTarget",
+                    Width = 120,
+                    Height = 80,
+                    Content = debugPanel
+                };
 
-            var window = new Window
-            {
-                Title = "AvaScope Runtime State Sample",
-                Width = 360,
-                Height = 260,
-                Content = new StackPanel
+                var window = new Window
                 {
-                    Children =
+                    Title = "AvaScope Runtime State Sample",
+                    Width = 360,
+                    Height = 260,
+                    Content = new StackPanel
+                    {
+                        Children =
                     {
                         tabControl,
                         scrollViewer
                     }
-                }
-            };
+                    }
+                };
 
-            var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Headless runtime state sample"));
-            window.Show();
-            using var registration = runtime.RegisterTopLevel(window);
-            Dispatcher.UIThread.RunJobs();
+                var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Headless runtime state sample"));
+                window.Show();
+                using var registration = runtime.RegisterTopLevel(window);
+                Dispatcher.UIThread.RunJobs();
 
-            var client = new LocalBridgeClient(Path.GetDirectoryName(runtime.SessionManifestPath)!);
-            var topLevel = Assert.Single(await runtime.ListTopLevelsAsync());
-            var tree = await AvaScopeMcpTools.VisualTree(
-                client,
-                runtime.SessionId.Value,
-                topLevel.Id,
-                maxDepth: 12);
-            Assert.True(tree.Success, tree.Error?.Message);
-            var tabNode = FindNode(tree.Value!.Root, node => node.Name == "TabTarget");
-            var scrollNode = FindNode(tree.Value.Root, node => node.Name == "ScrollTarget");
-            var debugNode = FindNode(tree.Value.Root, node => node.Name == "DebugPanel");
-            Assert.NotNull(tabNode);
-            Assert.NotNull(scrollNode);
-            Assert.NotNull(debugNode);
+                var client = new LocalBridgeClient(Path.GetDirectoryName(runtime.SessionManifestPath)!);
+                var topLevel = Assert.Single(await runtime.ListTopLevelsAsync());
+                var tree = await AvaScopeMcpTools.VisualTree(
+                    client,
+                    runtime.SessionId.Value,
+                    topLevel.Id,
+                    maxDepth: 12);
+                Assert.True(tree.Success, tree.Error?.Message);
+                var tabNode = FindNode(tree.Value!.Root, node => node.Name == "TabTarget");
+                var scrollNode = FindNode(tree.Value.Root, node => node.Name == "ScrollTarget");
+                var debugNode = FindNode(tree.Value.Root, node => node.Name == "DebugPanel");
+                Assert.NotNull(tabNode);
+                Assert.NotNull(scrollNode);
+                Assert.NotNull(debugNode);
 
-            var select = await AvaScopeMcpTools.Input(
-                client,
-                runtime.SessionId.Value,
-                topLevel.Id,
-                InputActions.Select,
-                inputText: "1",
-                targetNodeId: tabNode.NodeId);
+                var select = await AvaScopeMcpTools.Input(
+                    client,
+                    runtime.SessionId.Value,
+                    topLevel.Id,
+                    InputActions.Select,
+                    inputText: "1",
+                    targetNodeId: tabNode.NodeId);
 
-            Assert.True(select.Success, select.Error?.Message);
-            Assert.True(select.Value!.Handled);
-            Assert.Equal(1, tabControl.SelectedIndex);
-            Assert.Equal("1", select.Value.Metadata["selectedIndex"]);
+                Assert.True(select.Success, select.Error?.Message);
+                Assert.True(select.Value!.Handled);
+                Assert.Equal(1, tabControl.SelectedIndex);
+                Assert.Equal("1", select.Value.Metadata["selectedIndex"]);
 
-            var scroll = await AvaScopeMcpTools.Input(
-                client,
-                runtime.SessionId.Value,
-                topLevel.Id,
-                InputActions.Scroll,
-                x: 0,
-                y: 40,
-                targetNodeId: scrollNode.NodeId);
+                var scroll = await AvaScopeMcpTools.Input(
+                    client,
+                    runtime.SessionId.Value,
+                    topLevel.Id,
+                    InputActions.Scroll,
+                    x: 0,
+                    y: 40,
+                    targetNodeId: scrollNode.NodeId);
 
-            Assert.True(scroll.Success, scroll.Error?.Message);
-            Assert.True(scroll.Value!.Handled);
-            Assert.True(scrollViewer.Offset.Y > 0);
-            Assert.Equal(InputActions.Scroll, scroll.Value.Action);
-            Assert.Equal("0", scroll.Value.Metadata["previousOffsetY"]);
+                Assert.True(scroll.Success, scroll.Error?.Message);
+                Assert.True(scroll.Value!.Handled);
+                Assert.True(scrollViewer.Offset.Y > 0);
+                Assert.Equal(InputActions.Scroll, scroll.Value.Action);
+                Assert.Equal("0", scroll.Value.Metadata["previousOffsetY"]);
 
-            var scrollInspect = await AvaScopeMcpTools.InspectNode(
-                client,
-                runtime.SessionId.Value,
-                topLevel.Id,
-                scrollNode.NodeId,
-                TreeKinds.Visual);
+                var scrollInspect = await AvaScopeMcpTools.InspectNode(
+                    client,
+                    runtime.SessionId.Value,
+                    topLevel.Id,
+                    scrollNode.NodeId,
+                    TreeKinds.Visual);
 
-            Assert.True(scrollInspect.Success, scrollInspect.Error?.Message);
-            Assert.Equal("available", scrollInspect.Value!.ScrollState!.Status);
-            Assert.True(scrollInspect.Value.ScrollState.Offset!.Y > 0);
-            Assert.Equal("available", scrollInspect.Value.ScrollState.Content!.Status);
+                Assert.True(scrollInspect.Success, scrollInspect.Error?.Message);
+                Assert.Equal("available", scrollInspect.Value!.ScrollState!.Status);
+                Assert.True(scrollInspect.Value.ScrollState.Offset!.Y > 0);
+                Assert.Equal("available", scrollInspect.Value.ScrollState.Content!.Status);
 
-            var debugInspect = await AvaScopeMcpTools.InspectNode(
-                client,
-                runtime.SessionId.Value,
-                topLevel.Id,
-                debugNode.NodeId,
-                TreeKinds.Visual);
+                var debugInspect = await AvaScopeMcpTools.InspectNode(
+                    client,
+                    runtime.SessionId.Value,
+                    topLevel.Id,
+                    debugNode.NodeId,
+                    TreeKinds.Visual);
 
-            Assert.True(debugInspect.Success, debugInspect.Error?.Message);
-            Assert.Equal("available", debugInspect.Value!.BindingState!.DataContextStatus);
-            Assert.Contains(nameof(RuntimeStateViewModel), debugInspect.Value.BindingState.DataContextType);
-            Assert.Equal("available", debugInspect.Value.DebugState!.Status);
-            Assert.Equal("10..20", debugInspect.Value.DebugState.Fields["visibleRange"]);
+                Assert.True(debugInspect.Success, debugInspect.Error?.Message);
+                Assert.Equal("available", debugInspect.Value!.BindingState!.DataContextStatus);
+                Assert.Contains(nameof(RuntimeStateViewModel), debugInspect.Value.BindingState.DataContextType);
+                Assert.Equal("available", debugInspect.Value.DebugState!.Status);
+                Assert.Equal("10..20", debugInspect.Value.DebugState.Fields["visibleRange"]);
 
-            window.Close();
-        }, CancellationToken.None);
+                window.Close();
+            }, CancellationToken.None);
+        }
+        finally
+        {
+            DisposeHeadlessSessionAfterExplicitCleanup(session);
+        }
     }
 
     [Fact]
