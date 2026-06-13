@@ -68,9 +68,31 @@ public sealed class PreviewImageDifferTests : IDisposable
 
     public void Dispose()
     {
-        if (Directory.Exists(_testRoot))
+        DeleteDirectoryWithRetry(_testRoot);
+    }
+
+    private static void DeleteDirectoryWithRetry(string path)
+    {
+        for (var attempt = 0; attempt < 30; attempt++)
         {
-            Directory.Delete(_testRoot, recursive: true);
+            if (!Directory.Exists(path))
+            {
+                return;
+            }
+
+            try
+            {
+                Directory.Delete(path, recursive: true);
+                return;
+            }
+            catch (IOException)
+            {
+                Thread.Sleep(100);
+            }
+            catch (UnauthorizedAccessException)
+            {
+                Thread.Sleep(100);
+            }
         }
     }
 

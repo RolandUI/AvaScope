@@ -1164,280 +1164,287 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
     [Fact]
     public async Task McpInputClicksButtonAndTypesTextThroughLocalBridgePipe()
     {
-        using var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessTestApplication));
+        var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessTestApplication));
 
-        await session.Dispatch(async () =>
+        try
         {
-            var clicked = 0;
-            var pointerMoved = 0;
-            var pointerPressed = 0;
-            var pointerReleased = 0;
-            var keyDown = 0;
-            var keyUp = 0;
-            var button = new Button
+            await session.Dispatch(async () =>
             {
-                Name = "ClickTarget",
-                Content = "Click",
-                Width = 120,
-                Height = 40
-            };
-            button.Click += (_, _) => clicked++;
-            button.PointerMoved += (_, _) => pointerMoved++;
-            button.AddHandler(InputElement.PointerPressedEvent, (_, e) =>
-            {
-                pointerPressed++;
-                Assert.True(e.GetCurrentPoint(button).Properties.IsLeftButtonPressed);
-            }, RoutingStrategies.Bubble, handledEventsToo: true);
-            button.AddHandler(InputElement.PointerReleasedEvent, (_, e) =>
-            {
-                pointerReleased++;
-                Assert.Equal(MouseButton.Left, e.InitialPressMouseButton);
-            }, RoutingStrategies.Bubble, handledEventsToo: true);
-
-            var textBox = new TextBox
-            {
-                Name = "TextTarget",
-                Width = 160
-            };
-            textBox.AddHandler(InputElement.KeyDownEvent, (_, e) =>
-            {
-                keyDown++;
-                Assert.Equal(Key.Enter, e.Key);
-                Assert.Equal(KeyModifiers.Control | KeyModifiers.Shift, e.KeyModifiers);
-            }, RoutingStrategies.Bubble, handledEventsToo: true);
-            textBox.AddHandler(InputElement.KeyUpEvent, (_, e) =>
-            {
-                keyUp++;
-                Assert.Equal(Key.Enter, e.Key);
-            }, RoutingStrategies.Bubble, handledEventsToo: true);
-
-            var window = new Window
-            {
-                Title = "AvaScope Input Sample",
-                Width = 360,
-                Height = 240,
-                Content = new StackPanel
+                var clicked = 0;
+                var pointerMoved = 0;
+                var pointerPressed = 0;
+                var pointerReleased = 0;
+                var keyDown = 0;
+                var keyUp = 0;
+                var button = new Button
                 {
-                    Children =
+                    Name = "ClickTarget",
+                    Content = "Click",
+                    Width = 120,
+                    Height = 40
+                };
+                button.Click += (_, _) => clicked++;
+                button.PointerMoved += (_, _) => pointerMoved++;
+                button.AddHandler(InputElement.PointerPressedEvent, (_, e) =>
+                {
+                    pointerPressed++;
+                    Assert.True(e.GetCurrentPoint(button).Properties.IsLeftButtonPressed);
+                }, RoutingStrategies.Bubble, handledEventsToo: true);
+                button.AddHandler(InputElement.PointerReleasedEvent, (_, e) =>
+                {
+                    pointerReleased++;
+                    Assert.Equal(MouseButton.Left, e.InitialPressMouseButton);
+                }, RoutingStrategies.Bubble, handledEventsToo: true);
+
+                var textBox = new TextBox
+                {
+                    Name = "TextTarget",
+                    Width = 160
+                };
+                textBox.AddHandler(InputElement.KeyDownEvent, (_, e) =>
+                {
+                    keyDown++;
+                    Assert.Equal(Key.Enter, e.Key);
+                    Assert.Equal(KeyModifiers.Control | KeyModifiers.Shift, e.KeyModifiers);
+                }, RoutingStrategies.Bubble, handledEventsToo: true);
+                textBox.AddHandler(InputElement.KeyUpEvent, (_, e) =>
+                {
+                    keyUp++;
+                    Assert.Equal(Key.Enter, e.Key);
+                }, RoutingStrategies.Bubble, handledEventsToo: true);
+
+                var window = new Window
+                {
+                    Title = "AvaScope Input Sample",
+                    Width = 360,
+                    Height = 240,
+                    Content = new StackPanel
                     {
-                        button,
-                        textBox
+                        Children =
+                        {
+                            button,
+                            textBox
+                        }
                     }
-                }
-            };
+                };
 
-            var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Headless input sample"));
-            window.Show();
-            using var registration = runtime.RegisterTopLevel(window);
-            Dispatcher.UIThread.RunJobs();
+                var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Headless input sample"));
+                window.Show();
+                using var registration = runtime.RegisterTopLevel(window);
+                Dispatcher.UIThread.RunJobs();
 
-            var client = new LocalBridgeClient(Path.GetDirectoryName(runtime.SessionManifestPath)!);
-            var topLevel = Assert.Single(await runtime.ListTopLevelsAsync());
-            var buttonCenter = button.TranslatePoint(
-                new Point(button.Bounds.Width / 2, button.Bounds.Height / 2),
-                window);
+                var client = new LocalBridgeClient(Path.GetDirectoryName(runtime.SessionManifestPath)!);
+                var topLevel = Assert.Single(await runtime.ListTopLevelsAsync());
+                var buttonCenter = button.TranslatePoint(
+                    new Point(button.Bounds.Width / 2, button.Bounds.Height / 2),
+                    window);
 
-            Assert.NotNull(buttonCenter);
+                Assert.NotNull(buttonCenter);
 
-            var move = await AvaScopeMcpTools.Input(
-                client,
-                runtime.SessionId.Value,
-                topLevel.Id,
-                InputActions.PointerMove,
-                buttonCenter.Value.X,
-                buttonCenter.Value.Y);
+                var move = await AvaScopeMcpTools.Input(
+                    client,
+                    runtime.SessionId.Value,
+                    topLevel.Id,
+                    InputActions.PointerMove,
+                    buttonCenter.Value.X,
+                    buttonCenter.Value.Y);
 
-            Assert.True(move.Success, move.Error?.Message);
-            Assert.True(move.Value!.Handled);
-            Assert.False(string.IsNullOrWhiteSpace(move.Value.TargetNodeId));
-            Assert.Equal(runtime.SessionId, move.Value.Target.SessionId);
-            Assert.Equal(topLevel.Id, move.Value.Target.TopLevelId);
-            Assert.Equal(TreeKinds.Visual, move.Value.Target.TreeKind);
-            Assert.Equal(move.Value.TargetNodeId, move.Value.Target.NodeId);
-            Assert.Equal(1, pointerMoved);
+                Assert.True(move.Success, move.Error?.Message);
+                Assert.True(move.Value!.Handled);
+                Assert.False(string.IsNullOrWhiteSpace(move.Value.TargetNodeId));
+                Assert.Equal(runtime.SessionId, move.Value.Target.SessionId);
+                Assert.Equal(topLevel.Id, move.Value.Target.TopLevelId);
+                Assert.Equal(TreeKinds.Visual, move.Value.Target.TreeKind);
+                Assert.Equal(move.Value.TargetNodeId, move.Value.Target.NodeId);
+                Assert.Equal(1, pointerMoved);
 
-            var down = await AvaScopeMcpTools.Input(
-                client,
-                runtime.SessionId.Value,
-                topLevel.Id,
-                InputActions.PointerDown,
-                buttonCenter.Value.X,
-                buttonCenter.Value.Y);
+                var down = await AvaScopeMcpTools.Input(
+                    client,
+                    runtime.SessionId.Value,
+                    topLevel.Id,
+                    InputActions.PointerDown,
+                    buttonCenter.Value.X,
+                    buttonCenter.Value.Y);
 
-            Assert.True(down.Success, down.Error?.Message);
-            Assert.True(down.Value!.Handled);
-            Assert.False(string.IsNullOrWhiteSpace(down.Value.TargetNodeId));
-            Assert.Equal("left", down.Value.PointerButton);
-            Assert.Equal(1, pointerPressed);
+                Assert.True(down.Success, down.Error?.Message);
+                Assert.True(down.Value!.Handled);
+                Assert.False(string.IsNullOrWhiteSpace(down.Value.TargetNodeId));
+                Assert.Equal("left", down.Value.PointerButton);
+                Assert.Equal(1, pointerPressed);
 
-            var up = await AvaScopeMcpTools.Input(
-                client,
-                runtime.SessionId.Value,
-                topLevel.Id,
-                InputActions.PointerUp,
-                buttonCenter.Value.X,
-                buttonCenter.Value.Y);
+                var up = await AvaScopeMcpTools.Input(
+                    client,
+                    runtime.SessionId.Value,
+                    topLevel.Id,
+                    InputActions.PointerUp,
+                    buttonCenter.Value.X,
+                    buttonCenter.Value.Y);
 
-            Assert.True(up.Success, up.Error?.Message);
-            Assert.True(up.Value!.Handled);
-            Assert.False(string.IsNullOrWhiteSpace(up.Value.TargetNodeId));
-            Assert.Equal("left", up.Value.PointerButton);
-            Assert.Equal(1, pointerReleased);
+                Assert.True(up.Success, up.Error?.Message);
+                Assert.True(up.Value!.Handled);
+                Assert.False(string.IsNullOrWhiteSpace(up.Value.TargetNodeId));
+                Assert.Equal("left", up.Value.PointerButton);
+                Assert.Equal(1, pointerReleased);
 
-            var click = await AvaScopeMcpTools.Input(
-                client,
-                runtime.SessionId.Value,
-                topLevel.Id,
-                InputActions.Click,
-                buttonCenter.Value.X,
-                buttonCenter.Value.Y);
+                var click = await AvaScopeMcpTools.Input(
+                    client,
+                    runtime.SessionId.Value,
+                    topLevel.Id,
+                    InputActions.Click,
+                    buttonCenter.Value.X,
+                    buttonCenter.Value.Y);
 
-            Assert.True(click.Success, click.Error?.Message);
-            Assert.True(click.Value!.Handled);
-            Assert.Equal("left", click.Value.PointerButton);
-            Assert.Equal(1, clicked);
+                Assert.True(click.Success, click.Error?.Message);
+                Assert.True(click.Value!.Handled);
+                Assert.Equal("left", click.Value.PointerButton);
+                Assert.Equal(1, clicked);
 
-            Assert.True(textBox.Focus(NavigationMethod.Pointer));
+                Assert.True(textBox.Focus(NavigationMethod.Pointer));
 
-            var keyText = await AvaScopeMcpTools.Input(
-                client,
-                runtime.SessionId.Value,
-                topLevel.Id,
-                InputActions.KeyText,
-                inputText: "abc");
+                var keyText = await AvaScopeMcpTools.Input(
+                    client,
+                    runtime.SessionId.Value,
+                    topLevel.Id,
+                    InputActions.KeyText,
+                    inputText: "abc");
 
-            Assert.True(keyText.Success, keyText.Error?.Message);
-            Assert.True(keyText.Value!.Handled);
-            Assert.Equal("abc", textBox.Text);
+                Assert.True(keyText.Success, keyText.Error?.Message);
+                Assert.True(keyText.Value!.Handled);
+                Assert.Equal("abc", textBox.Text);
 
-            var inputTree = await AvaScopeMcpTools.VisualTree(
-                client,
-                runtime.SessionId.Value,
-                topLevel.Id,
-                maxDepth: 8);
-            Assert.True(inputTree.Success, inputTree.Error?.Message);
-            var textTargetNode = FindNode(inputTree.Value!.Root, node => node.Name == "TextTarget");
-            Assert.NotNull(textTargetNode);
+                var inputTree = await AvaScopeMcpTools.VisualTree(
+                    client,
+                    runtime.SessionId.Value,
+                    topLevel.Id,
+                    maxDepth: 8);
+                Assert.True(inputTree.Success, inputTree.Error?.Message);
+                var textTargetNode = FindNode(inputTree.Value!.Root, node => node.Name == "TextTarget");
+                Assert.NotNull(textTargetNode);
 
-            textBox.Text = "abcdef";
-            textBox.SelectionStart = 1;
-            textBox.SelectionEnd = 4;
-            textBox.CaretIndex = 4;
-            Assert.True(button.Focus(NavigationMethod.Pointer));
-            Assert.False(textBox.IsFocused);
+                textBox.Text = "abcdef";
+                textBox.SelectionStart = 1;
+                textBox.SelectionEnd = 4;
+                textBox.CaretIndex = 4;
+                Assert.True(button.Focus(NavigationMethod.Pointer));
+                Assert.False(textBox.IsFocused);
 
-            var targetedKeyText = await AvaScopeMcpTools.Input(
-                client,
-                runtime.SessionId.Value,
-                topLevel.Id,
-                InputActions.KeyText,
-                inputText: "X",
-                targetNodeId: textTargetNode.NodeId);
+                var targetedKeyText = await AvaScopeMcpTools.Input(
+                    client,
+                    runtime.SessionId.Value,
+                    topLevel.Id,
+                    InputActions.KeyText,
+                    inputText: "X",
+                    targetNodeId: textTargetNode.NodeId);
 
-            Assert.True(targetedKeyText.Success, targetedKeyText.Error?.Message);
-            Assert.True(targetedKeyText.Value!.Handled);
-            Assert.Equal(textTargetNode.NodeId, targetedKeyText.Value.TargetNodeId);
-            Assert.Equal(runtime.SessionId, targetedKeyText.Value.Target.SessionId);
-            Assert.Equal(topLevel.Id, targetedKeyText.Value.Target.TopLevelId);
-            Assert.Equal(TreeKinds.Visual, targetedKeyText.Value.Target.TreeKind);
-            Assert.Equal(textTargetNode.NodeId, targetedKeyText.Value.Target.NodeId);
-            Assert.True(textBox.IsFocused);
-            Assert.Equal("aXef", textBox.Text);
-            Assert.Equal(2, textBox.CaretIndex);
-            Assert.Equal(textBox.CaretIndex, textBox.SelectionStart);
-            Assert.Equal(textBox.CaretIndex, textBox.SelectionEnd);
+                Assert.True(targetedKeyText.Success, targetedKeyText.Error?.Message);
+                Assert.True(targetedKeyText.Value!.Handled);
+                Assert.Equal(textTargetNode.NodeId, targetedKeyText.Value.TargetNodeId);
+                Assert.Equal(runtime.SessionId, targetedKeyText.Value.Target.SessionId);
+                Assert.Equal(topLevel.Id, targetedKeyText.Value.Target.TopLevelId);
+                Assert.Equal(TreeKinds.Visual, targetedKeyText.Value.Target.TreeKind);
+                Assert.Equal(textTargetNode.NodeId, targetedKeyText.Value.Target.NodeId);
+                Assert.True(textBox.IsFocused);
+                Assert.Equal("aXef", textBox.Text);
+                Assert.Equal(2, textBox.CaretIndex);
+                Assert.Equal(textBox.CaretIndex, textBox.SelectionStart);
+                Assert.Equal(textBox.CaretIndex, textBox.SelectionEnd);
 
-            textBox.Text = "clear-me";
-            textBox.SelectionStart = 2;
-            textBox.SelectionEnd = 7;
-            textBox.CaretIndex = 7;
-            Assert.True(button.Focus(NavigationMethod.Pointer));
-            Assert.False(textBox.IsFocused);
+                textBox.Text = "clear-me";
+                textBox.SelectionStart = 2;
+                textBox.SelectionEnd = 7;
+                textBox.CaretIndex = 7;
+                Assert.True(button.Focus(NavigationMethod.Pointer));
+                Assert.False(textBox.IsFocused);
 
-            var clearText = await AvaScopeMcpTools.Input(
-                client,
-                runtime.SessionId.Value,
-                topLevel.Id,
-                InputActions.ClearText,
-                targetNodeId: textTargetNode.NodeId);
+                var clearText = await AvaScopeMcpTools.Input(
+                    client,
+                    runtime.SessionId.Value,
+                    topLevel.Id,
+                    InputActions.ClearText,
+                    targetNodeId: textTargetNode.NodeId);
 
-            Assert.True(clearText.Success, clearText.Error?.Message);
-            Assert.True(clearText.Value!.Handled);
-            Assert.Equal(InputActions.ClearText, clearText.Value.Action);
-            Assert.Equal(textTargetNode.NodeId, clearText.Value.TargetNodeId);
-            Assert.True(textBox.IsFocused);
-            Assert.Equal(string.Empty, textBox.Text);
-            Assert.Equal(0, textBox.CaretIndex);
-            Assert.Equal(0, textBox.SelectionStart);
-            Assert.Equal(0, textBox.SelectionEnd);
+                Assert.True(clearText.Success, clearText.Error?.Message);
+                Assert.True(clearText.Value!.Handled);
+                Assert.Equal(InputActions.ClearText, clearText.Value.Action);
+                Assert.Equal(textTargetNode.NodeId, clearText.Value.TargetNodeId);
+                Assert.True(textBox.IsFocused);
+                Assert.Equal(string.Empty, textBox.Text);
+                Assert.Equal(0, textBox.CaretIndex);
+                Assert.Equal(0, textBox.SelectionStart);
+                Assert.Equal(0, textBox.SelectionEnd);
 
-            textBox.Text = "blocked";
-            textBox.IsReadOnly = true;
-            var readOnlyClear = await AvaScopeMcpTools.Input(
-                client,
-                runtime.SessionId.Value,
-                topLevel.Id,
-                InputActions.ClearText,
-                targetNodeId: textTargetNode.NodeId);
+                textBox.Text = "blocked";
+                textBox.IsReadOnly = true;
+                var readOnlyClear = await AvaScopeMcpTools.Input(
+                    client,
+                    runtime.SessionId.Value,
+                    topLevel.Id,
+                    InputActions.ClearText,
+                    targetNodeId: textTargetNode.NodeId);
 
-            Assert.False(readOnlyClear.Success);
-            Assert.Equal(BridgeErrorCodes.UnsupportedInputAction, readOnlyClear.Error!.Code);
-            Assert.Equal("blocked", textBox.Text);
-            textBox.IsReadOnly = false;
+                Assert.False(readOnlyClear.Success);
+                Assert.Equal(BridgeErrorCodes.UnsupportedInputAction, readOnlyClear.Error!.Code);
+                Assert.Equal("blocked", textBox.Text);
+                textBox.IsReadOnly = false;
 
-            Assert.True(button.Focus(NavigationMethod.Pointer));
-            Assert.False(textBox.IsFocused);
+                Assert.True(button.Focus(NavigationMethod.Pointer));
+                Assert.False(textBox.IsFocused);
 
-            var focus = await AvaScopeMcpTools.Input(
-                client,
-                runtime.SessionId.Value,
-                topLevel.Id,
-                InputActions.Focus,
-                targetNodeId: textTargetNode.NodeId);
+                var focus = await AvaScopeMcpTools.Input(
+                    client,
+                    runtime.SessionId.Value,
+                    topLevel.Id,
+                    InputActions.Focus,
+                    targetNodeId: textTargetNode.NodeId);
 
-            Assert.True(focus.Success, focus.Error?.Message);
-            Assert.True(focus.Value!.Handled);
-            Assert.Equal(textTargetNode.NodeId, focus.Value.TargetNodeId);
-            Assert.True(textBox.IsFocused);
+                Assert.True(focus.Success, focus.Error?.Message);
+                Assert.True(focus.Value!.Handled);
+                Assert.Equal(textTargetNode.NodeId, focus.Value.TargetNodeId);
+                Assert.True(textBox.IsFocused);
 
-            var keyDownResult = await AvaScopeMcpTools.Input(
-                client,
-                runtime.SessionId.Value,
-                topLevel.Id,
-                InputActions.KeyDown,
-                inputKey: "Enter",
-                keyModifiers: "Ctrl+Shift");
+                var keyDownResult = await AvaScopeMcpTools.Input(
+                    client,
+                    runtime.SessionId.Value,
+                    topLevel.Id,
+                    InputActions.KeyDown,
+                    inputKey: "Enter",
+                    keyModifiers: "Ctrl+Shift");
 
-            Assert.True(keyDownResult.Success, keyDownResult.Error?.Message);
-            Assert.True(keyDownResult.Value!.Handled);
-            Assert.Equal("Enter", keyDownResult.Value.InputKey);
-            Assert.Contains("Control", keyDownResult.Value.KeyModifiers, StringComparison.Ordinal);
-            Assert.Contains("Shift", keyDownResult.Value.KeyModifiers, StringComparison.Ordinal);
-            Assert.Equal(1, keyDown);
+                Assert.True(keyDownResult.Success, keyDownResult.Error?.Message);
+                Assert.True(keyDownResult.Value!.Handled);
+                Assert.Equal("Enter", keyDownResult.Value.InputKey);
+                Assert.Contains("Control", keyDownResult.Value.KeyModifiers, StringComparison.Ordinal);
+                Assert.Contains("Shift", keyDownResult.Value.KeyModifiers, StringComparison.Ordinal);
+                Assert.Equal(1, keyDown);
 
-            var keyUpResult = await AvaScopeMcpTools.Input(
-                client,
-                runtime.SessionId.Value,
-                topLevel.Id,
-                InputActions.KeyUp,
-                inputKey: "Enter");
+                var keyUpResult = await AvaScopeMcpTools.Input(
+                    client,
+                    runtime.SessionId.Value,
+                    topLevel.Id,
+                    InputActions.KeyUp,
+                    inputKey: "Enter");
 
-            Assert.True(keyUpResult.Success, keyUpResult.Error?.Message);
-            Assert.True(keyUpResult.Value!.Handled);
-            Assert.Equal("Enter", keyUpResult.Value.InputKey);
-            Assert.Equal(1, keyUp);
+                Assert.True(keyUpResult.Success, keyUpResult.Error?.Message);
+                Assert.True(keyUpResult.Value!.Handled);
+                Assert.Equal("Enter", keyUpResult.Value.InputKey);
+                Assert.Equal(1, keyUp);
 
-            var unsupported = await AvaScopeMcpTools.Input(
-                client,
-                runtime.SessionId.Value,
-                topLevel.Id,
-                "drag");
+                var unsupported = await AvaScopeMcpTools.Input(
+                    client,
+                    runtime.SessionId.Value,
+                    topLevel.Id,
+                    "drag");
 
-            Assert.False(unsupported.Success);
-            Assert.Equal(BridgeErrorCodes.UnsupportedInputAction, unsupported.Error!.Code);
+                Assert.False(unsupported.Success);
+                Assert.Equal(BridgeErrorCodes.UnsupportedInputAction, unsupported.Error!.Code);
 
-            window.Close();
-        }, CancellationToken.None);
+                window.Close();
+            }, CancellationToken.None);
+        }
+        finally
+        {
+            DisposeHeadlessSessionAfterExplicitCleanup(session);
+        }
     }
 
     [Fact]
