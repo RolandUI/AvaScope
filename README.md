@@ -47,6 +47,7 @@ Executable ZIPs and package artifacts are published from GitHub Releases when a 
 - [User guide](docs/USER_GUIDE.md): detailed CLI, MCP, runtime bridge, preview, screenshot, diff, baseline, packaging, and release commands.
 - [Agent workflow](docs/AGENT_WORKFLOW.md): packaged CLI runbooks for agent-driven local workflows.
 - [Stable surface](docs/STABLE_SURFACE.md): v1 package, protocol, CLI, MCP, exit-code, artifact, and release compatibility rules.
+- [End-to-end validation](docs/END_TO_END_VALIDATION.md): v1 source, packaged CLI, packaged MCP, runtime bridge, report, and release-readiness validation record.
 - [Security threat model](docs/SECURITY_THREAT_MODEL.md): local-only transport, bridge activation, mutation, preview, artifact, and compatibility boundaries.
 - [Performance and stress audit](docs/PERFORMANCE_STRESS_AUDIT.md): bounded output budgets and stress validation coverage for agent workflows.
 - [Troubleshooting](docs/TROUBLESHOOTING.md): attach, preview, mutation, report, and package failure triage.

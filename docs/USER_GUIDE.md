@@ -1,6 +1,6 @@
 # AvaScope User Guide
 
-Detailed usage notes for AvaScope. For the short public project overview, see the [root README](../README.md). For stable package, protocol, CLI, MCP, artifact, and release compatibility rules, see [STABLE_SURFACE.md](STABLE_SURFACE.md). For failure triage, see [TROUBLESHOOTING.md](TROUBLESHOOTING.md). For stress budgets, see [PERFORMANCE_STRESS_AUDIT.md](PERFORMANCE_STRESS_AUDIT.md).
+Detailed usage notes for AvaScope. For the short public project overview, see the [root README](../README.md). For stable package, protocol, CLI, MCP, artifact, and release compatibility rules, see [STABLE_SURFACE.md](STABLE_SURFACE.md). For v1 source and packaged workflow validation, see [END_TO_END_VALIDATION.md](END_TO_END_VALIDATION.md). For failure triage, see [TROUBLESHOOTING.md](TROUBLESHOOTING.md). For stress budgets, see [PERFORMANCE_STRESS_AUDIT.md](PERFORMANCE_STRESS_AUDIT.md).
 
 AvaScope is an agent-focused local control plane for Avalonia apps. It gives CLI and MCP clients structured ways to inspect running UI, render previews, drive narrow runtime actions, capture screenshots, collect diagnostics, and hand off evidence artifacts. It targets Avalonia 12 and `net10.0`.
 
