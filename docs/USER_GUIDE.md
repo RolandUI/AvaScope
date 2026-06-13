@@ -1,6 +1,6 @@
 # AvaScope User Guide
 
-Detailed usage notes for AvaScope. For the short public project overview, see the [root README](../README.md).
+Detailed usage notes for AvaScope. For the short public project overview, see the [root README](../README.md). For failure triage, see [TROUBLESHOOTING.md](TROUBLESHOOTING.md). For stress budgets, see [PERFORMANCE_STRESS_AUDIT.md](PERFORMANCE_STRESS_AUDIT.md).
 
 AvaScope is an agent-focused local control plane for Avalonia apps. It gives CLI and MCP clients structured ways to inspect running UI, render previews, drive narrow runtime actions, capture screenshots, collect diagnostics, and hand off evidence artifacts. It targets Avalonia 12 and `net10.0`.
 
@@ -31,7 +31,7 @@ AvaScope is designed around small, composable tool calls that an agent can chain
 4. Capture evidence as structured JSON plus file paths for screenshots, diffs, reports, or local HTML viewers.
 5. Close sessions and clean stale AvaScope-owned metadata explicitly.
 
-The `v0.7.0` release line added the runtime control-plane layer: bounded reversible style/layout/text/class/resource mutations with mutation ids, reset operations, and before/after evidence packages containing screenshots, visual tree snapshots, and optional pixel diffs. The active `v0.8.0` line turns those agent experiments into repeatable validation workflows with baseline suites, comparison rules, and reviewable report packs.
+The `v0.7.0` release line added the runtime control-plane layer: bounded reversible style/layout/text/class/resource mutations with mutation ids, reset operations, and before/after evidence packages containing screenshots, visual tree snapshots, and optional pixel diffs. The `v0.8.0` line turned those agent experiments into repeatable validation workflows with baseline suites, comparison rules, and reviewable report packs. The active `v0.9.0` line hardens source guidance, audit reports, capabilities, security, compatibility, and stress validation before the `v1.0.0` freeze.
 
 ## Project Layout
 

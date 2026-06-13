@@ -47,6 +47,8 @@ Executable ZIPs and package artifacts are published from GitHub Releases when a 
 - [User guide](docs/USER_GUIDE.md): detailed CLI, MCP, runtime bridge, preview, screenshot, diff, baseline, packaging, and release commands.
 - [Agent workflow](docs/AGENT_WORKFLOW.md): packaged CLI runbooks for agent-driven local workflows.
 - [Security threat model](docs/SECURITY_THREAT_MODEL.md): local-only transport, bridge activation, mutation, preview, artifact, and compatibility boundaries.
+- [Performance and stress audit](docs/PERFORMANCE_STRESS_AUDIT.md): bounded output budgets and stress validation coverage for agent workflows.
+- [Troubleshooting](docs/TROUBLESHOOTING.md): attach, preview, mutation, report, and package failure triage.
 - [Validation](docs/VALIDATION.md): local validation commands and release checks.
 - [Visual regression CI](docs/VISUAL_REGRESSION_CI.md): baseline-check artifact collection for GitHub Actions.
 - [Release plan](docs/RELEASE_PLAN.md): release goals, milestones, non-goals, and roadmap.
@@ -62,7 +64,7 @@ Executable ZIPs and package artifacts are published from GitHub Releases when a 
 
 ## Project Status
 
-AvaScope is pre-1.0 and actively evolving. The current focus is the `v0.8.0` agent validation release: baseline suites, comparison rules, reviewable evidence packs, and CI-ready artifact handoff on top of the runtime control surfaces shipped in `v0.7.0`. Public APIs and artifact shapes may still change before `v1.0.0`.
+AvaScope is pre-1.0 and actively evolving. The current focus is the `v0.9.0` beta hardening release: source-aware guidance, accessibility/component audit, capability discovery, security review, stress validation, and release readiness before the `v1.0.0` stable-surface freeze. Public APIs and artifact shapes may still change before `v1.0.0`.
 
 Development is tracked in GitHub Issues, Milestones, and the public [AvaScope Roadmap](https://github.com/users/RolandUI/projects/4) Project board.
 

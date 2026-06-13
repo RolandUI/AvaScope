@@ -194,6 +194,14 @@ For security, safety, and compatibility audit work, include:
 dotnet test AvaScope.slnx --no-build --filter "FullyQualifiedName~SecurityThreatModelDocumentationTests|FullyQualifiedName~AvaScopeBridgeTests.BridgeIsInactiveByDefault|FullyQualifiedName~AvaScopeBridgeTests.ActivateCreatesLocalOnlyRuntimeSession|FullyQualifiedName~ProtocolContractTests.BridgeSessionManifestRejectsUnsupportedTransportScope|FullyQualifiedName~LocalBridgeClientTests.MutateNodeRejectsSessionMismatchWithoutIpc|FullyQualifiedName~LocalBridgeClientTests.DiagnosticsReportsInvalidAndStaleManifestsWithoutThrowing|FullyQualifiedName~CapabilityCompatibilityCheckerTests"
 ```
 
+For performance, stress, samples, and troubleshooting audit work, include:
+
+```powershell
+dotnet test AvaScope.slnx --no-build --filter "FullyQualifiedName~PerformanceStressAuditTests|FullyQualifiedName~BridgeHeadlessSmokeTests.RuntimeMutationRepeatedSetPropertyAndResetAllKeepsReviewBounded|FullyQualifiedName~PerformanceStressAuditDocumentationTests"
+```
+
+Record observed budgets in [PERFORMANCE_STRESS_AUDIT.md](PERFORMANCE_STRESS_AUDIT.md) and keep attach, preview, mutation, report, and package failure triage in [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
+
 For `v0.7.0` runtime experiment review work, include:
 
 ```powershell

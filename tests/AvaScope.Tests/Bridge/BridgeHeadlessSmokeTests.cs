@@ -707,6 +707,113 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
     }
 
     [Fact]
+    public async Task RuntimeMutationRepeatedSetPropertyAndResetAllKeepsReviewBounded()
+    {
+        var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessTestApplication));
+
+        try
+        {
+            await session.Dispatch(() =>
+            {
+                var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Headless repeated mutation stress sample"));
+                var targetSurface = new Border
+                {
+                    Name = "RepeatedMutationTarget",
+                    Width = 100,
+                    Height = 60,
+                    Background = Brushes.Red
+                };
+                var window = new Window
+                {
+                    Title = "AvaScope Repeated Mutation Stress Sample",
+                    Width = 360,
+                    Height = 240,
+                    Content = targetSurface
+                };
+                IDisposable? registration = null;
+
+                try
+                {
+                    window.Show();
+                    registration = runtime.RegisterTopLevel(window);
+                    Dispatcher.UIThread.RunJobs();
+
+                    var topLevel = Assert.Single(runtime.ListTopLevelsAsync().GetAwaiter().GetResult());
+                    var tree = runtime.GetVisualTreeAsync(topLevel.Id, maxDepth: 8).GetAwaiter().GetResult();
+                    Assert.True(tree.Success, tree.Error?.Message);
+                    var targetNode = FindNode(tree.Value!.Root, node => node.Name == "RepeatedMutationTarget");
+                    Assert.NotNull(targetNode);
+                    Assert.NotNull(targetNode.Target);
+
+                    for (var index = 0; index < 24; index++)
+                    {
+                        var width = 120 + index;
+                        var mutation = runtime.MutateNodeAsync(new RuntimeMutationRequest(
+                            $"stress-set-width-{index:D2}",
+                            targetNode.Target!,
+                            new RuntimeMutationOperation(
+                                RuntimeMutationOperationKinds.SetProperty,
+                                propertyName: "Width",
+                                value: width.ToString(),
+                                valueType: "double"))).GetAwaiter().GetResult();
+
+                        Assert.True(mutation.Success, mutation.Error?.Message);
+                        Assert.Equal(RuntimeMutationStatuses.Applied, mutation.Value!.Status);
+                        Assert.True(mutation.Value.Applied);
+                        Assert.Equal(width, targetSurface.Width);
+                        Assert.Equal((index + 1).ToString(), mutation.Value.Metadata["activeMutationCount"]);
+                    }
+
+                    var review = runtime.MutationReviewAsync(RuntimeMutationReviewResponse.MaximumEntries)
+                        .GetAwaiter()
+                        .GetResult();
+                    Assert.True(review.Success, review.Error?.Message);
+                    Assert.Equal(24, review.Value!.HistoryCount);
+                    Assert.Equal(24, review.Value.ActiveMutationCount);
+                    Assert.Equal(24, review.Value.History.Count);
+                    Assert.Equal(24, review.Value.ActiveMutations.Count);
+                    Assert.Equal("False", review.Value.Metadata["historyTruncated"]);
+                    Assert.Equal("False", review.Value.Metadata["activeMutationsTruncated"]);
+
+                    var resetAll = runtime.MutateNodeAsync(new RuntimeMutationRequest(
+                        "stress-reset-all",
+                        targetNode.Target!,
+                        new RuntimeMutationOperation(RuntimeMutationOperationKinds.ResetAll))).GetAwaiter().GetResult();
+
+                    Assert.True(resetAll.Success, resetAll.Error?.Message);
+                    Assert.Equal(RuntimeMutationStatuses.Applied, resetAll.Value!.Status);
+                    Assert.True(resetAll.Value.Applied);
+                    Assert.Equal(100, targetSurface.Width);
+                    Assert.Equal("24", resetAll.Value.Metadata["resetCount"]);
+                    Assert.Equal("0", resetAll.Value.Metadata["activeMutationCount"]);
+
+                    var reviewAfterReset = runtime.MutationReviewAsync(10).GetAwaiter().GetResult();
+                    Assert.True(reviewAfterReset.Success, reviewAfterReset.Error?.Message);
+                    Assert.Equal(25, reviewAfterReset.Value!.HistoryCount);
+                    Assert.Equal(0, reviewAfterReset.Value.ActiveMutationCount);
+                    Assert.Equal(10, reviewAfterReset.Value.History.Count);
+                    Assert.Empty(reviewAfterReset.Value.ActiveMutations);
+                    Assert.Equal("True", reviewAfterReset.Value.Metadata["historyTruncated"]);
+                    Assert.Contains(
+                        reviewAfterReset.Value.History,
+                        entry => entry.Operation.Kind == RuntimeMutationOperationKinds.ResetAll);
+                }
+                finally
+                {
+                    registration?.Dispose();
+                    window.Close();
+                    AvaScopeBridge.Deactivate();
+                    Dispatcher.UIThread.RunJobs();
+                }
+            }, CancellationToken.None);
+        }
+        finally
+        {
+            DisposeHeadlessSessionAfterExplicitCleanup(session);
+        }
+    }
+
+    [Fact]
     public async Task McpMutateNodeEvidenceCapturesScreenshotsTreesAndDiffThroughLocalBridgePipe()
     {
         var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessTestApplication));
