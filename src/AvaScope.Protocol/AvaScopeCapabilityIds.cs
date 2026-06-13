@@ -5,10 +5,12 @@ public static class AvaScopeCapabilityIds
     public const string ProtocolToolResultV1 = "protocol.tool_result_v1";
     public const string ProtocolAdditiveJsonFields = "protocol.additive_json_fields";
     public const string ProtocolCapabilityDiscovery = "protocol.capability_discovery";
+    public const string ProtocolMcpStdioServer = "protocol.mcp_stdio_server";
 
     public const string SafetyLocalOnly = "safety.local_only";
 
     public const string RuntimeAttach = "runtime.attach";
+    public const string RuntimeSessionLifecycle = "runtime.session_lifecycle";
     public const string RuntimeTrees = "runtime.trees";
     public const string RuntimeInspect = "runtime.inspect";
     public const string RuntimeFind = "runtime.find";

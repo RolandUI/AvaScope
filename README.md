@@ -46,6 +46,7 @@ Executable ZIPs and package artifacts are published from GitHub Releases when a 
 
 - [User guide](docs/USER_GUIDE.md): detailed CLI, MCP, runtime bridge, preview, screenshot, diff, baseline, packaging, and release commands.
 - [Agent workflow](docs/AGENT_WORKFLOW.md): packaged CLI runbooks for agent-driven local workflows.
+- [Stable surface](docs/STABLE_SURFACE.md): v1 package, protocol, CLI, MCP, exit-code, artifact, and release compatibility rules.
 - [Security threat model](docs/SECURITY_THREAT_MODEL.md): local-only transport, bridge activation, mutation, preview, artifact, and compatibility boundaries.
 - [Performance and stress audit](docs/PERFORMANCE_STRESS_AUDIT.md): bounded output budgets and stress validation coverage for agent workflows.
 - [Troubleshooting](docs/TROUBLESHOOTING.md): attach, preview, mutation, report, and package failure triage.
@@ -64,7 +65,7 @@ Executable ZIPs and package artifacts are published from GitHub Releases when a 
 
 ## Project Status
 
-AvaScope is pre-1.0 and actively evolving. The current focus is the `v0.9.0` beta hardening release: source-aware guidance, accessibility/component audit, capability discovery, security review, stress validation, and release readiness before the `v1.0.0` stable-surface freeze. Public APIs and artifact shapes may still change before `v1.0.0`.
+AvaScope is in the `v1.0.0` stable-surface freeze. Package identities, protocol DTOs, CLI commands, MCP tools, exit codes, artifact names, and release workflow behavior are being locked in [docs/STABLE_SURFACE.md](docs/STABLE_SURFACE.md) before the final stable release.
 
 Development is tracked in GitHub Issues, Milestones, and the public [AvaScope Roadmap](https://github.com/users/RolandUI/projects/4) Project board.
 

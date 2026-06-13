@@ -1,0 +1,200 @@
+using System.Text.RegularExpressions;
+using System.Xml.Linq;
+using AvaScope.Protocol;
+
+namespace AvaScope.Tests.Core;
+
+public sealed class StableSurfaceContractTests
+{
+    private static readonly string[] FrozenCliTools =
+    [
+        "capabilities",
+        "mcp",
+        "doctor",
+        "diagnostics",
+        "attach",
+        "launch-app",
+        "list-top-levels",
+        "visual-tree",
+        "logical-tree",
+        "inspect-node",
+        "find-nodes",
+        "audit-ui",
+        "input",
+        "mutate-node",
+        "mutate-node-evidence",
+        "mutation-review",
+        "close-session",
+        "screenshot",
+        "preview",
+        "preview-animation",
+        "create-preview-session",
+        "list-preview-sessions",
+        "reload-preview-session",
+        "reload",
+        "close-preview-session",
+        "watch-preview-session",
+        "preview-viewer",
+        "baseline-create",
+        "baseline-check",
+        "diff",
+        "assert-region",
+        "cleanup",
+        "cleanup-bridge-sessions"
+    ];
+
+    private static readonly string[] FrozenMcpTools =
+    [
+        "capabilities",
+        "health",
+        "diagnostics",
+        "attach_to_app",
+        "launch_app",
+        "list_top_levels",
+        "visual_tree",
+        "logical_tree",
+        "inspect_node",
+        "find_nodes",
+        "audit_ui",
+        "input",
+        "mutate_node",
+        "mutate_node_evidence",
+        "mutation_review",
+        "close_session",
+        "screenshot",
+        "preview_axaml",
+        "preview_axaml_multi",
+        "preview_axaml_animation",
+        "create_preview_session",
+        "list_preview_sessions",
+        "reload",
+        "close_preview_session",
+        "preview_viewer",
+        "baseline_check",
+        "assert_region",
+        "cleanup",
+        "cleanup_bridge_sessions",
+        "list_sessions"
+    ];
+
+    [Fact]
+    public void CapabilityCatalogDeclaresFrozenCliAndMcpSurface()
+    {
+        var tools = AvaScopeCapabilityCatalog.Current(new DateTimeOffset(2026, 6, 13, 4, 30, 0, TimeSpan.Zero)).Tools;
+
+        Assert.Equal(FrozenCliTools, tools.Where(static tool => tool.Adapter == "cli").Select(static tool => tool.Name));
+        Assert.Equal(FrozenMcpTools, tools.Where(static tool => tool.Adapter == "mcp").Select(static tool => tool.Name));
+        Assert.Equal(tools.Count, tools.Select(static tool => $"{tool.Adapter}:{tool.Name}").Distinct(StringComparer.Ordinal).Count());
+    }
+
+    [Fact]
+    public void CapabilityCatalogMatchesImplementedCliAndMcpToolNames()
+    {
+        var root = FindRepositoryRoot();
+        var catalog = AvaScopeCapabilityCatalog.Current(new DateTimeOffset(2026, 6, 13, 4, 30, 0, TimeSpan.Zero)).Tools;
+        var catalogCli = catalog
+            .Where(static tool => tool.Adapter == "cli")
+            .Select(static tool => tool.Name)
+            .OrderBy(static name => name, StringComparer.Ordinal)
+            .ToArray();
+        var catalogMcp = catalog
+            .Where(static tool => tool.Adapter == "mcp")
+            .Select(static tool => tool.Name)
+            .OrderBy(static name => name, StringComparer.Ordinal)
+            .ToArray();
+
+        var cliSwitchNames = ReadCliCommandSwitchNames(Path.Combine(root, "src", "AvaScope.Cli", "Program.cs"))
+            .OrderBy(static name => name, StringComparer.Ordinal)
+            .ToArray();
+        var mcpAttributeNames = ReadRegexGroupValues(
+                Path.Combine(root, "src", "AvaScope.Mcp", "AvaScopeMcpTools.cs"),
+                "Name\\s*=\\s*\"(?<name>[a-z0-9_]+)\"")
+            .OrderBy(static name => name, StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.Equal(cliSwitchNames, catalogCli);
+        Assert.Equal(mcpAttributeNames, catalogMcp);
+    }
+
+    [Fact]
+    public void PackageMetadataAndReleaseArtifactNamesAreFrozen()
+    {
+        var root = FindRepositoryRoot();
+
+        AssertProjectPackage(root, "src/AvaScope.Protocol/AvaScope.Protocol.csproj", "true", "AvaScope.Protocol");
+        AssertProjectPackage(root, "src/AvaScope.Core/AvaScope.Core.csproj", "true", "AvaScope.Core");
+        AssertProjectPackage(root, "src/AvaScope.Bridge/AvaScope.Bridge.csproj", "true", "AvaScope.Bridge");
+        AssertProjectPackage(root, "src/AvaScope.Cli/AvaScope.Cli.csproj", "false", null);
+        AssertProjectPackage(root, "src/AvaScope.Mcp/AvaScope.Mcp.csproj", "false", null);
+        AssertProjectPackage(root, "src/AvaScope.PreviewHost/AvaScope.PreviewHost.csproj", "false", null);
+
+        var buildProps = XDocument.Load(Path.Combine(root, "Directory.Build.props"));
+        Assert.Equal("net10.0", buildProps.Descendants("TargetFramework").Single().Value);
+
+        var verifyArtifacts = File.ReadAllText(Path.Combine(root, "eng", "verify-artifacts.ps1"));
+        Assert.Contains("AvaScope.Protocol.$version.nupkg", verifyArtifacts, StringComparison.Ordinal);
+        Assert.Contains("AvaScope.Core.$version.nupkg", verifyArtifacts, StringComparison.Ordinal);
+        Assert.Contains("AvaScope.Bridge.$version.nupkg", verifyArtifacts, StringComparison.Ordinal);
+        Assert.Contains("avascope-$runtimeIdentifier-$ExecutablePackageKind.zip", verifyArtifacts, StringComparison.Ordinal);
+        Assert.Contains("artifacts/release-manifest.json", verifyArtifacts, StringComparison.Ordinal);
+
+        var publishGitHubRelease = File.ReadAllText(Path.Combine(root, "eng", "publish-github-release.ps1"));
+        Assert.Contains("$expectedTag = \"v$version\"", publishGitHubRelease, StringComparison.Ordinal);
+        Assert.Contains("AvaScope.Protocol.$version.nupkg", publishGitHubRelease, StringComparison.Ordinal);
+        Assert.Contains("release-manifest.json", publishGitHubRelease, StringComparison.Ordinal);
+
+        var releaseCommitGuard = File.ReadAllText(Path.Combine(root, "eng", "validate-release-commit.ps1"));
+        Assert.Contains("$expectedSubject = \"Release $Version\"", releaseCommitGuard, StringComparison.Ordinal);
+        Assert.Contains("Release Candidate", releaseCommitGuard, StringComparison.Ordinal);
+    }
+
+    private static IReadOnlyList<string> ReadRegexGroupValues(string path, string pattern)
+    {
+        var source = File.ReadAllText(path);
+        return Regex.Matches(source, pattern)
+            .Select(static match => match.Groups["name"].Value)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+    }
+
+    private static IReadOnlyList<string> ReadCliCommandSwitchNames(string path)
+    {
+        var source = File.ReadAllText(path);
+        var switchStart = source.IndexOf("return args[0] switch", StringComparison.Ordinal);
+        var switchEnd = source.IndexOf("_ => UnknownCommand(args[0])", switchStart, StringComparison.Ordinal);
+        Assert.True(switchStart >= 0, "Could not find the CLI command switch.");
+        Assert.True(switchEnd > switchStart, "Could not find the end of the CLI command switch.");
+
+        var commandSwitch = source[switchStart..switchEnd];
+        return Regex.Matches(commandSwitch, "\"(?<name>[a-z0-9-]+)\"\\s*=>")
+            .Select(static match => match.Groups["name"].Value)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+    }
+
+    private static void AssertProjectPackage(string root, string projectPath, string isPackable, string? packageId)
+    {
+        var project = XDocument.Load(Path.Combine(root, projectPath));
+        Assert.Equal(isPackable, project.Descendants("IsPackable").Single().Value);
+        if (packageId is not null)
+        {
+            Assert.Equal(packageId, project.Descendants("PackageId").Single().Value);
+        }
+    }
+
+    private static string FindRepositoryRoot()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null)
+        {
+            if (File.Exists(Path.Combine(directory.FullName, "AvaScope.slnx")))
+            {
+                return directory.FullName;
+            }
+
+            directory = directory.Parent;
+        }
+
+        throw new DirectoryNotFoundException("Could not locate repository root from the test output directory.");
+    }
+}

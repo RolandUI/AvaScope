@@ -458,7 +458,7 @@ The `v0.9.0` release target is beta hardening for the agent control plane. The g
 The `v1.0.0` release target is the stable public release. The goal is not to add broad new features; it is to freeze and verify the workflows that make AvaScope dependable.
 
 1. `RG-1.0.0-1 Stable Surface Freeze`: freeze public packages, protocol DTOs, CLI commands, MCP tools, exit codes, artifact naming, and release workflow behavior.
-   Success signal: compatibility rules and migration guidance exist, and stable surfaces are covered by contract tests.
+   Success signal: compatibility rules and migration guidance exist in [STABLE_SURFACE.md](STABLE_SURFACE.md), and stable surfaces are covered by contract tests.
 2. `RG-1.0.0-2 End-To-End Workflow Verification`: validate runtime, preview, animation, live preview, diagnostics, baseline, CLI, MCP, and packaged workflows end-to-end.
    Success signal: source and packaged validation commands pass on the supported platform matrix with no P0/P1 failures.
 3. `RG-1.0.0-3 Documentation Complete`: publish complete installation, getting-started, CLI, MCP, bridge activation, preview, visual-regression, troubleshooting, security, and release documentation.
@@ -477,6 +477,10 @@ The `v1.0.0` release target is the stable public release. The goal is not to add
 - `R1.0.0-M4 Release Artifact And Package Verification`; Status: `Planned`.
 - `R1.0.0-M5 Post-1.0 Backlog And Deferral Audit`; Status: `Planned`.
 - `R1.0.0-M6 Stable Release Commit And Publication`; Status: `Planned`.
+
+### v1.0.0 Implementation Validation
+
+- `2026-06-13`: Local validation passed for `R1.0.0-M1 Stable Surface Freeze`: Debug build, focused stable-surface/capability/CLI/MCP tests, full Debug test suite, and whitespace check. The slice adds `docs/STABLE_SURFACE.md`, aligns capability discovery with implemented `mcp`, `launch-app`/`launch_app`, and `close-session`/`close_session` surfaces, and adds contract tests for CLI/MCP/package/artifact/release stability.
 
 ### v1.0.0 Explicit Deferrals
 

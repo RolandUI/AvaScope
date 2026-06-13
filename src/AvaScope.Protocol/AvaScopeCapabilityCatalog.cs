@@ -51,16 +51,28 @@ public static class AvaScopeCapabilityCatalog
                 "Clients can query this manifest and require named feature ids before using newer surfaces.",
                 ["capabilities"]),
             Capability(
+                AvaScopeCapabilityIds.ProtocolMcpStdioServer,
+                "protocol",
+                "The avascope CLI can start the stdio MCP server adapter for local agent clients.",
+                ["mcp"],
+                requires: [AvaScopeCapabilityIds.ProtocolCapabilityDiscovery]),
+            Capability(
                 AvaScopeCapabilityIds.SafetyLocalOnly,
                 "safety",
                 "Runtime bridge and generated artifacts are local-only by default.",
-                ["doctor", "diagnostics", "attach_to_app", "cleanup_bridge_sessions"],
+                ["doctor", "diagnostics", "attach_to_app", "launch_app", "cleanup_bridge_sessions"],
                 metadata: new Dictionary<string, string> { ["remoteInspection"] = "unsupported_by_default" }),
             Capability(
                 AvaScopeCapabilityIds.RuntimeAttach,
                 "runtime",
                 "Attach to opt-in local bridge sessions by process, process name, session id, manifest, or latest local session.",
                 ["attach", "attach_to_app"],
+                requires: [AvaScopeCapabilityIds.SafetyLocalOnly]),
+            Capability(
+                AvaScopeCapabilityIds.RuntimeSessionLifecycle,
+                "runtime",
+                "Launch local bridge-enabled apps and close active local bridge sessions through explicit local lifecycle commands.",
+                ["launch-app", "launch_app", "close-session", "close_session"],
                 requires: [AvaScopeCapabilityIds.SafetyLocalOnly]),
             Capability(
                 AvaScopeCapabilityIds.RuntimeTrees,
@@ -234,6 +246,7 @@ public static class AvaScopeCapabilityCatalog
         return
         [
             Cli("capabilities", AvaScopeCapabilityIds.ProtocolCapabilityDiscovery, AvaScopeCapabilityIds.ProtocolToolResultV1),
+            Cli("mcp", AvaScopeCapabilityIds.ProtocolMcpStdioServer),
             Mcp("capabilities", AvaScopeCapabilityIds.ProtocolCapabilityDiscovery, AvaScopeCapabilityIds.ProtocolToolResultV1),
             Mcp("health", AvaScopeCapabilityIds.ProtocolToolResultV1),
             Cli("doctor", AvaScopeCapabilityIds.DiagnosticsSummary, AvaScopeCapabilityIds.SafetyLocalOnly),
@@ -241,6 +254,8 @@ public static class AvaScopeCapabilityCatalog
             Mcp("diagnostics", AvaScopeCapabilityIds.DiagnosticsSummary, AvaScopeCapabilityIds.SafetyLocalOnly),
             Cli("attach", AvaScopeCapabilityIds.RuntimeAttach),
             Mcp("attach_to_app", AvaScopeCapabilityIds.RuntimeAttach),
+            Cli("launch-app", AvaScopeCapabilityIds.RuntimeSessionLifecycle, AvaScopeCapabilityIds.SafetyLocalOnly),
+            Mcp("launch_app", AvaScopeCapabilityIds.RuntimeSessionLifecycle, AvaScopeCapabilityIds.SafetyLocalOnly),
             Cli("list-top-levels", AvaScopeCapabilityIds.RuntimeAttach),
             Mcp("list_top_levels", AvaScopeCapabilityIds.RuntimeAttach),
             Cli("visual-tree", AvaScopeCapabilityIds.RuntimeTrees),
@@ -261,6 +276,8 @@ public static class AvaScopeCapabilityCatalog
             Mcp("mutate_node_evidence", AvaScopeCapabilityIds.RuntimeMutationEvidence, AvaScopeCapabilityIds.ArtifactsScreenshot, AvaScopeCapabilityIds.ArtifactsDiffImage),
             Cli("mutation-review", AvaScopeCapabilityIds.RuntimeMutationReview, AvaScopeCapabilityIds.RuntimeSourceSuggestions, AvaScopeCapabilityIds.ArtifactsHtmlViewer),
             Mcp("mutation_review", AvaScopeCapabilityIds.RuntimeMutationReview, AvaScopeCapabilityIds.RuntimeSourceSuggestions, AvaScopeCapabilityIds.ArtifactsHtmlViewer),
+            Cli("close-session", AvaScopeCapabilityIds.RuntimeSessionLifecycle),
+            Mcp("close_session", AvaScopeCapabilityIds.RuntimeSessionLifecycle),
             Cli("screenshot", AvaScopeCapabilityIds.ArtifactsScreenshot),
             Mcp("screenshot", AvaScopeCapabilityIds.ArtifactsScreenshot),
             Cli("preview", AvaScopeCapabilityIds.PreviewAxaml, AvaScopeCapabilityIds.PreviewMultiSize, AvaScopeCapabilityIds.ArtifactsScreenshot),
