@@ -545,158 +545,165 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
     [Fact]
     public async Task McpMutateNodeReturnsBoundedMutationContractResultsThroughLocalBridgePipe()
     {
-        using var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessTestApplication));
+        var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessTestApplication));
 
-        await session.Dispatch(async () =>
+        try
         {
-            var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Headless MCP mutation sample"));
-            var targetText = new TextBlock
+            await session.Dispatch(async () =>
             {
-                Name = "McpMutationTarget",
-                Text = "MCP mutation target",
-                Width = 120
-            };
-            var window = new Window
-            {
-                Title = "AvaScope MCP Mutation Sample",
-                Width = 360,
-                Height = 240,
-                Content = targetText
-            };
-            var reviewPath = Path.Combine(
-                Path.GetTempPath(),
-                "AvaScope.Tests",
-                $"{Guid.NewGuid():N}-mutation-review.html");
-            IDisposable? registration = null;
+                var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Headless MCP mutation sample"));
+                var targetText = new TextBlock
+                {
+                    Name = "McpMutationTarget",
+                    Text = "MCP mutation target",
+                    Width = 120
+                };
+                var window = new Window
+                {
+                    Title = "AvaScope MCP Mutation Sample",
+                    Width = 360,
+                    Height = 240,
+                    Content = targetText
+                };
+                var reviewPath = Path.Combine(
+                    Path.GetTempPath(),
+                    "AvaScope.Tests",
+                    $"{Guid.NewGuid():N}-mutation-review.html");
+                IDisposable? registration = null;
 
-            try
-            {
-                window.Show();
-                registration = runtime.RegisterTopLevel(window);
-                Dispatcher.UIThread.RunJobs();
+                try
+                {
+                    window.Show();
+                    registration = runtime.RegisterTopLevel(window);
+                    Dispatcher.UIThread.RunJobs();
 
-                var client = new LocalBridgeClient(Path.GetDirectoryName(runtime.SessionManifestPath)!);
-                var topLevel = Assert.Single(await runtime.ListTopLevelsAsync());
-                var tree = await AvaScopeMcpTools.VisualTree(
-                    client,
-                    runtime.SessionId.Value,
-                    topLevel.Id,
-                    maxDepth: 8);
-                Assert.True(tree.Success, tree.Error?.Message);
-                var targetNode = FindNode(tree.Value!.Root, node => node.Name == "McpMutationTarget");
-                Assert.NotNull(targetNode);
+                    var client = new LocalBridgeClient(Path.GetDirectoryName(runtime.SessionManifestPath)!);
+                    var topLevel = Assert.Single(await runtime.ListTopLevelsAsync());
+                    var tree = await AvaScopeMcpTools.VisualTree(
+                        client,
+                        runtime.SessionId.Value,
+                        topLevel.Id,
+                        maxDepth: 8);
+                    Assert.True(tree.Success, tree.Error?.Message);
+                    var targetNode = FindNode(tree.Value!.Root, node => node.Name == "McpMutationTarget");
+                    Assert.NotNull(targetNode);
 
-                var noop = await AvaScopeMcpTools.MutateNode(
-                    client,
-                    runtime.SessionId.Value,
-                    topLevel.Id,
-                    targetNode.NodeId,
-                    RuntimeMutationOperationKinds.NoOp,
-                    TreeKinds.Visual,
-                    requestId: "mcp-mutation-request-1");
+                    var noop = await AvaScopeMcpTools.MutateNode(
+                        client,
+                        runtime.SessionId.Value,
+                        topLevel.Id,
+                        targetNode.NodeId,
+                        RuntimeMutationOperationKinds.NoOp,
+                        TreeKinds.Visual,
+                        requestId: "mcp-mutation-request-1");
 
-                Assert.True(noop.Success, noop.Error?.Message);
-                Assert.Equal("mcp-mutation-request-1", noop.Value!.RequestId);
-                Assert.Equal(RuntimeMutationStatuses.NoOp, noop.Value.Status);
-                Assert.False(noop.Value.Applied);
-                Assert.Empty(noop.Value.Diagnostics);
+                    Assert.True(noop.Success, noop.Error?.Message);
+                    Assert.Equal("mcp-mutation-request-1", noop.Value!.RequestId);
+                    Assert.Equal(RuntimeMutationStatuses.NoOp, noop.Value.Status);
+                    Assert.False(noop.Value.Applied);
+                    Assert.Empty(noop.Value.Diagnostics);
 
-                var widthMutation = await AvaScopeMcpTools.MutateNode(
-                    client,
-                    runtime.SessionId.Value,
-                    topLevel.Id,
-                    targetNode.NodeId,
-                    RuntimeMutationOperationKinds.SetProperty,
-                    TreeKinds.Visual,
-                    propertyName: "Width",
-                    value: "240",
-                    valueType: "double",
-                    requestId: "mcp-mutation-request-2");
+                    var widthMutation = await AvaScopeMcpTools.MutateNode(
+                        client,
+                        runtime.SessionId.Value,
+                        topLevel.Id,
+                        targetNode.NodeId,
+                        RuntimeMutationOperationKinds.SetProperty,
+                        TreeKinds.Visual,
+                        propertyName: "Width",
+                        value: "240",
+                        valueType: "double",
+                        requestId: "mcp-mutation-request-2");
 
-                Assert.True(widthMutation.Success, widthMutation.Error?.Message);
-                Assert.Equal(RuntimeMutationStatuses.Applied, widthMutation.Value!.Status);
-                Assert.True(widthMutation.Value.Applied);
-                Assert.Equal(240, targetText.Width);
-                Assert.Equal("Width", widthMutation.Value.Metadata["propertyName"]);
-                Assert.Equal("1", widthMutation.Value.Metadata["activeMutationCount"]);
-                var styleCapability = Assert.Single(widthMutation.Value.Capabilities, capability =>
-                    capability.Name == RuntimeMutationCapabilityCatalog.StyleLayoutMutation);
-                Assert.True(styleCapability.Available);
-                Assert.Equal("local_only", styleCapability.Metadata["transport"]);
-                Assert.Equal("true", styleCapability.Metadata["temporary"]);
-                Assert.Equal("true", styleCapability.Metadata["reversible"]);
+                    Assert.True(widthMutation.Success, widthMutation.Error?.Message);
+                    Assert.Equal(RuntimeMutationStatuses.Applied, widthMutation.Value!.Status);
+                    Assert.True(widthMutation.Value.Applied);
+                    Assert.Equal(240, targetText.Width);
+                    Assert.Equal("Width", widthMutation.Value.Metadata["propertyName"]);
+                    Assert.Equal("1", widthMutation.Value.Metadata["activeMutationCount"]);
+                    var styleCapability = Assert.Single(widthMutation.Value.Capabilities, capability =>
+                        capability.Name == RuntimeMutationCapabilityCatalog.StyleLayoutMutation);
+                    Assert.True(styleCapability.Available);
+                    Assert.Equal("local_only", styleCapability.Metadata["transport"]);
+                    Assert.Equal("true", styleCapability.Metadata["temporary"]);
+                    Assert.Equal("true", styleCapability.Metadata["reversible"]);
 
-                var review = await AvaScopeMcpTools.MutationReview(
-                    client,
-                    runtime.SessionId.Value,
-                    maxResults: 10,
-                    artifactPath: reviewPath,
-                    sourceProject: Path.Combine(Path.GetTempPath(), "AvaScope.Tests", "McpMutationSample.csproj"),
-                    sourceView: Path.Combine(Path.GetTempPath(), "AvaScope.Tests", "Views", "MainView.axaml"));
+                    var review = await AvaScopeMcpTools.MutationReview(
+                        client,
+                        runtime.SessionId.Value,
+                        maxResults: 10,
+                        artifactPath: reviewPath,
+                        sourceProject: Path.Combine(Path.GetTempPath(), "AvaScope.Tests", "McpMutationSample.csproj"),
+                        sourceView: Path.Combine(Path.GetTempPath(), "AvaScope.Tests", "Views", "MainView.axaml"));
 
-                Assert.True(review.Success, review.Error?.Message);
-                Assert.Equal(1, review.Value!.ActiveMutationCount);
-                Assert.True(review.Value.HistoryCount >= 2);
-                var activeMutation = Assert.Single(review.Value.ActiveMutations);
-                Assert.Equal(widthMutation.Value.MutationId, activeMutation.MutationId);
-                Assert.Equal("Width", activeMutation.Metadata["propertyName"]);
-                Assert.NotNull(review.Value.SourceContext);
-                Assert.Equal("mcp", review.Value.SourceContext!.Source);
-                var sourceSuggestion = Assert.Single(review.Value.SourceSuggestions);
-                Assert.Equal(widthMutation.Value.MutationId, sourceSuggestion.MutationId);
-                Assert.Equal("medium", sourceSuggestion.Confidence);
-                Assert.Equal("provided", sourceSuggestion.SourceFileStatus);
-                Assert.Equal("Width", sourceSuggestion.SuggestedProperty);
-                Assert.EndsWith(Path.Combine("Views", "MainView.axaml"), sourceSuggestion.SuggestedFilePath, StringComparison.OrdinalIgnoreCase);
-                Assert.Equal(widthMutation.Value.MutationId, Assert.Single(review.Value.ResetHandoff.ActiveMutationIds));
-                Assert.Equal(RuntimeMutationOperationKinds.ResetMutation, review.Value.ResetHandoff.ResetMutationOperation);
-                Assert.Equal(RuntimeMutationOperationKinds.ResetAll, review.Value.ResetHandoff.ResetAllOperation);
-                Assert.NotNull(review.Value.ResetHandoff.SuggestedResetAllTarget);
-                Assert.NotNull(review.Value.ReviewArtifact);
-                Assert.True(File.Exists(review.Value.ReviewArtifact!.ArtifactPath));
-                Assert.Equal("active_mutations", review.Value.AgentReview.Status);
-                Assert.Equal(widthMutation.Value.MutationId, Assert.Single(review.Value.AgentReview.Mutations).MutationId);
-                Assert.Contains(review.Value.AgentReview.ReviewUrls, url => url == new Uri(reviewPath).AbsoluteUri);
-                var reviewHtml = File.ReadAllText(review.Value.ReviewArtifact.ArtifactPath);
-                Assert.Contains(widthMutation.Value.MutationId, reviewHtml, StringComparison.Ordinal);
-                Assert.Contains("Source Suggestions", reviewHtml, StringComparison.Ordinal);
-                Assert.Contains("MainView.axaml", reviewHtml, StringComparison.Ordinal);
+                    Assert.True(review.Success, review.Error?.Message);
+                    Assert.Equal(1, review.Value!.ActiveMutationCount);
+                    Assert.True(review.Value.HistoryCount >= 2);
+                    var activeMutation = Assert.Single(review.Value.ActiveMutations);
+                    Assert.Equal(widthMutation.Value.MutationId, activeMutation.MutationId);
+                    Assert.Equal("Width", activeMutation.Metadata["propertyName"]);
+                    Assert.NotNull(review.Value.SourceContext);
+                    Assert.Equal("mcp", review.Value.SourceContext!.Source);
+                    var sourceSuggestion = Assert.Single(review.Value.SourceSuggestions);
+                    Assert.Equal(widthMutation.Value.MutationId, sourceSuggestion.MutationId);
+                    Assert.Equal("medium", sourceSuggestion.Confidence);
+                    Assert.Equal("provided", sourceSuggestion.SourceFileStatus);
+                    Assert.Equal("Width", sourceSuggestion.SuggestedProperty);
+                    Assert.EndsWith(Path.Combine("Views", "MainView.axaml"), sourceSuggestion.SuggestedFilePath, StringComparison.OrdinalIgnoreCase);
+                    Assert.Equal(widthMutation.Value.MutationId, Assert.Single(review.Value.ResetHandoff.ActiveMutationIds));
+                    Assert.Equal(RuntimeMutationOperationKinds.ResetMutation, review.Value.ResetHandoff.ResetMutationOperation);
+                    Assert.Equal(RuntimeMutationOperationKinds.ResetAll, review.Value.ResetHandoff.ResetAllOperation);
+                    Assert.NotNull(review.Value.ResetHandoff.SuggestedResetAllTarget);
+                    Assert.NotNull(review.Value.ReviewArtifact);
+                    Assert.True(File.Exists(review.Value.ReviewArtifact!.ArtifactPath));
+                    Assert.Equal("active_mutations", review.Value.AgentReview.Status);
+                    Assert.Equal(widthMutation.Value.MutationId, Assert.Single(review.Value.AgentReview.Mutations).MutationId);
+                    Assert.Contains(review.Value.AgentReview.ReviewUrls, url => url == new Uri(reviewPath).AbsoluteUri);
+                    var reviewHtml = File.ReadAllText(review.Value.ReviewArtifact.ArtifactPath);
+                    Assert.Contains(widthMutation.Value.MutationId, reviewHtml, StringComparison.Ordinal);
+                    Assert.Contains("Source Suggestions", reviewHtml, StringComparison.Ordinal);
+                    Assert.Contains("MainView.axaml", reviewHtml, StringComparison.Ordinal);
 
-                var resetWidth = await AvaScopeMcpTools.MutateNode(
-                    client,
-                    runtime.SessionId.Value,
-                    topLevel.Id,
-                    targetNode.NodeId,
-                    RuntimeMutationOperationKinds.ResetMutation,
-                    TreeKinds.Visual,
-                    mutationId: widthMutation.Value.MutationId,
-                    requestId: "mcp-mutation-request-3");
+                    var resetWidth = await AvaScopeMcpTools.MutateNode(
+                        client,
+                        runtime.SessionId.Value,
+                        topLevel.Id,
+                        targetNode.NodeId,
+                        RuntimeMutationOperationKinds.ResetMutation,
+                        TreeKinds.Visual,
+                        mutationId: widthMutation.Value.MutationId,
+                        requestId: "mcp-mutation-request-3");
 
-                Assert.True(resetWidth.Success, resetWidth.Error?.Message);
-                Assert.Equal(RuntimeMutationStatuses.Applied, resetWidth.Value!.Status);
-                Assert.True(resetWidth.Value.Applied);
-                Assert.Equal(120, targetText.Width);
-                Assert.Contains(widthMutation.Value.MutationId, resetWidth.Value.Metadata["resetMutationIds"], StringComparison.Ordinal);
-                Assert.Equal("0", resetWidth.Value.Metadata["activeMutationCount"]);
+                    Assert.True(resetWidth.Success, resetWidth.Error?.Message);
+                    Assert.Equal(RuntimeMutationStatuses.Applied, resetWidth.Value!.Status);
+                    Assert.True(resetWidth.Value.Applied);
+                    Assert.Equal(120, targetText.Width);
+                    Assert.Contains(widthMutation.Value.MutationId, resetWidth.Value.Metadata["resetMutationIds"], StringComparison.Ordinal);
+                    Assert.Equal("0", resetWidth.Value.Metadata["activeMutationCount"]);
 
-                var reviewAfterReset = await AvaScopeMcpTools.MutationReview(
-                    client,
-                    runtime.SessionId.Value,
-                    maxResults: 10);
-                Assert.True(reviewAfterReset.Success, reviewAfterReset.Error?.Message);
-                Assert.Equal(0, reviewAfterReset.Value!.ActiveMutationCount);
-                Assert.Empty(reviewAfterReset.Value.ActiveMutations);
-                Assert.Contains(reviewAfterReset.Value.History, entry => entry.MutationId == resetWidth.Value.MutationId);
-            }
-            finally
-            {
-                registration?.Dispose();
-                window.Close();
-                DeleteIfExists(reviewPath);
-                AvaScopeBridge.Deactivate();
-                Dispatcher.UIThread.RunJobs();
-            }
-        }, CancellationToken.None);
+                    var reviewAfterReset = await AvaScopeMcpTools.MutationReview(
+                        client,
+                        runtime.SessionId.Value,
+                        maxResults: 10);
+                    Assert.True(reviewAfterReset.Success, reviewAfterReset.Error?.Message);
+                    Assert.Equal(0, reviewAfterReset.Value!.ActiveMutationCount);
+                    Assert.Empty(reviewAfterReset.Value.ActiveMutations);
+                    Assert.Contains(reviewAfterReset.Value.History, entry => entry.MutationId == resetWidth.Value.MutationId);
+                }
+                finally
+                {
+                    registration?.Dispose();
+                    window.Close();
+                    DeleteIfExists(reviewPath);
+                    AvaScopeBridge.Deactivate();
+                    Dispatcher.UIThread.RunJobs();
+                }
+            }, CancellationToken.None);
+        }
+        finally
+        {
+            DisposeHeadlessSessionAfterExplicitCleanup(session);
+        }
     }
 
     [Fact]
@@ -1469,6 +1476,19 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
         if (Directory.Exists(path))
         {
             Directory.Delete(path, recursive: true);
+        }
+    }
+
+    private static void DisposeHeadlessSessionAfterExplicitCleanup(HeadlessUnitTestSession session)
+    {
+        try
+        {
+            session.Dispose();
+        }
+        catch (NullReferenceException)
+        {
+            // Avalonia headless session disposal can throw after the test already disposed windows on hosted runners.
+            // Keep assertion failures from the dispatch body visible while ignoring this cleanup-only failure.
         }
     }
 
