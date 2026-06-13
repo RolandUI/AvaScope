@@ -1,0 +1,74 @@
+# AvaScope Security Threat Model
+
+This document records the security boundary for AvaScope before the v1.0.0 surface freeze. AvaScope is a local-first agent tool. It can execute or load user project code, inspect bridge-enabled applications, and write local artifacts, so the default posture is explicit opt-in, local-only access, bounded output, and no unauthenticated remote control.
+
+## Assets
+
+- User project source, build output, resources, preview profiles, and generated artifacts.
+- Running Avalonia app state exposed through an opt-in bridge.
+- Local bridge session manifests and named-pipe identifiers.
+- Screenshots, visual/logical tree JSON, mutation evidence, report packs, HTML viewers, logs, and release artifacts.
+- Public package, CLI, MCP, and protocol compatibility contracts.
+
+## Trust Boundaries
+
+| Boundary | Trusted Side | Untrusted Or Higher-Risk Side | Default Rule |
+| --- | --- | --- | --- |
+| CLI/MCP process to PreviewHost | AvaScope adapter process | User project code loaded by PreviewHost | PreviewHost runs as an isolated child process. |
+| CLI/MCP/Core to runtime app | Local AvaScope client | App process that explicitly activates `AvaScope.Bridge` | Only local manifests and local named pipes are supported. |
+| Agent to filesystem artifacts | Agent and user reviewing paths | Generated screenshots/reports/logs | AvaScope writes explicit local paths and does not upload by default. |
+| Public client compatibility | Existing CLI/MCP/protocol clients | Newer additive fields and tools | Clients must use capability ids and ignore unknown JSON properties. |
+
+## Local-Only Transport
+
+Runtime inspection and control use local session manifests plus local named pipes. `BridgeSessionManifest` defaults missing `transportScope` to `local_only` for legacy compatibility and rejects any non-local value. `LocalBridgeClient` treats unsupported transport manifests as invalid diagnostics and does not attach or mutate through them.
+
+Remote inspection, unauthenticated network listeners, no-code attach, process injection, CLR profiling, and private runtime hooks are out of scope for v0.9.0 and v1.0.0.
+
+## Opt-In Bridge Activation
+
+Referencing `AvaScope.Bridge` does not activate inspection. A host application must explicitly call `AvaScopeBridge.Activate(...)`, and the getting-started sample only does this when `AVASCOPE_SAMPLE_BRIDGE` is set to `1` or `true`.
+
+Production bridge activation remains disabled by default. AvaScope does not provide a production autostart hook, global runtime injection, or remote activation mechanism.
+
+## Runtime Mutation Permissions
+
+Runtime mutations are local-only, temporary, bounded, and reversible. Mutation requests must target the selected local bridge session and include the same structured `RuntimeTargetContext` returned by runtime inspection commands. Session mismatch is rejected before IPC with `runtime_mutation_non_local_session`.
+
+The safe mutation set is limited to selected public Avalonia style, layout, class, resource, text, and content overrides. Destructive actions, arbitrary process termination, persistent source edits, broad arbitrary-property editing, and private runtime hooks remain out of scope.
+
+## Preview Execution
+
+Preview rendering can build and load user project code. That code runs inside `AvaScope.PreviewHost`, not inside the CLI or MCP server process. Preview workflows use explicit project/view/profile inputs and write explicit local outputs. Dependency-injection startup, remote design-data loading, JSON object injection, and long-lived design-data services are deferred until they have a separate security model.
+
+## File Outputs And Logs
+
+AvaScope writes screenshots, diffs, JSON reports, HTML viewers, JUnit/SARIF-style report assets, launch stdout/stderr, and release artifacts only to explicit local paths or AvaScope-owned local temp directories. Generated files can contain UI text, paths, diagnostics, and screenshots from the user's app; agents should treat them as local sensitive artifacts and upload them only when the user or CI workflow explicitly chooses to.
+
+The visual-regression GitHub Actions example uses read-only repository permissions and artifact upload only. Publishing workflows require separate release gates and credentials.
+
+## Package, API, CLI, And MCP Compatibility
+
+Before v1.0.0, compatibility risk is tracked through GitHub issues and `docs/RELEASE_PLAN.md`. Public protocol changes should be additive unless the active release is explicitly a breaking surface freeze. `ToolResult<T>` keeps the stable `success`, `value`, and `error` JSON shape.
+
+Clients should call `capabilities` and gate workflows by capability id rather than guessing from package versions. Unknown JSON fields must be ignored by clients. Unsupported required capability ids fail with `capability_not_supported` and details that include `requestedCapabilities`, `unsupportedCapabilities`, `availableCapabilities`, `protocolVersion`, and `nextAction`.
+
+## Unsafe Defaults Rejected
+
+| Risk | Current Enforcement |
+| --- | --- |
+| Bridge active after package reference only | `AvaScopeBridge.IsActive` is false until explicit activation. |
+| Non-local bridge transport | `BridgeSessionManifest` rejects non-`local_only` transport scopes; diagnostics mark unsupported manifests invalid. |
+| Mutation targets another session | `LocalBridgeClient.MutateNodeAsync` rejects mismatched target sessions before IPC. |
+| Runtime mutations become permanent source edits | Mutation review source suggestions are advisory; no automatic source editing is implemented. |
+| Preview user code loads inside MCP/CLI | Core launches the isolated PreviewHost process for preview rendering. |
+| CI example publishes packages or releases | Visual regression example uses `permissions: contents: read` and no publish scripts or secrets. |
+
+## Accepted Risks And Deferrals
+
+- PreviewHost still executes user project code locally. This is inherent to realistic Avalonia preview rendering and is mitigated by child-process isolation, explicit inputs, and local artifacts.
+- Runtime mutation coverage is intentionally narrow. Broader arbitrary-property editing requires separate conversion, validation, rollback, and security validation.
+- Remote inspection/control, no-code attach, process injection, CLR profiling, and private Avalonia hooks remain post-1.0 unless a separate threat model is designed.
+- Generated screenshots and reports may contain sensitive UI data. Upload and retention policy belongs to the user or CI workflow that handles the local artifacts.
+
+No release-blocking security risk is accepted for v0.9.0 at the time this document was added.

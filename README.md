@@ -46,6 +46,7 @@ Executable ZIPs and package artifacts are published from GitHub Releases when a 
 
 - [User guide](docs/USER_GUIDE.md): detailed CLI, MCP, runtime bridge, preview, screenshot, diff, baseline, packaging, and release commands.
 - [Agent workflow](docs/AGENT_WORKFLOW.md): packaged CLI runbooks for agent-driven local workflows.
+- [Security threat model](docs/SECURITY_THREAT_MODEL.md): local-only transport, bridge activation, mutation, preview, artifact, and compatibility boundaries.
 - [Validation](docs/VALIDATION.md): local validation commands and release checks.
 - [Visual regression CI](docs/VISUAL_REGRESSION_CI.md): baseline-check artifact collection for GitHub Actions.
 - [Release plan](docs/RELEASE_PLAN.md): release goals, milestones, non-goals, and roadmap.

@@ -751,6 +751,20 @@ public sealed class ProtocolContractTests
     }
 
     [Fact]
+    public void BridgeSessionManifestRejectsUnsupportedTransportScope()
+    {
+        var exception = Assert.Throws<ArgumentException>(() => new BridgeSessionManifest(
+            new SessionId("session-remote"),
+            1234,
+            "avascope-remote",
+            new DateTimeOffset(2026, 6, 13, 2, 0, 0, TimeSpan.Zero),
+            transportScope: "remote"));
+
+        Assert.Equal("transportScope", exception.ParamName);
+        Assert.Contains("not supported", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void TopLevelListResponseSerializesStableShape()
     {
         var response = new ListTopLevelsResponse(

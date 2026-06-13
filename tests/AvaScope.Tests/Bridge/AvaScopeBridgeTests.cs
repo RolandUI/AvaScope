@@ -25,6 +25,9 @@ public sealed class AvaScopeBridgeTests : IDisposable
     {
         Assert.False(AvaScopeBridge.IsActive);
         Assert.Null(AvaScopeBridge.Current);
+        Assert.Null(BridgeActivationOptions.Default.DisplayName);
+        Assert.Equal(SessionKinds.Runtime, BridgeActivationOptions.Default.SessionKind);
+        Assert.Null(BridgeActivationOptions.Default.SessionRegistry);
     }
 
     [Fact]

@@ -627,6 +627,8 @@ Runtime safety boundary:
 - `reset_mutation`, `reset_all`, top-level unregister, `close-session`, and bridge deactivation attempt to restore active runtime mutations and clear AvaScope's active mutation registry.
 - Runtime target handoff uses structured `target` context in command output; it does not add remote control or private Avalonia hooks.
 
+The release threat model is tracked in [SECURITY_THREAT_MODEL.md](SECURITY_THREAT_MODEL.md). It records the local-only transport boundary, opt-in bridge activation, runtime mutation permissions, PreviewHost execution boundary, generated artifact/log handling, and package/API/CLI/MCP compatibility risks before the v1.0.0 freeze.
+
 Runtime input support is intentionally narrow:
 
 - `pointer_move` raises a routed Avalonia `PointerMovedEvent` on the hit-tested input target.
