@@ -709,101 +709,110 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
     [Fact]
     public async Task McpMutateNodeEvidenceCapturesScreenshotsTreesAndDiffThroughLocalBridgePipe()
     {
-        using var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessTestApplication));
+        var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessTestApplication));
 
-        await session.Dispatch(async () =>
+        try
         {
-            var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Headless MCP evidence sample"));
-            var targetSurface = new Border
+            await session.Dispatch(async () =>
             {
-                Name = "McpEvidenceSurface",
-                Width = 180,
-                Height = 120,
-                Background = Brushes.Red
-            };
-            var window = new Window
-            {
-                Title = "AvaScope MCP Evidence Sample",
-                Width = 360,
-                Height = 240,
-                Content = targetSurface
-            };
-            var artifactDirectory = Path.Combine(
-                Path.GetTempPath(),
-                "AvaScope.Tests",
-                $"mcp-evidence-{Guid.NewGuid():N}");
+                var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Headless MCP evidence sample"));
+                var targetSurface = new Border
+                {
+                    Name = "McpEvidenceSurface",
+                    Width = 180,
+                    Height = 120,
+                    Background = Brushes.Red
+                };
+                var window = new Window
+                {
+                    Title = "AvaScope MCP Evidence Sample",
+                    Width = 360,
+                    Height = 240,
+                    Content = targetSurface
+                };
+                var artifactDirectory = Path.Combine(
+                    Path.GetTempPath(),
+                    "AvaScope.Tests",
+                    $"mcp-evidence-{Guid.NewGuid():N}");
 
-            try
-            {
-                window.Show();
-                using var registration = runtime.RegisterTopLevel(window);
-                Dispatcher.UIThread.RunJobs();
+                try
+                {
+                    window.Show();
+                    using var registration = runtime.RegisterTopLevel(window);
+                    Dispatcher.UIThread.RunJobs();
 
-                var client = new LocalBridgeClient(Path.GetDirectoryName(runtime.SessionManifestPath)!);
-                var topLevel = Assert.Single(await runtime.ListTopLevelsAsync());
-                var tree = await AvaScopeMcpTools.VisualTree(
-                    client,
-                    runtime.SessionId.Value,
-                    topLevel.Id,
-                    maxDepth: 8);
-                Assert.True(tree.Success, tree.Error?.Message);
-                var targetNode = FindNode(tree.Value!.Root, node => node.Name == "McpEvidenceSurface");
-                Assert.NotNull(targetNode);
+                    var client = new LocalBridgeClient(Path.GetDirectoryName(runtime.SessionManifestPath)!);
+                    var topLevel = Assert.Single(await runtime.ListTopLevelsAsync());
+                    var tree = await AvaScopeMcpTools.VisualTree(
+                        client,
+                        runtime.SessionId.Value,
+                        topLevel.Id,
+                        maxDepth: 8);
+                    Assert.True(tree.Success, tree.Error?.Message);
+                    var targetNode = FindNode(tree.Value!.Root, node => node.Name == "McpEvidenceSurface");
+                    Assert.NotNull(targetNode);
 
-                var evidence = await AvaScopeMcpTools.MutateNodeEvidence(
-                    client,
-                    runtime.SessionId.Value,
-                    topLevel.Id,
-                    targetNode.NodeId,
-                    RuntimeMutationOperationKinds.SetProperty,
-                    artifactDirectory,
-                    TreeKinds.Visual,
-                    propertyName: "Background",
-                    value: "#0000ff",
-                    valueType: "brush",
-                    requestId: "mcp-evidence-request",
-                    maxDepth: 8,
-                    includeDiff: true,
-                    tolerance: 0);
+                    var evidence = await AvaScopeMcpTools.MutateNodeEvidence(
+                        client,
+                        runtime.SessionId.Value,
+                        topLevel.Id,
+                        targetNode.NodeId,
+                        RuntimeMutationOperationKinds.SetProperty,
+                        artifactDirectory,
+                        TreeKinds.Visual,
+                        propertyName: "Background",
+                        value: "#0000ff",
+                        valueType: "brush",
+                        requestId: "mcp-evidence-request",
+                        maxDepth: 8,
+                        includeDiff: true,
+                        tolerance: 0);
 
-                Assert.True(evidence.Success, evidence.Error?.Message);
-                Assert.Equal("mcp-evidence-request", evidence.Value!.RequestId);
-                Assert.Equal(RuntimeMutationStatuses.Applied, evidence.Value.Mutation.Status);
-                Assert.True(evidence.Value.Mutation.Applied);
-                Assert.Equal("captured", evidence.Value.Summary.Status);
-                Assert.Equal("changed", evidence.Value.Summary.DiffStatus);
-                Assert.True(evidence.Value.Summary.ScreenshotsCaptured);
-                Assert.True(evidence.Value.Summary.VisualTreeSnapshotsCaptured);
-                Assert.True(evidence.Value.Summary.BeforeTargetFound);
-                Assert.True(evidence.Value.Summary.AfterTargetFound);
-                Assert.NotNull(evidence.Value.Diff);
-                Assert.False(evidence.Value.Diff.Passed);
-                Assert.True(evidence.Value.Diff.ChangedPixels > 0);
-                Assert.True(evidence.Value.Summary.ChangedPixels > 0);
-                Assert.True(File.Exists(evidence.Value.BeforeScreenshotPath));
-                Assert.True(File.Exists(evidence.Value.AfterScreenshotPath));
-                Assert.True(File.Exists(evidence.Value.BeforeVisualTreePath));
-                Assert.True(File.Exists(evidence.Value.AfterVisualTreePath));
-                Assert.NotNull(evidence.Value.DiffPath);
-                Assert.True(File.Exists(evidence.Value.DiffPath));
-                Assert.NotNull(evidence.Value.ReviewArtifact);
-                Assert.True(File.Exists(evidence.Value.ReviewArtifact!.ArtifactPath));
-                Assert.Equal("captured", evidence.Value.AgentReview.Status);
-                Assert.Equal(evidence.Value.Mutation.MutationId, Assert.Single(evidence.Value.AgentReview.Mutations).MutationId);
-                Assert.Contains(evidence.Value.AgentReview.ArtifactPaths, path => path.Kind == "diff");
-                Assert.Contains(evidence.Value.AgentReview.ReviewUrls, url => url.EndsWith("-review.html", StringComparison.Ordinal));
-                var reviewHtml = File.ReadAllText(evidence.Value.ReviewArtifact.ArtifactPath);
-                Assert.Contains(evidence.Value.Mutation.MutationId, reviewHtml, StringComparison.Ordinal);
-                Assert.Contains("Before", reviewHtml, StringComparison.Ordinal);
-                Assert.Contains("After", reviewHtml, StringComparison.Ordinal);
-                Assert.Equal(Brushes.Blue.ToString(), targetSurface.Background?.ToString());
-            }
-            finally
-            {
-                window.Close();
-                DeleteDirectoryIfExists(artifactDirectory);
-            }
-        }, CancellationToken.None);
+                    Assert.True(evidence.Success, evidence.Error?.Message);
+                    Assert.Equal("mcp-evidence-request", evidence.Value!.RequestId);
+                    Assert.Equal(RuntimeMutationStatuses.Applied, evidence.Value.Mutation.Status);
+                    Assert.True(evidence.Value.Mutation.Applied);
+                    Assert.Equal("captured", evidence.Value.Summary.Status);
+                    Assert.Equal("changed", evidence.Value.Summary.DiffStatus);
+                    Assert.True(evidence.Value.Summary.ScreenshotsCaptured);
+                    Assert.True(evidence.Value.Summary.VisualTreeSnapshotsCaptured);
+                    Assert.True(evidence.Value.Summary.BeforeTargetFound);
+                    Assert.True(evidence.Value.Summary.AfterTargetFound);
+                    Assert.NotNull(evidence.Value.Diff);
+                    Assert.False(evidence.Value.Diff.Passed);
+                    Assert.True(evidence.Value.Diff.ChangedPixels > 0);
+                    Assert.True(evidence.Value.Summary.ChangedPixels > 0);
+                    Assert.True(File.Exists(evidence.Value.BeforeScreenshotPath));
+                    Assert.True(File.Exists(evidence.Value.AfterScreenshotPath));
+                    Assert.True(File.Exists(evidence.Value.BeforeVisualTreePath));
+                    Assert.True(File.Exists(evidence.Value.AfterVisualTreePath));
+                    Assert.NotNull(evidence.Value.DiffPath);
+                    Assert.True(File.Exists(evidence.Value.DiffPath));
+                    Assert.NotNull(evidence.Value.ReviewArtifact);
+                    Assert.True(File.Exists(evidence.Value.ReviewArtifact!.ArtifactPath));
+                    Assert.Equal("captured", evidence.Value.AgentReview.Status);
+                    Assert.Equal(evidence.Value.Mutation.MutationId, Assert.Single(evidence.Value.AgentReview.Mutations).MutationId);
+                    Assert.Contains(evidence.Value.AgentReview.ArtifactPaths, path => path.Kind == "diff");
+                    Assert.Contains(evidence.Value.AgentReview.ReviewUrls, url => url.EndsWith("-review.html", StringComparison.Ordinal));
+                    var reviewHtml = File.ReadAllText(evidence.Value.ReviewArtifact.ArtifactPath);
+                    Assert.Contains(evidence.Value.Mutation.MutationId, reviewHtml, StringComparison.Ordinal);
+                    Assert.Contains("Before", reviewHtml, StringComparison.Ordinal);
+                    Assert.Contains("After", reviewHtml, StringComparison.Ordinal);
+                    Assert.Equal(Brushes.Blue.ToString(), targetSurface.Background?.ToString());
+                }
+                finally
+                {
+                    window.Close();
+                    DeleteDirectoryIfExists(artifactDirectory);
+                    AvaScopeBridge.Deactivate();
+                    Dispatcher.UIThread.RunJobs();
+                }
+            }, CancellationToken.None);
+        }
+        finally
+        {
+            DisposeHeadlessSessionAfterExplicitCleanup(session);
+        }
     }
 
     [Fact]
