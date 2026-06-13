@@ -45,7 +45,7 @@ The roadmap below is the working plan to `v1.0.0`. It is intentionally release-s
 - `v0.8.0` is released.
 - `v0.7.0` starts the agent-first product direction: AvaScope becomes an agent control plane for inspecting, changing, validating, and explaining Avalonia UI behavior through structured CLI/MCP workflows.
 - `v0.9.0` is released.
-- `v1.0.0` is the active release target through GitHub milestone `v1.0.0`, release issue #33, and implementation issue #37 currently in progress.
+- `v1.0.0` is the active release target through GitHub milestone `v1.0.0`, release issue #33, and implementation issue #38 currently in progress.
 - Each release must preserve the current product boundaries: MCP and CLI stay adapters over Core, runtime bridge activation stays opt-in and local-only, PreviewHost stays isolated from the MCP server, and private Avalonia/runtime hooks remain out of the default path.
 - Every release must include targeted tests, full build/test validation, release dry-run validation, documentation updates, and explicit deferrals.
 - A release may be split into a patch release if a P0/P1 regression blocks users or CI, but patch scope must remain defect-focused.
@@ -474,8 +474,8 @@ The `v1.0.0` release target is the stable public release. The goal is not to add
 - `R1.0.0-M1 Stable Surface Freeze`; Status: `Done`.
 - `R1.0.0-M2 End-To-End Workflow Verification`; Status: `Done`.
 - `R1.0.0-M3 Documentation Completion`; Status: `Done`.
-- `R1.0.0-M4 Release Artifact And Package Verification`; Status: `In Progress`.
-- `R1.0.0-M5 Post-1.0 Backlog And Deferral Audit`; Status: `Planned`.
+- `R1.0.0-M4 Release Artifact And Package Verification`; Status: `Done`.
+- `R1.0.0-M5 Post-1.0 Backlog And Deferral Audit`; Status: `In Progress`.
 - `R1.0.0-M6 Stable Release Commit And Publication`; Status: `Planned`.
 
 ### v1.0.0 Implementation Validation
@@ -489,13 +489,18 @@ The `v1.0.0` release target is the stable public release. The goal is not to add
 - `2026-06-13`: Completed `R1.0.0-M3` after remote validation. Commit `61a340f` passed GitHub CI workflow `27457868832` and Release workflow `27457868833` (no-op), and #36 was closed. Started `R1.0.0-M4 Release Artifact And Package Verification` as the active release slice.
 - `2026-06-13`: For `R1.0.0-M4`, GitHub Actions quota pressure changed the validation policy until final publish: development CI is manual-only, intermediate slices are locally validated, and the `Release` workflow is limited to `Directory.Build.props` version-bump pushes or manual dispatch so only the final release publish consumes CI.
 - `2026-06-13`: Completed local `R1.0.0-M4` artifact verification and recorded it in [RELEASE_ARTIFACT_VERIFICATION.md](RELEASE_ARTIFACT_VERIFICATION.md). The slice validated temporary `1.0.0` local release creation, Release tests (312 passed), NuGet and GitHub Release dry-runs, manifest/hash/package metadata, framework-dependent ZIP contents, packaged CLI capability gate, packaged MCP stdio `tools/list` with `serverInfo.name=avascope`, the opt-in win-x64 self-contained lane, and restoration of the default framework-dependent asset set. `Directory.Build.props` was restored to `0.9.0`; the actual `1.0.0` bump remains reserved for the final release commit.
+- `2026-06-13`: Completed `R1.0.0-M4` after local validation only. Commit `b0bbf6d` did not trigger GitHub Actions by design, #37 was closed, and `R1.0.0-M5 Post-1.0 Backlog And Deferral Audit` started as the active release slice.
+- `2026-06-13`: Completed local `R1.0.0-M5` backlog audit and recorded it in [POST_1_0_BACKLOG.md](POST_1_0_BACKLOG.md). The audit found no open P1 issues and no hidden product P0 issue; the only open P0 issues are #33 release tracker and #39 final release/publish slice.
 
 ### v1.0.0 Explicit Deferrals
+
+The final v1.0.0 non-blocking deferral list is recorded in [POST_1_0_BACKLOG.md](POST_1_0_BACKLOG.md).
 
 - Remote inspection/control, no-code attach, process injection, CLR profiling, and private Avalonia designer APIs remain post-1.0 unless a separate security model is designed.
 - Native IDE extensions can build on the stable CLI/MCP contracts after 1.0; they are not required for the stable release.
 - Cloud-hosted visual regression dashboards remain post-1.0.
 - Destructive runtime actions remain out of scope for the stable tool set.
+- Automatic source editing remains post-1.0; source suggestions are advisory in v1.
 
 ## Released Target: v0.3.0
 

@@ -26,23 +26,25 @@ GitHub Issues and Milestones are the primary project-management source for auton
 
 ## Current Focus
 
-- `R1.0.0-M4 Release Artifact And Package Verification`
-- GitHub Issue: https://github.com/RolandUI/AvaScope/issues/37
+- `R1.0.0-M5 Post-1.0 Backlog And Deferral Audit`
+- GitHub Issue: https://github.com/RolandUI/AvaScope/issues/38
 - GitHub Milestone: `v1.0.0`
 - Status: `In Progress`
 - Owner: unassigned
 - Started: `2026-06-13`
-- Goal: verify reproducible v1 release package and executable outputs, release manifests, hashes, package metadata, artifact decisions, dry-run publication behavior, and packaged stable CLI/MCP smoke workflows.
+- Goal: explicitly separate stable v1.0.0 scope from post-1.0 work, record deferred items with reason, priority, and release-blocking status, and verify no hidden P0/P1 blockers remain.
 
 ## Next Action
 
-Run the #37 release artifact verification matrix: local release creation, GitHub Release dry-run for `v1.0.0`, manifest/hash/package metadata inspection, and packaged CLI/MCP smoke validation.
+Complete the #38 post-1.0 backlog audit, update docs with the final non-blocking deferral list, and validate the documentation guard tests locally.
 
 ## Latest Validation
 
 - `2026-06-13`: Completed GitHub issue #36 after remote validation. Commit `61a340f713c57b11b3d434fcce2f1fecdfa6ec49` (`Complete v1 documentation readiness`) passed GitHub CI workflow `27457868832` and Release workflow `27457868833` (no-op). The issue moved to `status:done`, project Done/100/Completed, and was closed. Started GitHub issue #37 `R1.0.0-M4 Release Artifact And Package Verification`; the issue and project card moved to `status:in-progress` / In Progress / 25% / Current Slice.
 - `2026-06-13`: Due to GitHub Actions quota pressure during #37, normal development CI was intentionally restricted to manual dispatch and local validation became the required slice gate until the final `v1.0.0` publish. The `Release` workflow remains available for the final release commit and is scoped to `Directory.Build.props` version-bump pushes or manual dispatch.
 - `2026-06-13`: Completed local #37 release artifact verification with temporary `Directory.Build.props` version `1.0.0`, then restored the committed version to `0.9.0`. Validation passed with `eng/create-local-release.ps1` (Release build, 312 Release tests, three NuGet packages, win/linux framework-dependent ZIPs, manifest verification, packaged doctor and sample preview smoke), `eng/publish-nuget.ps1 -DryRun`, `eng/publish-github-release.ps1 -Tag v1.0.0 -DryRun`, manifest/hash/package/ZIP inspection, packaged `capabilities --require ...`, packaged MCP stdio smoke with 30 tools and `serverInfo.name=avascope`, opt-in win-x64 self-contained local release plus GitHub Release dry-run, and final framework-dependent artifact restoration. Details are in [RELEASE_ARTIFACT_VERIFICATION.md](RELEASE_ARTIFACT_VERIFICATION.md).
+- `2026-06-13`: Completed GitHub issue #37 after local-only validation. Commit `b0bbf6d2d8af9f4ae8a7e8d2366bd83b45f9e9ab` (`Verify v1 release artifacts`) was pushed without triggering GitHub Actions by design. The issue moved to `status:done`, project Done/100/Completed, and was closed. Started GitHub issue #38 `R1.0.0-M5 Post-1.0 Backlog And Deferral Audit`; the issue and project card moved to `status:in-progress` / In Progress / 25% / Current Slice.
+- `2026-06-13`: Completed local #38 backlog audit. `gh issue list` found no open `priority:p1` issues and only two open `priority:p0` issues: #33 release tracker and #39 final release/publish slice. All feature-request intake files are already marked implemented. Added [POST_1_0_BACKLOG.md](POST_1_0_BACKLOG.md) with non-blocking post-1.0 deferrals, reasons, priorities, and release-blocking status.
 - `2026-06-13`: Completed local implementation for GitHub issue #36 `R1.0.0-M3 Documentation Completion`. Updated primary docs for stable v1 positioning, added [UPGRADE.md](UPGRADE.md), removed active public-alpha/pre-1.0 wording from README/User Guide/Agent Workflow/Validation/Security docs, refreshed install/release examples, and added `DocumentationCompletionTests`. Validation passed with primary-doc markdown link/path check (9 files), stale wording `rg` check, `dotnet build AvaScope.slnx --no-restore -v:minimal`, focused documentation tests (`DocumentationCompletionTests`, `StableSurfaceDocumentationTests`, `EndToEndValidationDocumentationTests`, `SecurityThreatModelDocumentationTests`, `VisualRegressionWorkflowDocumentationTests`, `PerformanceStressAuditDocumentationTests`, 12 passed), full Debug tests (`dotnet test AvaScope.slnx --no-build`, 311 passed), `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1 -SkipTests`, packaged `capabilities --require ...`, and `git diff --check` with only LF/CRLF normalization warnings.
 - `2026-06-13`: Completed GitHub issue #35 after remote validation. Final commit `f525e11c4d6496445d1a1bfd9f16527192b5353e` (`Stabilize v1 end-to-end CI validation`) passed GitHub CI workflow `27457413804` and Release workflow `27457413805` (no-op). The issue moved to `status:done`, project Done/100/Completed, and was closed. Started GitHub issue #36 `R1.0.0-M3 Documentation Completion`; the issue and project card moved to `status:in-progress` / In Progress / 25% / Current Slice.
 - `2026-06-13`: Stabilized the #35 hosted-runner CI failure from GitHub CI workflow `27457002598`. Two CLI bridge-pipe smoke tests timed out waiting for fake bridge IPC under the full Release CI run; the CLI smoke harness now gives implicit fake bridge manifests an async-test-flow isolated manifest directory instead of a shared static directory. Local validation passed with `dotnet test tests/AvaScope.Tests/AvaScope.Tests.csproj -c Release --no-restore --filter "FullyQualifiedName~AvaScope.Tests.Cli.CliSmokeTests"` (91 passed).

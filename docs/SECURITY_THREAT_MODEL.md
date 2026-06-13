@@ -71,4 +71,6 @@ Clients should call `capabilities` and gate workflows by capability id rather th
 - Remote inspection/control, no-code attach, process injection, CLR profiling, and private Avalonia hooks remain post-1.0 unless a separate threat model is designed.
 - Generated screenshots and reports may contain sensitive UI data. Upload and retention policy belongs to the user or CI workflow that handles the local artifacts.
 
+The final non-blocking post-1.0 backlog and release-blocking audit is recorded in [POST_1_0_BACKLOG.md](POST_1_0_BACKLOG.md).
+
 No release-blocking security risk is accepted for v1.0.0. A new P0/P1 security issue blocks the stable release until fixed, moved out of scope with explicit rationale, or accepted by a separate release decision.

@@ -9,7 +9,7 @@ dotnet test AvaScope.slnx
 git status --short
 ```
 
-For the `v1.0.0` end-to-end release-readiness ledger, keep [END_TO_END_VALIDATION.md](END_TO_END_VALIDATION.md) updated with source, packaged CLI, packaged MCP, runtime bridge, report-pack, release artifact, and blocker-audit results. Record package, ZIP, manifest, hash, publish dry-run, packaged CLI, and packaged MCP release artifact checks in [RELEASE_ARTIFACT_VERIFICATION.md](RELEASE_ARTIFACT_VERIFICATION.md).
+For the `v1.0.0` end-to-end release-readiness ledger, keep [END_TO_END_VALIDATION.md](END_TO_END_VALIDATION.md) updated with source, packaged CLI, packaged MCP, runtime bridge, report-pack, release artifact, and blocker-audit results. Record package, ZIP, manifest, hash, publish dry-run, packaged CLI, and packaged MCP release artifact checks in [RELEASE_ARTIFACT_VERIFICATION.md](RELEASE_ARTIFACT_VERIFICATION.md). Record final non-blocking post-1.0 deferrals in [POST_1_0_BACKLOG.md](POST_1_0_BACKLOG.md).
 
 Run build and test commands sequentially. Parallel build/test invocations can contend for the same `bin/` and `obj/` outputs.
 
