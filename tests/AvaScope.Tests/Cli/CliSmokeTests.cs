@@ -3154,7 +3154,11 @@ public sealed class CliSmokeTests
 
         var sessionId = SessionId.New();
         var pipeName = $"avascope-cli-review-{Guid.NewGuid():N}";
-        var manifestPath = WriteBridgeManifest(sessionId, pipeName);
+        var manifestDirectory = Path.Combine(
+            Path.GetTempPath(),
+            "AvaScope.Tests",
+            $"cli-review-manifests-{Guid.NewGuid():N}");
+        var manifestPath = WriteBridgeManifest(sessionId, pipeName, manifestDirectory);
         var artifactDirectory = Path.Combine(
             Path.GetTempPath(),
             "AvaScope.Tests",
@@ -3220,6 +3224,8 @@ public sealed class CliSmokeTests
                 "5",
                 "--out",
                 reviewPath,
+                "--manifest-dir",
+                manifestDirectory,
                 "--source-project",
                 sourceProjectPath,
                 "--source-view",
@@ -3262,6 +3268,11 @@ public sealed class CliSmokeTests
             if (File.Exists(manifestPath))
             {
                 File.Delete(manifestPath);
+            }
+
+            if (Directory.Exists(manifestDirectory))
+            {
+                Directory.Delete(manifestDirectory, recursive: true);
             }
 
             if (Directory.Exists(artifactDirectory))
@@ -3317,7 +3328,11 @@ public sealed class CliSmokeTests
 
         var sessionId = SessionId.New();
         var pipeName = $"avascope-cli-test-{Guid.NewGuid():N}";
-        var manifestPath = WriteBridgeManifest(sessionId, pipeName);
+        var manifestDirectory = Path.Combine(
+            Path.GetTempPath(),
+            "AvaScope.Tests",
+            $"cli-close-session-manifests-{Guid.NewGuid():N}");
+        var manifestPath = WriteBridgeManifest(sessionId, pipeName, manifestDirectory);
         var closedAt = DateTimeOffset.UtcNow;
 
         var serverTask = RespondToBridgeRequestAsync(pipeName, request =>
@@ -3338,7 +3353,13 @@ public sealed class CliSmokeTests
 
         try
         {
-            var result = await RunCliAsync(cliAssembly, "close-session", "--session", sessionId.Value);
+            var result = await RunCliAsync(
+                cliAssembly,
+                "close-session",
+                "--session",
+                sessionId.Value,
+                "--manifest-dir",
+                manifestDirectory);
             var request = await serverTask;
 
             Assert.Equal(0, result.ExitCode);
@@ -3357,6 +3378,11 @@ public sealed class CliSmokeTests
             if (File.Exists(manifestPath))
             {
                 File.Delete(manifestPath);
+            }
+
+            if (Directory.Exists(manifestDirectory))
+            {
+                Directory.Delete(manifestDirectory, recursive: true);
             }
         }
     }
