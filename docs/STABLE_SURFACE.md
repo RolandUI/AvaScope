@@ -193,6 +193,8 @@ Stable release workflow behavior:
 - `eng/create-local-release.ps1` is the local release gate.
 - `eng/verify-artifacts.ps1` verifies package and executable artifact coverage and writes `artifacts/release-manifest.json`.
 - `eng/publish-github-release.ps1 -Tag v<Version> -DryRun` verifies the GitHub Release asset set without publishing.
+- The development CI workflow is manual-only; release preparation relies on local validation unless a GitHub Actions run is explicitly requested.
+- Automatic GitHub Release publishing is scoped to pushes that change `Directory.Build.props` or to manual workflow dispatch.
 - The GitHub Release workflow no-ops when the remote tag already exists for the current version.
 
 ## Non-Stable Surfaces

@@ -45,7 +45,7 @@ The roadmap below is the working plan to `v1.0.0`. It is intentionally release-s
 - `v0.8.0` is released.
 - `v0.7.0` starts the agent-first product direction: AvaScope becomes an agent control plane for inspecting, changing, validating, and explaining Avalonia UI behavior through structured CLI/MCP workflows.
 - `v0.9.0` is released.
-- `v1.0.0` is the active release target through GitHub milestone `v1.0.0`, release issue #33, and implementation issue #36 currently in progress.
+- `v1.0.0` is the active release target through GitHub milestone `v1.0.0`, release issue #33, and implementation issue #37 currently in progress.
 - Each release must preserve the current product boundaries: MCP and CLI stay adapters over Core, runtime bridge activation stays opt-in and local-only, PreviewHost stays isolated from the MCP server, and private Avalonia/runtime hooks remain out of the default path.
 - Every release must include targeted tests, full build/test validation, release dry-run validation, documentation updates, and explicit deferrals.
 - A release may be split into a patch release if a P0/P1 regression blocks users or CI, but patch scope must remain defect-focused.
@@ -473,8 +473,8 @@ The `v1.0.0` release target is the stable public release. The goal is not to add
 
 - `R1.0.0-M1 Stable Surface Freeze`; Status: `Done`.
 - `R1.0.0-M2 End-To-End Workflow Verification`; Status: `Done`.
-- `R1.0.0-M3 Documentation Completion`; Status: `In Progress`.
-- `R1.0.0-M4 Release Artifact And Package Verification`; Status: `Planned`.
+- `R1.0.0-M3 Documentation Completion`; Status: `Done`.
+- `R1.0.0-M4 Release Artifact And Package Verification`; Status: `In Progress`.
 - `R1.0.0-M5 Post-1.0 Backlog And Deferral Audit`; Status: `Planned`.
 - `R1.0.0-M6 Stable Release Commit And Publication`; Status: `Planned`.
 
@@ -485,7 +485,9 @@ The `v1.0.0` release target is the stable public release. The goal is not to add
 - `2026-06-13`: Local `R1.0.0-M2` validation passed and is recorded in [END_TO_END_VALIDATION.md](END_TO_END_VALIDATION.md): source restore/build/test, local release artifact creation, GitHub Release dry-run, packaged CLI workflows, packaged runtime bridge workflows, packaged MCP `tools/list`, and open P0/P1 blocker audit.
 - `2026-06-13`: Stabilized the `R1.0.0-M2` hosted CI follow-up after GitHub CI workflow `27457002598` exposed CLI fake bridge manifest coupling under the full Release test run. The fix is test-harness only: implicit CLI fake bridge manifests now use an async-test-flow isolated manifest directory. Targeted Release CLI smoke validation passed with 91 tests.
 - `2026-06-13`: Completed `R1.0.0-M2` after remote validation. Commit `f525e11` passed GitHub CI workflow `27457413804` and Release workflow `27457413805` (no-op), and #35 was closed. Started `R1.0.0-M3 Documentation Completion` as the active release slice.
-- `2026-06-13`: Completed local `R1.0.0-M3` documentation implementation. Primary docs now use stable v1 positioning, upgrade guidance is documented in [UPGRADE.md](UPGRADE.md), stale active public-alpha/pre-1.0 wording is removed from primary docs, and `DocumentationCompletionTests` covers stable install, upgrade, CLI, MCP, bridge, preview, mutation, baseline, safety, and stale-wording regressions. Local validation passed with markdown link/path check, stale wording check, build, focused docs tests, full Debug tests, packaged local release creation with sample smoke, packaged capability gate, and `git diff --check`; remote CI/Release validation is pending before #36 can close.
+- `2026-06-13`: Completed local `R1.0.0-M3` documentation implementation. Primary docs now use stable v1 positioning, upgrade guidance is documented in [UPGRADE.md](UPGRADE.md), stale active public-alpha/pre-1.0 wording is removed from primary docs, and `DocumentationCompletionTests` covers stable install, upgrade, CLI, MCP, bridge, preview, mutation, baseline, safety, and stale-wording regressions. Local validation passed with markdown link/path check, stale wording check, build, focused docs tests, full Debug tests, packaged local release creation with sample smoke, packaged capability gate, and `git diff --check`.
+- `2026-06-13`: Completed `R1.0.0-M3` after remote validation. Commit `61a340f` passed GitHub CI workflow `27457868832` and Release workflow `27457868833` (no-op), and #36 was closed. Started `R1.0.0-M4 Release Artifact And Package Verification` as the active release slice.
+- `2026-06-13`: For `R1.0.0-M4`, GitHub Actions quota pressure changed the validation policy until final publish: development CI is manual-only, intermediate slices are locally validated, and the `Release` workflow is limited to `Directory.Build.props` version-bump pushes or manual dispatch so only the final release publish consumes CI.
 
 ### v1.0.0 Explicit Deferrals
 

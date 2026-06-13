@@ -148,6 +148,23 @@ public sealed class StableSurfaceContractTests
         Assert.Contains("Release Candidate", releaseCommitGuard, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void WorkflowTriggersKeepDevelopmentValidationManualAndReleaseVersionScoped()
+    {
+        var root = FindRepositoryRoot();
+        var ciWorkflow = NormalizeLineEndings(File.ReadAllText(Path.Combine(root, ".github", "workflows", "ci.yml")));
+        var releaseWorkflow = NormalizeLineEndings(File.ReadAllText(Path.Combine(root, ".github", "workflows", "publish-nuget.yml")));
+
+        Assert.Contains("\n  workflow_dispatch:", ciWorkflow, StringComparison.Ordinal);
+        Assert.DoesNotContain("\n  push:", ciWorkflow, StringComparison.Ordinal);
+        Assert.DoesNotContain("\n  pull_request:", ciWorkflow, StringComparison.Ordinal);
+
+        Assert.Contains("\n  push:", releaseWorkflow, StringComparison.Ordinal);
+        Assert.Contains("\n    paths:", releaseWorkflow, StringComparison.Ordinal);
+        Assert.Contains("\n      - Directory.Build.props", releaseWorkflow, StringComparison.Ordinal);
+        Assert.Contains("\n  workflow_dispatch:", releaseWorkflow, StringComparison.Ordinal);
+    }
+
     private static IReadOnlyList<string> ReadRegexGroupValues(string path, string pattern)
     {
         var source = File.ReadAllText(path);
@@ -155,6 +172,11 @@ public sealed class StableSurfaceContractTests
             .Select(static match => match.Groups["name"].Value)
             .Distinct(StringComparer.Ordinal)
             .ToArray();
+    }
+
+    private static string NormalizeLineEndings(string source)
+    {
+        return source.Replace("\r\n", "\n", StringComparison.Ordinal);
     }
 
     private static IReadOnlyList<string> ReadCliCommandSwitchNames(string path)

@@ -108,7 +108,7 @@ This produces artifacts such as `artifacts\executables\avascope-win-x64-self-con
 
 The default executable package targets are `win-x64` and `linux-x64`. Pass `-RuntimeIdentifiers win-x64` or `-ExecutableRuntimeIdentifiers win-x64` to the package and verify scripts when validating a narrower local artifact set. Pass `-PackageKind self-contained` to `package-executables.ps1`, or `-ExecutablePackageKind self-contained` to `create-local-release.ps1`, `verify-artifacts.ps1`, or `publish-github-release.ps1` when working with the opt-in self-contained lane.
 
-CI validation runs restore, Release build, Release test, local library pack, local executable package, and artifact verification commands in GitHub Actions on pushes and pull requests. It does not publish packages or require secrets.
+The `CI` workflow can be manually dispatched to run restore, Release build, Release test, local library pack, local executable package, and artifact verification commands in GitHub Actions. Development slices should still be validated locally before commit; the automated publish path is reserved for release commits.
 
 ## Release
 
@@ -128,7 +128,7 @@ git commit -m "Release <version>"
 git push origin master
 ```
 
-The `Release` workflow reads `Directory.Build.props`, checks whether `v<Version>` already exists on the remote, and only releases when that tag is missing. Automatic publish on push also requires the commit subject to be exactly `Release <Version>` and [RELEASE_PLAN.md](RELEASE_PLAN.md) to declare the same target version in `Release Candidate` state. If the version was already released, the workflow exits without publishing.
+The `Release` workflow runs automatically only when a push changes `Directory.Build.props`, reads that version, checks whether `v<Version>` already exists on the remote, and only releases when that tag is missing. Automatic publish on push also requires the commit subject to be exactly `Release <Version>` and [RELEASE_PLAN.md](RELEASE_PLAN.md) to declare the same target version in `Release Candidate` state. If the version was already released, the workflow exits without publishing.
 
 When a new version is detected, the workflow runs the full local release gate, dry-runs the publish set, publishes `AvaScope.Protocol`, `AvaScope.Core`, and `AvaScope.Bridge` to nuget.org and GitHub Packages in dependency order, then creates the `v<Version>` tag on the release commit.
 
