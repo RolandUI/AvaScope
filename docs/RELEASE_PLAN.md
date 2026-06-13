@@ -427,8 +427,8 @@ The `v0.9.0` release target is beta hardening for the agent control plane. The g
 
 ### v0.9.0 Milestone Map
 
-- `R0.9.0-M1 Source-Aware Change Suggestions`; Status: `In Progress`.
-- `R0.9.0-M2 Accessibility, Validation, And Component Inventory`; Status: `Planned`.
+- `R0.9.0-M1 Source-Aware Change Suggestions`; Status: `Done`.
+- `R0.9.0-M2 Accessibility, Validation, And Component Inventory`; Status: `In Progress`.
 - `R0.9.0-M3 Protocol Capability And Versioning Contract`; Status: `Planned`.
 - `R0.9.0-M4 Security, Safety, And Compatibility Audit`; Status: `Planned`.
 - `R0.9.0-M5 Performance, Stress, Samples, And Troubleshooting Audit`; Status: `Planned`.

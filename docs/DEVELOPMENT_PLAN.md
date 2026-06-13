@@ -26,20 +26,21 @@ GitHub Issues and Milestones are the primary project-management source for auton
 
 ## Current Focus
 
-- `R0.9.0-M1 Source-Aware Change Suggestions`
-- GitHub Issue: https://github.com/RolandUI/AvaScope/issues/27
+- `R0.9.0-M2 Accessibility, Validation, And Component Inventory`
+- GitHub Issue: https://github.com/RolandUI/AvaScope/issues/28
 - GitHub Milestone: `v0.9.0`
-- Status: `Review`
+- Status: `In Progress`
 - Owner: unassigned
 - Started: `2026-06-13`
-- Goal: derive conservative source-level guidance from runtime mutations, diagnostics, and project metadata without automatically editing source files.
+- Goal: expose bounded audit and inventory reports for accessibility, validation, controls, styles, classes, resources, templates, theme variants, and repeated UI patterns.
 
 ## Next Action
 
-Commit and push #27, wait for GitHub CI/Release workflow validation, then close the issue and start `R0.9.0-M2 Accessibility, Validation, And Component Inventory`.
+Implement bounded audit/inventory protocol shapes and CLI/MCP surfaces for #28, reusing reliable runtime/preview metadata first and reporting explicit `unknown` / `not_available` provenance where needed.
 
 ## Latest Validation
 
+- `2026-06-13`: Completed GitHub issue #27 after remote validation. Commit `4b068a1ae71be81676b00bddd80edf29fb65b2a3` added source-aware mutation review suggestions, follow-up commit `3168523955e82bfe3362165cc078c3ea67de711f` stabilized the hosted-runner headless cleanup path, GitHub CI workflow `27451948810` passed, and Release workflow `27451948781` passed with no release needed. The issue moved to `status:done`, project Done/100/Completed, and was closed. Started GitHub issue #28 `R0.9.0-M2 Accessibility, Validation, And Component Inventory`; the issue and project card moved to `status:in-progress` / In Progress / 25% / Current Slice.
 - `2026-06-13`: Stabilized the #27 hosted-runner CI failure from workflow `27451538632`. The source-aware MCP mutation smoke now disposes the Avalonia headless session manually so cleanup-only `HeadlessUnitTestSession.Dispose()` null-reference failures after explicit window/bridge cleanup do not mask dispatch-body assertions. Local validation passed with `dotnet build AvaScope.slnx -c Release --no-restore -v:minimal`, the failing Release test (`dotnet test AvaScope.slnx -c Release --no-build --filter FullyQualifiedName~BridgeHeadlessSmokeTests.McpMutateNodeReturnsBoundedMutationContractResultsThroughLocalBridgePipe`, 1 passed), full Release tests (`dotnet test AvaScope.slnx -c Release --no-build`, 277 passed), `dotnet build AvaScope.slnx --no-restore -v:minimal`, and full Debug tests (`dotnet test AvaScope.slnx --no-build`, 277 passed).
 - `2026-06-13`: Completed local implementation for GitHub issue #27 `R0.9.0-M1 Source-Aware Change Suggestions`. Added additive `RuntimeSourceSuggestionContext` and `RuntimeSourceSuggestion` protocol contracts, a Core source-suggestion builder, bridge/CLI/MCP mutation-review integration, HTML review source-suggestion output, CLI `--source-project` / `--source-view` / `--source-app` / `--source-profile` options, and agent/user/validation documentation. The feature remains advisory and never mutates source files automatically. Validation passed with `dotnet build AvaScope.slnx --no-restore -v:minimal`, focused #27 tests (`dotnet test AvaScope.slnx --no-build --filter "FullyQualifiedName~ProtocolContractTests.RuntimeMutationReviewResponseSerializesStableShape|FullyQualifiedName~RuntimeSourceSuggestionBuilderTests|FullyQualifiedName~CliSmokeTests.MutationReviewCommandReadsHistoryAndWritesArtifactThroughBridgePipe|FullyQualifiedName~BridgeHeadlessSmokeTests.McpMutateNodeReturnsBoundedMutationContractResultsThroughLocalBridgePipe|FullyQualifiedName~McpStdioSmokeTests.ServerStartsOverStdioAndListsInitialTools"`, 6 passed), full Debug tests (`dotnet test AvaScope.slnx --no-build`, 277 passed), and `git diff --check` with only LF/CRLF normalization warnings.
 - `2026-06-13`: Closed GitHub issues #25 and #19, moved their project cards to Done/100/Completed, closed milestone `v0.8.0`, and started GitHub issue #27 `R0.9.0-M1 Source-Aware Change Suggestions`. The issue and project card moved to `status:in-progress` / In Progress / 25% / Current Slice; `docs/RELEASE_PLAN.md` now marks `v0.9.0` as the current in-progress target.
