@@ -67,6 +67,42 @@ Required `v1.0.0` properties:
 - Release artifacts are reproducible and verified for the supported platforms, and installation/upgrade documentation is complete.
 - No known P0/P1 bugs remain open; any deferred areas are documented as post-1.0 non-goals or future work.
 
+## Current Release Target
+
+- Release: `v1.0.1`
+- Target Version: `1.0.1`
+- Release State: `Release Candidate`
+- Scope Lock: `2026-06-13`
+- GitHub Milestone: `v1.0.1`
+- GitHub Issues: #41, #42
+- Previous Release: `v1.0.0`
+
+### v1.0.1 Release Goals
+
+The `v1.0.1` release target is a patch release for PreviewHost diagnostic fidelity after the stable `v1.0.0` publication. Scope is limited to defect-focused diagnostic noise reduction and release validation.
+
+1. `RG-1.0.1-1 Hash Element Binding Diagnostics`: treat Avalonia hash element-name bindings such as `{Binding #TargetButton}` as explicit binding sources, not DataContext or `x:DataType` paths.
+   Success signal: PreviewHost no longer emits false binding path diagnostics for valid hash element-name bindings.
+2. `RG-1.0.1-2 Intentional Overlay Diagnostics`: suppress overlap diagnostics when an intentional overlay, popup, or adorner child overlaps sibling content.
+   Success signal: chart and overlay-heavy views keep useful diagnostics without warning on expected overlay layers.
+3. `RG-1.0.1-3 Guarded Patch Release`: publish only after the stable release gate passes and the release workflow creates the `v1.0.1` tag, packages, executable ZIPs, manifest, and GitHub Release assets.
+
+### v1.0.1 Milestone Map
+
+- #41 `Preview diagnostics should treat hash element-name bindings as explicit sources`; Status: `Done`.
+- #42 `Release v1.0.1`; Status: `In Progress`.
+
+### v1.0.1 Implementation Validation
+
+- `2026-06-13`: #41 completed in commit `16bf95614826934a4b06afa48230b50d2dbc55a5`. Local validation passed with focused PreviewHost regression tests (2 passed), full `PreviewHostSmokeTests` (31 passed), TradeR `MainWindow.axaml` preview smoke through the source CLI, `dotnet build AvaScope.slnx --no-restore -v:minimal`, and `git diff --check` with only LF/CRLF normalization warnings. The TradeR smoke confirmed App.axaml styles/resources load and that the hash binding and custom overlay warnings were removed.
+- `2026-06-13`: Moved `v1.0.1` to `Release Candidate` and bumped `Directory.Build.props` to `1.0.1` in the release-candidate working tree for the local release gate.
+- `2026-06-13`: Local `v1.0.1` release gate passed on the release-candidate working tree after stopping stale artifact-hosted `avascope`/`dotnet` processes from previous local release artifacts. Validation passed with `eng/create-local-release.ps1` (Release build, 316 Release tests, three `1.0.1` NuGet packages, win/linux framework-dependent ZIPs, manifest verification, packaged doctor smoke, and packaged sample preview smoke), `eng/publish-nuget.ps1 -DryRun`, `eng/publish-github-release.ps1 -Tag v1.0.1 -DryRun`, `eng/validate-release-commit.ps1 -Version 1.0.1 -CommitSubject "Release 1.0.1" -RequiredState "Release Candidate"`, and `git diff --check` with only LF/CRLF normalization warnings.
+
+### v1.0.1 Explicit Deferrals
+
+- Broader layout heuristic tuning remains post-`v1.0.1` unless backed by concrete false-positive reproductions.
+- No public protocol, package identity, CLI, or MCP schema changes are included in this patch.
+
 ## Released Target: v0.4.0
 
 - Release: `v0.4.0`

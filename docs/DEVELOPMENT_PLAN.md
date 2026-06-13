@@ -26,20 +26,22 @@ GitHub Issues and Milestones are the primary project-management source for auton
 
 ## Current Focus
 
-- Maintenance bug #41
-- GitHub Issue: https://github.com/RolandUI/AvaScope/issues/41
-- GitHub Milestone: none
-- Status: `Done`
+- Patch release v1.0.1
+- GitHub Issue: https://github.com/RolandUI/AvaScope/issues/42
+- GitHub Milestone: `v1.0.1`
+- Status: `In Progress`
 - Owner: unassigned
 - Started: `2026-06-13`
-- Goal: stop preview source diagnostics from treating Avalonia hash element-name bindings such as `{Binding #TargetButton}` as DataContext or `x:DataType` paths.
+- Goal: publish `v1.0.1` with the #41 PreviewHost diagnostic noise reduction fix.
 
 ## Next Action
 
-No active implementation issue. Keep CI manual-only until a separate maintenance change re-enables it after the GitHub Actions quota constraint.
+Run the `v1.0.1` stable release gate, move the release plan to `Release Candidate`, bump `Directory.Build.props` to `1.0.1`, commit `Release 1.0.1`, push, and verify the Release workflow publishes the tag and assets.
 
 ## Latest Validation
 
+- `2026-06-13`: Local `v1.0.1` release gate passed on the release-candidate working tree after stopping stale artifact-hosted `avascope`/`dotnet` processes from previous local release artifacts. Validation passed with `eng/create-local-release.ps1` (Release build, 316 Release tests, three `1.0.1` NuGet packages, win/linux framework-dependent ZIPs, manifest verification, packaged doctor smoke, and packaged sample preview smoke), `eng/publish-nuget.ps1 -DryRun`, `eng/publish-github-release.ps1 -Tag v1.0.1 -DryRun`, `eng/validate-release-commit.ps1 -Version 1.0.1 -CommitSubject "Release 1.0.1" -RequiredState "Release Candidate"`, and `git diff --check` with only LF/CRLF normalization warnings.
+- `2026-06-13`: Created GitHub milestone `v1.0.1`, assigned completed issue #41, created release tracker #42, and added the `v1.0.1` current release target to [RELEASE_PLAN.md](RELEASE_PLAN.md). Patch scope is limited to #41 PreviewHost diagnostic noise reduction and guarded release validation.
 - `2026-06-13`: Started GitHub issue #41 after a TradeR `MainWindow.axaml` preview smoke showed App.axaml resources/styles and custom controls render correctly, but preview source diagnostics emitted a false `binding_datatype_path_not_found` warning for `{Binding #MinimizedDialogsButton}`. Implementation classifies hash element-name binding paths as explicit sources while preserving normal DataContext and `x:DataType` diagnostics.
 - `2026-06-13`: Completed local validation for GitHub issue #41. Preview diagnostics now treat hash element-name bindings as explicit sources and suppress intentional overlay child overlap diagnostics. Validation passed with focused PreviewHost regression tests (2 passed), full `PreviewHostSmokeTests` (31 passed), TradeR `MainWindow.axaml` preview smoke through the source CLI, `dotnet build AvaScope.slnx --no-restore -v:minimal`, and `git diff --check` with only LF/CRLF normalization warnings. The remaining TradeR preview diagnostics are layout warnings for small text bounds and generic overlapping Border layers, not missing App.axaml styles/resources.
 - `2026-06-13`: Completed GitHub issue #36 after remote validation. Commit `61a340f713c57b11b3d434fcce2f1fecdfa6ec49` (`Complete v1 documentation readiness`) passed GitHub CI workflow `27457868832` and Release workflow `27457868833` (no-op). The issue moved to `status:done`, project Done/100/Completed, and was closed. Started GitHub issue #37 `R1.0.0-M4 Release Artifact And Package Verification`; the issue and project card moved to `status:in-progress` / In Progress / 25% / Current Slice.
