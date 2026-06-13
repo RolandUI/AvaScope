@@ -31,6 +31,7 @@ public sealed class McpStdioSmokeTests
         var tools = await client.ListToolsAsync(cancellationToken: cancellation.Token);
         var toolNames = tools.Select(static tool => tool.Name).ToArray();
 
+        Assert.Equal("avascope", client.ServerInfo.Name);
         Assert.Contains("health", toolNames);
         Assert.Contains("capabilities", toolNames);
         Assert.Contains("list_sessions", toolNames);

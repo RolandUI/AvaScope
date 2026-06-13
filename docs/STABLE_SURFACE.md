@@ -31,6 +31,7 @@ They are distributed through executable ZIPs and source, not as package APIs.
 ## Protocol Contracts
 
 The stable service name is `avascope`. The protocol version uses `AvaScopeProtocol.CurrentVersion`; breaking protocol changes require `protocolVersion.major` to increase.
+The MCP initialization handshake reports `serverInfo.name` as `avascope`.
 
 Stable protocol primitives:
 

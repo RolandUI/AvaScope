@@ -27,6 +27,7 @@ public sealed class StableSurfaceDocumentationTests
         Assert.Contains("ToolResult<T>", stableSurface, StringComparison.Ordinal);
         Assert.Contains("ProtocolError", stableSurface, StringComparison.Ordinal);
         Assert.Contains("SessionId", stableSurface, StringComparison.Ordinal);
+        Assert.Contains("serverInfo.name", stableSurface, StringComparison.Ordinal);
         Assert.Contains("capability_not_supported", stableSurface, StringComparison.Ordinal);
         Assert.Contains("Release <Version>", stableSurface, StringComparison.Ordinal);
         Assert.Contains("v<Version>", stableSurface, StringComparison.Ordinal);
