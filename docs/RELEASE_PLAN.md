@@ -471,8 +471,8 @@ The `v1.0.0` release target is the stable public release. The goal is not to add
 
 ### v1.0.0 Milestone Map
 
-- `R1.0.0-M1 Stable Surface Freeze`; Status: `In Progress`.
-- `R1.0.0-M2 End-To-End Workflow Verification`; Status: `Planned`.
+- `R1.0.0-M1 Stable Surface Freeze`; Status: `Done`.
+- `R1.0.0-M2 End-To-End Workflow Verification`; Status: `In Progress`.
 - `R1.0.0-M3 Documentation Completion`; Status: `Planned`.
 - `R1.0.0-M4 Release Artifact And Package Verification`; Status: `Planned`.
 - `R1.0.0-M5 Post-1.0 Backlog And Deferral Audit`; Status: `Planned`.
@@ -480,7 +480,8 @@ The `v1.0.0` release target is the stable public release. The goal is not to add
 
 ### v1.0.0 Implementation Validation
 
-- `2026-06-13`: Local validation passed for `R1.0.0-M1 Stable Surface Freeze`: Debug build, focused stable-surface/capability/CLI/MCP tests, full Debug test suite, and whitespace check. The slice adds `docs/STABLE_SURFACE.md`, aligns capability discovery with implemented `mcp`, `launch-app`/`launch_app`, and `close-session`/`close_session` surfaces, and adds contract tests for CLI/MCP/package/artifact/release stability.
+- `2026-06-13`: `R1.0.0-M1 Stable Surface Freeze` completed after remote validation. Commit `4408ca7` passed GitHub CI workflow `27456458960` and Release workflow `27456458959` (no-op). The slice adds `docs/STABLE_SURFACE.md`, aligns capability discovery with implemented `mcp`, `launch-app`/`launch_app`, and `close-session`/`close_session` surfaces, and adds contract tests for CLI/MCP/package/artifact/release stability.
+- `2026-06-13`: Started `R1.0.0-M2 End-To-End Workflow Verification` with source and packaged runtime, preview, diagnostics, mutation, visual-regression, report, CLI, and MCP validation as the active release gate.
 
 ### v1.0.0 Explicit Deferrals
 

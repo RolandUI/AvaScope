@@ -26,20 +26,21 @@ GitHub Issues and Milestones are the primary project-management source for auton
 
 ## Current Focus
 
-- `R1.0.0-M1 Stable Surface Freeze`
-- GitHub Issue: https://github.com/RolandUI/AvaScope/issues/34
+- `R1.0.0-M2 End-To-End Workflow Verification`
+- GitHub Issue: https://github.com/RolandUI/AvaScope/issues/35
 - GitHub Milestone: `v1.0.0`
 - Status: `In Progress`
 - Owner: unassigned
 - Started: `2026-06-13`
-- Goal: freeze and document the public surfaces intended to remain stable after `v1.0.0`.
+- Goal: validate stable source and packaged runtime, preview, diagnostics, mutation, visual-regression, report, CLI, and MCP workflows end-to-end.
 
 ## Next Action
 
-Commit and push the #34 stable-surface freeze slice, then wait for GitHub CI and Release no-op validation before closing the issue.
+Run the #35 validation matrix from `docs/VALIDATION.md` and `docs/AGENT_WORKFLOW.md`, capture source and packaged workflow results, and record any residual release risks before closing the issue.
 
 ## Latest Validation
 
+- `2026-06-13`: Completed GitHub issue #34 after remote validation. Commit `4408ca7fa284f3d84b6470a8b5d6008478258d55` (`Freeze stable public surface`) passed GitHub CI workflow `27456458960` and Release workflow `27456458959` (no-op). The issue moved to `status:done`, project Done/100/Completed, and was closed. Started GitHub issue #35 `R1.0.0-M2 End-To-End Workflow Verification`; the issue and project card moved to `status:in-progress` / In Progress / 25% / Current Slice.
 - `2026-06-13`: Completed local implementation for GitHub issue #34 `R1.0.0-M1 Stable Surface Freeze`. Public surface audit found that existing `launch-app`/`launch_app`, `close-session`/`close_session`, and `mcp` adapter commands were implemented or documented but not represented in `AvaScopeCapabilityCatalog`; the slice aligns capability discovery with actual CLI/MCP surfaces and adds `docs/STABLE_SURFACE.md` plus contract tests for CLI/MCP/package/artifact/release surfaces. Validation passed with `dotnet build AvaScope.slnx --no-restore -v:minimal`, focused #34 tests (`dotnet test AvaScope.slnx --no-build --filter "FullyQualifiedName~StableSurfaceContractTests|FullyQualifiedName~StableSurfaceDocumentationTests|FullyQualifiedName~ProtocolContractTests.CapabilitiesResponseSerializesStableDiscoveryShape|FullyQualifiedName~CliSmokeTests.CapabilitiesCommandReportsProtocolAndToolCapabilities|FullyQualifiedName~McpStdioSmokeTests.ServerStartsOverStdioAndListsInitialTools"`, 8 passed), full Debug tests (`dotnet test AvaScope.slnx --no-build`, 307 passed), and `git diff --check` with only LF/CRLF normalization warnings.
 - `2026-06-13`: Published `v0.9.0`. Final release commit `f956e48a99304310abf924c3ac7f91ec0abc21c7` (`Release 0.9.0`) passed GitHub CI workflow `27455900556` and Release workflow `27455900554`; `gh release view v0.9.0` confirmed https://github.com/RolandUI/AvaScope/releases/tag/v0.9.0 with six assets, and `git ls-remote --tags origin refs/tags/v0.9.0` confirmed the tag points at the release commit. Closed GitHub issues #32 and #26, moved their project cards to Done/100/Completed, closed milestone `v0.9.0`, and started GitHub issue #34 `R1.0.0-M1 Stable Surface Freeze`; the issue and project card moved to `status:in-progress` / In Progress / 25% / Current Slice.
 - `2026-06-13`: Stabilized the `v0.9.0` release commit hosted-runner failures from GitHub CI `27455464470` and Release workflow `27455464485`. The failing bridge input smoke now uses the existing explicit headless-session cleanup helper, and `PreviewImageDifferTests` now retries temp directory deletion to avoid Windows image-file cleanup locks. Local validation passed with `dotnet build AvaScope.slnx -c Release --no-restore -v:minimal`, targeted Release tests (`dotnet test tests/AvaScope.Tests/AvaScope.Tests.csproj -c Release --no-build --filter "FullyQualifiedName~BridgeHeadlessSmokeTests.McpInputClicksButtonAndTypesTextThroughLocalBridgePipe|FullyQualifiedName~PreviewImageDifferTests.CompareAppliesIgnoredRegionsAndThresholds"`, 2 passed), full Release tests (`dotnet test AvaScope.slnx -c Release --no-build`, 302 passed), `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1`, `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.9.0 -DryRun`, and release commit guard for `Release 0.9.0`.
