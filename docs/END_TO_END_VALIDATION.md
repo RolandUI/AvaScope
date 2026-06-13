@@ -224,6 +224,8 @@ Result:
   - #37 `R1.0.0-M4 Release Artifact And Package Verification`
   - #39 `R1.0.0-M6 Stable Release Commit And Publication`
 
+Final #39 audit update on `2026-06-13`: #35, #36, #37, and #38 are closed. The only remaining open `v1.0.0` P0 items are #33 `Release v1.0.0` and #39 `R1.0.0-M6 Stable Release Commit And Publication`; there are no open P1 issues.
+
 ## Remote Validation Baseline
 
 The #35 start documentation commit `a42f030` passed:

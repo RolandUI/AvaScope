@@ -45,7 +45,7 @@ The roadmap below is the working plan to `v1.0.0`. It is intentionally release-s
 - `v0.8.0` is released.
 - `v0.7.0` starts the agent-first product direction: AvaScope becomes an agent control plane for inspecting, changing, validating, and explaining Avalonia UI behavior through structured CLI/MCP workflows.
 - `v0.9.0` is released.
-- `v1.0.0` is the active release target through GitHub milestone `v1.0.0`, release issue #33, and implementation issue #38 currently in progress.
+- `v1.0.0` is the active release target through GitHub milestone `v1.0.0`, release issue #33, and implementation issue #39 currently in progress.
 - Each release must preserve the current product boundaries: MCP and CLI stay adapters over Core, runtime bridge activation stays opt-in and local-only, PreviewHost stays isolated from the MCP server, and private Avalonia/runtime hooks remain out of the default path.
 - Every release must include targeted tests, full build/test validation, release dry-run validation, documentation updates, and explicit deferrals.
 - A release may be split into a patch release if a P0/P1 regression blocks users or CI, but patch scope must remain defect-focused.
@@ -445,10 +445,10 @@ The `v0.9.0` release target is beta hardening for the agent control plane. The g
 
 - Release: `v1.0.0`
 - Target Version: `1.0.0`
-- Release State: `In Progress`
+- Release State: `Release Candidate`
 - Scope Lock: `2026-06-13`
 - Release Commit: pending
-- Local Release Gate: pending
+- Local Release Gate: passed `2026-06-13`
 - Published At: pending
 - GitHub Release: pending
 - Previous Release: `v0.9.0`
@@ -475,8 +475,8 @@ The `v1.0.0` release target is the stable public release. The goal is not to add
 - `R1.0.0-M2 End-To-End Workflow Verification`; Status: `Done`.
 - `R1.0.0-M3 Documentation Completion`; Status: `Done`.
 - `R1.0.0-M4 Release Artifact And Package Verification`; Status: `Done`.
-- `R1.0.0-M5 Post-1.0 Backlog And Deferral Audit`; Status: `In Progress`.
-- `R1.0.0-M6 Stable Release Commit And Publication`; Status: `Planned`.
+- `R1.0.0-M5 Post-1.0 Backlog And Deferral Audit`; Status: `Done`.
+- `R1.0.0-M6 Stable Release Commit And Publication`; Status: `In Progress`.
 
 ### v1.0.0 Implementation Validation
 
@@ -491,6 +491,9 @@ The `v1.0.0` release target is the stable public release. The goal is not to add
 - `2026-06-13`: Completed local `R1.0.0-M4` artifact verification and recorded it in [RELEASE_ARTIFACT_VERIFICATION.md](RELEASE_ARTIFACT_VERIFICATION.md). The slice validated temporary `1.0.0` local release creation, Release tests (312 passed), NuGet and GitHub Release dry-runs, manifest/hash/package metadata, framework-dependent ZIP contents, packaged CLI capability gate, packaged MCP stdio `tools/list` with `serverInfo.name=avascope`, the opt-in win-x64 self-contained lane, and restoration of the default framework-dependent asset set. `Directory.Build.props` was restored to `0.9.0`; the actual `1.0.0` bump remains reserved for the final release commit.
 - `2026-06-13`: Completed `R1.0.0-M4` after local validation only. Commit `b0bbf6d` did not trigger GitHub Actions by design, #37 was closed, and `R1.0.0-M5 Post-1.0 Backlog And Deferral Audit` started as the active release slice.
 - `2026-06-13`: Completed local `R1.0.0-M5` backlog audit and recorded it in [POST_1_0_BACKLOG.md](POST_1_0_BACKLOG.md). The audit found no open P1 issues and no hidden product P0 issue; the only open P0 issues are #33 release tracker and #39 final release/publish slice.
+- `2026-06-13`: Completed `R1.0.0-M5` after local validation only. Commit `a27c41d` did not trigger GitHub Actions by design, #38 was closed, and `R1.0.0-M6 Stable Release Commit And Publication` started as the active release slice.
+- `2026-06-13`: Moved `v1.0.0` to `Release Candidate` for the final local release gate and bumped `Directory.Build.props` to `1.0.0` in the release-candidate working tree. Development CI remains manual-only; the final `Release` workflow is the only expected GitHub Actions run for publication.
+- `2026-06-13`: Local `v1.0.0` release gate passed on the release-candidate working tree: `dotnet build AvaScope.slnx -v:minimal`, `dotnet test AvaScope.slnx --no-build` (314 passed), `eng/create-local-release.ps1` (Release build, 314 Release tests, three `1.0.0` NuGet packages, win/linux framework-dependent ZIPs, manifest verification, packaged doctor and sample preview smoke), `eng/publish-nuget.ps1 -DryRun`, `eng/publish-github-release.ps1 -Tag v1.0.0 -DryRun`, `eng/validate-release-commit.ps1 -Version 1.0.0 -CommitSubject "Release 1.0.0" -RequiredState "Release Candidate"`, and `git diff --check` with only LF/CRLF normalization warnings.
 
 ### v1.0.0 Explicit Deferrals
 
