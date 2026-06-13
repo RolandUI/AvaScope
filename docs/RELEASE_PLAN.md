@@ -401,10 +401,10 @@ The `v0.8.0` release target turns agent experiments into repeatable validation w
 
 - Release: `v0.9.0`
 - Target Version: `0.9.0`
-- Release State: `In Progress`
+- Release State: `Release Candidate`
 - Scope Lock: `2026-06-13`
 - Release Commit: pending
-- Local Release Gate: pending
+- Local Release Gate: passed `2026-06-13`
 - Published At: pending
 - GitHub Release: pending
 - Previous Release: `v0.8.0`
