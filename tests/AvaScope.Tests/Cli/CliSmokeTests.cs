@@ -1844,7 +1844,11 @@ public sealed class CliSmokeTests
 
         var sessionId = SessionId.New();
         var pipeName = $"avascope-cli-test-{Guid.NewGuid():N}";
-        var manifestPath = WriteBridgeManifest(sessionId, pipeName);
+        var manifestDirectory = Path.Combine(
+            Path.GetTempPath(),
+            "AvaScope.Tests",
+            $"cli-inspect-node-manifests-{Guid.NewGuid():N}");
+        var manifestPath = WriteBridgeManifest(sessionId, pipeName, manifestDirectory);
         var nodeId = $"{treeKind}:child";
 
         var serverTask = RespondToBridgeRequestAsync(pipeName, request =>
@@ -1878,7 +1882,9 @@ public sealed class CliSmokeTests
                 "--node",
                 nodeId,
                 "--tree-kind",
-                treeKind);
+                treeKind,
+                "--manifest-dir",
+                manifestDirectory);
             var request = await serverTask;
 
             Assert.Equal(0, result.ExitCode);
@@ -1899,6 +1905,11 @@ public sealed class CliSmokeTests
             if (File.Exists(manifestPath))
             {
                 File.Delete(manifestPath);
+            }
+
+            if (Directory.Exists(manifestDirectory))
+            {
+                Directory.Delete(manifestDirectory, recursive: true);
             }
         }
     }

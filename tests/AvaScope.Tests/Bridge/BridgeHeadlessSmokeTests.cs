@@ -134,130 +134,137 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
     [Fact]
     public async Task RuntimeMutationContractReturnsNoOpUnsupportedAndStaleDiagnostics()
     {
-        using var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessTestApplication));
+        var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessTestApplication));
 
-        await session.Dispatch(() =>
+        try
         {
-            var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Headless mutation sample"));
-            var targetText = new TextBlock
+            await session.Dispatch(() =>
             {
-                Name = "MutationTarget",
-                Text = "Mutation target",
-                Width = 120
-            };
-            var window = new Window
-            {
-                Title = "AvaScope Mutation Sample",
-                Width = 360,
-                Height = 240,
-                Content = targetText
-            };
+                var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Headless mutation sample"));
+                var targetText = new TextBlock
+                {
+                    Name = "MutationTarget",
+                    Text = "Mutation target",
+                    Width = 120
+                };
+                var window = new Window
+                {
+                    Title = "AvaScope Mutation Sample",
+                    Width = 360,
+                    Height = 240,
+                    Content = targetText
+                };
 
-            window.Show();
-            using var registration = runtime.RegisterTopLevel(window);
-            Dispatcher.UIThread.RunJobs();
+                window.Show();
+                using var registration = runtime.RegisterTopLevel(window);
+                Dispatcher.UIThread.RunJobs();
 
-            var topLevel = Assert.Single(runtime.ListTopLevelsAsync().GetAwaiter().GetResult());
-            var tree = runtime.GetVisualTreeAsync(topLevel.Id, maxDepth: 8).GetAwaiter().GetResult();
-            Assert.True(tree.Success, tree.Error?.Message);
-            var targetNode = FindNode(tree.Value!.Root, node => node.Name == "MutationTarget");
-            Assert.NotNull(targetNode);
-            Assert.NotNull(targetNode.Target);
+                var topLevel = Assert.Single(runtime.ListTopLevelsAsync().GetAwaiter().GetResult());
+                var tree = runtime.GetVisualTreeAsync(topLevel.Id, maxDepth: 8).GetAwaiter().GetResult();
+                Assert.True(tree.Success, tree.Error?.Message);
+                var targetNode = FindNode(tree.Value!.Root, node => node.Name == "MutationTarget");
+                Assert.NotNull(targetNode);
+                Assert.NotNull(targetNode.Target);
 
-            var noop = runtime.MutateNodeAsync(new RuntimeMutationRequest(
-                "mutation-request-1",
-                targetNode.Target!,
-                new RuntimeMutationOperation(RuntimeMutationOperationKinds.NoOp))).GetAwaiter().GetResult();
+                var noop = runtime.MutateNodeAsync(new RuntimeMutationRequest(
+                    "mutation-request-1",
+                    targetNode.Target!,
+                    new RuntimeMutationOperation(RuntimeMutationOperationKinds.NoOp))).GetAwaiter().GetResult();
 
-            Assert.True(noop.Success, noop.Error?.Message);
-            Assert.Equal(RuntimeMutationStatuses.NoOp, noop.Value!.Status);
-            Assert.False(noop.Value.Applied);
-            Assert.Empty(noop.Value.Diagnostics);
-            Assert.EndsWith(":1", noop.Value.MutationId, StringComparison.Ordinal);
-            Assert.Contains(noop.Value.Capabilities, capability =>
-                capability.Name == RuntimeMutationCapabilityCatalog.RuntimeMutationContract
-                && capability.Available);
+                Assert.True(noop.Success, noop.Error?.Message);
+                Assert.Equal(RuntimeMutationStatuses.NoOp, noop.Value!.Status);
+                Assert.False(noop.Value.Applied);
+                Assert.Empty(noop.Value.Diagnostics);
+                Assert.EndsWith(":1", noop.Value.MutationId, StringComparison.Ordinal);
+                Assert.Contains(noop.Value.Capabilities, capability =>
+                    capability.Name == RuntimeMutationCapabilityCatalog.RuntimeMutationContract
+                    && capability.Available);
 
-            var secondNoop = runtime.MutateNodeAsync(new RuntimeMutationRequest(
-                "mutation-request-2",
-                targetNode.Target!,
-                new RuntimeMutationOperation(RuntimeMutationOperationKinds.NoOp))).GetAwaiter().GetResult();
+                var secondNoop = runtime.MutateNodeAsync(new RuntimeMutationRequest(
+                    "mutation-request-2",
+                    targetNode.Target!,
+                    new RuntimeMutationOperation(RuntimeMutationOperationKinds.NoOp))).GetAwaiter().GetResult();
 
-            Assert.True(secondNoop.Success, secondNoop.Error?.Message);
-            Assert.NotEqual(noop.Value.MutationId, secondNoop.Value!.MutationId);
-            Assert.EndsWith(":2", secondNoop.Value.MutationId, StringComparison.Ordinal);
+                Assert.True(secondNoop.Success, secondNoop.Error?.Message);
+                Assert.NotEqual(noop.Value.MutationId, secondNoop.Value!.MutationId);
+                Assert.EndsWith(":2", secondNoop.Value.MutationId, StringComparison.Ordinal);
 
-            var widthMutation = runtime.MutateNodeAsync(new RuntimeMutationRequest(
-                "mutation-request-3",
-                targetNode.Target!,
-                new RuntimeMutationOperation(
-                    RuntimeMutationOperationKinds.SetProperty,
-                    propertyName: "Width",
-                    value: "240",
-                    valueType: "double"))).GetAwaiter().GetResult();
+                var widthMutation = runtime.MutateNodeAsync(new RuntimeMutationRequest(
+                    "mutation-request-3",
+                    targetNode.Target!,
+                    new RuntimeMutationOperation(
+                        RuntimeMutationOperationKinds.SetProperty,
+                        propertyName: "Width",
+                        value: "240",
+                        valueType: "double"))).GetAwaiter().GetResult();
 
-            Assert.True(widthMutation.Success, widthMutation.Error?.Message);
-            Assert.Equal(RuntimeMutationStatuses.Applied, widthMutation.Value!.Status);
-            Assert.True(widthMutation.Value.Applied);
-            Assert.Equal(240, targetText.Width);
-            Assert.Equal("Width", widthMutation.Value.Metadata["propertyName"]);
-            Assert.Equal("120", widthMutation.Value.Metadata["originalValue"]);
-            Assert.Equal("240", widthMutation.Value.Metadata["effectiveValue"]);
-            Assert.Contains(widthMutation.Value.Capabilities, capability =>
-                capability.Name == RuntimeMutationCapabilityCatalog.StyleLayoutMutation
-                && capability.Available);
+                Assert.True(widthMutation.Success, widthMutation.Error?.Message);
+                Assert.Equal(RuntimeMutationStatuses.Applied, widthMutation.Value!.Status);
+                Assert.True(widthMutation.Value.Applied);
+                Assert.Equal(240, targetText.Width);
+                Assert.Equal("Width", widthMutation.Value.Metadata["propertyName"]);
+                Assert.Equal("120", widthMutation.Value.Metadata["originalValue"]);
+                Assert.Equal("240", widthMutation.Value.Metadata["effectiveValue"]);
+                Assert.Contains(widthMutation.Value.Capabilities, capability =>
+                    capability.Name == RuntimeMutationCapabilityCatalog.StyleLayoutMutation
+                    && capability.Available);
 
-            var resetWidth = runtime.MutateNodeAsync(new RuntimeMutationRequest(
-                "mutation-request-4",
-                targetNode.Target!,
-                new RuntimeMutationOperation(
-                    RuntimeMutationOperationKinds.ResetMutation,
-                    mutationId: widthMutation.Value.MutationId))).GetAwaiter().GetResult();
+                var resetWidth = runtime.MutateNodeAsync(new RuntimeMutationRequest(
+                    "mutation-request-4",
+                    targetNode.Target!,
+                    new RuntimeMutationOperation(
+                        RuntimeMutationOperationKinds.ResetMutation,
+                        mutationId: widthMutation.Value.MutationId))).GetAwaiter().GetResult();
 
-            Assert.True(resetWidth.Success, resetWidth.Error?.Message);
-            Assert.Equal(RuntimeMutationStatuses.Applied, resetWidth.Value!.Status);
-            Assert.True(resetWidth.Value.Applied);
-            Assert.Equal(120, targetText.Width);
-            Assert.Contains(widthMutation.Value.MutationId, resetWidth.Value.Metadata["resetMutationIds"], StringComparison.Ordinal);
+                Assert.True(resetWidth.Success, resetWidth.Error?.Message);
+                Assert.Equal(RuntimeMutationStatuses.Applied, resetWidth.Value!.Status);
+                Assert.True(resetWidth.Value.Applied);
+                Assert.Equal(120, targetText.Width);
+                Assert.Contains(widthMutation.Value.MutationId, resetWidth.Value.Metadata["resetMutationIds"], StringComparison.Ordinal);
 
-            var unsupported = runtime.MutateNodeAsync(new RuntimeMutationRequest(
-                "mutation-request-5",
-                targetNode.Target!,
-                new RuntimeMutationOperation(
-                    RuntimeMutationOperationKinds.SetProperty,
-                    propertyName: "UnsupportedProperty",
-                    value: "240",
-                    valueType: "double"))).GetAwaiter().GetResult();
+                var unsupported = runtime.MutateNodeAsync(new RuntimeMutationRequest(
+                    "mutation-request-5",
+                    targetNode.Target!,
+                    new RuntimeMutationOperation(
+                        RuntimeMutationOperationKinds.SetProperty,
+                        propertyName: "UnsupportedProperty",
+                        value: "240",
+                        valueType: "double"))).GetAwaiter().GetResult();
 
-            Assert.True(unsupported.Success, unsupported.Error?.Message);
-            Assert.Equal(RuntimeMutationStatuses.Unsupported, unsupported.Value!.Status);
-            Assert.False(unsupported.Value.Applied);
-            var unsupportedDiagnostic = Assert.Single(unsupported.Value.Diagnostics);
-            Assert.Equal(RuntimeMutationErrorCodes.UnsupportedRuntimeMutationProperty, unsupportedDiagnostic.Code);
-            Assert.Equal("UnsupportedProperty", unsupportedDiagnostic.Details!["propertyName"]);
+                Assert.True(unsupported.Success, unsupported.Error?.Message);
+                Assert.Equal(RuntimeMutationStatuses.Unsupported, unsupported.Value!.Status);
+                Assert.False(unsupported.Value.Applied);
+                var unsupportedDiagnostic = Assert.Single(unsupported.Value.Diagnostics);
+                Assert.Equal(RuntimeMutationErrorCodes.UnsupportedRuntimeMutationProperty, unsupportedDiagnostic.Code);
+                Assert.Equal("UnsupportedProperty", unsupportedDiagnostic.Details!["propertyName"]);
 
-            var invalidValue = runtime.MutateNodeAsync(new RuntimeMutationRequest(
-                "mutation-request-6",
-                targetNode.Target!,
-                new RuntimeMutationOperation(
-                    RuntimeMutationOperationKinds.SetProperty,
-                    propertyName: "Width"))).GetAwaiter().GetResult();
+                var invalidValue = runtime.MutateNodeAsync(new RuntimeMutationRequest(
+                    "mutation-request-6",
+                    targetNode.Target!,
+                    new RuntimeMutationOperation(
+                        RuntimeMutationOperationKinds.SetProperty,
+                        propertyName: "Width"))).GetAwaiter().GetResult();
 
-            Assert.True(invalidValue.Success, invalidValue.Error?.Message);
-            Assert.Equal(RuntimeMutationStatuses.Rejected, invalidValue.Value!.Status);
-            Assert.Equal(RuntimeMutationErrorCodes.InvalidRuntimeMutationValue, Assert.Single(invalidValue.Value.Diagnostics).Code);
+                Assert.True(invalidValue.Success, invalidValue.Error?.Message);
+                Assert.Equal(RuntimeMutationStatuses.Rejected, invalidValue.Value!.Status);
+                Assert.Equal(RuntimeMutationErrorCodes.InvalidRuntimeMutationValue, Assert.Single(invalidValue.Value.Diagnostics).Code);
 
-            var stale = runtime.MutateNodeAsync(new RuntimeMutationRequest(
-                "mutation-request-7",
-                new RuntimeTargetContext(runtime.SessionId, "topLevel:missing", TreeKinds.Visual, targetNode.NodeId),
-                new RuntimeMutationOperation(RuntimeMutationOperationKinds.NoOp))).GetAwaiter().GetResult();
+                var stale = runtime.MutateNodeAsync(new RuntimeMutationRequest(
+                    "mutation-request-7",
+                    new RuntimeTargetContext(runtime.SessionId, "topLevel:missing", TreeKinds.Visual, targetNode.NodeId),
+                    new RuntimeMutationOperation(RuntimeMutationOperationKinds.NoOp))).GetAwaiter().GetResult();
 
-            Assert.True(stale.Success, stale.Error?.Message);
-            Assert.Equal(RuntimeMutationStatuses.StaleTarget, stale.Value!.Status);
-            Assert.Equal(RuntimeMutationErrorCodes.RuntimeMutationTargetStale, Assert.Single(stale.Value.Diagnostics).Code);
+                Assert.True(stale.Success, stale.Error?.Message);
+                Assert.Equal(RuntimeMutationStatuses.StaleTarget, stale.Value!.Status);
+                Assert.Equal(RuntimeMutationErrorCodes.RuntimeMutationTargetStale, Assert.Single(stale.Value.Diagnostics).Code);
 
-            window.Close();
-        }, CancellationToken.None);
+                window.Close();
+            }, CancellationToken.None);
+        }
+        finally
+        {
+            DisposeHeadlessSessionAfterExplicitCleanup(session);
+        }
     }
 
     [Fact]
