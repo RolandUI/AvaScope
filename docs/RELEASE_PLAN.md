@@ -67,12 +67,16 @@ Required `v1.0.0` properties:
 - Release artifacts are reproducible and verified for the supported platforms, and installation/upgrade documentation is complete.
 - No known P0/P1 bugs remain open; any deferred areas are documented as post-1.0 non-goals or future work.
 
-## Current Release Target
+## Released Target: v1.0.2
 
 - Release: `v1.0.2`
 - Target Version: `1.0.2`
-- Release State: `Release Candidate`
+- Release State: `Released`
 - Scope Lock: `2026-06-13`
+- Release Commit: `15a4af1547376b9beb7a76c3a8c947dcd4bf8187` (`Release 1.0.2`)
+- Local Release Gate: passed on `2026-06-13`
+- Published At: `2026-06-13T10:42:20Z`
+- GitHub Release: https://github.com/RolandUI/AvaScope/releases/tag/v1.0.2
 - GitHub Milestone: `v1.0.2`
 - GitHub Issues: #43
 - Previous Release: `v1.0.1`
@@ -91,7 +95,7 @@ The `v1.0.2` release target is a patch release for PreviewHost fidelity and pack
 
 ### v1.0.2 Milestone Map
 
-- #43 `Release v1.0.2`; Status: `In Progress`.
+- #43 `Release v1.0.2`; Status: `Done`.
 
 ### v1.0.2 Implementation Validation
 
@@ -99,6 +103,18 @@ The `v1.0.2` release target is a patch release for PreviewHost fidelity and pack
 - `2026-06-13`: PreviewHost now references `Avalonia.Fonts.Inter` and enables `.WithInterFont()` when the previewed project references `Avalonia.Fonts.Inter` or calls `.WithInterFont()` in `Program.cs`. Validation passed with `dotnet build src\AvaScope.PreviewHost\AvaScope.PreviewHost.csproj`, the implicit-control-theme regression test, and TradeR `ChartView`, `LiveTradeView`, and `MainWindow` preview smokes.
 - `2026-06-13`: Release workflow now grants `id-token: write`, logs in with `NuGet/login@v1`, and passes the trusted-publishing API key output to `eng/publish-nuget.ps1`.
 - `2026-06-13`: Local `v1.0.2` release gate passed with `eng/create-local-release.ps1` (Release build, 317 Release tests, three `1.0.2` NuGet packages, win/linux framework-dependent ZIPs, manifest verification, packaged doctor smoke, and packaged sample preview smoke), `eng/publish-nuget.ps1 -DryRun`, `eng/publish-github-release.ps1 -Tag v1.0.2 -DryRun`, and packaged TradeR `ChartView`, `LiveTradeView`, and `MainWindow` preview smokes from `artifacts\executables\avascope-win-x64-framework-dependent\avascope.exe`. The first parallel `LiveTradeView` smoke hit a TradeR build output file lock and passed when rerun serially.
+- `2026-06-13`: Published `v1.0.2` from commit `15a4af1547376b9beb7a76c3a8c947dcd4bf8187` through Release workflow `27464291295` (`push`, success). The workflow created tag `v1.0.2`, published `AvaScope.Protocol`, `AvaScope.Core`, and `AvaScope.Bridge` `1.0.2` to nuget.org and GitHub Packages through NuGet trusted publishing, and uploaded the GitHub Release assets. `git ls-remote --tags origin refs/tags/v1.0.2` confirmed the tag points at `15a4af1547376b9beb7a76c3a8c947dcd4bf8187`.
+
+### v1.0.2 Published Assets
+
+| Asset | URL | SHA-256 |
+| --- | --- | --- |
+| `AvaScope.Protocol.1.0.2.nupkg` | https://github.com/RolandUI/AvaScope/releases/download/v1.0.2/AvaScope.Protocol.1.0.2.nupkg | `3763e6eff8e34061fffbd5b986091d242af55d781b6c61fd75073a5c482980e6` |
+| `AvaScope.Core.1.0.2.nupkg` | https://github.com/RolandUI/AvaScope/releases/download/v1.0.2/AvaScope.Core.1.0.2.nupkg | `fea3920e8c7280fad5a7ff44bbbaeff202cc375e4040a30927dfbff404644fa7` |
+| `AvaScope.Bridge.1.0.2.nupkg` | https://github.com/RolandUI/AvaScope/releases/download/v1.0.2/AvaScope.Bridge.1.0.2.nupkg | `8aecd587d1bea48a42a3b07ded0b6e5669593381856fafae51d6f8d17a0ac2b4` |
+| `avascope-win-x64-framework-dependent.zip` | https://github.com/RolandUI/AvaScope/releases/download/v1.0.2/avascope-win-x64-framework-dependent.zip | `56c3752959313ed97167dafaadb70c87398a22f03d596548d11215c7903acb01` |
+| `avascope-linux-x64-framework-dependent.zip` | https://github.com/RolandUI/AvaScope/releases/download/v1.0.2/avascope-linux-x64-framework-dependent.zip | `ad6058a2df9a773fb205fa080999798b1c724d20710b343b62e4e56e1a21a5e4` |
+| `release-manifest.json` | https://github.com/RolandUI/AvaScope/releases/download/v1.0.2/release-manifest.json | `19292feb814c54de403c3acdb56572042d6021e485af456cc039e538bfa7535d` |
 
 ### v1.0.2 Explicit Deferrals
 

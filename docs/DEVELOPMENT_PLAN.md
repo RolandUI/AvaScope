@@ -26,20 +26,21 @@ GitHub Issues and Milestones are the primary project-management source for auton
 
 ## Current Focus
 
-- Patch release v1.0.2
+- `v1.0.2 Released`
 - GitHub Issue: https://github.com/RolandUI/AvaScope/issues/43
 - GitHub Milestone: `v1.0.2`
-- Status: `Release Candidate`
+- Status: `Done`
 - Owner: unassigned
 - Started: `2026-06-13`
-- Goal: publish `v1.0.2` with PreviewHost App.axaml style/control-theme fidelity, Inter font preview parity, and NuGet trusted publishing.
+- Goal: patch-release PreviewHost App.axaml style/control-theme fidelity, Inter font preview parity, and NuGet trusted publishing.
 
 ## Next Action
 
-Commit `Release 1.0.2`, push, and verify the Release workflow publishes the tag and assets.
+No active implementation issue. Keep release workflow guarded by `Directory.Build.props` version bumps.
 
 ## Latest Validation
 
+- `2026-06-13`: Published `v1.0.2` from commit `15a4af1547376b9beb7a76c3a8c947dcd4bf8187` through Release workflow `27464291295` (`push`, success). The workflow published the three `1.0.2` packages to nuget.org and GitHub Packages through NuGet trusted publishing, created tag `v1.0.2`, uploaded six GitHub Release assets, and `git ls-remote --tags origin refs/tags/v1.0.2` confirmed the tag points at `15a4af1547376b9beb7a76c3a8c947dcd4bf8187`.
 - `2026-06-13`: Local `v1.0.2` release gate passed with `eng/create-local-release.ps1` (Release build, 317 Release tests, three `1.0.2` NuGet packages, win/linux framework-dependent ZIPs, manifest verification, packaged doctor smoke, and packaged sample preview smoke), `eng/publish-nuget.ps1 -DryRun`, `eng/publish-github-release.ps1 -Tag v1.0.2 -DryRun`, and packaged TradeR `ChartView`, `LiveTradeView`, and `MainWindow` preview smokes from `artifacts\executables\avascope-win-x64-framework-dependent\avascope.exe`. The first parallel `LiveTradeView` smoke hit a TradeR build output file lock and passed when rerun serially.
 - `2026-06-13`: Started release tracker #43 for `v1.0.2` and closed stale release tracker #42 after confirming `v1.0.1` was already published. Patch scope covers PreviewHost app-level style/control-theme fidelity, Inter font preview parity, and NuGet trusted publishing. Initial validation passed with `dotnet build src\AvaScope.PreviewHost\AvaScope.PreviewHost.csproj`, focused implicit-control-theme PreviewHost regression test, nearby app style/resource PreviewHost tests, and TradeR `ChartView`, `LiveTradeView`, and `MainWindow` preview smokes.
 - `2026-06-13`: Published `v1.0.1` from commit `8c496f7ea5f22a1933a3950200ce7aa66037367a` through Release workflow `27462977168` (`push`, success). The workflow published the three `1.0.1` packages to nuget.org and GitHub Packages, created tag `v1.0.1`, uploaded six GitHub Release assets, and `git ls-remote --tags origin refs/tags/v1.0.1` confirmed the tag points at `8c496f7ea5f22a1933a3950200ce7aa66037367a`.
