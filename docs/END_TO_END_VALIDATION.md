@@ -231,4 +231,12 @@ The #35 start documentation commit `a42f030` passed:
 - GitHub CI workflow `27456669605`
 - GitHub Release workflow `27456669606`
 
-The final #35 implementation commit must also pass GitHub CI and Release no-op validation before #35 is closed.
+The first final #35 implementation commit `47efc6c` passed GitHub Release workflow `27457002576`, but GitHub CI workflow `27457002598` failed in the full Release test step with two CLI fake bridge IPC timeouts. The product workflows had passed locally; the failure exposed test-harness coupling in `CliSmokeTests`, where implicit fake bridge manifests shared one static directory across the full hosted run.
+
+Follow-up stabilization:
+
+- Scope: test harness only; no product runtime, CLI, MCP, protocol, or package behavior changed.
+- Change: implicit CLI fake bridge manifests now use an async-test-flow isolated manifest directory, and CLI child processes inherit that directory through `AVASCOPE_BRIDGE_MANIFEST_DIR`.
+- Local validation: `dotnet test tests/AvaScope.Tests/AvaScope.Tests.csproj -c Release --no-restore --filter "FullyQualifiedName~AvaScope.Tests.Cli.CliSmokeTests"` passed with 91 tests.
+
+The follow-up stabilization commit must pass GitHub CI and Release no-op validation before #35 is closed.

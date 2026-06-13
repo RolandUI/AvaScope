@@ -483,6 +483,7 @@ The `v1.0.0` release target is the stable public release. The goal is not to add
 - `2026-06-13`: `R1.0.0-M1 Stable Surface Freeze` completed after remote validation. Commit `4408ca7` passed GitHub CI workflow `27456458960` and Release workflow `27456458959` (no-op). The slice adds `docs/STABLE_SURFACE.md`, aligns capability discovery with implemented `mcp`, `launch-app`/`launch_app`, and `close-session`/`close_session` surfaces, and adds contract tests for CLI/MCP/package/artifact/release stability.
 - `2026-06-13`: Started `R1.0.0-M2 End-To-End Workflow Verification` with source and packaged runtime, preview, diagnostics, mutation, visual-regression, report, CLI, and MCP validation as the active release gate.
 - `2026-06-13`: Local `R1.0.0-M2` validation passed and is recorded in [END_TO_END_VALIDATION.md](END_TO_END_VALIDATION.md): source restore/build/test, local release artifact creation, GitHub Release dry-run, packaged CLI workflows, packaged runtime bridge workflows, packaged MCP `tools/list`, and open P0/P1 blocker audit.
+- `2026-06-13`: Stabilized the `R1.0.0-M2` hosted CI follow-up after GitHub CI workflow `27457002598` exposed CLI fake bridge manifest coupling under the full Release test run. The fix is test-harness only: implicit CLI fake bridge manifests now use an async-test-flow isolated manifest directory. Targeted Release CLI smoke validation passed with 91 tests; final remote CI/Release validation is still required before closing #35.
 
 ### v1.0.0 Explicit Deferrals
 

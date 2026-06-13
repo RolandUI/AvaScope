@@ -12,10 +12,7 @@ namespace AvaScope.Tests.Cli;
 public sealed class CliSmokeTests
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
-    private static readonly string IsolatedBridgeManifestDirectory = Path.Combine(
-        Path.GetTempPath(),
-        "AvaScope.Tests",
-        $"cli-bridge-manifests-{Guid.NewGuid():N}");
+    private static readonly AsyncLocal<string?> CurrentBridgeManifestDirectory = new();
 
     [Fact]
     public async Task CapabilitiesCommandReportsProtocolAndToolCapabilities()
@@ -4229,7 +4226,8 @@ public sealed class CliSmokeTests
 
         if (environment is null || !environment.ContainsKey(BridgeSessionManifest.DirectoryEnvironmentVariable))
         {
-            process.StartInfo.Environment[BridgeSessionManifest.DirectoryEnvironmentVariable] = IsolatedBridgeManifestDirectory;
+            process.StartInfo.Environment[BridgeSessionManifest.DirectoryEnvironmentVariable] =
+                CurrentBridgeManifestDirectory.Value ?? CreateBridgeManifestDirectory();
         }
 
         if (environment is not null)
@@ -4258,9 +4256,13 @@ public sealed class CliSmokeTests
         string? processName = null)
     {
         var directory = string.IsNullOrWhiteSpace(manifestDirectory)
-            ? IsolatedBridgeManifestDirectory
+            ? CreateBridgeManifestDirectory()
             : manifestDirectory;
         Directory.CreateDirectory(directory);
+        if (string.IsNullOrWhiteSpace(manifestDirectory))
+        {
+            CurrentBridgeManifestDirectory.Value = directory;
+        }
 
         var manifest = new BridgeSessionManifest(
             sessionId,
@@ -4272,6 +4274,14 @@ public sealed class CliSmokeTests
         var manifestPath = Path.Combine(directory, fileName ?? $"{sessionId.Value}.json");
         File.WriteAllText(manifestPath, JsonSerializer.Serialize(manifest), Encoding.UTF8);
         return manifestPath;
+    }
+
+    private static string CreateBridgeManifestDirectory()
+    {
+        return Path.Combine(
+            Path.GetTempPath(),
+            "AvaScope.Tests",
+            $"cli-bridge-manifests-{Guid.NewGuid():N}");
     }
 
     private static void WriteSolidPng(
