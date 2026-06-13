@@ -44,7 +44,8 @@ The roadmap below is the working plan to `v1.0.0`. It is intentionally release-s
 - `v0.7.0` is released.
 - `v0.8.0` is released.
 - `v0.7.0` starts the agent-first product direction: AvaScope becomes an agent control plane for inspecting, changing, validating, and explaining Avalonia UI behavior through structured CLI/MCP workflows.
-- `v0.9.0` through `v1.0.0` are planned targets. Their scope may be refined before they become the current release target, but changes must be recorded here before implementation starts.
+- `v0.9.0` is the active release target through GitHub milestone `v0.9.0`, release issue #26, and implementation issue #27 currently in progress.
+- `v1.0.0` is a planned target. Its scope may be refined before it becomes the current release target, but changes must be recorded here before implementation starts.
 - Each release must preserve the current product boundaries: MCP and CLI stay adapters over Core, runtime bridge activation stays opt-in and local-only, PreviewHost stays isolated from the MCP server, and private Avalonia/runtime hooks remain out of the default path.
 - Every release must include targeted tests, full build/test validation, release dry-run validation, documentation updates, and explicit deferrals.
 - A release may be split into a patch release if a P0/P1 regression blocks users or CI, but patch scope must remain defect-focused.
@@ -396,12 +397,12 @@ The `v0.8.0` release target turns agent experiments into repeatable validation w
 - Native editor plugins remain optional; this release improves artifact/viewer handoff but does not require shipped IDE extensions.
 - Remote multi-user inspection remains out of scope.
 
-## Planned Target: v0.9.0
+## Current Release Target
 
 - Release: `v0.9.0`
 - Target Version: `0.9.0`
-- Release State: `Planned`
-- Scope Lock: pending
+- Release State: `In Progress`
+- Scope Lock: `2026-06-13`
 - Release Commit: pending
 - Local Release Gate: pending
 - Published At: pending
@@ -426,7 +427,7 @@ The `v0.9.0` release target is beta hardening for the agent control plane. The g
 
 ### v0.9.0 Milestone Map
 
-- `R0.9.0-M1 Source-Aware Change Suggestions`; Status: `Planned`.
+- `R0.9.0-M1 Source-Aware Change Suggestions`; Status: `In Progress`.
 - `R0.9.0-M2 Accessibility, Validation, And Component Inventory`; Status: `Planned`.
 - `R0.9.0-M3 Protocol Capability And Versioning Contract`; Status: `Planned`.
 - `R0.9.0-M4 Security, Safety, And Compatibility Audit`; Status: `Planned`.

@@ -26,20 +26,22 @@ GitHub Issues and Milestones are the primary project-management source for auton
 
 ## Current Focus
 
-- `R0.8.0-M6 Release Candidate And Version Bump`
-- GitHub Issue: https://github.com/RolandUI/AvaScope/issues/25
-- GitHub Milestone: `v0.8.0`
-- Status: `Done`
+- `R0.9.0-M1 Source-Aware Change Suggestions`
+- GitHub Issue: https://github.com/RolandUI/AvaScope/issues/27
+- GitHub Milestone: `v0.9.0`
+- Status: `Review`
 - Owner: unassigned
 - Started: `2026-06-13`
-- Goal: validate and publish `v0.8.0` after the agent validation milestone scope is complete.
+- Goal: derive conservative source-level guidance from runtime mutations, diagnostics, and project metadata without automatically editing source files.
 
 ## Next Action
 
-Close GitHub issues #25 and #19, close milestone `v0.8.0`, then start the first `v0.9.0` issue.
+Commit and push #27, wait for GitHub CI/Release workflow validation, then close the issue and start `R0.9.0-M2 Accessibility, Validation, And Component Inventory`.
 
 ## Latest Validation
 
+- `2026-06-13`: Completed local implementation for GitHub issue #27 `R0.9.0-M1 Source-Aware Change Suggestions`. Added additive `RuntimeSourceSuggestionContext` and `RuntimeSourceSuggestion` protocol contracts, a Core source-suggestion builder, bridge/CLI/MCP mutation-review integration, HTML review source-suggestion output, CLI `--source-project` / `--source-view` / `--source-app` / `--source-profile` options, and agent/user/validation documentation. The feature remains advisory and never mutates source files automatically. Validation passed with `dotnet build AvaScope.slnx --no-restore -v:minimal`, focused #27 tests (`dotnet test AvaScope.slnx --no-build --filter "FullyQualifiedName~ProtocolContractTests.RuntimeMutationReviewResponseSerializesStableShape|FullyQualifiedName~RuntimeSourceSuggestionBuilderTests|FullyQualifiedName~CliSmokeTests.MutationReviewCommandReadsHistoryAndWritesArtifactThroughBridgePipe|FullyQualifiedName~BridgeHeadlessSmokeTests.McpMutateNodeReturnsBoundedMutationContractResultsThroughLocalBridgePipe|FullyQualifiedName~McpStdioSmokeTests.ServerStartsOverStdioAndListsInitialTools"`, 6 passed), full Debug tests (`dotnet test AvaScope.slnx --no-build`, 277 passed), and `git diff --check` with only LF/CRLF normalization warnings.
+- `2026-06-13`: Closed GitHub issues #25 and #19, moved their project cards to Done/100/Completed, closed milestone `v0.8.0`, and started GitHub issue #27 `R0.9.0-M1 Source-Aware Change Suggestions`. The issue and project card moved to `status:in-progress` / In Progress / 25% / Current Slice; `docs/RELEASE_PLAN.md` now marks `v0.9.0` as the current in-progress target.
 - `2026-06-13`: Published `v0.8.0`. Release commit `d2d4d01652efaf2812acf95a6b60621c93352ada` (`Release 0.8.0`) passed GitHub CI workflow `27450680002` and Release workflow `27450679987`; `gh release view v0.8.0` confirmed https://github.com/RolandUI/AvaScope/releases/tag/v0.8.0 with six assets, and `git ls-remote --tags origin refs/tags/v0.8.0` confirmed the tag points at the release commit.
 - `2026-06-13`: `v0.8.0` release-candidate gate passed for GitHub issue #25. Validation included `dotnet build AvaScope.slnx --no-restore -v:minimal`, full Debug tests (`dotnet test AvaScope.slnx --no-build`, 275 passed), `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1` (Release build/test 275 passed, three `0.8.0` packages, win-x64/linux-x64 framework-dependent ZIPs, release manifest, packaged doctor smoke, and packaged sample preview smoke), `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.8.0 -DryRun`, packaged CLI suite/report smoke (`baseline-create --suite`, `baseline-check --report --report-pack`, 2 entries passed), report/report-pack JSON validation (`agentReview=passed`, report pack `status=passed`, JSON/HTML/JUnit/SARIF assets present), release commit guard, and `git diff --check` with only LF/CRLF normalization warnings.
 - `2026-06-13`: Completed GitHub issue #24 after remote validation. Commit `9de95b0dc542562e2bcf4384f34c22ce7b709eba` passed GitHub CI workflow `27449993825` and Release workflow `27449993838`; the issue was moved to `status:done`, project Done/100/Completed, and closed. Started GitHub issue #25 `R0.8.0-M6 Release Candidate And Version Bump`, moved the issue and project card to `status:in-progress` / `In Progress`, marked `v0.8.0` as `Release Candidate` in `docs/RELEASE_PLAN.md`, bumped `Directory.Build.props` to `0.8.0` in the working tree, and scoped validation to the release gate plus packaged CLI suite/report smoke before committing `Release 0.8.0`.

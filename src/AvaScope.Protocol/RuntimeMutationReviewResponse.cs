@@ -17,7 +17,9 @@ public sealed record RuntimeMutationReviewResponse
         IReadOnlyList<RuntimeMutationReviewEntry>? activeMutations = null,
         RuntimeMutationResetHandoff? resetHandoff = null,
         IReadOnlyDictionary<string, string>? metadata = null,
-        RuntimeMutationReviewArtifact? reviewArtifact = null)
+        RuntimeMutationReviewArtifact? reviewArtifact = null,
+        RuntimeSourceSuggestionContext? sourceContext = null,
+        IReadOnlyList<RuntimeSourceSuggestion>? sourceSuggestions = null)
     {
         if (historyCount < 0)
         {
@@ -43,6 +45,8 @@ public sealed record RuntimeMutationReviewResponse
                 static item => item.Value,
                 StringComparer.Ordinal);
         ReviewArtifact = reviewArtifact;
+        SourceContext = sourceContext;
+        SourceSuggestions = (sourceSuggestions ?? []).Take(MaximumEntries).ToArray();
     }
 
     [JsonPropertyName("sessionId")]
@@ -72,6 +76,13 @@ public sealed record RuntimeMutationReviewResponse
     [JsonPropertyName("reviewArtifact")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public RuntimeMutationReviewArtifact? ReviewArtifact { get; }
+
+    [JsonPropertyName("sourceContext")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public RuntimeSourceSuggestionContext? SourceContext { get; }
+
+    [JsonPropertyName("sourceSuggestions")]
+    public IReadOnlyList<RuntimeSourceSuggestion> SourceSuggestions { get; }
 
     [JsonPropertyName("agentReview")]
     public AgentReviewSurface AgentReview => CreateAgentReview();
@@ -110,6 +121,7 @@ public sealed record RuntimeMutationReviewResponse
             [
                 $"history: {HistoryCount.ToString(System.Globalization.CultureInfo.InvariantCulture)}",
                 $"active: {ActiveMutationCount.ToString(System.Globalization.CultureInfo.InvariantCulture)}",
+                $"sourceSuggestions: {SourceSuggestions.Count.ToString(System.Globalization.CultureInfo.InvariantCulture)}",
                 $"resetOperation: {ResetHandoff.ResetAllOperation}"
             ],
             failures,

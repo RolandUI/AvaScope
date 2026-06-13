@@ -161,6 +161,7 @@ public sealed class RuntimeMutationReviewExporter
     {
         var title = $"Runtime mutation review - {review.SessionId.Value}";
         var activeRows = CreateEntryRows(review.ActiveMutations);
+        var sourceRows = CreateSourceSuggestionRows(review.SourceSuggestions);
         var historyRows = CreateEntryRows(review.History);
         var json = JsonSerializer.Serialize(review, JsonOptions);
 
@@ -183,6 +184,10 @@ public sealed class RuntimeMutationReviewExporter
             <section class="panel">
               <h2>Active Mutations</h2>
               {{activeRows}}
+            </section>
+            <section class="panel">
+              <h2>Source Suggestions</h2>
+              {{sourceRows}}
             </section>
             <section class="panel">
               <h2>History</h2>
@@ -454,6 +459,31 @@ public sealed class RuntimeMutationReviewExporter
                   <strong>{{Html(entry.MutationId)}}</strong>
                   <span>{{Html(entry.Operation.Kind)}} / {{Html(entry.Status)}} / target {{Html(entry.Target.NodeId ?? entry.Target.TopLevelId)}}</span>
                   <span class="empty">{{Html(entry.EvaluatedAt.ToString("O", CultureInfo.InvariantCulture))}}</span>
+                </div>
+                """;
+        }));
+    }
+
+    private static string CreateSourceSuggestionRows(IReadOnlyList<RuntimeSourceSuggestion> suggestions)
+    {
+        if (suggestions.Count == 0)
+        {
+            return "<p class=\"empty\">No source suggestions are available for this review.</p>";
+        }
+
+        return string.Join(Environment.NewLine, suggestions.Select(suggestion =>
+        {
+            var file = suggestion.SuggestedFilePath is null
+                ? "source file unknown"
+                : suggestion.SuggestedFilePath;
+            var limitations = string.Join(" ", suggestion.Limitations);
+            return $$"""
+                <div class="entry">
+                  <span class="badge">{{Html(suggestion.Confidence)}}</span>
+                  <strong>{{Html(suggestion.SuggestedTargetKind)}}</strong>
+                  <span>{{Html(suggestion.SuggestedAction)}}</span>
+                  <span class="empty">{{Html(file)}} / {{Html(suggestion.Provenance)}} / {{Html(suggestion.SourceFileStatus)}}</span>
+                  <span class="empty">{{Html(limitations)}}</span>
                 </div>
                 """;
         }));

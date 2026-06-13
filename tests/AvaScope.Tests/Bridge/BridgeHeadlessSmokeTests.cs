@@ -630,7 +630,9 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                     client,
                     runtime.SessionId.Value,
                     maxResults: 10,
-                    artifactPath: reviewPath);
+                    artifactPath: reviewPath,
+                    sourceProject: Path.Combine(Path.GetTempPath(), "AvaScope.Tests", "McpMutationSample.csproj"),
+                    sourceView: Path.Combine(Path.GetTempPath(), "AvaScope.Tests", "Views", "MainView.axaml"));
 
                 Assert.True(review.Success, review.Error?.Message);
                 Assert.Equal(1, review.Value!.ActiveMutationCount);
@@ -638,6 +640,14 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                 var activeMutation = Assert.Single(review.Value.ActiveMutations);
                 Assert.Equal(widthMutation.Value.MutationId, activeMutation.MutationId);
                 Assert.Equal("Width", activeMutation.Metadata["propertyName"]);
+                Assert.NotNull(review.Value.SourceContext);
+                Assert.Equal("mcp", review.Value.SourceContext!.Source);
+                var sourceSuggestion = Assert.Single(review.Value.SourceSuggestions);
+                Assert.Equal(widthMutation.Value.MutationId, sourceSuggestion.MutationId);
+                Assert.Equal("medium", sourceSuggestion.Confidence);
+                Assert.Equal("provided", sourceSuggestion.SourceFileStatus);
+                Assert.Equal("Width", sourceSuggestion.SuggestedProperty);
+                Assert.EndsWith(Path.Combine("Views", "MainView.axaml"), sourceSuggestion.SuggestedFilePath, StringComparison.OrdinalIgnoreCase);
                 Assert.Equal(widthMutation.Value.MutationId, Assert.Single(review.Value.ResetHandoff.ActiveMutationIds));
                 Assert.Equal(RuntimeMutationOperationKinds.ResetMutation, review.Value.ResetHandoff.ResetMutationOperation);
                 Assert.Equal(RuntimeMutationOperationKinds.ResetAll, review.Value.ResetHandoff.ResetAllOperation);
@@ -647,7 +657,10 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                 Assert.Equal("active_mutations", review.Value.AgentReview.Status);
                 Assert.Equal(widthMutation.Value.MutationId, Assert.Single(review.Value.AgentReview.Mutations).MutationId);
                 Assert.Contains(review.Value.AgentReview.ReviewUrls, url => url == new Uri(reviewPath).AbsoluteUri);
-                Assert.Contains(widthMutation.Value.MutationId, File.ReadAllText(review.Value.ReviewArtifact.ArtifactPath), StringComparison.Ordinal);
+                var reviewHtml = File.ReadAllText(review.Value.ReviewArtifact.ArtifactPath);
+                Assert.Contains(widthMutation.Value.MutationId, reviewHtml, StringComparison.Ordinal);
+                Assert.Contains("Source Suggestions", reviewHtml, StringComparison.Ordinal);
+                Assert.Contains("MainView.axaml", reviewHtml, StringComparison.Ordinal);
 
                 var resetWidth = await AvaScopeMcpTools.MutateNode(
                     client,

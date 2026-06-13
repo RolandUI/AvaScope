@@ -555,7 +555,38 @@ public sealed class ProtocolContractTests
                 "C:\\artifacts\\review.html",
                 "file:///C:/artifacts/review.html",
                 "html",
-                reviewedAt.AddSeconds(1)));
+                reviewedAt.AddSeconds(1)),
+            sourceContext: new RuntimeSourceSuggestionContext(
+                "C:\\apps\\Sample\\Sample.csproj",
+                "C:\\apps\\Sample\\Views\\MainView.axaml",
+                "C:\\apps\\Sample\\App.axaml",
+                "C:\\apps\\Sample\\avascope.preview.json",
+                "contract-test"),
+            sourceSuggestions:
+            [
+                new RuntimeSourceSuggestion(
+                    "source-suggestion:mutation:session-1:1:1",
+                    entry.MutationId,
+                    entry.Sequence,
+                    entry.Operation.Kind,
+                    entry.Target,
+                    "medium",
+                    "runtime_mutation_metadata+source_context",
+                    "xaml_property_or_style_setter",
+                    "provided",
+                    "Review the owning XAML property or style setter before applying this manually.",
+                    "C:\\apps\\Sample\\Views\\MainView.axaml",
+                    "Width",
+                    suggestedProperty: "Width",
+                    limitations:
+                    [
+                        "Runtime mutations are temporary local overrides."
+                    ],
+                    metadata: new Dictionary<string, string>
+                    {
+                        ["effectiveValue"] = "240"
+                    })
+            ]);
 
         var json = JsonSerializer.Serialize(response);
         var node = JsonNode.Parse(json)!;
@@ -572,7 +603,17 @@ public sealed class ProtocolContractTests
         Assert.Equal("visual:button", node["resetHandoff"]!["suggestedResetAllTarget"]!["nodeId"]!.GetValue<string>());
         Assert.Equal("local_session", node["metadata"]!["scope"]!.GetValue<string>());
         Assert.EndsWith("review.html", node["reviewArtifact"]!["artifactPath"]!.GetValue<string>());
+        Assert.EndsWith("Sample.csproj", node["sourceContext"]!["projectPath"]!.GetValue<string>());
+        Assert.EndsWith("MainView.axaml", node["sourceContext"]!["viewPath"]!.GetValue<string>());
+        Assert.Equal("contract-test", node["sourceContext"]!["source"]!.GetValue<string>());
+        Assert.Equal("source-suggestion:mutation:session-1:1:1", node["sourceSuggestions"]![0]!["suggestionId"]!.GetValue<string>());
+        Assert.Equal("medium", node["sourceSuggestions"]![0]!["confidence"]!.GetValue<string>());
+        Assert.Equal("runtime_mutation_metadata+source_context", node["sourceSuggestions"]![0]!["provenance"]!.GetValue<string>());
+        Assert.Equal("xaml_property_or_style_setter", node["sourceSuggestions"]![0]!["suggestedTargetKind"]!.GetValue<string>());
+        Assert.Equal("provided", node["sourceSuggestions"]![0]!["sourceFileStatus"]!.GetValue<string>());
+        Assert.Equal("Width", node["sourceSuggestions"]![0]!["suggestedProperty"]!.GetValue<string>());
         Assert.Equal("active_mutations", node["agentReview"]!["status"]!.GetValue<string>());
+        Assert.Contains("sourceSuggestions: 1", node["agentReview"]!["summary"]![2]!.GetValue<string>(), StringComparison.Ordinal);
         Assert.Equal("mutation:session-1:1", node["agentReview"]!["mutations"]![0]!["mutationId"]!.GetValue<string>());
         Assert.Equal("notice", node["agentReview"]!["failures"]![0]!["code"]!.GetValue<string>());
         Assert.Equal("file:///C:/artifacts/review.html", node["agentReview"]!["reviewUrls"]![0]!.GetValue<string>());

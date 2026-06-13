@@ -186,10 +186,12 @@ For agent review, prefer the evidence wrapper when the result should be auditabl
 
 ```powershell
 & $avascope mutate-node-evidence --session <runtime-session-id> --top-level <topLevel:id> --node <node-id> --operation set_property --property Background --value "#0066ff" --value-type brush --out-dir .\artifacts\samples\mutation-evidence --request-id runtime-background-check
-& $avascope mutation-review --session <runtime-session-id> --max-results 20 --out .\artifacts\samples\mutation-evidence\runtime-review.html
+& $avascope mutation-review --session <runtime-session-id> --max-results 20 --out .\artifacts\samples\mutation-evidence\runtime-review.html --source-project path\to\App.csproj --source-view Views\MainView.axaml --source-app App.axaml --source-profile avascope.preview.json
 ```
 
-Applied mutation responses include mutation ids, original/effective metadata, diagnostics, active mutation count, explicit reset metadata, and `agentReview.mutations` for quick handoff. Evidence responses add before/after screenshots, before/after visual-tree JSON snapshots, optional diff PNGs, changed-pixel metrics, target summaries, and a local HTML review artifact so an agent can explain what changed without relying on terminal text or manual screenshot reading. `mutation-review` returns a bounded session-local history, active override list, reset handoff, optional HTML artifact, and `agentReview.reviewUrls` for local review.
+Applied mutation responses include mutation ids, original/effective metadata, diagnostics, active mutation count, explicit reset metadata, and `agentReview.mutations` for quick handoff. Evidence responses add before/after screenshots, before/after visual-tree JSON snapshots, optional diff PNGs, changed-pixel metrics, target summaries, and a local HTML review artifact so an agent can explain what changed without relying on terminal text or manual screenshot reading. `mutation-review` returns a bounded session-local history, active override list, reset handoff, optional HTML artifact, `sourceSuggestions` for conservative source-level handoff, and `agentReview.reviewUrls` for local review.
+
+`sourceSuggestions` are advisory. They use runtime mutation metadata plus optional source context to suggest likely XAML, style, class, or resource follow-up locations with confidence and limitations. AvaScope does not automatically edit source files from runtime mutations.
 
 Runtime mutations are temporary local overrides. Prefer `reset_mutation` or `reset_all` when keeping a session open; `close-session`, bridge deactivation, and top-level unregister also clear AvaScope's active mutation registry and attempt to restore active overrides.
 

@@ -3010,6 +3010,8 @@ public sealed class CliSmokeTests
             "AvaScope.Tests",
             $"cli-review-{Guid.NewGuid():N}");
         var reviewPath = Path.Combine(artifactDirectory, "review.html");
+        var sourceViewPath = Path.Combine(artifactDirectory, "Views", "MainView.axaml");
+        var sourceProjectPath = Path.Combine(artifactDirectory, "SampleApp.csproj");
         var target = new RuntimeTargetContext(sessionId, "topLevel:cli", TreeKinds.Visual, "visual:button");
         var operation = new RuntimeMutationOperation(
             RuntimeMutationOperationKinds.SetProperty,
@@ -3067,7 +3069,11 @@ public sealed class CliSmokeTests
                 "--max-results",
                 "5",
                 "--out",
-                reviewPath);
+                reviewPath,
+                "--source-project",
+                sourceProjectPath,
+                "--source-view",
+                sourceViewPath);
             var bridgeRequest = await serverTask;
 
             Assert.Equal(0, result.ExitCode);
@@ -3081,14 +3087,25 @@ public sealed class CliSmokeTests
             Assert.Equal(1, payload.Value.ActiveMutationCount);
             Assert.Equal("mutation:cli:review:1", Assert.Single(payload.Value.ActiveMutations).MutationId);
             Assert.Equal(RuntimeMutationOperationKinds.ResetMutation, payload.Value.ResetHandoff.ResetMutationOperation);
+            Assert.NotNull(payload.Value.SourceContext);
+            Assert.Equal(Path.GetFullPath(sourceViewPath), payload.Value.SourceContext!.ViewPath);
+            var suggestion = Assert.Single(payload.Value.SourceSuggestions);
+            Assert.Equal("mutation:cli:review:1", suggestion.MutationId);
+            Assert.Equal("medium", suggestion.Confidence);
+            Assert.Equal("provided", suggestion.SourceFileStatus);
+            Assert.Equal(Path.GetFullPath(sourceViewPath), suggestion.SuggestedFilePath);
+            Assert.Equal("Text", suggestion.SuggestedProperty);
             Assert.NotNull(payload.Value.ReviewArtifact);
             Assert.Equal(Path.GetFullPath(reviewPath), payload.Value.ReviewArtifact!.ArtifactPath);
             Assert.Equal("active_mutations", payload.Value.AgentReview.Status);
+            Assert.Contains("sourceSuggestions: 1", payload.Value.AgentReview.Summary, StringComparer.Ordinal);
             Assert.Equal("mutation:cli:review:1", Assert.Single(payload.Value.AgentReview.Mutations).MutationId);
             Assert.Contains(payload.Value.AgentReview.ReviewUrls, url => url == new Uri(reviewPath).AbsoluteUri);
             Assert.True(File.Exists(payload.Value.ReviewArtifact.ArtifactPath));
             var reviewHtml = await File.ReadAllTextAsync(payload.Value.ReviewArtifact.ArtifactPath);
             Assert.Contains("mutation:cli:review:1", reviewHtml, StringComparison.Ordinal);
+            Assert.Contains("Source Suggestions", reviewHtml, StringComparison.Ordinal);
+            Assert.Contains(Path.GetFileName(sourceViewPath), reviewHtml, StringComparison.Ordinal);
         }
         finally
         {

@@ -498,6 +498,10 @@ public sealed class AvaScopeMcpTools
         string sessionId,
         int? maxResults = null,
         string? artifactPath = null,
+        string? sourceProject = null,
+        string? sourceView = null,
+        string? sourceApp = null,
+        string? sourceProfile = null,
         string? manifestDirectory = null,
         CancellationToken cancellationToken = default)
     {
@@ -525,6 +529,14 @@ public sealed class AvaScopeMcpTools
         }
 
         var response = result.Value!;
+        response = RuntimeSourceSuggestionBuilder.WithSourceContext(
+            response,
+            CreateSourceSuggestionContext(
+                sourceProject,
+                sourceView,
+                sourceApp,
+                sourceProfile,
+                "mcp"));
         if (!string.IsNullOrWhiteSpace(artifactPath))
         {
             var artifact = new RuntimeMutationReviewExporter().ExportReview(response, artifactPath);
@@ -1123,7 +1135,25 @@ public sealed class AvaScopeMcpTools
             response.ActiveMutations,
             response.ResetHandoff,
             response.Metadata,
-            artifact);
+            artifact,
+            response.SourceContext,
+            response.SourceSuggestions);
+    }
+
+    private static RuntimeSourceSuggestionContext? CreateSourceSuggestionContext(
+        string? sourceProject,
+        string? sourceView,
+        string? sourceApp,
+        string? sourceProfile,
+        string source)
+    {
+        var context = new RuntimeSourceSuggestionContext(
+            sourceProject,
+            sourceView,
+            sourceApp,
+            sourceProfile,
+            source);
+        return context.HasAnyPath ? context : null;
     }
 
     private static LocalBridgeClient CreateBridgeClient(LocalBridgeClient bridgeClient, string? manifestDirectory)

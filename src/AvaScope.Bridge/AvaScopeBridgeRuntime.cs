@@ -1296,7 +1296,7 @@ public sealed class AvaScopeBridgeRuntime
                 ? "No active runtime mutations are currently registered for this local bridge session."
                 : "Use reset_mutation with a listed mutation id, or reset_all with the suggested target to clear active runtime overrides.");
 
-        return CoreResult<RuntimeMutationReviewResponse>.Ok(new RuntimeMutationReviewResponse(
+        var response = new RuntimeMutationReviewResponse(
             SessionId,
             DateTimeOffset.UtcNow,
             rawHistory.Length,
@@ -1304,7 +1304,10 @@ public sealed class AvaScopeBridgeRuntime
             history,
             active,
             resetHandoff,
-            metadata));
+            metadata);
+
+        return CoreResult<RuntimeMutationReviewResponse>.Ok(
+            RuntimeSourceSuggestionBuilder.WithSourceContext(response, sourceContext: null));
     }
 
     private void RecordMutationResponse(RuntimeMutationResponse response)
