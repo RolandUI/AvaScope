@@ -13,6 +13,7 @@ AvaScope targets Avalonia 12 and `net10.0`.
 - Headless preview rendering for project-backed `.axaml` views.
 - Screenshot capture, focused region assertions, image diffs, and baseline checks for local evidence and CI handoff.
 - Structured diagnostics for preview readiness, build failures, bindings, resources, layout, local bridge sessions, and agent triage.
+- Explicit capability discovery so agents can gate newer CLI/MCP workflows by feature id instead of package-version guessing.
 - A command-line tool, an MCP stdio server, and reusable protocol/core libraries.
 
 ## Tools

@@ -32,6 +32,7 @@ public sealed class McpStdioSmokeTests
         var toolNames = tools.Select(static tool => tool.Name).ToArray();
 
         Assert.Contains("health", toolNames);
+        Assert.Contains("capabilities", toolNames);
         Assert.Contains("list_sessions", toolNames);
         Assert.Contains("close_session", toolNames);
         Assert.Contains("diagnostics", toolNames);

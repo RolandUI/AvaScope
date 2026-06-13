@@ -18,6 +18,7 @@ AvaScope is an agent-focused local control plane for Avalonia apps. It gives CLI
 - File-backed preview viewer export with `previewUrl` handoff for Codex in-app browser workflows.
 - MCP stdio server with structured tools.
 - `avascope` CLI with doctor, preview, runtime inspection, diagnostics, and MCP handoff commands.
+- Explicit `capabilities` discovery for protocol, CLI/MCP tools, runtime mutation, preview, diagnostics, baselines, reports, and artifact support.
 - Getting-started sample app for the first preview and bridge workflow.
 
 ## Agent Control Model
@@ -229,6 +230,15 @@ Build first, then run the CLI assembly from the build output:
 ```powershell
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll preview path\to\App.csproj --view Views\MainView.axaml --out .\preview.png --width 1440 --height 900 --dpi 96 --theme light --culture ja-JP --design-data-type MyApp.Design.PreviewData
 ```
+
+Query supported protocol and tool features before relying on newer agent workflows:
+
+```powershell
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll capabilities
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll capabilities --require runtime.ui_audit,reports.evidence_pack
+```
+
+`capabilities` writes `ToolResult<AvaScopeCapabilitiesResponse>` with `capabilities[]`, `tools[]`, `runtimeMutationCapabilities[]`, and `compatibilityPolicy`. Unsupported required feature ids fail with `capability_not_supported`, `unsupportedCapabilities`, and a `nextAction` detail so clients can branch by feature id rather than guessing from package versions.
 
 The command writes a structured JSON `ToolResult<PreviewResponse>` to stdout. On success, `value.filePath` points to the generated PNG.
 `--width` and `--height` can be omitted when the root AXAML declares design-time dimensions with `d:DesignWidth`/`d:DesignHeight` or `Design.Width`/`Design.Height`. Project previews also apply root design-time data from `Design.DataContext` or `d:DataContext="{x:Static ...}"`; an explicit `--design-data-type` still takes precedence.
@@ -555,6 +565,7 @@ dotnet .\src\AvaScope.Mcp\bin\Debug\net10.0\AvaScope.Mcp.dll
 Implemented tools:
 
 - `health`
+- `capabilities`
 - `list_sessions`
 - `attach_to_app`
 - `launch_app`
@@ -584,6 +595,8 @@ Implemented tools:
 - `reload`
 
 Planned but not implemented yet: runtime hot reload, drag/drop, full preview startup orchestration, installer distribution, macOS release policy, and broader hosted review integrations.
+
+`capabilities` returns the same discovery manifest as the CLI command and accepts optional `requiredCapabilities` as comma-separated ids. It is the compatibility gate for clients that need specific runtime, preview, diagnostics, baseline, report, artifact, or mutation surfaces before invoking newer tools.
 
 `diagnostics` reports AvaScope service metadata, local bridge manifest/pipe health, stale, invalid, unauthorized, unavailable, duplicate, and protocol-incompatible bridge records, preview host readiness, and stale or invalid preview-session metadata without building or loading user projects. The response keeps the legacy `issues` list and also includes bounded `diagnosticIssues` entries with source, severity, status, provenance, request ids, and related path/session metadata for agent triage.
 

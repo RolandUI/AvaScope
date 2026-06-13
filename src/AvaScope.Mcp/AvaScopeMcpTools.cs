@@ -24,6 +24,20 @@ public sealed class AvaScopeMcpTools
     }
 
     [McpServerTool(
+        Name = "capabilities",
+        Title = "Capabilities",
+        ReadOnly = true,
+        Idempotent = true,
+        Destructive = false,
+        OpenWorld = false,
+        UseStructuredContent = true)]
+    [Description("Returns AvaScope protocol, CLI/MCP tool, runtime, preview, diagnostics, baseline, report, and artifact capability metadata.")]
+    public static ToolResult<AvaScopeCapabilitiesResponse> Capabilities(string? requiredCapabilities = null)
+    {
+        return ToToolResult(new CapabilityCompatibilityChecker().CreateResponse(requiredCapabilities));
+    }
+
+    [McpServerTool(
         Name = "list_sessions",
         Title = "List sessions",
         ReadOnly = true,

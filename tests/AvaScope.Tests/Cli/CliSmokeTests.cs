@@ -18,6 +18,54 @@ public sealed class CliSmokeTests
         $"cli-bridge-manifests-{Guid.NewGuid():N}");
 
     [Fact]
+    public async Task CapabilitiesCommandReportsProtocolAndToolCapabilities()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var result = await RunCliAsync(cliAssembly, "capabilities");
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.True(string.IsNullOrWhiteSpace(result.StandardError), result.StandardError);
+
+        var payload = JsonSerializer.Deserialize<ToolResult<AvaScopeCapabilitiesResponse>>(result.StandardOutput, JsonOptions);
+        Assert.NotNull(payload);
+        Assert.True(payload.Success, payload.Error?.Message);
+        Assert.Equal("avascope", payload.Value!.ServiceName);
+        Assert.Contains(payload.Value.Capabilities, capability =>
+            capability.Id == AvaScopeCapabilityIds.ProtocolCapabilityDiscovery
+            && capability.Status == AvaScopeCapabilityStatuses.Available);
+        Assert.Contains(payload.Value.Capabilities, capability =>
+            capability.Id == AvaScopeCapabilityIds.RuntimeStyleLayoutMutation
+            && capability.Metadata["runtimeMutationCapability"] == RuntimeMutationCapabilityCatalog.StyleLayoutMutation);
+        Assert.Contains(payload.Value.Tools, tool =>
+            tool.Adapter == "cli"
+            && tool.Name == "capabilities"
+            && tool.CapabilityIds.Contains(AvaScopeCapabilityIds.ProtocolCapabilityDiscovery));
+        Assert.Contains(payload.Value.RuntimeMutationCapabilities, capability =>
+            capability.Name == RuntimeMutationCapabilityCatalog.RuntimeMutationContract);
+    }
+
+    [Fact]
+    public async Task CapabilitiesCommandRejectsUnsupportedRequiredCapability()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var result = await RunCliAsync(cliAssembly, "capabilities", "--require", "post_1_0.magic");
+
+        Assert.Equal(1, result.ExitCode);
+        Assert.True(string.IsNullOrWhiteSpace(result.StandardError), result.StandardError);
+
+        var payload = JsonSerializer.Deserialize<ToolResult<AvaScopeCapabilitiesResponse>>(result.StandardOutput, JsonOptions);
+        Assert.NotNull(payload);
+        Assert.False(payload.Success);
+        Assert.Null(payload.Value);
+        Assert.Equal(AvaScopeCapabilityErrorCodes.CapabilityNotSupported, payload.Error!.Code);
+        Assert.Equal("post_1_0.magic", payload.Error.Details!["unsupportedCapabilities"]);
+    }
+
+    [Fact]
     public async Task PreviewCommandRendersAxamlThroughPreviewHostClient()
     {
         var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");

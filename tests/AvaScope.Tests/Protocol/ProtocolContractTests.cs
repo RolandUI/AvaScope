@@ -77,6 +77,29 @@ public sealed class ProtocolContractTests
     }
 
     [Fact]
+    public void CapabilitiesResponseSerializesStableDiscoveryShape()
+    {
+        var response = AvaScopeCapabilityCatalog.Current(new DateTimeOffset(2026, 6, 13, 1, 0, 0, TimeSpan.Zero));
+        var result = ToolResult<AvaScopeCapabilitiesResponse>.Ok(response);
+        var json = JsonSerializer.Serialize(result);
+        var node = JsonNode.Parse(json)!;
+
+        Assert.True(node["success"]!.GetValue<bool>());
+        Assert.Equal("avascope", node["value"]!["serviceName"]!.GetValue<string>());
+        Assert.Equal(1, node["value"]!["protocolVersion"]!["major"]!.GetValue<int>());
+        Assert.Equal("capabilities[].id", node["value"]!["compatibilityPolicy"]!["featureDiscovery"]!.GetValue<string>());
+        Assert.Equal("protocol.capability_discovery", node["value"]!["capabilities"]![2]!["id"]!.GetValue<string>());
+        Assert.Equal("available", node["value"]!["capabilities"]![2]!["status"]!.GetValue<string>());
+        Assert.Equal("capabilities", node["value"]!["capabilities"]![2]!["tools"]![0]!.GetValue<string>());
+        Assert.Contains("ignore unknown JSON", node["value"]!["capabilities"]![1]!["description"]!.GetValue<string>(), StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("cli", node["value"]!["tools"]![0]!["adapter"]!.GetValue<string>());
+        Assert.Equal("capabilities", node["value"]!["tools"]![0]!["name"]!.GetValue<string>());
+        Assert.Equal(AvaScopeCapabilityIds.ProtocolCapabilityDiscovery, node["value"]!["tools"]![0]!["capabilityIds"]![0]!.GetValue<string>());
+        Assert.Equal(RuntimeMutationCapabilityCatalog.RuntimeMutationContract, node["value"]!["runtimeMutationCapabilities"]![0]!["name"]!.GetValue<string>());
+        Assert.Empty(node["value"]!["diagnostics"]!.AsArray());
+    }
+
+    [Fact]
     public void DiagnosticsResponseSerializesBridgeSessionsAndIssues()
     {
         var generatedAt = new DateTimeOffset(2026, 6, 7, 3, 0, 0, TimeSpan.Zero);

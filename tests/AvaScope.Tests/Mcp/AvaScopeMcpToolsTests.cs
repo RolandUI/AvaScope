@@ -20,6 +20,34 @@ public sealed class AvaScopeMcpToolsTests
     }
 
     [Fact]
+    public void CapabilitiesReturnsCurrentCapabilityManifest()
+    {
+        var result = AvaScopeMcpTools.Capabilities();
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Contains(result.Value!.Capabilities, capability =>
+            capability.Id == AvaScopeCapabilityIds.RuntimeUiAudit
+            && capability.Status == AvaScopeCapabilityStatuses.Available);
+        Assert.Contains(result.Value.Tools, tool =>
+            tool.Adapter == "mcp"
+            && tool.Name == "capabilities"
+            && tool.CapabilityIds.Contains(AvaScopeCapabilityIds.ProtocolCapabilityDiscovery));
+        Assert.Contains(result.Value.RuntimeMutationCapabilities, capability =>
+            capability.Name == RuntimeMutationCapabilityCatalog.StyleLayoutMutation);
+    }
+
+    [Fact]
+    public void CapabilitiesRejectsUnsupportedRequirement()
+    {
+        var result = AvaScopeMcpTools.Capabilities("post_1_0.magic");
+
+        Assert.False(result.Success);
+        Assert.Null(result.Value);
+        Assert.Equal(AvaScopeCapabilityErrorCodes.CapabilityNotSupported, result.Error!.Code);
+        Assert.Equal("post_1_0.magic", result.Error.Details!["unsupportedCapabilities"]);
+    }
+
+    [Fact]
     public void ListSessionsReturnsEmptySessionList()
     {
         var registry = new SessionRegistry();

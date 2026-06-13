@@ -27,11 +27,12 @@ Use isolated paths when validating package health so old local sessions do not a
 Use default paths when diagnosing the user's current machine state:
 
 ```powershell
+& $avascope capabilities
 & $avascope doctor
 & $avascope diagnostics --max-sessions 10
 ```
 
-`doctor` exits non-zero when co-located AvaScope assemblies are missing or stale diagnostic records need attention. `diagnostics` returns the lower-level bridge and preview-host records plus bounded `diagnosticIssues` with source, severity, status, and provenance.
+`capabilities` returns the current protocol/tool manifest, including runtime mutation, preview, diagnostics, baseline, report, and artifact feature ids. Use `capabilities --require <id>[,<id>...]` before newer workflows when an agent needs an explicit compatibility gate; unsupported requirements return `capability_not_supported` with actionable details instead of relying on package-version guessing. `doctor` exits non-zero when co-located AvaScope assemblies are missing or stale diagnostic records need attention. `diagnostics` returns the lower-level bridge and preview-host records plus bounded `diagnosticIssues` with source, severity, status, and provenance.
 
 ## 3. Preview A View
 
