@@ -26,13 +26,13 @@ GitHub Issues and Milestones are the primary project-management source for auton
 
 ## Current Focus
 
-- `v1.0.0 Released`
-- GitHub Issues: https://github.com/RolandUI/AvaScope/issues/33 and https://github.com/RolandUI/AvaScope/issues/39
-- GitHub Milestone: `v1.0.0`
+- Maintenance bug #41
+- GitHub Issue: https://github.com/RolandUI/AvaScope/issues/41
+- GitHub Milestone: none
 - Status: `Done`
 - Owner: unassigned
 - Started: `2026-06-13`
-- Goal: release `v1.0.0` as the stable agent control-plane release, publish packages and GitHub Release assets, and close the milestone.
+- Goal: stop preview source diagnostics from treating Avalonia hash element-name bindings such as `{Binding #TargetButton}` as DataContext or `x:DataType` paths.
 
 ## Next Action
 
@@ -40,6 +40,8 @@ No active implementation issue. Keep CI manual-only until a separate maintenance
 
 ## Latest Validation
 
+- `2026-06-13`: Started GitHub issue #41 after a TradeR `MainWindow.axaml` preview smoke showed App.axaml resources/styles and custom controls render correctly, but preview source diagnostics emitted a false `binding_datatype_path_not_found` warning for `{Binding #MinimizedDialogsButton}`. Implementation classifies hash element-name binding paths as explicit sources while preserving normal DataContext and `x:DataType` diagnostics.
+- `2026-06-13`: Completed local validation for GitHub issue #41. Preview diagnostics now treat hash element-name bindings as explicit sources and suppress intentional overlay child overlap diagnostics. Validation passed with focused PreviewHost regression tests (2 passed), full `PreviewHostSmokeTests` (31 passed), TradeR `MainWindow.axaml` preview smoke through the source CLI, `dotnet build AvaScope.slnx --no-restore -v:minimal`, and `git diff --check` with only LF/CRLF normalization warnings. The remaining TradeR preview diagnostics are layout warnings for small text bounds and generic overlapping Border layers, not missing App.axaml styles/resources.
 - `2026-06-13`: Completed GitHub issue #36 after remote validation. Commit `61a340f713c57b11b3d434fcce2f1fecdfa6ec49` (`Complete v1 documentation readiness`) passed GitHub CI workflow `27457868832` and Release workflow `27457868833` (no-op). The issue moved to `status:done`, project Done/100/Completed, and was closed. Started GitHub issue #37 `R1.0.0-M4 Release Artifact And Package Verification`; the issue and project card moved to `status:in-progress` / In Progress / 25% / Current Slice.
 - `2026-06-13`: Due to GitHub Actions quota pressure during #37, normal development CI was intentionally restricted to manual dispatch and local validation became the required slice gate until the final `v1.0.0` publish. The `Release` workflow remains available for the final release commit and is scoped to `Directory.Build.props` version-bump pushes or manual dispatch.
 - `2026-06-13`: Completed local #37 release artifact verification with temporary `Directory.Build.props` version `1.0.0`, then restored the committed version to `0.9.0`. Validation passed with `eng/create-local-release.ps1` (Release build, 312 Release tests, three NuGet packages, win/linux framework-dependent ZIPs, manifest verification, packaged doctor and sample preview smoke), `eng/publish-nuget.ps1 -DryRun`, `eng/publish-github-release.ps1 -Tag v1.0.0 -DryRun`, manifest/hash/package/ZIP inspection, packaged `capabilities --require ...`, packaged MCP stdio smoke with 30 tools and `serverInfo.name=avascope`, opt-in win-x64 self-contained local release plus GitHub Release dry-run, and final framework-dependent artifact restoration. Details are in [RELEASE_ARTIFACT_VERIFICATION.md](RELEASE_ARTIFACT_VERIFICATION.md).

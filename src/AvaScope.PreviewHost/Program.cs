@@ -1087,6 +1087,11 @@ internal static class Program
 
     private static bool ShouldIgnoreOverlap(Visual parent, Visual first, Visual second)
     {
+        if (IsIntentionalOverlayHost(first) || IsIntentionalOverlayHost(second))
+        {
+            return true;
+        }
+
         if (IsFrameworkTemplateOverlapScope(first) || IsFrameworkTemplateOverlapScope(second))
         {
             return true;
@@ -1948,6 +1953,11 @@ internal static class Program
 
     private static bool HasExplicitBindingSource(string value)
     {
+        if (ExtractBindingPath(value) is { } path && path.StartsWith('#'))
+        {
+            return true;
+        }
+
         return Regex.IsMatch(
             value,
             @"(?:^|[,{]\s*)(Source|ElementName|RelativeSource)\s*=",
