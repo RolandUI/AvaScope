@@ -42,8 +42,8 @@ The roadmap below is the working plan to `v1.0.0`. It is intentionally release-s
 
 - `v0.6.0` is released.
 - `v0.7.0` is released.
+- `v0.8.0` is released.
 - `v0.7.0` starts the agent-first product direction: AvaScope becomes an agent control plane for inspecting, changing, validating, and explaining Avalonia UI behavior through structured CLI/MCP workflows.
-- `v0.8.0` is the active release target through GitHub milestone `v0.8.0`, release issue #19, and release-candidate issue #25 currently in progress.
 - `v0.9.0` through `v1.0.0` are planned targets. Their scope may be refined before they become the current release target, but changes must be recorded here before implementation starts.
 - Each release must preserve the current product boundaries: MCP and CLI stay adapters over Core, runtime bridge activation stays opt-in and local-only, PreviewHost stays isolated from the MCP server, and private Avalonia/runtime hooks remain out of the default path.
 - Every release must include targeted tests, full build/test validation, release dry-run validation, documentation updates, and explicit deferrals.
@@ -343,16 +343,16 @@ The `v0.7.0` release target starts the agent-first product direction. The goal i
 - Broad arbitrary-property editing remains out of scope until property conversion, validation, rollback, and security behavior are proven for the first mutation set.
 - Cloud dashboard hosting remains out of scope.
 
-## Current Release Target
+## Released Target: v0.8.0
 
 - Release: `v0.8.0`
 - Target Version: `0.8.0`
-- Release State: `Release Candidate`
+- Release State: `Released`
 - Scope Lock: locked
-- Release Commit: pending
+- Release Commit: `d2d4d01` (`Release 0.8.0`)
 - Local Release Gate: passed `2026-06-13`
-- Published At: pending
-- GitHub Release: pending
+- Published At: `2026-06-13T00:29:08Z`
+- GitHub Release: https://github.com/RolandUI/AvaScope/releases/tag/v0.8.0
 - Previous Release: `v0.7.0`
 
 ### v0.8.0 Release Goals
@@ -378,13 +378,16 @@ The `v0.8.0` release target turns agent experiments into repeatable validation w
 - `R0.8.0-M3 Agent Evidence Report Pack`; Status: `Done`.
 - `R0.8.0-M4 GitHub Actions Example And Artifact Upload`; Status: `Done`.
 - `R0.8.0-M5 MCP/CLI Agent Review Surface`; Status: `Done`.
-- `R0.8.0-M6 Release Candidate And Version Bump`; Status: `In Progress`.
+- `R0.8.0-M6 Release Candidate And Version Bump`; Status: `Done`.
 
 ### v0.8.0 Implementation Validation
 
 - `2026-06-12`: GitHub issues #20 through #23 completed with remote CI and Release workflow validation for suite manifests, threshold/mask rules, report packs, and the GitHub Actions artifact example.
 - `2026-06-13`: GitHub issue #24 completed after commit `9de95b0dc542562e2bcf4384f34c22ce7b709eba` passed GitHub CI workflow `27449993825` and Release workflow `27449993838`; the issue was moved to `status:done`, project Done/100/Completed, and closed.
 - `2026-06-13`: GitHub issue #25 release-candidate gate passed for `v0.8.0`. Validation included `dotnet build AvaScope.slnx --no-restore -v:minimal`, full Debug tests (`dotnet test AvaScope.slnx --no-build`, 275 passed), `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1` (Release build/test 275 passed, three `0.8.0` packages, win-x64/linux-x64 framework-dependent ZIPs, release manifest, packaged doctor smoke, and packaged sample preview smoke), `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.8.0 -DryRun`, packaged CLI suite/report smoke (`baseline-create --suite`, `baseline-check --report --report-pack`, 2 entries passed), report/report-pack JSON validation, `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-release-commit.ps1 -Version 0.8.0 -CommitSubject "Release 0.8.0" -RequiredState "Release Candidate"`, and `git diff --check` with only LF/CRLF normalization warnings.
+- `2026-06-13`: GitHub CI workflow `27450680002` and Release workflow `27450679987` passed for `Release 0.8.0`; tag `v0.8.0` and six GitHub Release assets were published at `2026-06-13T00:29:08Z`.
+- `2026-06-13`: `gh release view v0.8.0` confirmed the public release URL and six uploaded assets: three `0.8.0` `.nupkg` files, win-x64 and linux-x64 framework-dependent ZIPs, and `release-manifest.json`.
+- `2026-06-13`: `git ls-remote --tags origin refs/tags/v0.8.0` confirmed tag `v0.8.0` at release commit `d2d4d01652efaf2812acf95a6b60621c93352ada`.
 
 ### v0.8.0 Explicit Deferrals
 
