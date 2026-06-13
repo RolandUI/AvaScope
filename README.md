@@ -47,6 +47,7 @@ Executable ZIPs and package artifacts are published from GitHub Releases when a 
 - [User guide](docs/USER_GUIDE.md): detailed CLI, MCP, runtime bridge, preview, screenshot, diff, baseline, packaging, and release commands.
 - [Agent workflow](docs/AGENT_WORKFLOW.md): packaged CLI runbooks for agent-driven local workflows.
 - [Stable surface](docs/STABLE_SURFACE.md): v1 package, protocol, CLI, MCP, exit-code, artifact, and release compatibility rules.
+- [Upgrade and compatibility](docs/UPGRADE.md): version alignment, bridge-package upgrades, CLI/MCP replacement, and capability-gated client behavior.
 - [End-to-end validation](docs/END_TO_END_VALIDATION.md): v1 source, packaged CLI, packaged MCP, runtime bridge, report, and release-readiness validation record.
 - [Security threat model](docs/SECURITY_THREAT_MODEL.md): local-only transport, bridge activation, mutation, preview, artifact, and compatibility boundaries.
 - [Performance and stress audit](docs/PERFORMANCE_STRESS_AUDIT.md): bounded output budgets and stress validation coverage for agent workflows.
@@ -62,11 +63,11 @@ Executable ZIPs and package artifacts are published from GitHub Releases when a 
 - Bridge discovery and control are local-only through session manifests and local named pipes.
 - Preview rendering runs user project code only inside `AvaScope.PreviewHost`, not inside MCP or the CLI process.
 - MCP is a thin adapter over reusable local libraries and uses structured results instead of unbounded UI payloads.
-- Runtime control is intentionally narrow and non-destructive in the current pre-1.0 line. Bridge-enabled apps support bounded reversible temporary UI mutations for selected style, layout, text, class, and resource experiments, plus before/after evidence capture, session-local mutation review, and reset/close cleanup for agent review loops.
+- Runtime control is intentionally narrow, local-only, and non-destructive in the stable v1 surface. Bridge-enabled apps support bounded reversible temporary UI mutations for selected style, layout, text, class, and resource experiments, plus before/after evidence capture, session-local mutation review, and reset/close cleanup for agent review loops.
 
 ## Project Status
 
-AvaScope is in the `v1.0.0` stable-surface freeze. Package identities, protocol DTOs, CLI commands, MCP tools, exit codes, artifact names, and release workflow behavior are being locked in [docs/STABLE_SURFACE.md](docs/STABLE_SURFACE.md) before the final stable release.
+AvaScope is completing `v1.0.0` stable release readiness. Package identities, protocol DTOs, CLI commands, MCP tools, exit codes, artifact names, and release workflow behavior are documented in [docs/STABLE_SURFACE.md](docs/STABLE_SURFACE.md).
 
 Development is tracked in GitHub Issues, Milestones, and the public [AvaScope Roadmap](https://github.com/users/RolandUI/projects/4) Project board.
 

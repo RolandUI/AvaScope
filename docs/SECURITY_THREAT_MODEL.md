@@ -1,6 +1,6 @@
 # AvaScope Security Threat Model
 
-This document records the security boundary for AvaScope before the v1.0.0 surface freeze. AvaScope is a local-first agent tool. It can execute or load user project code, inspect bridge-enabled applications, and write local artifacts, so the default posture is explicit opt-in, local-only access, bounded output, and no unauthenticated remote control.
+This document records the security boundary for the AvaScope v1 stable local control plane. AvaScope is a local-first agent tool. It can execute or load user project code, inspect bridge-enabled applications, and write local artifacts, so the default posture is explicit opt-in, local-only access, bounded output, and no unauthenticated remote control.
 
 ## Assets
 
@@ -23,7 +23,7 @@ This document records the security boundary for AvaScope before the v1.0.0 surfa
 
 Runtime inspection and control use local session manifests plus local named pipes. `BridgeSessionManifest` defaults missing `transportScope` to `local_only` for legacy compatibility and rejects any non-local value. `LocalBridgeClient` treats unsupported transport manifests as invalid diagnostics and does not attach or mutate through them.
 
-Remote inspection, unauthenticated network listeners, no-code attach, process injection, CLR profiling, and private runtime hooks are out of scope for v0.9.0 and v1.0.0.
+Remote inspection, unauthenticated network listeners, no-code attach, process injection, CLR profiling, and private runtime hooks are out of scope for the v1.0.0 stable release.
 
 ## Opt-In Bridge Activation
 
@@ -49,7 +49,7 @@ The visual-regression GitHub Actions example uses read-only repository permissio
 
 ## Package, API, CLI, And MCP Compatibility
 
-Before v1.0.0, compatibility risk is tracked through GitHub issues and `docs/RELEASE_PLAN.md`. Public protocol changes should be additive unless the active release is explicitly a breaking surface freeze. `ToolResult<T>` keeps the stable `success`, `value`, and `error` JSON shape.
+For v1.0.0, compatibility risk is tracked through GitHub issues, [STABLE_SURFACE.md](STABLE_SURFACE.md), and `docs/RELEASE_PLAN.md`. Public protocol changes should be additive within major version `1`. `ToolResult<T>` keeps the stable `success`, `value`, and `error` JSON shape.
 
 Clients should call `capabilities` and gate workflows by capability id rather than guessing from package versions. Unknown JSON fields must be ignored by clients. Unsupported required capability ids fail with `capability_not_supported` and details that include `requestedCapabilities`, `unsupportedCapabilities`, `availableCapabilities`, `protocolVersion`, and `nextAction`.
 
@@ -71,4 +71,4 @@ Clients should call `capabilities` and gate workflows by capability id rather th
 - Remote inspection/control, no-code attach, process injection, CLR profiling, and private Avalonia hooks remain post-1.0 unless a separate threat model is designed.
 - Generated screenshots and reports may contain sensitive UI data. Upload and retention policy belongs to the user or CI workflow that handles the local artifacts.
 
-No release-blocking security risk is accepted for v0.9.0 at the time this document was added.
+No release-blocking security risk is accepted for v1.0.0. A new P0/P1 security issue blocks the stable release until fixed, moved out of scope with explicit rationale, or accepted by a separate release decision.

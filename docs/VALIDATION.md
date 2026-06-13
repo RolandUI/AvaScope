@@ -254,14 +254,15 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\collect-baseline-artif
 For agent workflow documentation work, validate the packaged CLI examples that do not require a live runtime bridge:
 
 ```powershell
+dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~DocumentationCompletionTests
 powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1 -SkipTests
 .\artifacts\executables\avascope-win-x64-framework-dependent\avascope.exe doctor --manifest-dir .\artifacts\samples\agent-workflow\sessions --preview-session-store .\artifacts\samples\agent-workflow\preview-sessions
 .\artifacts\executables\avascope-win-x64-framework-dependent\avascope.exe preview .\samples\AvaScope.GettingStartedApp\AvaScope.GettingStartedApp.csproj --profile main --out .\artifacts\samples\agent-workflow\main-preview.png
 ```
 
-## Public Alpha Release Validation
+## Stable Release Validation
 
-Before marking a public-alpha readiness or release-workflow slice complete, run:
+Before marking a stable release-readiness or release-workflow slice complete, run:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1
@@ -270,7 +271,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.p
 For release-based development, do not bump `Directory.Build.props` until the current target in `docs\RELEASE_PLAN.md` is ready to move to `Release Candidate`. The automatic publish path validates that the release commit subject is `Release <version>` and the release plan targets the same version:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-release-commit.ps1 -Version 0.2.0 -CommitSubject "Release 0.2.0" -RequiredState "Release Candidate"
+powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-release-commit.ps1 -Version 1.0.0 -CommitSubject "Release 1.0.0" -RequiredState "Release Candidate"
 ```
 
 The script wraps the release gate:
@@ -299,7 +300,7 @@ For the opt-in self-contained executable lane, validate a narrow local artifact 
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1 -RuntimeIdentifiers win-x64 -ExecutablePackageKind self-contained -SkipTests -SkipSampleSmoke
-powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.1.0 -ExecutableRuntimeIdentifiers win-x64 -ExecutablePackageKind self-contained -DryRun
+powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v1.0.0 -ExecutableRuntimeIdentifiers win-x64 -ExecutablePackageKind self-contained -DryRun
 ```
 
 NuGet publishing in CI requires a repository secret named `NUGET_API_KEY`. The `Release` workflow publishes from `master` or `main` when the `Directory.Build.props` `<Version>` value has no matching remote `v<Version>` tag yet.
@@ -310,7 +311,7 @@ Before publishing library packages manually, validate the exact publish set with
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-nuget.ps1 -DryRun
-powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.1.0 -DryRun
+powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v1.0.0 -DryRun
 ```
 
 Manual NuGet publishing requires a nuget.org API key supplied by `AVASCOPE_NUGET_API_KEY`, `NUGET_API_KEY`, or the `-ApiKey` parameter.
@@ -318,5 +319,5 @@ Manual NuGet publishing requires a nuget.org API key supplied by `AVASCOPE_NUGET
 Then verify generated artifacts are ignored:
 
 ```powershell
-git check-ignore -v artifacts\release-manifest.json artifacts\packages\AvaScope.Protocol.0.1.0.nupkg artifacts\executables\avascope-win-x64-framework-dependent.zip artifacts\samples\getting-started-preview-release.png
+git check-ignore -v artifacts\release-manifest.json artifacts\packages\AvaScope.Protocol.1.0.0.nupkg artifacts\executables\avascope-win-x64-framework-dependent.zip artifacts\samples\getting-started-preview-release.png
 ```

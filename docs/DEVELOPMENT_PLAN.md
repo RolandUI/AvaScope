@@ -26,20 +26,22 @@ GitHub Issues and Milestones are the primary project-management source for auton
 
 ## Current Focus
 
-- `R1.0.0-M2 End-To-End Workflow Verification`
-- GitHub Issue: https://github.com/RolandUI/AvaScope/issues/35
+- `R1.0.0-M3 Documentation Completion`
+- GitHub Issue: https://github.com/RolandUI/AvaScope/issues/36
 - GitHub Milestone: `v1.0.0`
 - Status: `In Progress`
 - Owner: unassigned
 - Started: `2026-06-13`
-- Goal: validate stable source and packaged runtime, preview, diagnostics, mutation, visual-regression, report, CLI, and MCP workflows end-to-end.
+- Goal: complete stable public user-facing and agent-facing documentation for installation, getting started, CLI, MCP, bridge activation, runtime mutation, preview, preview sessions, visual regression, troubleshooting, security, release, upgrade, limitations, and post-1.0 deferrals.
 
 ## Next Action
 
-Run the #35 validation matrix from `docs/VALIDATION.md` and `docs/AGENT_WORKFLOW.md`, capture source and packaged workflow results, and record any residual release risks before closing the issue.
+Audit the public documentation set for stale wording, missing stable workflow coverage, broken local links, and commands that need validation or explicit illustrative marking for #36.
 
 ## Latest Validation
 
+- `2026-06-13`: Completed local implementation for GitHub issue #36 `R1.0.0-M3 Documentation Completion`. Updated primary docs for stable v1 positioning, added [UPGRADE.md](UPGRADE.md), removed active public-alpha/pre-1.0 wording from README/User Guide/Agent Workflow/Validation/Security docs, refreshed install/release examples, and added `DocumentationCompletionTests`. Validation passed with primary-doc markdown link/path check (9 files), stale wording `rg` check, `dotnet build AvaScope.slnx --no-restore -v:minimal`, focused documentation tests (`DocumentationCompletionTests`, `StableSurfaceDocumentationTests`, `EndToEndValidationDocumentationTests`, `SecurityThreatModelDocumentationTests`, `VisualRegressionWorkflowDocumentationTests`, `PerformanceStressAuditDocumentationTests`, 12 passed), full Debug tests (`dotnet test AvaScope.slnx --no-build`, 311 passed), `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1 -SkipTests`, packaged `capabilities --require ...`, and `git diff --check` with only LF/CRLF normalization warnings.
+- `2026-06-13`: Completed GitHub issue #35 after remote validation. Final commit `f525e11c4d6496445d1a1bfd9f16527192b5353e` (`Stabilize v1 end-to-end CI validation`) passed GitHub CI workflow `27457413804` and Release workflow `27457413805` (no-op). The issue moved to `status:done`, project Done/100/Completed, and was closed. Started GitHub issue #36 `R1.0.0-M3 Documentation Completion`; the issue and project card moved to `status:in-progress` / In Progress / 25% / Current Slice.
 - `2026-06-13`: Stabilized the #35 hosted-runner CI failure from GitHub CI workflow `27457002598`. Two CLI bridge-pipe smoke tests timed out waiting for fake bridge IPC under the full Release CI run; the CLI smoke harness now gives implicit fake bridge manifests an async-test-flow isolated manifest directory instead of a shared static directory. Local validation passed with `dotnet test tests/AvaScope.Tests/AvaScope.Tests.csproj -c Release --no-restore --filter "FullyQualifiedName~AvaScope.Tests.Cli.CliSmokeTests"` (91 passed).
 - `2026-06-13`: Completed local validation for GitHub issue #35 `R1.0.0-M2 End-To-End Workflow Verification`. Validation passed with `dotnet restore AvaScope.slnx`, `dotnet build AvaScope.slnx --no-restore -v:minimal`, full Debug tests (`dotnet test AvaScope.slnx --no-build`, 307 passed), `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1` (Release build/test 307 passed, three `0.9.0` packages, win-x64/linux-x64 framework-dependent ZIPs, release manifest, packaged doctor smoke, packaged sample preview smoke), `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.9.0 -DryRun`, packaged CLI E2E smoke for capabilities/doctor/preview/animation/preview-session/baseline report-pack/diff/assert-region/cleanup, packaged runtime bridge smoke for launch/attach/tree/find/inspect/audit/input/screenshot/mutation evidence/mutation review/reset/close, packaged MCP stdio `initialize` + `tools/list`, and open P0/P1 issue audit with no unexpected blocker. Added `docs/END_TO_END_VALIDATION.md` with results and residual risks.
 - `2026-06-13`: Completed GitHub issue #34 after remote validation. Commit `4408ca7fa284f3d84b6470a8b5d6008478258d55` (`Freeze stable public surface`) passed GitHub CI workflow `27456458960` and Release workflow `27456458959` (no-op). The issue moved to `status:done`, project Done/100/Completed, and was closed. Started GitHub issue #35 `R1.0.0-M2 End-To-End Workflow Verification`; the issue and project card moved to `status:in-progress` / In Progress / 25% / Current Slice.

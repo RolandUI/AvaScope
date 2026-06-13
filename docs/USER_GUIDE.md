@@ -1,6 +1,6 @@
 # AvaScope User Guide
 
-Detailed usage notes for AvaScope. For the short public project overview, see the [root README](../README.md). For stable package, protocol, CLI, MCP, artifact, and release compatibility rules, see [STABLE_SURFACE.md](STABLE_SURFACE.md). For v1 source and packaged workflow validation, see [END_TO_END_VALIDATION.md](END_TO_END_VALIDATION.md). For failure triage, see [TROUBLESHOOTING.md](TROUBLESHOOTING.md). For stress budgets, see [PERFORMANCE_STRESS_AUDIT.md](PERFORMANCE_STRESS_AUDIT.md).
+Detailed usage notes for AvaScope. For the short public project overview, see the [root README](../README.md). For stable package, protocol, CLI, MCP, artifact, and release compatibility rules, see [STABLE_SURFACE.md](STABLE_SURFACE.md). For upgrade guidance, see [UPGRADE.md](UPGRADE.md). For v1 source and packaged workflow validation, see [END_TO_END_VALIDATION.md](END_TO_END_VALIDATION.md). For failure triage, see [TROUBLESHOOTING.md](TROUBLESHOOTING.md). For stress budgets, see [PERFORMANCE_STRESS_AUDIT.md](PERFORMANCE_STRESS_AUDIT.md).
 
 AvaScope is an agent-focused local control plane for Avalonia apps. It gives CLI and MCP clients structured ways to inspect running UI, render previews, drive narrow runtime actions, capture screenshots, collect diagnostics, and hand off evidence artifacts. It targets Avalonia 12 and `net10.0`.
 
@@ -124,7 +124,7 @@ The release version is the `<Version>` value in `Directory.Build.props`. To rele
 
 ```powershell
 git add Directory.Build.props docs\RELEASE_PLAN.md docs\DEVELOPMENT_PLAN.md
-git commit -m "Release 0.2.0"
+git commit -m "Release <version>"
 git push origin master
 ```
 
@@ -164,9 +164,9 @@ The publish script pushes `AvaScope.Protocol`, `AvaScope.Core`, and `AvaScope.Br
 
 The workflow can also be run manually. Manual runs validate by default; set `publish=true` only when intentionally republishing the current `Directory.Build.props` version. Package pushes use duplicate skipping so a manual run can still create or update the GitHub Release assets for an existing version.
 
-## Public Alpha Local Install
+## Install From Release Artifacts
 
-AvaScope public-alpha executable artifacts are built locally for now; no installer publishing is configured. Framework-dependent ZIPs are the default release asset shape; self-contained ZIPs are opt-in local/publish-script artifacts.
+AvaScope release artifacts are published as NuGet packages plus framework-dependent executable ZIPs. No installer publishing is configured for `v1.0.0`; extract the ZIP and run the CLI/MCP bundle directly. Self-contained ZIPs remain an explicit local/publish-script artifact lane.
 
 Create and verify local Release artifacts:
 
@@ -188,10 +188,10 @@ For external app checks, use the same packaged Release executable path:
 .\artifacts\executables\avascope-win-x64-framework-dependent\avascope.exe preview path\to\App.csproj --view Views\MainWindow.axaml --out .\artifacts\samples\external-preview.png --width 1440 --height 900 --theme dark
 ```
 
-Use the local NuGet packages for an Avalonia app that wants the opt-in bridge:
+Use the local or published NuGet package for an Avalonia app that wants the opt-in bridge. Replace `<AvaScope-version>` with the package version being validated, for example the current `Directory.Build.props` version during local release validation or the published `1.0.0` stable release:
 
 ```powershell
-dotnet add path\to\YourApp.csproj package AvaScope.Bridge --version 0.1.0 --source .\artifacts\packages
+dotnet add path\to\YourApp.csproj package AvaScope.Bridge --version <AvaScope-version> --source .\artifacts\packages
 ```
 
 ## Getting Started Sample
@@ -594,7 +594,7 @@ Implemented tools:
 - `close_preview_session`
 - `reload`
 
-Planned but not implemented yet: runtime hot reload, drag/drop, full preview startup orchestration, installer distribution, macOS release policy, and broader hosted review integrations.
+Post-1.0 deferrals: runtime hot reload, drag/drop, full preview startup orchestration, installer distribution, macOS release policy, and broader hosted review integrations. These are not required for the stable v1 local control-plane workflow.
 
 `capabilities` returns the same discovery manifest as the CLI command and accepts optional `requiredCapabilities` as comma-separated ids. It is the compatibility gate for clients that need specific runtime, preview, diagnostics, baseline, report, artifact, or mutation surfaces before invoking newer tools.
 
@@ -621,13 +621,13 @@ Runtime safety boundary:
 - Session manifests are local discovery metadata and include `transportScope: "local_only"`.
 - Bridge IPC uses local named pipes; the server is created with current-user-only pipe access where the platform supports it.
 - CLI and MCP runtime commands only attach to active local manifests and do not open network listeners.
-- Runtime control remains intentionally narrow and non-destructive for public alpha.
+- Runtime control remains intentionally narrow, local-only, and non-destructive in the stable v1 surface.
 - Runtime mutations are temporary local overrides. They are not source edits and are not persisted by AvaScope.
 - Mutation review history is session-local and bounded; it is intended for current agent handoff, not durable audit storage.
 - `reset_mutation`, `reset_all`, top-level unregister, `close-session`, and bridge deactivation attempt to restore active runtime mutations and clear AvaScope's active mutation registry.
 - Runtime target handoff uses structured `target` context in command output; it does not add remote control or private Avalonia hooks.
 
-The release threat model is tracked in [SECURITY_THREAT_MODEL.md](SECURITY_THREAT_MODEL.md). It records the local-only transport boundary, opt-in bridge activation, runtime mutation permissions, PreviewHost execution boundary, generated artifact/log handling, and package/API/CLI/MCP compatibility risks before the v1.0.0 freeze.
+The release threat model is tracked in [SECURITY_THREAT_MODEL.md](SECURITY_THREAT_MODEL.md). It records the local-only transport boundary, opt-in bridge activation, runtime mutation permissions, PreviewHost execution boundary, generated artifact/log handling, and package/API/CLI/MCP compatibility risks for the v1.0.0 stable release.
 
 Runtime input support is intentionally narrow:
 
@@ -667,7 +667,7 @@ Preview session tools store the original preview request, latest render result, 
 
 `reload` re-runs stored preview-session requests through the isolated preview host and updates the existing session's latest render result. Runtime bridge session ids are health-checked locally and return `runtime_reload_not_supported`; AvaScope does not restart apps, inject code, or claim runtime hot reload. The one-shot CLI `preview` command remains one-shot; CLI preview-session commands provide the durable preview path, and `watch-preview-session` can trigger bounded reloads from file changes. Watch events that leave the watched input snapshot unchanged are reported as `skipped` instead of launching another PreviewHost child process.
 
-`watch-preview-session` responses include a `lifecycle` object. For `v0.2.0`, `lifecycle.hostProcessMode` is `one_shot_isolated_child_process` and `persistentHostEnabled` is `false`. Persistent preview hosts remain deferred until explicit ownership, `close`, TTL, crash recovery, and cleanup semantics are designed and validated; current cleanup is limited to request temp directories and AvaScope preview-session metadata.
+`watch-preview-session` responses include a `lifecycle` object. In the stable v1 surface, `lifecycle.hostProcessMode` is `one_shot_isolated_child_process` and `persistentHostEnabled` is `false`. Persistent preview hosts remain deferred until explicit ownership, `close`, TTL, crash recovery, and cleanup semantics are designed and validated; current cleanup is limited to request temp directories and AvaScope preview-session metadata.
 
 Current preview limitations:
 

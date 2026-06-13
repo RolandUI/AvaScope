@@ -239,4 +239,10 @@ Follow-up stabilization:
 - Change: implicit CLI fake bridge manifests now use an async-test-flow isolated manifest directory, and CLI child processes inherit that directory through `AVASCOPE_BRIDGE_MANIFEST_DIR`.
 - Local validation: `dotnet test tests/AvaScope.Tests/AvaScope.Tests.csproj -c Release --no-restore --filter "FullyQualifiedName~AvaScope.Tests.Cli.CliSmokeTests"` passed with 91 tests.
 
-The follow-up stabilization commit must pass GitHub CI and Release no-op validation before #35 is closed.
+Remote validation for follow-up stabilization:
+
+- Commit: `f525e11c4d6496445d1a1bfd9f16527192b5353e`
+- GitHub CI workflow `27457413804`: passed restore, build, Release test, library pack, executable packaging, and artifact verification.
+- GitHub Release workflow `27457413805`: passed/no-op.
+
+#35 was closed after this remote validation passed.

@@ -1,6 +1,6 @@
 # AvaScope Agent Workflow
 
-This workflow is for agents using AvaScope as a local control plane for an Avalonia project. It uses the packaged CLI path when available because that is closest to public-alpha usage.
+This workflow is for agents using AvaScope as a local control plane for an Avalonia project. It uses the packaged CLI path when available because that is closest to the stable public release shape.
 
 The intended agent loop is: check readiness, preview the UI, inspect a running app, act through bounded local commands, capture evidence, and clean up explicit local state. AvaScope returns structured JSON and file paths so an agent can make follow-up decisions without parsing screenshots or terminal text as the source of truth.
 
@@ -109,7 +109,7 @@ Preview sessions persist request metadata only. Each render still runs through a
 
 Preview failures include bounded `error.details.phase` values. Treat `readiness` as a local prerequisite problem, `build` as user project build output, and `render` as isolated view loading or rendering failure.
 
-`watch-preview-session` also returns `lifecycle`. In `v0.2.0`, persistent preview hosts are disabled; the lifecycle status documents one-shot child-process rendering plus the deferred close, TTL, crash, and cleanup requirements.
+`watch-preview-session` also returns `lifecycle`. In the stable v1 surface, persistent preview hosts are disabled; the lifecycle status documents one-shot child-process rendering plus the deferred close, TTL, crash, and cleanup requirements.
 
 ## 6. Inspect A Running App
 
