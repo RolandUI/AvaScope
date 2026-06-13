@@ -26,20 +26,21 @@ GitHub Issues and Milestones are the primary project-management source for auton
 
 ## Current Focus
 
-- `R0.9.0-M6 Release Candidate And Version Bump`
-- GitHub Issue: https://github.com/RolandUI/AvaScope/issues/32
-- GitHub Milestone: `v0.9.0`
+- `R1.0.0-M1 Stable Surface Freeze`
+- GitHub Issue: https://github.com/RolandUI/AvaScope/issues/34
+- GitHub Milestone: `v1.0.0`
 - Status: `In Progress`
 - Owner: unassigned
 - Started: `2026-06-13`
-- Goal: validate and publish `v0.9.0` after beta hardening issues are complete.
+- Goal: freeze and document the public surfaces intended to remain stable after `v1.0.0`.
 
 ## Next Action
 
-Run the `v0.9.0` release gate from `docs/VALIDATION.md`, verify no open P0/P1 issue blocks the `v1.0.0` freeze, move the release plan to `Release Candidate`, then commit `Release 0.9.0`.
+Audit public package, protocol, CLI, MCP, exit-code, artifact, and release workflow surfaces for `v1.0.0`; document stable/non-stable boundaries and add contract coverage where practical.
 
 ## Latest Validation
 
+- `2026-06-13`: Published `v0.9.0`. Final release commit `f956e48a99304310abf924c3ac7f91ec0abc21c7` (`Release 0.9.0`) passed GitHub CI workflow `27455900556` and Release workflow `27455900554`; `gh release view v0.9.0` confirmed https://github.com/RolandUI/AvaScope/releases/tag/v0.9.0 with six assets, and `git ls-remote --tags origin refs/tags/v0.9.0` confirmed the tag points at the release commit. Closed GitHub issues #32 and #26, moved their project cards to Done/100/Completed, closed milestone `v0.9.0`, and started GitHub issue #34 `R1.0.0-M1 Stable Surface Freeze`; the issue and project card moved to `status:in-progress` / In Progress / 25% / Current Slice.
 - `2026-06-13`: Stabilized the `v0.9.0` release commit hosted-runner failures from GitHub CI `27455464470` and Release workflow `27455464485`. The failing bridge input smoke now uses the existing explicit headless-session cleanup helper, and `PreviewImageDifferTests` now retries temp directory deletion to avoid Windows image-file cleanup locks. Local validation passed with `dotnet build AvaScope.slnx -c Release --no-restore -v:minimal`, targeted Release tests (`dotnet test tests/AvaScope.Tests/AvaScope.Tests.csproj -c Release --no-build --filter "FullyQualifiedName~BridgeHeadlessSmokeTests.McpInputClicksButtonAndTypesTextThroughLocalBridgePipe|FullyQualifiedName~PreviewImageDifferTests.CompareAppliesIgnoredRegionsAndThresholds"`, 2 passed), full Release tests (`dotnet test AvaScope.slnx -c Release --no-build`, 302 passed), `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1`, `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.9.0 -DryRun`, and release commit guard for `Release 0.9.0`.
 - `2026-06-13`: `v0.9.0` release-candidate gate passed for GitHub issue #32. Validation included `dotnet build AvaScope.slnx --no-restore -v:minimal`, full Debug tests (`dotnet test AvaScope.slnx --no-build`, 302 passed), `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1` (Release build/test 302 passed, three `0.9.0` packages, win-x64/linux-x64 framework-dependent ZIPs, release manifest, packaged doctor smoke, and packaged sample preview smoke), `powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v0.9.0 -DryRun`, and release commit guard (`powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-release-commit.ps1 -Version 0.9.0 -CommitSubject "Release 0.9.0" -RequiredState "Release Candidate"`). Open P0/P1 check found no unexpected blocker in `v0.9.0`; remaining open P0/P1 issues are planned `v1.0.0` work plus the expected `v0.9.0` release tracker/gate issues.
 - `2026-06-13`: Completed GitHub issue #31 after remote validation. Commits `8225751f44b3217fc51d3789c8ac7dab83157c22`, `223b3806b172dcf1e8d0527cf2b8dfee6de731ef`, and `af18f31e037290e1a8b77cc6d88c8c480e06564b` completed the stress audit coverage, troubleshooting docs, and hosted-runner stabilization. GitHub CI workflow `27455089029` passed Build, Test, Pack, executable packaging, and artifact verification; Release workflow `27455089023` passed/no-op. The issue moved to `status:done`, project Done/100/Completed, and was closed. Started GitHub issue #32 `R0.9.0-M6 Release Candidate And Version Bump`; the issue and project card moved to `status:in-progress` / In Progress / 25% / Current Slice.
