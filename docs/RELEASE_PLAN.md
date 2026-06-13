@@ -38,14 +38,14 @@ If the release includes public workflow or packaging changes, also validate the 
 
 ## Roadmap Planning Rules
 
-The roadmap below is the working plan to `v1.0.0`. It is intentionally release-shaped so every implementation slice remains shippable, validated, and reversible.
+The roadmap below records the release-shaped plan through `v1.0.0`. It is intentionally release-shaped so every implementation slice remains shippable, validated, and reversible.
 
 - `v0.6.0` is released.
 - `v0.7.0` is released.
 - `v0.8.0` is released.
 - `v0.7.0` starts the agent-first product direction: AvaScope becomes an agent control plane for inspecting, changing, validating, and explaining Avalonia UI behavior through structured CLI/MCP workflows.
 - `v0.9.0` is released.
-- `v1.0.0` is the active release target through GitHub milestone `v1.0.0`, release issue #33, and implementation issue #39 currently in progress.
+- `v1.0.0` is released.
 - Each release must preserve the current product boundaries: MCP and CLI stay adapters over Core, runtime bridge activation stays opt-in and local-only, PreviewHost stays isolated from the MCP server, and private Avalonia/runtime hooks remain out of the default path.
 - Every release must include targeted tests, full build/test validation, release dry-run validation, documentation updates, and explicit deferrals.
 - A release may be split into a patch release if a P0/P1 regression blocks users or CI, but patch scope must remain defect-focused.
@@ -441,16 +441,16 @@ The `v0.9.0` release target is beta hardening for the agent control plane. The g
 - Broad native IDE plugin implementation remains post-1.0 unless already validated through contracts and small adapters.
 - Remote/network inspection remains out of scope.
 
-## Current Release Target
+## Released Target: v1.0.0
 
 - Release: `v1.0.0`
 - Target Version: `1.0.0`
-- Release State: `Release Candidate`
+- Release State: `Released`
 - Scope Lock: `2026-06-13`
-- Release Commit: pending
+- Release Commit: `2736b98` (`Release 1.0.0`)
 - Local Release Gate: passed `2026-06-13`
-- Published At: pending
-- GitHub Release: pending
+- Published At: `2026-06-13T06:54:38Z`
+- GitHub Release: https://github.com/RolandUI/AvaScope/releases/tag/v1.0.0
 - Previous Release: `v0.9.0`
 
 ### v1.0.0 Release Goals
@@ -476,7 +476,7 @@ The `v1.0.0` release target is the stable public release. The goal is not to add
 - `R1.0.0-M3 Documentation Completion`; Status: `Done`.
 - `R1.0.0-M4 Release Artifact And Package Verification`; Status: `Done`.
 - `R1.0.0-M5 Post-1.0 Backlog And Deferral Audit`; Status: `Done`.
-- `R1.0.0-M6 Stable Release Commit And Publication`; Status: `In Progress`.
+- `R1.0.0-M6 Stable Release Commit And Publication`; Status: `Done`.
 
 ### v1.0.0 Implementation Validation
 
@@ -495,6 +495,18 @@ The `v1.0.0` release target is the stable public release. The goal is not to add
 - `2026-06-13`: Moved `v1.0.0` to `Release Candidate` for the final local release gate and bumped `Directory.Build.props` to `1.0.0` in the release-candidate working tree. Development CI remains manual-only; the final `Release` workflow is the only expected GitHub Actions run for publication.
 - `2026-06-13`: Local `v1.0.0` release gate passed on the release-candidate working tree: `dotnet build AvaScope.slnx -v:minimal`, `dotnet test AvaScope.slnx --no-build` (314 passed), `eng/create-local-release.ps1` (Release build, 314 Release tests, three `1.0.0` NuGet packages, win/linux framework-dependent ZIPs, manifest verification, packaged doctor and sample preview smoke), `eng/publish-nuget.ps1 -DryRun`, `eng/publish-github-release.ps1 -Tag v1.0.0 -DryRun`, `eng/validate-release-commit.ps1 -Version 1.0.0 -CommitSubject "Release 1.0.0" -RequiredState "Release Candidate"`, and `git diff --check` with only LF/CRLF normalization warnings.
 - `2026-06-13`: The first hosted Release workflow for commit `fe90eb9` (`27459143938`) failed before publishing or tagging in `Create release artifacts`. Root cause was a hosted-runner-only cleanup `NullReferenceException` from `Avalonia.Headless.HeadlessUnitTestSession.Dispose()` after `McpExpandedInputAndRuntimeStateInspectionUseBridgeOnly` had already completed its assertions. The test now uses the repository's existing explicit headless cleanup helper. Post-fix local validation passed with Release build, the targeted failing Release test, full `eng/create-local-release.ps1` (314 Release tests plus package/ZIP/manifest/smoke checks), both publish dry-runs, release commit guard, and `git diff --check`.
+- `2026-06-13`: Published `v1.0.0` from commit `2736b986db8a003680aaa8996d7093e00eb73374` through Release workflow `27459439796` (`workflow_dispatch`, success). The workflow created tag `v1.0.0`, published `AvaScope.Protocol`, `AvaScope.Core`, and `AvaScope.Bridge` `1.0.0` to nuget.org and GitHub Packages, and uploaded the GitHub Release assets. `git ls-remote --tags origin refs/tags/v1.0.0` confirmed the tag points at `2736b986db8a003680aaa8996d7093e00eb73374`.
+
+### v1.0.0 Published Assets
+
+| Asset | URL | SHA-256 |
+| --- | --- | --- |
+| `AvaScope.Protocol.1.0.0.nupkg` | https://github.com/RolandUI/AvaScope/releases/download/v1.0.0/AvaScope.Protocol.1.0.0.nupkg | `b2329e58cd2647dfb4c523a4dbc2d549394ebe9d307cf9024bc819f0aff9f6ed` |
+| `AvaScope.Core.1.0.0.nupkg` | https://github.com/RolandUI/AvaScope/releases/download/v1.0.0/AvaScope.Core.1.0.0.nupkg | `54c1fe768c11b77c080841c7ef957d1ad2ee3e39f9e4f030f386b95064149a32` |
+| `AvaScope.Bridge.1.0.0.nupkg` | https://github.com/RolandUI/AvaScope/releases/download/v1.0.0/AvaScope.Bridge.1.0.0.nupkg | `40db5f48f4853eb0c511b3eb424a375703132699fb0661e54f5a7b5f6cdc3aed` |
+| `avascope-win-x64-framework-dependent.zip` | https://github.com/RolandUI/AvaScope/releases/download/v1.0.0/avascope-win-x64-framework-dependent.zip | `7e8770aa775d841df908cfebc8d6b4e01a3713615717f7eb91262dc502b6f60b` |
+| `avascope-linux-x64-framework-dependent.zip` | https://github.com/RolandUI/AvaScope/releases/download/v1.0.0/avascope-linux-x64-framework-dependent.zip | `0d88212c2d98ddf9a911726c32c88daba2ec6b40dd88dbd98e3c6e3dbe88f72f` |
+| `release-manifest.json` | https://github.com/RolandUI/AvaScope/releases/download/v1.0.0/release-manifest.json | `7bc760f7bac31ba7ec2ed008565fe25ba955782388481d1724e27d15d020935c` |
 
 ### v1.0.0 Explicit Deferrals
 

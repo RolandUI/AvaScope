@@ -69,7 +69,7 @@ Executable ZIPs and package artifacts are published from GitHub Releases when a 
 
 ## Project Status
 
-AvaScope is completing `v1.0.0` stable release readiness. Package identities, protocol DTOs, CLI commands, MCP tools, exit codes, artifact names, and release workflow behavior are documented in [docs/STABLE_SURFACE.md](docs/STABLE_SURFACE.md).
+AvaScope `v1.0.0` is the stable agent control-plane release. Package identities, protocol DTOs, CLI commands, MCP tools, exit codes, artifact names, and release workflow behavior are documented in [docs/STABLE_SURFACE.md](docs/STABLE_SURFACE.md).
 
 Development is tracked in GitHub Issues, Milestones, and the public [AvaScope Roadmap](https://github.com/users/RolandUI/projects/4) Project board.
 

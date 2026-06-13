@@ -31,7 +31,7 @@ AvaScope is designed around small, composable tool calls that an agent can chain
 4. Capture evidence as structured JSON plus file paths for screenshots, diffs, reports, or local HTML viewers.
 5. Close sessions and clean stale AvaScope-owned metadata explicitly.
 
-The `v0.7.0` release line added the runtime control-plane layer: bounded reversible style/layout/text/class/resource mutations with mutation ids, reset operations, and before/after evidence packages containing screenshots, visual tree snapshots, and optional pixel diffs. The `v0.8.0` line turned those agent experiments into repeatable validation workflows with baseline suites, comparison rules, and reviewable report packs. The `v0.9.0` line hardened source guidance, audit reports, capabilities, security, compatibility, and stress validation. The active `v1.0.0` line freezes the stable package, protocol, CLI, MCP, artifact, and release surfaces in [STABLE_SURFACE.md](STABLE_SURFACE.md).
+The `v0.7.0` release line added the runtime control-plane layer: bounded reversible style/layout/text/class/resource mutations with mutation ids, reset operations, and before/after evidence packages containing screenshots, visual tree snapshots, and optional pixel diffs. The `v0.8.0` line turned those agent experiments into repeatable validation workflows with baseline suites, comparison rules, and reviewable report packs. The `v0.9.0` line hardened source guidance, audit reports, capabilities, security, compatibility, and stress validation. The `v1.0.0` stable release freezes the package, protocol, CLI, MCP, artifact, and release surfaces in [STABLE_SURFACE.md](STABLE_SURFACE.md).
 
 ## Project Layout
 
