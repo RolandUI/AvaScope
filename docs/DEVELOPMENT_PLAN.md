@@ -26,20 +26,21 @@ GitHub Issues and Milestones are the primary project-management source for auton
 
 ## Current Focus
 
-- `R0.9.0-M5 Performance, Stress, Samples, And Troubleshooting Audit`
-- GitHub Issue: https://github.com/RolandUI/AvaScope/issues/31
+- `R0.9.0-M6 Release Candidate And Version Bump`
+- GitHub Issue: https://github.com/RolandUI/AvaScope/issues/32
 - GitHub Milestone: `v0.9.0`
 - Status: `In Progress`
 - Owner: unassigned
 - Started: `2026-06-13`
-- Goal: validate larger app/tree/preview/runtime-mutation/baseline scenarios with explicit budgets and finalize sample and troubleshooting coverage.
+- Goal: validate and publish `v0.9.0` after beta hardening issues are complete.
 
 ## Next Action
 
-Commit and push #31 stress and troubleshooting audit coverage, wait for GitHub CI/Release workflow validation, then close the issue and start `R0.9.0-M6 Release Candidate And Version Bump`.
+Run the `v0.9.0` release gate from `docs/VALIDATION.md`, verify no open P0/P1 issue blocks the `v1.0.0` freeze, move the release plan to `Release Candidate`, then commit `Release 0.9.0`.
 
 ## Latest Validation
 
+- `2026-06-13`: Completed GitHub issue #31 after remote validation. Commits `8225751f44b3217fc51d3789c8ac7dab83157c22`, `223b3806b172dcf1e8d0527cf2b8dfee6de731ef`, and `af18f31e037290e1a8b77cc6d88c8c480e06564b` completed the stress audit coverage, troubleshooting docs, and hosted-runner stabilization. GitHub CI workflow `27455089029` passed Build, Test, Pack, executable packaging, and artifact verification; Release workflow `27455089023` passed/no-op. The issue moved to `status:done`, project Done/100/Completed, and was closed. Started GitHub issue #32 `R0.9.0-M6 Release Candidate And Version Bump`; the issue and project card moved to `status:in-progress` / In Progress / 25% / Current Slice.
 - `2026-06-13`: Stabilized the remaining #31 hosted-runner CI failure from workflow `27454736940`. `CliSmokeTests.InspectNodeCommandReadsNodeThroughBridgePipe` now uses a per-test `--manifest-dir` directory for fake bridge IPC manifests, and `BridgeHeadlessSmokeTests.RuntimeMutationContractReturnsNoOpUnsupportedAndStaleDiagnostics` now uses the existing explicit headless-session cleanup helper so cleanup-only Avalonia headless disposal failures do not mask dispatch assertions. Local validation passed with `dotnet build AvaScope.slnx -c Release --no-restore -v:minimal`, the failed Release tests (`dotnet test tests/AvaScope.Tests/AvaScope.Tests.csproj -c Release --no-build --filter "FullyQualifiedName~CliSmokeTests.InspectNodeCommandReadsNodeThroughBridgePipe|FullyQualifiedName~BridgeHeadlessSmokeTests.RuntimeMutationContractReturnsNoOpUnsupportedAndStaleDiagnostics"`, 3 passed), full Release tests (`dotnet test AvaScope.slnx -c Release --no-build`, 302 passed), and `git diff --check` with only LF/CRLF normalization warnings.
 - `2026-06-13`: Stabilized the #31 hosted-runner CI failure from workflow `27454355662`. Two existing CLI bridge-pipe smoke tests now use explicit per-test `--manifest-dir` directories instead of the shared default test manifest directory, removing parallel full-suite state coupling without changing product behavior. Local validation passed with `dotnet build AvaScope.slnx -c Release --no-restore -v:minimal`, the two failing Release tests (`dotnet test AvaScope.slnx -c Release --no-build --filter "FullyQualifiedName~CliSmokeTests.CloseSessionCommandClosesThroughBridgePipe|FullyQualifiedName~CliSmokeTests.MutationReviewCommandReadsHistoryAndWritesArtifactThroughBridgePipe"`, 2 passed), focused #31 Release tests (8 passed), and full Release tests (`dotnet test AvaScope.slnx -c Release --no-build`, 302 passed).
 - `2026-06-13`: Completed local implementation for GitHub issue #31 `R0.9.0-M5 Performance, Stress, Samples, And Troubleshooting Audit`. Added targeted stress coverage for large UI audit trees, large diagnostics payloads, repeated one-shot preview reloads with persistent restore, preview-session store diagnostic/cleanup budgets, large baseline suite expansion, and repeated bridge runtime mutation/reset cycles. Added `docs/PERFORMANCE_STRESS_AUDIT.md` for bounded output budgets and `docs/TROUBLESHOOTING.md` for attach, preview, mutation, report, and package failure triage, linked both from README/user docs, and added documentation coverage tests. Validation passed with `dotnet build AvaScope.slnx --no-restore -v:minimal`, focused #31 tests (`dotnet test AvaScope.slnx --no-build --filter "FullyQualifiedName~PerformanceStressAuditTests|FullyQualifiedName~BridgeHeadlessSmokeTests.RuntimeMutationRepeatedSetPropertyAndResetAllKeepsReviewBounded|FullyQualifiedName~PerformanceStressAuditDocumentationTests"`, 8 passed), full Debug tests (`dotnet test AvaScope.slnx --no-build`, 302 passed), and `git diff --check` with only LF/CRLF normalization warnings.
