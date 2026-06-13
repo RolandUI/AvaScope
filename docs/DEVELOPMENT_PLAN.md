@@ -26,20 +26,21 @@ GitHub Issues and Milestones are the primary project-management source for auton
 
 ## Current Focus
 
-- `R0.9.0-M3 Protocol Capability And Versioning Contract`
-- GitHub Issue: https://github.com/RolandUI/AvaScope/issues/29
+- `R0.9.0-M4 Security, Safety, And Compatibility Audit`
+- GitHub Issue: https://github.com/RolandUI/AvaScope/issues/30
 - GitHub Milestone: `v0.9.0`
-- Status: `Review`
+- Status: `In Progress`
 - Owner: unassigned
 - Started: `2026-06-13`
-- Goal: make schema compatibility explicit across Protocol, Core, CLI, MCP, Bridge, and PreviewHost before the v1.0.0 surface freeze.
+- Goal: audit runtime bridge activation, mutation permissions, local IPC, file outputs, project-code execution, logs, package surfaces, command names, SemVer behavior, and old/new client compatibility.
 
 ## Next Action
 
-Commit and push #29, wait for GitHub CI/Release workflow validation, then close the issue and start `R0.9.0-M4 Security, Safety, And Compatibility Audit`.
+Implement #30 threat model and safety/compatibility validation, add tests or documented validation for unsafe defaults, then run full build and test validation.
 
 ## Latest Validation
 
+- `2026-06-13`: Completed GitHub issue #29 after remote validation. Commit `b87ec425a1da762dab1eab0f908a9af942b07248` added capability discovery and unsupported requirement diagnostics across Protocol, Core, CLI, and MCP. GitHub CI workflow `27453208153` passed Build, Test, Pack, executable packaging, and artifact verification; Release workflow `27453208143` passed/no-op. The issue moved to `status:done`, project Done/100/Completed, and was closed. Started GitHub issue #30 `R0.9.0-M4 Security, Safety, And Compatibility Audit`; the issue and project card moved to `status:in-progress` / In Progress / 25% / Current Slice.
 - `2026-06-13`: Completed local implementation for GitHub issue #29 `R0.9.0-M3 Protocol Capability And Versioning Contract`. Added `AvaScopeCapabilitiesResponse`, generic capability/tool DTOs, protocol capability ids/status/error codes, full capability catalog, Core `CapabilityCompatibilityChecker`, CLI `capabilities [--require ...]`, MCP `capabilities`, and docs for agent/user validation workflows. The manifest covers protocol compatibility policy, CLI/MCP tools, runtime mutation, preview, diagnostics, baseline, report, artifact, and local-only safety capabilities; unsupported requirements return `capability_not_supported` with requested/unsupported/available capability details and next action. Validation passed with `dotnet build AvaScope.slnx --no-restore -v:minimal`, focused #29 tests (`dotnet test AvaScope.slnx --no-build --filter "FullyQualifiedName~ProtocolContractTests.CapabilitiesResponseSerializesStableDiscoveryShape|FullyQualifiedName~CapabilityCompatibilityCheckerTests|FullyQualifiedName~CliSmokeTests.CapabilitiesCommandReportsProtocolAndToolCapabilities|FullyQualifiedName~CliSmokeTests.CapabilitiesCommandRejectsUnsupportedRequiredCapability|FullyQualifiedName~AvaScopeMcpToolsTests.Capabilities|FullyQualifiedName~McpStdioSmokeTests.ServerStartsOverStdioAndListsInitialTools"`, 10 passed), full Debug tests (`dotnet test AvaScope.slnx --no-build`, 291 passed after one cleanup-lock retry for an existing image-diff test), and `git diff --check` with only LF/CRLF normalization warnings.
 - `2026-06-13`: Completed GitHub issue #28 after remote validation. Commit `49ea0ebec43521c00fa28beb2bd458c3010541b4` added runtime accessibility/validation snapshots, bounded UI audit protocol contracts, Core `UiAuditBuilder`, CLI `audit-ui`, MCP `audit_ui`, and documentation. Local validation passed with `dotnet build AvaScope.slnx --no-restore -v:minimal`, focused #28 tests (8 passed), full Debug tests (`dotnet test AvaScope.slnx --no-build`, 282 passed), and `git diff --check` with only LF/CRLF normalization warnings. GitHub CI workflow `27452626645` passed Build, Test, Pack, executable packaging, and artifact verification; Release workflow `27452626646` passed/no-op. The issue moved to `status:done`, project Done/100/Completed, and was closed. Started GitHub issue #29 `R0.9.0-M3 Protocol Capability And Versioning Contract`; the issue and project card moved to `status:in-progress` / In Progress / 25% / Current Slice.
 - `2026-06-13`: Completed GitHub issue #27 after remote validation. Commit `4b068a1ae71be81676b00bddd80edf29fb65b2a3` added source-aware mutation review suggestions, follow-up commit `3168523955e82bfe3362165cc078c3ea67de711f` stabilized the hosted-runner headless cleanup path, GitHub CI workflow `27451948810` passed, and Release workflow `27451948781` passed with no release needed. The issue moved to `status:done`, project Done/100/Completed, and was closed. Started GitHub issue #28 `R0.9.0-M2 Accessibility, Validation, And Component Inventory`; the issue and project card moved to `status:in-progress` / In Progress / 25% / Current Slice.
