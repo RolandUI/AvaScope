@@ -18,6 +18,7 @@ on:
 permissions:
   contents: write
   packages: write
+  id-token: write
 
 concurrency:
   group: release-nuget-${{ github.ref_name }}
@@ -104,11 +105,18 @@ jobs:
         shell: pwsh
         run: powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag "${{ steps.release_metadata.outputs.release_tag }}" -DryRun
 
+      - name: NuGet trusted publishing login
+        if: ${{ steps.release_metadata.outputs.should_publish == 'true' }}
+        uses: NuGet/login@v1
+        id: nuget_login
+        with:
+          user: RolandUI
+
       - name: Publish nuget.org packages
         if: ${{ steps.release_metadata.outputs.should_publish == 'true' }}
         shell: pwsh
         env:
-          AVASCOPE_NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+          AVASCOPE_NUGET_API_KEY: ${{ steps.nuget_login.outputs.NUGET_API_KEY }}
         run: powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-nuget.ps1 -SkipDuplicate
 
       - name: Publish GitHub Packages

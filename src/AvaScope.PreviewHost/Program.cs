@@ -59,7 +59,7 @@ internal static class Program
         try
         {
             var request = await ReadRequestAsync(requestPath);
-            BuildAvaloniaApp().SetupWithoutStarting();
+            BuildAvaloniaApp(request.ProjectPath).SetupWithoutStarting();
 
             var result = Dispatcher.UIThread.CheckAccess()
                 ? Render(request)
@@ -106,14 +106,74 @@ internal static class Program
         return request ?? throw new JsonException("Preview request JSON did not contain a request object.");
     }
 
-    private static AppBuilder BuildAvaloniaApp()
+    private static AppBuilder BuildAvaloniaApp(string? projectPath)
     {
-        return AppBuilder.Configure<PreviewHostApplication>()
+        var builder = AppBuilder.Configure<PreviewHostApplication>()
             .UseSkia()
             .UseHeadless(new AvaloniaHeadlessPlatformOptions
             {
                 UseHeadlessDrawing = false
             });
+
+        return ShouldUseInterFont(projectPath)
+            ? builder.WithInterFont()
+            : builder;
+    }
+
+    private static bool ShouldUseInterFont(string? projectPath)
+    {
+        if (string.IsNullOrWhiteSpace(projectPath))
+        {
+            return false;
+        }
+
+        string fullProjectPath;
+        try
+        {
+            fullProjectPath = Path.GetFullPath(projectPath);
+        }
+        catch (Exception exception) when (exception is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            return false;
+        }
+
+        if (!File.Exists(fullProjectPath))
+        {
+            return false;
+        }
+
+        if (ProjectReferencesInterFont(fullProjectPath))
+        {
+            return true;
+        }
+
+        var projectDirectory = Path.GetDirectoryName(fullProjectPath);
+        if (string.IsNullOrWhiteSpace(projectDirectory))
+        {
+            return false;
+        }
+
+        var programPath = Path.Combine(projectDirectory, "Program.cs");
+        return File.Exists(programPath)
+            && File.ReadAllText(programPath).Contains(".WithInterFont(", StringComparison.Ordinal);
+    }
+
+    private static bool ProjectReferencesInterFont(string fullProjectPath)
+    {
+        try
+        {
+            var document = XDocument.Load(fullProjectPath);
+            return document
+                .Descendants()
+                .Where(static element => string.Equals(element.Name.LocalName, "PackageReference", StringComparison.Ordinal))
+                .Any(static element =>
+                    string.Equals((string?)element.Attribute("Include"), "Avalonia.Fonts.Inter", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals((string?)element.Attribute("Update"), "Avalonia.Fonts.Inter", StringComparison.OrdinalIgnoreCase));
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or XmlException)
+        {
+            return false;
+        }
     }
 
     private static ToolResult<PreviewResponse> Render(PreviewRequest request)
@@ -2533,9 +2593,15 @@ internal static class Program
         }
 
         var styles = projectApplication.Styles.ToArray();
-        foreach (var style in projectApplication.Styles.ToArray())
+        if (styles.Length > 0)
+        {
+            hostApplication.Styles.Clear();
+        }
+
+        foreach (var style in styles)
         {
             projectApplication.Styles.Remove(style);
+            hostApplication.Styles.Add(style);
         }
 
         var dataTemplates = projectApplication.DataTemplates.ToArray();
@@ -2545,7 +2611,7 @@ internal static class Program
         }
 
         return new ProjectApplicationScope(
-            styles,
+            [],
             dataTemplates,
             projectApplication.DataContext is not null,
             projectApplication.DataContext);

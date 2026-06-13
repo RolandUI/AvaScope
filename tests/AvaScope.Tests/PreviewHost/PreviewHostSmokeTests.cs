@@ -1316,6 +1316,127 @@ public sealed class PreviewHostSmokeTests
     }
 
     [Fact]
+    public async Task PreviewHostAppliesCompiledAppImplicitControlThemesBeforeProjectView()
+    {
+        var hostAssembly = Path.Combine(AppContext.BaseDirectory, "AvaScope.PreviewHost.dll");
+        Assert.True(File.Exists(hostAssembly), $"Expected preview host assembly at {hostAssembly}.");
+
+        var testRoot = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(testRoot);
+
+        var projectPath = Path.Combine(testRoot, "ImplicitControlThemePreviewSample.csproj");
+        var appPath = Path.Combine(testRoot, "App.axaml");
+        var appCodeBehindPath = Path.Combine(testRoot, "App.axaml.cs");
+        var viewsDirectory = Path.Combine(testRoot, "Views");
+        Directory.CreateDirectory(viewsDirectory);
+
+        var viewPath = Path.Combine(viewsDirectory, "ImplicitThemeView.axaml");
+        var codeBehindPath = Path.Combine(viewsDirectory, "ImplicitThemeView.axaml.cs");
+        var requestPath = Path.Combine(testRoot, "request.json");
+        var outputPath = Path.Combine(testRoot, "preview.png");
+
+        await File.WriteAllTextAsync(projectPath, """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <Nullable>enable</Nullable>
+              </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="Avalonia" Version="12.0.4" />
+                <PackageReference Include="Avalonia.Themes.Fluent" Version="12.0.4" />
+              </ItemGroup>
+            </Project>
+            """);
+
+        await File.WriteAllTextAsync(appPath, """
+            <Application xmlns="https://github.com/avaloniaui"
+                         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                         x:Class="ImplicitControlThemePreviewSample.App">
+              <Application.Resources>
+                <ControlTheme x:Key="{x:Type Button}" TargetType="Button">
+                  <Setter Property="Background" Value="#FF2B6CB0" />
+                  <Setter Property="Template">
+                    <ControlTemplate>
+                      <Border Background="{TemplateBinding Background}" />
+                    </ControlTemplate>
+                  </Setter>
+                </ControlTheme>
+              </Application.Resources>
+              <Application.Styles>
+                <FluentTheme />
+              </Application.Styles>
+            </Application>
+            """);
+
+        await File.WriteAllTextAsync(appCodeBehindPath, """
+            using Avalonia;
+            using Avalonia.Markup.Xaml;
+
+            namespace ImplicitControlThemePreviewSample;
+
+            public partial class App : Application
+            {
+                public override void Initialize()
+                {
+                    AvaloniaXamlLoader.Load(this);
+                }
+            }
+            """);
+
+        await File.WriteAllTextAsync(viewPath, """
+            <UserControl xmlns="https://github.com/avaloniaui"
+                         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                         x:Class="ImplicitControlThemePreviewSample.Views.ImplicitThemeView">
+              <Grid Width="220" Height="140" Background="#FFFFFFFF">
+                <Button Width="160"
+                        Height="80"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center" />
+              </Grid>
+            </UserControl>
+            """);
+
+        await File.WriteAllTextAsync(codeBehindPath, """
+            using Avalonia.Controls;
+
+            namespace ImplicitControlThemePreviewSample.Views;
+
+            public partial class ImplicitThemeView : UserControl
+            {
+                public ImplicitThemeView()
+                {
+                    InitializeComponent();
+                }
+            }
+            """);
+
+        var request = new PreviewRequest(
+            outputPath,
+            width: 220,
+            height: 140,
+            dpi: 96,
+            projectPath: projectPath,
+            viewPath: Path.Combine("Views", "ImplicitThemeView.axaml"),
+            themeVariant: "light");
+
+        await File.WriteAllTextAsync(requestPath, JsonSerializer.Serialize(request, JsonOptions));
+
+        try
+        {
+            var result = await RunPreviewHostAsync(hostAssembly, requestPath, expectedExitCode: 0);
+
+            Assert.NotNull(result);
+            Assert.True(result.Success, result.Error?.Message);
+            Assert.Equal(Path.GetFullPath(outputPath), result.Value!.FilePath);
+            AssertCenterPixel(outputPath, red: 0x2B, green: 0x6C, blue: 0xB0);
+        }
+        finally
+        {
+            await DeleteDirectoryWithRetryAsync(testRoot);
+        }
+    }
+
+    [Fact]
     public async Task PreviewHostLoadsCompiledAppStyleIncludesBeforeProjectView()
     {
         var hostAssembly = Path.Combine(AppContext.BaseDirectory, "AvaScope.PreviewHost.dll");

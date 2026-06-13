@@ -69,10 +69,52 @@ Required `v1.0.0` properties:
 
 ## Current Release Target
 
-- Release: `v1.0.1`
-- Target Version: `1.0.1`
+- Release: `v1.0.2`
+- Target Version: `1.0.2`
 - Release State: `Release Candidate`
 - Scope Lock: `2026-06-13`
+- GitHub Milestone: `v1.0.2`
+- GitHub Issues: #43
+- Previous Release: `v1.0.1`
+
+### v1.0.2 Release Goals
+
+The `v1.0.2` release target is a patch release for PreviewHost fidelity and package publishing reliability after the `v1.0.1` patch. Scope is limited to defect-focused preview parity and NuGet trusted publishing migration.
+
+1. `RG-1.0.2-1 App-Level Style And ControlTheme Fidelity`: apply compiled project `Application.Styles` at application scope in PreviewHost so App.axaml resources, custom control templates, and implicit `{x:Type ...}` control themes resolve like the running app.
+   Success signal: TradeR `MainWindow.axaml` renders custom Button, ComboBox, DatePicker, and TimePicker templates instead of fallback Fluent controls.
+2. `RG-1.0.2-2 Inter Font Preview Parity`: detect projects that reference `Avalonia.Fonts.Inter` or call `.WithInterFont()` and configure the PreviewHost app builder with Inter font support.
+   Success signal: TradeR `ChartView`, `LiveTradeView`, and `MainWindow` preview text metrics match the live app more closely.
+3. `RG-1.0.2-3 NuGet Trusted Publishing`: migrate the Release workflow from a stored NuGet API key secret to NuGet trusted publishing through GitHub Actions OIDC.
+   Success signal: the Release workflow can publish to nuget.org with `NuGet/login@v1` and `id-token: write`.
+4. `RG-1.0.2-4 Guarded Patch Release`: publish only after the local release gate passes and the Release workflow creates `v1.0.2`, NuGet/GitHub packages, executable ZIPs, manifest, and GitHub Release assets.
+
+### v1.0.2 Milestone Map
+
+- #43 `Release v1.0.2`; Status: `In Progress`.
+
+### v1.0.2 Implementation Validation
+
+- `2026-06-13`: PreviewHost now moves compiled project `Application.Styles` into the host application style collection when App.axaml is loaded, clearing the fallback host theme only when project styles exist. Added a regression smoke for implicit `{x:Type Button}` `ControlTheme` resolution. Validation passed with the focused implicit-control-theme test, four nearby app style/resource preview tests, and TradeR `MainWindow.axaml` preview smoke.
+- `2026-06-13`: PreviewHost now references `Avalonia.Fonts.Inter` and enables `.WithInterFont()` when the previewed project references `Avalonia.Fonts.Inter` or calls `.WithInterFont()` in `Program.cs`. Validation passed with `dotnet build src\AvaScope.PreviewHost\AvaScope.PreviewHost.csproj`, the implicit-control-theme regression test, and TradeR `ChartView`, `LiveTradeView`, and `MainWindow` preview smokes.
+- `2026-06-13`: Release workflow now grants `id-token: write`, logs in with `NuGet/login@v1`, and passes the trusted-publishing API key output to `eng/publish-nuget.ps1`.
+- `2026-06-13`: Local `v1.0.2` release gate passed with `eng/create-local-release.ps1` (Release build, 317 Release tests, three `1.0.2` NuGet packages, win/linux framework-dependent ZIPs, manifest verification, packaged doctor smoke, and packaged sample preview smoke), `eng/publish-nuget.ps1 -DryRun`, `eng/publish-github-release.ps1 -Tag v1.0.2 -DryRun`, and packaged TradeR `ChartView`, `LiveTradeView`, and `MainWindow` preview smokes from `artifacts\executables\avascope-win-x64-framework-dependent\avascope.exe`. The first parallel `LiveTradeView` smoke hit a TradeR build output file lock and passed when rerun serially.
+
+### v1.0.2 Explicit Deferrals
+
+- Full target-app `Program.BuildAvaloniaApp()` execution remains out of scope; this patch only mirrors known safe font configuration needed for preview fidelity.
+- Design-time demo/live workspace state remains controlled by target project design data, not PreviewHost mutation.
+
+## Released Target: v1.0.1
+
+- Release: `v1.0.1`
+- Target Version: `1.0.1`
+- Release State: `Released`
+- Scope Lock: `2026-06-13`
+- Release Commit: `8c496f7ea5f22a1933a3950200ce7aa66037367a` (`Release 1.0.1`)
+- Local Release Gate: passed on `2026-06-13`
+- Published At: `2026-06-13T09:41:34Z`
+- GitHub Release: https://github.com/RolandUI/AvaScope/releases/tag/v1.0.1
 - GitHub Milestone: `v1.0.1`
 - GitHub Issues: #41, #42
 - Previous Release: `v1.0.0`
@@ -97,6 +139,18 @@ The `v1.0.1` release target is a patch release for PreviewHost diagnostic fideli
 - `2026-06-13`: #41 completed in commit `16bf95614826934a4b06afa48230b50d2dbc55a5`. Local validation passed with focused PreviewHost regression tests (2 passed), full `PreviewHostSmokeTests` (31 passed), TradeR `MainWindow.axaml` preview smoke through the source CLI, `dotnet build AvaScope.slnx --no-restore -v:minimal`, and `git diff --check` with only LF/CRLF normalization warnings. The TradeR smoke confirmed App.axaml styles/resources load and that the hash binding and custom overlay warnings were removed.
 - `2026-06-13`: Moved `v1.0.1` to `Release Candidate` and bumped `Directory.Build.props` to `1.0.1` in the release-candidate working tree for the local release gate.
 - `2026-06-13`: Local `v1.0.1` release gate passed on the release-candidate working tree after stopping stale artifact-hosted `avascope`/`dotnet` processes from previous local release artifacts. Validation passed with `eng/create-local-release.ps1` (Release build, 316 Release tests, three `1.0.1` NuGet packages, win/linux framework-dependent ZIPs, manifest verification, packaged doctor smoke, and packaged sample preview smoke), `eng/publish-nuget.ps1 -DryRun`, `eng/publish-github-release.ps1 -Tag v1.0.1 -DryRun`, `eng/validate-release-commit.ps1 -Version 1.0.1 -CommitSubject "Release 1.0.1" -RequiredState "Release Candidate"`, and `git diff --check` with only LF/CRLF normalization warnings.
+- `2026-06-13`: Published `v1.0.1` from commit `8c496f7ea5f22a1933a3950200ce7aa66037367a` through Release workflow `27462977168` (`push`, success). The workflow created tag `v1.0.1`, published `AvaScope.Protocol`, `AvaScope.Core`, and `AvaScope.Bridge` `1.0.1` to nuget.org and GitHub Packages, and uploaded the GitHub Release assets. `git ls-remote --tags origin refs/tags/v1.0.1` confirmed the tag points at `8c496f7ea5f22a1933a3950200ce7aa66037367a`.
+
+### v1.0.1 Published Assets
+
+| Asset | URL | SHA-256 |
+| --- | --- | --- |
+| `AvaScope.Protocol.1.0.1.nupkg` | https://github.com/RolandUI/AvaScope/releases/download/v1.0.1/AvaScope.Protocol.1.0.1.nupkg | `d1d1a29b25bb08e133f0c78663bc5a7055f92e016699941c2b8e2a86815a39c8` |
+| `AvaScope.Core.1.0.1.nupkg` | https://github.com/RolandUI/AvaScope/releases/download/v1.0.1/AvaScope.Core.1.0.1.nupkg | `ca9303e781d3bc4d4cdfbaeb4f129803f489e1ceec1b8da94bb4fb03c1dd3891` |
+| `AvaScope.Bridge.1.0.1.nupkg` | https://github.com/RolandUI/AvaScope/releases/download/v1.0.1/AvaScope.Bridge.1.0.1.nupkg | `09f6851f2727aadf1762e9b38e1b62b6176d1544609f585aa717590d1d3dda15` |
+| `avascope-win-x64-framework-dependent.zip` | https://github.com/RolandUI/AvaScope/releases/download/v1.0.1/avascope-win-x64-framework-dependent.zip | `a6a0fc38a8b8895b66064854f827e8cdd937d6c8b24b34ee18fff414e2c0b4c6` |
+| `avascope-linux-x64-framework-dependent.zip` | https://github.com/RolandUI/AvaScope/releases/download/v1.0.1/avascope-linux-x64-framework-dependent.zip | `23d7508daa29a0f00222b0852050afcad84368f850c408ff691d00c7e0c35f0a` |
+| `release-manifest.json` | https://github.com/RolandUI/AvaScope/releases/download/v1.0.1/release-manifest.json | `094fa5458623cf88508cf4dac103089eada0e570c3bf7943554726783a35c450` |
 
 ### v1.0.1 Explicit Deferrals
 

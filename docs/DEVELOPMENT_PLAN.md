@@ -26,20 +26,23 @@ GitHub Issues and Milestones are the primary project-management source for auton
 
 ## Current Focus
 
-- Patch release v1.0.1
-- GitHub Issue: https://github.com/RolandUI/AvaScope/issues/42
-- GitHub Milestone: `v1.0.1`
-- Status: `In Progress`
+- Patch release v1.0.2
+- GitHub Issue: https://github.com/RolandUI/AvaScope/issues/43
+- GitHub Milestone: `v1.0.2`
+- Status: `Release Candidate`
 - Owner: unassigned
 - Started: `2026-06-13`
-- Goal: publish `v1.0.1` with the #41 PreviewHost diagnostic noise reduction fix.
+- Goal: publish `v1.0.2` with PreviewHost App.axaml style/control-theme fidelity, Inter font preview parity, and NuGet trusted publishing.
 
 ## Next Action
 
-Run the `v1.0.1` stable release gate, move the release plan to `Release Candidate`, bump `Directory.Build.props` to `1.0.1`, commit `Release 1.0.1`, push, and verify the Release workflow publishes the tag and assets.
+Commit `Release 1.0.2`, push, and verify the Release workflow publishes the tag and assets.
 
 ## Latest Validation
 
+- `2026-06-13`: Local `v1.0.2` release gate passed with `eng/create-local-release.ps1` (Release build, 317 Release tests, three `1.0.2` NuGet packages, win/linux framework-dependent ZIPs, manifest verification, packaged doctor smoke, and packaged sample preview smoke), `eng/publish-nuget.ps1 -DryRun`, `eng/publish-github-release.ps1 -Tag v1.0.2 -DryRun`, and packaged TradeR `ChartView`, `LiveTradeView`, and `MainWindow` preview smokes from `artifacts\executables\avascope-win-x64-framework-dependent\avascope.exe`. The first parallel `LiveTradeView` smoke hit a TradeR build output file lock and passed when rerun serially.
+- `2026-06-13`: Started release tracker #43 for `v1.0.2` and closed stale release tracker #42 after confirming `v1.0.1` was already published. Patch scope covers PreviewHost app-level style/control-theme fidelity, Inter font preview parity, and NuGet trusted publishing. Initial validation passed with `dotnet build src\AvaScope.PreviewHost\AvaScope.PreviewHost.csproj`, focused implicit-control-theme PreviewHost regression test, nearby app style/resource PreviewHost tests, and TradeR `ChartView`, `LiveTradeView`, and `MainWindow` preview smokes.
+- `2026-06-13`: Published `v1.0.1` from commit `8c496f7ea5f22a1933a3950200ce7aa66037367a` through Release workflow `27462977168` (`push`, success). The workflow published the three `1.0.1` packages to nuget.org and GitHub Packages, created tag `v1.0.1`, uploaded six GitHub Release assets, and `git ls-remote --tags origin refs/tags/v1.0.1` confirmed the tag points at `8c496f7ea5f22a1933a3950200ce7aa66037367a`.
 - `2026-06-13`: Local `v1.0.1` release gate passed on the release-candidate working tree after stopping stale artifact-hosted `avascope`/`dotnet` processes from previous local release artifacts. Validation passed with `eng/create-local-release.ps1` (Release build, 316 Release tests, three `1.0.1` NuGet packages, win/linux framework-dependent ZIPs, manifest verification, packaged doctor smoke, and packaged sample preview smoke), `eng/publish-nuget.ps1 -DryRun`, `eng/publish-github-release.ps1 -Tag v1.0.1 -DryRun`, `eng/validate-release-commit.ps1 -Version 1.0.1 -CommitSubject "Release 1.0.1" -RequiredState "Release Candidate"`, and `git diff --check` with only LF/CRLF normalization warnings.
 - `2026-06-13`: Created GitHub milestone `v1.0.1`, assigned completed issue #41, created release tracker #42, and added the `v1.0.1` current release target to [RELEASE_PLAN.md](RELEASE_PLAN.md). Patch scope is limited to #41 PreviewHost diagnostic noise reduction and guarded release validation.
 - `2026-06-13`: Started GitHub issue #41 after a TradeR `MainWindow.axaml` preview smoke showed App.axaml resources/styles and custom controls render correctly, but preview source diagnostics emitted a false `binding_datatype_path_not_found` warning for `{Binding #MinimizedDialogsButton}`. Implementation classifies hash element-name binding paths as explicit sources while preserving normal DataContext and `x:DataType` diagnostics.
