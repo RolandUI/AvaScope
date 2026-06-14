@@ -814,7 +814,7 @@ The `v0.2.0` release target is focused on making AvaScope more reliable for repe
 
 ### Explicit Deferrals
 
-- macOS release assets, signing, notarization, and installers remain deferred until a validation surface exists.
+- macOS release assets, signing, notarization, and native signed installers remain deferred until a validation surface exists.
 - Remote runtime inspection remains out of scope; bridge transport stays opt-in and local-only.
 - Private Avalonia runtime hooks, CLR injection, and production remote control remain out of scope.
 - Persistent preview host processes are not guaranteed for `v0.2.0` unless their lifecycle and safety semantics are validated first.

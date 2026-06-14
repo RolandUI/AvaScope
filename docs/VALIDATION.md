@@ -76,6 +76,16 @@ For CLI work, also run:
 dotnet test AvaScope.slnx --filter FullyQualifiedName~Cli
 ```
 
+For installer and CLI discovery work, include:
+
+```powershell
+dotnet test AvaScope.slnx --filter FullyQualifiedName~InstallerWorkflowTests
+powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1 -RuntimeIdentifiers win-x64 -SkipTests
+powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\install-avascope.ps1 -SourcePath .\artifacts\executables\avascope-win-x64-framework-dependent
+avascope --version
+avascope doctor
+```
+
 For CLI doctor/self-test work, include:
 
 ```powershell

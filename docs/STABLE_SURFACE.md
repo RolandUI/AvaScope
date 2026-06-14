@@ -165,6 +165,29 @@ Stable local executable artifact directory and ZIP pattern:
 - `avascope-<rid>-<packageKind>`
 - `avascope-<rid>-<packageKind>.zip`
 
+Stable Windows per-user install paths:
+
+- `%LOCALAPPDATA%\AvaScope\current\avascope.exe`
+- `%LOCALAPPDATA%\AvaScope\bin\avascope.cmd`
+- `%LOCALAPPDATA%\AvaScope\avascope.discovery.json`
+
+Stable discovery manifest fields:
+
+- `schemaVersion`
+- `product`
+- `serviceName`
+- `version`
+- `installMode`
+- `installRoot`
+- `installPath`
+- `shimDirectory`
+- `commandPath`
+- `executablePath`
+- `mcp.transport`
+- `mcp.serverName`
+- `mcp.commandPath`
+- `mcp.arguments`
+
 Stable baseline report-pack filenames:
 
 - `baseline-report.json`

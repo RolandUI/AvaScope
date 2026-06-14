@@ -6,8 +6,8 @@ Use this guide when moving an Avalonia project, CLI workflow, or MCP client betw
 
 - Keep `AvaScope.Protocol`, `AvaScope.Core`, and `AvaScope.Bridge` on the same major version.
 - Use the CLI and MCP executable ZIP from the same release as the bridge package whenever possible.
-- Rebuild or re-extract executable ZIPs after upgrading packages; do not mix old `AvaScope.Mcp` or `AvaScope.PreviewHost` binaries with a newer CLI.
-- Run `avascope doctor` after extracting a ZIP to verify co-located CLI, MCP, PreviewHost, and local store readiness.
+- Rebuild, re-extract, or reinstall executable ZIPs after upgrading packages; do not mix old `AvaScope.Mcp` or `AvaScope.PreviewHost` binaries with a newer CLI.
+- Run `avascope doctor` after installing or extracting a ZIP to verify co-located CLI, MCP, PreviewHost, and local store readiness.
 
 ## Client Compatibility Rules
 
@@ -29,7 +29,8 @@ Runtime mutations are temporary local overrides. Upgrading AvaScope does not mig
 
 ## Upgrading CLI Or MCP Workflows
 
-- Replace the entire extracted executable directory with the new release ZIP.
+- Prefer reinstalling the packaged CLI with `eng\install-avascope.ps1 -SourcePath <publish-directory-or-zip>` so `%LOCALAPPDATA%\AvaScope\bin\avascope.cmd` and `%LOCALAPPDATA%\AvaScope\avascope.discovery.json` stay current.
+- If running without the installer, replace the entire extracted executable directory with the new release ZIP.
 - Run `avascope capabilities` and verify every workflow-required capability before issuing newer commands.
 - For MCP clients, reconnect the stdio server after replacing binaries; do not keep a long-running old MCP process alive during an upgrade.
 - If a workflow reads report packs, prefer stable filenames such as `baseline-report.json`, `baseline-report.html`, `baseline-junit.xml`, and `baseline.sarif.json`; do not rely on generated absolute paths or timestamps.

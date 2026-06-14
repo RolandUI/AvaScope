@@ -4,17 +4,27 @@ This workflow is for agents using AvaScope as a local control plane for an Avalo
 
 The intended agent loop is: check readiness, preview the UI, inspect a running app, act through bounded local commands, capture evidence, and clean up explicit local state. AvaScope returns structured JSON and file paths so an agent can make follow-up decisions without parsing screenshots or terminal text as the source of truth.
 
-## 1. Create A Local Release
+## 1. Create And Install A Local Release
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\install-avascope.ps1 -SourcePath .\artifacts\executables\avascope-win-x64-framework-dependent
 ```
 
-Use the packaged Windows CLI printed by the script:
+Use the installed command when it is available:
+
+```powershell
+$avascope = "avascope"
+& $avascope --version
+```
+
+If the current shell has not picked up the user `PATH` change yet, read `%LOCALAPPDATA%\AvaScope\avascope.discovery.json` and use `commandPath`, or fall back to the packaged Windows CLI printed by the release script:
 
 ```powershell
 $avascope = ".\artifacts\executables\avascope-win-x64-framework-dependent\avascope.exe"
 ```
+
+Agent discovery order is `PATH` command first, `%LOCALAPPDATA%\AvaScope\avascope.discovery.json` second, `%LOCALAPPDATA%\AvaScope\bin` and `%LOCALAPPDATA%\AvaScope\current` third, and repository or unpacked artifact paths last.
 
 ## 2. Run Readiness Checks
 

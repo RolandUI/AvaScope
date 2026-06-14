@@ -32,6 +32,9 @@ public sealed class StableSurfaceDocumentationTests
         Assert.Contains("Release <Version>", stableSurface, StringComparison.Ordinal);
         Assert.Contains("v<Version>", stableSurface, StringComparison.Ordinal);
         Assert.Contains("release-manifest.json", stableSurface, StringComparison.Ordinal);
+        Assert.Contains("avascope.discovery.json", stableSurface, StringComparison.Ordinal);
+        Assert.Contains("commandPath", stableSurface, StringComparison.Ordinal);
+        Assert.Contains("mcp.arguments", stableSurface, StringComparison.Ordinal);
         Assert.Contains("baseline-report.json", stableSurface, StringComparison.Ordinal);
         Assert.Contains("baseline-report.html", stableSurface, StringComparison.Ordinal);
         Assert.Contains("baseline-junit.xml", stableSurface, StringComparison.Ordinal);

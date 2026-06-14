@@ -122,7 +122,7 @@ Next slice: defer broader input until a drag/drop, pointer-button, or hardware-l
 
 ### Packaging And Release
 
-Status: first library package metadata slice, RID-based executable ZIP packaging slice, opt-in self-contained ZIP lane, artifact verification manifest slice, post-sample Release validation refresh, and manual NuGet publish workflow complete; broader installer and macOS distribution policy remain open.
+Status: first library package metadata slice, RID-based executable ZIP packaging slice, opt-in self-contained ZIP lane, artifact verification manifest slice, post-sample Release validation refresh, manual NuGet publish workflow, and Windows per-user install workflow complete; native signed installer and macOS distribution policy remain open.
 
 `AvaScope.Protocol`, `AvaScope.Core`, and `AvaScope.Bridge` now have package ids, version metadata, descriptions, tags, repository metadata, README inclusion, and local `dotnet pack` validation into ignored `artifacts/packages`. `AvaScope.Mcp`, `AvaScope.Cli`, and `AvaScope.PreviewHost` are explicitly marked not packable in this slice.
 
@@ -134,7 +134,9 @@ Release refresh: after adding the getting-started sample and CLI relative path n
 
 NuGet publishing now uses `eng/publish-nuget.ps1` to push the three library packages from `artifacts/packages` in dependency order, with `-DryRun` validation and an API key supplied out of band. GitHub Actions publishes from `master` or `main` when `Directory.Build.props` contains a version with no matching remote `v<Version>` tag. The release workflow creates that tag, publishes those packages to GitHub Packages, and uploads `.nupkg` files, RID executable ZIPs, and the release manifest to the matching GitHub Release.
 
-Next slice: keep default GitHub Release assets framework-dependent until release policy changes; defer macOS artifact policy and installer publishing until there is a signing/notarization/installer validation surface.
+Windows install workflow now uses `eng/install-avascope.ps1` to install a packaged executable directory or ZIP into `%LOCALAPPDATA%\AvaScope`, create `bin\avascope.cmd`, update the user `PATH`, and write `avascope.discovery.json` with CLI and MCP stdio metadata.
+
+Next slice: keep default GitHub Release assets framework-dependent until release policy changes; defer macOS artifact policy and native signed installers until there is a signing/notarization validation surface.
 
 ### CI Workflow
 

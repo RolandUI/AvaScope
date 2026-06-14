@@ -29,7 +29,7 @@ This audit is the release-candidate gate for the current public-alpha goal. It r
 - Drag/drop, richer pointer/key behavior, IME-level text input, and destructive runtime actions are out of the public-alpha tool set. Targeted `TextBox` `key_text` and `clear_text` are supported for writable controls.
 - Full project startup/lifetime orchestration for preview is deferred for safety.
 - JSON object design-data injection, dependency injection, remote design data, and long-lived design-data state are deferred.
-- Self-contained executable ZIPs are available through an opt-in local script lane after W16; default GitHub Release assets remain framework-dependent. macOS artifacts, installer publishing, and broader upload automation are deferred.
+- Self-contained executable ZIPs are available through an opt-in local script lane after W16; default GitHub Release assets remain framework-dependent. A Windows per-user install workflow is available; macOS artifacts, native signed installers, and broader upload automation are deferred.
 - Preview diagnostics now include first slices for binding/resource/layout warnings, source-backed `x:DataType` checks, computed inspection, and diagnostics issue provenance; deeper private binding-engine telemetry and full resource-chain provenance remain deferred unless public Avalonia APIs expose reliable sources.
 
 ## Final W25 Validation Gates

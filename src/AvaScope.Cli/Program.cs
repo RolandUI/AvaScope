@@ -19,6 +19,11 @@ internal static class Program
             return 2;
         }
 
+        if (args[0] is "--version" or "-v")
+        {
+            return Version();
+        }
+
         return args[0] switch
         {
             "capabilities" => Capabilities(args[1..]),
@@ -56,6 +61,18 @@ internal static class Program
             "mcp" => await Mcp(),
             _ => UnknownCommand(args[0])
         };
+    }
+
+    private static int Version()
+    {
+        var informationalVersion = typeof(Program).Assembly
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()
+            ?.InformationalVersion;
+        var version = informationalVersion?.Split('+', 2)[0]
+            ?? typeof(Program).Assembly.GetName().Version?.ToString()
+            ?? "0.0.0";
+        Console.WriteLine(version);
+        return 0;
     }
 
     private static async Task<int> Mcp()

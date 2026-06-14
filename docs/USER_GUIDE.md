@@ -166,13 +166,51 @@ The workflow can also be run manually. Manual runs validate by default; set `pub
 
 ## Install From Release Artifacts
 
-AvaScope release artifacts are published as NuGet packages plus framework-dependent executable ZIPs. No installer publishing is configured for `v1.0.0`; extract the ZIP and run the CLI/MCP bundle directly. Self-contained ZIPs remain an explicit local/publish-script artifact lane.
+AvaScope release artifacts are published as NuGet packages plus framework-dependent executable ZIPs. Windows users can install the packaged CLI into a stable per-user location with `eng\install-avascope.ps1`; direct ZIP execution remains supported. Self-contained ZIPs remain an explicit local/publish-script artifact lane.
 
 Create and verify local Release artifacts:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1
 ```
+
+Install the packaged Windows CLI for the current user:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\install-avascope.ps1 -SourcePath .\artifacts\executables\avascope-win-x64-framework-dependent
+avascope --version
+avascope doctor
+```
+
+The installer copies the bundle to `%LOCALAPPDATA%\AvaScope\current`, writes command shims under `%LOCALAPPDATA%\AvaScope\bin`, updates the user `PATH` unless `-SkipPathUpdate` is supplied, and writes `%LOCALAPPDATA%\AvaScope\avascope.discovery.json`.
+
+The discovery manifest is stable machine-readable install metadata:
+
+```json
+{
+  "schemaVersion": 1,
+  "product": "AvaScope",
+  "serviceName": "avascope",
+  "version": "1.0.2",
+  "installMode": "per-user",
+  "installRoot": "%LOCALAPPDATA%\\AvaScope",
+  "commandPath": "%LOCALAPPDATA%\\AvaScope\\bin\\avascope.cmd",
+  "executablePath": "%LOCALAPPDATA%\\AvaScope\\current\\avascope.exe",
+  "mcp": {
+    "transport": "stdio",
+    "serverName": "avascope",
+    "commandPath": "%LOCALAPPDATA%\\AvaScope\\bin\\avascope.cmd",
+    "arguments": ["mcp"]
+  }
+}
+```
+
+Agent discovery order should be:
+
+1. Run `avascope` from `PATH`.
+2. Read `%LOCALAPPDATA%\AvaScope\avascope.discovery.json`.
+3. Probe `%LOCALAPPDATA%\AvaScope\bin\avascope.cmd` and `%LOCALAPPDATA%\AvaScope\current\avascope.exe`.
+4. Fall back to repository or unpacked release artifact paths.
 
 Run the packaged Windows CLI/MCP bundle directly from the publish directory:
 
@@ -594,7 +632,7 @@ Implemented tools:
 - `close_preview_session`
 - `reload`
 
-Post-1.0 deferrals: runtime hot reload, drag/drop, full preview startup orchestration, installer distribution, macOS release policy, and broader hosted review integrations. These are not required for the stable v1 local control-plane workflow.
+Post-1.0 deferrals: runtime hot reload, drag/drop, full preview startup orchestration, macOS release policy, native signed installers, and broader hosted review integrations. These are not required for the stable v1 local control-plane workflow.
 
 `capabilities` returns the same discovery manifest as the CLI command and accepts optional `requiredCapabilities` as comma-separated ids. It is the compatibility gate for clients that need specific runtime, preview, diagnostics, baseline, report, artifact, or mutation surfaces before invoking newer tools.
 

@@ -45,6 +45,9 @@ public sealed class DocumentationCompletionTests
         Assert.Contains("UPGRADE.md", userGuide, StringComparison.Ordinal);
 
         Assert.Contains("## Install From Release Artifacts", userGuide, StringComparison.Ordinal);
+        Assert.Contains("install-avascope.ps1", userGuide, StringComparison.Ordinal);
+        Assert.Contains("avascope.discovery.json", userGuide, StringComparison.Ordinal);
+        Assert.Contains("Agent discovery order", userGuide, StringComparison.Ordinal);
         Assert.Contains("## Getting Started Sample", userGuide, StringComparison.Ordinal);
         Assert.Contains("## CLI", userGuide, StringComparison.Ordinal);
         Assert.Contains("## MCP", userGuide, StringComparison.Ordinal);
