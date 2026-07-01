@@ -44,6 +44,7 @@ public sealed class McpStdioSmokeTests
         Assert.Contains("explain_layout", toolNames);
         Assert.Contains("run_workflow", toolNames);
         Assert.Contains("run_scenario", toolNames);
+        Assert.Contains("pointer_diagnostics", toolNames);
         Assert.Contains("preview_axaml", toolNames);
         Assert.Contains("preview_axaml_multi", toolNames);
         Assert.Contains("preview_axaml_animation", toolNames);

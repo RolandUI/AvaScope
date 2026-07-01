@@ -129,6 +129,13 @@ public static class AvaScopeCapabilityCatalog
                 ["run-scenario", "run_scenario"],
                 requires: [AvaScopeCapabilityIds.RuntimeSemanticWorkflow, AvaScopeCapabilityIds.RuntimeSessionLifecycle]),
             Capability(
+                AvaScopeCapabilityIds.RuntimePointerDiagnostics,
+                "runtime",
+                "Run pointer-path diagnostics with move/wait/screenshot/assert steps, visual-tree hit-path snapshots, popup-like layer inference, pointer overlays, and bounded transition warnings.",
+                ["pointer-diagnostics", "pointer_diagnostics"],
+                requires: [AvaScopeCapabilityIds.RuntimeInput, AvaScopeCapabilityIds.RuntimeTrees, AvaScopeCapabilityIds.ArtifactsScreenshot],
+                metadata: new Dictionary<string, string> { ["transitionProvenance"] = "bounds_snapshot_inference" }),
+            Capability(
                 AvaScopeCapabilityIds.RuntimeMutationContract,
                 "runtime",
                 "Apply and report local-only runtime mutation requests with explicit capability and diagnostic metadata.",
@@ -312,6 +319,8 @@ public static class AvaScopeCapabilityCatalog
             Mcp("run_workflow", AvaScopeCapabilityIds.RuntimeSemanticWorkflow),
             Cli("run-scenario", AvaScopeCapabilityIds.RuntimeScenarioRunner, AvaScopeCapabilityIds.SafetyLocalOnly),
             Mcp("run_scenario", AvaScopeCapabilityIds.RuntimeScenarioRunner, AvaScopeCapabilityIds.SafetyLocalOnly),
+            Cli("pointer-diagnostics", AvaScopeCapabilityIds.RuntimePointerDiagnostics, AvaScopeCapabilityIds.ArtifactsScreenshot),
+            Mcp("pointer_diagnostics", AvaScopeCapabilityIds.RuntimePointerDiagnostics, AvaScopeCapabilityIds.ArtifactsScreenshot),
             Cli("mutate-node", AvaScopeCapabilityIds.RuntimeMutationContract, AvaScopeCapabilityIds.RuntimeStyleLayoutMutation),
             Mcp("mutate_node", AvaScopeCapabilityIds.RuntimeMutationContract, AvaScopeCapabilityIds.RuntimeStyleLayoutMutation),
             Cli("mutate-node-evidence", AvaScopeCapabilityIds.RuntimeMutationEvidence, AvaScopeCapabilityIds.ArtifactsScreenshot, AvaScopeCapabilityIds.ArtifactsDiffImage),

@@ -2981,6 +2981,82 @@ public sealed class CliSmokeTests
     }
 
     [Fact]
+    public async Task PointerDiagnosticsCommandReportsHitPathAndScreenshotArtifacts()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var sessionId = SessionId.New();
+        var pipeName = $"avascope-cli-pointer-{Guid.NewGuid():N}";
+        var manifestPath = WriteBridgeManifest(sessionId, pipeName);
+        var artifactDirectory = Path.Combine(
+            Path.GetTempPath(),
+            "AvaScope.Tests",
+            $"cli-pointer-{Guid.NewGuid():N}");
+        var requestPath = Path.Combine(artifactDirectory, "pointer.json");
+        Directory.CreateDirectory(artifactDirectory);
+
+        var serverTask = RespondToBridgeRequestsAsync(
+            pipeName,
+            expectedCount: 4,
+            (index, request) => index switch
+            {
+                0 => CreatePointerInputResponse(request, sessionId),
+                1 => CreatePointerTreeResponse(request, sessionId, "topLevel:pointer"),
+                2 => CreatePointerTreeResponse(request, sessionId, "topLevel:pointer"),
+                3 => CreatePointerScreenshotResponse(request, sessionId, "topLevel:pointer", "02-capture.png"),
+                _ => throw new InvalidOperationException("Unexpected pointer diagnostics bridge request index.")
+            });
+        var pointerRequest = new RuntimePointerDiagnosticsRequest(
+            sessionId,
+            "topLevel:pointer",
+            [
+                new RuntimePointerPathStep(RuntimePointerPathActions.Move, "move-button", x: 12, y: 8),
+                new RuntimePointerPathStep(RuntimePointerPathActions.Screenshot, "capture")
+            ],
+            requestId: "cli-pointer",
+            outputDirectory: artifactDirectory,
+            includeAllTopLevels: false);
+        await File.WriteAllTextAsync(requestPath, JsonSerializer.Serialize(pointerRequest, JsonOptions));
+
+        try
+        {
+            var result = await RunCliAsync(
+                cliAssembly,
+                "pointer-diagnostics",
+                "--request",
+                requestPath);
+            var requests = await serverTask;
+
+            Assert.Equal(0, result.ExitCode);
+            Assert.True(string.IsNullOrWhiteSpace(result.StandardError), result.StandardError);
+            Assert.Equal(BridgeIpcMethods.Input, requests[0].Method);
+            Assert.Equal(BridgeIpcMethods.VisualTree, requests[1].Method);
+            Assert.Equal(BridgeIpcMethods.Screenshot, requests[3].Method);
+
+            var payload = JsonSerializer.Deserialize<ToolResult<RuntimePointerDiagnosticsResponse>>(result.StandardOutput, JsonOptions);
+            Assert.NotNull(payload);
+            Assert.True(payload.Success, payload.Error?.Message);
+            Assert.Equal("passed", payload.Value!.Status);
+            Assert.Equal("visual:pointerButton", payload.Value.Steps[0].ActiveLayer!.HitTestPath.Last().NodeId);
+            var screenshotStep = payload.Value.Steps[1];
+            Assert.EndsWith("02-capture.png", screenshotStep.Screenshot!.FilePath, StringComparison.Ordinal);
+            Assert.EndsWith("02-capture-pointer-overlay.png", screenshotStep.PointerOverlayPath, StringComparison.Ordinal);
+            Assert.True(File.Exists(screenshotStep.PointerOverlayPath), screenshotStep.PointerOverlayPath);
+            Assert.Contains(payload.Value.AgentReview.ArtifactPaths, artifact => artifact.Kind == "pointer_overlay");
+        }
+        finally
+        {
+            if (File.Exists(manifestPath))
+            {
+                File.Delete(manifestPath);
+            }
+
+            await DeleteDirectoryWithRetryAsync(artifactDirectory);
+        }
+    }
+
+    [Fact]
     public async Task RunScenarioCommandBlocksDestructiveTargetWithoutIsolation()
     {
         var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
@@ -4814,6 +4890,77 @@ public sealed class CliSmokeTests
                 DateTimeOffset.UtcNow,
                 targetNodeId: target.NodeId,
                 target: target));
+    }
+
+    private static BridgeIpcResponse CreatePointerInputResponse(BridgeIpcRequest request, SessionId sessionId)
+    {
+        Assert.Equal(BridgeIpcMethods.Input, request.Method);
+        Assert.Equal("topLevel:pointer", request.TopLevelId);
+        Assert.Equal(InputActions.PointerMove, request.Action);
+        Assert.Equal(12, request.X);
+        Assert.Equal(8, request.Y);
+
+        return BridgeIpcResponse.Ok(
+            request.RequestId,
+            new InputResponse(
+                sessionId,
+                "topLevel:pointer",
+                InputActions.PointerMove,
+                handled: true,
+                DateTimeOffset.UtcNow,
+                "visual:pointerButton"));
+    }
+
+    private static BridgeIpcResponse CreatePointerTreeResponse(BridgeIpcRequest request, SessionId sessionId, string topLevelId)
+    {
+        Assert.Equal(BridgeIpcMethods.VisualTree, request.Method);
+        Assert.Equal(topLevelId, request.TopLevelId);
+
+        return BridgeIpcResponse.Ok(
+            request.RequestId,
+            new TreeResponse(
+                sessionId,
+                topLevelId,
+                TreeKinds.Visual,
+                request.MaxDepth ?? 16,
+                new TreeNodeSummary(
+                    "visual:pointerRoot",
+                    "Avalonia.Controls.Window",
+                    "PointerWindow",
+                    bounds: new NodeBounds(0, 0, 100, 60),
+                    children:
+                    [
+                        new TreeNodeSummary(
+                            "visual:pointerButton",
+                            "Avalonia.Controls.Button",
+                            "PointerButton",
+                            automationId: "pointer-button",
+                            text: "Hover",
+                            bounds: new NodeBounds(0, 0, 50, 24))
+                    ])));
+    }
+
+    private static BridgeIpcResponse CreatePointerScreenshotResponse(
+        BridgeIpcRequest request,
+        SessionId sessionId,
+        string topLevelId,
+        string expectedFileName)
+    {
+        Assert.Equal(BridgeIpcMethods.Screenshot, request.Method);
+        Assert.Equal(topLevelId, request.TopLevelId);
+        Assert.NotNull(request.OutputPath);
+        Assert.EndsWith(expectedFileName, request.OutputPath, StringComparison.Ordinal);
+        WriteSolidPng(request.OutputPath!, 100, 60, SKColors.White);
+
+        return BridgeIpcResponse.Ok(
+            request.RequestId,
+            new ScreenshotResponse(
+                sessionId,
+                topLevelId,
+                request.OutputPath!,
+                100,
+                60,
+                DateTimeOffset.UtcNow));
     }
 
     private static BridgeIpcResponse CreateCliEvidenceScreenshotResponse(

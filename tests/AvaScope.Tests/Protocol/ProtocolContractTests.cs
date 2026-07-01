@@ -100,9 +100,11 @@ public sealed class ProtocolContractTests
         Assert.Contains(response.Capabilities, capability => capability.Id == AvaScopeCapabilityIds.RuntimeLayoutExplain);
         Assert.Contains(response.Capabilities, capability => capability.Id == AvaScopeCapabilityIds.RuntimeSemanticWorkflow);
         Assert.Contains(response.Capabilities, capability => capability.Id == AvaScopeCapabilityIds.RuntimeScenarioRunner);
+        Assert.Contains(response.Capabilities, capability => capability.Id == AvaScopeCapabilityIds.RuntimePointerDiagnostics);
         Assert.Contains(response.Capabilities, capability => capability.Id == AvaScopeCapabilityIds.PreviewStateVariants);
         Assert.Contains(response.Tools, tool => tool.Adapter == "mcp" && tool.Name == "run_workflow");
         Assert.Contains(response.Tools, tool => tool.Adapter == "mcp" && tool.Name == "run_scenario");
+        Assert.Contains(response.Tools, tool => tool.Adapter == "mcp" && tool.Name == "pointer_diagnostics");
         Assert.Empty(node["value"]!["diagnostics"]!.AsArray());
     }
 
@@ -318,6 +320,91 @@ public sealed class ProtocolContractTests
         Assert.Equal("applied_environment", responseNode["isolatedStateStatus"]!.GetValue<string>());
         Assert.Equal("launch", responseNode["metadata"]!["scenarioMode"]!.GetValue<string>());
         Assert.Equal("click-delete", responseNode["workflow"]!["steps"]![0]!["stepId"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public void RuntimePointerDiagnosticsRequestAndResponseSerializeStableShapes()
+    {
+        var at = new DateTimeOffset(2026, 7, 1, 13, 0, 0, TimeSpan.Zero);
+        var sessionId = new SessionId("session-pointer");
+        var request = new RuntimePointerDiagnosticsRequest(
+            sessionId,
+            "topLevel:main",
+            [
+                new RuntimePointerPathStep(RuntimePointerPathActions.Move, "move-parent", x: 10, y: 12),
+                new RuntimePointerPathStep(RuntimePointerPathActions.AssertHit, "assert-popup", expectedLayerKind: "popup")
+            ],
+            requestId: "pointer-1",
+            outputDirectory: "C:\\state\\pointer",
+            captureScreenshots: true,
+            parentHoverNodeId: "visual:hover");
+        var hitNode = new RuntimePointerHitNode(
+            "visual:popupItem",
+            "Avalonia.Controls.Button",
+            "PopupItem",
+            "popup-item",
+            "Open",
+            new NodeBounds(4, 4, 80, 24),
+            true,
+            0);
+        var activeLayer = new RuntimePointerLayerSnapshot(
+            "topLevel:popup",
+            "topLevel",
+            "popup",
+            isPrimary: false,
+            hitTestPath: [hitNode],
+            nearestNode: hitNode);
+        var transition = new RuntimePointerTransitionDiagnostic(
+            "warning",
+            "pointer_parent_hover_exited_into_popup_layer",
+            "Pointer moved into popup.",
+            "bounds_snapshot_inference",
+            fromTopLevelId: "topLevel:main",
+            fromNodeId: "visual:hover",
+            toTopLevelId: "topLevel:popup",
+            toNodeId: "visual:popupItem",
+            parentHoverRegionExited: true);
+        var response = new RuntimePointerDiagnosticsResponse(
+            "pointer-1",
+            sessionId,
+            "topLevel:main",
+            "passed",
+            at,
+            at,
+            [
+                new RuntimePointerStepResult(
+                    "move-popup",
+                    RuntimePointerPathActions.Move,
+                    "passed",
+                    "Moved.",
+                    at,
+                    new RuntimePointerLocation(10, 12),
+                    screenshot: new ScreenshotResponse(
+                        sessionId,
+                        "topLevel:popup",
+                        "C:\\state\\pointer\\move-popup.png",
+                        120,
+                        80,
+                        at),
+                    pointerOverlayPath: "C:\\state\\pointer\\move-popup-pointer-overlay.png",
+                    activeLayer: activeLayer,
+                    transitions: [transition],
+                    metadata: new Dictionary<string, string> { ["transitionProvenance"] = "bounds_snapshot_inference" })
+            ]);
+
+        var requestNode = JsonNode.Parse(JsonSerializer.Serialize(request))!;
+        var responseNode = JsonNode.Parse(JsonSerializer.Serialize(response))!;
+
+        Assert.Equal("pointer-1", requestNode["requestId"]!.GetValue<string>());
+        Assert.Equal("move", requestNode["steps"]![0]!["action"]!.GetValue<string>());
+        Assert.Equal(10, requestNode["steps"]![0]!["x"]!.GetValue<double>());
+        Assert.Equal("visual:hover", requestNode["parentHoverNodeId"]!.GetValue<string>());
+        Assert.Equal("passed", responseNode["status"]!.GetValue<string>());
+        Assert.Equal("popup", responseNode["steps"]![0]!["activeLayer"]!["layerKind"]!.GetValue<string>());
+        Assert.Equal("visual:popupItem", responseNode["steps"]![0]!["activeLayer"]!["hitTestPath"]![0]!["nodeId"]!.GetValue<string>());
+        Assert.True(responseNode["steps"]![0]!["transitions"]![0]!["parentHoverRegionExited"]!.GetValue<bool>());
+        Assert.Equal("bounds_snapshot_inference", responseNode["steps"]![0]!["metadata"]!["transitionProvenance"]!.GetValue<string>());
+        Assert.Equal("pointer_overlay", responseNode["agentReview"]!["artifactPaths"]![1]!["kind"]!.GetValue<string>());
     }
 
     [Fact]

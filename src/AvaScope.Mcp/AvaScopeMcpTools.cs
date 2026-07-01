@@ -508,6 +508,30 @@ public sealed class AvaScopeMcpTools
     }
 
     [McpServerTool(
+        Name = "pointer_diagnostics",
+        Title = "Pointer diagnostics",
+        ReadOnly = false,
+        Idempotent = false,
+        Destructive = false,
+        OpenWorld = false,
+        UseStructuredContent = true)]
+    [Description("Runs a bounded pointer path against an attached bridge session and returns hit-path, popup-like layer, transition, screenshot, and pointer overlay diagnostics.")]
+    public static async Task<ToolResult<RuntimePointerDiagnosticsResponse>> PointerDiagnostics(
+        LocalBridgeClient bridgeClient,
+        RuntimePointerDiagnosticsRequest request,
+        string? manifestDirectory = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(bridgeClient);
+        ArgumentNullException.ThrowIfNull(request);
+
+        return ToToolResult(await new RuntimePointerDiagnosticsRunner().RunAsync(
+            CreateBridgeClient(bridgeClient, manifestDirectory),
+            request,
+            cancellationToken));
+    }
+
+    [McpServerTool(
         Name = "mutate_node",
         Title = "Mutate node",
         ReadOnly = false,

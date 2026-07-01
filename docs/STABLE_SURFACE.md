@@ -71,6 +71,7 @@ The stable CLI command name set is:
 - `input`
 - `run-workflow`
 - `run-scenario`
+- `pointer-diagnostics`
 - `mutate-node`
 - `mutate-node-evidence`
 - `mutation-review`
@@ -121,6 +122,7 @@ The stable MCP tool name set is:
 - `input`
 - `run_workflow`
 - `run_scenario`
+- `pointer_diagnostics`
 - `mutate_node`
 - `mutate_node_evidence`
 - `mutation_review`
@@ -209,6 +211,10 @@ Stable runtime mutation evidence suffixes:
 - `-after-visual-tree.json`
 - `-diff.png`
 - `-review.html`
+
+Stable pointer diagnostics artifact suffixes:
+
+- `-pointer-overlay.png`
 
 The caller-controlled request id prefix, absolute output path, image contents, SHA-256 hash, and file timestamp are not stable.
 

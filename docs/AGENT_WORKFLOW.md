@@ -186,6 +186,14 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\collect-baseline-artif
 
 Runtime input is intentionally narrow and non-destructive. Unsupported actions return structured errors.
 
+For hover, tooltip, popup, or flyout failures, use a pointer diagnostics request instead of trying to infer everything from one screenshot:
+
+```powershell
+& $avascope pointer-diagnostics --request .\artifacts\samples\pointer-diagnostics.json
+```
+
+`pointer-diagnostics` accepts move, wait, screenshot, and assert-hit steps. Results include per-step pointer coordinates, active top-level or popup-like layer, bounded visual-tree hit path, inferred enter/exit transition diagnostics with `bounds_snapshot_inference` provenance, screenshot paths, and pointer overlay PNG paths. Set `parentHoverNodeId` in the request when validating whether moving into a popup/flyout/tooltip may exit the parent hover region.
+
 Runtime mutations use the same local bridge boundary and are reversible UI experiments, not implicit source edits:
 
 ```powershell

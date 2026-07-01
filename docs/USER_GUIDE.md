@@ -533,6 +533,31 @@ dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll run-scenario --request 
 
 `run-scenario` returns `ToolResult<RuntimeScenarioResponse>` with `status`, launch/attach metadata, the nested workflow result, `timelinePath`, diagnostics, and isolated-state metadata. Launch scenarios isolate app data by default by setting app-data, user-profile, XDG, temp, and `AVASCOPE_SCENARIO_STATE_DIR` environment variables under an AvaScope-owned directory. Attached existing sessions cannot be retroactively isolated; destructive-looking click/select targets still fail unless the scenario launches with isolation or explicitly sets `allowDestructive`.
 
+Diagnose hover, popup, tooltip, and pointer transition behavior with a pointer-path request:
+
+```json
+{
+  "requestId": "hover-popup-diagnostics",
+  "sessionId": "session-id",
+  "topLevelId": "topLevel:1234",
+  "outputDirectory": "artifacts/pointer/hover-popup",
+  "parentHoverNodeId": "visual:hoverPanel",
+  "includeAllTopLevels": true,
+  "steps": [
+    { "id": "move-parent", "action": "move", "x": 24, "y": 18 },
+    { "id": "move-popup", "action": "move", "x": 260, "y": 32 },
+    { "id": "assert-popup", "action": "assert_hit", "expectedLayerKind": "popup" },
+    { "id": "capture", "action": "screenshot" }
+  ]
+}
+```
+
+```powershell
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll pointer-diagnostics --request .\pointer-diagnostics.json
+```
+
+`pointer-diagnostics` returns `ToolResult<RuntimePointerDiagnosticsResponse>` with per-step pointer location, active top-level/layer, bounded visual-tree hit path, nearest node, inferred enter/exit transition diagnostics, screenshot paths, and pointer marker overlay paths. Transition diagnostics use explicit `bounds_snapshot_inference` provenance because AvaScope derives them from post-step visual-tree bounds instead of private Avalonia routed-event internals. When `parentHoverNodeId` is provided, moving into a popup-like layer outside that node reports whether parent hover exit behavior may run.
+
 Apply a reversible runtime mutation and capture an agent evidence package:
 
 ```powershell
