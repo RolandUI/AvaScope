@@ -42,6 +42,9 @@ public sealed class CliSmokeTests
             capability.Id == AvaScopeCapabilityIds.RuntimeScenarioRunner
             && capability.Status == AvaScopeCapabilityStatuses.Available);
         Assert.Contains(payload.Value.Capabilities, capability =>
+            capability.Id == AvaScopeCapabilityIds.RuntimeInteractionAnimation
+            && capability.Status == AvaScopeCapabilityStatuses.Available);
+        Assert.Contains(payload.Value.Capabilities, capability =>
             capability.Id == AvaScopeCapabilityIds.PreviewStateVariants
             && capability.Status == AvaScopeCapabilityStatuses.Available);
         Assert.Contains(payload.Value.Tools, tool =>
@@ -56,6 +59,10 @@ public sealed class CliSmokeTests
             tool.Adapter == "cli"
             && tool.Name == "run-scenario"
             && tool.CapabilityIds.Contains(AvaScopeCapabilityIds.RuntimeScenarioRunner));
+        Assert.Contains(payload.Value.Tools, tool =>
+            tool.Adapter == "cli"
+            && tool.Name == "record-interaction-animation"
+            && tool.CapabilityIds.Contains(AvaScopeCapabilityIds.RuntimeInteractionAnimation));
         Assert.Contains(payload.Value.Tools, tool =>
             tool.Adapter == "cli"
             && tool.Name == "explain-layout"
@@ -3220,6 +3227,103 @@ public sealed class CliSmokeTests
     }
 
     [Fact]
+    public async Task RecordInteractionAnimationCommandCapturesFrameStripAndAssertionsThroughBridgePipe()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var sessionId = SessionId.New();
+        var topLevelId = "topLevel:interaction";
+        var pipeName = $"avascope-cli-interaction-{Guid.NewGuid():N}";
+        var manifestPath = WriteBridgeManifest(sessionId, pipeName);
+        var artifactDirectory = Path.Combine(
+            Path.GetTempPath(),
+            "AvaScope.Tests",
+            $"cli-interaction-{Guid.NewGuid():N}");
+        var requestPath = Path.Combine(artifactDirectory, "interaction-animation.json");
+        var frameStripPath = Path.Combine(artifactDirectory, "strip.png");
+        Directory.CreateDirectory(artifactDirectory);
+
+        var serverTask = RespondToBridgeRequestsAsync(
+            pipeName,
+            expectedCount: 5,
+            (index, request) => index switch
+            {
+                0 => CreateInteractionInputResponse(request, sessionId, topLevelId),
+                1 => CreateInteractionTreeResponse(request, sessionId, topLevelId),
+                2 => CreateInteractionScreenshotResponse(request, sessionId, topLevelId),
+                3 => CreateInteractionTreeResponse(request, sessionId, topLevelId),
+                4 => CreateInteractionScreenshotResponse(request, sessionId, topLevelId),
+                _ => throw new InvalidOperationException("Unexpected interaction animation bridge request index.")
+            });
+        var interactionRequest = new RuntimeInteractionAnimationRequest(
+            sessionId,
+            topLevelId,
+            [
+                new RuntimeInteractionAnimationStep(
+                    InputActions.Click,
+                    "expand",
+                    x: 40,
+                    y: 24,
+                    frameOffsetsMs: [0, 1])
+            ],
+            requestId: "cli-interaction",
+            outputDirectory: artifactDirectory,
+            frameStripPath: frameStripPath,
+            assertions:
+            [
+                new RuntimeInteractionGeometryAssertion(
+                    "visual:panel",
+                    RuntimeInteractionGeometryMetrics.Width,
+                    RuntimeInteractionGeometryAssertionModes.Stable,
+                    "panel-width",
+                    stepId: "expand",
+                    tolerance: 0)
+            ]);
+        await File.WriteAllTextAsync(requestPath, JsonSerializer.Serialize(interactionRequest, JsonOptions));
+
+        try
+        {
+            var result = await RunCliAsync(
+                cliAssembly,
+                "record-interaction-animation",
+                "--request",
+                requestPath);
+            var requests = await serverTask;
+
+            Assert.Equal(0, result.ExitCode);
+            Assert.True(string.IsNullOrWhiteSpace(result.StandardError), result.StandardError);
+            Assert.Equal(BridgeIpcMethods.Input, requests[0].Method);
+            Assert.Equal(BridgeIpcMethods.VisualTree, requests[1].Method);
+            Assert.Equal(BridgeIpcMethods.Screenshot, requests[2].Method);
+
+            var payload = JsonSerializer.Deserialize<ToolResult<RuntimeInteractionAnimationResponse>>(result.StandardOutput, JsonOptions);
+            Assert.NotNull(payload);
+            Assert.True(payload.Success, payload.Error?.Message);
+            Assert.Equal("passed", payload.Value!.Status);
+            Assert.Equal(2, payload.Value.Steps[0].Frames.Count);
+            Assert.Equal("passed", Assert.Single(payload.Value.Assertions).Status);
+            Assert.Equal(Path.GetFullPath(frameStripPath), payload.Value.FrameStripPath);
+            Assert.True(File.Exists(payload.Value.FrameStripPath), payload.Value.FrameStripPath);
+            Assert.All(payload.Value.Steps[0].Frames, frame =>
+            {
+                Assert.True(File.Exists(frame.Screenshot!.FilePath), frame.Screenshot.FilePath);
+                Assert.True(File.Exists(frame.GeometryOverlayPath), frame.GeometryOverlayPath);
+            });
+            Assert.Contains(payload.Value.AgentReview.ArtifactPaths, artifact => artifact.Kind == "frame_strip");
+        }
+        finally
+        {
+            if (File.Exists(manifestPath))
+            {
+                File.Delete(manifestPath);
+            }
+
+            await DeleteDirectoryWithRetryAsync(artifactDirectory);
+        }
+    }
+
+    [Fact]
     public async Task RunScenarioCommandBlocksDestructiveTargetWithoutIsolation()
     {
         var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
@@ -5123,6 +5227,80 @@ public sealed class CliSmokeTests
                 request.OutputPath!,
                 100,
                 60,
+                DateTimeOffset.UtcNow));
+    }
+
+    private static BridgeIpcResponse CreateInteractionInputResponse(
+        BridgeIpcRequest request,
+        SessionId sessionId,
+        string topLevelId)
+    {
+        Assert.Equal(BridgeIpcMethods.Input, request.Method);
+        Assert.Equal(topLevelId, request.TopLevelId);
+        Assert.Equal(InputActions.Click, request.Action);
+        Assert.Equal(40, request.X);
+        Assert.Equal(24, request.Y);
+
+        return BridgeIpcResponse.Ok(
+            request.RequestId,
+            new InputResponse(
+                sessionId,
+                topLevelId,
+                InputActions.Click,
+                handled: true,
+                DateTimeOffset.UtcNow,
+                "visual:button"));
+    }
+
+    private static BridgeIpcResponse CreateInteractionTreeResponse(
+        BridgeIpcRequest request,
+        SessionId sessionId,
+        string topLevelId)
+    {
+        Assert.Equal(BridgeIpcMethods.VisualTree, request.Method);
+        Assert.Equal(topLevelId, request.TopLevelId);
+
+        return BridgeIpcResponse.Ok(
+            request.RequestId,
+            new TreeResponse(
+                sessionId,
+                topLevelId,
+                TreeKinds.Visual,
+                request.MaxDepth ?? 16,
+                new TreeNodeSummary(
+                    "visual:root",
+                    "Avalonia.Controls.Window",
+                    "InteractionWindow",
+                    bounds: new NodeBounds(0, 0, 180, 100),
+                    children:
+                    [
+                        new TreeNodeSummary(
+                            "visual:panel",
+                            "Avalonia.Controls.Border",
+                            "AnimatedPanel",
+                            automationId: "animated-panel",
+                            bounds: new NodeBounds(16, 10, 120, 48))
+                    ])));
+    }
+
+    private static BridgeIpcResponse CreateInteractionScreenshotResponse(
+        BridgeIpcRequest request,
+        SessionId sessionId,
+        string topLevelId)
+    {
+        Assert.Equal(BridgeIpcMethods.Screenshot, request.Method);
+        Assert.Equal(topLevelId, request.TopLevelId);
+        Assert.NotNull(request.OutputPath);
+        WriteSolidPng(request.OutputPath!, 180, 100, SKColors.White);
+
+        return BridgeIpcResponse.Ok(
+            request.RequestId,
+            new ScreenshotResponse(
+                sessionId,
+                topLevelId,
+                request.OutputPath!,
+                180,
+                100,
                 DateTimeOffset.UtcNow));
     }
 

@@ -580,6 +580,30 @@ public sealed class AvaScopeMcpTools
     }
 
     [McpServerTool(
+        Name = "record_interaction_animation",
+        Title = "Record interaction animation",
+        ReadOnly = false,
+        Idempotent = false,
+        Destructive = false,
+        OpenWorld = false,
+        UseStructuredContent = true)]
+    [Description("Runs scripted local runtime input, records frame sequences after selected steps, writes geometry overlays and a frame strip, and returns per-frame geometry assertion results.")]
+    public static async Task<ToolResult<RuntimeInteractionAnimationResponse>> RecordInteractionAnimation(
+        LocalBridgeClient bridgeClient,
+        RuntimeInteractionAnimationRequest request,
+        string? manifestDirectory = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(bridgeClient);
+        ArgumentNullException.ThrowIfNull(request);
+
+        return ToToolResult(await new RuntimeInteractionAnimationRunner().RunAsync(
+            CreateBridgeClient(bridgeClient, manifestDirectory),
+            request,
+            cancellationToken));
+    }
+
+    [McpServerTool(
         Name = "mutate_node",
         Title = "Mutate node",
         ReadOnly = false,

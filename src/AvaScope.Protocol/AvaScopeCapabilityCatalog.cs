@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace AvaScope.Protocol;
 
 public static class AvaScopeCapabilityCatalog
@@ -145,6 +147,18 @@ public static class AvaScopeCapabilityCatalog
                 {
                     ["defaultStates"] = "normal,pointerover,pressed,disabled,selected,selected+pointerover",
                     ["resetSemantics"] = "per_state_runtime_reset"
+                }),
+            Capability(
+                AvaScopeCapabilityIds.RuntimeInteractionAnimation,
+                "runtime",
+                "Record frame sequences after scripted pointer, click, keyboard, and wait steps with geometry overlays, frame strips, and geometry assertions across frames.",
+                ["record-interaction-animation", "record_interaction_animation"],
+                requires: [AvaScopeCapabilityIds.RuntimeInput, AvaScopeCapabilityIds.RuntimeTrees, AvaScopeCapabilityIds.ArtifactsScreenshot],
+                metadata: new Dictionary<string, string>
+                {
+                    ["defaultFrameOffsetsMs"] = "0,100,250",
+                    ["maximumFrameOffsets"] = RuntimeInteractionAnimationRequest.MaximumFrameCount.ToString(CultureInfo.InvariantCulture),
+                    ["assertionModes"] = "stable,equals,within_range,final_stable,not_clipped"
                 }),
             Capability(
                 AvaScopeCapabilityIds.RuntimeMutationContract,
@@ -347,6 +361,8 @@ public static class AvaScopeCapabilityCatalog
             Mcp("pointer_diagnostics", AvaScopeCapabilityIds.RuntimePointerDiagnostics, AvaScopeCapabilityIds.ArtifactsScreenshot),
             Cli("pseudo-state-matrix", AvaScopeCapabilityIds.RuntimePseudoStateMatrix, AvaScopeCapabilityIds.ArtifactsScreenshot),
             Mcp("pseudo_state_matrix", AvaScopeCapabilityIds.RuntimePseudoStateMatrix, AvaScopeCapabilityIds.ArtifactsScreenshot),
+            Cli("record-interaction-animation", AvaScopeCapabilityIds.RuntimeInteractionAnimation, AvaScopeCapabilityIds.ArtifactsScreenshot),
+            Mcp("record_interaction_animation", AvaScopeCapabilityIds.RuntimeInteractionAnimation, AvaScopeCapabilityIds.ArtifactsScreenshot),
             Cli("mutate-node", AvaScopeCapabilityIds.RuntimeMutationContract, AvaScopeCapabilityIds.RuntimeStyleLayoutMutation),
             Mcp("mutate_node", AvaScopeCapabilityIds.RuntimeMutationContract, AvaScopeCapabilityIds.RuntimeStyleLayoutMutation),
             Cli("mutate-node-evidence", AvaScopeCapabilityIds.RuntimeMutationEvidence, AvaScopeCapabilityIds.ArtifactsScreenshot, AvaScopeCapabilityIds.ArtifactsDiffImage),

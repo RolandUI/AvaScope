@@ -221,6 +221,14 @@ For style regressions that only appear in specific control states, run a pseudo-
 
 `pseudo-state-matrix` targets a runtime node by `target`/`nodeId` or supported find filters, captures states such as `normal`, `pointerover`, `pressed`, `disabled`, `selected`, and `selected+pointerover`, and writes one screenshot per state plus a labeled contact sheet. Results include applied mutation ids, reset mutation responses, pointer input evidence, per-state diagnostics, and explicit `unsupported` entries when a state cannot be safely forced on the selected control.
 
+For animation bugs that only happen after real input, record frames after the scripted interaction instead of relying on a static preview time offset:
+
+```powershell
+& $avascope record-interaction-animation --request .\artifacts\samples\interaction-animation.json
+```
+
+`record-interaction-animation` runs input or wait steps, captures requested frame offsets after each selected step, writes per-frame screenshots, geometry overlays, and a labeled frame strip, and evaluates geometry assertions such as stable width, fixed x/y alignment, final stability, range checks, or not-clipped checks. Each frame and assertion sample includes the triggering `stepId` and `offsetMs`.
+
 Runtime mutations use the same local bridge boundary and are reversible UI experiments, not implicit source edits:
 
 ```powershell

@@ -597,6 +597,31 @@ dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll pseudo-state-matrix --r
 
 `pseudo-state-matrix` returns `ToolResult<RuntimePseudoStateMatrixResponse>` with one entry per requested state, state screenshot paths, applied/reset mutation responses, input actions used for pointer states, per-state diagnostics, diff metadata against the normal baseline when available, and a labeled contact sheet path. Runtime forcing is local and reset per state. Unsupported states or unsupported target properties are reported in the relevant entry instead of being inferred from screenshots.
 
+Record frames after a real runtime interaction and assert geometry across the transition:
+
+```json
+{
+  "requestId": "expand-animation",
+  "sessionId": "session-id",
+  "topLevelId": "topLevel:1234",
+  "outputDirectory": "artifacts/interactions/expand",
+  "frameStripPath": "artifacts/interactions/expand/expand-frame-strip.png",
+  "steps": [
+    { "id": "expand", "action": "click", "x": 42, "y": 24, "frameOffsetsMs": [0, 100, 250] }
+  ],
+  "assertions": [
+    { "assertionId": "panel-width", "targetNodeId": "visual:panel", "metric": "width", "mode": "stable", "stepId": "expand", "tolerance": 1 },
+    { "assertionId": "panel-left", "targetNodeId": "visual:panel", "metric": "x", "mode": "equals", "stepId": "expand", "expectedValue": 16, "tolerance": 1 }
+  ]
+}
+```
+
+```powershell
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll record-interaction-animation --request .\interaction-animation.json
+```
+
+`record-interaction-animation` returns `ToolResult<RuntimeInteractionAnimationResponse>` with one result per scripted input/wait step, per-frame screenshot paths, geometry overlay PNG paths, a labeled frame strip, and structured geometry assertion samples linked back to the triggering step and frame offset. Assertion modes include `stable`, `equals`, `within_range`, `final_stable`, and `not_clipped`; metrics include `x`, `y`, `width`, `height`, `left`, `top`, `right`, `bottom`, `center_x`, and `center_y`.
+
 Apply a reversible runtime mutation and capture an agent evidence package:
 
 ```powershell

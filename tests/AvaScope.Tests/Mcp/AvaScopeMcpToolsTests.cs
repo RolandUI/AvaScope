@@ -34,6 +34,9 @@ public sealed class AvaScopeMcpToolsTests
         Assert.Contains(result.Value.Capabilities, capability =>
             capability.Id == AvaScopeCapabilityIds.RuntimeScenarioRunner
             && capability.Status == AvaScopeCapabilityStatuses.Available);
+        Assert.Contains(result.Value.Capabilities, capability =>
+            capability.Id == AvaScopeCapabilityIds.RuntimeInteractionAnimation
+            && capability.Status == AvaScopeCapabilityStatuses.Available);
         Assert.Contains(result.Value.Tools, tool =>
             tool.Adapter == "mcp"
             && tool.Name == "capabilities"
@@ -42,6 +45,10 @@ public sealed class AvaScopeMcpToolsTests
             tool.Adapter == "mcp"
             && tool.Name == "design_quality_audit"
             && tool.CapabilityIds.Contains(AvaScopeCapabilityIds.RuntimeDesignQualityAudit));
+        Assert.Contains(result.Value.Tools, tool =>
+            tool.Adapter == "mcp"
+            && tool.Name == "record_interaction_animation"
+            && tool.CapabilityIds.Contains(AvaScopeCapabilityIds.RuntimeInteractionAnimation));
         Assert.Contains(result.Value.RuntimeMutationCapabilities, capability =>
             capability.Name == RuntimeMutationCapabilityCatalog.StyleLayoutMutation);
     }

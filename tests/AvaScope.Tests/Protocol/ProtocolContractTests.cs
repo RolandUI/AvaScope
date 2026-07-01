@@ -102,11 +102,13 @@ public sealed class ProtocolContractTests
         Assert.Contains(response.Capabilities, capability => capability.Id == AvaScopeCapabilityIds.RuntimeScenarioRunner);
         Assert.Contains(response.Capabilities, capability => capability.Id == AvaScopeCapabilityIds.RuntimePointerDiagnostics);
         Assert.Contains(response.Capabilities, capability => capability.Id == AvaScopeCapabilityIds.RuntimePseudoStateMatrix);
+        Assert.Contains(response.Capabilities, capability => capability.Id == AvaScopeCapabilityIds.RuntimeInteractionAnimation);
         Assert.Contains(response.Capabilities, capability => capability.Id == AvaScopeCapabilityIds.PreviewStateVariants);
         Assert.Contains(response.Tools, tool => tool.Adapter == "mcp" && tool.Name == "run_workflow");
         Assert.Contains(response.Tools, tool => tool.Adapter == "mcp" && tool.Name == "run_scenario");
         Assert.Contains(response.Tools, tool => tool.Adapter == "mcp" && tool.Name == "pointer_diagnostics");
         Assert.Contains(response.Tools, tool => tool.Adapter == "mcp" && tool.Name == "pseudo_state_matrix");
+        Assert.Contains(response.Tools, tool => tool.Adapter == "mcp" && tool.Name == "record_interaction_animation");
         Assert.Empty(node["value"]!["diagnostics"]!.AsArray());
     }
 
@@ -486,6 +488,116 @@ public sealed class ProtocolContractTests
         Assert.Equal("visual:item", responseNode["entries"]![0]!["target"]!["nodeId"]!.GetValue<string>());
         Assert.Equal("IsEnabled", responseNode["entries"]![0]!["appliedMutations"]![0]!["operation"]!["propertyName"]!.GetValue<string>());
         Assert.Equal("contact_sheet", responseNode["agentReview"]!["artifactPaths"]![1]!["kind"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public void RuntimeInteractionAnimationRequestAndResponseSerializeStableShapes()
+    {
+        var at = new DateTimeOffset(2026, 7, 1, 15, 0, 0, TimeSpan.Zero);
+        var sessionId = new SessionId("session-animation");
+        var request = new RuntimeInteractionAnimationRequest(
+            sessionId,
+            "topLevel:main",
+            [
+                new RuntimeInteractionAnimationStep(
+                    InputActions.Click,
+                    "expand-panel",
+                    x: 12,
+                    y: 8,
+                    frameOffsetsMs: [0, 120, 240])
+            ],
+            requestId: "interaction-1",
+            outputDirectory: "C:\\state\\interaction",
+            frameStripPath: "C:\\state\\interaction\\strip.png",
+            assertions:
+            [
+                new RuntimeInteractionGeometryAssertion(
+                    "visual:panel",
+                    RuntimeInteractionGeometryMetrics.Width,
+                    RuntimeInteractionGeometryAssertionModes.Stable,
+                    "panel-width",
+                    stepId: "expand-panel",
+                    tolerance: 1)
+            ]);
+        var screenshot = new ScreenshotResponse(
+            sessionId,
+            "topLevel:main",
+            "C:\\state\\interaction\\expand-panel-000ms.png",
+            320,
+            180,
+            at);
+        var sample = new RuntimeInteractionGeometrySample(
+            "expand-panel",
+            "expand-panel-00-0ms",
+            0,
+            120,
+            new NodeBounds(10, 20, 120, 40),
+            new NodeBounds(0, 0, 320, 180),
+            IsClippedByParent: false);
+        var response = new RuntimeInteractionAnimationResponse(
+            "interaction-1",
+            sessionId,
+            "topLevel:main",
+            "passed",
+            at,
+            at,
+            [
+                new RuntimeInteractionAnimationStepResult(
+                    "expand-panel",
+                    InputActions.Click,
+                    "passed",
+                    "Captured.",
+                    at,
+                    new InputResponse(sessionId, "topLevel:main", InputActions.Click, handled: true, at, "visual:button"),
+                    [
+                        new RuntimeInteractionAnimationFrame(
+                            "expand-panel",
+                            "expand-panel-00-0ms",
+                            0,
+                            0,
+                            at,
+                            screenshot,
+                            "C:\\state\\interaction\\expand-panel-000ms-geometry.png",
+                            [
+                                new RuntimeInteractionGeometrySnapshot(
+                                    "visual:panel",
+                                    "Avalonia.Controls.Border",
+                                    "AnimatedPanel",
+                                    "animated-panel",
+                                    null,
+                                    new NodeBounds(10, 20, 120, 40),
+                                    "visual:root",
+                                    new NodeBounds(0, 0, 320, 180),
+                                    IsClippedByParent: false)
+                            ])
+                    ])
+            ],
+            [
+                new RuntimeInteractionGeometryAssertionResult(
+                    "panel-width",
+                    "visual:panel",
+                    RuntimeInteractionGeometryMetrics.Width,
+                    RuntimeInteractionGeometryAssertionModes.Stable,
+                    "passed",
+                    "Stable.",
+                    tolerance: 1,
+                    stepId: "expand-panel",
+                    samples: [sample])
+            ],
+            "C:\\state\\interaction\\strip.png");
+
+        var requestNode = JsonNode.Parse(JsonSerializer.Serialize(request))!;
+        var responseNode = JsonNode.Parse(JsonSerializer.Serialize(response))!;
+
+        Assert.Equal("interaction-1", requestNode["requestId"]!.GetValue<string>());
+        Assert.Equal("click", requestNode["steps"]![0]!["action"]!.GetValue<string>());
+        Assert.Equal(120, requestNode["steps"]![0]!["frameOffsetsMs"]![1]!.GetValue<int>());
+        Assert.Equal("panel-width", requestNode["assertions"]![0]!["assertionId"]!.GetValue<string>());
+        Assert.Equal("passed", responseNode["status"]!.GetValue<string>());
+        Assert.Equal("expand-panel", responseNode["steps"]![0]!["frames"]![0]!["stepId"]!.GetValue<string>());
+        Assert.Equal("visual:panel", responseNode["steps"]![0]!["frames"]![0]!["geometry"]![0]!["nodeId"]!.GetValue<string>());
+        Assert.Equal(120, responseNode["assertions"]![0]!["samples"]![0]!["value"]!.GetValue<double>());
+        Assert.Equal("frame_strip", responseNode["agentReview"]!["artifactPaths"]![2]!["kind"]!.GetValue<string>());
     }
 
     [Fact]
