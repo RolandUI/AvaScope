@@ -26,17 +26,17 @@ GitHub Issues and Milestones are the primary project-management source for auton
 
 ## Current Focus
 
-- `Safe Runtime Scenario Runner With Isolated App State`
-- GitHub Issue: https://github.com/RolandUI/AvaScope/issues/45
+- `Open Issue Backlog Selection`
+- GitHub Issue: none active
 - GitHub Milestone: none
-- Status: `In Progress`
+- Status: `Not Started`
 - Owner: unassigned
 - Started: `2026-07-01`
-- Goal: complete the scenario runner layer over semantic workflow execution with launch/attach orchestration, isolated launched-app state, destructive-target guardrails, and human-readable timeline artifacts.
+- Goal: select the next open issue after completing and closing the validated #44 and #45 slices.
 
 ## Next Action
 
-Finish #45 full validation, commit/push the scenario runner slice, update GitHub with the commit hash and validation results, then close #45 if acceptance remains satisfied. GitHub issue #49 remains open for generated-report click-to-node provenance mapping.
+Select the next open issue from GitHub. #49 remains open for generated-report click-to-node provenance mapping; #46 through #53 remain backlog feature work.
 
 ## Latest Validation
 
