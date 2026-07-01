@@ -8,6 +8,11 @@ namespace AvaScope.Core;
 
 public sealed class RuntimeMutationReviewExporter
 {
+    private const int MaximumNodeMapEntries = 512;
+    private const int MaximumPropertyOriginsPerNode = 12;
+    private const int MaximumBindingsPerNode = 12;
+    private const int MaximumDiagnosticsPerNode = 8;
+
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
         WriteIndented = true
@@ -97,8 +102,8 @@ public sealed class RuntimeMutationReviewExporter
     {
         var title = $"Runtime mutation evidence - {evidence.Mutation.MutationId}";
         var diagnostics = CreateDiagnosticsHtml(evidence.Diagnostics.Concat(evidence.Mutation.Diagnostics));
-        var beforeFigure = CreateImageFigure("Before", evidence.BeforeScreenshotPath);
-        var afterFigure = CreateImageFigure("After", evidence.AfterScreenshotPath);
+        var beforeFigure = CreateImageFigure("Before", evidence.BeforeScreenshotPath, "before");
+        var afterFigure = CreateImageFigure("After", evidence.AfterScreenshotPath, "after");
         var diffFigure = CreateImageFigure("Diff", evidence.DiffPath);
         var beforeTarget = evidence.BeforeTarget is null
             ? "<p class=\"empty\">Before target was not found in the captured visual tree.</p>"
@@ -106,6 +111,9 @@ public sealed class RuntimeMutationReviewExporter
         var afterTarget = evidence.AfterTarget is null
             ? "<p class=\"empty\">After target was not found in the captured visual tree.</p>"
             : CreateTargetHtml(evidence.AfterTarget);
+        var nodeMaps = CreateEvidenceNodeMaps(evidence);
+        var nodeMapPanel = CreateNodeMapPanel(nodeMaps);
+        var nodeMapData = JsonSerializer.Serialize(nodeMaps, JsonOptions);
         var json = JsonSerializer.Serialize(evidence, JsonOptions);
 
         return WrapHtml(
@@ -131,6 +139,7 @@ public sealed class RuntimeMutationReviewExporter
               {{afterFigure}}
               {{diffFigure}}
             </section>
+            {{nodeMapPanel}}
             <section class="panel">
               <h2>Target Before</h2>
               {{beforeTarget}}
@@ -154,6 +163,7 @@ public sealed class RuntimeMutationReviewExporter
               <h2>Evidence JSON</h2>
               <pre>{{Html(json)}}</pre>
             </section>
+            <script type="application/json" id="avascope-node-map-data">{{Html(nodeMapData)}}</script>
             """);
     }
 
@@ -315,6 +325,15 @@ public sealed class RuntimeMutationReviewExporter
                   background: #fff;
                 }
 
+                figure img[data-node-map-id] {
+                  cursor: crosshair;
+                }
+
+                figure img.node-map-selected {
+                  border-color: var(--accent);
+                  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 60%, transparent);
+                }
+
                 figcaption {
                   color: var(--muted);
                   margin-top: 10px;
@@ -348,6 +367,25 @@ public sealed class RuntimeMutationReviewExporter
 
                 .empty { color: var(--muted); }
 
+                .node-map-result {
+                  border: 1px solid var(--border);
+                  border-radius: 8px;
+                  display: grid;
+                  gap: 8px;
+                  padding: 12px;
+                  background: #0a0e0c;
+                }
+
+                .node-map-properties {
+                  display: grid;
+                  gap: 6px;
+                }
+
+                .node-map-property {
+                  border-top: 1px solid var(--border);
+                  padding-top: 6px;
+                }
+
                 pre {
                   white-space: pre-wrap;
                   overflow-wrap: anywhere;
@@ -370,12 +408,13 @@ public sealed class RuntimeMutationReviewExporter
               <main>
                 {{body}}
               </main>
+              {{CreateNodeMapScript()}}
             </body>
             </html>
             """;
     }
 
-    private static string CreateImageFigure(string label, string? path)
+    private static string CreateImageFigure(string label, string? path, string? nodeMapId = null)
     {
         if (string.IsNullOrWhiteSpace(path))
         {
@@ -388,8 +427,11 @@ public sealed class RuntimeMutationReviewExporter
         }
 
         var fullPath = Path.GetFullPath(path);
+        var nodeMapAttributes = string.IsNullOrWhiteSpace(nodeMapId)
+            ? string.Empty
+            : $" class=\"node-map-image\" data-node-map-id=\"{Html(nodeMapId)}\" title=\"Click to map this screenshot region to the nearest inspected node.\"";
         var image = File.Exists(fullPath)
-            ? $"<img alt=\"{Html(label)} screenshot\" src=\"{Html(new Uri(fullPath).AbsoluteUri)}\">"
+            ? $"<img{nodeMapAttributes} alt=\"{Html(label)} screenshot\" src=\"{Html(new Uri(fullPath).AbsoluteUri)}\">"
             : "<p class=\"empty\">Artifact file was not found on disk.</p>";
 
         return $$"""
@@ -398,6 +440,314 @@ public sealed class RuntimeMutationReviewExporter
               {{image}}
               <figcaption>{{Html(fullPath)}}</figcaption>
             </figure>
+            """;
+    }
+
+    private static IReadOnlyDictionary<string, ScreenshotNodeMap> CreateEvidenceNodeMaps(
+        RuntimeMutationEvidenceResponse evidence)
+    {
+        return new Dictionary<string, ScreenshotNodeMap>(StringComparer.Ordinal)
+        {
+            ["before"] = CreateScreenshotNodeMap("before", evidence.BeforeVisualTreePath),
+            ["after"] = CreateScreenshotNodeMap("after", evidence.AfterVisualTreePath)
+        };
+    }
+
+    private static ScreenshotNodeMap CreateScreenshotNodeMap(string stage, string? snapshotPath)
+    {
+        if (string.IsNullOrWhiteSpace(snapshotPath))
+        {
+            return new ScreenshotNodeMap(stage, "unavailable", null, [], ["Visual tree snapshot path was not provided."]);
+        }
+
+        string fullPath;
+        try
+        {
+            fullPath = Path.GetFullPath(snapshotPath);
+        }
+        catch (Exception exception) when (exception is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            return new ScreenshotNodeMap(stage, "unavailable", snapshotPath, [], [$"Visual tree snapshot path is invalid: {exception.Message}"]);
+        }
+
+        if (!File.Exists(fullPath))
+        {
+            return new ScreenshotNodeMap(stage, "unavailable", fullPath, [], ["Visual tree snapshot file was not found."]);
+        }
+
+        try
+        {
+            var tree = JsonSerializer.Deserialize<TreeResponse>(File.ReadAllText(fullPath), JsonOptions);
+            if (tree is null)
+            {
+                return new ScreenshotNodeMap(stage, "unavailable", fullPath, [], ["Visual tree snapshot could not be read."]);
+            }
+
+            var nodes = new List<ScreenshotNodeMapEntry>();
+            var truncated = CollectNodeMapEntries(tree.Root, nodes);
+            IReadOnlyList<string> diagnostics = truncated
+                ? [$"Node map was truncated at {MaximumNodeMapEntries.ToString(CultureInfo.InvariantCulture)} bounded nodes."]
+                : [];
+            var status = nodes.Count == 0 ? "not_available" : "available";
+            return new ScreenshotNodeMap(stage, status, fullPath, nodes, diagnostics);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException or ArgumentException or NotSupportedException)
+        {
+            return new ScreenshotNodeMap(stage, "unavailable", fullPath, [], [$"Visual tree snapshot could not be read: {exception.Message}"]);
+        }
+    }
+
+    private static bool CollectNodeMapEntries(TreeNodeSummary node, List<ScreenshotNodeMapEntry> entries)
+    {
+        if (entries.Count >= MaximumNodeMapEntries)
+        {
+            return true;
+        }
+
+        var bounds = node.Bounds;
+        if (bounds is not null)
+        {
+            entries.Add(new ScreenshotNodeMapEntry(
+                node.NodeId,
+                node.NodeType,
+                node.Name,
+                node.AutomationId,
+                node.Text,
+                bounds,
+                node.Classes,
+                CreateNodeSourceMap(node.SourceMap)));
+
+            if (entries.Count >= MaximumNodeMapEntries)
+            {
+                return true;
+            }
+        }
+
+        foreach (var child in node.Children)
+        {
+            if (CollectNodeMapEntries(child, entries))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static ScreenshotNodeSourceMap? CreateNodeSourceMap(RuntimeNodeSourceMap? sourceMap)
+    {
+        if (sourceMap is null)
+        {
+            return null;
+        }
+
+        return new ScreenshotNodeSourceMap(
+            sourceMap.Status,
+            sourceMap.Provenance,
+            sourceMap.FilePath,
+            sourceMap.Line,
+            sourceMap.Column,
+            sourceMap.XName,
+            sourceMap.ElementType,
+            sourceMap.ElementPath,
+            sourceMap.PropertyOrigins.Take(MaximumPropertyOriginsPerNode).ToArray(),
+            sourceMap.Bindings.Take(MaximumBindingsPerNode).ToArray(),
+            sourceMap.Diagnostics.Take(MaximumDiagnosticsPerNode).ToArray());
+    }
+
+    private static string CreateNodeMapPanel(IReadOnlyDictionary<string, ScreenshotNodeMap> nodeMaps)
+    {
+        var before = nodeMaps.TryGetValue("before", out var beforeMap) ? beforeMap : null;
+        var after = nodeMaps.TryGetValue("after", out var afterMap) ? afterMap : null;
+
+        return $$"""
+            <section class="panel">
+              <h2>Screenshot Node Map</h2>
+              <p class="empty">Click the before or after screenshot to map the screenshot region to the nearest inspected node and provenance summary.</p>
+              <dl class="facts">
+                <dt>Before map</dt><dd>{{Html(DescribeNodeMap(before))}}</dd>
+                <dt>After map</dt><dd>{{Html(DescribeNodeMap(after))}}</dd>
+              </dl>
+              <div id="node-map-result" class="node-map-result">
+                <strong>No screenshot node selected.</strong>
+                <span class="empty">Select a point on a mapped screenshot.</span>
+              </div>
+            </section>
+            """;
+    }
+
+    private static string DescribeNodeMap(ScreenshotNodeMap? map)
+    {
+        if (map is null)
+        {
+            return "unavailable";
+        }
+
+        return $"{map.Status}, {map.Nodes.Count.ToString(CultureInfo.InvariantCulture)} bounded node(s)";
+    }
+
+    private static string CreateNodeMapScript()
+    {
+        return """
+            <script>
+            (() => {
+              const dataElement = document.getElementById('avascope-node-map-data');
+              const result = document.getElementById('node-map-result');
+              if (!dataElement || !result) {
+                return;
+              }
+
+              let nodeMaps = {};
+              try {
+                nodeMaps = JSON.parse(dataElement.textContent || '{}');
+              } catch (error) {
+                result.innerHTML = `<strong>Node map unavailable.</strong><span class="empty">${escapeHtml(error.message)}</span>`;
+                return;
+              }
+
+              const images = Array.from(document.querySelectorAll('img[data-node-map-id]'));
+              for (const image of images) {
+                image.addEventListener('click', event => {
+                  const mapId = image.dataset.nodeMapId;
+                  const map = nodeMaps[mapId];
+                  if (!map || !Array.isArray(map.nodes) || map.nodes.length === 0) {
+                    renderUnavailable(mapId, map);
+                    return;
+                  }
+
+                  const rect = image.getBoundingClientRect();
+                  const scaleX = image.naturalWidth > 0 ? image.naturalWidth / rect.width : 1;
+                  const scaleY = image.naturalHeight > 0 ? image.naturalHeight / rect.height : 1;
+                  const x = (event.clientX - rect.left) * scaleX;
+                  const y = (event.clientY - rect.top) * scaleY;
+                  const node = pickNearestNode(map.nodes, x, y);
+                  for (const other of images) {
+                    other.classList.toggle('node-map-selected', other === image);
+                  }
+
+                  renderSelection(mapId, x, y, node);
+                });
+              }
+
+              function pickNearestNode(nodes, x, y) {
+                let contained = null;
+                let containedArea = Number.POSITIVE_INFINITY;
+                let nearest = null;
+                let nearestScore = Number.POSITIVE_INFINITY;
+
+                for (const node of nodes) {
+                  const bounds = node.bounds;
+                  if (!bounds) {
+                    continue;
+                  }
+
+                  const left = Number(bounds.x);
+                  const top = Number(bounds.y);
+                  const width = Number(bounds.width);
+                  const height = Number(bounds.height);
+                  if (![left, top, width, height].every(Number.isFinite)) {
+                    continue;
+                  }
+
+                  const right = left + width;
+                  const bottom = top + height;
+                  const minX = Math.min(left, right);
+                  const maxX = Math.max(left, right);
+                  const minY = Math.min(top, bottom);
+                  const maxY = Math.max(top, bottom);
+                  const area = Math.max(Math.abs(width), 1) * Math.max(Math.abs(height), 1);
+                  const inside = x >= minX && x <= maxX && y >= minY && y <= maxY;
+                  if (inside && area < containedArea) {
+                    contained = node;
+                    containedArea = area;
+                  }
+
+                  const dx = x < minX ? minX - x : x > maxX ? x - maxX : 0;
+                  const dy = y < minY ? minY - y : y > maxY ? y - maxY : 0;
+                  const score = (dx * dx) + (dy * dy) + (area * 0.000001);
+                  if (score < nearestScore) {
+                    nearest = node;
+                    nearestScore = score;
+                  }
+                }
+
+                return contained || nearest;
+              }
+
+              function renderUnavailable(mapId, map) {
+                const diagnostics = Array.isArray(map?.diagnostics) ? map.diagnostics : ['No bounded nodes were available.'];
+                result.innerHTML = `
+                  <strong>${escapeHtml(labelFor(mapId))} node map unavailable.</strong>
+                  <span class="empty">${escapeHtml(diagnostics.join(' '))}</span>`;
+              }
+
+              function renderSelection(mapId, x, y, node) {
+                if (!node) {
+                  result.innerHTML = `
+                    <strong>No inspected node matched this point.</strong>
+                    <span class="empty">${escapeHtml(labelFor(mapId))} @ ${formatNumber(x)}, ${formatNumber(y)}</span>`;
+                  return;
+                }
+
+                const source = node.sourceMap || {};
+                const fileLine = source.filePath
+                  ? `${source.filePath}${source.line ? ':' + source.line : ''}`
+                  : 'unknown source';
+                const origins = Array.isArray(source.propertyOrigins) ? source.propertyOrigins : [];
+                const bindings = Array.isArray(source.bindings) ? source.bindings : [];
+                const propertyHtml = origins.length === 0
+                  ? '<span class="empty">No property provenance was available for this node.</span>'
+                  : origins.map(origin => `
+                      <div class="node-map-property">
+                        <strong>${escapeHtml(origin.propertyName)}</strong>
+                        <span>${escapeHtml(origin.value)} (${escapeHtml(origin.valueType)})</span>
+                        <span class="empty">${escapeHtml(origin.origin)} / ${escapeHtml(origin.priority)}${origin.resourceKey ? ' / resource ' + escapeHtml(origin.resourceKey) : ''}${origin.styleSelector ? ' / selector ' + escapeHtml(origin.styleSelector) : ''}</span>
+                      </div>`).join('');
+                const bindingHtml = bindings.length === 0
+                  ? '<span class="empty">No binding path metadata was available.</span>'
+                  : bindings.map(binding => `
+                      <div class="node-map-property">
+                        <strong>${escapeHtml(binding.targetProperty)}</strong>
+                        <span>${escapeHtml(binding.bindingPath)} / ${escapeHtml(binding.bindingKind)} / ${escapeHtml(binding.status)}</span>
+                      </div>`).join('');
+
+                result.innerHTML = `
+                  <strong>${escapeHtml(labelFor(mapId))}: ${escapeHtml(node.nodeId)} (${escapeHtml(node.nodeType)})</strong>
+                  <span>${escapeHtml(node.name || source.xName || '-')} ${node.text ? '/ ' + escapeHtml(node.text) : ''}</span>
+                  <span class="empty">clicked ${formatNumber(x)}, ${formatNumber(y)}; bounds ${formatBounds(node.bounds)}</span>
+                  <span class="empty">source ${escapeHtml(fileLine)} / ${escapeHtml(source.status || 'unknown')} / ${escapeHtml(source.provenance || 'unknown')}</span>
+                  <div class="node-map-properties">${propertyHtml}</div>
+                  <div class="node-map-properties">${bindingHtml}</div>`;
+              }
+
+              function formatBounds(bounds) {
+                if (!bounds) {
+                  return 'unknown';
+                }
+
+                return `${formatNumber(bounds.x)}, ${formatNumber(bounds.y)}, ${formatNumber(bounds.width)} x ${formatNumber(bounds.height)}`;
+              }
+
+              function formatNumber(value) {
+                const number = Number(value);
+                return Number.isFinite(number) ? number.toFixed(1).replace(/\.0$/, '') : 'unknown';
+              }
+
+              function labelFor(mapId) {
+                return mapId === 'before' ? 'Before screenshot' : mapId === 'after' ? 'After screenshot' : String(mapId || 'Screenshot');
+              }
+
+              function escapeHtml(value) {
+                return String(value ?? '').replace(/[&<>"']/g, character => ({
+                  '&': '&amp;',
+                  '<': '&lt;',
+                  '>': '&gt;',
+                  '"': '&quot;',
+                  "'": '&#39;'
+                }[character]));
+              }
+            })();
+            </script>
             """;
     }
 
@@ -488,6 +838,36 @@ public sealed class RuntimeMutationReviewExporter
                 """;
         }));
     }
+
+    private sealed record ScreenshotNodeMap(
+        string Stage,
+        string Status,
+        string? SnapshotPath,
+        IReadOnlyList<ScreenshotNodeMapEntry> Nodes,
+        IReadOnlyList<string> Diagnostics);
+
+    private sealed record ScreenshotNodeMapEntry(
+        string NodeId,
+        string NodeType,
+        string? Name,
+        string? AutomationId,
+        string? Text,
+        NodeBounds Bounds,
+        IReadOnlyList<string> Classes,
+        ScreenshotNodeSourceMap? SourceMap);
+
+    private sealed record ScreenshotNodeSourceMap(
+        string Status,
+        string Provenance,
+        string? FilePath,
+        int? Line,
+        int? Column,
+        string? XName,
+        string? ElementType,
+        string? ElementPath,
+        IReadOnlyList<RuntimeSourcePropertyOrigin> PropertyOrigins,
+        IReadOnlyList<RuntimeSourceBinding> Bindings,
+        IReadOnlyList<ProtocolError> Diagnostics);
 
     private static CoreResult<RuntimeMutationReviewArtifact> Unavailable(string message)
     {
