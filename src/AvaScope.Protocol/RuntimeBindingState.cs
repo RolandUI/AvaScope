@@ -10,7 +10,8 @@ public sealed record RuntimeBindingState
         string? dataContextType = null,
         string bindingMetadataStatus = "not_available",
         IReadOnlyList<RuntimeBoundProperty>? boundProperties = null,
-        IReadOnlyList<ProtocolError>? diagnostics = null)
+        IReadOnlyList<ProtocolError>? diagnostics = null,
+        RuntimeNodeSourceMap? sourceMap = null)
     {
         if (string.IsNullOrWhiteSpace(dataContextStatus))
         {
@@ -24,6 +25,7 @@ public sealed record RuntimeBindingState
             : bindingMetadataStatus;
         BoundProperties = boundProperties ?? Array.Empty<RuntimeBoundProperty>();
         Diagnostics = diagnostics ?? Array.Empty<ProtocolError>();
+        SourceMap = sourceMap;
     }
 
     [JsonPropertyName("dataContextStatus")]
@@ -41,4 +43,8 @@ public sealed record RuntimeBindingState
 
     [JsonPropertyName("diagnostics")]
     public IReadOnlyList<ProtocolError> Diagnostics { get; }
+
+    [JsonPropertyName("sourceMap")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public RuntimeNodeSourceMap? SourceMap { get; }
 }

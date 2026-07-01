@@ -16,7 +16,8 @@ public sealed record TreeNodeSummary
         IReadOnlyList<TreeNodeSummary>? children = null,
         RuntimeTargetContext? target = null,
         RuntimeAccessibilityState? accessibilityState = null,
-        RuntimeValidationState? validationState = null)
+        RuntimeValidationState? validationState = null,
+        RuntimeNodeSourceMap? sourceMap = null)
     {
         if (string.IsNullOrWhiteSpace(nodeId))
         {
@@ -39,6 +40,7 @@ public sealed record TreeNodeSummary
         Target = target;
         AccessibilityState = accessibilityState;
         ValidationState = validationState;
+        SourceMap = sourceMap;
     }
 
     [JsonPropertyName("nodeId")]
@@ -80,4 +82,8 @@ public sealed record TreeNodeSummary
     [JsonPropertyName("validationState")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public RuntimeValidationState? ValidationState { get; }
+
+    [JsonPropertyName("sourceMap")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public RuntimeNodeSourceMap? SourceMap { get; }
 }

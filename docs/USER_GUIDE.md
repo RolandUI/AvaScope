@@ -266,7 +266,7 @@ The bridge is not enabled unless `AVASCOPE_SAMPLE_BRIDGE` is set to `1` or `true
 Build first, then run the CLI assembly from the build output:
 
 ```powershell
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll preview path\to\App.csproj --view Views\MainView.axaml --out .\preview.png --width 1440 --height 900 --dpi 96 --theme light --culture ja-JP --design-data-type MyApp.Design.PreviewData
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll preview path\to\App.csproj --view Views\MainView.axaml --out .\preview.png --width 1440 --height 900 --dpi 96 --theme light --culture ja-JP --design-data-type MyApp.Design.PreviewData --state-variant loading
 ```
 
 Query supported protocol and tool features before relying on newer agent workflows:
@@ -280,6 +280,7 @@ dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll capabilities --require 
 
 The command writes a structured JSON `ToolResult<PreviewResponse>` to stdout. On success, `value.filePath` points to the generated PNG.
 `--width` and `--height` can be omitted when the root AXAML declares design-time dimensions with `d:DesignWidth`/`d:DesignHeight` or `Design.Width`/`Design.Height`. Project previews also apply root design-time data from `Design.DataContext` or `d:DataContext="{x:Static ...}"`; an explicit `--design-data-type` still takes precedence.
+`--state-variant` selects an explicit design-data state such as `empty`, `loading`, `error`, `long-text`, `many-rows`, `validation-errors`, or `narrow`. PreviewHost applies it by using a public `ForState(string)`, `Create(string)`, string constructor, `StateVariant` property, or `ApplyState(string)` member on the configured design-data type. The response echoes `stateVariant` and includes `state_variant_applied` or `state_variant_not_applied` diagnostics.
 
 Repeated preview settings can live in `avascope.preview.json` beside the project file:
 
@@ -293,11 +294,16 @@ Repeated preview settings can live in `avascope.preview.json` beside the project
       "height": 420,
       "theme": "light",
       "designDataType": "MyApp.Design.PreviewData",
+      "stateVariant": "empty",
       "displayName": "Main preview",
       "variants": {
         "dark": {
           "theme": "dark",
           "out": "../../artifacts/samples/main-preview-dark.png"
+        },
+        "loading": {
+          "stateVariant": "loading",
+          "out": "../../artifacts/samples/main-preview-loading.png"
         },
         "hu": {
           "culture": "hu-HU",
@@ -317,7 +323,7 @@ dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll preview path\to\App.csp
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll create-preview-session path\to\App.csproj --profile main
 ```
 
-Named variants are applied after the base profile and before explicit CLI options, so `--height 600` still overrides a variant height. Profile `out`, `contactSheet`, `frameStripPath`, and `viewerPath` paths are resolved relative to the profile file; `--profile-file <path>` can point to a non-default profile file.
+Named variants are applied after the base profile and before explicit CLI options, so `--height 600` still overrides a variant height. Profiles and variants can include `stateVariant` for repeatable state injection. Profile `out`, `contactSheet`, `frameStripPath`, and `viewerPath` paths are resolved relative to the profile file; `--profile-file <path>` can point to a non-default profile file.
 
 Render multiple viewport sizes from one preview request:
 
@@ -407,9 +413,10 @@ Inspect a single runtime tree node by stable node id:
 ```powershell
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll inspect-node --session session-id --top-level topLevel:1234 --node visual:5678
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll inspect-node --session session-id --top-level topLevel:1234 --node logical:5678 --tree-kind logical
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll explain-layout --session session-id --top-level topLevel:1234 --node visual:5678
 ```
 
-`inspect-node` includes bounded `computedProperties` for high-value visual, style, text, and layout properties. Provenance uses public Avalonia diagnostic priority where available and reports `unknown` or `not_available` instead of guessing private style/resource origins. For selected runtime nodes it can also include `scrollState` for `ScrollViewer` metrics, `bindingState` with `DataContext` type and explicit binding metadata availability, `accessibilityState` from public automation/focus metadata, `validationState` from `DataValidationErrors`, and `debugState` fields from controls that implement the opt-in `IAvaScopeDebugStateProvider` bridge contract.
+`inspect-node` includes bounded `computedProperties` for high-value visual, style, text, and layout properties, plus `sourceMap` when Avalonia XAML diagnostics or source snippets can identify file, line, column, `x:Name`, declared bindings, and style/template/resource origins. Provenance uses public Avalonia diagnostic priority where available and reports `unknown` or `not_available` instead of guessing private style/resource origins. For selected runtime nodes it can also include `layoutExplanation` with desired size, bounds, constraints, clipping, Grid cell, ScrollViewer, and ancestor metrics; `scrollState` for `ScrollViewer` metrics; `bindingState` with `DataContext` type, binding expression/path, resolved-value status, converter/fallback/null status, compiled-binding status, and source mapping; `accessibilityState` from public automation/focus metadata; `validationState` from `DataValidationErrors`; and `debugState` fields from controls that implement the opt-in `IAvaScopeDebugStateProvider` bridge contract. Use `explain-layout` when an agent only needs the bounded measure/arrange explanation for one node.
 
 Find runtime tree nodes by type, name, automation id, or text:
 
@@ -438,6 +445,53 @@ dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll input --session session
 ```
 
 Input responses include `pointerButton` for supported pointer/click actions, `inputKey`/`keyModifiers` for routed key actions, wheel/scroll deltas for scroll actions, and bounded metadata such as selected index/item or before/after scroll offsets.
+
+Run semantic workflow steps by stable runtime selectors instead of coordinates:
+
+```json
+{
+  "sessionId": "session-id",
+  "topLevelId": "topLevel:1234",
+  "outputDirectory": "artifacts/workflows/settings",
+  "captureAfterEachStep": true,
+  "steps": [
+    {
+      "id": "open-settings",
+      "action": "click",
+      "selector": { "automationId": "settings-button" }
+    },
+    {
+      "id": "select-general",
+      "action": "select",
+      "selector": { "role": "TabItem", "text": "General" }
+    },
+    {
+      "id": "type-server",
+      "action": "type_text",
+      "selector": { "bindingPath": "ServerUrl" },
+      "text": "http://localhost:5000"
+    },
+    {
+      "id": "assert-server",
+      "action": "assert_state",
+      "selector": { "bindingPath": "ServerUrl" },
+      "assertProperty": "Text",
+      "expected": "http://localhost:5000"
+    },
+    {
+      "id": "final-shot",
+      "action": "screenshot",
+      "screenshotPath": "artifacts/workflows/settings/final.png"
+    }
+  ]
+}
+```
+
+```powershell
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll run-workflow --request .\workflow.json
+```
+
+Workflow selectors can target `nodeId`, `automationId`, `text`, `name`, `nodeType`, `role`, `bindingPath`, or `commandName`. Destructive-looking click/select targets are rejected unless the request declares `allowDestructive` or an `isolatedStateDirectory`.
 
 Apply a reversible runtime mutation and capture an agent evidence package:
 
@@ -613,9 +667,11 @@ Implemented tools:
 - `visual_tree`
 - `logical_tree`
 - `inspect_node`
+- `explain_layout`
 - `find_nodes`
 - `audit_ui`
 - `input`
+- `run_workflow`
 - `mutate_node`
 - `mutate_node_evidence`
 - `mutation_review`

@@ -35,10 +35,24 @@ public sealed class CliSmokeTests
         Assert.Contains(payload.Value.Capabilities, capability =>
             capability.Id == AvaScopeCapabilityIds.RuntimeStyleLayoutMutation
             && capability.Metadata["runtimeMutationCapability"] == RuntimeMutationCapabilityCatalog.StyleLayoutMutation);
+        Assert.Contains(payload.Value.Capabilities, capability =>
+            capability.Id == AvaScopeCapabilityIds.RuntimeSemanticWorkflow
+            && capability.Status == AvaScopeCapabilityStatuses.Available);
+        Assert.Contains(payload.Value.Capabilities, capability =>
+            capability.Id == AvaScopeCapabilityIds.PreviewStateVariants
+            && capability.Status == AvaScopeCapabilityStatuses.Available);
         Assert.Contains(payload.Value.Tools, tool =>
             tool.Adapter == "cli"
             && tool.Name == "capabilities"
             && tool.CapabilityIds.Contains(AvaScopeCapabilityIds.ProtocolCapabilityDiscovery));
+        Assert.Contains(payload.Value.Tools, tool =>
+            tool.Adapter == "cli"
+            && tool.Name == "run-workflow"
+            && tool.CapabilityIds.Contains(AvaScopeCapabilityIds.RuntimeSemanticWorkflow));
+        Assert.Contains(payload.Value.Tools, tool =>
+            tool.Adapter == "cli"
+            && tool.Name == "explain-layout"
+            && tool.CapabilityIds.Contains(AvaScopeCapabilityIds.RuntimeLayoutExplain));
         Assert.Contains(payload.Value.RuntimeMutationCapabilities, capability =>
             capability.Name == RuntimeMutationCapabilityCatalog.RuntimeMutationContract);
     }
@@ -120,7 +134,9 @@ public sealed class CliSmokeTests
                 "--culture",
                 "ja-JP",
                 "--design-data-type",
-                "CliPreviewSample.PreviewDesignData");
+                "CliPreviewSample.PreviewDesignData",
+                "--state-variant",
+                "loading");
 
             Assert.Equal(0, result.ExitCode);
             Assert.True(string.IsNullOrWhiteSpace(result.StandardError), result.StandardError);
@@ -133,6 +149,7 @@ public sealed class CliSmokeTests
             Assert.Equal(140, payload.Value.PixelHeight);
             Assert.Equal("ja-JP", payload.Value.Culture);
             Assert.Equal("CliPreviewSample.PreviewDesignData", payload.Value.DesignDataType);
+            Assert.Equal("loading", payload.Value.StateVariant);
             Assert.True(File.Exists(payload.Value.FilePath));
             Assert.True(new FileInfo(payload.Value.FilePath).Length > 0);
         }
@@ -479,7 +496,8 @@ public sealed class CliSmokeTests
                     "dark-wide": {
                       "out": "{{Path.GetFileName(variantOutputPath)}}",
                       "width": 300,
-                      "theme": "dark"
+                      "theme": "dark",
+                      "stateVariant": "loading"
                     }
                   }
                 }
@@ -510,6 +528,7 @@ public sealed class CliSmokeTests
             Assert.Equal(300, payload.Value.PixelWidth);
             Assert.Equal(180, payload.Value.PixelHeight);
             Assert.Equal("dark", payload.Value.ThemeVariant);
+            Assert.Equal("loading", payload.Value.StateVariant);
             Assert.True(File.Exists(payload.Value.FilePath));
         }
         finally

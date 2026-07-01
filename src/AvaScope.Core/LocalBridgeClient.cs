@@ -284,7 +284,51 @@ public sealed class LocalBridgeClient
                 name: name,
                 automationId: automationId,
                 text: text,
-                maxResults: maxResults),
+            maxResults: maxResults),
+            cancellationToken);
+    }
+
+    public async Task<CoreResult<LayoutExplainResponse>> ExplainLayoutAsync(
+        SessionId sessionId,
+        string topLevelId,
+        string treeKind,
+        string nodeId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(sessionId);
+
+        if (string.IsNullOrWhiteSpace(topLevelId))
+        {
+            return CoreResult<LayoutExplainResponse>.Fail(
+                new CoreError(CoreErrorCodes.InvalidBridgeRequest, "Top-level id cannot be empty."));
+        }
+
+        if (string.IsNullOrWhiteSpace(treeKind))
+        {
+            return CoreResult<LayoutExplainResponse>.Fail(
+                new CoreError(CoreErrorCodes.InvalidBridgeRequest, "Tree kind cannot be empty."));
+        }
+
+        if (string.IsNullOrWhiteSpace(nodeId))
+        {
+            return CoreResult<LayoutExplainResponse>.Fail(
+                new CoreError(CoreErrorCodes.InvalidBridgeRequest, "Node id cannot be empty."));
+        }
+
+        var manifestResult = FindSingleManifest(null, sessionId);
+        if (!manifestResult.Success)
+        {
+            return CoreResult<LayoutExplainResponse>.Fail(manifestResult.Error!);
+        }
+
+        return await SendAsync<LayoutExplainResponse>(
+            manifestResult.Value!,
+            new BridgeIpcRequest(
+                NewRequestId(),
+                BridgeIpcMethods.ExplainLayout,
+                topLevelId,
+                treeKind: treeKind,
+                nodeId: nodeId),
             cancellationToken);
     }
 

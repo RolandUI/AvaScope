@@ -24,7 +24,8 @@ public sealed record PreviewBaselineSuiteExpansion
         RuntimeTargetContext? runtimeTarget = null,
         IReadOnlyList<string>? mutationPresetIds = null,
         int? animationTimeOffsetMs = null,
-        PreviewComparisonRules? comparisonRules = null)
+        PreviewComparisonRules? comparisonRules = null,
+        string? stateVariant = null)
     {
         if (index < 0)
         {
@@ -83,6 +84,7 @@ public sealed record PreviewBaselineSuiteExpansion
         ThemeVariant = string.IsNullOrWhiteSpace(themeVariant) ? null : themeVariant;
         Culture = string.IsNullOrWhiteSpace(culture) ? null : culture;
         DesignDataType = string.IsNullOrWhiteSpace(designDataType) ? null : designDataType;
+        StateVariant = string.IsNullOrWhiteSpace(stateVariant) ? null : stateVariant;
         ProfileName = string.IsNullOrWhiteSpace(profileName) ? null : profileName;
         ProfileVariant = string.IsNullOrWhiteSpace(profileVariant) ? null : profileVariant;
         ProfileFilePath = string.IsNullOrWhiteSpace(profileFilePath) ? null : Path.GetFullPath(profileFilePath);
@@ -130,6 +132,10 @@ public sealed record PreviewBaselineSuiteExpansion
     [JsonPropertyName("designDataType")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? DesignDataType { get; }
+
+    [JsonPropertyName("stateVariant")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? StateVariant { get; }
 
     [JsonPropertyName("profileName")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

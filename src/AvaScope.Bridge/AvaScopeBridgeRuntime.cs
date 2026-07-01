@@ -10,6 +10,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.LogicalTree;
+using Avalonia.Markup.Xaml.Diagnostics;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
@@ -19,6 +20,7 @@ using AvaScope.Protocol;
 using System.Collections.Concurrent;
 using System.Globalization;
 using System.Runtime.CompilerServices;
+using System.Text.RegularExpressions;
 
 namespace AvaScope.Bridge;
 
@@ -30,6 +32,8 @@ public sealed class AvaScopeBridgeRuntime
     private const int MaximumFindResultLimit = 1000;
     private const int MaximumDebugFieldCount = 32;
     private const int MaximumDebugValueLength = 500;
+    private const int MaximumRuntimeSourceBindings = 32;
+    private const int MaximumRuntimeLayoutAncestors = 16;
     private const int MaximumMutationHistoryEntries = 128;
     private const int DefaultMutationReviewLimit = 50;
     private const string MutationValueKindBrush = "brush";
@@ -237,6 +241,40 @@ public sealed class AvaScopeBridgeRuntime
         return Dispatcher.UIThread
             .InvokeAsync(
                 () => InspectNode(topLevelId, treeKind, nodeId),
+                DispatcherPriority.Background,
+                cancellationToken)
+            .GetTask();
+    }
+
+    public Task<CoreResult<LayoutExplainResponse>> ExplainLayoutAsync(
+        string topLevelId,
+        string treeKind,
+        string nodeId,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(topLevelId))
+        {
+            throw new ArgumentException("Top-level id cannot be empty.", nameof(topLevelId));
+        }
+
+        if (string.IsNullOrWhiteSpace(treeKind))
+        {
+            throw new ArgumentException("Tree kind cannot be empty.", nameof(treeKind));
+        }
+
+        if (string.IsNullOrWhiteSpace(nodeId))
+        {
+            throw new ArgumentException("Node id cannot be empty.", nameof(nodeId));
+        }
+
+        if (Dispatcher.UIThread.CheckAccess())
+        {
+            return Task.FromResult(ExplainLayout(topLevelId, treeKind, nodeId));
+        }
+
+        return Dispatcher.UIThread
+            .InvokeAsync(
+                () => ExplainLayout(topLevelId, treeKind, nodeId),
                 DispatcherPriority.Background,
                 cancellationToken)
             .GetTask();
@@ -565,7 +603,7 @@ public sealed class AvaScopeBridgeRuntime
 
         if (string.IsNullOrWhiteSpace(nodeId))
         {
-            return InvalidInspectRequest("Node id cannot be empty.");
+            return InvalidInspectRequest<InspectNodeResponse>("Node id cannot be empty.");
         }
 
         return treeKind switch
@@ -586,6 +624,9 @@ public sealed class AvaScopeBridgeRuntime
             return NodeNotFound(topLevelId, TreeKinds.Visual, nodeId);
         }
 
+        var computedProperties = GetComputedProperties(node);
+        var sourceMap = CreateRuntimeSourceMap(node, computedProperties);
+        var target = CreateNodeTarget(topLevelId, TreeKinds.Visual, topLevel, node);
         return CoreResult<InspectNodeResponse>.Ok(new InspectNodeResponse(
             SessionId,
             topLevelId,
@@ -598,13 +639,15 @@ public sealed class AvaScopeBridgeRuntime
             GetText(node),
             GetBounds(node),
             GetClasses(node),
-            GetComputedProperties(node),
-            CreateNodeTarget(topLevelId, TreeKinds.Visual, topLevel, node),
+            computedProperties,
+            target,
             GetScrollState(topLevel, topLevelId, node),
-            GetBindingState(node),
+            GetBindingState(node, sourceMap, computedProperties),
             GetDebugState(node),
             GetAccessibilityState(node),
-            GetValidationState(node)));
+            GetValidationState(node),
+            sourceMap,
+            CreateLayoutExplanation(topLevel, topLevelId, node, target)));
     }
 
     private CoreResult<InspectNodeResponse> InspectLogicalNode(ILogical root, TopLevel topLevel, string topLevelId, string nodeId)
@@ -615,6 +658,9 @@ public sealed class AvaScopeBridgeRuntime
             return NodeNotFound(topLevelId, TreeKinds.Logical, nodeId);
         }
 
+        var computedProperties = GetComputedProperties(node);
+        var sourceMap = CreateRuntimeSourceMap(node, computedProperties);
+        var target = CreateNodeTarget(topLevelId, TreeKinds.Logical, topLevel, node);
         return CoreResult<InspectNodeResponse>.Ok(new InspectNodeResponse(
             SessionId,
             topLevelId,
@@ -627,13 +673,54 @@ public sealed class AvaScopeBridgeRuntime
             GetText(node),
             GetBounds(node),
             GetClasses(node),
-            GetComputedProperties(node),
-            CreateNodeTarget(topLevelId, TreeKinds.Logical, topLevel, node),
+            computedProperties,
+            target,
             GetScrollState(topLevel, topLevelId, node),
-            GetBindingState(node),
+            GetBindingState(node, sourceMap, computedProperties),
             GetDebugState(node),
             GetAccessibilityState(node),
-            GetValidationState(node)));
+            GetValidationState(node),
+            sourceMap,
+            CreateLayoutExplanation(topLevel, topLevelId, node, target)));
+    }
+
+    private CoreResult<LayoutExplainResponse> ExplainLayout(string topLevelId, string treeKind, string nodeId)
+    {
+        Dispatcher.UIThread.VerifyAccess();
+
+        var topLevel = FindTopLevel(topLevelId);
+        if (topLevel is null)
+        {
+            return TopLevelNotFound<LayoutExplainResponse>(topLevelId);
+        }
+
+        if (string.IsNullOrWhiteSpace(nodeId))
+        {
+            return InvalidInspectRequest<LayoutExplainResponse>("Node id cannot be empty.");
+        }
+
+        object? node = treeKind switch
+        {
+            TreeKinds.Visual => FindVisualNodeById(topLevel, nodeId),
+            TreeKinds.Logical => topLevel is ILogical logical ? FindLogicalNodeById(logical, nodeId) : null,
+            _ => null
+        };
+
+        if (node is null)
+        {
+            return treeKind is TreeKinds.Visual or TreeKinds.Logical
+                ? NodeNotFound<LayoutExplainResponse>(topLevelId, treeKind, nodeId)
+                : InvalidInspectRequest<LayoutExplainResponse>($"Tree kind '{treeKind}' is not supported for top-level '{topLevelId}'.");
+        }
+
+        var target = CreateNodeTarget(topLevelId, treeKind, topLevel, node);
+        return CoreResult<LayoutExplainResponse>.Ok(new LayoutExplainResponse(
+            SessionId,
+            topLevelId,
+            treeKind,
+            CreateNodeId(node, treeKind),
+            CreateLayoutExplanation(topLevel, topLevelId, node, target),
+            target));
     }
 
     private CoreResult<InputResponse> Input(
@@ -3023,12 +3110,28 @@ public sealed class AvaScopeBridgeRuntime
         return CoreResult<InspectNodeResponse>.Fail(new CoreError(BridgeErrorCodes.InvalidInspectRequest, message));
     }
 
+    private static CoreResult<T> InvalidInspectRequest<T>(string message)
+    {
+        return CoreResult<T>.Fail(new CoreError(BridgeErrorCodes.InvalidInspectRequest, message));
+    }
+
     private static CoreResult<InspectNodeResponse> NodeNotFound(
         string topLevelId,
         string treeKind,
         string nodeId)
     {
         return CoreResult<InspectNodeResponse>.Fail(new CoreError(
+            BridgeErrorCodes.NodeNotFound,
+            $"Node '{nodeId}' was not found in the {treeKind} tree for top-level '{topLevelId}'.",
+            CreateTargetErrorDetails(topLevelId, treeKind, nodeId)));
+    }
+
+    private static CoreResult<T> NodeNotFound<T>(
+        string topLevelId,
+        string treeKind,
+        string nodeId)
+    {
+        return CoreResult<T>.Fail(new CoreError(
             BridgeErrorCodes.NodeNotFound,
             $"Node '{nodeId}' was not found in the {treeKind} tree for top-level '{topLevelId}'.",
             CreateTargetErrorDetails(topLevelId, treeKind, nodeId)));
@@ -3161,7 +3264,8 @@ public sealed class AvaScopeBridgeRuntime
             children,
             CreateNodeTarget(topLevelId, treeKind, topLevel, node),
             GetAccessibilityState(node),
-            GetValidationState(node));
+            GetValidationState(node),
+            CreateRuntimeSourceMap(node, computedProperties: null));
     }
 
     private RuntimeTargetContext CreateTopLevelTarget(string topLevelId, TopLevel topLevel)
@@ -3396,7 +3500,10 @@ public sealed class AvaScopeBridgeRuntime
             CreateNodeTarget(topLevelId, TreeKinds.Visual, topLevel, layoutable));
     }
 
-    private static RuntimeBindingState GetBindingState(object node)
+    private static RuntimeBindingState GetBindingState(
+        object node,
+        RuntimeNodeSourceMap? sourceMap,
+        IReadOnlyList<ComputedPropertyValue> computedProperties)
     {
         if (node is not StyledElement styledElement)
         {
@@ -3408,23 +3515,805 @@ public sealed class AvaScopeBridgeRuntime
                     new ProtocolError(
                         "runtime_binding_metadata_not_available",
                         "Runtime binding state requires a StyledElement target.")
-                ]);
+                ],
+                sourceMap: sourceMap);
         }
 
         var dataContext = styledElement.DataContext;
         var dataContextStatus = dataContext is null ? "not_available" : "available";
-        var diagnostics = new List<ProtocolError>
+        var diagnostics = new List<ProtocolError>();
+        var boundProperties = GetRuntimeBoundProperties(styledElement, sourceMap, computedProperties);
+        if (boundProperties.Count == 0)
         {
-            new(
+            diagnostics.Add(new ProtocolError(
                 "runtime_binding_path_metadata_not_available",
-                "Avalonia public runtime APIs did not expose stable binding path metadata for this selected node; computedProperties still report current safe property values.")
-        };
+                "Avalonia public runtime APIs did not expose active binding expression metadata for this selected node; sourceMap.bindings may still contain XAML-declared binding paths when XAML source info is available."));
+        }
 
         return new RuntimeBindingState(
             dataContextStatus,
             dataContext?.GetType().FullName ?? dataContext?.GetType().Name,
-            "not_available",
-            diagnostics: diagnostics);
+            boundProperties.Count == 0 ? "not_available" : "available",
+            boundProperties,
+            diagnostics,
+            sourceMap);
+    }
+
+    private static IReadOnlyList<RuntimeBoundProperty> GetRuntimeBoundProperties(
+        StyledElement styledElement,
+        RuntimeNodeSourceMap? sourceMap,
+        IReadOnlyList<ComputedPropertyValue> computedProperties)
+    {
+        if (styledElement is not AvaloniaObject avaloniaObject)
+        {
+            return Array.Empty<RuntimeBoundProperty>();
+        }
+
+        var sourceBindings = sourceMap?.Bindings ?? Array.Empty<RuntimeSourceBinding>();
+        var sourceBindingsByProperty = sourceBindings
+            .GroupBy(static binding => binding.TargetProperty, StringComparer.Ordinal)
+            .ToDictionary(static group => group.Key, static group => group.First(), StringComparer.Ordinal);
+        var properties = GetInspectableProperties(styledElement).ToArray();
+        var results = new List<RuntimeBoundProperty>();
+
+        foreach (var property in properties)
+        {
+            var expression = TryGetBindingExpression(avaloniaObject, property);
+            sourceBindingsByProperty.TryGetValue(property.Name, out var sourceBinding);
+            if (expression is null && sourceBinding is null)
+            {
+                continue;
+            }
+
+            var computed = computedProperties.FirstOrDefault(value => string.Equals(value.Name, property.Name, StringComparison.Ordinal));
+            var value = computed?.Value ?? TryGetPropertyValue(avaloniaObject, property);
+            var valueType = computed?.ValueType ?? "not_available";
+            var expressionText = expression?.ToString();
+            var expressionType = expression?.GetType().FullName ?? expression?.GetType().Name;
+            var compiledStatus = sourceBinding?.BindingKind == "compiled"
+                || expressionType?.Contains("Compiled", StringComparison.OrdinalIgnoreCase) == true
+                ? "compiled"
+                : expression is null
+                    ? "source_declared"
+                    : "runtime";
+
+            results.Add(new RuntimeBoundProperty(
+                property.Name,
+                sourceBinding?.BindingPath ?? "not_available",
+                value,
+                valueType,
+                computed?.Source ?? "binding",
+                expression is null ? "source_declared" : "active",
+                expressionText,
+                expressionType,
+                value == "not_available" ? "not_available" : "available",
+                sourceBinding?.ConverterResourceKey is null ? "not_available" : "declared",
+                "not_available",
+                string.Equals(value, "null", StringComparison.Ordinal) ? "null" : "not_null",
+                compiledStatus,
+                sourceBinding));
+        }
+
+        foreach (var binding in sourceBindings)
+        {
+            if (results.Any(result => string.Equals(result.PropertyName, binding.TargetProperty, StringComparison.Ordinal)))
+            {
+                continue;
+            }
+
+            results.Add(new RuntimeBoundProperty(
+                binding.TargetProperty,
+                binding.BindingPath,
+                "not_available",
+                "not_available",
+                "source_map",
+                "source_declared",
+                binding.Expression,
+                binding.BindingKind,
+                "not_available",
+                binding.ConverterResourceKey is null ? "not_available" : "declared",
+                "not_available",
+                "not_available",
+                binding.BindingKind,
+                binding));
+        }
+
+        return results.Take(MaximumRuntimeSourceBindings).ToArray();
+    }
+
+    private static object? TryGetBindingExpression(AvaloniaObject avaloniaObject, AvaloniaProperty property)
+    {
+        try
+        {
+            return BindingOperations.GetBindingExpressionBase(avaloniaObject, property);
+        }
+        catch (InvalidOperationException)
+        {
+            return null;
+        }
+        catch (ArgumentException)
+        {
+            return null;
+        }
+    }
+
+    private static string TryGetPropertyValue(AvaloniaObject avaloniaObject, AvaloniaProperty property)
+    {
+        try
+        {
+            return FormatComputedValue(avaloniaObject.GetValue(property));
+        }
+        catch (InvalidOperationException)
+        {
+            return "not_available";
+        }
+        catch (ArgumentException)
+        {
+            return "not_available";
+        }
+    }
+
+    private static RuntimeNodeSourceMap CreateRuntimeSourceMap(
+        object node,
+        IReadOnlyList<ComputedPropertyValue>? computedProperties)
+    {
+        var sourceInfo = TryGetXamlSourceInfo(node);
+        var filePath = GetSourceFilePath(sourceInfo);
+        var line = sourceInfo?.LineNumber > 0 ? sourceInfo.LineNumber : (int?)null;
+        var column = sourceInfo?.LinePosition > 0 ? sourceInfo.LinePosition : (int?)null;
+        var sourceElement = TryReadSourceElement(filePath, line, GetName(node), node.GetType().Name);
+        var propertyOrigins = CreatePropertyOrigins(computedProperties, filePath, line);
+        var bindings = sourceElement?.Bindings ?? Array.Empty<RuntimeSourceBinding>();
+        var diagnostics = new List<ProtocolError>();
+
+        if (sourceInfo is null)
+        {
+            diagnostics.Add(new ProtocolError(
+                "runtime_xaml_source_info_not_available",
+                "Avalonia did not expose XAML source info for this runtime object."));
+        }
+        else if (filePath is null)
+        {
+            diagnostics.Add(new ProtocolError(
+                "runtime_xaml_source_file_not_available",
+                "Avalonia exposed source line metadata without a readable source file path."));
+        }
+        else if (sourceElement is null)
+        {
+            diagnostics.Add(new ProtocolError(
+                "runtime_xaml_source_element_not_resolved",
+                "AvaScope could not map the runtime source line to a readable XAML element start tag."));
+        }
+
+        var status = sourceInfo is not null
+            ? "available"
+            : propertyOrigins.Count > 0
+                ? "partial"
+                : "not_available";
+        var provenance = sourceInfo is not null
+            ? "avalonia_xaml_source_info"
+            : propertyOrigins.Count > 0
+                ? "avalonia_property_diagnostics"
+                : "not_available";
+
+        return new RuntimeNodeSourceMap(
+            status,
+            provenance,
+            filePath,
+            line,
+            column,
+            sourceElement?.XName ?? GetName(node),
+            sourceElement?.ElementType ?? node.GetType().Name,
+            sourceElement?.ElementPath,
+            propertyOrigins,
+            bindings,
+            diagnostics);
+    }
+
+    private static XamlSourceInfo? TryGetXamlSourceInfo(object node)
+    {
+        try
+        {
+            return XamlSourceInfo.GetXamlSourceInfo(node);
+        }
+        catch (ArgumentException)
+        {
+            return null;
+        }
+        catch (InvalidOperationException)
+        {
+            return null;
+        }
+    }
+
+    private static string? GetSourceFilePath(XamlSourceInfo? sourceInfo)
+    {
+        if (sourceInfo?.SourceUri is null)
+        {
+            return null;
+        }
+
+        var uri = sourceInfo.SourceUri;
+        var path = uri.IsFile ? uri.LocalPath : uri.ToString();
+        return string.IsNullOrWhiteSpace(path) ? null : path;
+    }
+
+    private static SourceElementInfo? TryReadSourceElement(
+        string? filePath,
+        int? line,
+        string? xName,
+        string fallbackElementType)
+    {
+        if (string.IsNullOrWhiteSpace(filePath)
+            || line is null
+            || !File.Exists(filePath))
+        {
+            return null;
+        }
+
+        try
+        {
+            var lines = File.ReadAllLines(filePath);
+            if (line.Value < 1 || line.Value > lines.Length)
+            {
+                return null;
+            }
+
+            var lineIndex = line.Value - 1;
+            var start = FindElementStartLine(lines, lineIndex, xName, fallbackElementType);
+            if (start is null)
+            {
+                return null;
+            }
+
+            var end = start.Value;
+            while (end + 1 < lines.Length
+                && !lines[end].Contains('>')
+                && end - start.Value < 32)
+            {
+                end++;
+            }
+
+            var snippet = string.Join(" ", lines[start.Value..(end + 1)]).Trim();
+            var elementType = ExtractElementType(snippet) ?? fallbackElementType;
+            var resolvedName = ExtractXName(snippet) ?? xName;
+            var bindings = ExtractRuntimeSourceBindings(snippet, filePath, start.Value + 1);
+            var elementPath = string.IsNullOrWhiteSpace(resolvedName)
+                ? $"{elementType}@{(start.Value + 1).ToString(CultureInfo.InvariantCulture)}"
+                : $"{elementType}#{resolvedName}";
+
+            return new SourceElementInfo(
+                elementType,
+                elementPath,
+                resolvedName,
+                snippet,
+                bindings);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException or RegexMatchTimeoutException)
+        {
+            return null;
+        }
+    }
+
+    private static int? FindElementStartLine(
+        IReadOnlyList<string> lines,
+        int lineIndex,
+        string? xName,
+        string fallbackElementType)
+    {
+        var min = Math.Max(0, lineIndex - 24);
+        for (var i = lineIndex; i >= min; i--)
+        {
+            var text = lines[i].TrimStart();
+            if (!text.StartsWith('<') || text.StartsWith("</", StringComparison.Ordinal) || text.StartsWith("<!--", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            if (!string.IsNullOrWhiteSpace(xName))
+            {
+                var windowEnd = Math.Min(lines.Count - 1, i + 16);
+                var window = string.Join(" ", lines.Skip(i).Take(windowEnd - i + 1));
+                if (!window.Contains($"Name=\"{xName}\"", StringComparison.Ordinal)
+                    && !window.Contains($"x:Name=\"{xName}\"", StringComparison.Ordinal)
+                    && !window.Contains($"Name='{xName}'", StringComparison.Ordinal)
+                    && !window.Contains($"x:Name='{xName}'", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+            }
+
+            if (text.Contains(fallbackElementType, StringComparison.Ordinal)
+                || string.IsNullOrWhiteSpace(fallbackElementType)
+                || Regex.IsMatch(text, @"^<\s*[\w:.]+", RegexOptions.CultureInvariant))
+            {
+                return i;
+            }
+        }
+
+        return null;
+    }
+
+    private static string? ExtractElementType(string snippet)
+    {
+        var match = Regex.Match(
+            snippet,
+            @"<\s*(?<name>[\w:.]+)",
+            RegexOptions.CultureInvariant);
+        return match.Success ? match.Groups["name"].Value : null;
+    }
+
+    private static string? ExtractXName(string snippet)
+    {
+        var match = Regex.Match(
+            snippet,
+            @"(?:^|\s)(?:x:)?Name\s*=\s*[""'](?<name>[^""']+)[""']",
+            RegexOptions.CultureInvariant);
+        return match.Success ? match.Groups["name"].Value : null;
+    }
+
+    private static IReadOnlyList<RuntimeSourceBinding> ExtractRuntimeSourceBindings(
+        string snippet,
+        string filePath,
+        int startLine)
+    {
+        var bindings = new List<RuntimeSourceBinding>();
+        foreach (Match match in Regex.Matches(
+            snippet,
+            @"(?<property>[\w:.]+)\s*=\s*[""'](?<expression>[^""']*\{(?:Binding|CompiledBinding)[^""']*)[""']",
+            RegexOptions.CultureInvariant))
+        {
+            var expression = match.Groups["expression"].Value;
+            var bindingPath = ExtractRuntimeBindingPath(expression) ?? "not_available";
+            bindings.Add(new RuntimeSourceBinding(
+                NormalizeXamlPropertyName(match.Groups["property"].Value),
+                bindingPath,
+                expression,
+                expression.Contains("{CompiledBinding", StringComparison.Ordinal) ? "compiled" : "runtime",
+                sourcePath: filePath,
+                line: startLine,
+                converterResourceKey: ExtractRuntimeConverterResourceKey(expression),
+                dataTypeName: ExtractRuntimeDataTypeName(snippet)));
+
+            if (bindings.Count >= MaximumRuntimeSourceBindings)
+            {
+                break;
+            }
+        }
+
+        return bindings;
+    }
+
+    private static string NormalizeXamlPropertyName(string value)
+    {
+        var trimmed = value.Trim();
+        var propertySeparator = trimmed.LastIndexOf('.');
+        if (propertySeparator >= 0 && propertySeparator < trimmed.Length - 1)
+        {
+            trimmed = trimmed[(propertySeparator + 1)..];
+        }
+
+        var namespaceSeparator = trimmed.LastIndexOf(':');
+        return namespaceSeparator >= 0 && namespaceSeparator < trimmed.Length - 1
+            ? trimmed[(namespaceSeparator + 1)..]
+            : trimmed;
+    }
+
+    private static string? ExtractRuntimeBindingPath(string expression)
+    {
+        var pathMatch = Regex.Match(
+            expression,
+            @"(?:^|[,{]\s*)Path\s*=\s*(?<path>[^,}]+)",
+            RegexOptions.CultureInvariant);
+        if (pathMatch.Success)
+        {
+            return CleanRuntimeBindingToken(pathMatch.Groups["path"].Value);
+        }
+
+        var positionalMatch = Regex.Match(
+            expression,
+            @"\{(?:Binding|CompiledBinding)\s+(?<path>[^,}]+)",
+            RegexOptions.CultureInvariant);
+        if (!positionalMatch.Success)
+        {
+            return null;
+        }
+
+        var path = CleanRuntimeBindingToken(positionalMatch.Groups["path"].Value);
+        return string.Equals(path, "}", StringComparison.Ordinal) ? null : path;
+    }
+
+    private static string CleanRuntimeBindingToken(string value)
+    {
+        return value.Trim().Trim('"', '\'');
+    }
+
+    private static string? ExtractRuntimeConverterResourceKey(string expression)
+    {
+        var match = Regex.Match(
+            expression,
+            @"Converter\s*=\s*\{(?:StaticResource|DynamicResource)\s+(?<key>[^},\s]+)",
+            RegexOptions.CultureInvariant);
+        return match.Success ? match.Groups["key"].Value : null;
+    }
+
+    private static string? ExtractRuntimeDataTypeName(string snippet)
+    {
+        var match = Regex.Match(
+            snippet,
+            @"x:DataType\s*=\s*[""'](?<type>[^""']+)[""']",
+            RegexOptions.CultureInvariant);
+        return match.Success ? match.Groups["type"].Value : null;
+    }
+
+    private static IReadOnlyList<RuntimeSourcePropertyOrigin> CreatePropertyOrigins(
+        IReadOnlyList<ComputedPropertyValue>? computedProperties,
+        string? filePath,
+        int? line)
+    {
+        if (computedProperties is null || computedProperties.Count == 0)
+        {
+            return Array.Empty<RuntimeSourcePropertyOrigin>();
+        }
+
+        return computedProperties
+            .Select(property => new RuntimeSourcePropertyOrigin(
+                property.Name,
+                property.Value,
+                property.ValueType,
+                property.Source,
+                property.Priority,
+                property.Diagnostic,
+                ExtractResourceKeyHint(property.Diagnostic),
+                styleSelector: property.Source == "style" ? "not_available" : null,
+                templateOrigin: property.Source == "template" ? "template_or_template_binding" : null,
+                filePath,
+                line))
+            .ToArray();
+    }
+
+    private static string? ExtractResourceKeyHint(string? diagnostic)
+    {
+        if (string.IsNullOrWhiteSpace(diagnostic))
+        {
+            return null;
+        }
+
+        var match = Regex.Match(
+            diagnostic,
+            @"(?:StaticResource|DynamicResource|resource)\s+['""]?(?<key>[\w.-]+)",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        return match.Success ? match.Groups["key"].Value : null;
+    }
+
+    private RuntimeLayoutExplanation CreateLayoutExplanation(
+        TopLevel topLevel,
+        string topLevelId,
+        object node,
+        RuntimeTargetContext target)
+    {
+        if (node is not Layoutable layoutable)
+        {
+            return new RuntimeLayoutExplanation(
+                "not_available",
+                "Layout explain requires an Avalonia Layoutable target.",
+                new RuntimeLayoutMetrics(
+                    "not_available",
+                    target.NodeId,
+                    node.GetType().FullName ?? node.GetType().Name,
+                    GetBounds(node),
+                    target: target),
+                "not_available",
+                reasons:
+                [
+                    new RuntimeLayoutReason(
+                        "layoutable_required",
+                        "The selected node does not expose DesiredSize, measure validity, or arrange validity through Avalonia Layoutable.",
+                        "warning")
+                ]);
+        }
+
+        var nodeMetrics = CreateLayoutMetrics(topLevelId, topLevel, layoutable, target);
+        var ancestors = CreateLayoutAncestors(topLevel, topLevelId, layoutable);
+        var reasons = CreateLayoutReasons(topLevel, layoutable, ancestors);
+        var parentConstraint = ancestors.FirstOrDefault()?.Bounds is { } parentBounds
+            ? new RuntimeSize(parentBounds.Width, parentBounds.Height)
+            : null;
+        var status = reasons.Any(static reason => reason.Severity is "warning" or "error")
+            ? "issues_found"
+            : "available";
+        var summary = status == "issues_found"
+            ? reasons.First(static reason => reason.Severity is "warning" or "error").Message
+            : "The node is arranged within its current parent bounds.";
+
+        return new RuntimeLayoutExplanation(
+            status,
+            summary,
+            nodeMetrics,
+            "inferred_from_parent_bounds",
+            parentConstraint,
+            ancestors,
+            reasons);
+    }
+
+    private RuntimeLayoutMetrics CreateLayoutMetrics(
+        string topLevelId,
+        TopLevel topLevel,
+        Layoutable layoutable,
+        RuntimeTargetContext? target = null)
+    {
+        return new RuntimeLayoutMetrics(
+            "available",
+            target?.NodeId ?? CreateNodeId(layoutable, TreeKinds.Visual),
+            layoutable.GetType().FullName ?? layoutable.GetType().Name,
+            GetBounds(layoutable),
+            new RuntimeSize(layoutable.DesiredSize.Width, layoutable.DesiredSize.Height),
+            new RuntimeSize(layoutable.Bounds.Width, layoutable.Bounds.Height),
+            target ?? CreateNodeTarget(topLevelId, TreeKinds.Visual, topLevel, layoutable));
+    }
+
+    private IReadOnlyList<RuntimeLayoutAncestor> CreateLayoutAncestors(
+        TopLevel topLevel,
+        string topLevelId,
+        Layoutable layoutable)
+    {
+        if (layoutable is not Visual visual)
+        {
+            return Array.Empty<RuntimeLayoutAncestor>();
+        }
+
+        return visual.GetVisualAncestors()
+            .Take(MaximumRuntimeLayoutAncestors)
+            .Select(ancestor => CreateLayoutAncestor(topLevel, topLevelId, ancestor))
+            .ToArray();
+    }
+
+    private RuntimeLayoutAncestor CreateLayoutAncestor(TopLevel topLevel, string topLevelId, Visual ancestor)
+    {
+        var layoutable = ancestor as Layoutable;
+        var control = ancestor as Control;
+        var grid = ancestor as Grid;
+        return new RuntimeLayoutAncestor(
+            CreateNodeId(ancestor, TreeKinds.Visual),
+            ancestor.GetType().FullName ?? ancestor.GetType().Name,
+            GetName(ancestor),
+            GetBounds(ancestor),
+            layoutable is null ? null : new RuntimeSize(layoutable.DesiredSize.Width, layoutable.DesiredSize.Height),
+            layoutable is null ? null : new RuntimeSize(layoutable.Bounds.Width, layoutable.Bounds.Height),
+            ancestor.ClipToBounds,
+            ancestor is Panel ? ancestor.GetType().Name : null,
+            control is null ? null : Grid.GetRow(control).ToString(CultureInfo.InvariantCulture),
+            control is null ? null : Grid.GetColumn(control).ToString(CultureInfo.InvariantCulture),
+            control is null ? null : Grid.GetRowSpan(control).ToString(CultureInfo.InvariantCulture),
+            control is null ? null : Grid.GetColumnSpan(control).ToString(CultureInfo.InvariantCulture),
+            grid is null ? null : FormatGridDefinitionActuals(grid.RowDefinitions, "ActualHeight"),
+            grid is null ? null : FormatGridDefinitionActuals(grid.ColumnDefinitions, "ActualWidth"),
+            GetScrollState(topLevel, topLevelId, ancestor));
+    }
+
+    private static IReadOnlyList<RuntimeLayoutReason> CreateLayoutReasons(
+        TopLevel topLevel,
+        Layoutable layoutable,
+        IReadOnlyList<RuntimeLayoutAncestor> ancestors)
+    {
+        var reasons = new List<RuntimeLayoutReason>();
+        var nodeId = CreateNodeId(layoutable, TreeKinds.Visual);
+        var nodeType = layoutable.GetType().FullName ?? layoutable.GetType().Name;
+        var bounds = layoutable.Bounds;
+        var desired = layoutable.DesiredSize;
+
+        if (bounds.Width <= 0 || bounds.Height <= 0)
+        {
+            reasons.Add(new RuntimeLayoutReason(
+                "arranged_zero_size",
+                "The node was arranged to zero width or height.",
+                "warning",
+                nodeId,
+                nodeType,
+                new Dictionary<string, string>
+                {
+                    ["boundsWidth"] = bounds.Width.ToString(CultureInfo.InvariantCulture),
+                    ["boundsHeight"] = bounds.Height.ToString(CultureInfo.InvariantCulture),
+                    ["desiredWidth"] = desired.Width.ToString(CultureInfo.InvariantCulture),
+                    ["desiredHeight"] = desired.Height.ToString(CultureInfo.InvariantCulture),
+                    ["isMeasureValid"] = layoutable.IsMeasureValid.ToString(CultureInfo.InvariantCulture),
+                    ["isArrangeValid"] = layoutable.IsArrangeValid.ToString(CultureInfo.InvariantCulture)
+                }));
+        }
+
+        if (desired.Width > bounds.Width + 0.5 || desired.Height > bounds.Height + 0.5)
+        {
+            reasons.Add(new RuntimeLayoutReason(
+                "desired_size_exceeds_bounds",
+                "The node desired more space than it received during arrange.",
+                "warning",
+                nodeId,
+                nodeType,
+                new Dictionary<string, string>
+                {
+                    ["desiredWidth"] = desired.Width.ToString(CultureInfo.InvariantCulture),
+                    ["desiredHeight"] = desired.Height.ToString(CultureInfo.InvariantCulture),
+                    ["boundsWidth"] = bounds.Width.ToString(CultureInfo.InvariantCulture),
+                    ["boundsHeight"] = bounds.Height.ToString(CultureInfo.InvariantCulture)
+                }));
+        }
+
+        if (layoutable is Visual visual)
+        {
+            AddClipReasons(topLevel, visual, reasons);
+            AddGridReasons(visual, reasons);
+            AddScrollViewerReasons(topLevel, visual, ancestors, reasons);
+        }
+
+        if (ancestors.FirstOrDefault() is { Bounds: { Width: <= 0 } or { Height: <= 0 } } parent)
+        {
+            reasons.Add(new RuntimeLayoutReason(
+                "parent_arranged_zero_size",
+                "The immediate visual parent has zero arranged size.",
+                "warning",
+                parent.NodeId,
+                parent.NodeType));
+        }
+
+        if (reasons.Count == 0)
+        {
+            reasons.Add(new RuntimeLayoutReason(
+                "layout_within_bounds",
+                "No zero-size, clipping, Grid, or ScrollViewer constraint issue was detected from public runtime layout state.",
+                "info",
+                nodeId,
+                nodeType));
+        }
+
+        return reasons;
+    }
+
+    private static void AddClipReasons(TopLevel topLevel, Visual visual, ICollection<RuntimeLayoutReason> reasons)
+    {
+        var nodeBounds = GetGlobalBounds(visual, topLevel);
+        if (nodeBounds is null)
+        {
+            return;
+        }
+
+        foreach (var ancestor in visual.GetVisualAncestors())
+        {
+            if (!ancestor.ClipToBounds)
+            {
+                continue;
+            }
+
+            var ancestorBounds = GetGlobalBounds(ancestor, topLevel);
+            if (ancestorBounds is null || Contains(ancestorBounds.Value, nodeBounds.Value))
+            {
+                continue;
+            }
+
+            reasons.Add(new RuntimeLayoutReason(
+                "clipped_by_ancestor",
+                "A clipping ancestor does not fully contain the node bounds.",
+                "warning",
+                CreateNodeId(ancestor, TreeKinds.Visual),
+                ancestor.GetType().FullName ?? ancestor.GetType().Name,
+                new Dictionary<string, string>
+                {
+                    ["clippingAncestorClipToBounds"] = "true",
+                    ["nodeGlobalBounds"] = FormatRect(nodeBounds.Value),
+                    ["ancestorGlobalBounds"] = FormatRect(ancestorBounds.Value)
+                }));
+            return;
+        }
+    }
+
+    private static void AddGridReasons(Visual visual, ICollection<RuntimeLayoutReason> reasons)
+    {
+        if (visual.GetVisualParent() is not Grid grid || visual is not Control control)
+        {
+            return;
+        }
+
+        reasons.Add(new RuntimeLayoutReason(
+            "grid_cell_constraint",
+            "The immediate parent Grid controls this node through row and column sizing.",
+            "info",
+            CreateNodeId(grid, TreeKinds.Visual),
+            grid.GetType().FullName ?? grid.GetType().Name,
+            new Dictionary<string, string>
+            {
+                ["row"] = Grid.GetRow(control).ToString(CultureInfo.InvariantCulture),
+                ["column"] = Grid.GetColumn(control).ToString(CultureInfo.InvariantCulture),
+                ["rowSpan"] = Grid.GetRowSpan(control).ToString(CultureInfo.InvariantCulture),
+                ["columnSpan"] = Grid.GetColumnSpan(control).ToString(CultureInfo.InvariantCulture),
+                ["rowHeights"] = FormatGridDefinitionActuals(grid.RowDefinitions, "ActualHeight"),
+                ["columnWidths"] = FormatGridDefinitionActuals(grid.ColumnDefinitions, "ActualWidth")
+            }));
+    }
+
+    private static void AddScrollViewerReasons(
+        TopLevel topLevel,
+        Visual visual,
+        IReadOnlyList<RuntimeLayoutAncestor> ancestors,
+        ICollection<RuntimeLayoutReason> reasons)
+    {
+        var scrollAncestor = visual.GetVisualAncestors().OfType<ScrollViewer>().FirstOrDefault();
+        if (scrollAncestor is null)
+        {
+            return;
+        }
+
+        var viewport = scrollAncestor.Viewport;
+        var extent = scrollAncestor.Extent;
+        var nodeBounds = GetGlobalBounds(visual, topLevel);
+        var scrollBounds = GetGlobalBounds(scrollAncestor, topLevel);
+        var outsideViewport = nodeBounds is not null
+            && scrollBounds is not null
+            && !Contains(scrollBounds.Value, nodeBounds.Value);
+
+        if (extent.Width <= viewport.Width && extent.Height <= viewport.Height && !outsideViewport)
+        {
+            return;
+        }
+
+        reasons.Add(new RuntimeLayoutReason(
+            "scrollviewer_viewport_constraint",
+            outsideViewport
+                ? "The node is outside or partially outside a ScrollViewer viewport."
+                : "A ScrollViewer ancestor constrains content to a smaller viewport than its extent.",
+            outsideViewport ? "warning" : "info",
+            CreateNodeId(scrollAncestor, TreeKinds.Visual),
+            scrollAncestor.GetType().FullName ?? scrollAncestor.GetType().Name,
+            new Dictionary<string, string>
+            {
+                ["offset"] = $"{scrollAncestor.Offset.X.ToString(CultureInfo.InvariantCulture)},{scrollAncestor.Offset.Y.ToString(CultureInfo.InvariantCulture)}",
+                ["extent"] = $"{extent.Width.ToString(CultureInfo.InvariantCulture)}x{extent.Height.ToString(CultureInfo.InvariantCulture)}",
+                ["viewport"] = $"{viewport.Width.ToString(CultureInfo.InvariantCulture)}x{viewport.Height.ToString(CultureInfo.InvariantCulture)}",
+                ["ancestorChainContainsScrollViewer"] = ancestors.Any(static ancestor => ancestor.ScrollState is not null).ToString(CultureInfo.InvariantCulture)
+            }));
+    }
+
+    private static Rect? GetGlobalBounds(Visual visual, Visual root)
+    {
+        var point = visual.TranslatePoint(new Point(0, 0), root);
+        return point is null ? null : new Rect(point.Value, visual.Bounds.Size);
+    }
+
+    private static bool Contains(Rect outer, Rect inner)
+    {
+        return inner.Left >= outer.Left
+            && inner.Top >= outer.Top
+            && inner.Right <= outer.Right
+            && inner.Bottom <= outer.Bottom;
+    }
+
+    private static string FormatRect(Rect rect)
+    {
+        return string.Create(
+            CultureInfo.InvariantCulture,
+            $"{rect.X:0.###},{rect.Y:0.###},{rect.Width:0.###},{rect.Height:0.###}");
+    }
+
+    private static string FormatGridDefinitionActuals<T>(IEnumerable<T> definitions, string propertyName)
+    {
+        return string.Join(
+            ";",
+            definitions.Select((definition, index) =>
+                $"{index.ToString(CultureInfo.InvariantCulture)}:{GetReflectedDouble(definition, propertyName)}"));
+    }
+
+    private static string GetReflectedDouble(object? instance, string propertyName)
+    {
+        if (instance is null)
+        {
+            return "not_available";
+        }
+
+        var property = instance.GetType().GetProperty(propertyName);
+        if (property?.GetValue(instance) is IFormattable formattable)
+        {
+            return formattable.ToString("0.###", CultureInfo.InvariantCulture);
+        }
+
+        return "not_available";
     }
 
     private static RuntimeDebugState GetDebugState(object node)
@@ -3665,6 +4554,13 @@ public sealed class AvaScopeBridgeRuntime
         Action Reset);
 
     private sealed record ResolvedMutationTarget(object Node, RuntimeTargetContext Target);
+
+    private sealed record SourceElementInfo(
+        string ElementType,
+        string ElementPath,
+        string? XName,
+        string Snippet,
+        IReadOnlyList<RuntimeSourceBinding> Bindings);
 
     private sealed class TopLevelRegistration(Action unregister) : IDisposable
     {

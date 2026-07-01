@@ -18,7 +18,8 @@ public sealed record PreviewResponse
         string? designDataType = null,
         IReadOnlyList<PreviewDiagnostic>? diagnostics = null,
         int? animationTimeOffsetMs = null,
-        PreviewProjectInfo? projectInfo = null)
+        PreviewProjectInfo? projectInfo = null,
+        string? stateVariant = null)
     {
         if (string.IsNullOrWhiteSpace(filePath))
         {
@@ -58,6 +59,7 @@ public sealed record PreviewResponse
         Diagnostics = diagnostics ?? [];
         AnimationTimeOffsetMs = animationTimeOffsetMs;
         ProjectInfo = projectInfo;
+        StateVariant = string.IsNullOrWhiteSpace(stateVariant) ? null : stateVariant;
     }
 
     [JsonPropertyName("filePath")]
@@ -105,4 +107,8 @@ public sealed record PreviewResponse
     [JsonPropertyName("projectInfo")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public PreviewProjectInfo? ProjectInfo { get; }
+
+    [JsonPropertyName("stateVariant")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? StateVariant { get; }
 }

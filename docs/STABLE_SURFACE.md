@@ -65,9 +65,11 @@ The stable CLI command name set is:
 - `visual-tree`
 - `logical-tree`
 - `inspect-node`
+- `explain-layout`
 - `find-nodes`
 - `audit-ui`
 - `input`
+- `run-workflow`
 - `mutate-node`
 - `mutate-node-evidence`
 - `mutation-review`
@@ -112,9 +114,11 @@ The stable MCP tool name set is:
 - `visual_tree`
 - `logical_tree`
 - `inspect_node`
+- `explain_layout`
 - `find_nodes`
 - `audit_ui`
 - `input`
+- `run_workflow`
 - `mutate_node`
 - `mutate_node_evidence`
 - `mutation_review`

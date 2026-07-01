@@ -13,8 +13,12 @@ public static class AvaScopeCapabilityIds
     public const string RuntimeSessionLifecycle = "runtime.session_lifecycle";
     public const string RuntimeTrees = "runtime.trees";
     public const string RuntimeInspect = "runtime.inspect";
+    public const string RuntimeSourceMap = "runtime.source_map";
+    public const string RuntimeBindingInspector = "runtime.binding_inspector";
+    public const string RuntimeLayoutExplain = "runtime.layout_explain";
     public const string RuntimeFind = "runtime.find";
     public const string RuntimeInput = "runtime.input";
+    public const string RuntimeSemanticWorkflow = "runtime.semantic_workflow";
     public const string RuntimeMutationContract = "runtime.mutation_contract";
     public const string RuntimeStyleLayoutMutation = "runtime.style_layout_mutation";
     public const string RuntimeMutationEvidence = "runtime.mutation_evidence";
@@ -28,6 +32,7 @@ public static class AvaScopeCapabilityIds
     public const string PreviewViewer = "preview.viewer";
     public const string PreviewMultiSize = "preview.multi_size";
     public const string PreviewAnimation = "preview.animation";
+    public const string PreviewStateVariants = "preview.state_variants";
 
     public const string DiagnosticsSummary = "diagnostics.summary";
 

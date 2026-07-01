@@ -2455,6 +2455,114 @@ public sealed class PreviewHostSmokeTests
     }
 
     [Fact]
+    public async Task PreviewHostAppliesExplicitStateVariantThroughDesignDataFactory()
+    {
+        var hostAssembly = Path.Combine(AppContext.BaseDirectory, "AvaScope.PreviewHost.dll");
+        Assert.True(File.Exists(hostAssembly), $"Expected preview host assembly at {hostAssembly}.");
+
+        var testRoot = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(testRoot);
+
+        var projectPath = Path.Combine(testRoot, "StateVariantPreviewSample.csproj");
+        var viewPath = Path.Combine(testRoot, "StateVariantView.axaml");
+        var codeBehindPath = Path.Combine(testRoot, "StateVariantView.axaml.cs");
+        var designDataPath = Path.Combine(testRoot, "PreviewDesignData.cs");
+        var requestPath = Path.Combine(testRoot, "request.json");
+        var outputPath = Path.Combine(testRoot, "preview.png");
+
+        await File.WriteAllTextAsync(projectPath, """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <Nullable>enable</Nullable>
+              </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="Avalonia" Version="12.0.4" />
+              </ItemGroup>
+            </Project>
+            """);
+
+        await File.WriteAllTextAsync(viewPath, """
+            <UserControl xmlns="https://github.com/avaloniaui"
+                         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                         xmlns:local="using:StateVariantPreviewSample"
+                         x:Class="StateVariantPreviewSample.StateVariantView"
+                         x:DataType="local:PreviewDesignData">
+              <Border Width="220" Height="140" Background="{Binding PreviewBrush}" />
+            </UserControl>
+            """);
+
+        await File.WriteAllTextAsync(codeBehindPath, """
+            using Avalonia.Controls;
+
+            namespace StateVariantPreviewSample;
+
+            public partial class StateVariantView : UserControl
+            {
+                public StateVariantView()
+                {
+                    InitializeComponent();
+                }
+            }
+            """);
+
+        await File.WriteAllTextAsync(designDataPath, """
+            using Avalonia.Media;
+
+            namespace StateVariantPreviewSample;
+
+            public sealed class PreviewDesignData
+            {
+                public PreviewDesignData()
+                    : this("default")
+                {
+                }
+
+                private PreviewDesignData(string state)
+                {
+                    PreviewBrush = state == "loading"
+                        ? new SolidColorBrush(Color.FromArgb(0xFF, 0x1B, 0x99, 0x8B))
+                        : new SolidColorBrush(Color.FromArgb(0xFF, 0x5C, 0x2A, 0x9D));
+                }
+
+                public static PreviewDesignData ForState(string state) => new(state);
+
+                public IBrush PreviewBrush { get; }
+            }
+            """);
+
+        var request = new PreviewRequest(
+            outputPath,
+            width: 220,
+            height: 140,
+            dpi: 96,
+            projectPath: projectPath,
+            viewPath: "StateVariantView.axaml",
+            themeVariant: "light",
+            designDataType: "StateVariantPreviewSample.PreviewDesignData",
+            stateVariant: "loading");
+
+        await File.WriteAllTextAsync(requestPath, JsonSerializer.Serialize(request, JsonOptions));
+
+        try
+        {
+            var result = await RunPreviewHostAsync(hostAssembly, requestPath, expectedExitCode: 0);
+
+            Assert.NotNull(result);
+            Assert.True(result.Success, result.Error?.Message);
+            Assert.Equal("loading", result.Value!.StateVariant);
+            var diagnostic = Assert.Single(result.Value.Diagnostics, diagnostic => diagnostic.Code == "state_variant_applied");
+            Assert.Equal("loading", diagnostic.Details["stateVariant"]);
+            Assert.Equal("static_ForState", diagnostic.Details["activationKind"]);
+            AssertCenterPixel(outputPath, red: 0x1B, green: 0x99, blue: 0x8B);
+        }
+        finally
+        {
+            await DeleteDirectoryWithRetryAsync(testRoot);
+        }
+    }
+
+    [Fact]
     public async Task PreviewHostAppliesDesignTimeStaticDataContextAsRootDataContext()
     {
         var hostAssembly = Path.Combine(AppContext.BaseDirectory, "AvaScope.PreviewHost.dll");

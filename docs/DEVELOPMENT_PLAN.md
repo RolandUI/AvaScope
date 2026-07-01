@@ -26,20 +26,21 @@ GitHub Issues and Milestones are the primary project-management source for auton
 
 ## Current Focus
 
-- `Installer And Stable CLI Discovery`
-- GitHub Issue: https://github.com/RolandUI/AvaScope/issues/54
+- `Runtime Provenance, Layout Explain, Semantic Workflow, And Preview State Variants`
+- GitHub Issue: https://github.com/RolandUI/AvaScope/issues/49
 - GitHub Milestone: none
-- Status: `Done`
+- Status: `Review`
 - Owner: unassigned
-- Started: `2026-06-14`
-- Goal: add a Windows per-user install workflow that exposes a stable `avascope` command and machine-readable discovery manifest without publishing a release.
+- Started: `2026-07-01`
+- Goal: implement the user-requested runtime node source map, layout explanation diagnostics, semantic workflow runner, live binding/DataContext inspector metadata, and explicit preview state variants.
 
 ## Next Action
 
-No active implementation issue. Keep release workflow guarded by `Directory.Build.props` version bumps.
+Complete the remaining broader #49 HTML report click-to-node acceptance item or select a follow-up issue. GitHub issue #45 remains open for launch orchestration, rollback/snapshot isolation, and human-readable scenario timelines beyond the semantic workflow subset implemented in this slice.
 
 ## Latest Validation
 
+- `2026-07-01`: Implemented the user-requested runtime node source map, layout explanation diagnostics, semantic workflow runner, live binding/DataContext inspector metadata, and explicit preview state variants. Added additive protocol DTOs/capabilities, Bridge runtime XAML/source/binding/layout extraction, Core semantic workflow execution, CLI `explain-layout` and `run-workflow`, MCP `explain_layout` and `run_workflow`, PreviewHost `stateVariant` activation, baseline/profile state propagation, docs, and focused coverage. Validation passed with `dotnet build AvaScope.slnx --no-restore -v:minimal`, focused feature tests (`9` passed), docs guard tests (`12` passed), full Debug tests (`324` passed), and `git diff --check` with only LF/CRLF normalization warnings.
 - `2026-06-14`: Completed GitHub issue #54 in commit `7bd469f` with Windows per-user installer/discovery workflow without release/publish. Added `eng/install-avascope.ps1`, CLI `--version`, `%LOCALAPPDATA%\AvaScope\bin\avascope.cmd`, `%LOCALAPPDATA%\AvaScope\avascope.discovery.json`, installer/MCP stdio smoke coverage, and documentation for agent discovery order. Validation passed with `dotnet build AvaScope.slnx --no-restore -v:minimal`, `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~InstallerWorkflowTests` (2 passed, including installed `avascope.cmd mcp` stdio), docs/stable-surface focused tests (9 passed), `eng/create-local-release.ps1 -RuntimeIdentifiers win-x64 -SkipTests`, `eng/install-avascope.ps1 -SourcePath .\artifacts\executables\avascope-win-x64-framework-dependent`, installed PATH command `avascope --version` returning `1.0.2`, installed `doctor` smoke, discovery manifest inspection, full Debug tests (`319` passed), and `git diff --check` with only LF/CRLF normalization warnings. Stale artifact-hosted `avascope.exe`/`dotnet.exe` processes were stopped before local packaging because they held locks under `artifacts\executables`.
 - `2026-06-13`: Published `v1.0.2` from commit `15a4af1547376b9beb7a76c3a8c947dcd4bf8187` through Release workflow `27464291295` (`push`, success). The workflow published the three `1.0.2` packages to nuget.org and GitHub Packages through NuGet trusted publishing, created tag `v1.0.2`, uploaded six GitHub Release assets, and `git ls-remote --tags origin refs/tags/v1.0.2` confirmed the tag points at `15a4af1547376b9beb7a76c3a8c947dcd4bf8187`.
 - `2026-06-13`: Local `v1.0.2` release gate passed with `eng/create-local-release.ps1` (Release build, 317 Release tests, three `1.0.2` NuGet packages, win/linux framework-dependent ZIPs, manifest verification, packaged doctor smoke, and packaged sample preview smoke), `eng/publish-nuget.ps1 -DryRun`, `eng/publish-github-release.ps1 -Tag v1.0.2 -DryRun`, and packaged TradeR `ChartView`, `LiveTradeView`, and `MainWindow` preview smokes from `artifacts\executables\avascope-win-x64-framework-dependent\avascope.exe`. The first parallel `LiveTradeView` smoke hit a TradeR build output file lock and passed when rerun serially.

@@ -20,7 +20,8 @@ public sealed record PreviewAnimationRequest
         string? culture = null,
         string? designDataType = null,
         string? frameStripPath = null,
-        string? viewerPath = null)
+        string? viewerPath = null,
+        string? stateVariant = null)
     {
         if (string.IsNullOrWhiteSpace(outputPath))
         {
@@ -77,6 +78,7 @@ public sealed record PreviewAnimationRequest
         DesignDataType = string.IsNullOrWhiteSpace(designDataType) ? null : designDataType;
         FrameStripPath = string.IsNullOrWhiteSpace(frameStripPath) ? null : frameStripPath;
         ViewerPath = string.IsNullOrWhiteSpace(viewerPath) ? null : viewerPath;
+        StateVariant = string.IsNullOrWhiteSpace(stateVariant) ? null : stateVariant;
     }
 
     [JsonPropertyName("outputPath")]
@@ -123,4 +125,8 @@ public sealed record PreviewAnimationRequest
     [JsonPropertyName("viewerPath")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? ViewerPath { get; }
+
+    [JsonPropertyName("stateVariant")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? StateVariant { get; }
 }

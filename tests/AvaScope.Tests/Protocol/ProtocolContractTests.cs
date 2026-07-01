@@ -96,7 +96,154 @@ public sealed class ProtocolContractTests
         Assert.Equal("capabilities", node["value"]!["tools"]![0]!["name"]!.GetValue<string>());
         Assert.Equal(AvaScopeCapabilityIds.ProtocolCapabilityDiscovery, node["value"]!["tools"]![0]!["capabilityIds"]![0]!.GetValue<string>());
         Assert.Equal(RuntimeMutationCapabilityCatalog.RuntimeMutationContract, node["value"]!["runtimeMutationCapabilities"]![0]!["name"]!.GetValue<string>());
+        Assert.Contains(response.Capabilities, capability => capability.Id == AvaScopeCapabilityIds.RuntimeSourceMap);
+        Assert.Contains(response.Capabilities, capability => capability.Id == AvaScopeCapabilityIds.RuntimeLayoutExplain);
+        Assert.Contains(response.Capabilities, capability => capability.Id == AvaScopeCapabilityIds.RuntimeSemanticWorkflow);
+        Assert.Contains(response.Capabilities, capability => capability.Id == AvaScopeCapabilityIds.PreviewStateVariants);
+        Assert.Contains(response.Tools, tool => tool.Adapter == "mcp" && tool.Name == "run_workflow");
         Assert.Empty(node["value"]!["diagnostics"]!.AsArray());
+    }
+
+    [Fact]
+    public void RuntimeSourceLayoutBindingAndWorkflowResponsesSerializeStableShapes()
+    {
+        var completedAt = new DateTimeOffset(2026, 7, 1, 10, 0, 0, TimeSpan.Zero);
+        var sessionId = new SessionId("session-source");
+        var target = new RuntimeTargetContext(sessionId, "topLevel:main", TreeKinds.Visual, "visual:source");
+        var binding = new RuntimeSourceBinding(
+            "Text",
+            "Title",
+            "{Binding Title}",
+            "runtime",
+            sourcePath: "C:\\apps\\Sample\\Views\\MainView.axaml",
+            line: 12,
+            converterResourceKey: "TitleConverter",
+            dataTypeName: "Sample.MainViewModel");
+        var sourceMap = new RuntimeNodeSourceMap(
+            "available",
+            "avalonia_xaml_source_info",
+            "C:\\apps\\Sample\\Views\\MainView.axaml",
+            line: 12,
+            column: 8,
+            xName: "TitleText",
+            elementType: "TextBlock",
+            elementPath: "TextBlock#TitleText",
+            propertyOrigins:
+            [
+                new RuntimeSourcePropertyOrigin(
+                    "Foreground",
+                    "#ff336699",
+                    "Avalonia.Media.IBrush",
+                    "style",
+                    "Style",
+                    resourceKey: "AccentBrush",
+                    styleSelector: "TextBlock.title",
+                    sourcePath: "C:\\apps\\Sample\\App.axaml",
+                    line: 25)
+            ],
+            bindings: [binding]);
+        var layoutExplanation = new RuntimeLayoutExplanation(
+            "warning",
+            "The node was arranged to zero width or height.",
+            new RuntimeLayoutMetrics(
+                "available",
+                "visual:source",
+                "Avalonia.Controls.TextBlock",
+                new NodeBounds(0, 0, 0, 24),
+                new RuntimeSize(80, 24),
+                new RuntimeSize(0, 24),
+                target),
+            "inferred_from_parent_bounds",
+            new RuntimeSize(0, 24),
+            reasons:
+            [
+                new RuntimeLayoutReason(
+                    "arranged_zero_size",
+                    "The node was arranged to zero width or height.",
+                    "warning",
+                    "visual:source",
+                    "Avalonia.Controls.TextBlock",
+                    new Dictionary<string, string> { ["boundsWidth"] = "0" })
+            ]);
+        var bindingState = new RuntimeBindingState(
+            "available",
+            "Sample.MainViewModel",
+            "available",
+            [
+                new RuntimeBoundProperty(
+                    "Text",
+                    "Title",
+                    "Hello",
+                    "System.String",
+                    "binding",
+                    "active",
+                    "{Binding Title}",
+                    "Avalonia.Data.BindingExpression",
+                    "available",
+                    "declared",
+                    "not_available",
+                    "not_null",
+                    "runtime",
+                    binding)
+            ],
+            sourceMap: sourceMap);
+        var inspect = new InspectNodeResponse(
+            sessionId,
+            "topLevel:main",
+            TreeKinds.Visual,
+            "visual:source",
+            "Avalonia.Controls.TextBlock",
+            0,
+            "TitleText",
+            "title-text",
+            "Hello",
+            new NodeBounds(0, 0, 0, 24),
+            computedProperties: [new ComputedPropertyValue("Text", "Hello", "System.String", "LocalValue", "local")],
+            target: target,
+            bindingState: bindingState,
+            sourceMap: sourceMap,
+            layoutExplanation: layoutExplanation);
+        var treeNode = new TreeNodeSummary(
+            "visual:source",
+            "Avalonia.Controls.TextBlock",
+            "TitleText",
+            "title-text",
+            "Hello",
+            sourceMap: sourceMap,
+            target: target);
+        var workflow = new SemanticWorkflowResponse(
+            "workflow-1",
+            sessionId,
+            "topLevel:main",
+            "passed",
+            completedAt,
+            completedAt,
+            [
+                new SemanticWorkflowStepResult(
+                    "assert-title",
+                    SemanticWorkflowActions.AssertState,
+                    "passed",
+                    "Assertion passed.",
+                    completedAt,
+                    target,
+                    inspection: inspect)
+            ],
+            isolatedStateStatus: "configured",
+            metadata: new Dictionary<string, string> { ["stepCount"] = "1" });
+
+        var inspectNode = JsonNode.Parse(JsonSerializer.Serialize(inspect))!;
+        var layoutNode = JsonNode.Parse(JsonSerializer.Serialize(new LayoutExplainResponse(sessionId, "topLevel:main", TreeKinds.Visual, "visual:source", layoutExplanation, target)))!;
+        var treeNodeJson = JsonNode.Parse(JsonSerializer.Serialize(treeNode))!;
+        var workflowNode = JsonNode.Parse(JsonSerializer.Serialize(workflow))!;
+
+        Assert.Equal("TitleText", inspectNode["sourceMap"]!["xName"]!.GetValue<string>());
+        Assert.Equal("Title", inspectNode["sourceMap"]!["bindings"]![0]!["bindingPath"]!.GetValue<string>());
+        Assert.Equal("available", inspectNode["bindingState"]!["boundProperties"]![0]!["resolvedValueStatus"]!.GetValue<string>());
+        Assert.Equal("arranged_zero_size", inspectNode["layoutExplanation"]!["reasons"]![0]!["code"]!.GetValue<string>());
+        Assert.Equal("visual:source", layoutNode["target"]!["nodeId"]!.GetValue<string>());
+        Assert.Equal("TitleText", treeNodeJson["sourceMap"]!["xName"]!.GetValue<string>());
+        Assert.Equal("workflow-1", workflowNode["requestId"]!.GetValue<string>());
+        Assert.Equal(SemanticWorkflowActions.AssertState, workflowNode["steps"]![0]!["action"]!.GetValue<string>());
     }
 
     [Fact]
@@ -1264,7 +1411,8 @@ public sealed class ProtocolContractTests
             "C:\\previews\\main.png",
             dpi: 96,
             projectPath: "C:\\apps\\Sample\\Sample.csproj",
-            viewPath: "Views\\MainView.axaml");
+            viewPath: "Views\\MainView.axaml",
+            stateVariant: "loading");
 
         var json = JsonSerializer.Serialize(request);
         var node = JsonNode.Parse(json)!;
@@ -1272,6 +1420,7 @@ public sealed class ProtocolContractTests
         Assert.Null(node["width"]);
         Assert.Null(node["height"]);
         Assert.Equal(96, node["dpi"]!.GetValue<double>());
+        Assert.Equal("loading", node["stateVariant"]!.GetValue<string>());
     }
 
     [Fact]
@@ -1288,7 +1437,8 @@ public sealed class ProtocolContractTests
             "Views\\MainView.axaml",
             "light",
             "ja-JP",
-            "Sample.PreviewDesignData");
+            "Sample.PreviewDesignData",
+            stateVariant: "loading");
 
         var json = JsonSerializer.Serialize(response);
         var node = JsonNode.Parse(json)!;
@@ -1303,6 +1453,7 @@ public sealed class ProtocolContractTests
         Assert.Equal("light", node["themeVariant"]!.GetValue<string>());
         Assert.Equal("ja-JP", node["culture"]!.GetValue<string>());
         Assert.Equal("Sample.PreviewDesignData", node["designDataType"]!.GetValue<string>());
+        Assert.Equal("loading", node["stateVariant"]!.GetValue<string>());
     }
 
     [Fact]
@@ -1783,7 +1934,8 @@ public sealed class ProtocolContractTests
                             "Sample.DesignData",
                             150,
                             target,
-                            ["wide"])
+                            ["wide"],
+                            stateVariant: "validation-errors")
                     ])
             ],
             new PreviewBaselineSuiteDefaults(
@@ -1817,12 +1969,15 @@ public sealed class ProtocolContractTests
             "C:\\apps\\Sample\\avascope.preview.json",
             target,
             ["wide"],
-            150);
+            150,
+            stateVariant: "validation-errors");
 
         var suiteNode = JsonNode.Parse(JsonSerializer.Serialize(suite))!;
         var baselineNode = JsonNode.Parse(JsonSerializer.Serialize(baseline))!;
 
         Assert.Equal(PreviewBaselineSuiteManifest.CurrentVersion, suiteNode["version"]!.GetValue<int>());
+        Assert.Equal("validation-errors", suiteNode["entries"]![0]!["variants"]![0]!["stateVariant"]!.GetValue<string>());
+        Assert.Equal("validation-errors", baselineNode["stateVariant"]!.GetValue<string>());
         Assert.Equal("agent-suite", suiteNode["name"]!.GetValue<string>());
         Assert.Equal(320, suiteNode["defaults"]!["sizes"]![0]!["width"]!.GetValue<double>());
         Assert.Equal("wide", suiteNode["defaults"]!["mutationPresetIds"]![0]!.GetValue<string>());

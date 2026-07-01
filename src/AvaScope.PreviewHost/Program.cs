@@ -241,12 +241,13 @@ internal static class Program
             AddProjectDiagnostics(diagnostics, projectInfo);
         }
 
-        var designData = CreateDesignData(fullProjectPath, request.DesignDataType);
+        var designData = CreateDesignData(fullProjectPath, request.DesignDataType, request.StateVariant);
+        AddStateVariantDiagnostic(diagnostics, designData, request.StateVariant);
         var projectApplicationScope = LoadProjectApplicationScope(fullProjectPath);
         var content = LoadContent(fullProjectPath, fullViewPath);
-        if (designData is not null)
+        if (designData.Value is not null)
         {
-            content.DataContext = designData;
+            content.DataContext = designData.Value;
         }
         else
         {
@@ -317,7 +318,8 @@ internal static class Program
                 request.DesignDataType,
                 diagnostics,
                 request.AnimationTimeOffsetMs,
-                projectInfo));
+                projectInfo,
+                request.StateVariant));
         }
         finally
         {
@@ -398,6 +400,33 @@ internal static class Program
             "PreviewHost resolved project metadata for this render.",
             sourcePath: projectInfo.ProjectPath,
             details: details));
+    }
+
+    private static void AddStateVariantDiagnostic(
+        List<PreviewDiagnostic> diagnostics,
+        DesignDataActivation designData,
+        string? stateVariant)
+    {
+        if (string.IsNullOrWhiteSpace(stateVariant))
+        {
+            return;
+        }
+
+        var severity = designData.StateVariantStatus == "applied"
+            ? PreviewDiagnosticSeverities.Info
+            : PreviewDiagnosticSeverities.Warning;
+        var code = designData.StateVariantStatus == "applied"
+            ? "state_variant_applied"
+            : "state_variant_not_applied";
+
+        AddDiagnostic(diagnostics, new PreviewDiagnostic(
+            severity,
+            PreviewDiagnosticCategories.Project,
+            code,
+            designData.StateVariantStatus == "applied"
+                ? $"Preview state variant '{stateVariant}' was applied to design data."
+                : $"Preview state variant '{stateVariant}' was requested but could not be applied to design data.",
+            details: designData.StateVariantDetails));
     }
 
     private static void AdvanceAnimationOffset(int? timeOffsetMs)
@@ -2454,11 +2483,17 @@ internal static class Program
         return Assembly.Load(new AssemblyName(assemblyName));
     }
 
-    private static object? CreateDesignData(string? fullProjectPath, string? designDataType)
+    private static DesignDataActivation CreateDesignData(
+        string? fullProjectPath,
+        string? designDataType,
+        string? stateVariant)
     {
         if (designDataType is null)
         {
-            return null;
+            return new DesignDataActivation(
+                null,
+                string.IsNullOrWhiteSpace(stateVariant) ? "not_requested" : "not_applied",
+                CreateStateVariantDetails(stateVariant, "design_data_type_not_configured"));
         }
 
         if (fullProjectPath is null)
@@ -2485,19 +2520,136 @@ internal static class Program
             throw new ArgumentException($"Design data type '{designDataType}' must be public.", nameof(designDataType));
         }
 
-        if (type.GetConstructor(Type.EmptyTypes) is null)
-        {
-            throw new ArgumentException($"Design data type '{designDataType}' must have a public parameterless constructor.", nameof(designDataType));
-        }
-
         try
         {
-            return Activator.CreateInstance(type);
+            var value = CreateDesignDataInstance(type, designDataType, stateVariant, out var stateStatus, out var details);
+            return new DesignDataActivation(value, stateStatus, details);
         }
         catch (Exception exception) when (exception is TargetInvocationException or MemberAccessException)
         {
             throw new InvalidOperationException($"Design data type '{designDataType}' could not be constructed: {exception.Message}", exception);
         }
+    }
+
+    private static object? CreateDesignDataInstance(
+        Type type,
+        string designDataType,
+        string? stateVariant,
+        out string stateStatus,
+        out IReadOnlyDictionary<string, string> details)
+    {
+        if (!string.IsNullOrWhiteSpace(stateVariant)
+            && TryCreateStateDesignData(type, stateVariant, out var stateValue, out var stateActivationKind))
+        {
+            stateStatus = "applied";
+            details = CreateStateVariantDetails(stateVariant, stateActivationKind, type);
+            return stateValue;
+        }
+
+        var parameterlessConstructor = type.GetConstructor(Type.EmptyTypes);
+        if (parameterlessConstructor is null)
+        {
+            throw new ArgumentException($"Design data type '{designDataType}' must have a public parameterless constructor or supported state variant factory.", nameof(designDataType));
+        }
+
+        var value = Activator.CreateInstance(type);
+        if (!string.IsNullOrWhiteSpace(stateVariant)
+            && TryApplyStateVariant(value, stateVariant, out var applyKind))
+        {
+            stateStatus = "applied";
+            details = CreateStateVariantDetails(stateVariant, applyKind, type);
+            return value;
+        }
+
+        stateStatus = string.IsNullOrWhiteSpace(stateVariant) ? "not_requested" : "not_applied";
+        details = CreateStateVariantDetails(
+            stateVariant,
+            string.IsNullOrWhiteSpace(stateVariant) ? "not_requested" : "no_supported_state_variant_member",
+            type);
+        return value;
+    }
+
+    private static bool TryCreateStateDesignData(
+        Type type,
+        string stateVariant,
+        out object? value,
+        out string activationKind)
+    {
+        const BindingFlags flags = BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy;
+        foreach (var methodName in new[] { "ForState", "Create" })
+        {
+            var method = type.GetMethod(methodName, flags, binder: null, types: new[] { typeof(string) }, modifiers: null);
+            if (method is not null && type.IsAssignableFrom(method.ReturnType))
+            {
+                value = method.Invoke(null, [stateVariant]);
+                activationKind = $"static_{methodName}";
+                return true;
+            }
+        }
+
+        var stringConstructor = type.GetConstructor(new[] { typeof(string) });
+        if (stringConstructor is not null)
+        {
+            value = stringConstructor.Invoke([stateVariant]);
+            activationKind = "string_constructor";
+            return true;
+        }
+
+        value = null;
+        activationKind = "not_available";
+        return false;
+    }
+
+    private static bool TryApplyStateVariant(object? value, string stateVariant, out string activationKind)
+    {
+        if (value is null)
+        {
+            activationKind = "not_available";
+            return false;
+        }
+
+        var type = value.GetType();
+        const BindingFlags flags = BindingFlags.Public | BindingFlags.Instance | BindingFlags.FlattenHierarchy;
+        var property = type.GetProperty("StateVariant", flags);
+        if (property is { CanWrite: true } && property.PropertyType == typeof(string))
+        {
+            property.SetValue(value, stateVariant);
+            activationKind = "state_variant_property";
+            return true;
+        }
+
+        var method = type.GetMethod("ApplyState", flags, binder: null, types: new[] { typeof(string) }, modifiers: null);
+        if (method is not null && method.ReturnType == typeof(void))
+        {
+            method.Invoke(value, [stateVariant]);
+            activationKind = "apply_state_method";
+            return true;
+        }
+
+        activationKind = "not_available";
+        return false;
+    }
+
+    private static IReadOnlyDictionary<string, string> CreateStateVariantDetails(
+        string? stateVariant,
+        string activationKind,
+        Type? type = null)
+    {
+        var details = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["phase"] = "state_variant",
+            ["provenance"] = "design_data_type",
+            ["stateVariant"] = string.IsNullOrWhiteSpace(stateVariant) ? "not_requested" : stateVariant,
+            ["activationKind"] = activationKind,
+            ["suggestedAction"] = "Expose a public ForState(string), Create(string), string constructor, StateVariant property, or ApplyState(string) on the design data type for explicit preview states."
+        };
+
+        if (type is not null)
+        {
+            details["designDataType"] = type.FullName ?? type.Name;
+        }
+
+        return details;
     }
 
     private static Type? FindDesignDataType(Assembly assembly, string designDataType)
@@ -2771,6 +2923,11 @@ internal static class Program
 
         public static DesignDataResolution FromValue(object? value) => new(true, value);
     }
+
+    private sealed record DesignDataActivation(
+        object? Value,
+        string StateVariantStatus,
+        IReadOnlyDictionary<string, string> StateVariantDetails);
 
     private sealed record StaticMemberReference(string? Prefix, string TypeName, string MemberName);
 

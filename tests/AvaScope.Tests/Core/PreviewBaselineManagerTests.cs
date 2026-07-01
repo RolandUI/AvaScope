@@ -121,6 +121,58 @@ public sealed class PreviewBaselineManagerTests
     }
 
     [Fact]
+    public void ExpandSuiteManifestCarriesExplicitStateVariant()
+    {
+        var testRoot = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(testRoot);
+        var suitePath = Path.Combine(testRoot, "state-suite.json");
+        var outputDirectory = Path.Combine(testRoot, "baseline-images");
+        var suite = new PreviewBaselineSuiteManifest(
+            PreviewBaselineSuiteManifest.CurrentVersion,
+            "State Suite",
+            [
+                new PreviewBaselineSuiteEntry(
+                    "main",
+                    "Sample.csproj",
+                    "Views/MainView.axaml",
+                    variants:
+                    [
+                        new PreviewBaselineSuiteVariant(
+                            size: new PreviewViewport(320, 180),
+                            dpi: 96,
+                            themeVariant: "light",
+                            culture: "en-US",
+                            designDataType: "Sample.PreviewDesignData",
+                            stateVariant: "loading")
+                    ])
+            ]);
+        File.WriteAllText(suitePath, JsonSerializer.Serialize(suite, JsonOptions));
+
+        try
+        {
+            var result = new PreviewBaselineManager(new PreviewHostClient()).ExpandSuiteManifest(
+                suitePath,
+                outputDirectory);
+
+            Assert.True(result.Success, result.Error?.Message);
+            var expansion = Assert.Single(result.Value!);
+            Assert.Equal("loading", expansion.StateVariant);
+            Assert.Equal("320x180-dpi96-light-en-US-Sample.PreviewDesignData-loading", expansion.VariantName);
+            Assert.EndsWith(
+                "baseline-01-state-suite-main-320x180-dpi96-light-en-us-sample-previewdesigndata-loading-320x180.png",
+                expansion.ImagePath,
+                StringComparison.Ordinal);
+        }
+        finally
+        {
+            if (Directory.Exists(testRoot))
+            {
+                Directory.Delete(testRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
     public void ExpandSuiteManifestReportsUnknownMutationPresetReference()
     {
         var testRoot = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));

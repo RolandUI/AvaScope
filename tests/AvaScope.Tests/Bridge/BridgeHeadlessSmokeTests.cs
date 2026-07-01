@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Markup.Xaml.Diagnostics;
 using Avalonia.Media;
 using Avalonia.Themes.Fluent;
 using Avalonia.Threading;
@@ -129,6 +130,114 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                 window.Close();
             }
         }, CancellationToken.None);
+    }
+
+    [Fact]
+    public async Task InspectNodeReturnsSourceMapBindingStateAndLayoutExplanation()
+    {
+        var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessTestApplication));
+
+        try
+        {
+            await session.Dispatch(() =>
+            {
+                var testRoot = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));
+                Directory.CreateDirectory(testRoot);
+                var sourcePath = Path.Combine(testRoot, "RuntimeSourceView.axaml");
+                File.WriteAllLines(sourcePath,
+                [
+                    "<UserControl xmlns=\"https://github.com/avaloniaui\" xmlns:x=\"http://schemas.microsoft.com/winfx/2006/xaml\">",
+                    "  <Grid>",
+                    "    <TextBlock x:Name=\"SourceMappedTitle\" Text=\"{Binding Title, Converter={StaticResource TitleConverter}, FallbackValue=Missing}\" />",
+                    "  </Grid>",
+                    "</UserControl>"
+                ]);
+
+                var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Headless source map sample"));
+                var textBlock = new TextBlock
+                {
+                    Name = "SourceMappedTitle",
+                    Text = "Resolved title",
+                    Width = 0,
+                    Height = 24,
+                    DataContext = new RuntimeStateViewModel()
+                };
+                XamlSourceInfo.SetXamlSourceInfo(
+                    textBlock,
+                    new XamlSourceInfo(3, 5, sourcePath));
+
+                var grid = new Grid
+                {
+                    Width = 160,
+                    Height = 80
+                };
+                grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(0) });
+                Grid.SetColumn(textBlock, 0);
+                grid.Children.Add(textBlock);
+
+                var window = new Window
+                {
+                    Title = "AvaScope Source Map Sample",
+                    Width = 320,
+                    Height = 200,
+                    Content = grid
+                };
+
+                try
+                {
+                    window.Show();
+                    using var registration = runtime.RegisterTopLevel(window);
+                    Dispatcher.UIThread.RunJobs();
+
+                    var topLevel = Assert.Single(runtime.ListTopLevelsAsync().GetAwaiter().GetResult());
+                    var tree = runtime.GetVisualTreeAsync(topLevel.Id, maxDepth: 8).GetAwaiter().GetResult();
+                    Assert.True(tree.Success, tree.Error?.Message);
+                    var sourceNode = FindNode(tree.Value!.Root, node => node.Name == "SourceMappedTitle");
+                    Assert.NotNull(sourceNode);
+                    Assert.NotNull(sourceNode.SourceMap);
+                    Assert.Equal("available", sourceNode.SourceMap!.Status);
+                    Assert.Equal(Path.GetFullPath(sourcePath), sourceNode.SourceMap.FilePath);
+                    Assert.Equal("Title", Assert.Single(sourceNode.SourceMap.Bindings).BindingPath);
+
+                    var inspect = runtime.InspectNodeAsync(
+                        topLevel.Id,
+                        TreeKinds.Visual,
+                        sourceNode.NodeId).GetAwaiter().GetResult();
+                    Assert.True(inspect.Success, inspect.Error?.Message);
+                    Assert.Equal("SourceMappedTitle", inspect.Value!.SourceMap!.XName);
+                    Assert.Equal(3, inspect.Value.SourceMap.Line);
+                    Assert.Equal("TitleConverter", Assert.Single(inspect.Value.SourceMap.Bindings).ConverterResourceKey);
+                    Assert.Equal("available", inspect.Value.BindingState!.DataContextStatus);
+                    Assert.Contains(nameof(RuntimeStateViewModel), inspect.Value.BindingState.DataContextType);
+                    var boundText = Assert.Single(inspect.Value.BindingState.BoundProperties, property => property.PropertyName == "Text");
+                    Assert.Equal("Title", boundText.BindingPath);
+                    Assert.Equal("source_declared", boundText.Status);
+                    Assert.Equal("issues_found", inspect.Value.LayoutExplanation!.Status);
+                    Assert.Contains(inspect.Value.LayoutExplanation.Reasons, reason => reason.Code == "arranged_zero_size");
+                    Assert.Contains(inspect.Value.LayoutExplanation.Reasons, reason => reason.Code == "grid_cell_constraint");
+
+                    var layout = runtime.ExplainLayoutAsync(
+                        topLevel.Id,
+                        TreeKinds.Visual,
+                        sourceNode.NodeId).GetAwaiter().GetResult();
+                    Assert.True(layout.Success, layout.Error?.Message);
+                    Assert.Equal(sourceNode.NodeId, layout.Value!.NodeId);
+                    Assert.Equal("issues_found", layout.Value.Explanation.Status);
+                    Assert.Contains(layout.Value.Explanation.Reasons, reason => reason.Code == "arranged_zero_size");
+                }
+                finally
+                {
+                    window.Close();
+                    DeleteDirectoryIfExists(testRoot);
+                    AvaScopeBridge.Deactivate();
+                    Dispatcher.UIThread.RunJobs();
+                }
+            }, CancellationToken.None);
+        }
+        finally
+        {
+            DisposeHeadlessSessionAfterExplicitCleanup(session);
+        }
     }
 
     [Fact]
@@ -1439,6 +1548,121 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                 Assert.Equal(BridgeErrorCodes.UnsupportedInputAction, unsupported.Error!.Code);
 
                 window.Close();
+            }, CancellationToken.None);
+        }
+        finally
+        {
+            DisposeHeadlessSessionAfterExplicitCleanup(session);
+        }
+    }
+
+    [Fact]
+    public async Task SemanticWorkflowRunsByAutomationIdThroughLocalBridgePipe()
+    {
+        var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessTestApplication));
+
+        try
+        {
+            await session.Dispatch(async () =>
+            {
+                var clicked = 0;
+                var input = new TextBox
+                {
+                    Name = "WorkflowInput",
+                    Width = 160
+                };
+                AutomationProperties.SetAutomationId(input, "workflow-input");
+                var button = new Button
+                {
+                    Name = "WorkflowRunButton",
+                    Content = "Run",
+                    Width = 120,
+                    Height = 40
+                };
+                AutomationProperties.SetAutomationId(button, "workflow-run");
+                button.Click += (_, _) => clicked++;
+
+                var window = new Window
+                {
+                    Title = "AvaScope Workflow Sample",
+                    Width = 360,
+                    Height = 240,
+                    Content = new StackPanel
+                    {
+                        Children =
+                        {
+                            input,
+                            button
+                        }
+                    }
+                };
+
+                var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Headless workflow sample"));
+                var outputDirectory = Path.Combine(
+                    Path.GetTempPath(),
+                    "AvaScope.Tests",
+                    Guid.NewGuid().ToString("N"),
+                    "workflow");
+                try
+                {
+                    window.Show();
+                    using var registration = runtime.RegisterTopLevel(window);
+                    Dispatcher.UIThread.RunJobs();
+
+                    var client = new LocalBridgeClient(Path.GetDirectoryName(runtime.SessionManifestPath)!);
+                    var topLevel = Assert.Single(await runtime.ListTopLevelsAsync());
+                    var request = new SemanticWorkflowRequest(
+                        runtime.SessionId,
+                        topLevel.Id,
+                        [
+                            new SemanticWorkflowStep(
+                                SemanticWorkflowActions.TypeText,
+                                "type-value",
+                                new SemanticWorkflowSelector(automationId: "workflow-input"),
+                                text: "agent"),
+                            new SemanticWorkflowStep(
+                                SemanticWorkflowActions.AssertState,
+                                "assert-value",
+                                new SemanticWorkflowSelector(automationId: "workflow-input"),
+                                assertProperty: "text",
+                                expected: "agent"),
+                            new SemanticWorkflowStep(
+                                SemanticWorkflowActions.Click,
+                                "click-run",
+                                new SemanticWorkflowSelector(automationId: "workflow-run"))
+                        ],
+                        requestId: "workflow-smoke",
+                        outputDirectory: outputDirectory,
+                        captureAfterEachStep: true,
+                        maxDepth: 8);
+
+                    var result = await AvaScopeMcpTools.RunWorkflow(client, request);
+
+                    Assert.True(result.Success, result.Error?.Message);
+                    Assert.Equal("workflow-smoke", result.Value!.RequestId);
+                    Assert.Equal("passed", result.Value.Status);
+                    Assert.Equal("agent", input.Text);
+                    Assert.Equal(1, clicked);
+                    Assert.Equal(6, result.Value.Steps.Count);
+                    Assert.All(result.Value.Steps, step => Assert.Equal("passed", step.Status));
+                    var assertion = Assert.Single(result.Value.Steps, step => step.StepId == "assert-value");
+                    Assert.Equal("agent", assertion.Metadata["actual"]);
+
+                    var screenshots = result.Value.Steps.Where(step => step.Screenshot is not null).ToArray();
+                    Assert.Equal(3, screenshots.Length);
+                    Assert.All(screenshots, step => Assert.True(File.Exists(step.Screenshot!.FilePath), step.Screenshot.FilePath));
+                }
+                finally
+                {
+                    if (Directory.Exists(outputDirectory))
+                    {
+                        Directory.Delete(outputDirectory, recursive: true);
+                    }
+
+                    window.Close();
+                    AvaScopeBridge.Deactivate();
+                    Dispatcher.UIThread.RunJobs();
+                }
             }, CancellationToken.None);
         }
         finally

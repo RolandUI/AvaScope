@@ -272,6 +272,7 @@ public sealed class AvaScopeMcpTools
         string topLevelId,
         string nodeId,
         string treeKind = TreeKinds.Visual,
+        string? manifestDirectory = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(bridgeClient);
@@ -281,7 +282,40 @@ public sealed class AvaScopeMcpTools
             return ToolResult<InspectNodeResponse>.Fail(error!);
         }
 
-        return ToToolResult(await bridgeClient.InspectNodeAsync(
+        return ToToolResult(await CreateBridgeClient(bridgeClient, manifestDirectory).InspectNodeAsync(
+            parsedSessionId!,
+            topLevelId,
+            treeKind,
+            nodeId,
+            cancellationToken));
+    }
+
+    [McpServerTool(
+        Name = "explain_layout",
+        Title = "Explain layout",
+        ReadOnly = true,
+        Idempotent = true,
+        Destructive = false,
+        OpenWorld = false,
+        UseStructuredContent = true)]
+    [Description("Explains runtime layout state for one node, including DesiredSize, Bounds, clipping, Grid, ScrollViewer, and ancestor constraints where available.")]
+    public static async Task<ToolResult<LayoutExplainResponse>> ExplainLayout(
+        LocalBridgeClient bridgeClient,
+        string sessionId,
+        string topLevelId,
+        string nodeId,
+        string treeKind = TreeKinds.Visual,
+        string? manifestDirectory = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(bridgeClient);
+
+        if (!TryParseRequiredSessionId(sessionId, out var parsedSessionId, out var error))
+        {
+            return ToolResult<LayoutExplainResponse>.Fail(error!);
+        }
+
+        return ToToolResult(await CreateBridgeClient(bridgeClient, manifestDirectory).ExplainLayoutAsync(
             parsedSessionId!,
             topLevelId,
             treeKind,
@@ -422,6 +456,30 @@ public sealed class AvaScopeMcpTools
             targetNodeId,
             inputKey,
             keyModifiers,
+            cancellationToken));
+    }
+
+    [McpServerTool(
+        Name = "run_workflow",
+        Title = "Run workflow",
+        ReadOnly = false,
+        Idempotent = false,
+        Destructive = false,
+        OpenWorld = false,
+        UseStructuredContent = true)]
+    [Description("Runs a semantic local workflow against an attached AvaScope bridge session using node selectors such as AutomationId, text, role, binding path, command, or stable node id.")]
+    public static async Task<ToolResult<SemanticWorkflowResponse>> RunWorkflow(
+        LocalBridgeClient bridgeClient,
+        SemanticWorkflowRequest request,
+        string? manifestDirectory = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(bridgeClient);
+        ArgumentNullException.ThrowIfNull(request);
+
+        return ToToolResult(await new SemanticWorkflowRunner().RunAsync(
+            CreateBridgeClient(bridgeClient, manifestDirectory),
+            request,
             cancellationToken));
     }
 
@@ -750,6 +808,7 @@ public sealed class AvaScopeMcpTools
         string? themeVariant = null,
         string? culture = null,
         string? designDataType = null,
+        string? stateVariant = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(previewHostClient);
@@ -766,7 +825,8 @@ public sealed class AvaScopeMcpTools
                 viewPath,
                 themeVariant,
                 culture,
-                designDataType);
+                designDataType,
+                stateVariant: stateVariant);
         }
         catch (Exception exception) when (exception is ArgumentException or ArgumentOutOfRangeException)
         {
@@ -856,6 +916,7 @@ public sealed class AvaScopeMcpTools
         string? themeVariant = null,
         string? culture = null,
         string? designDataType = null,
+        string? stateVariant = null,
         string? contactSheetPath = null,
         CancellationToken cancellationToken = default)
     {
@@ -878,7 +939,8 @@ public sealed class AvaScopeMcpTools
                 viewPath: viewPath,
                 themeVariant: themeVariant,
                 culture: culture,
-                designDataType: designDataType);
+                designDataType: designDataType,
+                stateVariant: stateVariant);
         }
         catch (Exception exception) when (exception is ArgumentException or ArgumentOutOfRangeException)
         {
@@ -915,6 +977,7 @@ public sealed class AvaScopeMcpTools
         string? themeVariant = null,
         string? culture = null,
         string? designDataType = null,
+        string? stateVariant = null,
         string? frameStripPath = null,
         string? viewerPath = null,
         CancellationToken cancellationToken = default)
@@ -943,7 +1006,8 @@ public sealed class AvaScopeMcpTools
                 culture,
                 designDataType,
                 frameStripPath,
-                viewerPath);
+                viewerPath,
+                stateVariant);
         }
         catch (Exception exception) when (exception is ArgumentException or ArgumentOutOfRangeException)
         {
@@ -1013,6 +1077,7 @@ public sealed class AvaScopeMcpTools
         string? themeVariant = null,
         string? culture = null,
         string? designDataType = null,
+        string? stateVariant = null,
         string? displayName = null,
         CancellationToken cancellationToken = default)
     {
@@ -1030,7 +1095,8 @@ public sealed class AvaScopeMcpTools
                 viewPath,
                 themeVariant,
                 culture,
-                designDataType);
+                designDataType,
+                stateVariant: stateVariant);
         }
         catch (Exception exception) when (exception is ArgumentException or ArgumentOutOfRangeException)
         {

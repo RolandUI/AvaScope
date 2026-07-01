@@ -121,7 +121,8 @@ public sealed class PreviewHostClient
                 request.ViewPath,
                 request.ThemeVariant,
                 request.Culture,
-                request.DesignDataType);
+                request.DesignDataType,
+                stateVariant: request.StateVariant);
             var result = await RenderAsync(viewportRequest, cancellationToken);
             entries.Add(new PreviewBatchEntry(
                 viewport,
@@ -185,7 +186,8 @@ public sealed class PreviewHostClient
                 request.ThemeVariant,
                 request.Culture,
                 request.DesignDataType,
-                offset);
+                offset,
+                request.StateVariant);
 
             var result = await RenderAsync(frameRequest, cancellationToken);
             frames.Add(new PreviewAnimationFrame(
@@ -497,7 +499,8 @@ public sealed class PreviewHostClient
             cachedRender.Culture,
             cachedRender.DesignDataType,
             diagnostics,
-            cachedRender.AnimationTimeOffsetMs);
+            cachedRender.AnimationTimeOffsetMs,
+            stateVariant: cachedRender.StateVariant);
 
         return CoreResult<PreviewAnimationFrame>.Ok(new PreviewAnimationFrame(
             cachedFrame.TimeOffsetMs,

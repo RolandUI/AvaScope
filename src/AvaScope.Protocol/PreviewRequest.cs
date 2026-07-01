@@ -15,7 +15,8 @@ public sealed record PreviewRequest
         string? themeVariant = null,
         string? culture = null,
         string? designDataType = null,
-        int? animationTimeOffsetMs = null)
+        int? animationTimeOffsetMs = null,
+        string? stateVariant = null)
     {
         if (string.IsNullOrWhiteSpace(outputPath))
         {
@@ -52,6 +53,7 @@ public sealed record PreviewRequest
         Culture = string.IsNullOrWhiteSpace(culture) ? null : culture;
         DesignDataType = string.IsNullOrWhiteSpace(designDataType) ? null : designDataType;
         AnimationTimeOffsetMs = animationTimeOffsetMs;
+        StateVariant = string.IsNullOrWhiteSpace(stateVariant) ? null : stateVariant;
     }
 
     [JsonPropertyName("outputPath")]
@@ -91,4 +93,8 @@ public sealed record PreviewRequest
     [JsonPropertyName("animationTimeOffsetMs")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public int? AnimationTimeOffsetMs { get; }
+
+    [JsonPropertyName("stateVariant")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? StateVariant { get; }
 }

@@ -79,7 +79,8 @@ public sealed class PreviewBaselineManager
                 request.ViewPath,
                 request.ThemeVariant,
                 request.Culture,
-                request.DesignDataType))
+                request.DesignDataType,
+                stateVariant: request.StateVariant))
             .ToArray();
         var manifest = new PreviewBaselineManifest(
             PreviewBaselineManifest.CurrentVersion,
@@ -126,7 +127,8 @@ public sealed class PreviewBaselineManager
                 expansion.ThemeVariant,
                 expansion.Culture,
                 expansion.DesignDataType,
-                expansion.AnimationTimeOffsetMs);
+                expansion.AnimationTimeOffsetMs,
+                expansion.StateVariant);
             var render = await _previewHostClient.RenderAsync(request, cancellationToken);
             var renderResult = ToToolResult(render);
             renderEntries.Add(new PreviewBatchEntry(
@@ -161,7 +163,8 @@ public sealed class PreviewBaselineManager
                 expansion.RuntimeTarget,
                 expansion.MutationPresetIds,
                 expansion.AnimationTimeOffsetMs,
-                expansion.ComparisonRules));
+                expansion.ComparisonRules,
+                expansion.StateVariant));
         }
 
         var manifest = new PreviewBaselineManifest(
@@ -250,7 +253,8 @@ public sealed class PreviewBaselineManager
                 baseline.ThemeVariant,
                 baseline.Culture,
                 baseline.DesignDataType,
-                baseline.AnimationTimeOffsetMs);
+                baseline.AnimationTimeOffsetMs,
+                baseline.StateVariant);
             var render = await _previewHostClient.RenderAsync(request, cancellationToken);
             var renderResult = ToToolResult(render);
             ToolResult<PreviewDiffResponse> diffResult;
@@ -560,8 +564,9 @@ public sealed class PreviewBaselineManager
                     var theme = variant.ThemeVariant ?? defaultTheme;
                     var culture = variant.Culture ?? defaultCulture;
                     var designData = variant.DesignDataType ?? defaultDesignData;
+                    var stateVariant = variant.StateVariant;
                     var frame = variant.AnimationTimeOffsetMs ?? defaultFrame;
-                    var variantName = variant.Name ?? CreateVariantName(viewport, dpi, theme, culture, designData, frame);
+                    var variantName = variant.Name ?? CreateVariantName(viewport, dpi, theme, culture, designData, stateVariant, frame);
                     var comparisonRules = MergeComparisonRules(
                         suite.Defaults?.ComparisonRules,
                         entry.ComparisonRules,
@@ -583,7 +588,8 @@ public sealed class PreviewBaselineManager
                         variant.RuntimeTarget ?? entry.RuntimeTarget,
                         variantPresetIds,
                         frame,
-                        comparisonRules);
+                        comparisonRules,
+                        stateVariant);
                 }
 
                 continue;
@@ -602,7 +608,7 @@ public sealed class PreviewBaselineManager
             foreach (var designData in SelectStrings(entry.DesignDataTypes, suite.Defaults?.DesignDataTypes))
             foreach (var frame in SelectFrames(entry, suite.Defaults))
             {
-                var variantName = CreateVariantName(size, dpi, theme, culture, designData, frame);
+                var variantName = CreateVariantName(size, dpi, theme, culture, designData, stateVariant: null, frame);
                 var comparisonRules = MergeComparisonRules(
                     suite.Defaults?.ComparisonRules,
                     entry.ComparisonRules);
@@ -623,7 +629,8 @@ public sealed class PreviewBaselineManager
                     entry.RuntimeTarget,
                     basePresetIds,
                     frame,
-                    comparisonRules);
+                    comparisonRules,
+                    stateVariant: null);
             }
         }
 
@@ -652,7 +659,8 @@ public sealed class PreviewBaselineManager
         RuntimeTargetContext? runtimeTarget,
         IReadOnlyList<string> mutationPresetIds,
         int? animationFrameMs,
-        PreviewComparisonRules? comparisonRules)
+        PreviewComparisonRules? comparisonRules,
+        string? stateVariant)
     {
         var index = expansions.Count;
         var imagePath = CreateSuiteImagePath(
@@ -682,7 +690,8 @@ public sealed class PreviewBaselineManager
             runtimeTarget,
             mutationPresetIds,
             animationFrameMs,
-            comparisonRules));
+            comparisonRules,
+            stateVariant));
     }
 
     private static CoreResult<IReadOnlyList<PreviewBaselineSuiteExpansion>> InvalidSuite(
@@ -870,6 +879,7 @@ public sealed class PreviewBaselineManager
         string? theme,
         string? culture,
         string? designData,
+        string? stateVariant,
         int? animationFrameMs)
     {
         var parts = new List<string>
@@ -891,6 +901,11 @@ public sealed class PreviewBaselineManager
         if (!string.IsNullOrWhiteSpace(designData))
         {
             parts.Add(Path.GetFileName(designData));
+        }
+
+        if (!string.IsNullOrWhiteSpace(stateVariant))
+        {
+            parts.Add(stateVariant);
         }
 
         if (animationFrameMs is not null)
@@ -933,7 +948,8 @@ public sealed class PreviewBaselineManager
             request.ViewPath,
             request.ThemeVariant,
             request.Culture,
-            request.DesignDataType);
+            request.DesignDataType,
+            stateVariant: request.StateVariant);
     }
 
     private static ToolResult<T> ToToolResult<T>(CoreResult<T> result)

@@ -15,7 +15,8 @@ public sealed record PreviewBaselineSuiteVariant
         int? animationTimeOffsetMs = null,
         RuntimeTargetContext? runtimeTarget = null,
         IReadOnlyList<string>? mutationPresetIds = null,
-        PreviewComparisonRules? comparisonRules = null)
+        PreviewComparisonRules? comparisonRules = null,
+        string? stateVariant = null)
     {
         if (dpi is <= 0)
         {
@@ -33,6 +34,7 @@ public sealed record PreviewBaselineSuiteVariant
         ThemeVariant = string.IsNullOrWhiteSpace(themeVariant) ? null : themeVariant;
         Culture = string.IsNullOrWhiteSpace(culture) ? null : culture;
         DesignDataType = string.IsNullOrWhiteSpace(designDataType) ? null : designDataType;
+        StateVariant = string.IsNullOrWhiteSpace(stateVariant) ? null : stateVariant;
         AnimationTimeOffsetMs = animationTimeOffsetMs;
         RuntimeTarget = runtimeTarget;
         MutationPresetIds = PreviewBaselineSuiteDefaults.Normalize(mutationPresetIds);
@@ -62,6 +64,10 @@ public sealed record PreviewBaselineSuiteVariant
     [JsonPropertyName("designDataType")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? DesignDataType { get; }
+
+    [JsonPropertyName("stateVariant")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? StateVariant { get; }
 
     [JsonPropertyName("animationTimeOffsetMs")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
