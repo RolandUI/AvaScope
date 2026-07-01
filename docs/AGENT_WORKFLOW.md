@@ -39,18 +39,19 @@ Use default paths when diagnosing the user's current machine state:
 ```powershell
 & $avascope capabilities
 & $avascope doctor
-& $avascope diagnostics --max-sessions 10
+& $avascope diagnostics --max-sessions 10 --mode active-only
 ```
 
-`capabilities` returns the current protocol/tool manifest, including runtime mutation, preview, diagnostics, baseline, report, and artifact feature ids. Use `capabilities --require <id>[,<id>...]` before newer workflows when an agent needs an explicit compatibility gate; unsupported requirements return `capability_not_supported` with actionable details instead of relying on package-version guessing. `doctor` exits non-zero when co-located AvaScope assemblies are missing or stale diagnostic records need attention. `diagnostics` returns the lower-level bridge and preview-host records plus bounded `diagnosticIssues` with source, severity, status, and provenance.
+`capabilities` returns the current protocol/tool manifest, including runtime mutation, preview, diagnostics, baseline, report, and artifact feature ids. Use `capabilities --require <id>[,<id>...]` before newer workflows when an agent needs an explicit compatibility gate; unsupported requirements return `capability_not_supported` with actionable details instead of relying on package-version guessing. `doctor` exits non-zero when co-located AvaScope assemblies are missing or stale diagnostic records need attention. `diagnostics --mode active-only` returns useful active bridge/preview sessions while summarizing stale/invalid counts in `summary` and `nextCommands`; use `--mode all` when detailed stale records are needed.
 
 ## 3. Preview A View
 
 The getting-started sample includes `avascope.preview.json` with a `main` profile and named variants:
 
 ```powershell
-& $avascope preview .\samples\AvaScope.GettingStartedApp\AvaScope.GettingStartedApp.csproj --profile main --out .\artifacts\samples\agent-workflow\main-preview.png
+& $avascope preview .\samples\AvaScope.GettingStartedApp\AvaScope.GettingStartedApp.csproj --profile main --out .\artifacts\samples\agent-workflow\main-preview.png --run-index .\artifacts\samples\agent-workflow\run-indexes --task main-preview
 & $avascope preview .\samples\AvaScope.GettingStartedApp\AvaScope.GettingStartedApp.csproj --profile main --variant dark
+& $avascope latest-run --run-index .\artifacts\samples\agent-workflow\run-indexes --task main-preview
 ```
 
 For another app, either pass explicit options:
@@ -82,7 +83,7 @@ or add `avascope.preview.json` beside the project:
 }
 ```
 
-Variants are applied after the base profile and before explicit CLI options. Preview responses include `projectInfo` for project path, assembly name, target framework selection, build configuration, output assembly path, and App.axaml path when available.
+Variants are applied after the base profile and before explicit CLI options. Preview responses include `projectInfo` for project path, assembly name, target framework selection, build configuration, output assembly path, and App.axaml path when available. When `--run-index <dir>` is supplied, responses also include `runIndex` pointing at `run-index.json`, `run-index.html`, and `latest-run.json`; agents can call `latest-run` by task or project/view selector instead of scanning artifact directories.
 
 ## 4. Sample An Animation
 
@@ -140,14 +141,14 @@ In another terminal:
 & $avascope visual-tree --session <runtime-session-id> --top-level <topLevel:id> --max-depth 4
 & $avascope find-nodes --session <runtime-session-id> --top-level <topLevel:id> --type TextBlock --max-depth 6
 & $avascope inspect-node --session <runtime-session-id> --top-level <topLevel:id> --node <node-id>
-& $avascope audit-ui --session <runtime-session-id> --top-level <topLevel:id> --max-depth 8 --max-issues 100 --max-inventory 100
+& $avascope audit-ui --session <runtime-session-id> --top-level <topLevel:id> --max-depth 8 --max-issues 100 --max-inventory 100 --run-index .\artifacts\samples\agent-workflow\run-indexes --task runtime-audit
 ```
 
 Use `--manifest-dir` on follow-up runtime commands when the inspected app writes bridge manifests outside the default temp location. `attach` also accepts `--process`, `--process-name`, `--session`, and `--manifest` so agents can avoid ambiguous selection when multiple bridge-enabled apps are running.
 
 Use the `target` object returned by `visual-tree`, `logical-tree`, `find-nodes`, `inspect-node`, `audit-ui`, `screenshot`, and `input` as the handoff source for follow-up commands. It contains the current `sessionId`, `topLevelId`, `targetKind`, `capturedAt`, generation metadata, and node `treeKind`/`nodeId` when a node is involved; stale nodes return structured details and a `nextAction`.
 
-`audit-ui` builds a bounded accessibility, validation, and component inventory report from the runtime tree. It reports missing accessible names, missing stable automation ids, keyboard focus metadata, runtime validation errors, control/class/component-pattern inventory, and explicit `not_available` entries for style/resource/template/theme scopes that the runtime tree cannot prove reliably.
+`audit-ui` builds a bounded accessibility, validation, and component inventory report from the runtime tree. It reports missing accessible names, missing stable automation ids, keyboard focus metadata, runtime validation errors, control/class/component-pattern inventory, and explicit `not_available` entries for style/resource/template/theme scopes that the runtime tree cannot prove reliably. With `--run-index`, the audit response writes a task latest pointer containing diagnostics and warnings for later agent handoff.
 
 Use `design-audit` for task-scoped visual quality review after a UI change:
 
@@ -184,12 +185,13 @@ For preview-only visual regression:
 
 ```powershell
 & $avascope baseline-create .\samples\AvaScope.GettingStartedApp\AvaScope.GettingStartedApp.csproj --view Views\MainView.axaml --manifest .\artifacts\samples\baselines\getting-started.json --sizes 720x420,360x240 --theme light --design-data-type AvaScope.GettingStartedApp.SamplePreviewData
-& $avascope baseline-check --manifest .\artifacts\samples\baselines\getting-started.json --out-dir .\artifacts\samples\baselines\current --diff-dir .\artifacts\samples\baselines\diff --report .\artifacts\samples\baselines\report.json --report-pack .\artifacts\samples\baselines\report-pack --tolerance 0
+& $avascope baseline-check --manifest .\artifacts\samples\baselines\getting-started.json --out-dir .\artifacts\samples\baselines\current --diff-dir .\artifacts\samples\baselines\diff --report .\artifacts\samples\baselines\report.json --report-pack .\artifacts\samples\baselines\report-pack --run-index .\artifacts\samples\agent-workflow\run-indexes --task getting-started-baseline --tolerance 0
+& $avascope latest-run --run-index .\artifacts\samples\agent-workflow\run-indexes --task getting-started-baseline
 ```
 
 For repeatable agent validation suites, use `baseline-create --suite <suite.json> --manifest <baseline.json>`. The suite manifest can name multiple entries, variant defaults, explicit variants, profiles, runtime target metadata, mutation preset references, animation frame offsets, and `comparisonRules`. Rules support `tolerance`, `maxChangedPixels`, `maxChangedPercent`, `ignoredRegions`, and `requiredRegions`; defaults remain strict when no rules are configured. The generated baseline manifest remains compatible with `baseline-check --manifest`; runtime target and mutation preset fields are structured handoff metadata in this slice.
 
-For agent or CI review, prefer `--report-pack <dir>`. The response includes `reportPack.status`, pass/fail counts, environment metadata, and asset paths for JSON, HTML, JUnit XML, and SARIF-style summaries. It also includes `agentReview` with a bounded failure shortlist, report paths, failed-entry current/diff artifact paths, and local review URLs. Upload the report-pack directory with the current and diff image directories; agents should inspect `agentReview` first and then read the JSON/HTML paths instead of relying on terminal output.
+For agent or CI review, prefer `--report-pack <dir>` and `--run-index <dir>`. The response includes `reportPack.status`, pass/fail counts, environment metadata, and asset paths for JSON, HTML, JUnit XML, and SARIF-style summaries. It also includes `agentReview` with a bounded failure shortlist, report paths, failed-entry current/diff artifact paths, local review URLs, and `runIndex` with the latest pointer. Upload the report-pack directory with the current/diff image directories and run-index directory; agents should inspect `agentReview` and `runIndex` first and then read the JSON/HTML paths instead of relying on terminal output.
 
 For older JSON-only report workflows, collect the report/current/diff outputs into a single artifact directory:
 

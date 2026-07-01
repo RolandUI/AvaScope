@@ -8,13 +8,15 @@ public sealed record PreviewBatchResponse
     public PreviewBatchResponse(
         IReadOnlyList<PreviewBatchEntry>? entries,
         string? contactSheetPath,
-        DateTimeOffset renderedAt)
+        DateTimeOffset renderedAt,
+        ArtifactRunIndexResponse? runIndex = null)
     {
         Entries = entries ?? [];
         ContactSheetPath = string.IsNullOrWhiteSpace(contactSheetPath)
             ? null
             : Path.GetFullPath(contactSheetPath);
         RenderedAt = renderedAt;
+        RunIndex = runIndex;
     }
 
     [JsonPropertyName("entries")]
@@ -26,4 +28,8 @@ public sealed record PreviewBatchResponse
 
     [JsonPropertyName("renderedAt")]
     public DateTimeOffset RenderedAt { get; }
+
+    [JsonPropertyName("runIndex")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public ArtifactRunIndexResponse? RunIndex { get; }
 }

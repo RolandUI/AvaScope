@@ -44,6 +44,7 @@ public sealed class StableSurfaceContractTests
         "preview-viewer",
         "baseline-create",
         "baseline-check",
+        "latest-run",
         "diff",
         "semantic-diff",
         "assert-region",

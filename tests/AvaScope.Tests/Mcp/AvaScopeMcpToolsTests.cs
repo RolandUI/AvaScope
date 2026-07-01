@@ -41,6 +41,9 @@ public sealed class AvaScopeMcpToolsTests
         Assert.Contains(result.Value.Capabilities, capability =>
             capability.Id == AvaScopeCapabilityIds.PreviewSemanticDiff
             && capability.Status == AvaScopeCapabilityStatuses.Available);
+        Assert.Contains(result.Value.Capabilities, capability =>
+            capability.Id == AvaScopeCapabilityIds.ArtifactsRunIndex
+            && capability.Status == AvaScopeCapabilityStatuses.Available);
         Assert.Contains(result.Value.Tools, tool =>
             tool.Adapter == "mcp"
             && tool.Name == "capabilities"

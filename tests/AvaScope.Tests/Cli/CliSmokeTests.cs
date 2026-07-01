@@ -110,6 +110,7 @@ public sealed class CliSmokeTests
         var viewPath = Path.Combine(testRoot, "MainView.axaml");
         var designDataPath = Path.Combine(testRoot, "PreviewDesignData.cs");
         var outputPath = Path.Combine(testRoot, "preview.png");
+        var runIndexDirectory = Path.Combine(testRoot, "run-indexes");
 
         await File.WriteAllTextAsync(projectPath, """
             <Project Sdk="Microsoft.NET.Sdk">
@@ -157,7 +158,9 @@ public sealed class CliSmokeTests
                 "--design-data-type",
                 "CliPreviewSample.PreviewDesignData",
                 "--state-variant",
-                "loading");
+                "loading",
+                "--run-index",
+                runIndexDirectory);
 
             Assert.Equal(0, result.ExitCode);
             Assert.True(string.IsNullOrWhiteSpace(result.StandardError), result.StandardError);
@@ -173,6 +176,29 @@ public sealed class CliSmokeTests
             Assert.Equal("loading", payload.Value.StateVariant);
             Assert.True(File.Exists(payload.Value.FilePath));
             Assert.True(new FileInfo(payload.Value.FilePath).Length > 0);
+            Assert.NotNull(payload.Value.RunIndex);
+            Assert.True(File.Exists(payload.Value.RunIndex!.IndexJsonPath), payload.Value.RunIndex.IndexJsonPath);
+            Assert.True(File.Exists(payload.Value.RunIndex.IndexHtmlPath), payload.Value.RunIndex.IndexHtmlPath);
+            Assert.True(File.Exists(payload.Value.RunIndex.LatestPointerPath), payload.Value.RunIndex.LatestPointerPath);
+            Assert.Equal(Path.GetFullPath(outputPath), Assert.Single(payload.Value.RunIndex.ScreenshotPaths));
+
+            var latest = await RunCliAsync(
+                cliAssembly,
+                "latest-run",
+                "--run-index",
+                runIndexDirectory,
+                "--project",
+                projectPath,
+                "--view",
+                viewPath,
+                "--state-variant",
+                "loading");
+
+            Assert.Equal(0, latest.ExitCode);
+            var latestPayload = JsonSerializer.Deserialize<ToolResult<ArtifactRunIndexResponse>>(latest.StandardOutput, JsonOptions);
+            Assert.NotNull(latestPayload);
+            Assert.True(latestPayload.Success, latestPayload.Error?.Message);
+            Assert.Equal(payload.Value.RunIndex.RunId, latestPayload.Value!.RunId);
         }
         finally
         {

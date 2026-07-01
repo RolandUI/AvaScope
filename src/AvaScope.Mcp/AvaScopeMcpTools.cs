@@ -841,6 +841,7 @@ public sealed class AvaScopeMcpTools
         string? manifestPath = null,
         string? manifestDirectory = null,
         int maxSessions = 50,
+        string? mode = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(bridgeClient);
@@ -852,8 +853,15 @@ public sealed class AvaScopeMcpTools
             return ToolResult<DiagnosticsResponse>.Fail(error!);
         }
 
+        if (!DiagnosticsResponseModes.TryNormalize(mode, out var diagnosticsMode))
+        {
+            return ToolResult<DiagnosticsResponse>.Fail(new ProtocolError(
+                CoreErrorCodes.InvalidBridgeRequest,
+                "Diagnostics mode must be all, active-only, minimal, or json-minimal."));
+        }
+
         var client = CreateBridgeClient(bridgeClient, manifestDirectory);
-        return ToToolResult(await client.DiagnosticsAsync(
+        var result = await client.DiagnosticsAsync(
             processId,
             parsedSessionId,
             maxSessions,
@@ -861,7 +869,13 @@ public sealed class AvaScopeMcpTools
             previewSessionStore.GetDiagnostics(),
             cancellationToken,
             processName,
-            manifestPath));
+            manifestPath);
+        if (!result.Success)
+        {
+            return ToToolResult(result);
+        }
+
+        return ToolResult<DiagnosticsResponse>.Ok(ApplyDiagnosticsMode(result.Value!, diagnosticsMode));
     }
 
     [McpServerTool(
@@ -1483,6 +1497,45 @@ public sealed class AvaScopeMcpTools
         return string.IsNullOrWhiteSpace(manifestDirectory)
             ? bridgeClient
             : new LocalBridgeClient(manifestDirectory);
+    }
+
+    private static DiagnosticsResponse ApplyDiagnosticsMode(
+        DiagnosticsResponse response,
+        string mode)
+    {
+        if (mode == DiagnosticsResponseModes.All)
+        {
+            return response;
+        }
+
+        var activeOnly = mode == DiagnosticsResponseModes.ActiveOnly;
+        var bridgeSessions = activeOnly
+            ? response.BridgeSessions
+                .Where(static session => session.Status == DiagnosticStatuses.Available)
+                .ToArray()
+            : Array.Empty<BridgeSessionDiagnostic>();
+        var previewSessions = activeOnly
+            ? response.PreviewSessions
+                .Where(static session => session.Status == DiagnosticStatuses.Available)
+                .ToArray()
+            : Array.Empty<PreviewSessionDiagnostic>();
+        var issues = activeOnly ? response.Issues : Array.Empty<ProtocolError>();
+        var diagnosticIssues = activeOnly
+            ? response.DiagnosticIssues
+                .Where(static issue => issue.Source is DiagnosticIssueSources.Diagnostics or DiagnosticIssueSources.PreviewHost)
+                .ToArray()
+            : Array.Empty<DiagnosticIssue>();
+
+        return new DiagnosticsResponse(
+            response.Service,
+            response.GeneratedAt,
+            response.ManifestDirectory,
+            bridgeSessions,
+            issues,
+            response.PreviewHost,
+            previewSessions,
+            diagnosticIssues,
+            response.Summary);
     }
 
     private static bool TryParseOptionalSessionId(

@@ -61,6 +61,7 @@ internal static class Program
             "preview-viewer" => PreviewViewer(args[1..]),
             "baseline-create" => await BaselineCreate(args[1..]),
             "baseline-check" => await BaselineCheck(args[1..]),
+            "latest-run" => LatestRun(args[1..]),
             "cleanup" => Cleanup(args[1..]),
             "cleanup-bridge-sessions" => await CleanupBridgeSessions(args[1..]),
             "diff" => Diff(args[1..]),
@@ -169,7 +170,10 @@ internal static class Program
                 "profile-file",
                 "variant",
                 "sizes",
-                "contact-sheet"))
+                "contact-sheet",
+                "run-index",
+                "task",
+                "run-group"))
         {
             return 2;
         }
@@ -208,8 +212,18 @@ internal static class Program
                 effectiveOptions.TryGetValue("contact-sheet", out var contactSheetPath)
                     ? Path.GetFullPath(contactSheetPath)
                     : null);
+            PreviewBatchResponse? indexedBatch = null;
+            ProtocolError? runIndexError = null;
+            if (batchResult.Success
+                && effectiveOptions.TryGetValue("run-index", out _)
+                && !TryAddPreviewBatchRunIndex(projectPath, effectiveOptions, batchResult.Value!, out indexedBatch, out runIndexError))
+            {
+                WriteResult(ToolResult<PreviewBatchResponse>.Fail(runIndexError!));
+                return 1;
+            }
+
             WriteResult(batchResult.Success
-                ? ToolResult<PreviewBatchResponse>.Ok(batchResult.Value!)
+                ? ToolResult<PreviewBatchResponse>.Ok(indexedBatch ?? batchResult.Value!)
                 : ToolResult<PreviewBatchResponse>.Fail(new ProtocolError(
                     batchResult.Error!.Code,
                     batchResult.Error.Message,
@@ -221,8 +235,18 @@ internal static class Program
         }
 
         var result = await previewHostClient.RenderAsync(request!);
+        PreviewResponse? indexedPreview = null;
+        ProtocolError? previewRunIndexError = null;
+        if (result.Success
+            && effectiveOptions.TryGetValue("run-index", out _)
+            && !TryAddPreviewRunIndex(projectPath, effectiveOptions, result.Value!, out indexedPreview, out previewRunIndexError))
+        {
+            WriteResult(ToolResult<PreviewResponse>.Fail(previewRunIndexError!));
+            return 1;
+        }
+
         WriteResult(result.Success
-            ? ToolResult<PreviewResponse>.Ok(result.Value!)
+            ? ToolResult<PreviewResponse>.Ok(indexedPreview ?? result.Value!)
             : ToolResult<PreviewResponse>.Fail(new ProtocolError(
                 result.Error!.Code,
                 result.Error.Message,
@@ -1153,7 +1177,10 @@ internal static class Program
                 "diff-dir",
                 "tolerance",
                 "report",
-                "report-pack")
+                "report-pack",
+                "run-index",
+                "task",
+                "run-group")
             || !TryReadRequiredOption(options.Values, "manifest", GetBaselineCheckUsage(), out var manifestPath))
         {
             return 2;
@@ -1183,8 +1210,83 @@ internal static class Program
             tolerance,
             reportPath,
             reportPackDirectory);
-        WriteResult(result);
+        PreviewBaselineCheckResponse? indexedBaseline = null;
+        ProtocolError? runIndexError = null;
+        if (result.Success
+            && options.Values.TryGetValue("run-index", out _)
+            && !TryAddBaselineRunIndex(options.Values, result.Value!, out indexedBaseline, out runIndexError))
+        {
+            WriteResult(ToolResult<PreviewBaselineCheckResponse>.Fail(runIndexError!));
+            return 1;
+        }
+
+        WriteResult(result.Success
+            ? ToolResult<PreviewBaselineCheckResponse>.Ok(indexedBaseline ?? result.Value!)
+            : ToolResult<PreviewBaselineCheckResponse>.Fail(new ProtocolError(
+                result.Error!.Code,
+                result.Error.Message,
+                result.Error.Details)));
         return result.Success && result.Value!.Passed ? 0 : 1;
+    }
+
+    private static int LatestRun(string[] args)
+    {
+        var options = ParseOptions(args, GetLatestRunUsage());
+        if (!options.Success)
+        {
+            WriteFailure<ArtifactRunIndexResponse>(InvalidCliArguments, options.Error!);
+            return 2;
+        }
+
+        if (!ValidateOptions(
+                options.Values,
+                GetLatestRunUsage(),
+                "run-index",
+                "task",
+                "run-group",
+                "project",
+                "view",
+                "profile",
+                "variant",
+                "state-variant",
+                "command")
+            || !TryReadRequiredOption(options.Values, "run-index", GetLatestRunUsage(), out var runIndexDirectory))
+        {
+            return 2;
+        }
+
+        ArtifactRunIndexSelector selector;
+        try
+        {
+            selector = new ArtifactRunIndexSelector(
+                options.Values.GetValueOrDefault("task"),
+                options.Values.GetValueOrDefault("run-group"),
+                options.Values.GetValueOrDefault("project"),
+                options.Values.GetValueOrDefault("view"),
+                options.Values.GetValueOrDefault("profile"),
+                options.Values.GetValueOrDefault("variant"),
+                options.Values.GetValueOrDefault("state-variant"),
+                options.Values.GetValueOrDefault("command"));
+        }
+        catch (ArgumentException exception)
+        {
+            WriteFailure<ArtifactRunIndexResponse>(InvalidCliArguments, exception.Message);
+            return 2;
+        }
+
+        CoreResult<ArtifactRunIndexResponse> result;
+        try
+        {
+            result = new ArtifactRunIndexStore(runIndexDirectory!).ResolveLatest(selector);
+        }
+        catch (Exception exception) when (exception is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            WriteFailure<ArtifactRunIndexResponse>(CoreErrorCodes.ArtifactRunIndexUnavailable, exception.Message);
+            return 1;
+        }
+
+        WriteResult(result);
+        return result.Success ? 0 : 1;
     }
 
     private static PreviewSessionRegistry CreatePreviewSessionRegistry()
@@ -1430,7 +1532,10 @@ internal static class Program
                 "max-depth",
                 "max-issues",
                 "max-inventory",
-                "manifest-dir")
+                "manifest-dir",
+                "run-index",
+                "task",
+                "run-group")
             || !TryReadRequiredSessionId(options.Values, GetAuditUiUsage(), out var sessionId)
             || !TryReadRequiredOption(options.Values, "top-level", GetAuditUiUsage(), out var topLevelId)
             || !TryReadOptionalTreeKind(options.Values, out var treeKind)
@@ -1455,7 +1560,22 @@ internal static class Program
         }
 
         var result = new UiAuditBuilder().Create(tree.Value!, maxIssues, maxInventory);
-        WriteResult(result);
+        UiAuditResponse? indexedAudit = null;
+        ProtocolError? runIndexError = null;
+        if (result.Success
+            && options.Values.TryGetValue("run-index", out _)
+            && !TryAddAuditRunIndex(options.Values, result.Value!, out indexedAudit, out runIndexError))
+        {
+            WriteResult(ToolResult<UiAuditResponse>.Fail(runIndexError!));
+            return 1;
+        }
+
+        WriteResult(result.Success
+            ? ToolResult<UiAuditResponse>.Ok(indexedAudit ?? result.Value!)
+            : ToolResult<UiAuditResponse>.Fail(new ProtocolError(
+                result.Error!.Code,
+                result.Error.Message,
+                result.Error.Details)));
 
         return result.Success ? 0 : 1;
     }
@@ -2057,11 +2177,19 @@ internal static class Program
             return 2;
         }
 
-        if (!ValidateOptions(options.Values, GetDiagnosticsUsage(), "process", "process-name", "session", "manifest", "manifest-dir", "max-sessions")
+        if (!ValidateOptions(options.Values, GetDiagnosticsUsage(), "process", "process-name", "session", "manifest", "manifest-dir", "max-sessions", "mode")
             || !TryReadOptionalProcessId(options.Values, out var processId)
             || !TryReadOptionalSessionId(options.Values, out var sessionId)
             || !TryReadOptionalDiagnosticsMaxSessions(options.Values, out var maxSessions))
         {
+            return 2;
+        }
+
+        if (!DiagnosticsResponseModes.TryNormalize(options.Values.GetValueOrDefault("mode"), out var diagnosticsMode))
+        {
+            WriteFailure<DiagnosticsResponse>(
+                InvalidCliArguments,
+                "Diagnostics mode must be all, active-only, minimal, or json-minimal.");
             return 2;
         }
 
@@ -2074,7 +2202,12 @@ internal static class Program
             previewSessionDiagnostics,
             processName: options.Values.GetValueOrDefault("process-name"),
             manifestPath: options.Values.GetValueOrDefault("manifest"));
-        WriteResult(result);
+        WriteResult(result.Success
+            ? ToolResult<DiagnosticsResponse>.Ok(ApplyDiagnosticsMode(result.Value!, diagnosticsMode))
+            : ToolResult<DiagnosticsResponse>.Fail(new ProtocolError(
+                result.Error!.Code,
+                result.Error.Message,
+                result.Error.Details)));
 
         return result.Success ? 0 : 1;
     }
@@ -3044,6 +3177,411 @@ internal static class Program
             response.SourceSuggestions);
     }
 
+    private static DiagnosticsResponse ApplyDiagnosticsMode(
+        DiagnosticsResponse response,
+        string mode)
+    {
+        if (mode == DiagnosticsResponseModes.All)
+        {
+            return response;
+        }
+
+        var activeOnly = mode == DiagnosticsResponseModes.ActiveOnly;
+        var bridgeSessions = activeOnly
+            ? response.BridgeSessions
+                .Where(static session => session.Status == DiagnosticStatuses.Available)
+                .ToArray()
+            : Array.Empty<BridgeSessionDiagnostic>();
+        var previewSessions = activeOnly
+            ? response.PreviewSessions
+                .Where(static session => session.Status == DiagnosticStatuses.Available)
+                .ToArray()
+            : Array.Empty<PreviewSessionDiagnostic>();
+        var issues = activeOnly ? response.Issues : Array.Empty<ProtocolError>();
+        var diagnosticIssues = activeOnly
+            ? response.DiagnosticIssues
+                .Where(static issue => issue.Source is DiagnosticIssueSources.Diagnostics or DiagnosticIssueSources.PreviewHost)
+                .ToArray()
+            : Array.Empty<DiagnosticIssue>();
+
+        return new DiagnosticsResponse(
+            response.Service,
+            response.GeneratedAt,
+            response.ManifestDirectory,
+            bridgeSessions,
+            issues,
+            response.PreviewHost,
+            previewSessions,
+            diagnosticIssues,
+            response.Summary);
+    }
+
+    private static bool TryAddPreviewRunIndex(
+        string projectPath,
+        IReadOnlyDictionary<string, string> options,
+        PreviewResponse response,
+        out PreviewResponse? indexedResponse,
+        out ProtocolError? error)
+    {
+        indexedResponse = null;
+        var artifacts = new[]
+        {
+            new ArtifactRunIndexArtifact("preview_screenshot", response.FilePath, "Preview screenshot.", "image/png")
+        };
+        var diagnostics = response.Diagnostics.Select(ToRunIndexDiagnostic).ToArray();
+        var request = new ArtifactRunIndexRequest(
+            "preview",
+            CreatePreviewRunStatus(response.Diagnostics),
+            options.GetValueOrDefault("task"),
+            options.GetValueOrDefault("run-group"),
+            response.ProjectPath ?? projectPath,
+            response.ViewPath ?? options.GetValueOrDefault("view"),
+            options.GetValueOrDefault("profile"),
+            options.GetValueOrDefault("variant"),
+            response.StateVariant,
+            artifacts,
+            diagnostics,
+            CreateWarnings(diagnostics),
+            metadata: new Dictionary<string, string>
+            {
+                ["width"] = response.PixelWidth.ToString(CultureInfo.InvariantCulture),
+                ["height"] = response.PixelHeight.ToString(CultureInfo.InvariantCulture),
+                ["dpi"] = response.Dpi.ToString(CultureInfo.InvariantCulture)
+            },
+            completedAt: response.RenderedAt);
+
+        if (!TryWriteRunIndex(options, request, out var runIndex, out error))
+        {
+            return false;
+        }
+
+        indexedResponse = WithRunIndex(response, runIndex!);
+        return true;
+    }
+
+    private static bool TryAddPreviewBatchRunIndex(
+        string projectPath,
+        IReadOnlyDictionary<string, string> options,
+        PreviewBatchResponse response,
+        out PreviewBatchResponse? indexedResponse,
+        out ProtocolError? error)
+    {
+        indexedResponse = null;
+        var artifacts = new List<ArtifactRunIndexArtifact>();
+        if (response.ContactSheetPath is not null)
+        {
+            artifacts.Add(new ArtifactRunIndexArtifact("contact_sheet", response.ContactSheetPath, "Multi-size preview contact sheet.", "image/png"));
+        }
+
+        foreach (var entry in response.Entries)
+        {
+            artifacts.Add(new ArtifactRunIndexArtifact("preview_screenshot", entry.OutputPath, "Preview viewport screenshot.", "image/png"));
+        }
+
+        var diagnostics = response.Entries
+            .SelectMany(static entry => entry.Render.Success
+                ? entry.Render.Value!.Diagnostics.Select(ToRunIndexDiagnostic)
+                : [ToRunIndexDiagnostic(entry.Render.Error!, "preview", "error")])
+            .ToArray();
+        var failedEntries = response.Entries.Count(static entry => !entry.Render.Success);
+        var request = new ArtifactRunIndexRequest(
+            "preview",
+            failedEntries == 0 ? CreateRunStatus(diagnostics) : "failed",
+            options.GetValueOrDefault("task"),
+            options.GetValueOrDefault("run-group"),
+            projectPath,
+            options.GetValueOrDefault("view"),
+            options.GetValueOrDefault("profile"),
+            options.GetValueOrDefault("variant"),
+            options.GetValueOrDefault("state-variant"),
+            artifacts,
+            diagnostics,
+            CreateWarnings(diagnostics),
+            metadata: new Dictionary<string, string>
+            {
+                ["entryCount"] = response.Entries.Count.ToString(CultureInfo.InvariantCulture),
+                ["failedEntries"] = failedEntries.ToString(CultureInfo.InvariantCulture)
+            },
+            completedAt: response.RenderedAt);
+
+        if (!TryWriteRunIndex(options, request, out var runIndex, out error))
+        {
+            return false;
+        }
+
+        indexedResponse = new PreviewBatchResponse(
+            response.Entries,
+            response.ContactSheetPath,
+            response.RenderedAt,
+            runIndex);
+        return true;
+    }
+
+    private static bool TryAddAuditRunIndex(
+        IReadOnlyDictionary<string, string> options,
+        UiAuditResponse response,
+        out UiAuditResponse? indexedResponse,
+        out ProtocolError? error)
+    {
+        indexedResponse = null;
+        var diagnostics = response.Issues.Select(ToRunIndexDiagnostic).ToArray();
+        var request = new ArtifactRunIndexRequest(
+            "audit-ui",
+            response.Issues.Count == 0 ? "passed" : "issues_found",
+            options.GetValueOrDefault("task"),
+            options.GetValueOrDefault("run-group"),
+            diagnostics: diagnostics,
+            warnings: CreateWarnings(diagnostics),
+            metadata: new Dictionary<string, string>
+            {
+                ["sessionId"] = response.SessionId.Value,
+                ["topLevelId"] = response.TopLevelId,
+                ["treeKind"] = response.TreeKind,
+                ["totalNodes"] = response.Summary.TotalNodes.ToString(CultureInfo.InvariantCulture),
+                ["issueCount"] = response.Summary.IssueCount.ToString(CultureInfo.InvariantCulture)
+            },
+            completedAt: response.AuditedAt);
+
+        if (!TryWriteRunIndex(options, request, out var runIndex, out error))
+        {
+            return false;
+        }
+
+        indexedResponse = new UiAuditResponse(
+            response.SessionId,
+            response.TopLevelId,
+            response.TreeKind,
+            response.DepthLimit,
+            response.AuditedAt,
+            response.Summary,
+            response.Issues,
+            response.Inventory,
+            response.Target,
+            runIndex);
+        return true;
+    }
+
+    private static bool TryAddBaselineRunIndex(
+        IReadOnlyDictionary<string, string> options,
+        PreviewBaselineCheckResponse response,
+        out PreviewBaselineCheckResponse? indexedResponse,
+        out ProtocolError? error)
+    {
+        indexedResponse = null;
+        var artifacts = response.Entries
+            .SelectMany(static entry => new[]
+            {
+                new ArtifactRunIndexArtifact("baseline_image", entry.Baseline.ImagePath, "Baseline image.", "image/png"),
+                new ArtifactRunIndexArtifact("current_image", entry.CurrentImagePath, "Current rendered image.", "image/png"),
+                new ArtifactRunIndexArtifact("diff_image", entry.DiffPath, "Visual diff image.", "image/png")
+            })
+            .ToArray();
+        var generatedReports = CreateBaselineGeneratedReports(response).ToArray();
+        var diagnostics = response.Entries
+            .SelectMany(CreateBaselineDiagnostics)
+            .ToArray();
+        var request = new ArtifactRunIndexRequest(
+            "baseline-check",
+            response.Passed ? "passed" : "failed",
+            options.GetValueOrDefault("task"),
+            options.GetValueOrDefault("run-group"),
+            artifacts: artifacts,
+            diagnostics: diagnostics,
+            warnings: CreateWarnings(diagnostics),
+            generatedReports: generatedReports,
+            metadata: new Dictionary<string, string>
+            {
+                ["manifestPath"] = response.ManifestPath,
+                ["entryCount"] = response.Entries.Count.ToString(CultureInfo.InvariantCulture),
+                ["passed"] = response.Passed.ToString(CultureInfo.InvariantCulture)
+            },
+            completedAt: response.CheckedAt);
+
+        if (!TryWriteRunIndex(options, request, out var runIndex, out error))
+        {
+            return false;
+        }
+
+        indexedResponse = new PreviewBaselineCheckResponse(
+            response.ManifestPath,
+            response.Passed,
+            response.Entries,
+            response.CheckedAt,
+            response.ReportPath,
+            response.ReportPack,
+            runIndex);
+        return true;
+    }
+
+    private static bool TryWriteRunIndex(
+        IReadOnlyDictionary<string, string> options,
+        ArtifactRunIndexRequest request,
+        out ArtifactRunIndexResponse? runIndex,
+        out ProtocolError? error)
+    {
+        runIndex = null;
+        error = null;
+
+        if (!options.TryGetValue("run-index", out var runIndexDirectory)
+            || string.IsNullOrWhiteSpace(runIndexDirectory))
+        {
+            error = new ProtocolError(InvalidCliArguments, "--run-index requires a directory path.");
+            return false;
+        }
+
+        CoreResult<ArtifactRunIndexResponse> result;
+        try
+        {
+            result = new ArtifactRunIndexStore(runIndexDirectory).Write(request);
+        }
+        catch (Exception exception) when (exception is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            error = new ProtocolError(CoreErrorCodes.ArtifactRunIndexUnavailable, exception.Message);
+            return false;
+        }
+
+        if (!result.Success)
+        {
+            error = new ProtocolError(result.Error!.Code, result.Error.Message, result.Error.Details);
+            return false;
+        }
+
+        runIndex = result.Value!;
+        return true;
+    }
+
+    private static PreviewResponse WithRunIndex(PreviewResponse response, ArtifactRunIndexResponse runIndex)
+    {
+        return new PreviewResponse(
+            response.FilePath,
+            response.PixelWidth,
+            response.PixelHeight,
+            response.Dpi,
+            response.RenderedAt,
+            response.ProjectPath,
+            response.ViewPath,
+            response.ThemeVariant,
+            response.Culture,
+            response.DesignDataType,
+            response.Diagnostics,
+            response.AnimationTimeOffsetMs,
+            response.ProjectInfo,
+            response.StateVariant,
+            runIndex);
+    }
+
+    private static string CreatePreviewRunStatus(IReadOnlyList<PreviewDiagnostic> diagnostics)
+    {
+        return CreateRunStatus(diagnostics.Select(ToRunIndexDiagnostic).ToArray());
+    }
+
+    private static string CreateRunStatus(IReadOnlyList<ArtifactRunIndexDiagnostic> diagnostics)
+    {
+        if (diagnostics.Any(static diagnostic => string.Equals(diagnostic.Severity, "error", StringComparison.OrdinalIgnoreCase)))
+        {
+            return "completed_with_errors";
+        }
+
+        return diagnostics.Count == 0 ? "completed" : "completed_with_warnings";
+    }
+
+    private static IReadOnlyList<string> CreateWarnings(IReadOnlyList<ArtifactRunIndexDiagnostic> diagnostics)
+    {
+        return diagnostics
+            .Where(static diagnostic => !string.Equals(diagnostic.Severity, "info", StringComparison.OrdinalIgnoreCase))
+            .Select(static diagnostic => $"{diagnostic.Code}: {diagnostic.Message}")
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+    }
+
+    private static ArtifactRunIndexDiagnostic ToRunIndexDiagnostic(PreviewDiagnostic diagnostic)
+    {
+        return new ArtifactRunIndexDiagnostic(
+            diagnostic.Severity,
+            diagnostic.Category,
+            diagnostic.Code,
+            diagnostic.Message,
+            diagnostic.SourcePath,
+            diagnostic.NodeId,
+            diagnostic.Details);
+    }
+
+    private static ArtifactRunIndexDiagnostic ToRunIndexDiagnostic(UiAuditIssue issue)
+    {
+        return new ArtifactRunIndexDiagnostic(
+            issue.Severity,
+            issue.Category,
+            issue.Code,
+            issue.Message,
+            nodeId: issue.NodeId,
+            details: issue.Details);
+    }
+
+    private static ArtifactRunIndexDiagnostic ToRunIndexDiagnostic(
+        ProtocolError error,
+        string category,
+        string severity)
+    {
+        return new ArtifactRunIndexDiagnostic(
+            severity,
+            category,
+            error.Code,
+            error.Message,
+            details: error.Details);
+    }
+
+    private static IEnumerable<ArtifactRunIndexArtifact> CreateBaselineGeneratedReports(PreviewBaselineCheckResponse response)
+    {
+        if (response.ReportPath is not null)
+        {
+            yield return new ArtifactRunIndexArtifact("json_report", response.ReportPath, "Baseline check JSON report.", "application/json");
+        }
+
+        if (response.ReportPack is null)
+        {
+            yield break;
+        }
+
+        yield return new ArtifactRunIndexArtifact("report_pack_directory", response.ReportPack.ReportDirectory, "Agent evidence report pack directory.");
+        foreach (var asset in response.ReportPack.Assets)
+        {
+            yield return new ArtifactRunIndexArtifact(asset.Kind, asset.Path, asset.Description, asset.ContentType);
+        }
+    }
+
+    private static IEnumerable<ArtifactRunIndexDiagnostic> CreateBaselineDiagnostics(PreviewBaselineCheckEntry entry)
+    {
+        if (!entry.Render.Success)
+        {
+            yield return ToRunIndexDiagnostic(entry.Render.Error!, "preview", "error");
+        }
+        else
+        {
+            foreach (var diagnostic in entry.Render.Value!.Diagnostics)
+            {
+                yield return ToRunIndexDiagnostic(diagnostic);
+            }
+        }
+
+        if (!entry.Diff.Success)
+        {
+            yield return ToRunIndexDiagnostic(entry.Diff.Error!, "visual-regression", "error");
+        }
+        else if (entry.Diff.Value is { Passed: false } diff)
+        {
+            yield return new ArtifactRunIndexDiagnostic(
+                "warning",
+                "visual-regression",
+                "visual_diff_changed",
+                $"Image changed by {diff.ChangedPixels.ToString(CultureInfo.InvariantCulture)} pixels ({diff.ChangedPercent.ToString("0.####", CultureInfo.InvariantCulture)}%).",
+                details: new Dictionary<string, string>
+                {
+                    ["currentImagePath"] = entry.CurrentImagePath,
+                    ["diffPath"] = entry.DiffPath
+                });
+        }
+    }
+
     private static RuntimeSourceSuggestionContext? CreateSourceSuggestionContext(
         IReadOnlyDictionary<string, string> options,
         string source)
@@ -3148,7 +3686,7 @@ internal static class Program
 
     private static string GetUsage()
     {
-        return "Usage: avascope capabilities [--require <capability-id>[,<capability-id>...]] | avascope mcp | avascope doctor [--manifest-dir <dir>] [--preview-session-store <dir>] | avascope attach [--latest true|false] [--process <pid>] [--process-name <name>] [--session <session-id>] [--manifest <path>] [--manifest-dir <dir>] | avascope list-top-levels --session <session-id> [--manifest-dir <dir>] | avascope visual-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] [--manifest-dir <dir>] | avascope logical-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] [--manifest-dir <dir>] | avascope inspect-node --session <session-id> --top-level <top-level-id> --node <node-id> [--tree-kind visual|logical] [--manifest-dir <dir>] | avascope explain-layout --session <session-id> --top-level <top-level-id> --node <node-id> [--tree-kind visual|logical] [--manifest-dir <dir>] | avascope find-nodes --session <session-id> --top-level <top-level-id> [--tree-kind visual|logical] [--type <type>] [--name <name>] [--automation-id <id>] [--text <text>] [--max-depth <n>] [--max-results <n>] [--manifest-dir <dir>] | avascope audit-ui --session <session-id> --top-level <top-level-id> [--tree-kind visual|logical] [--max-depth <n>] [--max-issues <n>] [--max-inventory <n>] [--manifest-dir <dir>] | avascope design-audit --request <design-audit.json> [--manifest-dir <dir>] | avascope run-workflow --request <workflow.json> [--manifest-dir <dir>] | avascope run-scenario --request <scenario.json> [--manifest-dir <dir>] | avascope pointer-diagnostics --request <pointer-diagnostics.json> [--manifest-dir <dir>] | avascope pseudo-state-matrix --request <pseudo-state-matrix.json> [--manifest-dir <dir>] | avascope record-interaction-animation --request <interaction-animation.json> [--manifest-dir <dir>] | avascope input --session <session-id> --top-level <top-level-id> --action <action> [--x <x>] [--y <y>] [--text <text>] [--target-node <node-id>] [--key <key>] [--modifiers <modifiers>] [--manifest-dir <dir>] | avascope mutate-node --session <session-id> --top-level <top-level-id> --node <node-id> --operation <operation> [--tree-kind visual|logical] [--property <name>] [--value <value>] [--value-type <type>] [--class <class>] [--resource-key <key>] [--mutation-id <id>] [--request-id <id>] [--manifest-dir <dir>] | avascope mutate-node-evidence --session <session-id> --top-level <top-level-id> --node <node-id> --operation <operation> --out-dir <dir> [--tree-kind visual|logical] [--property <name>] [--value <value>] [--value-type <type>] [--class <class>] [--resource-key <key>] [--mutation-id <id>] [--request-id <id>] [--max-depth <n>] [--diff true|false] [--tolerance <0-255>] [--manifest-dir <dir>] | avascope mutation-review --session <session-id> [--max-results <n>] [--out <review.html>] [--manifest-dir <dir>] [--source-project <csproj>] [--source-view <view.axaml>] [--source-app <app.axaml>] [--source-profile <profile.json>] | avascope close-session --session <session-id> [--manifest-dir <dir>] | avascope diagnostics [--process <pid>] [--process-name <name>] [--session <session-id>] [--manifest <path>] [--manifest-dir <dir>] [--max-sessions <n>] | avascope launch-app --command <path> [--args <args>] [--env KEY=VALUE[;KEY=VALUE...]] [--timeout-ms <ms>] | avascope reload --session <session-id> [--manifest-dir <dir>] | avascope create-preview-session <project.csproj> [--profile <name>] [--profile-file <path>] [--variant <name>] --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] [--state-variant <state>] [--build-output-root <dir>] [--assembly-path <dll>] [--no-build true|false] [--display-name <name>] | avascope list-preview-sessions | avascope reload-preview-session --session <session-id> | avascope close-preview-session --session <session-id> | avascope watch-preview-session --session <session-id> --timeout-ms <ms> [--settle-ms <ms>] [--max-reloads <n>] [--watch <path>[,<path>...]] | avascope preview-viewer --session <session-id> [--out <viewer.html>] | avascope baseline-create <project.csproj> --view <view.axaml> --manifest <baseline.json> --sizes <w>x<h>[,<w>x<h>...] [--out-dir <dir>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] [--state-variant <state>] [--build-output-root <dir>] [--assembly-path <dll>] [--no-build true|false] | avascope baseline-create --suite <suite.json> --manifest <baseline.json> [--out-dir <dir>] | avascope baseline-check --manifest <baseline.json> [--out-dir <dir>] [--diff-dir <dir>] [--tolerance <0-255>] [--report <report.json>] [--report-pack <dir>] | avascope cleanup | avascope cleanup-bridge-sessions [--manifest-dir <dir>] | avascope diff --baseline <baseline.png> --current <current.png> --out <diff.png> [--tolerance <0-255>] | avascope semantic-diff --reference <reference.png> --current <current.png> --out-dir <dir> [--diff <raw-diff.png>] [--annotated <annotated.png>] [--tolerance <0-255>] [--request-id <id>] [--max-findings <n>] [--max-raw-regions <n>] [--min-changed-pixels <n>] | avascope assert-region --image <image.png> --assert non_empty|mostly_blank|changed|unchanged --x <x> --y <y> --width <w> --height <h> [--baseline <baseline.png>] [--crop-out <crop.png>] [--tolerance <0-255>] [--min-changed-pixels <n>] | avascope screenshot --session <session-id> --top-level <top-level-id> --out <screenshot.png> [--manifest-dir <dir>] | avascope preview-animation <project.csproj> [--profile <name>] [--profile-file <path>] [--variant <name>] --view <view.axaml> --out <frame.png> --time-offsets <ms>[,<ms>...] [--frame-strip <strip.png>] [--viewer <viewer.html>] [--width <width>] [--height <height>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] [--state-variant <state>] [--build-output-root <dir>] [--assembly-path <dll>] [--no-build true|false] | avascope preview <project.csproj> [--profile <name>] [--profile-file <path>] [--variant <name>] --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--sizes <w>x<h>[,<w>x<h>...]] [--contact-sheet <sheet.png>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] [--state-variant <state>] [--build-output-root <dir>] [--assembly-path <dll>] [--no-build true|false]";
+        return "Usage: avascope capabilities [--require <capability-id>[,<capability-id>...]] | avascope mcp | avascope doctor [--manifest-dir <dir>] [--preview-session-store <dir>] | avascope attach [--latest true|false] [--process <pid>] [--process-name <name>] [--session <session-id>] [--manifest <path>] [--manifest-dir <dir>] | avascope list-top-levels --session <session-id> [--manifest-dir <dir>] | avascope visual-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] [--manifest-dir <dir>] | avascope logical-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] [--manifest-dir <dir>] | avascope inspect-node --session <session-id> --top-level <top-level-id> --node <node-id> [--tree-kind visual|logical] [--manifest-dir <dir>] | avascope explain-layout --session <session-id> --top-level <top-level-id> --node <node-id> [--tree-kind visual|logical] [--manifest-dir <dir>] | avascope find-nodes --session <session-id> --top-level <top-level-id> [--tree-kind visual|logical] [--type <type>] [--name <name>] [--automation-id <id>] [--text <text>] [--max-depth <n>] [--max-results <n>] [--manifest-dir <dir>] | avascope audit-ui --session <session-id> --top-level <top-level-id> [--tree-kind visual|logical] [--max-depth <n>] [--max-issues <n>] [--max-inventory <n>] [--manifest-dir <dir>] [--run-index <dir>] [--task <name>] [--run-group <name>] | avascope design-audit --request <design-audit.json> [--manifest-dir <dir>] | avascope run-workflow --request <workflow.json> [--manifest-dir <dir>] | avascope run-scenario --request <scenario.json> [--manifest-dir <dir>] | avascope pointer-diagnostics --request <pointer-diagnostics.json> [--manifest-dir <dir>] | avascope pseudo-state-matrix --request <pseudo-state-matrix.json> [--manifest-dir <dir>] | avascope record-interaction-animation --request <interaction-animation.json> [--manifest-dir <dir>] | avascope input --session <session-id> --top-level <top-level-id> --action <action> [--x <x>] [--y <y>] [--text <text>] [--target-node <node-id>] [--key <key>] [--modifiers <modifiers>] [--manifest-dir <dir>] | avascope mutate-node --session <session-id> --top-level <top-level-id> --node <node-id> --operation <operation> [--tree-kind visual|logical] [--property <name>] [--value <value>] [--value-type <type>] [--class <class>] [--resource-key <key>] [--mutation-id <id>] [--request-id <id>] [--manifest-dir <dir>] | avascope mutate-node-evidence --session <session-id> --top-level <top-level-id> --node <node-id> --operation <operation> --out-dir <dir> [--tree-kind visual|logical] [--property <name>] [--value <value>] [--value-type <type>] [--class <class>] [--resource-key <key>] [--mutation-id <id>] [--request-id <id>] [--max-depth <n>] [--diff true|false] [--tolerance <0-255>] [--manifest-dir <dir>] | avascope mutation-review --session <session-id> [--max-results <n>] [--out <review.html>] [--manifest-dir <dir>] [--source-project <csproj>] [--source-view <view.axaml>] [--source-app <app.axaml>] [--source-profile <profile.json>] | avascope close-session --session <session-id> [--manifest-dir <dir>] | avascope diagnostics [--process <pid>] [--process-name <name>] [--session <session-id>] [--manifest <path>] [--manifest-dir <dir>] [--max-sessions <n>] [--mode all|active-only|minimal|json-minimal] | avascope launch-app --command <path> [--args <args>] [--env KEY=VALUE[;KEY=VALUE...]] [--timeout-ms <ms>] | avascope reload --session <session-id> [--manifest-dir <dir>] | avascope create-preview-session <project.csproj> [--profile <name>] [--profile-file <path>] [--variant <name>] --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] [--state-variant <state>] [--build-output-root <dir>] [--assembly-path <dll>] [--no-build true|false] [--display-name <name>] | avascope list-preview-sessions | avascope reload-preview-session --session <session-id> | avascope close-preview-session --session <session-id> | avascope watch-preview-session --session <session-id> --timeout-ms <ms> [--settle-ms <ms>] [--max-reloads <n>] [--watch <path>[,<path>...]] | avascope preview-viewer --session <session-id> [--out <viewer.html>] | avascope baseline-create <project.csproj> --view <view.axaml> --manifest <baseline.json> --sizes <w>x<h>[,<w>x<h>...] [--out-dir <dir>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] [--state-variant <state>] [--build-output-root <dir>] [--assembly-path <dll>] [--no-build true|false] | avascope baseline-create --suite <suite.json> --manifest <baseline.json> [--out-dir <dir>] | avascope baseline-check --manifest <baseline.json> [--out-dir <dir>] [--diff-dir <dir>] [--tolerance <0-255>] [--report <report.json>] [--report-pack <dir>] [--run-index <dir>] [--task <name>] [--run-group <name>] | avascope latest-run --run-index <dir> [--task <name>] [--project <csproj>] [--view <view.axaml>] [--profile <name>] [--variant <name>] [--state-variant <state>] [--command <command>] | avascope cleanup | avascope cleanup-bridge-sessions [--manifest-dir <dir>] | avascope diff --baseline <baseline.png> --current <current.png> --out <diff.png> [--tolerance <0-255>] | avascope semantic-diff --reference <reference.png> --current <current.png> --out-dir <dir> [--diff <raw-diff.png>] [--annotated <annotated.png>] [--tolerance <0-255>] [--request-id <id>] [--max-findings <n>] [--max-raw-regions <n>] [--min-changed-pixels <n>] | avascope assert-region --image <image.png> --assert non_empty|mostly_blank|changed|unchanged --x <x> --y <y> --width <w> --height <h> [--baseline <baseline.png>] [--crop-out <crop.png>] [--tolerance <0-255>] [--min-changed-pixels <n>] | avascope screenshot --session <session-id> --top-level <top-level-id> --out <screenshot.png> [--manifest-dir <dir>] | avascope preview-animation <project.csproj> [--profile <name>] [--profile-file <path>] [--variant <name>] --view <view.axaml> --out <frame.png> --time-offsets <ms>[,<ms>...] [--frame-strip <strip.png>] [--viewer <viewer.html>] [--width <width>] [--height <height>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] [--state-variant <state>] [--build-output-root <dir>] [--assembly-path <dll>] [--no-build true|false] | avascope preview <project.csproj> [--profile <name>] [--profile-file <path>] [--variant <name>] --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--sizes <w>x<h>[,<w>x<h>...]] [--contact-sheet <sheet.png>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] [--state-variant <state>] [--build-output-root <dir>] [--assembly-path <dll>] [--no-build true|false] [--run-index <dir>] [--task <name>] [--run-group <name>]";
     }
 
     private static string GetCapabilitiesUsage()
@@ -3158,7 +3696,7 @@ internal static class Program
 
     private static string GetPreviewUsage()
     {
-        return "Usage: avascope preview <project.csproj> [--profile <name>] [--profile-file <path>] [--variant <name>] --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--sizes <w>x<h>[,<w>x<h>...]] [--contact-sheet <sheet.png>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] [--state-variant <state>] [--build-output-root <dir>] [--assembly-path <dll>] [--no-build true|false]";
+        return "Usage: avascope preview <project.csproj> [--profile <name>] [--profile-file <path>] [--variant <name>] --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--sizes <w>x<h>[,<w>x<h>...]] [--contact-sheet <sheet.png>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] [--state-variant <state>] [--build-output-root <dir>] [--assembly-path <dll>] [--no-build true|false] [--run-index <dir>] [--task <name>] [--run-group <name>]";
     }
 
     private static string GetPreviewAnimationUsage()
@@ -3203,7 +3741,7 @@ internal static class Program
 
     private static string GetBaselineCheckUsage()
     {
-        return "Usage: avascope baseline-check --manifest <baseline.json> [--out-dir <dir>] [--diff-dir <dir>] [--tolerance <0-255>] [--report <report.json>] [--report-pack <dir>]";
+        return "Usage: avascope baseline-check --manifest <baseline.json> [--out-dir <dir>] [--diff-dir <dir>] [--tolerance <0-255>] [--report <report.json>] [--report-pack <dir>] [--run-index <dir>] [--task <name>] [--run-group <name>]";
     }
 
     private static string GetAttachUsage()
@@ -3243,7 +3781,7 @@ internal static class Program
 
     private static string GetAuditUiUsage()
     {
-        return "Usage: avascope audit-ui --session <session-id> --top-level <top-level-id> [--tree-kind visual|logical] [--max-depth <n>] [--max-issues <n>] [--max-inventory <n>] [--manifest-dir <dir>]";
+        return "Usage: avascope audit-ui --session <session-id> --top-level <top-level-id> [--tree-kind visual|logical] [--max-depth <n>] [--max-issues <n>] [--max-inventory <n>] [--manifest-dir <dir>] [--run-index <dir>] [--task <name>] [--run-group <name>]";
     }
 
     private static string GetDesignAuditUsage()
@@ -3303,7 +3841,12 @@ internal static class Program
 
     private static string GetDiagnosticsUsage()
     {
-        return "Usage: avascope diagnostics [--process <pid>] [--process-name <name>] [--session <session-id>] [--manifest <path>] [--manifest-dir <dir>] [--max-sessions <n>]";
+        return "Usage: avascope diagnostics [--process <pid>] [--process-name <name>] [--session <session-id>] [--manifest <path>] [--manifest-dir <dir>] [--max-sessions <n>] [--mode all|active-only|minimal|json-minimal]";
+    }
+
+    private static string GetLatestRunUsage()
+    {
+        return "Usage: avascope latest-run --run-index <dir> [--task <name>] [--run-group <name>] [--project <csproj>] [--view <view.axaml>] [--profile <name>] [--variant <name>] [--state-variant <state>] [--command <command>]";
     }
 
     private static string GetLaunchAppUsage()

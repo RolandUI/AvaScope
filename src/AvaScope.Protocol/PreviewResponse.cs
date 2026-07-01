@@ -19,7 +19,8 @@ public sealed record PreviewResponse
         IReadOnlyList<PreviewDiagnostic>? diagnostics = null,
         int? animationTimeOffsetMs = null,
         PreviewProjectInfo? projectInfo = null,
-        string? stateVariant = null)
+        string? stateVariant = null,
+        ArtifactRunIndexResponse? runIndex = null)
     {
         if (string.IsNullOrWhiteSpace(filePath))
         {
@@ -60,6 +61,7 @@ public sealed record PreviewResponse
         AnimationTimeOffsetMs = animationTimeOffsetMs;
         ProjectInfo = projectInfo;
         StateVariant = string.IsNullOrWhiteSpace(stateVariant) ? null : stateVariant;
+        RunIndex = runIndex;
     }
 
     [JsonPropertyName("filePath")]
@@ -111,4 +113,8 @@ public sealed record PreviewResponse
     [JsonPropertyName("stateVariant")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? StateVariant { get; }
+
+    [JsonPropertyName("runIndex")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public ArtifactRunIndexResponse? RunIndex { get; }
 }

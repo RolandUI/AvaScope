@@ -105,6 +105,8 @@ public sealed class ProtocolContractTests
         Assert.Contains(response.Capabilities, capability => capability.Id == AvaScopeCapabilityIds.RuntimeInteractionAnimation);
         Assert.Contains(response.Capabilities, capability => capability.Id == AvaScopeCapabilityIds.PreviewStateVariants);
         Assert.Contains(response.Capabilities, capability => capability.Id == AvaScopeCapabilityIds.PreviewSemanticDiff);
+        Assert.Contains(response.Capabilities, capability => capability.Id == AvaScopeCapabilityIds.ArtifactsRunIndex);
+        Assert.Contains(response.Tools, tool => tool.Adapter == "cli" && tool.Name == "latest-run");
         Assert.Contains(response.Tools, tool => tool.Adapter == "mcp" && tool.Name == "run_workflow");
         Assert.Contains(response.Tools, tool => tool.Adapter == "mcp" && tool.Name == "run_scenario");
         Assert.Contains(response.Tools, tool => tool.Adapter == "mcp" && tool.Name == "pointer_diagnostics");
@@ -744,6 +746,64 @@ public sealed class ProtocolContractTests
         Assert.Equal(DiagnosticIssueSeverities.Warning, node["diagnosticIssues"]![0]!["severity"]!.GetValue<string>());
         Assert.Equal(DiagnosticStatuses.Unavailable, node["diagnosticIssues"]![0]!["status"]!.GetValue<string>());
         Assert.Equal("diagnostics_summary", node["diagnosticIssues"]![0]!["provenance"]!.GetValue<string>());
+        Assert.Equal(1, node["summary"]!["bridgeSessionCount"]!.GetValue<int>());
+        Assert.Equal(1, node["summary"]!["activeBridgeSessionCount"]!.GetValue<int>());
+        Assert.Equal(0, node["summary"]!["staleBridgeSessionCount"]!.GetValue<int>());
+        Assert.Equal(1, node["summary"]!["diagnosticIssueCount"]!.GetValue<int>());
+        Assert.Contains("avascope create-preview-session", node["summary"]!["nextCommands"]![0]!.GetValue<string>(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ArtifactRunIndexResponseSerializesNavigationShape()
+    {
+        var generatedAt = new DateTimeOffset(2026, 7, 1, 12, 0, 0, TimeSpan.Zero);
+        var response = new ArtifactRunIndexResponse(
+            "20260701T1200000000000Z-abc12345",
+            "sample-key",
+            "preview",
+            "completed_with_warnings",
+            generatedAt,
+            "C:\\runs\\sample-key\\runs\\run-1\\run-index.json",
+            "C:\\runs\\sample-key\\runs\\run-1\\run-index.html",
+            "C:\\runs\\sample-key\\latest-run.json",
+            projectPath: "C:\\apps\\Sample\\Sample.csproj",
+            viewPath: "Views/MainView.axaml",
+            profile: "main",
+            variant: "desktop",
+            stateVariant: "loading",
+            screenshotPaths: ["C:\\runs\\preview.png"],
+            artifacts:
+            [
+                new ArtifactRunIndexArtifact("preview_screenshot", "C:\\runs\\preview.png", "Preview screenshot.", "image/png")
+            ],
+            diagnostics:
+            [
+                new ArtifactRunIndexDiagnostic(
+                    "warning",
+                    "binding",
+                    "binding_missing_datacontext",
+                    "Binding has no DataContext.",
+                    "Views/MainView.axaml",
+                    "visual:text")
+            ],
+            warnings: ["binding_missing_datacontext: Binding has no DataContext."],
+            generatedReports:
+            [
+                new ArtifactRunIndexArtifact("html", "C:\\runs\\run-index.html", "HTML run index.", "text/html")
+            ]);
+
+        var node = JsonNode.Parse(JsonSerializer.Serialize(response))!;
+
+        Assert.Equal("preview", node["command"]!.GetValue<string>());
+        Assert.Equal("completed_with_warnings", node["status"]!.GetValue<string>());
+        Assert.Equal("C:\\apps\\Sample\\Sample.csproj", node["projectPath"]!.GetValue<string>());
+        Assert.Equal("Views/MainView.axaml", node["viewPath"]!.GetValue<string>());
+        Assert.Equal("loading", node["stateVariant"]!.GetValue<string>());
+        Assert.Equal("C:\\runs\\preview.png", node["screenshotPaths"]![0]!.GetValue<string>());
+        Assert.Equal("preview_screenshot", node["artifacts"]![0]!["kind"]!.GetValue<string>());
+        Assert.Equal("binding_missing_datacontext", node["diagnostics"]![0]!["code"]!.GetValue<string>());
+        Assert.Equal("html", node["generatedReports"]![0]!["kind"]!.GetValue<string>());
+        Assert.Equal("file:///C:/runs/sample-key/latest-run.json", node["latestPointerUrl"]!.GetValue<string>());
     }
 
     [Fact]

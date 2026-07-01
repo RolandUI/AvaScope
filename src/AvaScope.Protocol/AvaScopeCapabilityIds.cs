@@ -53,5 +53,6 @@ public static class AvaScopeCapabilityIds
     public const string ArtifactsScreenshot = "artifacts.screenshot";
     public const string ArtifactsDiffImage = "artifacts.diff_image";
     public const string ArtifactsHtmlViewer = "artifacts.html_viewer";
+    public const string ArtifactsRunIndex = "artifacts.run_index";
     public const string ArtifactsJunitSarif = "artifacts.junit_sarif";
 }

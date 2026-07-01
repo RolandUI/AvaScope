@@ -11,7 +11,8 @@ public sealed record PreviewBaselineCheckResponse
         IReadOnlyList<PreviewBaselineCheckEntry>? entries,
         DateTimeOffset checkedAt,
         string? reportPath = null,
-        AgentEvidenceReportPackResponse? reportPack = null)
+        AgentEvidenceReportPackResponse? reportPack = null,
+        ArtifactRunIndexResponse? runIndex = null)
     {
         if (string.IsNullOrWhiteSpace(manifestPath))
         {
@@ -24,6 +25,7 @@ public sealed record PreviewBaselineCheckResponse
         CheckedAt = checkedAt;
         ReportPath = string.IsNullOrWhiteSpace(reportPath) ? null : Path.GetFullPath(reportPath);
         ReportPack = reportPack;
+        RunIndex = runIndex;
     }
 
     [JsonPropertyName("manifestPath")]
@@ -45,6 +47,10 @@ public sealed record PreviewBaselineCheckResponse
     [JsonPropertyName("reportPack")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public AgentEvidenceReportPackResponse? ReportPack { get; }
+
+    [JsonPropertyName("runIndex")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public ArtifactRunIndexResponse? RunIndex { get; }
 
     [JsonPropertyName("agentReview")]
     public AgentReviewSurface AgentReview => CreateAgentReview();

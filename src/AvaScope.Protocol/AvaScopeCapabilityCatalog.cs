@@ -272,8 +272,9 @@ public static class AvaScopeCapabilityCatalog
             Capability(
                 AvaScopeCapabilityIds.DiagnosticsSummary,
                 "diagnostics",
-                "Report service, bridge, preview host, preview session, and bounded diagnostic issue summaries.",
-                ["diagnostics", "doctor"]),
+                "Report service, bridge, preview host, preview session, bounded diagnostic issue summaries, active-only views, and concise next-command guidance.",
+                ["diagnostics", "doctor"],
+                metadata: new Dictionary<string, string> { ["modes"] = "all,active-only,minimal,json-minimal" }),
             Capability(
                 AvaScopeCapabilityIds.BaselineSingle,
                 "baseline",
@@ -324,6 +325,16 @@ public static class AvaScopeCapabilityCatalog
                 "Write local HTML review and viewer artifacts with file-backed URLs.",
                 ["preview-viewer", "preview-animation", "mutation-review", "mutate-node-evidence", "preview_viewer", "mutation_review", "mutate_node_evidence"]),
             Capability(
+                AvaScopeCapabilityIds.ArtifactsRunIndex,
+                "artifacts",
+                "Write per-run JSON/HTML indexes, latest-run pointers, and agent-resolvable artifact navigation metadata.",
+                ["preview", "audit-ui", "baseline-check", "latest-run"],
+                metadata: new Dictionary<string, string>
+                {
+                    ["indexFiles"] = "run-index.json,run-index.html,latest-run.json",
+                    ["selectorFields"] = "task,runGroup,project,view,profile,variant,stateVariant,command"
+                }),
+            Capability(
                 AvaScopeCapabilityIds.ArtifactsJunitSarif,
                 "artifacts",
                 "Write JUnit and SARIF-style report assets for CI and agent evidence review.",
@@ -358,7 +369,7 @@ public static class AvaScopeCapabilityCatalog
             Mcp("explain_layout", AvaScopeCapabilityIds.RuntimeLayoutExplain),
             Cli("find-nodes", AvaScopeCapabilityIds.RuntimeFind),
             Mcp("find_nodes", AvaScopeCapabilityIds.RuntimeFind),
-            Cli("audit-ui", AvaScopeCapabilityIds.RuntimeUiAudit),
+            Cli("audit-ui", AvaScopeCapabilityIds.RuntimeUiAudit, AvaScopeCapabilityIds.ArtifactsRunIndex),
             Mcp("audit_ui", AvaScopeCapabilityIds.RuntimeUiAudit),
             Cli("design-audit", AvaScopeCapabilityIds.RuntimeDesignQualityAudit),
             Mcp("design_quality_audit", AvaScopeCapabilityIds.RuntimeDesignQualityAudit),
@@ -384,7 +395,7 @@ public static class AvaScopeCapabilityCatalog
             Mcp("close_session", AvaScopeCapabilityIds.RuntimeSessionLifecycle),
             Cli("screenshot", AvaScopeCapabilityIds.ArtifactsScreenshot),
             Mcp("screenshot", AvaScopeCapabilityIds.ArtifactsScreenshot),
-            Cli("preview", AvaScopeCapabilityIds.PreviewAxaml, AvaScopeCapabilityIds.PreviewMultiSize, AvaScopeCapabilityIds.PreviewStateVariants, AvaScopeCapabilityIds.ArtifactsScreenshot),
+            Cli("preview", AvaScopeCapabilityIds.PreviewAxaml, AvaScopeCapabilityIds.PreviewMultiSize, AvaScopeCapabilityIds.PreviewStateVariants, AvaScopeCapabilityIds.ArtifactsScreenshot, AvaScopeCapabilityIds.ArtifactsRunIndex),
             Mcp("preview_axaml", AvaScopeCapabilityIds.PreviewAxaml, AvaScopeCapabilityIds.PreviewStateVariants, AvaScopeCapabilityIds.ArtifactsScreenshot),
             Mcp("preview_axaml_multi", AvaScopeCapabilityIds.PreviewMultiSize, AvaScopeCapabilityIds.PreviewStateVariants, AvaScopeCapabilityIds.ArtifactsScreenshot),
             Cli("preview-animation", AvaScopeCapabilityIds.PreviewAnimation, AvaScopeCapabilityIds.PreviewStateVariants, AvaScopeCapabilityIds.ArtifactsHtmlViewer),
@@ -402,7 +413,8 @@ public static class AvaScopeCapabilityCatalog
             Cli("preview-viewer", AvaScopeCapabilityIds.PreviewViewer, AvaScopeCapabilityIds.ArtifactsHtmlViewer),
             Mcp("preview_viewer", AvaScopeCapabilityIds.PreviewViewer, AvaScopeCapabilityIds.ArtifactsHtmlViewer),
             Cli("baseline-create", AvaScopeCapabilityIds.BaselineSingle, AvaScopeCapabilityIds.BaselineSuite, AvaScopeCapabilityIds.PreviewStateVariants),
-            Cli("baseline-check", AvaScopeCapabilityIds.BaselineSingle, AvaScopeCapabilityIds.BaselineSuite, AvaScopeCapabilityIds.BaselineComparisonRules, AvaScopeCapabilityIds.ReportsJson, AvaScopeCapabilityIds.ReportsEvidencePack),
+            Cli("baseline-check", AvaScopeCapabilityIds.BaselineSingle, AvaScopeCapabilityIds.BaselineSuite, AvaScopeCapabilityIds.BaselineComparisonRules, AvaScopeCapabilityIds.ReportsJson, AvaScopeCapabilityIds.ReportsEvidencePack, AvaScopeCapabilityIds.ArtifactsRunIndex),
+            Cli("latest-run", AvaScopeCapabilityIds.ArtifactsRunIndex),
             Mcp("baseline_check", AvaScopeCapabilityIds.BaselineSingle, AvaScopeCapabilityIds.BaselineSuite, AvaScopeCapabilityIds.BaselineComparisonRules, AvaScopeCapabilityIds.ReportsJson, AvaScopeCapabilityIds.ReportsEvidencePack),
             Cli("diff", AvaScopeCapabilityIds.ArtifactsDiffImage),
             Cli("semantic-diff", AvaScopeCapabilityIds.PreviewSemanticDiff, AvaScopeCapabilityIds.ArtifactsDiffImage),

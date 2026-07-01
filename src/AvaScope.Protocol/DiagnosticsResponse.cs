@@ -13,7 +13,8 @@ public sealed record DiagnosticsResponse
         IReadOnlyList<ProtocolError>? issues = null,
         PreviewHostDiagnostic? previewHost = null,
         IReadOnlyList<PreviewSessionDiagnostic>? previewSessions = null,
-        IReadOnlyList<DiagnosticIssue>? diagnosticIssues = null)
+        IReadOnlyList<DiagnosticIssue>? diagnosticIssues = null,
+        DiagnosticsSummary? summary = null)
     {
         ArgumentNullException.ThrowIfNull(service);
 
@@ -30,6 +31,7 @@ public sealed record DiagnosticsResponse
         PreviewSessions = previewSessions ?? [];
         Issues = issues ?? [];
         DiagnosticIssues = diagnosticIssues ?? [];
+        Summary = summary ?? DiagnosticsSummary.Create(BridgeSessions, PreviewSessions, DiagnosticIssues);
     }
 
     [JsonPropertyName("service")]
@@ -56,4 +58,7 @@ public sealed record DiagnosticsResponse
 
     [JsonPropertyName("diagnosticIssues")]
     public IReadOnlyList<DiagnosticIssue> DiagnosticIssues { get; }
+
+    [JsonPropertyName("summary")]
+    public DiagnosticsSummary Summary { get; }
 }

@@ -26,6 +26,7 @@ public static class CoreErrorCodes
     public const string PreviewSessionStoreFailed = "preview_session_store_failed";
     public const string PreviewViewerUnavailable = "preview_viewer_unavailable";
     public const string AgentEvidenceReportPackUnavailable = "agent_evidence_report_pack_unavailable";
+    public const string ArtifactRunIndexUnavailable = "artifact_run_index_unavailable";
     public const string RuntimeMutationReviewUnavailable = "runtime_mutation_review_unavailable";
     public const string RuntimeReloadNotSupported = "runtime_reload_not_supported";
 }

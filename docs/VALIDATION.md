@@ -102,6 +102,13 @@ dotnet test AvaScope.slnx --filter Mcp
 dotnet test AvaScope.slnx --filter FullyQualifiedName~Cli
 ```
 
+For diagnostics and artifact run-index ergonomics work, include:
+
+```powershell
+dotnet test AvaScope.slnx --no-build --filter "FullyQualifiedName~ArtifactRunIndexStoreTests|FullyQualifiedName~ProtocolContractTests|FullyQualifiedName~LocalBridgeClientTests.Diagnostics|FullyQualifiedName~CliSmokeTests.PreviewCommandRendersAxamlThroughPreviewHostClient|FullyQualifiedName~AvaScopeMcpToolsTests.CapabilitiesReturnsCurrentCapabilityManifest"
+dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~StableSurfaceContractTests
+```
+
 For runtime target handoff work, include:
 
 ```powershell

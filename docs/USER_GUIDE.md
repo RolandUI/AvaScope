@@ -16,6 +16,7 @@ AvaScope is an agent-focused local control plane for Avalonia apps. It gives CLI
 - Runtime `inspect_node` computed visual/style/layout property values.
 - Multi-size preview, contact-sheet output, screenshot diff, and scoped preview-session cleanup workflows.
 - File-backed preview viewer export with `previewUrl` handoff for Codex in-app browser workflows.
+- Optional per-run JSON/HTML artifact indexes with latest-run pointers for preview, runtime audit, and visual-regression runs.
 - MCP stdio server with structured tools.
 - `avascope` CLI with doctor, preview, runtime inspection, diagnostics, and MCP handoff commands.
 - Explicit `capabilities` discovery for protocol, CLI/MCP tools, runtime mutation, preview, diagnostics, baselines, reports, and artifact support.
@@ -281,6 +282,15 @@ dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll capabilities --require 
 The command writes a structured JSON `ToolResult<PreviewResponse>` to stdout. On success, `value.filePath` points to the generated PNG.
 `--width` and `--height` can be omitted when the root AXAML declares design-time dimensions with `d:DesignWidth`/`d:DesignHeight` or `Design.Width`/`Design.Height`. Project previews also apply root design-time data from `Design.DataContext` or `d:DataContext="{x:Static ...}"`; an explicit `--design-data-type` still takes precedence.
 `--state-variant` selects an explicit design-data state such as `empty`, `loading`, `error`, `long-text`, `many-rows`, `validation-errors`, or `narrow`. PreviewHost applies it by using a public `ForState(string)`, `Create(string)`, string constructor, `StateVariant` property, or `ApplyState(string)` member on the configured design-data type. The response echoes `stateVariant` and includes `state_variant_applied` or `state_variant_not_applied` diagnostics.
+
+Use `--run-index <dir>` on `preview` when an agent needs a durable per-run artifact index:
+
+```powershell
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll preview .\samples\AvaScope.GettingStartedApp\AvaScope.GettingStartedApp.csproj --profile main --out .\artifacts\samples\getting-started-preview.png --run-index .\artifacts\samples\run-indexes --task getting-started-main
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll latest-run --run-index .\artifacts\samples\run-indexes --task getting-started-main
+```
+
+The preview response includes `runIndex` with `run-index.json`, `run-index.html`, `latest-run.json`, screenshot paths, diagnostics, warnings, and generated report paths. `latest-run` resolves the pointer without scanning artifact directories manually. If `--task` is omitted, AvaScope groups the latest pointer by project, view, profile, variant, and state variant.
 Project preview builds use an AvaScope-owned isolated output root by default, so a running app that locks its normal `bin` output does not block one-shot previews. Use `--build-output-root <dir>` to choose the isolated build root explicitly. Use `--assembly-path <dll>` to load an already-built project assembly without building, or `--no-build true` to skip the build and probe the known output path. Build failures keep stdout/stderr bounded in the JSON response and write the full process output to `error.details.buildLogPath` when possible.
 
 Repeated preview settings can live in `avascope.preview.json` beside the project file:
@@ -429,10 +439,10 @@ dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll find-nodes --session se
 Build a bounded accessibility, validation, and component inventory report from the runtime tree:
 
 ```powershell
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll audit-ui --session session-id --top-level topLevel:1234 --tree-kind visual --max-depth 8 --max-issues 100 --max-inventory 100
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll audit-ui --session session-id --top-level topLevel:1234 --tree-kind visual --max-depth 8 --max-issues 100 --max-inventory 100 --run-index .\artifacts\run-indexes --task runtime-audit-main
 ```
 
-`audit-ui` returns `ToolResult<UiAuditResponse>` with `summary`, bounded `issues`, bounded `inventory`, and `agentReview`. It reports actionable controls missing accessible names or stable automation ids, keyboard focus metadata, runtime validation errors, control/class/component-pattern counts, and explicit `not_available` inventory entries for style/resource/template/theme scopes that the runtime tree cannot prove reliably.
+`audit-ui` returns `ToolResult<UiAuditResponse>` with `summary`, bounded `issues`, bounded `inventory`, and `agentReview`. It reports actionable controls missing accessible names or stable automation ids, keyboard focus metadata, runtime validation errors, control/class/component-pattern counts, and explicit `not_available` inventory entries for style/resource/template/theme scopes that the runtime tree cannot prove reliably. When `--run-index <dir>` is supplied, the response includes `runIndex` with the audit command metadata, diagnostics, warnings, and latest pointer for the task.
 
 Run a task-scoped design-quality audit when a UI change needs focused visual-quality review rather than a broad accessibility inventory:
 
@@ -650,9 +660,10 @@ dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll doctor
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll diagnostics
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll diagnostics --session session-id --max-sessions 10
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll diagnostics --manifest C:\Temp\AvaScope\sessions\session-id.json
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll diagnostics --mode active-only
 ```
 
-`doctor` reports CLI/MCP/PreviewHost co-location, bridge manifest discovery, preview-session store state, preview host readiness, and actionable issues without building or loading user projects. It exits non-zero when required co-located AvaScope assemblies or diagnostic records need attention. `diagnostics` distinguishes active, stale, invalid, unauthorized, unavailable, and incompatible local bridge records, includes health-check request ids, reports duplicate manifest records, and preserves protocol mismatch details.
+`doctor` reports CLI/MCP/PreviewHost co-location, bridge manifest discovery, preview-session store state, preview host readiness, and actionable issues without building or loading user projects. It exits non-zero when required co-located AvaScope assemblies or diagnostic records need attention. `diagnostics` distinguishes active, stale, invalid, unauthorized, unavailable, and incompatible local bridge records, includes health-check request ids, reports duplicate manifest records, and preserves protocol mismatch details. The response includes `summary` counts plus `nextCommands`. `--mode active-only` lists only useful active bridge/preview sessions while keeping stale/invalid counts in `summary`; `--mode minimal` and `--mode json-minimal` suppress detailed session lists for concise agent triage.
 
 Compare screenshots with an explicit diff artifact:
 
@@ -683,10 +694,11 @@ Create and check a visual regression baseline set:
 
 ```powershell
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll baseline-create path\to\App.csproj --view Views\MainView.axaml --manifest .\baselines\main.json --sizes 1440x900,1280x720 --out-dir .\baselines\main-images --theme light
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll baseline-check --manifest .\baselines\main.json --out-dir .\artifacts\visual-current --diff-dir .\artifacts\visual-diff --report .\artifacts\visual-report.json --report-pack .\artifacts\visual-report-pack --tolerance 2
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll baseline-check --manifest .\baselines\main.json --out-dir .\artifacts\visual-current --diff-dir .\artifacts\visual-diff --report .\artifacts\visual-report.json --report-pack .\artifacts\visual-report-pack --run-index .\artifacts\run-indexes --task visual-main --tolerance 2
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll latest-run --run-index .\artifacts\run-indexes --task visual-main
 ```
 
-`baseline-create` writes explicit baseline screenshots plus a JSON manifest. `baseline-check` re-renders the manifest variants, writes current and diff images to explicit output directories, can write a stable JSON report with `--report`, can write an agent evidence pack with `--report-pack <dir>`, returns bounded `agentReview` triage metadata, and exits non-zero when any variant changes. It does not update or replace baseline files.
+`baseline-create` writes explicit baseline screenshots plus a JSON manifest. `baseline-check` re-renders the manifest variants, writes current and diff images to explicit output directories, can write a stable JSON report with `--report`, can write an agent evidence pack with `--report-pack <dir>`, can write a run index with `--run-index <dir>`, returns bounded `agentReview` triage metadata, and exits non-zero when any variant changes. It does not update or replace baseline files.
 
 `--report-pack` writes bounded review assets for agent handoff:
 
@@ -833,7 +845,7 @@ Post-1.0 deferrals: runtime hot reload, drag/drop, full preview startup orchestr
 
 `capabilities` returns the same discovery manifest as the CLI command and accepts optional `requiredCapabilities` as comma-separated ids. It is the compatibility gate for clients that need specific runtime, preview, diagnostics, baseline, report, artifact, or mutation surfaces before invoking newer tools.
 
-`diagnostics` reports AvaScope service metadata, local bridge manifest/pipe health, stale, invalid, unauthorized, unavailable, duplicate, and protocol-incompatible bridge records, preview host readiness, and stale or invalid preview-session metadata without building or loading user projects. The response keeps the legacy `issues` list and also includes bounded `diagnosticIssues` entries with source, severity, status, provenance, request ids, and related path/session metadata for agent triage.
+`diagnostics` reports AvaScope service metadata, local bridge manifest/pipe health, stale, invalid, unauthorized, unavailable, duplicate, and protocol-incompatible bridge records, preview host readiness, and stale or invalid preview-session metadata without building or loading user projects. The response keeps the legacy `issues` list and also includes `summary` counts, `nextCommands`, and bounded `diagnosticIssues` entries with source, severity, status, provenance, request ids, and related path/session metadata for agent triage. The optional `mode` parameter accepts `all`, `active-only`, `minimal`, or `json-minimal`.
 
 Preview readiness/build/render failures preserve the stable `error.code` and `error.message` shape and may include bounded `error.details` fields such as `phase`, `requirement`, `projectPath`, `viewPath`, `outputPath`, `exitCode`, `outputTail`, and `nextAction`. Readiness failures cover local prerequisites that can be checked before rendering, such as missing co-located PreviewHost assemblies, missing project files, missing view files, and unavailable `dotnet` process startup.
 

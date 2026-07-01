@@ -18,7 +18,8 @@ public sealed record UiAuditResponse
         UiAuditSummary summary,
         IReadOnlyList<UiAuditIssue>? issues = null,
         IReadOnlyList<UiInventoryItem>? inventory = null,
-        RuntimeTargetContext? target = null)
+        RuntimeTargetContext? target = null,
+        ArtifactRunIndexResponse? runIndex = null)
     {
         SessionId = sessionId ?? throw new ArgumentNullException(nameof(sessionId));
 
@@ -45,6 +46,7 @@ public sealed record UiAuditResponse
         Issues = (issues ?? []).Take(MaximumIssues).ToArray();
         Inventory = (inventory ?? []).Take(MaximumInventoryItems).ToArray();
         Target = target ?? new RuntimeTargetContext(sessionId, topLevelId, treeKind);
+        RunIndex = runIndex;
     }
 
     [JsonPropertyName("sessionId")]
@@ -73,6 +75,10 @@ public sealed record UiAuditResponse
 
     [JsonPropertyName("target")]
     public RuntimeTargetContext Target { get; }
+
+    [JsonPropertyName("runIndex")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public ArtifactRunIndexResponse? RunIndex { get; }
 
     [JsonPropertyName("agentReview")]
     public AgentReviewSurface AgentReview => CreateAgentReview();

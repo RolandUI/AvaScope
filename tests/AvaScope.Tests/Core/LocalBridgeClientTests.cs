@@ -617,6 +617,12 @@ public sealed class LocalBridgeClientTests : IDisposable
                 Assert.Equal(CoreErrorCodes.BridgeManifestInvalid, unsupportedTransport.Error!.Code);
                 Assert.Contains("transport scope", unsupportedTransport.Error.Message, StringComparison.OrdinalIgnoreCase);
             });
+        Assert.Equal(3, result.Value.Summary.BridgeSessionCount);
+        Assert.Equal(0, result.Value.Summary.ActiveBridgeSessionCount);
+        Assert.Equal(1, result.Value.Summary.StaleBridgeSessionCount);
+        Assert.Equal(2, result.Value.Summary.InvalidBridgeSessionCount);
+        Assert.Equal(3, result.Value.Summary.InactiveBridgeSessionCount);
+        Assert.Contains("avascope cleanup-bridge-sessions", result.Value.Summary.NextCommands);
         Assert.Collection(
             result.Value.DiagnosticIssues,
             stale =>
