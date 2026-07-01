@@ -104,11 +104,13 @@ public sealed class ProtocolContractTests
         Assert.Contains(response.Capabilities, capability => capability.Id == AvaScopeCapabilityIds.RuntimePseudoStateMatrix);
         Assert.Contains(response.Capabilities, capability => capability.Id == AvaScopeCapabilityIds.RuntimeInteractionAnimation);
         Assert.Contains(response.Capabilities, capability => capability.Id == AvaScopeCapabilityIds.PreviewStateVariants);
+        Assert.Contains(response.Capabilities, capability => capability.Id == AvaScopeCapabilityIds.PreviewSemanticDiff);
         Assert.Contains(response.Tools, tool => tool.Adapter == "mcp" && tool.Name == "run_workflow");
         Assert.Contains(response.Tools, tool => tool.Adapter == "mcp" && tool.Name == "run_scenario");
         Assert.Contains(response.Tools, tool => tool.Adapter == "mcp" && tool.Name == "pointer_diagnostics");
         Assert.Contains(response.Tools, tool => tool.Adapter == "mcp" && tool.Name == "pseudo_state_matrix");
         Assert.Contains(response.Tools, tool => tool.Adapter == "mcp" && tool.Name == "record_interaction_animation");
+        Assert.Contains(response.Tools, tool => tool.Adapter == "mcp" && tool.Name == "semantic_diff");
         Assert.Empty(node["value"]!["diagnostics"]!.AsArray());
     }
 
@@ -598,6 +600,80 @@ public sealed class ProtocolContractTests
         Assert.Equal("visual:panel", responseNode["steps"]![0]!["frames"]![0]!["geometry"]![0]!["nodeId"]!.GetValue<string>());
         Assert.Equal(120, responseNode["assertions"]![0]!["samples"]![0]!["value"]!.GetValue<double>());
         Assert.Equal("frame_strip", responseNode["agentReview"]!["artifactPaths"]![2]!["kind"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public void SemanticScreenshotComparisonRequestAndResponseSerializeStableShapes()
+    {
+        var at = new DateTimeOffset(2026, 7, 1, 16, 0, 0, TimeSpan.Zero);
+        var request = new SemanticScreenshotComparisonRequest(
+            "C:\\visual\\reference.png",
+            "C:\\visual\\current.png",
+            "semantic-1",
+            "C:\\visual\\semantic",
+            "C:\\visual\\semantic\\raw-diff.png",
+            "C:\\visual\\semantic\\annotated.png",
+            tolerance: 2,
+            maxFindings: 8,
+            maxRawRegions: 4,
+            minChangedPixels: 3);
+        var rawDiff = new PreviewDiffResponse(
+            "C:\\visual\\reference.png",
+            "C:\\visual\\current.png",
+            passed: false,
+            120,
+            80,
+            tolerance: 2,
+            changedPixels: 42,
+            totalPixels: 9600,
+            changedPercent: 0.4375,
+            maxDelta: 255,
+            "C:\\visual\\semantic\\raw-diff.png");
+        var response = new SemanticScreenshotComparisonResponse(
+            "semantic-1",
+            "C:\\visual\\reference.png",
+            "C:\\visual\\current.png",
+            "differences_found",
+            at,
+            rawDiff,
+            "C:\\visual\\semantic\\annotated.png",
+            [
+                new SemanticScreenshotRawRegion(
+                    "raw-01",
+                    new ScreenshotRegion(10, 12, 20, 8, "raw-01"),
+                    40,
+                    25,
+                    255,
+                    "C:\\visual\\semantic\\raw-01-crop.png",
+                    "C:\\visual\\semantic\\raw-01-annotated.png",
+                    new Dictionary<string, string> { ["provenance"] = "pixel_diff_connected_component" })
+            ],
+            [
+                new SemanticScreenshotFinding(
+                    "padding_difference-01",
+                    SemanticScreenshotFindingKinds.PaddingDifference,
+                    "warning",
+                    0.7,
+                    "content_bounds_heuristic",
+                    "Likely padding difference.",
+                    new ScreenshotRegion(8, 10, 80, 40, "content-bounds"),
+                    "C:\\visual\\semantic\\padding-crop.png",
+                    "C:\\visual\\semantic\\padding-annotated.png",
+                    new Dictionary<string, string> { ["leftPaddingDelta"] = "6" })
+            ]);
+
+        var requestNode = JsonNode.Parse(JsonSerializer.Serialize(request))!;
+        var responseNode = JsonNode.Parse(JsonSerializer.Serialize(response))!;
+
+        Assert.Equal("semantic-1", requestNode["requestId"]!.GetValue<string>());
+        Assert.Equal("C:\\visual\\reference.png", requestNode["referencePath"]!.GetValue<string>());
+        Assert.Equal(4, requestNode["maxRawRegions"]!.GetValue<int>());
+        Assert.Equal("differences_found", responseNode["status"]!.GetValue<string>());
+        Assert.Equal("raw-01", responseNode["rawRegions"]![0]!["regionId"]!.GetValue<string>());
+        Assert.Equal("padding_difference", responseNode["findings"]![0]!["kind"]!.GetValue<string>());
+        Assert.Equal("content_bounds_heuristic", responseNode["findings"]![0]!["provenance"]!.GetValue<string>());
+        Assert.Equal("raw_diff", responseNode["agentReview"]!["artifactPaths"]![4]!["kind"]!.GetValue<string>());
+        Assert.Equal("semantic_annotation", responseNode["agentReview"]!["artifactPaths"]![5]!["kind"]!.GetValue<string>());
     }
 
     [Fact]

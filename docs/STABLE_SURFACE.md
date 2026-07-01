@@ -49,7 +49,7 @@ Compatibility rules:
 - New optional properties, diagnostics, report paths, agent review fields, capabilities, CLI options, and MCP parameters are minor-version compatible.
 - Removed properties, renamed commands/tools, changed required parameters, changed error success/failure semantics, or removed artifact names require a major release or a compatibility alias.
 
-Stable DTO areas covered by protocol contract tests include health, sessions, diagnostics, runtime targets, trees, node inspection, search, input, runtime UI and design-quality audits, runtime pseudo-state matrices, interaction-triggered runtime animation recording, runtime mutation, runtime mutation evidence/review, preview rendering, preview sessions, preview watch lifecycle, screenshots, diffs, region assertions, baseline manifests, baseline reports, capability discovery, and agent review surfaces.
+Stable DTO areas covered by protocol contract tests include health, sessions, diagnostics, runtime targets, trees, node inspection, search, input, runtime UI and design-quality audits, runtime pseudo-state matrices, interaction-triggered runtime animation recording, runtime mutation, runtime mutation evidence/review, preview rendering, preview sessions, preview watch lifecycle, screenshots, diffs, semantic screenshot comparisons, region assertions, baseline manifests, baseline reports, capability discovery, and agent review surfaces.
 
 ## CLI Commands
 
@@ -92,6 +92,7 @@ The stable CLI command name set is:
 - `baseline-create`
 - `baseline-check`
 - `diff`
+- `semantic-diff`
 - `assert-region`
 - `cleanup`
 - `cleanup-bridge-sessions`
@@ -136,6 +137,7 @@ The stable MCP tool name set is:
 - `diagnostics`
 - `preview_axaml`
 - `baseline_check`
+- `semantic_diff`
 - `preview_axaml_multi`
 - `preview_axaml_animation`
 - `cleanup`
@@ -232,6 +234,13 @@ Stable interaction animation artifact suffixes:
 - `-frame-strip.png`
 - `-geometry.png`
 - `<index>-<step-id>-<frame-index>-<offset-ms>ms.png`
+
+Stable semantic screenshot comparison artifact suffixes:
+
+- `-raw-diff.png`
+- `-semantic-annotated.png`
+- `-crop.png`
+- `-annotated.png`
 
 The caller-controlled request id prefix, absolute output path, image contents, SHA-256 hash, and file timestamp are not stable.
 

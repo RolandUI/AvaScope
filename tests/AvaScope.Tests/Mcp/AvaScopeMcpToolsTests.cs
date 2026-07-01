@@ -2,6 +2,7 @@ using System.Text.Json;
 using AvaScope.Core;
 using AvaScope.Mcp;
 using AvaScope.Protocol;
+using SkiaSharp;
 
 namespace AvaScope.Tests.Mcp;
 
@@ -37,6 +38,9 @@ public sealed class AvaScopeMcpToolsTests
         Assert.Contains(result.Value.Capabilities, capability =>
             capability.Id == AvaScopeCapabilityIds.RuntimeInteractionAnimation
             && capability.Status == AvaScopeCapabilityStatuses.Available);
+        Assert.Contains(result.Value.Capabilities, capability =>
+            capability.Id == AvaScopeCapabilityIds.PreviewSemanticDiff
+            && capability.Status == AvaScopeCapabilityStatuses.Available);
         Assert.Contains(result.Value.Tools, tool =>
             tool.Adapter == "mcp"
             && tool.Name == "capabilities"
@@ -49,6 +53,10 @@ public sealed class AvaScopeMcpToolsTests
             tool.Adapter == "mcp"
             && tool.Name == "record_interaction_animation"
             && tool.CapabilityIds.Contains(AvaScopeCapabilityIds.RuntimeInteractionAnimation));
+        Assert.Contains(result.Value.Tools, tool =>
+            tool.Adapter == "mcp"
+            && tool.Name == "semantic_diff"
+            && tool.CapabilityIds.Contains(AvaScopeCapabilityIds.PreviewSemanticDiff));
         Assert.Contains(result.Value.RuntimeMutationCapabilities, capability =>
             capability.Name == RuntimeMutationCapabilityCatalog.StyleLayoutMutation);
     }
@@ -471,6 +479,44 @@ public sealed class AvaScopeMcpToolsTests
     }
 
     [Fact]
+    public void SemanticDiffWritesAnnotatedArtifactsAndFindings()
+    {
+        var testRoot = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(testRoot);
+        var referencePath = Path.Combine(testRoot, "reference.png");
+        var currentPath = Path.Combine(testRoot, "current.png");
+        var outputDirectory = Path.Combine(testRoot, "semantic");
+        WriteSemanticFixture(referencePath, shifted: false, border: false);
+        WriteSemanticFixture(currentPath, shifted: true, border: true);
+
+        try
+        {
+            var result = AvaScopeMcpTools.SemanticDiff(
+                referencePath,
+                currentPath,
+                outputDirectory,
+                requestId: "mcp-semantic",
+                maxFindings: 8,
+                maxRawRegions: 8);
+
+            Assert.True(result.Success, result.Error?.Message);
+            Assert.Equal("differences_found", result.Value!.Status);
+            Assert.Contains(result.Value.Findings, finding => finding.Kind == SemanticScreenshotFindingKinds.CenterMismatch);
+            Assert.Contains(result.Value.Findings, finding => finding.Kind == SemanticScreenshotFindingKinds.BorderOrSeamDifference);
+            Assert.True(File.Exists(result.Value.AnnotatedPath), result.Value.AnnotatedPath);
+            Assert.True(File.Exists(result.Value.RawDiff.DiffPath), result.Value.RawDiff.DiffPath);
+            Assert.Contains(result.Value.AgentReview.ArtifactPaths, artifact => artifact.Kind == "semantic_annotation");
+        }
+        finally
+        {
+            if (Directory.Exists(testRoot))
+            {
+                Directory.Delete(testRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
     public async Task CreatePreviewSessionRejectsInvalidDimensions()
     {
         var previewSessions = CreatePreviewSessionRegistryWithMissingHost();
@@ -762,5 +808,26 @@ public sealed class AvaScopeMcpToolsTests
                 Path.GetTempPath(),
                 "AvaScope.Tests",
                 $"missing-preview-host-{Guid.NewGuid():N}.dll")));
+    }
+
+    private static void WriteSemanticFixture(string path, bool shifted, bool border)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        using var bitmap = new SKBitmap(120, 80);
+        using var canvas = new SKCanvas(bitmap);
+        canvas.Clear(SKColors.White);
+        using var contentPaint = new SKPaint { Color = SKColors.Black, Style = SKPaintStyle.Fill };
+        canvas.DrawRect(new SKRect(shifted ? 36 : 30, 25, shifted ? 76 : 70, 45), contentPaint);
+
+        if (border)
+        {
+            using var borderPaint = new SKPaint { Color = SKColors.Red, StrokeWidth = 1, Style = SKPaintStyle.Stroke };
+            canvas.DrawLine(100, 10, 100, 70, borderPaint);
+        }
+
+        using var image = SKImage.FromBitmap(bitmap);
+        using var data = image.Encode(SKEncodedImageFormat.Png, 100);
+        using var stream = File.Create(path);
+        data.SaveTo(stream);
     }
 }

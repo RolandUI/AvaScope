@@ -45,6 +45,9 @@ public sealed class CliSmokeTests
             capability.Id == AvaScopeCapabilityIds.RuntimeInteractionAnimation
             && capability.Status == AvaScopeCapabilityStatuses.Available);
         Assert.Contains(payload.Value.Capabilities, capability =>
+            capability.Id == AvaScopeCapabilityIds.PreviewSemanticDiff
+            && capability.Status == AvaScopeCapabilityStatuses.Available);
+        Assert.Contains(payload.Value.Capabilities, capability =>
             capability.Id == AvaScopeCapabilityIds.PreviewStateVariants
             && capability.Status == AvaScopeCapabilityStatuses.Available);
         Assert.Contains(payload.Value.Tools, tool =>
@@ -63,6 +66,10 @@ public sealed class CliSmokeTests
             tool.Adapter == "cli"
             && tool.Name == "record-interaction-animation"
             && tool.CapabilityIds.Contains(AvaScopeCapabilityIds.RuntimeInteractionAnimation));
+        Assert.Contains(payload.Value.Tools, tool =>
+            tool.Adapter == "cli"
+            && tool.Name == "semantic-diff"
+            && tool.CapabilityIds.Contains(AvaScopeCapabilityIds.PreviewSemanticDiff));
         Assert.Contains(payload.Value.Tools, tool =>
             tool.Adapter == "cli"
             && tool.Name == "explain-layout"
@@ -4589,6 +4596,66 @@ public sealed class CliSmokeTests
     }
 
     [Fact]
+    public async Task SemanticDiffCommandWritesAnnotatedArtifactsAndBoundedFindings()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var testRoot = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(testRoot);
+
+        var referencePath = Path.Combine(testRoot, "reference.png");
+        var currentPath = Path.Combine(testRoot, "current.png");
+        var outputDirectory = Path.Combine(testRoot, "semantic");
+        WriteSemanticFixture(referencePath, shifted: false, border: false);
+        WriteSemanticFixture(currentPath, shifted: true, border: true);
+
+        try
+        {
+            var result = await RunCliAsync(
+                cliAssembly,
+                "semantic-diff",
+                "--reference",
+                referencePath,
+                "--current",
+                currentPath,
+                "--out-dir",
+                outputDirectory,
+                "--request-id",
+                "cli-semantic",
+                "--max-findings",
+                "8",
+                "--max-raw-regions",
+                "8");
+
+            Assert.Equal(1, result.ExitCode);
+            Assert.True(string.IsNullOrWhiteSpace(result.StandardError), result.StandardError);
+
+            var payload = JsonSerializer.Deserialize<ToolResult<SemanticScreenshotComparisonResponse>>(result.StandardOutput, JsonOptions);
+            Assert.NotNull(payload);
+            Assert.True(payload.Success, payload.Error?.Message);
+            Assert.Equal("differences_found", payload.Value!.Status);
+            Assert.Contains(payload.Value.Findings, finding => finding.Kind == SemanticScreenshotFindingKinds.PaddingDifference);
+            Assert.Contains(payload.Value.Findings, finding => finding.Kind == SemanticScreenshotFindingKinds.BorderOrSeamDifference);
+            Assert.True(File.Exists(payload.Value.AnnotatedPath), payload.Value.AnnotatedPath);
+            Assert.True(File.Exists(payload.Value.RawDiff.DiffPath), payload.Value.RawDiff.DiffPath);
+            Assert.All(payload.Value.RawRegions, region =>
+            {
+                Assert.True(File.Exists(region.CropPath), region.CropPath);
+                Assert.True(File.Exists(region.AnnotatedCropPath), region.AnnotatedCropPath);
+            });
+            Assert.Contains(payload.Value.AgentReview.ArtifactPaths, artifact => artifact.Kind == "semantic_annotation");
+        }
+        finally
+        {
+            if (Directory.Exists(testRoot))
+            {
+                Directory.Delete(testRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
     public async Task AssertRegionCommandChecksNonEmptyRegionAndWritesCrop()
     {
         var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
@@ -4848,6 +4915,27 @@ public sealed class CliSmokeTests
         if (changedPixel is { } pixel)
         {
             bitmap.SetPixel(0, 0, pixel);
+        }
+
+        using var image = SKImage.FromBitmap(bitmap);
+        using var data = image.Encode(SKEncodedImageFormat.Png, 100);
+        using var stream = File.Create(path);
+        data.SaveTo(stream);
+    }
+
+    private static void WriteSemanticFixture(string path, bool shifted, bool border)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        using var bitmap = new SKBitmap(120, 80);
+        using var canvas = new SKCanvas(bitmap);
+        canvas.Clear(SKColors.White);
+        using var contentPaint = new SKPaint { Color = SKColors.Black, Style = SKPaintStyle.Fill };
+        canvas.DrawRect(new SKRect(shifted ? 36 : 30, 25, shifted ? 76 : 70, 45), contentPaint);
+
+        if (border)
+        {
+            using var borderPaint = new SKPaint { Color = SKColors.Red, StrokeWidth = 1, Style = SKPaintStyle.Stroke };
+            canvas.DrawLine(100, 10, 100, 70, borderPaint);
         }
 
         using var image = SKImage.FromBitmap(bitmap);

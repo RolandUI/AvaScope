@@ -52,6 +52,7 @@ public sealed class McpStdioSmokeTests
         Assert.Contains("preview_axaml_multi", toolNames);
         Assert.Contains("preview_axaml_animation", toolNames);
         Assert.Contains("baseline_check", toolNames);
+        Assert.Contains("semantic_diff", toolNames);
         Assert.Contains("create_preview_session", toolNames);
         Assert.Contains("list_preview_sessions", toolNames);
         Assert.Contains("preview_viewer", toolNames);

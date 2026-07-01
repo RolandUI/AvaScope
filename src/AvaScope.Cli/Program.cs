@@ -64,6 +64,7 @@ internal static class Program
             "cleanup" => Cleanup(args[1..]),
             "cleanup-bridge-sessions" => await CleanupBridgeSessions(args[1..]),
             "diff" => Diff(args[1..]),
+            "semantic-diff" => SemanticDiff(args[1..]),
             "assert-region" => AssertRegion(args[1..]),
             "mcp" => await Mcp(),
             _ => UnknownCommand(args[0])
@@ -2288,6 +2289,70 @@ internal static class Program
         return result.Success && result.Value!.Passed ? 0 : 1;
     }
 
+    private static int SemanticDiff(string[] args)
+    {
+        var options = ParseOptions(args, GetSemanticDiffUsage());
+        if (!options.Success)
+        {
+            WriteFailure<SemanticScreenshotComparisonResponse>(InvalidCliArguments, options.Error!);
+            return 2;
+        }
+
+        if (!ValidateOptions(
+                options.Values,
+                GetSemanticDiffUsage(),
+                "reference",
+                "current",
+                "out-dir",
+                "diff",
+                "annotated",
+                "tolerance",
+                "request-id",
+                "max-findings",
+                "max-raw-regions",
+                "min-changed-pixels")
+            || !TryReadRequiredOption(options.Values, "reference", GetSemanticDiffUsage(), out var referencePath)
+            || !TryReadRequiredOption(options.Values, "current", GetSemanticDiffUsage(), out var currentPath)
+            || !TryReadRequiredOption(options.Values, "out-dir", GetSemanticDiffUsage(), out var outputDirectory)
+            || !TryReadOptionalPositiveInt(options.Values, "max-findings", out var maxFindings)
+            || !TryReadOptionalPositiveInt(options.Values, "max-raw-regions", out var maxRawRegions)
+            || !TryReadOptionalPositiveInt(options.Values, "min-changed-pixels", out var minChangedPixels))
+        {
+            return 2;
+        }
+
+        if (!TryParseDoubleInRange(options.Values.GetValueOrDefault("tolerance", "0"), 0, 255, out var tolerance))
+        {
+            WriteFailure<SemanticScreenshotComparisonResponse>(InvalidCliArguments, "tolerance must be between 0 and 255.");
+            return 2;
+        }
+
+        SemanticScreenshotComparisonRequest request;
+        try
+        {
+            request = new SemanticScreenshotComparisonRequest(
+                referencePath!,
+                currentPath!,
+                options.Values.GetValueOrDefault("request-id"),
+                outputDirectory,
+                options.Values.GetValueOrDefault("diff"),
+                options.Values.GetValueOrDefault("annotated"),
+                tolerance,
+                maxFindings ?? 12,
+                maxRawRegions ?? 8,
+                minChangedPixels ?? 4);
+        }
+        catch (Exception exception) when (exception is ArgumentException or ArgumentOutOfRangeException or NotSupportedException)
+        {
+            WriteFailure<SemanticScreenshotComparisonResponse>(InvalidCliArguments, exception.Message);
+            return 2;
+        }
+
+        var result = new SemanticScreenshotComparer().Compare(request);
+        WriteResult(result);
+        return result.Success && string.Equals(result.Value!.Status, "passed", StringComparison.Ordinal) ? 0 : 1;
+    }
+
     private static int AssertRegion(string[] args)
     {
         var options = ParseOptions(args, GetAssertRegionUsage());
@@ -3083,7 +3148,7 @@ internal static class Program
 
     private static string GetUsage()
     {
-        return "Usage: avascope capabilities [--require <capability-id>[,<capability-id>...]] | avascope mcp | avascope doctor [--manifest-dir <dir>] [--preview-session-store <dir>] | avascope attach [--latest true|false] [--process <pid>] [--process-name <name>] [--session <session-id>] [--manifest <path>] [--manifest-dir <dir>] | avascope list-top-levels --session <session-id> [--manifest-dir <dir>] | avascope visual-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] [--manifest-dir <dir>] | avascope logical-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] [--manifest-dir <dir>] | avascope inspect-node --session <session-id> --top-level <top-level-id> --node <node-id> [--tree-kind visual|logical] [--manifest-dir <dir>] | avascope explain-layout --session <session-id> --top-level <top-level-id> --node <node-id> [--tree-kind visual|logical] [--manifest-dir <dir>] | avascope find-nodes --session <session-id> --top-level <top-level-id> [--tree-kind visual|logical] [--type <type>] [--name <name>] [--automation-id <id>] [--text <text>] [--max-depth <n>] [--max-results <n>] [--manifest-dir <dir>] | avascope audit-ui --session <session-id> --top-level <top-level-id> [--tree-kind visual|logical] [--max-depth <n>] [--max-issues <n>] [--max-inventory <n>] [--manifest-dir <dir>] | avascope design-audit --request <design-audit.json> [--manifest-dir <dir>] | avascope run-workflow --request <workflow.json> [--manifest-dir <dir>] | avascope run-scenario --request <scenario.json> [--manifest-dir <dir>] | avascope pointer-diagnostics --request <pointer-diagnostics.json> [--manifest-dir <dir>] | avascope pseudo-state-matrix --request <pseudo-state-matrix.json> [--manifest-dir <dir>] | avascope record-interaction-animation --request <interaction-animation.json> [--manifest-dir <dir>] | avascope input --session <session-id> --top-level <top-level-id> --action <action> [--x <x>] [--y <y>] [--text <text>] [--target-node <node-id>] [--key <key>] [--modifiers <modifiers>] [--manifest-dir <dir>] | avascope mutate-node --session <session-id> --top-level <top-level-id> --node <node-id> --operation <operation> [--tree-kind visual|logical] [--property <name>] [--value <value>] [--value-type <type>] [--class <class>] [--resource-key <key>] [--mutation-id <id>] [--request-id <id>] [--manifest-dir <dir>] | avascope mutate-node-evidence --session <session-id> --top-level <top-level-id> --node <node-id> --operation <operation> --out-dir <dir> [--tree-kind visual|logical] [--property <name>] [--value <value>] [--value-type <type>] [--class <class>] [--resource-key <key>] [--mutation-id <id>] [--request-id <id>] [--max-depth <n>] [--diff true|false] [--tolerance <0-255>] [--manifest-dir <dir>] | avascope mutation-review --session <session-id> [--max-results <n>] [--out <review.html>] [--manifest-dir <dir>] [--source-project <csproj>] [--source-view <view.axaml>] [--source-app <app.axaml>] [--source-profile <profile.json>] | avascope close-session --session <session-id> [--manifest-dir <dir>] | avascope diagnostics [--process <pid>] [--process-name <name>] [--session <session-id>] [--manifest <path>] [--manifest-dir <dir>] [--max-sessions <n>] | avascope launch-app --command <path> [--args <args>] [--env KEY=VALUE[;KEY=VALUE...]] [--timeout-ms <ms>] | avascope reload --session <session-id> [--manifest-dir <dir>] | avascope create-preview-session <project.csproj> [--profile <name>] [--profile-file <path>] [--variant <name>] --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] [--state-variant <state>] [--build-output-root <dir>] [--assembly-path <dll>] [--no-build true|false] [--display-name <name>] | avascope list-preview-sessions | avascope reload-preview-session --session <session-id> | avascope close-preview-session --session <session-id> | avascope watch-preview-session --session <session-id> --timeout-ms <ms> [--settle-ms <ms>] [--max-reloads <n>] [--watch <path>[,<path>...]] | avascope preview-viewer --session <session-id> [--out <viewer.html>] | avascope baseline-create <project.csproj> --view <view.axaml> --manifest <baseline.json> --sizes <w>x<h>[,<w>x<h>...] [--out-dir <dir>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] [--state-variant <state>] [--build-output-root <dir>] [--assembly-path <dll>] [--no-build true|false] | avascope baseline-create --suite <suite.json> --manifest <baseline.json> [--out-dir <dir>] | avascope baseline-check --manifest <baseline.json> [--out-dir <dir>] [--diff-dir <dir>] [--tolerance <0-255>] [--report <report.json>] [--report-pack <dir>] | avascope cleanup | avascope cleanup-bridge-sessions [--manifest-dir <dir>] | avascope diff --baseline <baseline.png> --current <current.png> --out <diff.png> [--tolerance <0-255>] | avascope assert-region --image <image.png> --assert non_empty|mostly_blank|changed|unchanged --x <x> --y <y> --width <w> --height <h> [--baseline <baseline.png>] [--crop-out <crop.png>] [--tolerance <0-255>] [--min-changed-pixels <n>] | avascope screenshot --session <session-id> --top-level <top-level-id> --out <screenshot.png> [--manifest-dir <dir>] | avascope preview-animation <project.csproj> [--profile <name>] [--profile-file <path>] [--variant <name>] --view <view.axaml> --out <frame.png> --time-offsets <ms>[,<ms>...] [--frame-strip <strip.png>] [--viewer <viewer.html>] [--width <width>] [--height <height>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] [--state-variant <state>] [--build-output-root <dir>] [--assembly-path <dll>] [--no-build true|false] | avascope preview <project.csproj> [--profile <name>] [--profile-file <path>] [--variant <name>] --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--sizes <w>x<h>[,<w>x<h>...]] [--contact-sheet <sheet.png>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] [--state-variant <state>] [--build-output-root <dir>] [--assembly-path <dll>] [--no-build true|false]";
+        return "Usage: avascope capabilities [--require <capability-id>[,<capability-id>...]] | avascope mcp | avascope doctor [--manifest-dir <dir>] [--preview-session-store <dir>] | avascope attach [--latest true|false] [--process <pid>] [--process-name <name>] [--session <session-id>] [--manifest <path>] [--manifest-dir <dir>] | avascope list-top-levels --session <session-id> [--manifest-dir <dir>] | avascope visual-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] [--manifest-dir <dir>] | avascope logical-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] [--manifest-dir <dir>] | avascope inspect-node --session <session-id> --top-level <top-level-id> --node <node-id> [--tree-kind visual|logical] [--manifest-dir <dir>] | avascope explain-layout --session <session-id> --top-level <top-level-id> --node <node-id> [--tree-kind visual|logical] [--manifest-dir <dir>] | avascope find-nodes --session <session-id> --top-level <top-level-id> [--tree-kind visual|logical] [--type <type>] [--name <name>] [--automation-id <id>] [--text <text>] [--max-depth <n>] [--max-results <n>] [--manifest-dir <dir>] | avascope audit-ui --session <session-id> --top-level <top-level-id> [--tree-kind visual|logical] [--max-depth <n>] [--max-issues <n>] [--max-inventory <n>] [--manifest-dir <dir>] | avascope design-audit --request <design-audit.json> [--manifest-dir <dir>] | avascope run-workflow --request <workflow.json> [--manifest-dir <dir>] | avascope run-scenario --request <scenario.json> [--manifest-dir <dir>] | avascope pointer-diagnostics --request <pointer-diagnostics.json> [--manifest-dir <dir>] | avascope pseudo-state-matrix --request <pseudo-state-matrix.json> [--manifest-dir <dir>] | avascope record-interaction-animation --request <interaction-animation.json> [--manifest-dir <dir>] | avascope input --session <session-id> --top-level <top-level-id> --action <action> [--x <x>] [--y <y>] [--text <text>] [--target-node <node-id>] [--key <key>] [--modifiers <modifiers>] [--manifest-dir <dir>] | avascope mutate-node --session <session-id> --top-level <top-level-id> --node <node-id> --operation <operation> [--tree-kind visual|logical] [--property <name>] [--value <value>] [--value-type <type>] [--class <class>] [--resource-key <key>] [--mutation-id <id>] [--request-id <id>] [--manifest-dir <dir>] | avascope mutate-node-evidence --session <session-id> --top-level <top-level-id> --node <node-id> --operation <operation> --out-dir <dir> [--tree-kind visual|logical] [--property <name>] [--value <value>] [--value-type <type>] [--class <class>] [--resource-key <key>] [--mutation-id <id>] [--request-id <id>] [--max-depth <n>] [--diff true|false] [--tolerance <0-255>] [--manifest-dir <dir>] | avascope mutation-review --session <session-id> [--max-results <n>] [--out <review.html>] [--manifest-dir <dir>] [--source-project <csproj>] [--source-view <view.axaml>] [--source-app <app.axaml>] [--source-profile <profile.json>] | avascope close-session --session <session-id> [--manifest-dir <dir>] | avascope diagnostics [--process <pid>] [--process-name <name>] [--session <session-id>] [--manifest <path>] [--manifest-dir <dir>] [--max-sessions <n>] | avascope launch-app --command <path> [--args <args>] [--env KEY=VALUE[;KEY=VALUE...]] [--timeout-ms <ms>] | avascope reload --session <session-id> [--manifest-dir <dir>] | avascope create-preview-session <project.csproj> [--profile <name>] [--profile-file <path>] [--variant <name>] --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] [--state-variant <state>] [--build-output-root <dir>] [--assembly-path <dll>] [--no-build true|false] [--display-name <name>] | avascope list-preview-sessions | avascope reload-preview-session --session <session-id> | avascope close-preview-session --session <session-id> | avascope watch-preview-session --session <session-id> --timeout-ms <ms> [--settle-ms <ms>] [--max-reloads <n>] [--watch <path>[,<path>...]] | avascope preview-viewer --session <session-id> [--out <viewer.html>] | avascope baseline-create <project.csproj> --view <view.axaml> --manifest <baseline.json> --sizes <w>x<h>[,<w>x<h>...] [--out-dir <dir>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] [--state-variant <state>] [--build-output-root <dir>] [--assembly-path <dll>] [--no-build true|false] | avascope baseline-create --suite <suite.json> --manifest <baseline.json> [--out-dir <dir>] | avascope baseline-check --manifest <baseline.json> [--out-dir <dir>] [--diff-dir <dir>] [--tolerance <0-255>] [--report <report.json>] [--report-pack <dir>] | avascope cleanup | avascope cleanup-bridge-sessions [--manifest-dir <dir>] | avascope diff --baseline <baseline.png> --current <current.png> --out <diff.png> [--tolerance <0-255>] | avascope semantic-diff --reference <reference.png> --current <current.png> --out-dir <dir> [--diff <raw-diff.png>] [--annotated <annotated.png>] [--tolerance <0-255>] [--request-id <id>] [--max-findings <n>] [--max-raw-regions <n>] [--min-changed-pixels <n>] | avascope assert-region --image <image.png> --assert non_empty|mostly_blank|changed|unchanged --x <x> --y <y> --width <w> --height <h> [--baseline <baseline.png>] [--crop-out <crop.png>] [--tolerance <0-255>] [--min-changed-pixels <n>] | avascope screenshot --session <session-id> --top-level <top-level-id> --out <screenshot.png> [--manifest-dir <dir>] | avascope preview-animation <project.csproj> [--profile <name>] [--profile-file <path>] [--variant <name>] --view <view.axaml> --out <frame.png> --time-offsets <ms>[,<ms>...] [--frame-strip <strip.png>] [--viewer <viewer.html>] [--width <width>] [--height <height>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] [--state-variant <state>] [--build-output-root <dir>] [--assembly-path <dll>] [--no-build true|false] | avascope preview <project.csproj> [--profile <name>] [--profile-file <path>] [--variant <name>] --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--sizes <w>x<h>[,<w>x<h>...]] [--contact-sheet <sheet.png>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] [--state-variant <state>] [--build-output-root <dir>] [--assembly-path <dll>] [--no-build true|false]";
     }
 
     private static string GetCapabilitiesUsage()
@@ -3269,6 +3334,11 @@ internal static class Program
     private static string GetDiffUsage()
     {
         return "Usage: avascope diff --baseline <baseline.png> --current <current.png> --out <diff.png> [--tolerance <0-255>]";
+    }
+
+    private static string GetSemanticDiffUsage()
+    {
+        return "Usage: avascope semantic-diff --reference <reference.png> --current <current.png> --out-dir <dir> [--diff <raw-diff.png>] [--annotated <annotated.png>] [--tolerance <0-255>] [--request-id <id>] [--max-findings <n>] [--max-raw-regions <n>] [--min-changed-pixels <n>]";
     }
 
     private static string GetAssertRegionUsage()

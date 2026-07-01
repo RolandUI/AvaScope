@@ -45,6 +45,7 @@ public sealed class StableSurfaceContractTests
         "baseline-create",
         "baseline-check",
         "diff",
+        "semantic-diff",
         "assert-region",
         "cleanup",
         "cleanup-bridge-sessions"
@@ -85,6 +86,7 @@ public sealed class StableSurfaceContractTests
         "close_preview_session",
         "preview_viewer",
         "baseline_check",
+        "semantic_diff",
         "assert_region",
         "cleanup",
         "cleanup_bridge_sessions",

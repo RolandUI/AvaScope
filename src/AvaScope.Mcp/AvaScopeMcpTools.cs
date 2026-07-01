@@ -1024,6 +1024,52 @@ public sealed class AvaScopeMcpTools
     }
 
     [McpServerTool(
+        Name = "semantic_diff",
+        Title = "Semantic screenshot diff",
+        ReadOnly = false,
+        Idempotent = false,
+        Destructive = false,
+        OpenWorld = false,
+        UseStructuredContent = true)]
+    [Description("Compares a current screenshot against an arbitrary reference image and returns bounded raw changed regions plus heuristic semantic visual-delta findings with annotated crop artifacts.")]
+    public static ToolResult<SemanticScreenshotComparisonResponse> SemanticDiff(
+        string referencePath,
+        string currentPath,
+        string outputDirectory,
+        string? diffPath = null,
+        string? annotatedPath = null,
+        double tolerance = 0,
+        string? requestId = null,
+        int maxFindings = 12,
+        int maxRawRegions = 8,
+        int minChangedPixels = 4)
+    {
+        SemanticScreenshotComparisonRequest request;
+        try
+        {
+            request = new SemanticScreenshotComparisonRequest(
+                referencePath,
+                currentPath,
+                requestId,
+                outputDirectory,
+                diffPath,
+                annotatedPath,
+                tolerance,
+                maxFindings,
+                maxRawRegions,
+                minChangedPixels);
+        }
+        catch (Exception exception) when (exception is ArgumentException or ArgumentOutOfRangeException or NotSupportedException)
+        {
+            return ToolResult<SemanticScreenshotComparisonResponse>.Fail(new ProtocolError(
+                CoreErrorCodes.ImageDiffFailed,
+                exception.Message));
+        }
+
+        return ToToolResult(new SemanticScreenshotComparer().Compare(request));
+    }
+
+    [McpServerTool(
         Name = "preview_axaml_multi",
         Title = "Preview AXAML multiple sizes",
         ReadOnly = false,

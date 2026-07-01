@@ -241,6 +241,17 @@ public static class AvaScopeCapabilityCatalog
                 ["preview", "preview-animation", "create-preview-session", "baseline-create", "preview_axaml", "preview_axaml_multi", "preview_axaml_animation", "create_preview_session"],
                 requires: [AvaScopeCapabilityIds.PreviewAxaml]),
             Capability(
+                AvaScopeCapabilityIds.PreviewSemanticDiff,
+                "preview",
+                "Compare a current screenshot against an arbitrary reference image and return bounded raw pixel regions plus heuristic semantic visual-delta findings with annotated crops.",
+                ["semantic-diff", "semantic_diff"],
+                requires: [AvaScopeCapabilityIds.ArtifactsDiffImage, AvaScopeCapabilityIds.ArtifactsScreenshot],
+                metadata: new Dictionary<string, string>
+                {
+                    ["findingKinds"] = "center_mismatch,edge_mismatch,padding_difference,border_or_seam_difference,wrapping_difference",
+                    ["semanticProvenance"] = "pixel_diff_connected_components,content_bounds_heuristics,line_band_heuristics"
+                }),
+            Capability(
                 AvaScopeCapabilityIds.PreviewSessions,
                 "preview",
                 "Create, list, reload, close, watch, and persist local preview sessions.",
@@ -394,6 +405,8 @@ public static class AvaScopeCapabilityCatalog
             Cli("baseline-check", AvaScopeCapabilityIds.BaselineSingle, AvaScopeCapabilityIds.BaselineSuite, AvaScopeCapabilityIds.BaselineComparisonRules, AvaScopeCapabilityIds.ReportsJson, AvaScopeCapabilityIds.ReportsEvidencePack),
             Mcp("baseline_check", AvaScopeCapabilityIds.BaselineSingle, AvaScopeCapabilityIds.BaselineSuite, AvaScopeCapabilityIds.BaselineComparisonRules, AvaScopeCapabilityIds.ReportsJson, AvaScopeCapabilityIds.ReportsEvidencePack),
             Cli("diff", AvaScopeCapabilityIds.ArtifactsDiffImage),
+            Cli("semantic-diff", AvaScopeCapabilityIds.PreviewSemanticDiff, AvaScopeCapabilityIds.ArtifactsDiffImage),
+            Mcp("semantic_diff", AvaScopeCapabilityIds.PreviewSemanticDiff, AvaScopeCapabilityIds.ArtifactsDiffImage),
             Mcp("assert_region", AvaScopeCapabilityIds.BaselineComparisonRules),
             Cli("assert-region", AvaScopeCapabilityIds.BaselineComparisonRules),
             Cli("cleanup", AvaScopeCapabilityIds.PreviewSessions),

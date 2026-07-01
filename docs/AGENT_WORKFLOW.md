@@ -175,7 +175,10 @@ Runtime bridge activation is always explicit and local-only. AvaScope does not o
 ```powershell
 & $avascope screenshot --session <runtime-session-id> --top-level <topLevel:id> --out .\artifacts\samples\runtime-screenshot.png
 & $avascope diff --baseline .\artifacts\samples\main-preview.png --current .\artifacts\samples\runtime-screenshot.png --out .\artifacts\samples\runtime-diff.png --tolerance 2
+& $avascope semantic-diff --reference .\artifacts\samples\main-preview.png --current .\artifacts\samples\runtime-screenshot.png --out-dir .\artifacts\samples\semantic-diff --tolerance 2
 ```
+
+Use `semantic-diff` when a user asks what looks wrong compared with a supplied reference screenshot. It keeps raw connected pixel regions separate from heuristic findings such as center mismatch, padding difference, border or seam difference, and wrapping difference. Treat finding `provenance` and `confidence` as visual evidence, not source-level certainty.
 
 For preview-only visual regression:
 

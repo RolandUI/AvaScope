@@ -662,6 +662,14 @@ dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll diff --baseline .\basel
 
 The command returns a structured `ToolResult<PreviewDiffResponse>`. A changed image exits non-zero while still returning the changed pixel count, changed percentage, max channel delta, and diff path.
 
+Compare a current screenshot against an arbitrary reference and ask AvaScope to produce bounded likely visual deltas:
+
+```powershell
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll semantic-diff --reference .\reference.png --current .\preview.png --out-dir .\artifacts\semantic-diff --tolerance 2 --max-findings 12 --max-raw-regions 8
+```
+
+`semantic-diff` returns `ToolResult<SemanticScreenshotComparisonResponse>` with the raw `PreviewDiffResponse`, separate connected raw pixel regions, heuristic semantic findings, annotated crops, and an annotated overview image. Finding kinds include `center_mismatch`, `edge_mismatch`, `padding_difference`, `border_or_seam_difference`, and `wrapping_difference`. Each semantic finding includes confidence and provenance such as `content_bounds_heuristic`, `edge_band_heuristic`, or `line_band_heuristic`; these are visual-delta hints, not proof of source-level intent.
+
 Check a focused screenshot region without mutating baselines:
 
 ```powershell
