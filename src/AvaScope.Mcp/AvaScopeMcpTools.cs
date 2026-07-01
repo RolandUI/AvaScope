@@ -809,6 +809,9 @@ public sealed class AvaScopeMcpTools
         string? culture = null,
         string? designDataType = null,
         string? stateVariant = null,
+        string? buildOutputRoot = null,
+        string? assemblyPath = null,
+        bool noBuild = false,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(previewHostClient);
@@ -826,7 +829,10 @@ public sealed class AvaScopeMcpTools
                 themeVariant,
                 culture,
                 designDataType,
-                stateVariant: stateVariant);
+                stateVariant: stateVariant,
+                buildOutputRoot: buildOutputRoot,
+                assemblyPath: assemblyPath,
+                noBuild: noBuild);
         }
         catch (Exception exception) when (exception is ArgumentException or ArgumentOutOfRangeException)
         {
@@ -918,6 +924,9 @@ public sealed class AvaScopeMcpTools
         string? designDataType = null,
         string? stateVariant = null,
         string? contactSheetPath = null,
+        string? buildOutputRoot = null,
+        string? assemblyPath = null,
+        bool noBuild = false,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(previewHostClient);
@@ -940,7 +949,10 @@ public sealed class AvaScopeMcpTools
                 themeVariant: themeVariant,
                 culture: culture,
                 designDataType: designDataType,
-                stateVariant: stateVariant);
+                stateVariant: stateVariant,
+                buildOutputRoot: buildOutputRoot,
+                assemblyPath: assemblyPath,
+                noBuild: noBuild);
         }
         catch (Exception exception) when (exception is ArgumentException or ArgumentOutOfRangeException)
         {
@@ -980,6 +992,9 @@ public sealed class AvaScopeMcpTools
         string? stateVariant = null,
         string? frameStripPath = null,
         string? viewerPath = null,
+        string? buildOutputRoot = null,
+        string? assemblyPath = null,
+        bool noBuild = false,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(previewHostClient);
@@ -1005,9 +1020,12 @@ public sealed class AvaScopeMcpTools
                 themeVariant,
                 culture,
                 designDataType,
-                frameStripPath,
-                viewerPath,
-                stateVariant);
+                frameStripPath: frameStripPath,
+                viewerPath: viewerPath,
+                stateVariant: stateVariant,
+                buildOutputRoot: buildOutputRoot,
+                assemblyPath: assemblyPath,
+                noBuild: noBuild);
         }
         catch (Exception exception) when (exception is ArgumentException or ArgumentOutOfRangeException)
         {
@@ -1079,6 +1097,9 @@ public sealed class AvaScopeMcpTools
         string? designDataType = null,
         string? stateVariant = null,
         string? displayName = null,
+        string? buildOutputRoot = null,
+        string? assemblyPath = null,
+        bool noBuild = false,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(previewSessions);
@@ -1096,7 +1117,10 @@ public sealed class AvaScopeMcpTools
                 themeVariant,
                 culture,
                 designDataType,
-                stateVariant: stateVariant);
+                stateVariant: stateVariant,
+                buildOutputRoot: buildOutputRoot,
+                assemblyPath: assemblyPath,
+                noBuild: noBuild);
         }
         catch (Exception exception) when (exception is ArgumentException or ArgumentOutOfRangeException)
         {

@@ -14,7 +14,11 @@ public sealed record PreviewProjectInfo
         string? selectedTargetFramework = null,
         string? buildConfiguration = null,
         string? outputAssemblyPath = null,
-        string? appXamlPath = null)
+        string? appXamlPath = null,
+        string? buildOutputRoot = null,
+        string? buildIntermediateOutputRoot = null,
+        string? buildLogPath = null,
+        string? buildMode = null)
     {
         if (string.IsNullOrWhiteSpace(projectPath))
         {
@@ -40,6 +44,10 @@ public sealed record PreviewProjectInfo
         BuildConfiguration = string.IsNullOrWhiteSpace(buildConfiguration) ? null : buildConfiguration;
         OutputAssemblyPath = string.IsNullOrWhiteSpace(outputAssemblyPath) ? null : Path.GetFullPath(outputAssemblyPath);
         AppXamlPath = string.IsNullOrWhiteSpace(appXamlPath) ? null : Path.GetFullPath(appXamlPath);
+        BuildOutputRoot = string.IsNullOrWhiteSpace(buildOutputRoot) ? null : Path.GetFullPath(buildOutputRoot);
+        BuildIntermediateOutputRoot = string.IsNullOrWhiteSpace(buildIntermediateOutputRoot) ? null : Path.GetFullPath(buildIntermediateOutputRoot);
+        BuildLogPath = string.IsNullOrWhiteSpace(buildLogPath) ? null : Path.GetFullPath(buildLogPath);
+        BuildMode = string.IsNullOrWhiteSpace(buildMode) ? null : buildMode;
     }
 
     [JsonPropertyName("projectPath")]
@@ -73,4 +81,20 @@ public sealed record PreviewProjectInfo
     [JsonPropertyName("appXamlPath")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? AppXamlPath { get; init; }
+
+    [JsonPropertyName("buildOutputRoot")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? BuildOutputRoot { get; init; }
+
+    [JsonPropertyName("buildIntermediateOutputRoot")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? BuildIntermediateOutputRoot { get; init; }
+
+    [JsonPropertyName("buildLogPath")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? BuildLogPath { get; init; }
+
+    [JsonPropertyName("buildMode")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? BuildMode { get; init; }
 }

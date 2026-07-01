@@ -949,7 +949,10 @@ public sealed class PreviewBaselineManager
             request.ThemeVariant,
             request.Culture,
             request.DesignDataType,
-            stateVariant: request.StateVariant);
+            stateVariant: request.StateVariant,
+            buildOutputRoot: request.BuildOutputRoot,
+            assemblyPath: request.AssemblyPath,
+            noBuild: request.NoBuild);
     }
 
     private static ToolResult<T> ToToolResult<T>(CoreResult<T> result)

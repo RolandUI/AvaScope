@@ -281,6 +281,7 @@ dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll capabilities --require 
 The command writes a structured JSON `ToolResult<PreviewResponse>` to stdout. On success, `value.filePath` points to the generated PNG.
 `--width` and `--height` can be omitted when the root AXAML declares design-time dimensions with `d:DesignWidth`/`d:DesignHeight` or `Design.Width`/`Design.Height`. Project previews also apply root design-time data from `Design.DataContext` or `d:DataContext="{x:Static ...}"`; an explicit `--design-data-type` still takes precedence.
 `--state-variant` selects an explicit design-data state such as `empty`, `loading`, `error`, `long-text`, `many-rows`, `validation-errors`, or `narrow`. PreviewHost applies it by using a public `ForState(string)`, `Create(string)`, string constructor, `StateVariant` property, or `ApplyState(string)` member on the configured design-data type. The response echoes `stateVariant` and includes `state_variant_applied` or `state_variant_not_applied` diagnostics.
+Project preview builds use an AvaScope-owned isolated output root by default, so a running app that locks its normal `bin` output does not block one-shot previews. Use `--build-output-root <dir>` to choose the isolated build root explicitly. Use `--assembly-path <dll>` to load an already-built project assembly without building, or `--no-build true` to skip the build and probe the known output path. Build failures keep stdout/stderr bounded in the JSON response and write the full process output to `error.details.buildLogPath` when possible.
 
 Repeated preview settings can live in `avascope.preview.json` beside the project file:
 
@@ -323,7 +324,7 @@ dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll preview path\to\App.csp
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll create-preview-session path\to\App.csproj --profile main
 ```
 
-Named variants are applied after the base profile and before explicit CLI options, so `--height 600` still overrides a variant height. Profiles and variants can include `stateVariant` for repeatable state injection. Profile `out`, `contactSheet`, `frameStripPath`, and `viewerPath` paths are resolved relative to the profile file; `--profile-file <path>` can point to a non-default profile file.
+Named variants are applied after the base profile and before explicit CLI options, so `--height 600` still overrides a variant height. Profiles and variants can include `stateVariant`, `buildOutputRoot`, `assemblyPath`, and `noBuild` for repeatable state injection and build isolation. Profile `out`, `contactSheet`, `frameStripPath`, `viewerPath`, `buildOutputRoot`, and `assemblyPath` paths are resolved relative to the profile file; `--profile-file <path>` can point to a non-default profile file.
 
 Render multiple viewport sizes from one preview request:
 
@@ -331,7 +332,7 @@ Render multiple viewport sizes from one preview request:
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll preview path\to\App.csproj --view Views\MainView.axaml --out .\preview.png --sizes 1440x900,1280x720,900x700 --theme light --contact-sheet .\preview-contact-sheet.png
 ```
 
-The command writes a structured JSON `ToolResult<PreviewBatchResponse>`. Each `entries[]` item has a deterministic per-size output path and an independent `ToolResult<PreviewResponse>`, so one failed size does not discard successful screenshots.
+The command writes a structured JSON `ToolResult<PreviewBatchResponse>`. Each `entries[]` item has a deterministic per-size output path and an independent `ToolResult<PreviewResponse>`, so one failed size does not discard successful screenshots. If every requested size fails, the top-level error reports the first underlying build/render root cause, a bounded per-viewport failure summary, and the first `buildLogPath` when the failure came from project build output.
 
 Render deterministic animation time-offset samples:
 
@@ -740,7 +741,7 @@ Runtime input support is intentionally narrow:
 Preview rendering is isolated in `AvaScope.PreviewHost`, launched as a child process by Core, MCP, or CLI callers. The host:
 
 - accepts a JSON `PreviewRequest`;
-- optionally runs `dotnet build` for the requested `.csproj`;
+- optionally runs `dotnet build` for the requested `.csproj` using an isolated build output root by default;
 - reports local readiness failures before build/render when project files, view files, host assemblies, or `dotnet` startup are missing;
 - loads compiled Avalonia resource XAML through `avares://` when possible;
 - loads compiled top-level `Application.Resources`, resource merged dictionaries, theme dictionaries, direct or included `Application.Styles`, `Application.DataTemplates`, and fallback `Application.DataContext` from `App.axaml`/`App.Initialize()` when present;
@@ -749,7 +750,7 @@ Preview rendering is isolated in `AvaScope.PreviewHost`, launched as a child pro
 - optionally instantiates a project-owned public parameterless design-data type and assigns it as the root control `DataContext`;
 - renders through headless Skia;
 - adds bounded binding/resource diagnostics, source-backed `x:DataType` binding diagnostics, and advisory layout warnings when public Avalonia APIs and source metadata expose enough signal;
-- writes a PNG and structured JSON result.
+- writes a PNG, structured JSON result, and full build-log artifact paths for build failures when available.
 
 Successful preview responses can include diagnostics for missing `DataContext`, unresolved resource keys, missing or invalid converter resources, conservative binding path failures, `x:DataType` binding path mismatches, missing inherited `x:DataType` on `CompiledBinding`, text clipping/truncation, clipped content, unreachable content, sibling overlap, and too-small hit targets. These diagnostics are advisory and do not fail an otherwise successful screenshot.
 
@@ -768,8 +769,7 @@ Current preview limitations:
 - no runtime hot reload or persistent live preview host process yet; CLI watch reloads still use one-shot PreviewHost child processes;
 - no project app startup/lifetime hook execution; `OnFrameworkInitializationCompleted`, project `MainWindow` creation, and app startup services are intentionally deferred;
 - no JSON object injection, dependency injection, remote design data, or long-lived design-data state;
-- no private Avalonia binding/style/resource hooks; diagnostics and computed provenance stay best-effort and public API based;
-- build output probing assumes the default `bin\Debug\<tfm>\<ProjectName>.dll` shape.
+- no private Avalonia binding/style/resource hooks; diagnostics and computed provenance stay best-effort and public API based.
 
 ## Safety Boundaries
 

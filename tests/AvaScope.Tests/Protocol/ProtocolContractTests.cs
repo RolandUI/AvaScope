@@ -1424,6 +1424,25 @@ public sealed class ProtocolContractTests
     }
 
     [Fact]
+    public void PreviewRequestSerializesBuildIsolationOptions()
+    {
+        var request = new PreviewRequest(
+            "C:\\previews\\main.png",
+            projectPath: "C:\\apps\\Sample\\Sample.csproj",
+            viewPath: "Views\\MainView.axaml",
+            buildOutputRoot: "C:\\isolated\\bin",
+            assemblyPath: "C:\\isolated\\bin\\Debug\\net10.0\\Sample.dll",
+            noBuild: true);
+
+        var json = JsonSerializer.Serialize(request);
+        var node = JsonNode.Parse(json)!;
+
+        Assert.Equal("C:\\isolated\\bin", node["buildOutputRoot"]!.GetValue<string>());
+        Assert.Equal("C:\\isolated\\bin\\Debug\\net10.0\\Sample.dll", node["assemblyPath"]!.GetValue<string>());
+        Assert.True(node["noBuild"]!.GetValue<bool>());
+    }
+
+    [Fact]
     public void PreviewResponseSerializesStableShape()
     {
         var renderedAt = new DateTimeOffset(2026, 6, 7, 1, 0, 0, TimeSpan.Zero);
@@ -1474,7 +1493,11 @@ public sealed class ProtocolContractTests
                 selectedTargetFramework: "net10.0",
                 buildConfiguration: "Debug",
                 outputAssemblyPath: "C:\\apps\\Sample\\bin\\Debug\\net10.0\\Sample.Designer.dll",
-                appXamlPath: "C:\\apps\\Sample\\App.axaml"));
+                appXamlPath: "C:\\apps\\Sample\\App.axaml",
+                buildOutputRoot: "C:\\isolated\\bin",
+                buildIntermediateOutputRoot: "C:\\isolated\\obj",
+                buildLogPath: "C:\\previews\\.avascope\\logs\\main-build.log",
+                buildMode: "isolated_default_build"));
 
         var json = JsonSerializer.Serialize(response);
         var node = JsonNode.Parse(json)!;
@@ -1484,6 +1507,10 @@ public sealed class ProtocolContractTests
         Assert.Equal("net10.0", node["projectInfo"]!["targetFrameworks"]![0]!.GetValue<string>());
         Assert.Equal("net10.0", node["projectInfo"]!["selectedTargetFramework"]!.GetValue<string>());
         Assert.Equal("C:\\apps\\Sample\\bin\\Debug\\net10.0\\Sample.Designer.dll", node["projectInfo"]!["outputAssemblyPath"]!.GetValue<string>());
+        Assert.Equal("C:\\isolated\\bin", node["projectInfo"]!["buildOutputRoot"]!.GetValue<string>());
+        Assert.Equal("C:\\isolated\\obj", node["projectInfo"]!["buildIntermediateOutputRoot"]!.GetValue<string>());
+        Assert.Equal("C:\\previews\\.avascope\\logs\\main-build.log", node["projectInfo"]!["buildLogPath"]!.GetValue<string>());
+        Assert.Equal("isolated_default_build", node["projectInfo"]!["buildMode"]!.GetValue<string>());
     }
 
     [Fact]

@@ -889,6 +889,10 @@ public sealed class PreviewHostSmokeTests
             <Project Sdk="Microsoft.NET.Sdk">
               <PropertyGroup>
                 <TargetFramework>net10.0</TargetFramework>
+              </PropertyGroup>
+              <Target Name="FailPreviewBuild" BeforeTargets="Build">
+                <Error Text="AVASCOPE_FULL_LOG_ROOT_CAUSE C:\absolute\fixture\LockedOutput.dll" />
+              </Target>
             </Project>
             """);
 
@@ -919,7 +923,16 @@ public sealed class PreviewHostSmokeTests
             Assert.Equal("build", result.Error.Details!["phase"]);
             Assert.Equal(Path.GetFullPath(projectPath), result.Error.Details["projectPath"]);
             Assert.Equal("1", result.Error.Details["exitCode"]);
+            Assert.Equal("isolated_default_build", result.Error.Details["buildMode"]);
             Assert.Contains("Build FAILED", result.Error.Details["outputTail"], StringComparison.Ordinal);
+            Assert.Contains("AVASCOPE_FULL_LOG_ROOT_CAUSE", result.Error.Details["outputTail"], StringComparison.Ordinal);
+            Assert.True(result.Error.Details.TryGetValue("buildLogPath", out var buildLogPath));
+            Assert.True(File.Exists(buildLogPath), buildLogPath);
+            var fullLog = await File.ReadAllTextAsync(buildLogPath);
+            Assert.Contains("AVASCOPE_FULL_LOG_ROOT_CAUSE C:\\absolute\\fixture\\LockedOutput.dll", fullLog, StringComparison.Ordinal);
+            Assert.Contains(
+                fullLog.Split(Environment.NewLine).Where(line => line.StartsWith(Path.GetFullPath(projectPath), StringComparison.OrdinalIgnoreCase)),
+                line => line.Contains("AVASCOPE_FULL_LOG_ROOT_CAUSE", StringComparison.Ordinal));
             Assert.Contains("Fix the project build output", result.Error.Details["nextAction"], StringComparison.Ordinal);
             Assert.False(File.Exists(outputPath));
         }
@@ -946,6 +959,7 @@ public sealed class PreviewHostSmokeTests
         var codeBehindPath = Path.Combine(viewsDirectory, "MainView.axaml.cs");
         var requestPath = Path.Combine(testRoot, "request.json");
         var outputPath = Path.Combine(testRoot, "preview.png");
+        var normalOutputAssemblyPath = Path.Combine(testRoot, "bin", "Debug", "net10.0", "CompiledPreviewSample.dll");
 
         await File.WriteAllTextAsync(projectPath, """
             <Project Sdk="Microsoft.NET.Sdk">
@@ -986,6 +1000,9 @@ public sealed class PreviewHostSmokeTests
             }
             """);
 
+        Directory.CreateDirectory(Path.GetDirectoryName(normalOutputAssemblyPath)!);
+        await File.WriteAllTextAsync(normalOutputAssemblyPath, "locked normal output");
+
         var request = new PreviewRequest(
             outputPath,
             width: 260,
@@ -999,6 +1016,11 @@ public sealed class PreviewHostSmokeTests
 
         try
         {
+            using var lockedNormalOutput = new FileStream(
+                normalOutputAssemblyPath,
+                FileMode.Open,
+                FileAccess.ReadWrite,
+                FileShare.None);
             var result = await RunPreviewHostAsync(hostAssembly, requestPath, expectedExitCode: 0);
 
             Assert.NotNull(result);
@@ -1007,8 +1029,120 @@ public sealed class PreviewHostSmokeTests
             Assert.Equal(Path.GetFullPath(viewPath), result.Value.ViewPath);
             Assert.Equal(260, result.Value.PixelWidth);
             Assert.Equal(180, result.Value.PixelHeight);
+            Assert.NotNull(result.Value.ProjectInfo);
+            Assert.Equal("isolated_default_build", result.Value.ProjectInfo!.BuildMode);
+            Assert.NotNull(result.Value.ProjectInfo.BuildOutputRoot);
+            Assert.NotNull(result.Value.ProjectInfo.OutputAssemblyPath);
+            Assert.StartsWith(
+                Path.Combine(testRoot, ".avascope", "build"),
+                result.Value.ProjectInfo.BuildOutputRoot,
+                StringComparison.OrdinalIgnoreCase);
+            Assert.StartsWith(
+                result.Value.ProjectInfo.BuildOutputRoot,
+                result.Value.ProjectInfo.OutputAssemblyPath,
+                StringComparison.OrdinalIgnoreCase);
             Assert.True(File.Exists(result.Value.FilePath));
             Assert.True(new FileInfo(result.Value.FilePath).Length > 0);
+        }
+        finally
+        {
+            await DeleteDirectoryWithRetryAsync(testRoot);
+        }
+    }
+
+    [Fact]
+    public async Task PreviewHostCanRenderFromExplicitAssemblyPathWithoutBuild()
+    {
+        var hostAssembly = Path.Combine(AppContext.BaseDirectory, "AvaScope.PreviewHost.dll");
+        Assert.True(File.Exists(hostAssembly), $"Expected preview host assembly at {hostAssembly}.");
+
+        var testRoot = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(testRoot);
+
+        var projectPath = Path.Combine(testRoot, "AssemblyPathPreviewSample.csproj");
+        var viewsDirectory = Path.Combine(testRoot, "Views");
+        Directory.CreateDirectory(viewsDirectory);
+
+        var viewPath = Path.Combine(viewsDirectory, "MainView.axaml");
+        var codeBehindPath = Path.Combine(viewsDirectory, "MainView.axaml.cs");
+        var firstRequestPath = Path.Combine(testRoot, "request-build.json");
+        var secondRequestPath = Path.Combine(testRoot, "request-assembly.json");
+        var firstOutputPath = Path.Combine(testRoot, "first-preview.png");
+        var secondOutputPath = Path.Combine(testRoot, "second-preview.png");
+
+        await File.WriteAllTextAsync(projectPath, """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <Nullable>enable</Nullable>
+              </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="Avalonia" Version="12.0.4" />
+              </ItemGroup>
+            </Project>
+            """);
+
+        await File.WriteAllTextAsync(viewPath, """
+            <UserControl xmlns="https://github.com/avaloniaui"
+                         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                         x:Class="AssemblyPathPreviewSample.Views.MainView">
+              <Border Background="#FFFFFFFF">
+                <TextBlock Text="Assembly path preview" />
+              </Border>
+            </UserControl>
+            """);
+
+        await File.WriteAllTextAsync(codeBehindPath, """
+            using Avalonia.Controls;
+
+            namespace AssemblyPathPreviewSample.Views;
+
+            public partial class MainView : UserControl
+            {
+                public MainView()
+                {
+                    InitializeComponent();
+                }
+            }
+            """);
+
+        var firstRequest = new PreviewRequest(
+            firstOutputPath,
+            width: 240,
+            height: 160,
+            dpi: 96,
+            projectPath: projectPath,
+            viewPath: Path.Combine("Views", "MainView.axaml"));
+        await File.WriteAllTextAsync(firstRequestPath, JsonSerializer.Serialize(firstRequest, JsonOptions));
+
+        try
+        {
+            var first = await RunPreviewHostAsync(hostAssembly, firstRequestPath, expectedExitCode: 0);
+
+            Assert.NotNull(first);
+            Assert.True(first.Success, first.Error?.Message);
+            var assemblyPath = first.Value!.ProjectInfo?.OutputAssemblyPath;
+            Assert.False(string.IsNullOrWhiteSpace(assemblyPath));
+            Assert.True(File.Exists(assemblyPath), assemblyPath);
+
+            var secondRequest = new PreviewRequest(
+                secondOutputPath,
+                width: 240,
+                height: 160,
+                dpi: 96,
+                projectPath: projectPath,
+                viewPath: Path.Combine("Views", "MainView.axaml"),
+                assemblyPath: assemblyPath,
+                noBuild: true);
+            await File.WriteAllTextAsync(secondRequestPath, JsonSerializer.Serialize(secondRequest, JsonOptions));
+
+            var second = await RunPreviewHostAsync(hostAssembly, secondRequestPath, expectedExitCode: 0);
+
+            Assert.NotNull(second);
+            Assert.True(second.Success, second.Error?.Message);
+            Assert.Equal("assembly_path", second.Value!.ProjectInfo!.BuildMode);
+            Assert.Equal(Path.GetFullPath(assemblyPath!), second.Value.ProjectInfo.OutputAssemblyPath);
+            Assert.True(File.Exists(second.Value.FilePath));
         }
         finally
         {

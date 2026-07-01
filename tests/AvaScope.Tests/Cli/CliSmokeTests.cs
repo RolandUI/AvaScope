@@ -293,6 +293,80 @@ public sealed class CliSmokeTests
     }
 
     [Fact]
+    public async Task PreviewCommandAllFailedContactSheetReportsFirstRootCauseAndBuildLog()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var testRoot = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(testRoot);
+
+        var projectPath = Path.Combine(testRoot, "CliBrokenMultiPreviewSample.csproj");
+        var viewPath = Path.Combine(testRoot, "MainView.axaml");
+        var outputPath = Path.Combine(testRoot, "preview.png");
+        var contactSheetPath = Path.Combine(testRoot, "sheet.png");
+
+        await File.WriteAllTextAsync(projectPath, """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+              </PropertyGroup>
+              <Target Name="FailPreviewBuild" BeforeTargets="Build">
+                <Error Text="AVASCOPE_MULTI_ROOT_CAUSE C:\absolute\fixture\MultiFailure.dll" />
+              </Target>
+            </Project>
+            """);
+
+        await File.WriteAllTextAsync(viewPath, """
+            <UserControl xmlns="https://github.com/avaloniaui">
+              <TextBlock Text="Should not render" />
+            </UserControl>
+            """);
+
+        try
+        {
+            var result = await RunCliAsync(
+                cliAssembly,
+                "preview",
+                projectPath,
+                "--view",
+                viewPath,
+                "--out",
+                outputPath,
+                "--sizes",
+                "160x100,120x80",
+                "--contact-sheet",
+                contactSheetPath);
+
+            Assert.Equal(1, result.ExitCode);
+            Assert.True(string.IsNullOrWhiteSpace(result.StandardError), result.StandardError);
+
+            var payload = JsonSerializer.Deserialize<ToolResult<PreviewBatchResponse>>(result.StandardOutput, JsonOptions);
+            Assert.NotNull(payload);
+            Assert.False(payload.Success);
+            Assert.Equal("preview_project_build_failed", payload.Error!.Code);
+            Assert.NotNull(payload.Error.Details);
+            Assert.Equal("contact_sheet", payload.Error.Details!["phase"]);
+            Assert.Equal("preview_project_build_failed", payload.Error.Details["firstRootCauseCode"]);
+            Assert.Contains("AVASCOPE_MULTI_ROOT_CAUSE", payload.Error.Details["firstRootCauseMessage"], StringComparison.Ordinal);
+            Assert.Contains("160x100", payload.Error.Details["failedViewports"], StringComparison.Ordinal);
+            Assert.Contains("120x80", payload.Error.Details["failedViewports"], StringComparison.Ordinal);
+            Assert.True(payload.Error.Details.TryGetValue("buildLogPath", out var buildLogPath));
+            Assert.True(File.Exists(buildLogPath), buildLogPath);
+            var fullLog = await File.ReadAllTextAsync(buildLogPath);
+            Assert.Contains("AVASCOPE_MULTI_ROOT_CAUSE C:\\absolute\\fixture\\MultiFailure.dll", fullLog, StringComparison.Ordinal);
+            Assert.False(File.Exists(contactSheetPath));
+        }
+        finally
+        {
+            if (Directory.Exists(testRoot))
+            {
+                Directory.Delete(testRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
     public async Task PreviewAnimationCommandRendersOffsetFramesAndStrip()
     {
         var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");

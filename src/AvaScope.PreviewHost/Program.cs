@@ -197,11 +197,17 @@ internal static class Program
         }
 
         var projectInfo = projectInfoResult.Value;
-        var buildError = BuildProject(projectInfo);
-        if (buildError is not null)
+        var preparedProjectInfoResult = PrepareProjectBuild(
+            projectInfo,
+            request,
+            fullOutputPath,
+            paths.AssemblyPath);
+        if (!preparedProjectInfoResult.Success)
         {
-            return ToolResult<PreviewResponse>.Fail(buildError);
+            return ToolResult<PreviewResponse>.Fail(preparedProjectInfoResult.Error!);
         }
+
+        projectInfo = preparedProjectInfoResult.Value;
 
         var outputDirectory = Path.GetDirectoryName(fullOutputPath);
         if (!string.IsNullOrEmpty(outputDirectory))
@@ -234,17 +240,13 @@ internal static class Program
         var diagnostics = new List<PreviewDiagnostic>();
         if (projectInfo is not null)
         {
-            projectInfo = projectInfo with
-            {
-                OutputAssemblyPath = FindProjectAssemblyPath(projectInfo.ProjectPath, projectInfo)
-            };
             AddProjectDiagnostics(diagnostics, projectInfo);
         }
 
-        var designData = CreateDesignData(fullProjectPath, request.DesignDataType, request.StateVariant);
+        var designData = CreateDesignData(projectInfo, fullProjectPath, request.DesignDataType, request.StateVariant);
         AddStateVariantDiagnostic(diagnostics, designData, request.StateVariant);
-        var projectApplicationScope = LoadProjectApplicationScope(fullProjectPath);
-        var content = LoadContent(fullProjectPath, fullViewPath);
+        var projectApplicationScope = LoadProjectApplicationScope(fullProjectPath, projectInfo);
+        var content = LoadContent(fullProjectPath, fullViewPath, projectInfo);
         if (designData.Value is not null)
         {
             content.DataContext = designData.Value;
@@ -256,7 +258,8 @@ internal static class Program
                 fullViewPath,
                 fullOutputPath,
                 content,
-                sourceMetadata);
+                sourceMetadata,
+                projectInfo);
             if (!designTimeDataContextResult.Success)
             {
                 return ToolResult<PreviewResponse>.Fail(designTimeDataContextResult.Error!);
@@ -282,7 +285,7 @@ internal static class Program
             request.Dpi);
         try
         {
-            AddSourceDiagnostics(diagnostics, sourceMetadata, content, window, resolvedThemeVariant, fullProjectPath);
+            AddSourceDiagnostics(diagnostics, sourceMetadata, content, window, resolvedThemeVariant, fullProjectPath, projectInfo);
             window.Show();
             Dispatcher.UIThread.RunJobs();
             EnsurePreviewBackground(content, window, resolvedThemeVariant);
@@ -393,6 +396,26 @@ internal static class Program
             details["appXamlPath"] = projectInfo.AppXamlPath;
         }
 
+        if (!string.IsNullOrWhiteSpace(projectInfo.BuildMode))
+        {
+            details["buildMode"] = projectInfo.BuildMode;
+        }
+
+        if (!string.IsNullOrWhiteSpace(projectInfo.BuildOutputRoot))
+        {
+            details["buildOutputRoot"] = projectInfo.BuildOutputRoot;
+        }
+
+        if (!string.IsNullOrWhiteSpace(projectInfo.BuildIntermediateOutputRoot))
+        {
+            details["buildIntermediateOutputRoot"] = projectInfo.BuildIntermediateOutputRoot;
+        }
+
+        if (!string.IsNullOrWhiteSpace(projectInfo.BuildLogPath))
+        {
+            details["buildLogPath"] = projectInfo.BuildLogPath;
+        }
+
         AddDiagnostic(diagnostics, new PreviewDiagnostic(
             PreviewDiagnosticSeverities.Info,
             PreviewDiagnosticCategories.Project,
@@ -463,10 +486,11 @@ internal static class Program
         Control content,
         Window window,
         ThemeVariant? themeVariant,
-        string? fullProjectPath)
+        string? fullProjectPath,
+        PreviewProjectInfo? projectInfo)
     {
         var dataContext = content.DataContext;
-        var projectAssembly = TryLoadProjectAssembly(fullProjectPath);
+        var projectAssembly = TryLoadProjectAssembly(fullProjectPath, projectInfo);
 
         foreach (var binding in sourceMetadata.BindingReferences)
         {
@@ -934,7 +958,7 @@ internal static class Program
         return (prefix, trimmed[(prefixEnd + 1)..]);
     }
 
-    private static Assembly? TryLoadProjectAssembly(string? fullProjectPath)
+    private static Assembly? TryLoadProjectAssembly(string? fullProjectPath, PreviewProjectInfo? projectInfo)
     {
         if (fullProjectPath is null)
         {
@@ -943,7 +967,7 @@ internal static class Program
 
         try
         {
-            var projectAssemblyPath = FindProjectAssemblyPath(fullProjectPath);
+            var projectAssemblyPath = FindProjectAssemblyPath(fullProjectPath, projectInfo);
             if (projectAssemblyPath is null)
             {
                 return null;
@@ -1242,11 +1266,15 @@ internal static class Program
         string fullOutputPath;
         string? fullProjectPath;
         string? fullViewPath;
+        string? fullAssemblyPath;
         try
         {
             fullOutputPath = Path.GetFullPath(request.OutputPath);
             fullProjectPath = ResolveProjectPath(request.ProjectPath);
             fullViewPath = ResolveViewPath(request.ViewPath, fullProjectPath);
+            fullAssemblyPath = string.IsNullOrWhiteSpace(request.AssemblyPath)
+                ? null
+                : Path.GetFullPath(request.AssemblyPath);
         }
         catch (Exception exception) when (exception is ArgumentException or NotSupportedException or PathTooLongException)
         {
@@ -1276,7 +1304,18 @@ internal static class Program
                 fullOutputPath));
         }
 
-        return ToolResult<PreviewPaths>.Ok(new PreviewPaths(fullOutputPath, fullProjectPath, fullViewPath));
+        if (fullAssemblyPath is not null && !File.Exists(fullAssemblyPath))
+        {
+            return ToolResult<PreviewPaths>.Fail(CreateReadinessError(
+                "assembly_file",
+                $"Preview assembly '{fullAssemblyPath}' was not found.",
+                fullProjectPath,
+                fullViewPath,
+                fullOutputPath,
+                assemblyPath: fullAssemblyPath));
+        }
+
+        return ToolResult<PreviewPaths>.Ok(new PreviewPaths(fullOutputPath, fullProjectPath, fullViewPath, fullAssemblyPath));
     }
 
     private static string? ResolveProjectPath(string? projectPath)
@@ -1392,6 +1431,84 @@ internal static class Program
             ?? targetFrameworks[0];
     }
 
+    private static ToolResult<PreviewProjectInfo?> PrepareProjectBuild(
+        PreviewProjectInfo? projectInfo,
+        PreviewRequest request,
+        string fullOutputPath,
+        string? fullAssemblyPath)
+    {
+        if (projectInfo is null)
+        {
+            return ToolResult<PreviewProjectInfo?>.Ok(null);
+        }
+
+        if (!string.IsNullOrWhiteSpace(fullAssemblyPath))
+        {
+            return ToolResult<PreviewProjectInfo?>.Ok(projectInfo with
+            {
+                OutputAssemblyPath = fullAssemblyPath,
+                BuildMode = "assembly_path"
+            });
+        }
+
+        if (request.NoBuild)
+        {
+            var noBuildInfo = projectInfo with
+            {
+                BuildOutputRoot = string.IsNullOrWhiteSpace(request.BuildOutputRoot)
+                    ? null
+                    : Path.GetFullPath(request.BuildOutputRoot),
+                BuildMode = "no_build"
+            };
+            var existingAssembly = FindProjectAssemblyPath(noBuildInfo.ProjectPath, noBuildInfo);
+            if (existingAssembly is null)
+            {
+                return ToolResult<PreviewProjectInfo?>.Fail(CreateProjectBuildError(
+                    $"No-build preview could not locate '{noBuildInfo.AssemblyName}.dll'.",
+                    noBuildInfo,
+                    noBuildInfo.ProjectDirectory,
+                    "dotnet build was skipped",
+                    outputTail: "No-build preview requires an existing assemblyPath or a buildOutputRoot containing the preview project's built assembly."));
+            }
+
+            return ToolResult<PreviewProjectInfo?>.Ok(noBuildInfo with
+            {
+                OutputAssemblyPath = existingAssembly
+            });
+        }
+
+        var buildOutputRoot = ResolveBuildOutputRoot(request.BuildOutputRoot, fullOutputPath, projectInfo);
+        var buildLogPath = CreateBuildLogPath(fullOutputPath);
+        var isolatedBuildInfo = projectInfo with
+        {
+            BuildOutputRoot = buildOutputRoot,
+            BuildLogPath = buildLogPath,
+            BuildMode = string.IsNullOrWhiteSpace(request.BuildOutputRoot) ? "isolated_default_build" : "isolated_explicit_build"
+        };
+
+        var buildError = BuildProject(isolatedBuildInfo);
+        if (buildError is not null)
+        {
+            return ToolResult<PreviewProjectInfo?>.Fail(buildError);
+        }
+
+        var outputAssemblyPath = FindProjectAssemblyPath(isolatedBuildInfo.ProjectPath, isolatedBuildInfo);
+        if (outputAssemblyPath is null)
+        {
+            return ToolResult<PreviewProjectInfo?>.Fail(CreateProjectBuildError(
+                $"Project build completed but '{isolatedBuildInfo.AssemblyName}.dll' was not found under the isolated build output root.",
+                isolatedBuildInfo,
+                isolatedBuildInfo.ProjectDirectory,
+                FormatCommand("dotnet", CreateBuildArguments(isolatedBuildInfo)),
+                outputTail: "The build succeeded, but the expected project assembly could not be located in buildOutputRoot."));
+        }
+
+        return ToolResult<PreviewProjectInfo?>.Ok(isolatedBuildInfo with
+        {
+            OutputAssemblyPath = outputAssemblyPath
+        });
+    }
+
     private static ProtocolError? BuildProject(PreviewProjectInfo? projectInfo)
     {
         if (projectInfo is null)
@@ -1460,10 +1577,10 @@ internal static class Program
                 timeoutMilliseconds: 60000);
         }
 
-        var output = string.Concat(
+        var output = CombineProcessOutput(
             stdoutTask.GetAwaiter().GetResult(),
-            Environment.NewLine,
-            stderrTask.GetAwaiter().GetResult()).Trim();
+            stderrTask.GetAwaiter().GetResult());
+        var buildLogPath = WriteBuildLog(projectInfo.BuildLogPath, output);
 
         if (process.ExitCode == 0)
         {
@@ -1477,7 +1594,50 @@ internal static class Program
             workingDirectory,
             command,
             exitCode: process.ExitCode,
-            outputTail: outputTail);
+            outputTail: outputTail,
+            buildLogPath: buildLogPath);
+    }
+
+    private static string CombineProcessOutput(string stdout, string stderr)
+    {
+        if (string.IsNullOrEmpty(stdout))
+        {
+            return stderr;
+        }
+
+        if (string.IsNullOrEmpty(stderr))
+        {
+            return stdout;
+        }
+
+        return stdout.EndsWith(Environment.NewLine, StringComparison.Ordinal)
+            ? stdout + stderr
+            : stdout + Environment.NewLine + stderr;
+    }
+
+    private static string? WriteBuildLog(string? buildLogPath, string output)
+    {
+        if (string.IsNullOrWhiteSpace(buildLogPath))
+        {
+            return null;
+        }
+
+        try
+        {
+            var fullBuildLogPath = Path.GetFullPath(buildLogPath);
+            var directory = Path.GetDirectoryName(fullBuildLogPath);
+            if (!string.IsNullOrWhiteSpace(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+
+            File.WriteAllText(fullBuildLogPath, output);
+            return fullBuildLogPath;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            return null;
+        }
     }
 
     private static IReadOnlyList<string> CreateBuildArguments(PreviewProjectInfo projectInfo)
@@ -1492,12 +1652,78 @@ internal static class Program
             projectInfo.BuildConfiguration ?? DefaultBuildConfiguration
         };
 
+        if (!string.IsNullOrWhiteSpace(projectInfo.BuildOutputRoot))
+        {
+            arguments.Add($"-p:BaseOutputPath={EnsureTrailingDirectorySeparator(projectInfo.BuildOutputRoot)}");
+        }
+
         if (projectInfo.TargetFrameworks.Count > 0 && !string.IsNullOrWhiteSpace(projectInfo.SelectedTargetFramework))
         {
             arguments.Add($"-p:TargetFramework={projectInfo.SelectedTargetFramework}");
         }
 
         return arguments;
+    }
+
+    private static string ResolveBuildOutputRoot(
+        string? requestedBuildOutputRoot,
+        string fullOutputPath,
+        PreviewProjectInfo projectInfo)
+    {
+        if (!string.IsNullOrWhiteSpace(requestedBuildOutputRoot))
+        {
+            return Path.GetFullPath(requestedBuildOutputRoot);
+        }
+
+        var outputDirectory = Path.GetDirectoryName(fullOutputPath) ?? Environment.CurrentDirectory;
+        var outputStem = Path.GetFileNameWithoutExtension(fullOutputPath);
+        if (string.IsNullOrWhiteSpace(outputStem))
+        {
+            outputStem = "preview";
+        }
+
+        return Path.Combine(
+            outputDirectory,
+            ".avascope",
+            "build",
+            $"{SanitizePathToken(outputStem)}-{Guid.NewGuid():N}",
+            "bin");
+    }
+
+    private static string CreateBuildLogPath(string fullOutputPath)
+    {
+        var outputDirectory = Path.GetDirectoryName(fullOutputPath) ?? Environment.CurrentDirectory;
+        var outputStem = Path.GetFileNameWithoutExtension(fullOutputPath);
+        if (string.IsNullOrWhiteSpace(outputStem))
+        {
+            outputStem = "preview";
+        }
+
+        return Path.Combine(
+            outputDirectory,
+            ".avascope",
+            "logs",
+            $"{SanitizePathToken(outputStem)}-build.log");
+    }
+
+    private static string EnsureTrailingDirectorySeparator(string path)
+    {
+        var fullPath = Path.GetFullPath(path);
+        return fullPath.EndsWith(Path.DirectorySeparatorChar)
+            || fullPath.EndsWith(Path.AltDirectorySeparatorChar)
+                ? fullPath
+                : fullPath + Path.DirectorySeparatorChar;
+    }
+
+    private static string SanitizePathToken(string value)
+    {
+        var invalid = Path.GetInvalidFileNameChars();
+        var chars = value
+            .Trim()
+            .Select(ch => invalid.Contains(ch) || char.IsWhiteSpace(ch) ? '-' : ch)
+            .ToArray();
+        var token = new string(chars).Trim('-');
+        return string.IsNullOrWhiteSpace(token) ? "preview" : token;
     }
 
     private static string FormatCommand(string fileName, IReadOnlyList<string> arguments)
@@ -1516,7 +1742,8 @@ internal static class Program
         string command,
         int? exitCode = null,
         string? outputTail = null,
-        int? timeoutMilliseconds = null)
+        int? timeoutMilliseconds = null,
+        string? buildLogPath = null)
     {
         var details = new Dictionary<string, string>(StringComparer.Ordinal)
         {
@@ -1527,8 +1754,8 @@ internal static class Program
             ["command"] = command,
             ["assemblyName"] = projectInfo.AssemblyName,
             ["buildConfiguration"] = projectInfo.BuildConfiguration ?? DefaultBuildConfiguration,
-            ["nextAction"] = "Fix the project build output shown in outputTail, then retry the preview command.",
-            ["suggestedAction"] = "Fix the project build output shown in outputTail, then retry the preview command."
+            ["nextAction"] = "Fix the project build output shown in outputTail or buildLogPath, then retry the preview command. If a normal app output is locked, use the isolated build output root or pass assemblyPath/noBuild for a known-good build.",
+            ["suggestedAction"] = "Fix the project build output shown in outputTail or buildLogPath, then retry the preview command. If a normal app output is locked, use the isolated build output root or pass assemblyPath/noBuild for a known-good build."
         };
 
         if (!string.IsNullOrWhiteSpace(projectInfo.TargetFramework))
@@ -1544,6 +1771,29 @@ internal static class Program
         if (!string.IsNullOrWhiteSpace(projectInfo.SelectedTargetFramework))
         {
             details["selectedTargetFramework"] = projectInfo.SelectedTargetFramework;
+        }
+
+        if (!string.IsNullOrWhiteSpace(projectInfo.BuildMode))
+        {
+            details["buildMode"] = projectInfo.BuildMode;
+        }
+
+        if (!string.IsNullOrWhiteSpace(projectInfo.BuildOutputRoot))
+        {
+            details["buildOutputRoot"] = projectInfo.BuildOutputRoot;
+        }
+
+        if (!string.IsNullOrWhiteSpace(projectInfo.BuildIntermediateOutputRoot))
+        {
+            details["buildIntermediateOutputRoot"] = projectInfo.BuildIntermediateOutputRoot;
+        }
+
+        var fullBuildLogPath = !string.IsNullOrWhiteSpace(buildLogPath)
+            ? buildLogPath
+            : projectInfo.BuildLogPath;
+        if (!string.IsNullOrWhiteSpace(fullBuildLogPath))
+        {
+            details["buildLogPath"] = fullBuildLogPath;
         }
 
         if (exitCode is not null)
@@ -1617,7 +1867,8 @@ internal static class Program
         string fullOutputPath,
         string? workingDirectory = null,
         string? command = null,
-        Exception? exception = null)
+        Exception? exception = null,
+        string? assemblyPath = null)
     {
         var details = new Dictionary<string, string>(StringComparer.Ordinal)
         {
@@ -1628,6 +1879,7 @@ internal static class Program
             {
                 "project_file" => "Pass an existing .csproj path or omit projectPath for standalone AXAML preview.",
                 "view_file" => "Pass an existing .axaml view path, relative to the project directory when projectPath is set.",
+                "assembly_file" => "Pass an existing built project assembly path or omit assemblyPath so PreviewHost can build the project.",
                 "dotnet_cli" => "Install a compatible .NET SDK/runtime and ensure the dotnet executable is on PATH.",
                 "project_graph" => "Fix the project file XML or unsupported project metadata before retrying.",
                 _ => "Fix the reported local prerequisite before retrying the preview command."
@@ -1636,6 +1888,7 @@ internal static class Program
             {
                 "project_file" => "Pass an existing .csproj path or omit projectPath for standalone AXAML preview.",
                 "view_file" => "Pass an existing .axaml view path, relative to the project directory when projectPath is set.",
+                "assembly_file" => "Pass an existing built project assembly path or omit assemblyPath so PreviewHost can build the project.",
                 "dotnet_cli" => "Install a compatible .NET SDK/runtime and ensure the dotnet executable is on PATH.",
                 "project_graph" => "Fix the project file XML or unsupported project metadata before retrying.",
                 _ => "Fix the reported local prerequisite before retrying the preview command."
@@ -1665,6 +1918,11 @@ internal static class Program
         if (!string.IsNullOrWhiteSpace(command))
         {
             details["command"] = command;
+        }
+
+        if (!string.IsNullOrWhiteSpace(assemblyPath))
+        {
+            details["assemblyPath"] = assemblyPath;
         }
 
         if (exception is not null)
@@ -2092,7 +2350,7 @@ internal static class Program
         return Path.GetFullPath(Path.Combine(baseDirectory, viewPath));
     }
 
-    private static Control LoadContent(string? fullProjectPath, string? fullViewPath)
+    private static Control LoadContent(string? fullProjectPath, string? fullViewPath, PreviewProjectInfo? projectInfo)
     {
         if (fullViewPath is null)
         {
@@ -2109,7 +2367,7 @@ internal static class Program
             throw new FileNotFoundException($"Preview view '{fullViewPath}' was not found.", fullViewPath);
         }
 
-        if (fullProjectPath is not null && TryLoadCompiledProjectView(fullProjectPath, fullViewPath) is { } compiled)
+        if (fullProjectPath is not null && TryLoadCompiledProjectView(fullProjectPath, fullViewPath, projectInfo) is { } compiled)
         {
             return compiled;
         }
@@ -2217,7 +2475,8 @@ internal static class Program
         string? fullViewPath,
         string fullOutputPath,
         Control content,
-        PreviewSourceMetadata sourceMetadata)
+        PreviewSourceMetadata sourceMetadata,
+        PreviewProjectInfo? projectInfo)
     {
         var attachedDesignDataContext = Design.GetDataContext(content);
         if (attachedDesignDataContext is not null)
@@ -2243,7 +2502,7 @@ internal static class Program
             try
             {
                 return ToolResult<DesignDataResolution>.Ok(DesignDataResolution.FromValue(
-                    LoadDesignDataContextObject(fullProjectPath, fullViewPath, sourceMetadata.DesignDataContextObjectElement)));
+                    LoadDesignDataContextObject(fullProjectPath, fullViewPath, sourceMetadata.DesignDataContextObjectElement, projectInfo)));
             }
             catch (Exception exception) when (exception is InvalidOperationException
                 or NotSupportedException
@@ -2279,7 +2538,8 @@ internal static class Program
                 ResolveStaticDesignDataContext(
                     fullProjectPath,
                     sourceMetadata.DesignDataContextExpression,
-                    sourceMetadata.Namespaces)));
+                    sourceMetadata.Namespaces,
+                    projectInfo)));
         }
         catch (Exception exception) when (exception is InvalidOperationException
             or NotSupportedException
@@ -2303,9 +2563,10 @@ internal static class Program
     private static object? LoadDesignDataContextObject(
         string fullProjectPath,
         string? fullViewPath,
-        string objectElementXaml)
+        string objectElementXaml,
+        PreviewProjectInfo? projectInfo)
     {
-        var projectAssemblyPath = FindProjectAssemblyPath(fullProjectPath)
+        var projectAssemblyPath = FindProjectAssemblyPath(fullProjectPath, projectInfo)
             ?? throw new InvalidOperationException("Design-time DataContext requires a built project assembly.");
         var assembly = Assembly.LoadFrom(projectAssemblyPath);
         var viewUri = fullViewPath is null
@@ -2323,13 +2584,14 @@ internal static class Program
     private static object? ResolveStaticDesignDataContext(
         string fullProjectPath,
         string expression,
-        IReadOnlyDictionary<string, string> namespaces)
+        IReadOnlyDictionary<string, string> namespaces,
+        PreviewProjectInfo? projectInfo)
     {
         var staticMember = ExtractXStaticMember(expression)
             ?? throw new NotSupportedException(
                 "Only d:DataContext values using '{x:Static prefix:Type.Member}' are supported.");
 
-        var projectAssemblyPath = FindProjectAssemblyPath(fullProjectPath)
+        var projectAssemblyPath = FindProjectAssemblyPath(fullProjectPath, projectInfo)
             ?? throw new InvalidOperationException("Design-time DataContext requires a built project assembly.");
         var projectAssembly = Assembly.LoadFrom(projectAssemblyPath);
         var memberReference = ParseStaticMemberReference(staticMember);
@@ -2484,6 +2746,7 @@ internal static class Program
     }
 
     private static DesignDataActivation CreateDesignData(
+        PreviewProjectInfo? projectInfo,
         string? fullProjectPath,
         string? designDataType,
         string? stateVariant)
@@ -2501,7 +2764,7 @@ internal static class Program
             throw new ArgumentException("Design data type requires a project path.", nameof(designDataType));
         }
 
-        var projectAssemblyPath = FindProjectAssemblyPath(fullProjectPath)
+        var projectAssemblyPath = FindProjectAssemblyPath(fullProjectPath, projectInfo)
             ?? throw new ArgumentException("Design data type requires a built project assembly.", nameof(designDataType));
         var assembly = Assembly.LoadFrom(projectAssemblyPath);
         var type = FindDesignDataType(assembly, designDataType);
@@ -2666,7 +2929,7 @@ internal static class Program
         return simpleNameMatches.Length == 1 ? simpleNameMatches[0] : null;
     }
 
-    private static ProjectApplicationScope LoadProjectApplicationScope(string? fullProjectPath)
+    private static ProjectApplicationScope LoadProjectApplicationScope(string? fullProjectPath, PreviewProjectInfo? projectInfo)
     {
         if (fullProjectPath is null)
         {
@@ -2680,7 +2943,7 @@ internal static class Program
             return ProjectApplicationScope.Empty;
         }
 
-        var projectAssemblyPath = FindProjectAssemblyPath(fullProjectPath);
+        var projectAssemblyPath = FindProjectAssemblyPath(fullProjectPath, projectInfo);
         if (projectAssemblyPath is null)
         {
             return ProjectApplicationScope.Empty;
@@ -2769,9 +3032,12 @@ internal static class Program
             projectApplication.DataContext);
     }
 
-    private static Control? TryLoadCompiledProjectView(string fullProjectPath, string fullViewPath)
+    private static Control? TryLoadCompiledProjectView(
+        string fullProjectPath,
+        string fullViewPath,
+        PreviewProjectInfo? projectInfo)
     {
-        var projectAssemblyPath = FindProjectAssemblyPath(fullProjectPath);
+        var projectAssemblyPath = FindProjectAssemblyPath(fullProjectPath, projectInfo);
         if (projectAssemblyPath is null)
         {
             return null;
@@ -2807,7 +3073,15 @@ internal static class Program
         }
 
         var assemblyName = projectInfo?.AssemblyName ?? Path.GetFileNameWithoutExtension(fullProjectPath);
-        var outputRoot = Path.Combine(projectDirectory, "bin", projectInfo?.BuildConfiguration ?? DefaultBuildConfiguration);
+        if (!string.IsNullOrWhiteSpace(projectInfo?.OutputAssemblyPath) && File.Exists(projectInfo.OutputAssemblyPath))
+        {
+            return Path.GetFullPath(projectInfo.OutputAssemblyPath);
+        }
+
+        var buildConfiguration = projectInfo?.BuildConfiguration ?? DefaultBuildConfiguration;
+        var outputRoot = string.IsNullOrWhiteSpace(projectInfo?.BuildOutputRoot)
+            ? Path.Combine(projectDirectory, "bin", buildConfiguration)
+            : Path.Combine(Path.GetFullPath(projectInfo.BuildOutputRoot), buildConfiguration);
         if (!Directory.Exists(outputRoot))
         {
             return null;
@@ -2888,7 +3162,8 @@ internal static class Program
     private sealed record PreviewPaths(
         string OutputPath,
         string? ProjectPath,
-        string? ViewPath);
+        string? ViewPath,
+        string? AssemblyPath);
 
     private sealed record SourceBindingReference(
         string ElementPath,

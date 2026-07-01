@@ -16,7 +16,10 @@ public sealed record PreviewRequest
         string? culture = null,
         string? designDataType = null,
         int? animationTimeOffsetMs = null,
-        string? stateVariant = null)
+        string? stateVariant = null,
+        string? buildOutputRoot = null,
+        string? assemblyPath = null,
+        bool noBuild = false)
     {
         if (string.IsNullOrWhiteSpace(outputPath))
         {
@@ -54,6 +57,9 @@ public sealed record PreviewRequest
         DesignDataType = string.IsNullOrWhiteSpace(designDataType) ? null : designDataType;
         AnimationTimeOffsetMs = animationTimeOffsetMs;
         StateVariant = string.IsNullOrWhiteSpace(stateVariant) ? null : stateVariant;
+        BuildOutputRoot = string.IsNullOrWhiteSpace(buildOutputRoot) ? null : buildOutputRoot;
+        AssemblyPath = string.IsNullOrWhiteSpace(assemblyPath) ? null : assemblyPath;
+        NoBuild = noBuild;
     }
 
     [JsonPropertyName("outputPath")]
@@ -97,4 +103,16 @@ public sealed record PreviewRequest
     [JsonPropertyName("stateVariant")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? StateVariant { get; }
+
+    [JsonPropertyName("buildOutputRoot")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? BuildOutputRoot { get; }
+
+    [JsonPropertyName("assemblyPath")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? AssemblyPath { get; }
+
+    [JsonPropertyName("noBuild")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool NoBuild { get; }
 }

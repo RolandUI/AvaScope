@@ -122,7 +122,10 @@ public sealed class PreviewHostClient
                 request.ThemeVariant,
                 request.Culture,
                 request.DesignDataType,
-                stateVariant: request.StateVariant);
+                stateVariant: request.StateVariant,
+                buildOutputRoot: request.BuildOutputRoot,
+                assemblyPath: request.AssemblyPath,
+                noBuild: request.NoBuild);
             var result = await RenderAsync(viewportRequest, cancellationToken);
             entries.Add(new PreviewBatchEntry(
                 viewport,
@@ -140,6 +143,11 @@ public sealed class PreviewHostClient
             : Path.GetFullPath(contactSheetPath);
         if (fullContactSheetPath is not null)
         {
+            if (!entries.Any(static entry => entry.Render.Success))
+            {
+                return CoreResult<PreviewBatchResponse>.Fail(CreateAllPreviewVariantsFailedError(entries, fullContactSheetPath));
+            }
+
             var sheetResult = TryCreateContactSheet(entries, fullContactSheetPath);
             if (!sheetResult.Success)
             {
@@ -151,6 +159,63 @@ public sealed class PreviewHostClient
             entries,
             fullContactSheetPath,
             DateTimeOffset.UtcNow));
+    }
+
+    private static CoreError CreateAllPreviewVariantsFailedError(
+        IReadOnlyList<PreviewBatchEntry> entries,
+        string contactSheetPath)
+    {
+        var firstFailure = entries
+            .Select(static entry => entry.Render.Error)
+            .FirstOrDefault(static error => error is not null);
+        var details = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["phase"] = "contact_sheet",
+            ["contactSheetPath"] = Path.GetFullPath(contactSheetPath),
+            ["failedViewports"] = CreateFailedViewportSummary(entries),
+            ["nextAction"] = "Inspect firstRootCauseMessage and per-entry render errors; full build output is available in buildLogPath when reported."
+        };
+
+        if (firstFailure is not null)
+        {
+            details["firstRootCauseCode"] = firstFailure.Code;
+            details["firstRootCauseMessage"] = firstFailure.Message;
+            if (firstFailure.Details is not null)
+            {
+                foreach (var item in firstFailure.Details.Take(20))
+                {
+                    details[$"firstRootCause.{item.Key}"] = item.Value;
+                }
+
+                if (firstFailure.Details.TryGetValue("buildLogPath", out var buildLogPath))
+                {
+                    details["buildLogPath"] = buildLogPath;
+                }
+            }
+        }
+
+        return new CoreError(
+            firstFailure?.Code ?? CoreErrorCodes.PreviewHostFailed,
+            firstFailure is null
+                ? "Every preview viewport failed before the contact sheet could be created."
+                : $"Every preview viewport failed before the contact sheet could be created. First root cause: {firstFailure.Message}",
+            details);
+    }
+
+    private static string CreateFailedViewportSummary(IReadOnlyList<PreviewBatchEntry> entries)
+    {
+        return string.Join(
+            " | ",
+            entries.Take(12).Select(static entry =>
+            {
+                var label = string.IsNullOrWhiteSpace(entry.Viewport.Label)
+                    ? $"{entry.Viewport.Width.ToString("0.###", CultureInfo.InvariantCulture)}x{entry.Viewport.Height.ToString("0.###", CultureInfo.InvariantCulture)}"
+                    : entry.Viewport.Label;
+                var error = entry.Render.Error;
+                return error is null
+                    ? $"{label}:unknown"
+                    : $"{label}:{error.Code}:{error.Message}";
+            }));
     }
 
     public async Task<CoreResult<PreviewAnimationResponse>> RenderAnimationAsync(
@@ -187,7 +252,10 @@ public sealed class PreviewHostClient
                 request.Culture,
                 request.DesignDataType,
                 offset,
-                request.StateVariant);
+                request.StateVariant,
+                request.BuildOutputRoot,
+                request.AssemblyPath,
+                request.NoBuild);
 
             var result = await RenderAsync(frameRequest, cancellationToken);
             frames.Add(new PreviewAnimationFrame(
