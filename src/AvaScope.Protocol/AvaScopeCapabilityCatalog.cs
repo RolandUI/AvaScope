@@ -136,6 +136,17 @@ public static class AvaScopeCapabilityCatalog
                 requires: [AvaScopeCapabilityIds.RuntimeInput, AvaScopeCapabilityIds.RuntimeTrees, AvaScopeCapabilityIds.ArtifactsScreenshot],
                 metadata: new Dictionary<string, string> { ["transitionProvenance"] = "bounds_snapshot_inference" }),
             Capability(
+                AvaScopeCapabilityIds.RuntimePseudoStateMatrix,
+                "runtime",
+                "Capture a selected runtime control across pseudo-states with reversible state forcing, labeled contact sheets, and structured diagnostics.",
+                ["pseudo-state-matrix", "pseudo_state_matrix"],
+                requires: [AvaScopeCapabilityIds.RuntimeInput, AvaScopeCapabilityIds.RuntimeStyleLayoutMutation, AvaScopeCapabilityIds.ArtifactsScreenshot],
+                metadata: new Dictionary<string, string>
+                {
+                    ["defaultStates"] = "normal,pointerover,pressed,disabled,selected,selected+pointerover",
+                    ["resetSemantics"] = "per_state_runtime_reset"
+                }),
+            Capability(
                 AvaScopeCapabilityIds.RuntimeMutationContract,
                 "runtime",
                 "Apply and report local-only runtime mutation requests with explicit capability and diagnostic metadata.",
@@ -321,6 +332,8 @@ public static class AvaScopeCapabilityCatalog
             Mcp("run_scenario", AvaScopeCapabilityIds.RuntimeScenarioRunner, AvaScopeCapabilityIds.SafetyLocalOnly),
             Cli("pointer-diagnostics", AvaScopeCapabilityIds.RuntimePointerDiagnostics, AvaScopeCapabilityIds.ArtifactsScreenshot),
             Mcp("pointer_diagnostics", AvaScopeCapabilityIds.RuntimePointerDiagnostics, AvaScopeCapabilityIds.ArtifactsScreenshot),
+            Cli("pseudo-state-matrix", AvaScopeCapabilityIds.RuntimePseudoStateMatrix, AvaScopeCapabilityIds.ArtifactsScreenshot),
+            Mcp("pseudo_state_matrix", AvaScopeCapabilityIds.RuntimePseudoStateMatrix, AvaScopeCapabilityIds.ArtifactsScreenshot),
             Cli("mutate-node", AvaScopeCapabilityIds.RuntimeMutationContract, AvaScopeCapabilityIds.RuntimeStyleLayoutMutation),
             Mcp("mutate_node", AvaScopeCapabilityIds.RuntimeMutationContract, AvaScopeCapabilityIds.RuntimeStyleLayoutMutation),
             Cli("mutate-node-evidence", AvaScopeCapabilityIds.RuntimeMutationEvidence, AvaScopeCapabilityIds.ArtifactsScreenshot, AvaScopeCapabilityIds.ArtifactsDiffImage),

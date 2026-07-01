@@ -194,6 +194,14 @@ For hover, tooltip, popup, or flyout failures, use a pointer diagnostics request
 
 `pointer-diagnostics` accepts move, wait, screenshot, and assert-hit steps. Results include per-step pointer coordinates, active top-level or popup-like layer, bounded visual-tree hit path, inferred enter/exit transition diagnostics with `bounds_snapshot_inference` provenance, screenshot paths, and pointer overlay PNG paths. Set `parentHoverNodeId` in the request when validating whether moving into a popup/flyout/tooltip may exit the parent hover region.
 
+For style regressions that only appear in specific control states, run a pseudo-state matrix instead of manually driving each state:
+
+```powershell
+& $avascope pseudo-state-matrix --request .\artifacts\samples\pseudo-state-matrix.json
+```
+
+`pseudo-state-matrix` targets a runtime node by `target`/`nodeId` or supported find filters, captures states such as `normal`, `pointerover`, `pressed`, `disabled`, `selected`, and `selected+pointerover`, and writes one screenshot per state plus a labeled contact sheet. Results include applied mutation ids, reset mutation responses, pointer input evidence, per-state diagnostics, and explicit `unsupported` entries when a state cannot be safely forced on the selected control.
+
 Runtime mutations use the same local bridge boundary and are reversible UI experiments, not implicit source edits:
 
 ```powershell

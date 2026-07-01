@@ -558,6 +558,26 @@ dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll pointer-diagnostics --r
 
 `pointer-diagnostics` returns `ToolResult<RuntimePointerDiagnosticsResponse>` with per-step pointer location, active top-level/layer, bounded visual-tree hit path, nearest node, inferred enter/exit transition diagnostics, screenshot paths, and pointer marker overlay paths. Transition diagnostics use explicit `bounds_snapshot_inference` provenance because AvaScope derives them from post-step visual-tree bounds instead of private Avalonia routed-event internals. When `parentHoverNodeId` is provided, moving into a popup-like layer outside that node reports whether parent hover exit behavior may run.
 
+Capture a selected runtime control across common pseudo-states:
+
+```json
+{
+  "requestId": "button-state-matrix",
+  "sessionId": "session-id",
+  "topLevelId": "topLevel:1234",
+  "nodeId": "visual:button",
+  "outputDirectory": "artifacts/pseudo-states/button",
+  "contactSheetPath": "artifacts/pseudo-states/button/sheet.png",
+  "states": ["normal", "pointerover", "pressed", "disabled", "selected", "selected+pointerover"]
+}
+```
+
+```powershell
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll pseudo-state-matrix --request .\pseudo-state-matrix.json
+```
+
+`pseudo-state-matrix` returns `ToolResult<RuntimePseudoStateMatrixResponse>` with one entry per requested state, state screenshot paths, applied/reset mutation responses, input actions used for pointer states, per-state diagnostics, diff metadata against the normal baseline when available, and a labeled contact sheet path. Runtime forcing is local and reset per state. Unsupported states or unsupported target properties are reported in the relevant entry instead of being inferred from screenshots.
+
 Apply a reversible runtime mutation and capture an agent evidence package:
 
 ```powershell
@@ -737,6 +757,9 @@ Implemented tools:
 - `audit_ui`
 - `input`
 - `run_workflow`
+- `run_scenario`
+- `pointer_diagnostics`
+- `pseudo_state_matrix`
 - `mutate_node`
 - `mutate_node_evidence`
 - `mutation_review`

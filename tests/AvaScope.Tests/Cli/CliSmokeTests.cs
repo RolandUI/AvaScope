@@ -3057,6 +3057,78 @@ public sealed class CliSmokeTests
     }
 
     [Fact]
+    public async Task PseudoStateMatrixCommandCapturesContactSheetThroughBridgePipe()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var sessionId = SessionId.New();
+        var pipeName = $"avascope-cli-state-{Guid.NewGuid():N}";
+        var manifestPath = WriteBridgeManifest(sessionId, pipeName);
+        var artifactDirectory = Path.Combine(
+            Path.GetTempPath(),
+            "AvaScope.Tests",
+            $"cli-state-{Guid.NewGuid():N}");
+        var requestPath = Path.Combine(artifactDirectory, "state-matrix.json");
+        var contactSheetPath = Path.Combine(artifactDirectory, "sheet.png");
+        Directory.CreateDirectory(artifactDirectory);
+
+        var target = new RuntimeTargetContext(sessionId, "topLevel:pointer", TreeKinds.Visual, "visual:pointerButton");
+        var serverTask = RespondToBridgeRequestsAsync(
+            pipeName,
+            expectedCount: 3,
+            (index, request) => index switch
+            {
+                0 => CreatePointerTreeResponse(request, sessionId, "topLevel:pointer"),
+                1 => CreatePointerScreenshotResponse(request, sessionId, "topLevel:pointer", "01-normal.png"),
+                2 => CreatePointerTreeResponse(request, sessionId, "topLevel:pointer"),
+                _ => throw new InvalidOperationException("Unexpected pseudo-state matrix bridge request index.")
+            });
+        var matrixRequest = new RuntimePseudoStateMatrixRequest(
+            sessionId,
+            "topLevel:pointer",
+            target,
+            [RuntimePseudoStates.Normal],
+            requestId: "cli-state",
+            outputDirectory: artifactDirectory,
+            contactSheetPath: contactSheetPath);
+        await File.WriteAllTextAsync(requestPath, JsonSerializer.Serialize(matrixRequest, JsonOptions));
+
+        try
+        {
+            var result = await RunCliAsync(
+                cliAssembly,
+                "pseudo-state-matrix",
+                "--request",
+                requestPath);
+            var requests = await serverTask;
+
+            Assert.Equal(0, result.ExitCode);
+            Assert.True(string.IsNullOrWhiteSpace(result.StandardError), result.StandardError);
+            Assert.Equal(BridgeIpcMethods.VisualTree, requests[0].Method);
+            Assert.Equal(BridgeIpcMethods.Screenshot, requests[1].Method);
+
+            var payload = JsonSerializer.Deserialize<ToolResult<RuntimePseudoStateMatrixResponse>>(result.StandardOutput, JsonOptions);
+            Assert.NotNull(payload);
+            Assert.True(payload.Success, payload.Error?.Message);
+            Assert.Equal("passed", payload.Value!.Status);
+            Assert.Equal("normal", payload.Value.Entries[0].State);
+            Assert.Equal(Path.GetFullPath(contactSheetPath), payload.Value.ContactSheetPath);
+            Assert.True(File.Exists(payload.Value.ContactSheetPath), payload.Value.ContactSheetPath);
+            Assert.Contains(payload.Value.AgentReview.ArtifactPaths, artifact => artifact.Kind == "contact_sheet");
+        }
+        finally
+        {
+            if (File.Exists(manifestPath))
+            {
+                File.Delete(manifestPath);
+            }
+
+            await DeleteDirectoryWithRetryAsync(artifactDirectory);
+        }
+    }
+
+    [Fact]
     public async Task RunScenarioCommandBlocksDestructiveTargetWithoutIsolation()
     {
         var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");

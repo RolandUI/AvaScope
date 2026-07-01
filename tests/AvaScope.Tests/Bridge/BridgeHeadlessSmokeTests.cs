@@ -1672,6 +1672,115 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
     }
 
     [Fact]
+    public async Task PseudoStateMatrixCapturesCommonStatesAndResetsRuntimeForcing()
+    {
+        var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessTestApplication));
+
+        try
+        {
+            await session.Dispatch(async () =>
+            {
+                var item = new ListBoxItem
+                {
+                    Name = "PseudoStateItem",
+                    Content = "Pseudo state",
+                    Width = 180,
+                    Height = 36
+                };
+                AutomationProperties.SetAutomationId(item, "pseudo-state-item");
+
+                var window = new Window
+                {
+                    Title = "AvaScope Pseudo State Sample",
+                    Width = 360,
+                    Height = 220,
+                    Content = new StackPanel
+                    {
+                        Margin = new Thickness(24),
+                        Children =
+                        {
+                            item
+                        }
+                    }
+                };
+
+                var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Headless pseudo-state sample"));
+                var outputDirectory = Path.Combine(
+                    Path.GetTempPath(),
+                    "AvaScope.Tests",
+                    Guid.NewGuid().ToString("N"),
+                    "pseudo-state");
+                try
+                {
+                    window.Show();
+                    using var registration = runtime.RegisterTopLevel(window);
+                    Dispatcher.UIThread.RunJobs();
+
+                    var client = new LocalBridgeClient(Path.GetDirectoryName(runtime.SessionManifestPath)!);
+                    var topLevel = Assert.Single(await runtime.ListTopLevelsAsync());
+                    var tree = await runtime.GetVisualTreeAsync(topLevel.Id, 16);
+                    Assert.True(tree.Success, tree.Error?.Message);
+                    var itemNode = FindNode(tree.Value!.Root, node => node.Name == "PseudoStateItem");
+                    Assert.NotNull(itemNode);
+
+                    var request = new RuntimePseudoStateMatrixRequest(
+                        runtime.SessionId,
+                        topLevel.Id,
+                        new RuntimeTargetContext(runtime.SessionId, topLevel.Id, TreeKinds.Visual, itemNode!.NodeId),
+                        [
+                            RuntimePseudoStates.Normal,
+                            RuntimePseudoStates.PointerOver,
+                            RuntimePseudoStates.Pressed,
+                            RuntimePseudoStates.Disabled,
+                            RuntimePseudoStates.Selected,
+                            RuntimePseudoStates.SelectedPointerOver
+                        ],
+                        requestId: "headless-state-matrix",
+                        outputDirectory: outputDirectory,
+                        contactSheetPath: Path.Combine(outputDirectory, "sheet.png"));
+
+                    var result = await AvaScopeMcpTools.PseudoStateMatrix(client, request);
+
+                    Assert.True(result.Success, result.Error?.Message);
+                    Assert.Equal("passed", result.Value!.Status);
+                    Assert.Equal(
+                        [
+                            RuntimePseudoStates.Normal,
+                            RuntimePseudoStates.PointerOver,
+                            RuntimePseudoStates.Pressed,
+                            RuntimePseudoStates.Disabled,
+                            RuntimePseudoStates.Selected,
+                            RuntimePseudoStates.SelectedPointerOver
+                        ],
+                        result.Value.Entries.Select(static entry => entry.State));
+                    Assert.All(result.Value.Entries, entry => Assert.Equal("passed", entry.Status));
+                    Assert.All(result.Value.Entries, entry => Assert.True(File.Exists(entry.Screenshot!.FilePath), entry.Screenshot.FilePath));
+                    Assert.True(File.Exists(result.Value.ContactSheetPath), result.Value.ContactSheetPath);
+                    Assert.Contains(result.Value.Entries.Single(entry => entry.State == RuntimePseudoStates.Disabled).ResetMutations, mutation => mutation.Operation.Kind == RuntimeMutationOperationKinds.ResetMutation);
+                    Assert.Contains(result.Value.Entries.Single(entry => entry.State == RuntimePseudoStates.Selected).ResetMutations, mutation => mutation.Operation.Kind == RuntimeMutationOperationKinds.ResetMutation);
+                    Assert.True(item.IsEnabled);
+                    Assert.False(item.IsSelected);
+                }
+                finally
+                {
+                    if (Directory.Exists(outputDirectory))
+                    {
+                        Directory.Delete(outputDirectory, recursive: true);
+                    }
+
+                    window.Close();
+                    AvaScopeBridge.Deactivate();
+                    Dispatcher.UIThread.RunJobs();
+                }
+            }, CancellationToken.None);
+        }
+        finally
+        {
+            DisposeHeadlessSessionAfterExplicitCleanup(session);
+        }
+    }
+
+    [Fact]
     public async Task McpExpandedInputAndRuntimeStateInspectionUseBridgeOnly()
     {
         var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessTestApplication));

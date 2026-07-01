@@ -36,6 +36,7 @@ public sealed class AvaScopeBridgeRuntime
     private const int MaximumRuntimeLayoutAncestors = 16;
     private const int MaximumMutationHistoryEntries = 128;
     private const int DefaultMutationReviewLimit = 50;
+    private const string MutationValueKindBool = "bool";
     private const string MutationValueKindBrush = "brush";
     private const string MutationValueKindDouble = "double";
     private const string MutationValueKindLayoutDouble = "layout_double";
@@ -1689,7 +1690,7 @@ public sealed class AvaScopeBridgeRuntime
                 ["operation"] = operation,
                 ["propertyName"] = propertyName,
                 ["nodeType"] = node.GetType().FullName ?? node.GetType().Name,
-                ["supportedProperties"] = "width,height,minWidth,minHeight,maxWidth,maxHeight,margin,padding,opacity,text,content,background,foreground",
+                ["supportedProperties"] = "width,height,minWidth,minHeight,maxWidth,maxHeight,margin,padding,opacity,text,content,background,foreground,isEnabled,isSelected,isExpanded",
                 ["nextAction"] = "Retry with a supported property for the selected node type."
             });
     }
@@ -1794,6 +1795,47 @@ public sealed class AvaScopeBridgeRuntime
                 MutationValueKindOpacity));
         }
 
+        if (node is InputElement inputElement && normalized == "isenabled")
+        {
+            return CoreResult<MutableAvaloniaProperty>.Ok(new MutableAvaloniaProperty(
+                inputElement,
+                InputElement.IsEnabledProperty,
+                "IsEnabled",
+                MutationValueKindBool));
+        }
+
+        if (normalized == "isselected")
+        {
+            var selectedProperty = node switch
+            {
+                ListBoxItem listBoxItem => new MutableAvaloniaProperty(listBoxItem, ListBoxItem.IsSelectedProperty, "IsSelected", MutationValueKindBool),
+                TabItem tabItem => new MutableAvaloniaProperty(tabItem, TabItem.IsSelectedProperty, "IsSelected", MutationValueKindBool),
+                TreeViewItem treeViewItem => new MutableAvaloniaProperty(treeViewItem, TreeViewItem.IsSelectedProperty, "IsSelected", MutationValueKindBool),
+                Control control => new MutableAvaloniaProperty(control, SelectingItemsControl.IsSelectedProperty, "IsSelected", MutationValueKindBool),
+                _ => null
+            };
+
+            if (selectedProperty is not null)
+            {
+                return CoreResult<MutableAvaloniaProperty>.Ok(selectedProperty);
+            }
+        }
+
+        if (normalized == "isexpanded")
+        {
+            var expandedProperty = node switch
+            {
+                Expander expander => new MutableAvaloniaProperty(expander, Expander.IsExpandedProperty, "IsExpanded", MutationValueKindBool),
+                TreeViewItem treeViewItem => new MutableAvaloniaProperty(treeViewItem, TreeViewItem.IsExpandedProperty, "IsExpanded", MutationValueKindBool),
+                _ => null
+            };
+
+            if (expandedProperty is not null)
+            {
+                return CoreResult<MutableAvaloniaProperty>.Ok(expandedProperty);
+            }
+        }
+
         if (normalized == "padding")
         {
             var paddingProperty = node switch
@@ -1892,6 +1934,7 @@ public sealed class AvaScopeBridgeRuntime
         {
             return valueKind switch
             {
+                MutationValueKindBool => CoreResult<ConvertedMutationValue>.Ok(new ConvertedMutationValue(bool.Parse(value))),
                 MutationValueKindBrush => CoreResult<ConvertedMutationValue>.Ok(new ConvertedMutationValue(ParseBrushValue(value))),
                 MutationValueKindDouble => CoreResult<ConvertedMutationValue>.Ok(new ConvertedMutationValue(ParseFiniteNonNegativeDouble(value, operation.PropertyName))),
                 MutationValueKindLayoutDouble => CoreResult<ConvertedMutationValue>.Ok(new ConvertedMutationValue(ParseLayoutDouble(value, allowAuto: true, allowInfinity: false, operation.PropertyName))),

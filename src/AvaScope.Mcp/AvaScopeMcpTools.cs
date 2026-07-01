@@ -532,6 +532,30 @@ public sealed class AvaScopeMcpTools
     }
 
     [McpServerTool(
+        Name = "pseudo_state_matrix",
+        Title = "Pseudo-state matrix",
+        ReadOnly = false,
+        Idempotent = false,
+        Destructive = false,
+        OpenWorld = false,
+        UseStructuredContent = true)]
+    [Description("Captures a runtime control across common pseudo-states such as normal, pointerover, pressed, disabled, selected, and selected+pointerover, then writes a labeled contact sheet and structured diagnostics with reset results.")]
+    public static async Task<ToolResult<RuntimePseudoStateMatrixResponse>> PseudoStateMatrix(
+        LocalBridgeClient bridgeClient,
+        RuntimePseudoStateMatrixRequest request,
+        string? manifestDirectory = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(bridgeClient);
+        ArgumentNullException.ThrowIfNull(request);
+
+        return ToToolResult(await new RuntimePseudoStateMatrixRunner().RunAsync(
+            CreateBridgeClient(bridgeClient, manifestDirectory),
+            request,
+            cancellationToken));
+    }
+
+    [McpServerTool(
         Name = "mutate_node",
         Title = "Mutate node",
         ReadOnly = false,

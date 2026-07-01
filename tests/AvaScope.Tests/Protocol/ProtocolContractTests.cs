@@ -101,10 +101,12 @@ public sealed class ProtocolContractTests
         Assert.Contains(response.Capabilities, capability => capability.Id == AvaScopeCapabilityIds.RuntimeSemanticWorkflow);
         Assert.Contains(response.Capabilities, capability => capability.Id == AvaScopeCapabilityIds.RuntimeScenarioRunner);
         Assert.Contains(response.Capabilities, capability => capability.Id == AvaScopeCapabilityIds.RuntimePointerDiagnostics);
+        Assert.Contains(response.Capabilities, capability => capability.Id == AvaScopeCapabilityIds.RuntimePseudoStateMatrix);
         Assert.Contains(response.Capabilities, capability => capability.Id == AvaScopeCapabilityIds.PreviewStateVariants);
         Assert.Contains(response.Tools, tool => tool.Adapter == "mcp" && tool.Name == "run_workflow");
         Assert.Contains(response.Tools, tool => tool.Adapter == "mcp" && tool.Name == "run_scenario");
         Assert.Contains(response.Tools, tool => tool.Adapter == "mcp" && tool.Name == "pointer_diagnostics");
+        Assert.Contains(response.Tools, tool => tool.Adapter == "mcp" && tool.Name == "pseudo_state_matrix");
         Assert.Empty(node["value"]!["diagnostics"]!.AsArray());
     }
 
@@ -405,6 +407,85 @@ public sealed class ProtocolContractTests
         Assert.True(responseNode["steps"]![0]!["transitions"]![0]!["parentHoverRegionExited"]!.GetValue<bool>());
         Assert.Equal("bounds_snapshot_inference", responseNode["steps"]![0]!["metadata"]!["transitionProvenance"]!.GetValue<string>());
         Assert.Equal("pointer_overlay", responseNode["agentReview"]!["artifactPaths"]![1]!["kind"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public void RuntimePseudoStateMatrixRequestAndResponseSerializeStableShapes()
+    {
+        var at = new DateTimeOffset(2026, 7, 1, 14, 0, 0, TimeSpan.Zero);
+        var sessionId = new SessionId("session-matrix");
+        var target = new RuntimeTargetContext(sessionId, "topLevel:main", TreeKinds.Visual, "visual:item");
+        var request = new RuntimePseudoStateMatrixRequest(
+            sessionId,
+            "topLevel:main",
+            target,
+            [RuntimePseudoStates.Normal, RuntimePseudoStates.Disabled, RuntimePseudoStates.SelectedPointerOver],
+            requestId: "matrix-1",
+            outputDirectory: "C:\\state\\matrix",
+            contactSheetPath: "C:\\state\\matrix\\sheet.png",
+            automationId: "state-target");
+        var mutation = new RuntimeMutationResponse(
+            "matrix-1:disabled:IsEnabled:false",
+            "mutation:session-matrix:1",
+            sessionId,
+            "topLevel:main",
+            target,
+            new RuntimeMutationOperation(
+                RuntimeMutationOperationKinds.SetProperty,
+                propertyName: "IsEnabled",
+                value: "false",
+                valueType: "bool"),
+            RuntimeMutationStatuses.Applied,
+            applied: true,
+            at);
+        var response = new RuntimePseudoStateMatrixResponse(
+            "matrix-1",
+            sessionId,
+            "topLevel:main",
+            target,
+            "passed",
+            at,
+            at,
+            [
+                new RuntimePseudoStateMatrixEntry(
+                    RuntimePseudoStates.Disabled,
+                    "disabled",
+                    "passed",
+                    "Captured.",
+                    at,
+                    new ScreenshotResponse(
+                        sessionId,
+                        "topLevel:main",
+                        "C:\\state\\matrix\\disabled.png",
+                        320,
+                        180,
+                        at),
+                    new RuntimePseudoStateTargetSummary(
+                        "visual:item",
+                        "Avalonia.Controls.ListBoxItem",
+                        "Item",
+                        "state-target",
+                        "Selected item",
+                        new NodeBounds(10, 20, 100, 32),
+                        ["selected"],
+                        new RuntimeAccessibilityState("State target", null, null, null, isEnabled: false)),
+                    appliedMutations: [mutation],
+                    resetMutations: [mutation],
+                    metadata: new Dictionary<string, string> { ["diffStatus"] = "changed" })
+            ],
+            "C:\\state\\matrix\\sheet.png");
+
+        var requestNode = JsonNode.Parse(JsonSerializer.Serialize(request))!;
+        var responseNode = JsonNode.Parse(JsonSerializer.Serialize(response))!;
+
+        Assert.Equal("matrix-1", requestNode["requestId"]!.GetValue<string>());
+        Assert.Equal("disabled", requestNode["states"]![1]!.GetValue<string>());
+        Assert.Equal("C:\\state\\matrix\\sheet.png", requestNode["contactSheetPath"]!.GetValue<string>());
+        Assert.Equal("state-target", requestNode["automationId"]!.GetValue<string>());
+        Assert.Equal("passed", responseNode["status"]!.GetValue<string>());
+        Assert.Equal("visual:item", responseNode["entries"]![0]!["target"]!["nodeId"]!.GetValue<string>());
+        Assert.Equal("IsEnabled", responseNode["entries"]![0]!["appliedMutations"]![0]!["operation"]!["propertyName"]!.GetValue<string>());
+        Assert.Equal("contact_sheet", responseNode["agentReview"]!["artifactPaths"]![1]!["kind"]!.GetValue<string>());
     }
 
     [Fact]
