@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Text.Json;
 using System.Xml.Linq;
+using AvaScope.Protocol;
 using ModelContextProtocol.Client;
 
 namespace AvaScope.Tests.Installer;
@@ -139,6 +140,7 @@ public sealed class InstallerWorkflowTests
             var tools = await client.ListToolsAsync(cancellationToken: cancellation.Token);
 
             Assert.Equal("avascope", client.ServerInfo.Name);
+            Assert.Equal(AvaScopeProduct.Version, client.ServerInfo.Version);
             Assert.Contains(tools, static tool => tool.Name == "health");
             Assert.Contains(tools, static tool => tool.Name == "preview_axaml");
         }

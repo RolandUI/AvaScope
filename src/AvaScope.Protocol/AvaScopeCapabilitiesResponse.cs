@@ -13,7 +13,8 @@ public sealed record AvaScopeCapabilitiesResponse
         IReadOnlyList<AvaScopeCapability> capabilities,
         IReadOnlyList<AvaScopeToolCapability> tools,
         IReadOnlyList<RuntimeMutationCapability> runtimeMutationCapabilities,
-        IReadOnlyList<ProtocolError>? diagnostics = null)
+        IReadOnlyList<ProtocolError>? diagnostics = null,
+        string? productVersion = null)
     {
         if (string.IsNullOrWhiteSpace(serviceName))
         {
@@ -28,6 +29,9 @@ public sealed record AvaScopeCapabilitiesResponse
         Tools = tools ?? throw new ArgumentNullException(nameof(tools));
         RuntimeMutationCapabilities = runtimeMutationCapabilities ?? throw new ArgumentNullException(nameof(runtimeMutationCapabilities));
         Diagnostics = diagnostics ?? [];
+        ProductVersion = string.IsNullOrWhiteSpace(productVersion)
+            ? AvaScopeProduct.Version
+            : productVersion.Trim();
     }
 
     [JsonPropertyName("serviceName")]
@@ -35,6 +39,9 @@ public sealed record AvaScopeCapabilitiesResponse
 
     [JsonPropertyName("protocolVersion")]
     public ProtocolVersion ProtocolVersion { get; }
+
+    [JsonPropertyName("productVersion")]
+    public string ProductVersion { get; }
 
     [JsonPropertyName("generatedAt")]
     public DateTimeOffset GeneratedAt { get; }

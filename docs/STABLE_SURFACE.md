@@ -31,14 +31,15 @@ They are distributed through executable ZIPs and source, not as package APIs.
 ## Protocol Contracts
 
 The stable service name is `avascope`. The protocol version uses `AvaScopeProtocol.CurrentVersion`; breaking protocol changes require `protocolVersion.major` to increase.
-The MCP initialization handshake reports `serverInfo.name` as `avascope`.
+The MCP initialization handshake reports `serverInfo.name` as `avascope` and `serverInfo.version` as the same product version returned by the CLI and structured protocol surfaces.
 
 Stable protocol primitives:
 
 - `ToolResult<T>` preserves `success`, `value`, and `error`.
 - `ProtocolError` preserves `code`, `message`, and optional `details`.
 - `SessionId` serializes as a JSON string.
-- `AvaScopeCapabilitiesResponse` exposes `serviceName`, `protocolVersion`, `compatibilityPolicy`, `capabilities`, `tools`, `runtimeMutationCapabilities`, and `diagnostics`.
+- `HealthResponse`, `AvaScopeCapabilitiesResponse`, and `DoctorResponse` expose `productVersion`.
+- `AvaScopeCapabilitiesResponse` exposes `serviceName`, `protocolVersion`, `productVersion`, `compatibilityPolicy`, `capabilities`, `tools`, `runtimeMutationCapabilities`, and `diagnostics`.
 - `capability_not_supported` is the stable error code for unsupported required capabilities.
 
 Compatibility rules:
@@ -100,6 +101,7 @@ The stable CLI command name set is:
 
 CLI compatibility rules:
 
+- `avascope --version` and `avascope -v` print the stable product version only and exit `0`.
 - Existing command names stay valid within major version `1`.
 - Existing option names and meanings stay compatible; new optional flags may be added.
 - Removing an option, making an optional option required, or changing a command's structured result shape requires a major release or a compatibility alias.

@@ -213,6 +213,17 @@ Agent discovery order should be:
 3. Probe `%LOCALAPPDATA%\AvaScope\bin\avascope.cmd` and `%LOCALAPPDATA%\AvaScope\current\avascope.exe`.
 4. Fall back to repository or unpacked release artifact paths.
 
+## Version Discovery
+
+Use the standard CLI flag for human bug reports:
+
+```powershell
+avascope --version
+avascope -v
+```
+
+The same product version is available in structured output as `service.productVersion` on `health`/`doctor`, root `productVersion` on `capabilities` and `doctor`, capability metadata for `protocol.capability_discovery`, and MCP `serverInfo.version`.
+
 Run the packaged Windows CLI/MCP bundle directly from the publish directory:
 
 ```powershell
@@ -277,7 +288,7 @@ dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll capabilities
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll capabilities --require runtime.ui_audit,reports.evidence_pack
 ```
 
-`capabilities` writes `ToolResult<AvaScopeCapabilitiesResponse>` with `capabilities[]`, `tools[]`, `runtimeMutationCapabilities[]`, and `compatibilityPolicy`. Unsupported required feature ids fail with `capability_not_supported`, `unsupportedCapabilities`, and a `nextAction` detail so clients can branch by feature id rather than guessing from package versions.
+`capabilities` writes `ToolResult<AvaScopeCapabilitiesResponse>` with `productVersion`, `capabilities[]`, `tools[]`, `runtimeMutationCapabilities[]`, and `compatibilityPolicy`. Unsupported required feature ids fail with `capability_not_supported`, `unsupportedCapabilities`, and a `nextAction` detail so clients can branch by feature id rather than guessing from package versions.
 
 The command writes a structured JSON `ToolResult<PreviewResponse>` to stdout. On success, `value.filePath` points to the generated PNG.
 `--width` and `--height` can be omitted when the root AXAML declares design-time dimensions with `d:DesignWidth`/`d:DesignHeight` or `Design.Width`/`Design.Height`. Project previews also apply root design-time data from `Design.DataContext` or `d:DataContext="{x:Static ...}"`; an explicit `--design-data-type` still takes precedence.

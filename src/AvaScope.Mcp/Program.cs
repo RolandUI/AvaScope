@@ -34,7 +34,7 @@ builder.Services.PostConfigure<McpServerOptions>(options =>
     {
         Name = AvaScopeProtocol.ServiceName,
         Title = "AvaScope",
-        Version = typeof(AvaScopeMcpTools).Assembly.GetName().Version?.ToString() ?? "0.0.0"
+        Version = AvaScopeProduct.Version
     };
 });
 

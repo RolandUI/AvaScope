@@ -38,11 +38,12 @@ Use default paths when diagnosing the user's current machine state:
 
 ```powershell
 & $avascope capabilities
+& $avascope --version
 & $avascope doctor
 & $avascope diagnostics --max-sessions 10 --mode active-only
 ```
 
-`capabilities` returns the current protocol/tool manifest, including runtime mutation, preview, diagnostics, baseline, report, and artifact feature ids. Use `capabilities --require <id>[,<id>...]` before newer workflows when an agent needs an explicit compatibility gate; unsupported requirements return `capability_not_supported` with actionable details instead of relying on package-version guessing. `doctor` exits non-zero when co-located AvaScope assemblies are missing or stale diagnostic records need attention. `diagnostics --mode active-only` returns useful active bridge/preview sessions while summarizing stale/invalid counts in `summary` and `nextCommands`; use `--mode all` when detailed stale records are needed.
+`--version`, `capabilities.productVersion`, `doctor.productVersion`, and MCP `serverInfo.version` report the same product version for bug reports and artifact provenance. `capabilities` returns the current protocol/tool manifest, including runtime mutation, preview, diagnostics, baseline, report, and artifact feature ids. Use `capabilities --require <id>[,<id>...]` before newer workflows when an agent needs an explicit compatibility gate; unsupported requirements return `capability_not_supported` with actionable details instead of relying on package-version guessing. `doctor` exits non-zero when co-located AvaScope assemblies are missing or stale diagnostic records need attention. `diagnostics --mode active-only` returns useful active bridge/preview sessions while summarizing stale/invalid counts in `summary` and `nextCommands`; use `--mode all` when detailed stale records are needed.
 
 ## 3. Preview A View
 

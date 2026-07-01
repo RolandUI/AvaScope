@@ -74,6 +74,7 @@ public sealed class ProtocolContractTests
         Assert.Equal("avascope", node["value"]!["serviceName"]!.GetValue<string>());
         Assert.Equal(1, node["value"]!["protocolVersion"]!["major"]!.GetValue<int>());
         Assert.Equal(0, node["value"]!["protocolVersion"]!["minor"]!.GetValue<int>());
+        Assert.Equal(AvaScopeProduct.Version, node["value"]!["productVersion"]!.GetValue<string>());
     }
 
     [Fact]
@@ -87,7 +88,9 @@ public sealed class ProtocolContractTests
         Assert.True(node["success"]!.GetValue<bool>());
         Assert.Equal("avascope", node["value"]!["serviceName"]!.GetValue<string>());
         Assert.Equal(1, node["value"]!["protocolVersion"]!["major"]!.GetValue<int>());
+        Assert.Equal(AvaScopeProduct.Version, node["value"]!["productVersion"]!.GetValue<string>());
         Assert.Equal("capabilities[].id", node["value"]!["compatibilityPolicy"]!["featureDiscovery"]!.GetValue<string>());
+        Assert.Equal(AvaScopeProduct.Version, node["value"]!["capabilities"]![2]!["metadata"]!["productVersion"]!.GetValue<string>());
         Assert.Equal("protocol.capability_discovery", node["value"]!["capabilities"]![2]!["id"]!.GetValue<string>());
         Assert.Equal("available", node["value"]!["capabilities"]![2]!["status"]!.GetValue<string>());
         Assert.Equal("capabilities", node["value"]!["capabilities"]![2]!["tools"]![0]!.GetValue<string>());
@@ -728,6 +731,7 @@ public sealed class ProtocolContractTests
 
         Assert.Equal("avascope", node["service"]!["serviceName"]!.GetValue<string>());
         Assert.Equal(1, node["service"]!["protocolVersion"]!["major"]!.GetValue<int>());
+        Assert.Equal(AvaScopeProduct.Version, node["service"]!["productVersion"]!.GetValue<string>());
         Assert.Equal(Path.GetFullPath(Path.GetDirectoryName(manifestPath)!), node["manifestDirectory"]!.GetValue<string>());
         Assert.Equal(generatedAt, DateTimeOffset.Parse(node["generatedAt"]!.GetValue<string>(), CultureInfo.InvariantCulture));
         Assert.Equal(DiagnosticStatuses.Available, node["bridgeSessions"]![0]!["status"]!.GetValue<string>());
@@ -836,8 +840,10 @@ public sealed class ProtocolContractTests
         var node = JsonNode.Parse(json)!;
 
         Assert.Equal("avascope", node["service"]!["serviceName"]!.GetValue<string>());
+        Assert.Equal(AvaScopeProduct.Version, node["service"]!["productVersion"]!.GetValue<string>());
         Assert.Equal(generatedAt, DateTimeOffset.Parse(node["generatedAt"]!.GetValue<string>(), CultureInfo.InvariantCulture));
         Assert.Equal(DiagnosticStatuses.Available, node["status"]!.GetValue<string>());
+        Assert.Equal(AvaScopeProduct.Version, node["productVersion"]!.GetValue<string>());
         Assert.Equal("C:\\avascope\\avascope.dll", node["cliAssemblyPath"]!.GetValue<string>());
         Assert.Equal("C:\\avascope", node["baseDirectory"]!.GetValue<string>());
         Assert.Equal("C:\\avascope\\sessions", node["manifestDirectory"]!.GetValue<string>());

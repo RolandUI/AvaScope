@@ -93,6 +93,12 @@ dotnet test AvaScope.slnx --filter FullyQualifiedName~CliSmokeTests.DoctorComman
 dotnet test AvaScope.slnx --filter FullyQualifiedName~ProtocolContractTests.DoctorResponseSerializesStableReadinessShape
 ```
 
+For product version discovery surface work, include:
+
+```powershell
+dotnet test AvaScope.slnx --no-build --filter "FullyQualifiedName~CliSmokeTests.VersionCommandReportsProductVersion|FullyQualifiedName~CliSmokeTests.CapabilitiesCommandReportsProtocolAndToolCapabilities|FullyQualifiedName~CliSmokeTests.DoctorCommandReportsLocalReadiness|FullyQualifiedName~ProtocolContractTests.HealthResponseUsesCurrentProtocolMetadata|FullyQualifiedName~ProtocolContractTests.CapabilitiesResponseSerializesStableDiscoveryShape|FullyQualifiedName~ProtocolContractTests.DoctorResponseSerializesStableReadinessShape|FullyQualifiedName~AvaScopeMcpToolsTests.HealthReturnsCurrentProtocolMetadata|FullyQualifiedName~AvaScopeMcpToolsTests.CapabilitiesReturnsCurrentCapabilityManifest|FullyQualifiedName~McpStdioSmokeTests.ServerStartsOverStdioAndListsInitialTools"
+```
+
 For diagnostics shape work, include:
 
 ```powershell

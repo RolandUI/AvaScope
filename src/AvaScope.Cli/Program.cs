@@ -74,13 +74,7 @@ internal static class Program
 
     private static int Version()
     {
-        var informationalVersion = typeof(Program).Assembly
-            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()
-            ?.InformationalVersion;
-        var version = informationalVersion?.Split('+', 2)[0]
-            ?? typeof(Program).Assembly.GetName().Version?.ToString()
-            ?? "0.0.0";
-        Console.WriteLine(version);
+        Console.WriteLine(AvaScopeProduct.Version);
         return 0;
     }
 

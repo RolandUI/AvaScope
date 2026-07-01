@@ -17,6 +17,7 @@ public sealed class AvaScopeMcpToolsTests
         Assert.Equal("avascope", result.Value!.ServiceName);
         Assert.Equal(1, result.Value.ProtocolVersion.Major);
         Assert.Equal(0, result.Value.ProtocolVersion.Minor);
+        Assert.Equal(AvaScopeProduct.Version, result.Value.ProductVersion);
         Assert.Null(result.Error);
     }
 
@@ -26,6 +27,7 @@ public sealed class AvaScopeMcpToolsTests
         var result = AvaScopeMcpTools.Capabilities();
 
         Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(AvaScopeProduct.Version, result.Value!.ProductVersion);
         Assert.Contains(result.Value!.Capabilities, capability =>
             capability.Id == AvaScopeCapabilityIds.RuntimeUiAudit
             && capability.Status == AvaScopeCapabilityStatuses.Available);

@@ -16,7 +16,8 @@ public static class AvaScopeCapabilityCatalog
             CreateCompatibilityPolicy(),
             capabilities,
             tools,
-            RuntimeMutationCapabilityCatalog.CurrentBridgeCapabilities());
+            RuntimeMutationCapabilityCatalog.CurrentBridgeCapabilities(),
+            productVersion: AvaScopeProduct.Version);
     }
 
     private static IReadOnlyDictionary<string, string> CreateCompatibilityPolicy()
@@ -51,7 +52,8 @@ public static class AvaScopeCapabilityCatalog
                 AvaScopeCapabilityIds.ProtocolCapabilityDiscovery,
                 "protocol",
                 "Clients can query this manifest and require named feature ids before using newer surfaces.",
-                ["capabilities"]),
+                ["capabilities"],
+                metadata: new Dictionary<string, string> { ["productVersion"] = AvaScopeProduct.Version }),
             Capability(
                 AvaScopeCapabilityIds.ProtocolMcpStdioServer,
                 "protocol",

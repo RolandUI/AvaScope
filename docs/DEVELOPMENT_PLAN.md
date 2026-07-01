@@ -26,20 +26,21 @@ GitHub Issues and Milestones are the primary project-management source for auton
 
 ## Current Focus
 
-- `Improve Diagnostics And Everyday Artifact Navigation Ergonomics`
-- GitHub Issue: #52
+- `Expose Product Version Through Standard CLI And Capability Surfaces`
+- GitHub Issue: #53
 - GitHub Milestone: none
 - Status: `Done`
 - Owner: autonomous agent
 - Started: `2026-07-01`
-- Goal: make diagnostics and generated artifacts easier for agents to navigate through active-session summaries, optional per-run indexes, and latest-run pointers.
+- Goal: expose the installed AvaScope product version through standard CLI, capability, doctor, and MCP-facing structured surfaces.
 
 ## Next Action
 
-Commit and push #52, then update and close GitHub issue #52.
+Commit and push #53, then update and close GitHub issue #53.
 
 ## Latest Validation
 
+- `2026-07-01`: Completed local GitHub issue #53 product version discovery. Added `AvaScopeProduct.Version`, additive `productVersion` fields on `HealthResponse`, `AvaScopeCapabilitiesResponse`, and `DoctorResponse`, aligned CLI `--version`/`-v`, capabilities metadata, doctor output, and MCP `serverInfo.version` on the same product version, and updated docs/tests. Validation passed with `dotnet build AvaScope.slnx --no-restore -v:minimal`, focused #53 protocol/CLI/MCP/docs tests (`11` passed), full Debug tests (`356` passed), and `git diff --check` with only LF/CRLF normalization warnings.
 - `2026-07-01`: Completed local GitHub issue #52 diagnostics and artifact navigation ergonomics. Added diagnostics `summary` counts and `--mode all|active-only|minimal|json-minimal`, MCP diagnostics mode support, Protocol/Core artifact run-index DTOs and `ArtifactRunIndexStore`, CLI `latest-run`, optional `--run-index`, `--task`, and `--run-group` support for `preview`, `audit-ui`, and `baseline-check`, `artifacts.run_index` capability discovery, stable/user/agent/validation docs, latest pointer resolution, and focused coverage. Validation passed with `dotnet build AvaScope.slnx --no-restore -v:minimal`, focused #52 protocol/core/CLI/MCP/stable-surface tests (`71` passed), docs/stable focused tests (`12` passed), full Debug tests (`355` passed), and `git diff --check` with only LF/CRLF normalization warnings.
 - `2026-07-01`: Completed local GitHub issue #51 semantic screenshot comparison. Added Protocol `SemanticScreenshotComparisonRequest`/`SemanticScreenshotComparisonResponse`, Core `SemanticScreenshotComparer`, CLI `semantic-diff`, MCP `semantic_diff`, capability discovery, stable-surface/user/agent/validation docs, raw connected changed-region output, heuristic findings for center/edge/padding/border-seam/wrapping differences, annotated overview/crop artifacts, and fixture coverage for padding, center, and border differences. Validation passed with `dotnet build AvaScope.slnx --no-restore -v:minimal`, focused #51 protocol/core/CLI/MCP/capability/stable-surface/docs tests (`17` passed), cleanup-lock regression rerun (`1` passed), full Debug tests (`352` passed), and `git diff --check` with only LF/CRLF normalization warnings.
 - `2026-07-01`: Completed local GitHub issue #50 interaction-triggered runtime animation frame recording. Added Protocol `RuntimeInteractionAnimationRequest`/`RuntimeInteractionAnimationResponse`, Core `RuntimeInteractionAnimationRunner`, CLI `record-interaction-animation`, MCP `record_interaction_animation`, capability discovery, stable-surface/user/agent/validation docs, frame strip artifacts, geometry overlay artifacts, per-frame geometry samples, and assertion modes for stable/equal/range/final-stable/not-clipped checks. Validation passed with `dotnet build AvaScope.slnx --no-restore -v:minimal`, focused #50 protocol/core/CLI/capability/MCP/stable-surface tests (`10` passed), docs/stable-surface guard tests (`10` passed), full Debug tests (`348` passed), and `git diff --check` with only LF/CRLF normalization warnings.

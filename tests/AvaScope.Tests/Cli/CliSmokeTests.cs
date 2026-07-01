@@ -15,6 +15,23 @@ public sealed class CliSmokeTests
     private static readonly AsyncLocal<string?> CurrentBridgeManifestDirectory = new();
 
     [Fact]
+    public async Task VersionCommandReportsProductVersion()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var longResult = await RunCliAsync(cliAssembly, "--version");
+        var shortResult = await RunCliAsync(cliAssembly, "-v");
+
+        Assert.Equal(0, longResult.ExitCode);
+        Assert.Equal(AvaScopeProduct.Version, longResult.StandardOutput.Trim());
+        Assert.True(string.IsNullOrWhiteSpace(longResult.StandardError), longResult.StandardError);
+        Assert.Equal(0, shortResult.ExitCode);
+        Assert.Equal(AvaScopeProduct.Version, shortResult.StandardOutput.Trim());
+        Assert.True(string.IsNullOrWhiteSpace(shortResult.StandardError), shortResult.StandardError);
+    }
+
+    [Fact]
     public async Task CapabilitiesCommandReportsProtocolAndToolCapabilities()
     {
         var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
@@ -29,9 +46,11 @@ public sealed class CliSmokeTests
         Assert.NotNull(payload);
         Assert.True(payload.Success, payload.Error?.Message);
         Assert.Equal("avascope", payload.Value!.ServiceName);
+        Assert.Equal(AvaScopeProduct.Version, payload.Value.ProductVersion);
         Assert.Contains(payload.Value.Capabilities, capability =>
             capability.Id == AvaScopeCapabilityIds.ProtocolCapabilityDiscovery
-            && capability.Status == AvaScopeCapabilityStatuses.Available);
+            && capability.Status == AvaScopeCapabilityStatuses.Available
+            && capability.Metadata["productVersion"] == AvaScopeProduct.Version);
         Assert.Contains(payload.Value.Capabilities, capability =>
             capability.Id == AvaScopeCapabilityIds.RuntimeStyleLayoutMutation
             && capability.Metadata["runtimeMutationCapability"] == RuntimeMutationCapabilityCatalog.StyleLayoutMutation);
@@ -4168,6 +4187,8 @@ public sealed class CliSmokeTests
             Assert.NotNull(payload);
             Assert.True(payload.Success, payload.Error?.Message);
             Assert.Equal(DiagnosticStatuses.Available, payload.Value!.Status);
+            Assert.Equal(AvaScopeProduct.Version, payload.Value.ProductVersion);
+            Assert.Equal(AvaScopeProduct.Version, payload.Value.Service.ProductVersion);
             Assert.Equal(Path.GetFullPath(manifestDirectory), payload.Value.ManifestDirectory);
             Assert.Equal(Path.GetFullPath(previewSessionStoreDirectory), payload.Value.PreviewSessionStoreDirectory);
             Assert.Equal(DiagnosticStatuses.Available, payload.Value.PreviewHost!.Status);

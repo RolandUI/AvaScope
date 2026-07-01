@@ -17,7 +17,8 @@ public sealed record DoctorResponse
         IReadOnlyList<ProtocolError>? issues = null,
         PreviewHostDiagnostic? previewHost = null,
         IReadOnlyList<BridgeSessionDiagnostic>? bridgeSessions = null,
-        IReadOnlyList<PreviewSessionDiagnostic>? previewSessions = null)
+        IReadOnlyList<PreviewSessionDiagnostic>? previewSessions = null,
+        string? productVersion = null)
     {
         ArgumentNullException.ThrowIfNull(service);
 
@@ -58,6 +59,9 @@ public sealed record DoctorResponse
         Issues = issues ?? [];
         BridgeSessions = bridgeSessions ?? [];
         PreviewSessions = previewSessions ?? [];
+        ProductVersion = string.IsNullOrWhiteSpace(productVersion)
+            ? service.ProductVersion
+            : productVersion.Trim();
     }
 
     [JsonPropertyName("service")]
@@ -68,6 +72,9 @@ public sealed record DoctorResponse
 
     [JsonPropertyName("status")]
     public string Status { get; }
+
+    [JsonPropertyName("productVersion")]
+    public string ProductVersion { get; }
 
     [JsonPropertyName("cliAssemblyPath")]
     public string CliAssemblyPath { get; }

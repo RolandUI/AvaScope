@@ -1,4 +1,5 @@
 using ModelContextProtocol.Client;
+using AvaScope.Protocol;
 
 namespace AvaScope.Tests.Mcp;
 
@@ -32,6 +33,7 @@ public sealed class McpStdioSmokeTests
         var toolNames = tools.Select(static tool => tool.Name).ToArray();
 
         Assert.Equal("avascope", client.ServerInfo.Name);
+        Assert.Equal(AvaScopeProduct.Version, client.ServerInfo.Version);
         Assert.Contains("health", toolNames);
         Assert.Contains("capabilities", toolNames);
         Assert.Contains("list_sessions", toolNames);
