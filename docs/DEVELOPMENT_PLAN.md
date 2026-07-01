@@ -26,20 +26,21 @@ GitHub Issues and Milestones are the primary project-management source for auton
 
 ## Current Focus
 
-- `Preview Isolated Build Outputs And Root-Cause Failures`
-- GitHub Issue: https://github.com/RolandUI/AvaScope/issues/44
+- `Safe Runtime Scenario Runner With Isolated App State`
+- GitHub Issue: https://github.com/RolandUI/AvaScope/issues/45
 - GitHub Milestone: none
 - Status: `In Progress`
 - Owner: unassigned
 - Started: `2026-07-01`
-- Goal: keep project previews usable when the normal app output is locked, preserve full build-output artifacts, and surface the first root cause when all multi-size/contact-sheet preview variants fail.
+- Goal: complete the scenario runner layer over semantic workflow execution with launch/attach orchestration, isolated launched-app state, destructive-target guardrails, and human-readable timeline artifacts.
 
 ## Next Action
 
-Complete #44 issue handoff by committing/pushing the validated isolated preview build-output slice and updating GitHub with the commit hash and validation results. GitHub issues #45 and #49 remain open for follow-up runtime workflow/report work.
+Finish #45 full validation, commit/push the scenario runner slice, update GitHub with the commit hash and validation results, then close #45 if acceptance remains satisfied. GitHub issue #49 remains open for generated-report click-to-node provenance mapping.
 
 ## Latest Validation
 
+- `2026-07-01`: Implemented the remaining GitHub issue #45 scenario-runner slice on top of the semantic workflow runner. Added Protocol `RuntimeScenarioRequest`/`RuntimeScenarioResponse` contracts, Core `RuntimeScenarioRunner`, CLI `run-scenario`, MCP `run_scenario`, capability discovery, launch-mode isolated app-state environment setup, attach/session scenario execution, destructive-target safety preservation for non-isolated sessions, Markdown timeline artifacts, user/stable-surface docs, and focused protocol/CLI/MCP/stable-surface coverage. Validation passed with `dotnet build AvaScope.slnx --no-restore -v:minimal`, scenario/capability/MCP/stable-surface tests (`11` passed), docs/stable-surface guard tests (`18` passed), full Debug tests (`332` passed), and `git diff --check` with only LF/CRLF normalization warnings.
 - `2026-07-01`: Implemented GitHub issue #44 isolated preview build-output handling. PreviewHost now builds project previews with an AvaScope-owned isolated `BaseOutputPath` by default, supports explicit `buildOutputRoot`, `assemblyPath`, and `noBuild` request options through Protocol/Core/CLI/MCP/session/baseline paths, reports build mode/output/log metadata in structured project info and errors, preserves full build stdout/stderr in `buildLogPath` artifacts, and reports the first underlying root cause plus per-viewport summary when every contact-sheet preview variant fails. Validation passed with `dotnet build AvaScope.slnx --no-restore -v:minimal`, focused #44 tests (`6` passed), docs/stable-surface guard tests (`18` passed), baseline-suite regression test (`1` passed), full Debug tests (`327` passed), and `git diff --check` with only LF/CRLF normalization warnings.
 - `2026-07-01`: Implemented the user-requested runtime node source map, layout explanation diagnostics, semantic workflow runner, live binding/DataContext inspector metadata, and explicit preview state variants. Added additive protocol DTOs/capabilities, Bridge runtime XAML/source/binding/layout extraction, Core semantic workflow execution, CLI `explain-layout` and `run-workflow`, MCP `explain_layout` and `run_workflow`, PreviewHost `stateVariant` activation, baseline/profile state propagation, docs, and focused coverage. Validation passed with `dotnet build AvaScope.slnx --no-restore -v:minimal`, focused feature tests (`9` passed), docs guard tests (`12` passed), full Debug tests (`324` passed), and `git diff --check` with only LF/CRLF normalization warnings.
 - `2026-06-14`: Completed GitHub issue #54 in commit `7bd469f` with Windows per-user installer/discovery workflow without release/publish. Added `eng/install-avascope.ps1`, CLI `--version`, `%LOCALAPPDATA%\AvaScope\bin\avascope.cmd`, `%LOCALAPPDATA%\AvaScope\avascope.discovery.json`, installer/MCP stdio smoke coverage, and documentation for agent discovery order. Validation passed with `dotnet build AvaScope.slnx --no-restore -v:minimal`, `dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~InstallerWorkflowTests` (2 passed, including installed `avascope.cmd mcp` stdio), docs/stable-surface focused tests (9 passed), `eng/create-local-release.ps1 -RuntimeIdentifiers win-x64 -SkipTests`, `eng/install-avascope.ps1 -SourcePath .\artifacts\executables\avascope-win-x64-framework-dependent`, installed PATH command `avascope --version` returning `1.0.2`, installed `doctor` smoke, discovery manifest inspection, full Debug tests (`319` passed), and `git diff --check` with only LF/CRLF normalization warnings. Stale artifact-hosted `avascope.exe`/`dotnet.exe` processes were stopped before local packaging because they held locks under `artifacts\executables`.

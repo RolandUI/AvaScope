@@ -39,6 +39,9 @@ public sealed class CliSmokeTests
             capability.Id == AvaScopeCapabilityIds.RuntimeSemanticWorkflow
             && capability.Status == AvaScopeCapabilityStatuses.Available);
         Assert.Contains(payload.Value.Capabilities, capability =>
+            capability.Id == AvaScopeCapabilityIds.RuntimeScenarioRunner
+            && capability.Status == AvaScopeCapabilityStatuses.Available);
+        Assert.Contains(payload.Value.Capabilities, capability =>
             capability.Id == AvaScopeCapabilityIds.PreviewStateVariants
             && capability.Status == AvaScopeCapabilityStatuses.Available);
         Assert.Contains(payload.Value.Tools, tool =>
@@ -49,6 +52,10 @@ public sealed class CliSmokeTests
             tool.Adapter == "cli"
             && tool.Name == "run-workflow"
             && tool.CapabilityIds.Contains(AvaScopeCapabilityIds.RuntimeSemanticWorkflow));
+        Assert.Contains(payload.Value.Tools, tool =>
+            tool.Adapter == "cli"
+            && tool.Name == "run-scenario"
+            && tool.CapabilityIds.Contains(AvaScopeCapabilityIds.RuntimeScenarioRunner));
         Assert.Contains(payload.Value.Tools, tool =>
             tool.Adapter == "cli"
             && tool.Name == "explain-layout"
@@ -2883,6 +2890,241 @@ public sealed class CliSmokeTests
     }
 
     [Fact]
+    public async Task RunScenarioCommandRunsAttachedWorkflowAndWritesTimeline()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var sessionId = SessionId.New();
+        var pipeName = $"avascope-cli-scenario-{Guid.NewGuid():N}";
+        var manifestPath = WriteBridgeManifest(sessionId, pipeName);
+        var artifactDirectory = Path.Combine(
+            Path.GetTempPath(),
+            "AvaScope.Tests",
+            $"cli-scenario-{Guid.NewGuid():N}");
+        var requestPath = Path.Combine(artifactDirectory, "scenario.json");
+        var timelinePath = Path.Combine(artifactDirectory, "timeline.md");
+        Directory.CreateDirectory(artifactDirectory);
+
+        var target = new RuntimeTargetContext(sessionId, "topLevel:scenario", TreeKinds.Visual, "visual:save");
+        var serverTask = RespondToBridgeRequestsAsync(
+            pipeName,
+            expectedCount: 4,
+            (index, request) =>
+            {
+                return index switch
+                {
+                    0 => BridgeIpcResponse.Ok(request.RequestId, HealthResponse.Current()),
+                    1 => CreateScenarioFindNodesResponse(request, sessionId, target, automationId: "save-button", text: "Save"),
+                    2 => CreateScenarioInputResponse(request, sessionId, target, InputActions.Click),
+                    3 => CreateCliEvidenceScreenshotResponse(
+                        request,
+                        sessionId,
+                        "topLevel:scenario",
+                        "02-click-save.png"),
+                    _ => throw new InvalidOperationException("Unexpected scenario bridge request index.")
+                };
+            });
+
+        var scenario = new RuntimeScenarioRequest(
+            [
+                new SemanticWorkflowStep(
+                    SemanticWorkflowActions.Click,
+                    "click-save",
+                    new SemanticWorkflowSelector(automationId: "save-button"))
+            ],
+            requestId: "cli-scenario",
+            sessionId: sessionId,
+            topLevelId: "topLevel:scenario",
+            outputDirectory: artifactDirectory,
+            captureAfterEachStep: true,
+            timelinePath: timelinePath);
+        await File.WriteAllTextAsync(requestPath, JsonSerializer.Serialize(scenario, JsonOptions));
+
+        try
+        {
+            var result = await RunCliAsync(
+                cliAssembly,
+                "run-scenario",
+                "--request",
+                requestPath);
+            var requests = await serverTask;
+
+            Assert.Equal(0, result.ExitCode);
+            Assert.True(string.IsNullOrWhiteSpace(result.StandardError), result.StandardError);
+            Assert.Equal(BridgeIpcMethods.Health, requests[0].Method);
+            Assert.Equal(BridgeIpcMethods.FindNodes, requests[1].Method);
+            Assert.Equal(BridgeIpcMethods.Input, requests[2].Method);
+            Assert.Equal(BridgeIpcMethods.Screenshot, requests[3].Method);
+
+            var payload = JsonSerializer.Deserialize<ToolResult<RuntimeScenarioResponse>>(result.StandardOutput, JsonOptions);
+            Assert.NotNull(payload);
+            Assert.True(payload.Success, payload.Error?.Message);
+            Assert.Equal("passed", payload.Value!.Status);
+            Assert.Equal("session", payload.Value.Metadata["scenarioMode"]);
+            Assert.Equal("not_applicable_existing_session", payload.Value.IsolatedStateStatus);
+            Assert.Equal(Path.GetFullPath(timelinePath), payload.Value.TimelinePath);
+            Assert.True(File.Exists(timelinePath), timelinePath);
+            var timeline = await File.ReadAllTextAsync(timelinePath);
+            Assert.Contains("click-save", timeline, StringComparison.Ordinal);
+            Assert.Contains("passed", timeline, StringComparison.Ordinal);
+            Assert.Equal(2, payload.Value.Workflow!.Steps.Count);
+        }
+        finally
+        {
+            if (File.Exists(manifestPath))
+            {
+                File.Delete(manifestPath);
+            }
+            await DeleteDirectoryWithRetryAsync(artifactDirectory);
+        }
+    }
+
+    [Fact]
+    public async Task RunScenarioCommandBlocksDestructiveTargetWithoutIsolation()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var sessionId = SessionId.New();
+        var pipeName = $"avascope-cli-scenario-{Guid.NewGuid():N}";
+        var manifestPath = WriteBridgeManifest(sessionId, pipeName);
+        var artifactDirectory = Path.Combine(
+            Path.GetTempPath(),
+            "AvaScope.Tests",
+            $"cli-scenario-{Guid.NewGuid():N}");
+        var requestPath = Path.Combine(artifactDirectory, "scenario.json");
+        var timelinePath = Path.Combine(artifactDirectory, "timeline.md");
+        Directory.CreateDirectory(artifactDirectory);
+
+        var target = new RuntimeTargetContext(sessionId, "topLevel:scenario", TreeKinds.Visual, "visual:delete");
+        var serverTask = RespondToBridgeRequestsAsync(
+            pipeName,
+            expectedCount: 2,
+            (index, request) =>
+            {
+                return index switch
+                {
+                    0 => BridgeIpcResponse.Ok(request.RequestId, HealthResponse.Current()),
+                    1 => CreateScenarioFindNodesResponse(request, sessionId, target, automationId: "delete-button", text: "Delete"),
+                    _ => throw new InvalidOperationException("Unexpected scenario bridge request index.")
+                };
+            });
+
+        var scenario = new RuntimeScenarioRequest(
+            [
+                new SemanticWorkflowStep(
+                    SemanticWorkflowActions.Click,
+                    "click-delete",
+                    new SemanticWorkflowSelector(automationId: "delete-button", text: "Delete"))
+            ],
+            requestId: "cli-scenario-safety",
+            sessionId: sessionId,
+            topLevelId: "topLevel:scenario",
+            outputDirectory: artifactDirectory,
+            timelinePath: timelinePath);
+        await File.WriteAllTextAsync(requestPath, JsonSerializer.Serialize(scenario, JsonOptions));
+
+        try
+        {
+            var result = await RunCliAsync(
+                cliAssembly,
+                "run-scenario",
+                "--request",
+                requestPath);
+            var requests = await serverTask;
+
+            Assert.Equal(1, result.ExitCode);
+            Assert.Equal(BridgeIpcMethods.Health, requests[0].Method);
+            Assert.Equal(BridgeIpcMethods.FindNodes, requests[1].Method);
+
+            var payload = JsonSerializer.Deserialize<ToolResult<RuntimeScenarioResponse>>(result.StandardOutput, JsonOptions);
+            Assert.NotNull(payload);
+            Assert.True(payload.Success, payload.Error?.Message);
+            Assert.Equal("failed", payload.Value!.Status);
+            var diagnostic = Assert.Single(payload.Value.Diagnostics);
+            Assert.Equal("semantic_workflow_destructive_target_requires_isolation", diagnostic.Code);
+            Assert.True(File.Exists(timelinePath), timelinePath);
+            var timeline = await File.ReadAllTextAsync(timelinePath);
+            Assert.Contains("semantic_workflow_destructive_target_requires_isolation", timeline, StringComparison.Ordinal);
+            Assert.Contains("click-delete", timeline, StringComparison.Ordinal);
+        }
+        finally
+        {
+            if (File.Exists(manifestPath))
+            {
+                File.Delete(manifestPath);
+            }
+            await DeleteDirectoryWithRetryAsync(artifactDirectory);
+        }
+    }
+
+    [Fact]
+    public async Task RunScenarioCommandLaunchModeCreatesIsolatedStateAndTimeline()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var artifactDirectory = Path.Combine(
+            Path.GetTempPath(),
+            "AvaScope.Tests",
+            $"cli-scenario-launch-{Guid.NewGuid():N}");
+        var requestPath = Path.Combine(artifactDirectory, "scenario.json");
+        var timelinePath = Path.Combine(artifactDirectory, "timeline.md");
+        var isolatedStateDirectory = Path.Combine(artifactDirectory, "isolated-state");
+        Directory.CreateDirectory(artifactDirectory);
+
+        var scenario = new RuntimeScenarioRequest(
+            [
+                new SemanticWorkflowStep(
+                    SemanticWorkflowActions.Wait,
+                    "wait-after-launch",
+                    waitMs: 1)
+            ],
+            requestId: "cli-scenario-launch",
+            launch: new RuntimeScenarioLaunchOptions(
+                "dotnet",
+                arguments: "--info",
+                outputDirectory: Path.Combine(artifactDirectory, "launch"),
+                timeoutMs: 250),
+            outputDirectory: artifactDirectory,
+            isolatedStateDirectory: isolatedStateDirectory,
+            timelinePath: timelinePath);
+        await File.WriteAllTextAsync(requestPath, JsonSerializer.Serialize(scenario, JsonOptions));
+
+        try
+        {
+            var result = await RunCliAsync(
+                cliAssembly,
+                "run-scenario",
+                "--request",
+                requestPath);
+
+            Assert.Equal(1, result.ExitCode);
+            Assert.True(string.IsNullOrWhiteSpace(result.StandardError), result.StandardError);
+
+            var payload = JsonSerializer.Deserialize<ToolResult<RuntimeScenarioResponse>>(result.StandardOutput, JsonOptions);
+            Assert.NotNull(payload);
+            Assert.True(payload.Success, payload.Error?.Message);
+            Assert.Equal("failed", payload.Value!.Status);
+            Assert.Equal("launch", payload.Value.Metadata["scenarioMode"]);
+            Assert.Equal("applied_environment", payload.Value.IsolatedStateStatus);
+            Assert.Equal(Path.GetFullPath(isolatedStateDirectory), payload.Value.IsolatedStateDirectory);
+            Assert.True(Directory.Exists(Path.Combine(isolatedStateDirectory, "appdata", "local")));
+            Assert.Contains("AVASCOPE_SCENARIO_STATE_DIR", payload.Value.Metadata["isolatedEnvironmentVariables"], StringComparison.Ordinal);
+            Assert.Contains("LOCALAPPDATA", payload.Value.Metadata["isolatedEnvironmentVariables"], StringComparison.Ordinal);
+            Assert.True(File.Exists(timelinePath), timelinePath);
+            var timeline = await File.ReadAllTextAsync(timelinePath);
+            Assert.Contains("applied_environment", timeline, StringComparison.Ordinal);
+            Assert.Contains(CoreErrorCodes.BridgeSessionNotFound, timeline, StringComparison.Ordinal);
+        }
+        finally
+        {
+            await DeleteDirectoryWithRetryAsync(artifactDirectory);
+        }
+    }
+
+    [Fact]
     public async Task MutateNodeCommandSendsNoOpThroughBridgePipe()
     {
         var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
@@ -4520,6 +4762,58 @@ public sealed class CliSmokeTests
         {
             throw new TimeoutException($"Timed out waiting for {expectedCount} bridge IPC requests on pipe '{pipeName}'.");
         }
+    }
+
+    private static BridgeIpcResponse CreateScenarioFindNodesResponse(
+        BridgeIpcRequest request,
+        SessionId sessionId,
+        RuntimeTargetContext target,
+        string automationId,
+        string text)
+    {
+        Assert.Equal(BridgeIpcMethods.FindNodes, request.Method);
+        Assert.Equal(target.TopLevelId, request.TopLevelId);
+        Assert.Equal(automationId, request.AutomationId);
+
+        var node = new TreeNodeSummary(
+            target.NodeId!,
+            "Avalonia.Controls.Button",
+            automationId,
+            automationId,
+            text,
+            target: target);
+
+        return BridgeIpcResponse.Ok(
+            request.RequestId,
+            new FindNodesResponse(
+                sessionId,
+                target.TopLevelId,
+                target.TreeKind ?? TreeKinds.Visual,
+                request.MaxDepth ?? 16,
+                [new FindNodeMatch(node)]));
+    }
+
+    private static BridgeIpcResponse CreateScenarioInputResponse(
+        BridgeIpcRequest request,
+        SessionId sessionId,
+        RuntimeTargetContext target,
+        string expectedAction)
+    {
+        Assert.Equal(BridgeIpcMethods.Input, request.Method);
+        Assert.Equal(target.TopLevelId, request.TopLevelId);
+        Assert.Equal(expectedAction, request.Action);
+        Assert.Equal(target.NodeId, request.TargetNodeId);
+
+        return BridgeIpcResponse.Ok(
+            request.RequestId,
+            new InputResponse(
+                sessionId,
+                target.TopLevelId,
+                expectedAction,
+                handled: true,
+                DateTimeOffset.UtcNow,
+                targetNodeId: target.NodeId,
+                target: target));
     }
 
     private static BridgeIpcResponse CreateCliEvidenceScreenshotResponse(

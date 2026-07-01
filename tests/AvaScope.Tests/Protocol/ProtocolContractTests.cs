@@ -99,8 +99,10 @@ public sealed class ProtocolContractTests
         Assert.Contains(response.Capabilities, capability => capability.Id == AvaScopeCapabilityIds.RuntimeSourceMap);
         Assert.Contains(response.Capabilities, capability => capability.Id == AvaScopeCapabilityIds.RuntimeLayoutExplain);
         Assert.Contains(response.Capabilities, capability => capability.Id == AvaScopeCapabilityIds.RuntimeSemanticWorkflow);
+        Assert.Contains(response.Capabilities, capability => capability.Id == AvaScopeCapabilityIds.RuntimeScenarioRunner);
         Assert.Contains(response.Capabilities, capability => capability.Id == AvaScopeCapabilityIds.PreviewStateVariants);
         Assert.Contains(response.Tools, tool => tool.Adapter == "mcp" && tool.Name == "run_workflow");
+        Assert.Contains(response.Tools, tool => tool.Adapter == "mcp" && tool.Name == "run_scenario");
         Assert.Empty(node["value"]!["diagnostics"]!.AsArray());
     }
 
@@ -244,6 +246,78 @@ public sealed class ProtocolContractTests
         Assert.Equal("TitleText", treeNodeJson["sourceMap"]!["xName"]!.GetValue<string>());
         Assert.Equal("workflow-1", workflowNode["requestId"]!.GetValue<string>());
         Assert.Equal(SemanticWorkflowActions.AssertState, workflowNode["steps"]![0]!["action"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public void RuntimeScenarioRequestAndResponseSerializeStableShapes()
+    {
+        var at = new DateTimeOffset(2026, 7, 1, 12, 0, 0, TimeSpan.Zero);
+        var sessionId = new SessionId("session-scenario");
+        var step = new SemanticWorkflowStep(
+            SemanticWorkflowActions.Click,
+            "click-delete",
+            new SemanticWorkflowSelector(automationId: "delete-button"));
+        var request = new RuntimeScenarioRequest(
+            [step],
+            requestId: "scenario-1",
+            launch: new RuntimeScenarioLaunchOptions(
+                "dotnet",
+                arguments: "Sample.dll",
+                workingDirectory: "C:\\apps\\Sample",
+                displayName: "Sample",
+                manifestDirectory: "C:\\state\\manifests",
+                outputDirectory: "C:\\state\\launch",
+                environment: new Dictionary<string, string> { ["APP_ENV"] = "test" },
+                timeoutMs: 2500),
+            topLevelId: "topLevel:main",
+            outputDirectory: "C:\\state\\artifacts",
+            captureAfterEachStep: true,
+            isolatedStateDirectory: "C:\\state\\isolated",
+            timelinePath: "C:\\state\\timeline.md");
+        var workflow = new SemanticWorkflowResponse(
+            "scenario-1",
+            sessionId,
+            "topLevel:main",
+            "passed",
+            at,
+            at,
+            [
+                new SemanticWorkflowStepResult(
+                    "click-delete",
+                    SemanticWorkflowActions.Click,
+                    "passed",
+                    "Clicked.",
+                    at,
+                    new RuntimeTargetContext(sessionId, "topLevel:main", TreeKinds.Visual, "visual:delete"))
+            ],
+            isolatedStateStatus: "applied_environment");
+        var response = new RuntimeScenarioResponse(
+            "scenario-1",
+            "passed",
+            at,
+            at,
+            sessionId,
+            "topLevel:main",
+            workflow: workflow,
+            isolatedStateStatus: "applied_environment",
+            isolatedStateDirectory: "C:\\state\\isolated",
+            timelinePath: "C:\\state\\timeline.md",
+            metadata: new Dictionary<string, string> { ["scenarioMode"] = "launch" });
+
+        var requestNode = JsonNode.Parse(JsonSerializer.Serialize(request))!;
+        var responseNode = JsonNode.Parse(JsonSerializer.Serialize(response))!;
+
+        Assert.Equal("scenario-1", requestNode["requestId"]!.GetValue<string>());
+        Assert.Equal("dotnet", requestNode["launch"]!["command"]!.GetValue<string>());
+        Assert.Equal("Sample.dll", requestNode["launch"]!["arguments"]!.GetValue<string>());
+        Assert.Equal("test", requestNode["launch"]!["environment"]!["APP_ENV"]!.GetValue<string>());
+        Assert.Equal("delete-button", requestNode["steps"]![0]!["selector"]!["automationId"]!.GetValue<string>());
+        Assert.True(requestNode["captureAfterEachStep"]!.GetValue<bool>());
+        Assert.Equal("passed", responseNode["status"]!.GetValue<string>());
+        Assert.Equal("session-scenario", responseNode["sessionId"]!.GetValue<string>());
+        Assert.Equal("applied_environment", responseNode["isolatedStateStatus"]!.GetValue<string>());
+        Assert.Equal("launch", responseNode["metadata"]!["scenarioMode"]!.GetValue<string>());
+        Assert.Equal("click-delete", responseNode["workflow"]!["steps"]![0]!["stepId"]!.GetValue<string>());
     }
 
     [Fact]

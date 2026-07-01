@@ -123,6 +123,12 @@ public static class AvaScopeCapabilityCatalog
                 ["run-workflow", "run_workflow"],
                 requires: [AvaScopeCapabilityIds.RuntimeFind, AvaScopeCapabilityIds.RuntimeInput]),
             Capability(
+                AvaScopeCapabilityIds.RuntimeScenarioRunner,
+                "runtime",
+                "Run safe local runtime scenarios by launching or attaching to a bridge session, isolating launched app state, executing semantic workflow steps, and writing timeline artifacts.",
+                ["run-scenario", "run_scenario"],
+                requires: [AvaScopeCapabilityIds.RuntimeSemanticWorkflow, AvaScopeCapabilityIds.RuntimeSessionLifecycle]),
+            Capability(
                 AvaScopeCapabilityIds.RuntimeMutationContract,
                 "runtime",
                 "Apply and report local-only runtime mutation requests with explicit capability and diagnostic metadata.",
@@ -304,6 +310,8 @@ public static class AvaScopeCapabilityCatalog
             Mcp("input", AvaScopeCapabilityIds.RuntimeInput),
             Cli("run-workflow", AvaScopeCapabilityIds.RuntimeSemanticWorkflow),
             Mcp("run_workflow", AvaScopeCapabilityIds.RuntimeSemanticWorkflow),
+            Cli("run-scenario", AvaScopeCapabilityIds.RuntimeScenarioRunner, AvaScopeCapabilityIds.SafetyLocalOnly),
+            Mcp("run_scenario", AvaScopeCapabilityIds.RuntimeScenarioRunner, AvaScopeCapabilityIds.SafetyLocalOnly),
             Cli("mutate-node", AvaScopeCapabilityIds.RuntimeMutationContract, AvaScopeCapabilityIds.RuntimeStyleLayoutMutation),
             Mcp("mutate_node", AvaScopeCapabilityIds.RuntimeMutationContract, AvaScopeCapabilityIds.RuntimeStyleLayoutMutation),
             Cli("mutate-node-evidence", AvaScopeCapabilityIds.RuntimeMutationEvidence, AvaScopeCapabilityIds.ArtifactsScreenshot, AvaScopeCapabilityIds.ArtifactsDiffImage),

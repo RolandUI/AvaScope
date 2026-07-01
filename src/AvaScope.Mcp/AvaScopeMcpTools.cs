@@ -484,6 +484,30 @@ public sealed class AvaScopeMcpTools
     }
 
     [McpServerTool(
+        Name = "run_scenario",
+        Title = "Run scenario",
+        ReadOnly = false,
+        Idempotent = false,
+        Destructive = false,
+        OpenWorld = false,
+        UseStructuredContent = true)]
+    [Description("Runs a safe local runtime scenario by launching or attaching to a bridge session, applying isolated app-state environment when launching, executing semantic workflow steps, and writing a human-readable timeline artifact.")]
+    public static async Task<ToolResult<RuntimeScenarioResponse>> RunScenario(
+        LocalBridgeClient bridgeClient,
+        RuntimeScenarioRequest request,
+        string? manifestDirectory = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(bridgeClient);
+        ArgumentNullException.ThrowIfNull(request);
+
+        return ToToolResult(await new RuntimeScenarioRunner().RunAsync(
+            CreateBridgeClient(bridgeClient, manifestDirectory),
+            request,
+            cancellationToken));
+    }
+
+    [McpServerTool(
         Name = "mutate_node",
         Title = "Mutate node",
         ReadOnly = false,

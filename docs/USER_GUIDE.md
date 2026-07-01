@@ -494,6 +494,45 @@ dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll run-workflow --request 
 
 Workflow selectors can target `nodeId`, `automationId`, `text`, `name`, `nodeType`, `role`, `bindingPath`, or `commandName`. Destructive-looking click/select targets are rejected unless the request declares `allowDestructive` or an `isolatedStateDirectory`.
 
+Use `run-scenario` when the workflow should launch or attach before running steps and produce a human-readable evidence timeline:
+
+```json
+{
+  "requestId": "settings-scenario",
+  "launch": {
+    "command": "dotnet",
+    "arguments": "run --project path/to/App.csproj",
+    "environment": {
+      "AVASCOPE_SAMPLE_BRIDGE": "1"
+    },
+    "timeoutMs": 15000
+  },
+  "outputDirectory": "artifacts/scenarios/settings",
+  "captureAfterEachStep": true,
+  "timelinePath": "artifacts/scenarios/settings/timeline.md",
+  "steps": [
+    {
+      "id": "open-settings",
+      "action": "click",
+      "selector": { "automationId": "settings-button" }
+    },
+    {
+      "id": "assert-settings",
+      "action": "assert_state",
+      "selector": { "text": "Settings" },
+      "assertProperty": "text",
+      "expected": "Settings"
+    }
+  ]
+}
+```
+
+```powershell
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll run-scenario --request .\scenario.json
+```
+
+`run-scenario` returns `ToolResult<RuntimeScenarioResponse>` with `status`, launch/attach metadata, the nested workflow result, `timelinePath`, diagnostics, and isolated-state metadata. Launch scenarios isolate app data by default by setting app-data, user-profile, XDG, temp, and `AVASCOPE_SCENARIO_STATE_DIR` environment variables under an AvaScope-owned directory. Attached existing sessions cannot be retroactively isolated; destructive-looking click/select targets still fail unless the scenario launches with isolation or explicitly sets `allowDestructive`.
+
 Apply a reversible runtime mutation and capture an agent evidence package:
 
 ```powershell

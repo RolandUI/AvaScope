@@ -70,6 +70,7 @@ The stable CLI command name set is:
 - `audit-ui`
 - `input`
 - `run-workflow`
+- `run-scenario`
 - `mutate-node`
 - `mutate-node-evidence`
 - `mutation-review`
@@ -119,6 +120,7 @@ The stable MCP tool name set is:
 - `audit_ui`
 - `input`
 - `run_workflow`
+- `run_scenario`
 - `mutate_node`
 - `mutate_node_evidence`
 - `mutation_review`

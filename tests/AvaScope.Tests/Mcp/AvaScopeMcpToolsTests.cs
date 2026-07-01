@@ -28,6 +28,9 @@ public sealed class AvaScopeMcpToolsTests
         Assert.Contains(result.Value!.Capabilities, capability =>
             capability.Id == AvaScopeCapabilityIds.RuntimeUiAudit
             && capability.Status == AvaScopeCapabilityStatuses.Available);
+        Assert.Contains(result.Value.Capabilities, capability =>
+            capability.Id == AvaScopeCapabilityIds.RuntimeScenarioRunner
+            && capability.Status == AvaScopeCapabilityStatuses.Available);
         Assert.Contains(result.Value.Tools, tool =>
             tool.Adapter == "mcp"
             && tool.Name == "capabilities"
@@ -98,6 +101,48 @@ public sealed class AvaScopeMcpToolsTests
         Assert.False(result.Success);
         Assert.Null(result.Value);
         Assert.Equal(CoreErrorCodes.BridgeSessionNotFound, result.Error!.Code);
+    }
+
+    [Fact]
+    public async Task RunScenarioReturnsScenarioFailureModelWhenAttachFails()
+    {
+        var client = new LocalBridgeClient(CreateMissingManifestDirectory());
+        var outputDirectory = Path.Combine(
+            Path.GetTempPath(),
+            "AvaScope.Tests",
+            $"mcp-scenario-{Guid.NewGuid():N}");
+        var timelinePath = Path.Combine(outputDirectory, "timeline.md");
+        var request = new RuntimeScenarioRequest(
+            [
+                new SemanticWorkflowStep(
+                    SemanticWorkflowActions.Wait,
+                    "wait",
+                    waitMs: 1)
+            ],
+            requestId: "mcp-scenario",
+            sessionId: new SessionId("missing-session"),
+            topLevelId: "topLevel:missing",
+            outputDirectory: outputDirectory,
+            timelinePath: timelinePath);
+
+        try
+        {
+            var result = await AvaScopeMcpTools.RunScenario(client, request);
+
+            Assert.True(result.Success, result.Error?.Message);
+            Assert.Equal("failed", result.Value!.Status);
+            Assert.Equal("mcp-scenario", result.Value.RequestId);
+            Assert.Equal(CoreErrorCodes.BridgeSessionNotFound, Assert.Single(result.Value.Diagnostics).Code);
+            Assert.Equal(Path.GetFullPath(timelinePath), result.Value.TimelinePath);
+            Assert.True(File.Exists(timelinePath), timelinePath);
+        }
+        finally
+        {
+            if (Directory.Exists(outputDirectory))
+            {
+                Directory.Delete(outputDirectory, recursive: true);
+            }
+        }
     }
 
     [Fact]
