@@ -434,6 +434,25 @@ dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll audit-ui --session sess
 
 `audit-ui` returns `ToolResult<UiAuditResponse>` with `summary`, bounded `issues`, bounded `inventory`, and `agentReview`. It reports actionable controls missing accessible names or stable automation ids, keyboard focus metadata, runtime validation errors, control/class/component-pattern counts, and explicit `not_available` inventory entries for style/resource/template/theme scopes that the runtime tree cannot prove reliably.
 
+Run a task-scoped design-quality audit when a UI change needs focused visual-quality review rather than a broad accessibility inventory:
+
+```powershell
+@{
+  sessionId = "session-id"
+  topLevelId = "topLevel:1234"
+  scopeName = "SettingsToolbar"
+  maxDepth = 12
+  excludeTypes = @("Popup")
+  suppressions = @(
+    @{ code = "design.surface.unintended_1px_seam"; reason = "intentional command separator" }
+  )
+} | ConvertTo-Json -Depth 8 | Set-Content .\design-audit.json
+
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll design-audit --request .\design-audit.json
+```
+
+`design-audit` returns `ToolResult<DesignQualityAuditResponse>` with active `findings`, separate `ignoredFindings`, scope metadata, and `agentReview`. It checks runtime-tree bounds and source/property metadata for icon center mismatch, inconsistent spacing and repeated item heights, low-contrast indicators, unintended 1px seams, corner-radius/layering mismatch, and wrapping/density problems. Scope can target a node/name/automation id/source path/region or changed node/source filters; exclusions and suppression rules are reflected as ignored findings so agents can distinguish a clean audit from intentionally ignored noise.
+
 Send local-only runtime input to an active bridge session:
 
 ```powershell
@@ -755,6 +774,7 @@ Implemented tools:
 - `explain_layout`
 - `find_nodes`
 - `audit_ui`
+- `design_quality_audit`
 - `input`
 - `run_workflow`
 - `run_scenario`

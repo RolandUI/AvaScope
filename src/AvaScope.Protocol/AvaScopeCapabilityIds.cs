@@ -28,6 +28,7 @@ public static class AvaScopeCapabilityIds
     public const string RuntimeMutationReview = "runtime.mutation_review";
     public const string RuntimeSourceSuggestions = "runtime.source_suggestions";
     public const string RuntimeUiAudit = "runtime.ui_audit";
+    public const string RuntimeDesignQualityAudit = "runtime.design_quality_audit";
 
     public const string PreviewAxaml = "preview.axaml";
     public const string PreviewSessions = "preview.sessions";

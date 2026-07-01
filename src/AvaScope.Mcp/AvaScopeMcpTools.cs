@@ -418,6 +418,30 @@ public sealed class AvaScopeMcpTools
     }
 
     [McpServerTool(
+        Name = "design_quality_audit",
+        Title = "Design quality audit",
+        ReadOnly = true,
+        Idempotent = true,
+        Destructive = false,
+        OpenWorld = false,
+        UseStructuredContent = true)]
+    [Description("Runs a task-scoped design-quality audit over a runtime tree, reporting alignment, spacing, repeated height, contrast, seam, radius/layering, and wrapping findings with explicit exclusions and suppressions.")]
+    public static async Task<ToolResult<DesignQualityAuditResponse>> DesignQualityAudit(
+        LocalBridgeClient bridgeClient,
+        DesignQualityAuditRequest request,
+        string? manifestDirectory = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(bridgeClient);
+        ArgumentNullException.ThrowIfNull(request);
+
+        return ToToolResult(await new DesignQualityAuditRunner().RunAsync(
+            CreateBridgeClient(bridgeClient, manifestDirectory),
+            request,
+            cancellationToken));
+    }
+
+    [McpServerTool(
         Name = "input",
         Title = "Input",
         ReadOnly = false,

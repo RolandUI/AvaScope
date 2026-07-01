@@ -149,6 +149,25 @@ Use the `target` object returned by `visual-tree`, `logical-tree`, `find-nodes`,
 
 `audit-ui` builds a bounded accessibility, validation, and component inventory report from the runtime tree. It reports missing accessible names, missing stable automation ids, keyboard focus metadata, runtime validation errors, control/class/component-pattern inventory, and explicit `not_available` entries for style/resource/template/theme scopes that the runtime tree cannot prove reliably.
 
+Use `design-audit` for task-scoped visual quality review after a UI change:
+
+```powershell
+@{
+  sessionId = "<runtime-session-id>"
+  topLevelId = "<topLevel:id>"
+  scopeName = "ChangedSurface"
+  onlyChangedNodes = $false
+  excludeTypes = @("Popup")
+  suppressions = @(
+    @{ code = "design.surface.unintended_1px_seam"; reason = "intentional separator" }
+  )
+} | ConvertTo-Json -Depth 8 | Set-Content .\artifacts\samples\design-audit.json
+
+& $avascope design-audit --request .\artifacts\samples\design-audit.json
+```
+
+The response separates active `findings` from `ignoredFindings`. Findings cover alignment, spacing, repeated heights, low-contrast indicators, unintended thin seams, radius/layering mismatch, and wrapping/density issues using runtime bounds plus available source/property metadata. Scope filters by node id, name, automation id, source path, region, or changed node/source lists; exclusions and suppressions are echoed in ignored findings instead of disappearing silently.
+
 Runtime bridge activation is always explicit and local-only. AvaScope does not open a network listener.
 
 ## 7. Capture And Compare

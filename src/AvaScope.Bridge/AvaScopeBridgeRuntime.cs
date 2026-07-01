@@ -3296,6 +3296,7 @@ public sealed class AvaScopeBridgeRuntime
         TopLevel topLevel,
         IReadOnlyList<TreeNodeSummary> children)
     {
+        var computedProperties = GetComputedProperties(node);
         return new TreeNodeSummary(
             CreateNodeId(node, treeKind),
             node.GetType().FullName ?? node.GetType().Name,
@@ -3308,7 +3309,7 @@ public sealed class AvaScopeBridgeRuntime
             CreateNodeTarget(topLevelId, treeKind, topLevel, node),
             GetAccessibilityState(node),
             GetValidationState(node),
-            CreateRuntimeSourceMap(node, computedProperties: null));
+            CreateRuntimeSourceMap(node, computedProperties));
     }
 
     private RuntimeTargetContext CreateTopLevelTarget(string topLevelId, TopLevel topLevel)
@@ -4437,6 +4438,8 @@ public sealed class AvaScopeBridgeRuntime
         {
             yield return Border.BackgroundProperty;
             yield return Border.BorderBrushProperty;
+            yield return Border.BorderThicknessProperty;
+            yield return Border.CornerRadiusProperty;
             yield return Border.PaddingProperty;
         }
 

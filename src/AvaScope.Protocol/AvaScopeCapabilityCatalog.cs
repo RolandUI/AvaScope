@@ -193,6 +193,17 @@ public static class AvaScopeCapabilityCatalog
                 ["audit-ui", "audit_ui"],
                 requires: [AvaScopeCapabilityIds.RuntimeTrees]),
             Capability(
+                AvaScopeCapabilityIds.RuntimeDesignQualityAudit,
+                "runtime",
+                "Produce task-scoped design-quality audits for alignment, spacing, repeated heights, contrast, seams, radius/layering, and wrapping with explicit exclusions and suppressions.",
+                ["design-audit", "design_quality_audit"],
+                requires: [AvaScopeCapabilityIds.RuntimeTrees, AvaScopeCapabilityIds.RuntimeSourceMap],
+                metadata: new Dictionary<string, string>
+                {
+                    ["scopeControls"] = "node,name,automationId,sourcePath,region,changedNodes,changedSources",
+                    ["suppressionControls"] = "excludeNodeIds,excludeNames,excludeTypes,excludeSourcePaths,suppressions"
+                }),
+            Capability(
                 AvaScopeCapabilityIds.PreviewAxaml,
                 "preview",
                 "Render Avalonia AXAML views through the isolated PreviewHost using the real Avalonia runtime.",
@@ -324,6 +335,8 @@ public static class AvaScopeCapabilityCatalog
             Mcp("find_nodes", AvaScopeCapabilityIds.RuntimeFind),
             Cli("audit-ui", AvaScopeCapabilityIds.RuntimeUiAudit),
             Mcp("audit_ui", AvaScopeCapabilityIds.RuntimeUiAudit),
+            Cli("design-audit", AvaScopeCapabilityIds.RuntimeDesignQualityAudit),
+            Mcp("design_quality_audit", AvaScopeCapabilityIds.RuntimeDesignQualityAudit),
             Cli("input", AvaScopeCapabilityIds.RuntimeInput),
             Mcp("input", AvaScopeCapabilityIds.RuntimeInput),
             Cli("run-workflow", AvaScopeCapabilityIds.RuntimeSemanticWorkflow),

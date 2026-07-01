@@ -49,7 +49,7 @@ Compatibility rules:
 - New optional properties, diagnostics, report paths, agent review fields, capabilities, CLI options, and MCP parameters are minor-version compatible.
 - Removed properties, renamed commands/tools, changed required parameters, changed error success/failure semantics, or removed artifact names require a major release or a compatibility alias.
 
-Stable DTO areas covered by protocol contract tests include health, sessions, diagnostics, runtime targets, trees, node inspection, search, input, runtime pseudo-state matrices, runtime mutation, runtime mutation evidence/review, preview rendering, preview sessions, preview watch lifecycle, screenshots, diffs, region assertions, baseline manifests, baseline reports, capability discovery, and agent review surfaces.
+Stable DTO areas covered by protocol contract tests include health, sessions, diagnostics, runtime targets, trees, node inspection, search, input, runtime UI and design-quality audits, runtime pseudo-state matrices, runtime mutation, runtime mutation evidence/review, preview rendering, preview sessions, preview watch lifecycle, screenshots, diffs, region assertions, baseline manifests, baseline reports, capability discovery, and agent review surfaces.
 
 ## CLI Commands
 
@@ -68,6 +68,7 @@ The stable CLI command name set is:
 - `explain-layout`
 - `find-nodes`
 - `audit-ui`
+- `design-audit`
 - `input`
 - `run-workflow`
 - `run-scenario`
@@ -120,6 +121,7 @@ The stable MCP tool name set is:
 - `explain_layout`
 - `find_nodes`
 - `audit_ui`
+- `design_quality_audit`
 - `input`
 - `run_workflow`
 - `run_scenario`

@@ -238,6 +238,12 @@ For `v0.9.0` accessibility, validation, and component inventory work, include:
 dotnet test AvaScope.slnx --no-build --filter "FullyQualifiedName~ProtocolContractTests.TreeResponseSerializesBoundedNodeShape|FullyQualifiedName~ProtocolContractTests.UiAuditResponseSerializesStableShape|FullyQualifiedName~UiAuditBuilderTests|FullyQualifiedName~CliSmokeTests.AuditUiCommandBuildsBoundedReportFromVisualTreeThroughBridgePipe|FullyQualifiedName~AvaScopeMcpToolsTests.AuditUiRejectsEmptySessionId|FullyQualifiedName~BridgeHeadlessSmokeTests.McpToolsListTopLevelsAndCaptureScreenshotThroughLocalBridgePipe|FullyQualifiedName~McpStdioSmokeTests.ServerStartsOverStdioAndListsInitialTools"
 ```
 
+For task-scoped design-quality audit work, include:
+
+```powershell
+dotnet test AvaScope.slnx --no-build --filter "FullyQualifiedName~ProtocolContractTests.DesignQualityAuditRequestAndResponseSerializeStableShapes|FullyQualifiedName~DesignQualityAuditBuilderTests|FullyQualifiedName~CliSmokeTests.DesignAuditCommandBuildsScopedReportFromVisualTreeThroughBridgePipe|FullyQualifiedName~AvaScopeMcpToolsTests.CapabilitiesReturnsCurrentCapabilityManifest|FullyQualifiedName~McpStdioSmokeTests.ServerStartsOverStdioAndListsInitialTools|FullyQualifiedName~StableSurfaceContractTests"
+```
+
 For visual regression workflow work, include:
 
 ```powershell

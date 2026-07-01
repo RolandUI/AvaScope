@@ -38,6 +38,7 @@ internal static class Program
             "explain-layout" => await ExplainLayout(args[1..]),
             "find-nodes" => await FindNodes(args[1..]),
             "audit-ui" => await AuditUi(args[1..]),
+            "design-audit" => await DesignAudit(args[1..]),
             "input" => await Input(args[1..]),
             "run-workflow" => await RunWorkflow(args[1..]),
             "run-scenario" => await RunScenario(args[1..]),
@@ -1455,6 +1456,54 @@ internal static class Program
         WriteResult(result);
 
         return result.Success ? 0 : 1;
+    }
+
+    private static async Task<int> DesignAudit(string[] args)
+    {
+        var options = ParseOptions(args, GetDesignAuditUsage());
+        if (!options.Success)
+        {
+            WriteFailure<DesignQualityAuditResponse>(InvalidCliArguments, options.Error!);
+            return 2;
+        }
+
+        if (!ValidateOptions(options.Values, GetDesignAuditUsage(), "request", "manifest-dir")
+            || !TryReadRequiredOption(options.Values, "request", GetDesignAuditUsage(), out var requestPath))
+        {
+            return 2;
+        }
+
+        DesignQualityAuditRequest? request;
+        try
+        {
+            request = JsonSerializer.Deserialize<DesignQualityAuditRequest>(
+                File.ReadAllText(Path.GetFullPath(requestPath!)),
+                JsonOptions);
+        }
+        catch (Exception exception) when (exception is ArgumentException or IOException or JsonException or NotSupportedException or UnauthorizedAccessException)
+        {
+            WriteFailure<DesignQualityAuditResponse>(
+                InvalidCliArguments,
+                $"Design-quality audit request could not be read from '{requestPath}': {exception.Message}");
+            return 2;
+        }
+
+        if (request is null)
+        {
+            WriteFailure<DesignQualityAuditResponse>(
+                InvalidCliArguments,
+                $"Design-quality audit request '{requestPath}' did not contain a valid JSON object.");
+            return 2;
+        }
+
+        var result = await new DesignQualityAuditRunner().RunAsync(CreateBridgeClient(options.Values), request);
+        WriteResult(result);
+        if (!result.Success)
+        {
+            return 1;
+        }
+
+        return result.Value!.Findings.Count == 0 ? 0 : 1;
     }
 
     private static async Task<int> RunWorkflow(string[] args)
@@ -2983,7 +3032,7 @@ internal static class Program
 
     private static string GetUsage()
     {
-        return "Usage: avascope capabilities [--require <capability-id>[,<capability-id>...]] | avascope mcp | avascope doctor [--manifest-dir <dir>] [--preview-session-store <dir>] | avascope attach [--latest true|false] [--process <pid>] [--process-name <name>] [--session <session-id>] [--manifest <path>] [--manifest-dir <dir>] | avascope list-top-levels --session <session-id> [--manifest-dir <dir>] | avascope visual-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] [--manifest-dir <dir>] | avascope logical-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] [--manifest-dir <dir>] | avascope inspect-node --session <session-id> --top-level <top-level-id> --node <node-id> [--tree-kind visual|logical] [--manifest-dir <dir>] | avascope explain-layout --session <session-id> --top-level <top-level-id> --node <node-id> [--tree-kind visual|logical] [--manifest-dir <dir>] | avascope find-nodes --session <session-id> --top-level <top-level-id> [--tree-kind visual|logical] [--type <type>] [--name <name>] [--automation-id <id>] [--text <text>] [--max-depth <n>] [--max-results <n>] [--manifest-dir <dir>] | avascope audit-ui --session <session-id> --top-level <top-level-id> [--tree-kind visual|logical] [--max-depth <n>] [--max-issues <n>] [--max-inventory <n>] [--manifest-dir <dir>] | avascope run-workflow --request <workflow.json> [--manifest-dir <dir>] | avascope run-scenario --request <scenario.json> [--manifest-dir <dir>] | avascope pointer-diagnostics --request <pointer-diagnostics.json> [--manifest-dir <dir>] | avascope pseudo-state-matrix --request <pseudo-state-matrix.json> [--manifest-dir <dir>] | avascope input --session <session-id> --top-level <top-level-id> --action <action> [--x <x>] [--y <y>] [--text <text>] [--target-node <node-id>] [--key <key>] [--modifiers <modifiers>] [--manifest-dir <dir>] | avascope mutate-node --session <session-id> --top-level <top-level-id> --node <node-id> --operation <operation> [--tree-kind visual|logical] [--property <name>] [--value <value>] [--value-type <type>] [--class <class>] [--resource-key <key>] [--mutation-id <id>] [--request-id <id>] [--manifest-dir <dir>] | avascope mutate-node-evidence --session <session-id> --top-level <top-level-id> --node <node-id> --operation <operation> --out-dir <dir> [--tree-kind visual|logical] [--property <name>] [--value <value>] [--value-type <type>] [--class <class>] [--resource-key <key>] [--mutation-id <id>] [--request-id <id>] [--max-depth <n>] [--diff true|false] [--tolerance <0-255>] [--manifest-dir <dir>] | avascope mutation-review --session <session-id> [--max-results <n>] [--out <review.html>] [--manifest-dir <dir>] [--source-project <csproj>] [--source-view <view.axaml>] [--source-app <app.axaml>] [--source-profile <profile.json>] | avascope close-session --session <session-id> [--manifest-dir <dir>] | avascope diagnostics [--process <pid>] [--process-name <name>] [--session <session-id>] [--manifest <path>] [--manifest-dir <dir>] [--max-sessions <n>] | avascope launch-app --command <path> [--args <args>] [--env KEY=VALUE[;KEY=VALUE...]] [--timeout-ms <ms>] | avascope reload --session <session-id> [--manifest-dir <dir>] | avascope create-preview-session <project.csproj> [--profile <name>] [--profile-file <path>] [--variant <name>] --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] [--state-variant <state>] [--build-output-root <dir>] [--assembly-path <dll>] [--no-build true|false] [--display-name <name>] | avascope list-preview-sessions | avascope reload-preview-session --session <session-id> | avascope close-preview-session --session <session-id> | avascope watch-preview-session --session <session-id> --timeout-ms <ms> [--settle-ms <ms>] [--max-reloads <n>] [--watch <path>[,<path>...]] | avascope preview-viewer --session <session-id> [--out <viewer.html>] | avascope baseline-create <project.csproj> --view <view.axaml> --manifest <baseline.json> --sizes <w>x<h>[,<w>x<h>...] [--out-dir <dir>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] [--state-variant <state>] [--build-output-root <dir>] [--assembly-path <dll>] [--no-build true|false] | avascope baseline-create --suite <suite.json> --manifest <baseline.json> [--out-dir <dir>] | avascope baseline-check --manifest <baseline.json> [--out-dir <dir>] [--diff-dir <dir>] [--tolerance <0-255>] [--report <report.json>] [--report-pack <dir>] | avascope cleanup | avascope cleanup-bridge-sessions [--manifest-dir <dir>] | avascope diff --baseline <baseline.png> --current <current.png> --out <diff.png> [--tolerance <0-255>] | avascope assert-region --image <image.png> --assert non_empty|mostly_blank|changed|unchanged --x <x> --y <y> --width <w> --height <h> [--baseline <baseline.png>] [--crop-out <crop.png>] [--tolerance <0-255>] [--min-changed-pixels <n>] | avascope screenshot --session <session-id> --top-level <top-level-id> --out <screenshot.png> [--manifest-dir <dir>] | avascope preview-animation <project.csproj> [--profile <name>] [--profile-file <path>] [--variant <name>] --view <view.axaml> --out <frame.png> --time-offsets <ms>[,<ms>...] [--frame-strip <strip.png>] [--viewer <viewer.html>] [--width <width>] [--height <height>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] [--state-variant <state>] [--build-output-root <dir>] [--assembly-path <dll>] [--no-build true|false] | avascope preview <project.csproj> [--profile <name>] [--profile-file <path>] [--variant <name>] --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--sizes <w>x<h>[,<w>x<h>...]] [--contact-sheet <sheet.png>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] [--state-variant <state>] [--build-output-root <dir>] [--assembly-path <dll>] [--no-build true|false]";
+        return "Usage: avascope capabilities [--require <capability-id>[,<capability-id>...]] | avascope mcp | avascope doctor [--manifest-dir <dir>] [--preview-session-store <dir>] | avascope attach [--latest true|false] [--process <pid>] [--process-name <name>] [--session <session-id>] [--manifest <path>] [--manifest-dir <dir>] | avascope list-top-levels --session <session-id> [--manifest-dir <dir>] | avascope visual-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] [--manifest-dir <dir>] | avascope logical-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] [--manifest-dir <dir>] | avascope inspect-node --session <session-id> --top-level <top-level-id> --node <node-id> [--tree-kind visual|logical] [--manifest-dir <dir>] | avascope explain-layout --session <session-id> --top-level <top-level-id> --node <node-id> [--tree-kind visual|logical] [--manifest-dir <dir>] | avascope find-nodes --session <session-id> --top-level <top-level-id> [--tree-kind visual|logical] [--type <type>] [--name <name>] [--automation-id <id>] [--text <text>] [--max-depth <n>] [--max-results <n>] [--manifest-dir <dir>] | avascope audit-ui --session <session-id> --top-level <top-level-id> [--tree-kind visual|logical] [--max-depth <n>] [--max-issues <n>] [--max-inventory <n>] [--manifest-dir <dir>] | avascope design-audit --request <design-audit.json> [--manifest-dir <dir>] | avascope run-workflow --request <workflow.json> [--manifest-dir <dir>] | avascope run-scenario --request <scenario.json> [--manifest-dir <dir>] | avascope pointer-diagnostics --request <pointer-diagnostics.json> [--manifest-dir <dir>] | avascope pseudo-state-matrix --request <pseudo-state-matrix.json> [--manifest-dir <dir>] | avascope input --session <session-id> --top-level <top-level-id> --action <action> [--x <x>] [--y <y>] [--text <text>] [--target-node <node-id>] [--key <key>] [--modifiers <modifiers>] [--manifest-dir <dir>] | avascope mutate-node --session <session-id> --top-level <top-level-id> --node <node-id> --operation <operation> [--tree-kind visual|logical] [--property <name>] [--value <value>] [--value-type <type>] [--class <class>] [--resource-key <key>] [--mutation-id <id>] [--request-id <id>] [--manifest-dir <dir>] | avascope mutate-node-evidence --session <session-id> --top-level <top-level-id> --node <node-id> --operation <operation> --out-dir <dir> [--tree-kind visual|logical] [--property <name>] [--value <value>] [--value-type <type>] [--class <class>] [--resource-key <key>] [--mutation-id <id>] [--request-id <id>] [--max-depth <n>] [--diff true|false] [--tolerance <0-255>] [--manifest-dir <dir>] | avascope mutation-review --session <session-id> [--max-results <n>] [--out <review.html>] [--manifest-dir <dir>] [--source-project <csproj>] [--source-view <view.axaml>] [--source-app <app.axaml>] [--source-profile <profile.json>] | avascope close-session --session <session-id> [--manifest-dir <dir>] | avascope diagnostics [--process <pid>] [--process-name <name>] [--session <session-id>] [--manifest <path>] [--manifest-dir <dir>] [--max-sessions <n>] | avascope launch-app --command <path> [--args <args>] [--env KEY=VALUE[;KEY=VALUE...]] [--timeout-ms <ms>] | avascope reload --session <session-id> [--manifest-dir <dir>] | avascope create-preview-session <project.csproj> [--profile <name>] [--profile-file <path>] [--variant <name>] --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] [--state-variant <state>] [--build-output-root <dir>] [--assembly-path <dll>] [--no-build true|false] [--display-name <name>] | avascope list-preview-sessions | avascope reload-preview-session --session <session-id> | avascope close-preview-session --session <session-id> | avascope watch-preview-session --session <session-id> --timeout-ms <ms> [--settle-ms <ms>] [--max-reloads <n>] [--watch <path>[,<path>...]] | avascope preview-viewer --session <session-id> [--out <viewer.html>] | avascope baseline-create <project.csproj> --view <view.axaml> --manifest <baseline.json> --sizes <w>x<h>[,<w>x<h>...] [--out-dir <dir>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] [--state-variant <state>] [--build-output-root <dir>] [--assembly-path <dll>] [--no-build true|false] | avascope baseline-create --suite <suite.json> --manifest <baseline.json> [--out-dir <dir>] | avascope baseline-check --manifest <baseline.json> [--out-dir <dir>] [--diff-dir <dir>] [--tolerance <0-255>] [--report <report.json>] [--report-pack <dir>] | avascope cleanup | avascope cleanup-bridge-sessions [--manifest-dir <dir>] | avascope diff --baseline <baseline.png> --current <current.png> --out <diff.png> [--tolerance <0-255>] | avascope assert-region --image <image.png> --assert non_empty|mostly_blank|changed|unchanged --x <x> --y <y> --width <w> --height <h> [--baseline <baseline.png>] [--crop-out <crop.png>] [--tolerance <0-255>] [--min-changed-pixels <n>] | avascope screenshot --session <session-id> --top-level <top-level-id> --out <screenshot.png> [--manifest-dir <dir>] | avascope preview-animation <project.csproj> [--profile <name>] [--profile-file <path>] [--variant <name>] --view <view.axaml> --out <frame.png> --time-offsets <ms>[,<ms>...] [--frame-strip <strip.png>] [--viewer <viewer.html>] [--width <width>] [--height <height>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] [--state-variant <state>] [--build-output-root <dir>] [--assembly-path <dll>] [--no-build true|false] | avascope preview <project.csproj> [--profile <name>] [--profile-file <path>] [--variant <name>] --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--sizes <w>x<h>[,<w>x<h>...]] [--contact-sheet <sheet.png>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] [--state-variant <state>] [--build-output-root <dir>] [--assembly-path <dll>] [--no-build true|false]";
     }
 
     private static string GetCapabilitiesUsage()
@@ -3079,6 +3128,11 @@ internal static class Program
     private static string GetAuditUiUsage()
     {
         return "Usage: avascope audit-ui --session <session-id> --top-level <top-level-id> [--tree-kind visual|logical] [--max-depth <n>] [--max-issues <n>] [--max-inventory <n>] [--manifest-dir <dir>]";
+    }
+
+    private static string GetDesignAuditUsage()
+    {
+        return "Usage: avascope design-audit --request <design-audit.json> [--manifest-dir <dir>]";
     }
 
     private static string GetRunWorkflowUsage()

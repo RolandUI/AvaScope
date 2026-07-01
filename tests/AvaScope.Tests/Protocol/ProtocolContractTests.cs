@@ -1545,6 +1545,98 @@ public sealed class ProtocolContractTests
     }
 
     [Fact]
+    public void DesignQualityAuditRequestAndResponseSerializeStableShapes()
+    {
+        var sessionId = new SessionId("session-1");
+        var target = new RuntimeTargetContext(sessionId, "topLevel:abc", TreeKinds.Visual, "visual:icon");
+        var request = new DesignQualityAuditRequest(
+            sessionId,
+            "topLevel:abc",
+            requestId: "design-request",
+            scopeName: "Toolbar",
+            onlyChangedNodes: true,
+            changedNodeIds: ["visual:icon"],
+            excludeTypes: ["Popup"],
+            suppressions:
+            [
+                new DesignQualitySuppression(
+                    "design.surface.unintended_1px_seam",
+                    reason: "intentional separator")
+            ]);
+        var requestNode = JsonNode.Parse(JsonSerializer.Serialize(request))!;
+
+        Assert.Equal("design-request", requestNode["requestId"]!.GetValue<string>());
+        Assert.Equal("Toolbar", requestNode["scopeName"]!.GetValue<string>());
+        Assert.True(requestNode["onlyChangedNodes"]!.GetValue<bool>());
+        Assert.Equal("visual:icon", requestNode["changedNodeIds"]![0]!.GetValue<string>());
+        Assert.Equal("Popup", requestNode["excludeTypes"]![0]!.GetValue<string>());
+        Assert.Equal("design.surface.unintended_1px_seam", requestNode["suppressions"]![0]!["code"]!.GetValue<string>());
+
+        var response = new DesignQualityAuditResponse(
+            "design-request",
+            sessionId,
+            "topLevel:abc",
+            TreeKinds.Visual,
+            new DateTimeOffset(2026, 7, 1, 12, 0, 0, TimeSpan.Zero),
+            new DesignQualityAuditSummary(
+                totalNodes: 8,
+                scopedNodes: 4,
+                evaluatedNodes: 3,
+                outOfScopeNodes: 4,
+                excludedNodeCount: 1,
+                findingCount: 1,
+                ignoredFindingCount: 1,
+                suppressionRuleCount: 1,
+                status: "issues_found",
+                scopeStatus: "scoped",
+                categoryCounts: new Dictionary<string, int> { ["alignment"] = 1 }),
+            target,
+            findings:
+            [
+                new DesignQualityFinding(
+                    "design-quality:1",
+                    "alignment",
+                    "warning",
+                    "design.alignment.icon_center_mismatch",
+                    "Icon center mismatch.",
+                    "runtime_tree_bounds_metadata",
+                    target,
+                    "Align icon.",
+                    "visual:icon",
+                    "Avalonia.Controls.PathIcon",
+                    "Icon",
+                    bounds: new NodeBounds(1, 2, 16, 16))
+            ],
+            ignoredFindings:
+            [
+                new DesignQualityFinding(
+                    "design-quality:2",
+                    "surface",
+                    "warning",
+                    "design.surface.unintended_1px_seam",
+                    "Seam.",
+                    "runtime_tree_bounds_metadata",
+                    target,
+                    "Suppress if intentional.",
+                    "visual:seam",
+                    ignored: true,
+                    ignoredReason: "suppressed:intentional separator")
+            ]);
+
+        var responseNode = JsonNode.Parse(JsonSerializer.Serialize(response))!;
+
+        Assert.Equal("design-request", responseNode["requestId"]!.GetValue<string>());
+        Assert.Equal("issues_found", responseNode["summary"]!["status"]!.GetValue<string>());
+        Assert.Equal(1, responseNode["summary"]!["categoryCounts"]!["alignment"]!.GetValue<int>());
+        Assert.Equal("design.alignment.icon_center_mismatch", responseNode["findings"]![0]!["code"]!.GetValue<string>());
+        Assert.Equal("visual:icon", responseNode["findings"]![0]!["target"]!["nodeId"]!.GetValue<string>());
+        Assert.True(responseNode["ignoredFindings"]![0]!["ignored"]!.GetValue<bool>());
+        Assert.Equal("suppressed:intentional separator", responseNode["ignoredFindings"]![0]!["ignoredReason"]!.GetValue<string>());
+        Assert.Equal("issues_found", responseNode["agentReview"]!["status"]!.GetValue<string>());
+        Assert.Equal("ignored: 1", responseNode["agentReview"]!["summary"]![3]!.GetValue<string>());
+    }
+
+    [Fact]
     public void ScreenshotRegionAssertionResponseSerializesStableShape()
     {
         var response = new ScreenshotRegionAssertionResponse(

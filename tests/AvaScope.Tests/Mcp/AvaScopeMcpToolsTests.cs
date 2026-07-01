@@ -29,12 +29,19 @@ public sealed class AvaScopeMcpToolsTests
             capability.Id == AvaScopeCapabilityIds.RuntimeUiAudit
             && capability.Status == AvaScopeCapabilityStatuses.Available);
         Assert.Contains(result.Value.Capabilities, capability =>
+            capability.Id == AvaScopeCapabilityIds.RuntimeDesignQualityAudit
+            && capability.Status == AvaScopeCapabilityStatuses.Available);
+        Assert.Contains(result.Value.Capabilities, capability =>
             capability.Id == AvaScopeCapabilityIds.RuntimeScenarioRunner
             && capability.Status == AvaScopeCapabilityStatuses.Available);
         Assert.Contains(result.Value.Tools, tool =>
             tool.Adapter == "mcp"
             && tool.Name == "capabilities"
             && tool.CapabilityIds.Contains(AvaScopeCapabilityIds.ProtocolCapabilityDiscovery));
+        Assert.Contains(result.Value.Tools, tool =>
+            tool.Adapter == "mcp"
+            && tool.Name == "design_quality_audit"
+            && tool.CapabilityIds.Contains(AvaScopeCapabilityIds.RuntimeDesignQualityAudit));
         Assert.Contains(result.Value.RuntimeMutationCapabilities, capability =>
             capability.Name == RuntimeMutationCapabilityCatalog.StyleLayoutMutation);
     }

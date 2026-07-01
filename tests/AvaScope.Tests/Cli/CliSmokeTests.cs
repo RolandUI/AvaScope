@@ -2360,6 +2360,97 @@ public sealed class CliSmokeTests
     }
 
     [Fact]
+    public async Task DesignAuditCommandBuildsScopedReportFromVisualTreeThroughBridgePipe()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var sessionId = SessionId.New();
+        var pipeName = $"avascope-cli-design-audit-{Guid.NewGuid():N}";
+        var manifestPath = WriteBridgeManifest(sessionId, pipeName);
+        var requestPath = Path.Combine(Path.GetTempPath(), $"avascope-design-audit-{Guid.NewGuid():N}.json");
+        var tree = new TreeResponse(
+            sessionId,
+            "topLevel:cli",
+            TreeKinds.Visual,
+            6,
+            new TreeNodeSummary(
+                "visual:root",
+                "Avalonia.Controls.Window",
+                bounds: new NodeBounds(0, 0, 240, 160),
+                sourceMap: TestSourceMap("Background", "#FFFFFFFF"),
+                children:
+                [
+                    new TreeNodeSummary(
+                        "visual:toolbar",
+                        "Avalonia.Controls.StackPanel",
+                        name: "Toolbar",
+                        bounds: new NodeBounds(0, 0, 120, 44),
+                        sourceMap: TestSourceMap("Background", "#FFFFFFFF"),
+                        children:
+                        [
+                            new TreeNodeSummary(
+                                "visual:icon",
+                                "Avalonia.Controls.PathIcon",
+                                name: "SearchIcon",
+                                bounds: new NodeBounds(2, 2, 16, 16),
+                                classes: ["icon"],
+                                sourceMap: TestSourceMap("Foreground", "#FF202020"))
+                        ])
+                ]),
+            new RuntimeTargetContext(sessionId, "topLevel:cli", TreeKinds.Visual));
+        var request = new DesignQualityAuditRequest(
+            sessionId,
+            "topLevel:cli",
+            requestId: "cli-design-audit",
+            scopeName: "Toolbar",
+            maxDepth: 6);
+
+        File.WriteAllText(requestPath, JsonSerializer.Serialize(request, JsonOptions));
+        var serverTask = RespondToBridgeRequestAsync(pipeName, bridgeRequest =>
+        {
+            Assert.Equal(BridgeIpcMethods.VisualTree, bridgeRequest.Method);
+            Assert.Equal("topLevel:cli", bridgeRequest.TopLevelId);
+            Assert.Equal(6, bridgeRequest.MaxDepth);
+            return BridgeIpcResponse.Ok(bridgeRequest.RequestId, tree);
+        });
+
+        try
+        {
+            var result = await RunCliAsync(
+                cliAssembly,
+                "design-audit",
+                "--request",
+                requestPath);
+            var bridgeRequest = await serverTask;
+
+            Assert.Equal(1, result.ExitCode);
+            Assert.Equal(BridgeIpcMethods.VisualTree, bridgeRequest.Method);
+            Assert.True(string.IsNullOrWhiteSpace(result.StandardError), result.StandardError);
+
+            var payload = JsonSerializer.Deserialize<ToolResult<DesignQualityAuditResponse>>(result.StandardOutput, JsonOptions);
+            Assert.NotNull(payload);
+            Assert.True(payload.Success, payload.Error?.Message);
+            Assert.Equal("cli-design-audit", payload.Value!.RequestId);
+            Assert.Equal("issues_found", payload.Value.Summary.Status);
+            Assert.Contains(payload.Value.Findings, finding => finding.Code == "design.alignment.icon_center_mismatch");
+            Assert.Equal("scoped", payload.Value.Summary.ScopeStatus);
+        }
+        finally
+        {
+            if (File.Exists(manifestPath))
+            {
+                File.Delete(manifestPath);
+            }
+
+            if (File.Exists(requestPath))
+            {
+                File.Delete(requestPath);
+            }
+        }
+    }
+
+    [Fact]
     public async Task FindNodesCommandRejectsMissingFilters()
     {
         var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
@@ -5132,6 +5223,22 @@ public sealed class CliSmokeTests
                             TreeKinds.Visual,
                             "visual:button"))
                 ]));
+    }
+
+    private static RuntimeNodeSourceMap TestSourceMap(string propertyName, string value)
+    {
+        return new RuntimeNodeSourceMap(
+            "partial",
+            "test_property_origins",
+            propertyOrigins:
+            [
+                new RuntimeSourcePropertyOrigin(
+                    propertyName,
+                    value,
+                    "test",
+                    "local",
+                    "LocalValue")
+            ]);
     }
 
     private static async Task<string?> ReadOptionalLineAsync(Stream stream, CancellationToken cancellationToken)
