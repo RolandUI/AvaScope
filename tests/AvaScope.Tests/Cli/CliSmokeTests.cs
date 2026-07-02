@@ -4340,6 +4340,16 @@ public sealed class CliSmokeTests
             Assert.NotNull(bridge.Health);
             Assert.Empty(payload.Value.Issues);
             Assert.Empty(payload.Value.DiagnosticIssues);
+            var cliOrigin = Assert.Single(payload.Value.ComponentOrigins, origin => origin.Component == "cli");
+            Assert.Equal(Path.GetFullPath(AppContext.BaseDirectory), cliOrigin.BaseDirectory);
+            Assert.Equal("repository", cliOrigin.OriginKind);
+            Assert.True(cliOrigin.Exists);
+            var mcpOrigin = Assert.Single(payload.Value.ComponentOrigins, origin => origin.Component == "mcp");
+            Assert.EndsWith("AvaScope.Mcp.dll", mcpOrigin.AssemblyPath, StringComparison.OrdinalIgnoreCase);
+            Assert.Equal(cliOrigin.RootDirectory, mcpOrigin.RootDirectory);
+            var previewHostOrigin = Assert.Single(payload.Value.ComponentOrigins, origin => origin.Component == "previewHost");
+            Assert.Equal(payload.Value.PreviewHost.HostAssemblyPath, previewHostOrigin.AssemblyPath);
+            Assert.Equal(cliOrigin.RootDirectory, previewHostOrigin.RootDirectory);
         }
         finally
         {

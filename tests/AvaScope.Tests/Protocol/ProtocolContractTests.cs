@@ -737,6 +737,21 @@ public sealed class ProtocolContractTests
                     "No bridge session matched.",
                     "diagnostics_summary",
                     generatedAt)
+            ],
+            componentOrigins:
+            [
+                new DiagnosticComponentOrigin(
+                    "cli",
+                    "C:\\repo\\.codex\\tools\\avascope\\avascope.dll",
+                    "C:\\repo\\.codex\\tools\\avascope",
+                    "C:\\repo",
+                    "repository"),
+                new DiagnosticComponentOrigin(
+                    "previewHost",
+                    "C:\\avascope\\AvaScope.PreviewHost.dll",
+                    "C:\\avascope",
+                    "C:\\avascope",
+                    "package_artifact")
             ]);
 
         var json = JsonSerializer.Serialize(response);
@@ -768,6 +783,13 @@ public sealed class ProtocolContractTests
         Assert.Equal(0, node["summary"]!["staleBridgeSessionCount"]!.GetValue<int>());
         Assert.Equal(1, node["summary"]!["diagnosticIssueCount"]!.GetValue<int>());
         Assert.Contains("avascope create-preview-session", node["summary"]!["nextCommands"]![0]!.GetValue<string>(), StringComparison.Ordinal);
+        Assert.Equal("cli", node["componentOrigins"]![0]!["component"]!.GetValue<string>());
+        Assert.Equal("C:\\repo\\.codex\\tools\\avascope\\avascope.dll", node["componentOrigins"]![0]!["assemblyPath"]!.GetValue<string>());
+        Assert.Equal("C:\\repo", node["componentOrigins"]![0]!["rootDirectory"]!.GetValue<string>());
+        Assert.Equal("repository", node["componentOrigins"]![0]!["originKind"]!.GetValue<string>());
+        Assert.True(node["componentOrigins"]![0]!["exists"]!.GetValue<bool>());
+        Assert.Equal("previewHost", node["componentOrigins"]![1]!["component"]!.GetValue<string>());
+        Assert.Equal("package_artifact", node["componentOrigins"]![1]!["originKind"]!.GetValue<string>());
     }
 
     [Fact]

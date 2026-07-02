@@ -384,6 +384,16 @@ public sealed class AvaScopeMcpToolsTests
         Assert.Equal(DiagnosticIssueSeverities.Warning, diagnosticIssue.Severity);
         Assert.Equal(CoreErrorCodes.BridgeSessionNotFound, diagnosticIssue.Code);
         Assert.Equal("diagnostics_summary", diagnosticIssue.Provenance);
+        var mcpOrigin = Assert.Single(result.Value.ComponentOrigins, origin => origin.Component == "mcp");
+        Assert.EndsWith("AvaScope.Mcp.dll", mcpOrigin.AssemblyPath, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("repository", mcpOrigin.OriginKind);
+        Assert.True(mcpOrigin.Exists);
+        var cliOrigin = Assert.Single(result.Value.ComponentOrigins, origin => origin.Component == "cli");
+        Assert.EndsWith("avascope.dll", cliOrigin.AssemblyPath, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(mcpOrigin.RootDirectory, cliOrigin.RootDirectory);
+        var previewHostOrigin = Assert.Single(result.Value.ComponentOrigins, origin => origin.Component == "previewHost");
+        Assert.Equal(result.Value.PreviewHost.HostAssemblyPath, previewHostOrigin.AssemblyPath);
+        Assert.Equal(mcpOrigin.RootDirectory, previewHostOrigin.RootDirectory);
     }
 
     [Fact]

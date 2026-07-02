@@ -14,6 +14,7 @@ public static class CoreErrorCodes
     public const string BridgeProtocolIncompatible = "bridge_protocol_incompatible";
     public const string BridgeManifestCleanupFailed = "bridge_manifest_cleanup_failed";
     public const string DiagnosticsTruncated = "diagnostics_truncated";
+    public const string DiagnosticsMixedInstallRoots = "diagnostics_mixed_install_roots";
     public const string InvalidBridgeRequest = "invalid_bridge_request";
     public const string InvalidPreviewRequest = "invalid_preview_request";
     public const string PreviewBaselineFailed = "preview_baseline_failed";

@@ -2198,14 +2198,17 @@ internal static class Program
         }
 
         var previewSessionDiagnostics = PreviewSessionStore.CreateDefault().GetDiagnostics();
+        var previewHost = new PreviewHostClient().GetDiagnostics();
+        var componentOrigins = CreateCliDiagnosticComponentOrigins(previewHost);
         var result = await CreateBridgeClient(options.Values).DiagnosticsAsync(
             processId,
             sessionId,
             maxSessions,
-            new PreviewHostClient().GetDiagnostics(),
+            previewHost,
             previewSessionDiagnostics,
             processName: options.Values.GetValueOrDefault("process-name"),
-            manifestPath: options.Values.GetValueOrDefault("manifest"));
+            manifestPath: options.Values.GetValueOrDefault("manifest"),
+            componentOrigins: componentOrigins);
         WriteResult(result.Success
             ? ToolResult<DiagnosticsResponse>.Ok(ApplyDiagnosticsMode(result.Value!, diagnosticsMode))
             : ToolResult<DiagnosticsResponse>.Fail(new ProtocolError(
@@ -2255,11 +2258,7 @@ internal static class Program
         var diagnostics = diagnosticsResult.Value!;
         var issues = new List<ProtocolError>(diagnostics.Issues);
         var checks = new List<DoctorCheck>();
-        var cliAssemblyPath = Assembly.GetExecutingAssembly().Location;
-        if (string.IsNullOrWhiteSpace(cliAssemblyPath))
-        {
-            cliAssemblyPath = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
-        }
+        var cliAssemblyPath = GetCliAssemblyPath();
 
         AddFileCheck(
             checks,
@@ -2314,6 +2313,28 @@ internal static class Program
 
         WriteResult(ToolResult<DoctorResponse>.Ok(response));
         return issues.Count == 0 ? 0 : 1;
+    }
+
+    private static IReadOnlyList<DiagnosticComponentOrigin> CreateCliDiagnosticComponentOrigins(
+        PreviewHostDiagnostic previewHost)
+    {
+        return
+        [
+            DiagnosticOriginBuilder.Create("cli", GetCliAssemblyPath(), AppContext.BaseDirectory),
+            DiagnosticOriginBuilder.Create(
+                "mcp",
+                Path.Combine(AppContext.BaseDirectory, "AvaScope.Mcp.dll"),
+                AppContext.BaseDirectory),
+            DiagnosticOriginBuilder.Create("previewHost", previewHost.HostAssemblyPath)
+        ];
+    }
+
+    private static string GetCliAssemblyPath()
+    {
+        var cliAssemblyPath = Assembly.GetExecutingAssembly().Location;
+        return string.IsNullOrWhiteSpace(cliAssemblyPath)
+            ? Path.Combine(AppContext.BaseDirectory, "avascope.dll")
+            : cliAssemblyPath;
     }
 
     private static async Task<int> LaunchApp(string[] args)
@@ -3237,7 +3258,8 @@ internal static class Program
             response.PreviewHost,
             previewSessions,
             diagnosticIssues,
-            response.Summary);
+            response.Summary,
+            response.ComponentOrigins);
     }
 
     private static bool TryAddPreviewRunIndex(

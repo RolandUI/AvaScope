@@ -534,7 +534,8 @@ public sealed class LocalBridgeClient
         IReadOnlyList<PreviewSessionDiagnostic>? previewSessions = null,
         CancellationToken cancellationToken = default,
         string? processName = null,
-        string? manifestPath = null)
+        string? manifestPath = null,
+        IReadOnlyList<DiagnosticComponentOrigin>? componentOrigins = null)
     {
         if (maxSessions is < 1 or > MaxDiagnosticsSessions)
         {
@@ -580,6 +581,13 @@ public sealed class LocalBridgeClient
 
         var generatedAt = DateTimeOffset.UtcNow;
         var previewSessionDiagnostics = previewSessions ?? Array.Empty<PreviewSessionDiagnostic>();
+        var diagnosticOrigins = componentOrigins ?? Array.Empty<DiagnosticComponentOrigin>();
+        var originIssue = CreateMixedInstallRootIssue(diagnosticOrigins);
+        if (originIssue is not null)
+        {
+            issues.Add(originIssue);
+        }
+
         var diagnosticIssues = BuildDiagnosticIssues(
             issues,
             bridgeSessions,
@@ -595,7 +603,8 @@ public sealed class LocalBridgeClient
             issues,
             previewHost,
             previewSessionDiagnostics,
-            diagnosticIssues));
+            diagnosticIssues,
+            componentOrigins: diagnosticOrigins));
     }
 
     public async Task<CoreResult<BridgeCleanupResponse>> CleanupBridgeManifestsAsync(
@@ -935,6 +944,33 @@ public sealed class LocalBridgeClient
         return diagnosticIssues;
     }
 
+    private static ProtocolError? CreateMixedInstallRootIssue(IReadOnlyList<DiagnosticComponentOrigin> componentOrigins)
+    {
+        var roots = componentOrigins
+            .Where(static origin => origin.Exists)
+            .Select(static origin => origin.RootDirectory)
+            .Where(static root => !string.IsNullOrWhiteSpace(root))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        if (roots.Length <= 1)
+        {
+            return null;
+        }
+
+        var details = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["rootDirectories"] = string.Join("|", roots),
+            ["components"] = string.Join("|", componentOrigins.Select(static origin =>
+                $"{origin.Component}:{origin.OriginKind}:{origin.RootDirectory}")),
+            ["nextAction"] = "Confirm whether CLI, MCP server, and PreviewHost should come from different roots before comparing diagnostics or versions."
+        };
+
+        return new ProtocolError(
+            CoreErrorCodes.DiagnosticsMixedInstallRoots,
+            "Diagnostics found AvaScope components resolved from multiple roots.",
+            details);
+    }
+
     private static void AddDiagnosticIssue(List<DiagnosticIssue> issues, DiagnosticIssue issue)
     {
         if (issues.Count < MaxDiagnosticIssues)
@@ -945,7 +981,9 @@ public sealed class LocalBridgeClient
 
     private static string IssueSeverityForError(string code)
     {
-        return code is CoreErrorCodes.DiagnosticsTruncated or CoreErrorCodes.BridgeSessionNotFound
+        return code is CoreErrorCodes.DiagnosticsTruncated
+            or CoreErrorCodes.BridgeSessionNotFound
+            or CoreErrorCodes.DiagnosticsMixedInstallRoots
             ? DiagnosticIssueSeverities.Warning
             : DiagnosticIssueSeverities.Error;
     }
@@ -953,6 +991,7 @@ public sealed class LocalBridgeClient
     private static string IssueStatusForError(string code)
     {
         return code is CoreErrorCodes.DiagnosticsTruncated
+            or CoreErrorCodes.DiagnosticsMixedInstallRoots
             ? DiagnosticStatuses.Available
             : DiagnosticStatuses.Unavailable;
     }

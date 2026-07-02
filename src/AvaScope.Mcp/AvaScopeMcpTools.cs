@@ -872,15 +872,18 @@ public sealed class AvaScopeMcpTools
         }
 
         var client = CreateBridgeClient(bridgeClient, manifestDirectory);
+        var previewHost = previewHostClient.GetDiagnostics();
+        var componentOrigins = CreateMcpDiagnosticComponentOrigins(previewHost);
         var result = await client.DiagnosticsAsync(
             processId,
             parsedSessionId,
             maxSessions,
-            previewHostClient.GetDiagnostics(),
+            previewHost,
             previewSessionStore.GetDiagnostics(),
             cancellationToken,
             processName,
-            manifestPath);
+            manifestPath,
+            componentOrigins);
         if (!result.Success)
         {
             return ToToolResult(result);
@@ -1549,7 +1552,30 @@ public sealed class AvaScopeMcpTools
             response.PreviewHost,
             previewSessions,
             diagnosticIssues,
-            response.Summary);
+            response.Summary,
+            response.ComponentOrigins);
+    }
+
+    private static IReadOnlyList<DiagnosticComponentOrigin> CreateMcpDiagnosticComponentOrigins(
+        PreviewHostDiagnostic previewHost)
+    {
+        return
+        [
+            DiagnosticOriginBuilder.Create("mcp", GetMcpAssemblyPath(), AppContext.BaseDirectory),
+            DiagnosticOriginBuilder.Create(
+                "cli",
+                Path.Combine(AppContext.BaseDirectory, "avascope.dll"),
+                AppContext.BaseDirectory),
+            DiagnosticOriginBuilder.Create("previewHost", previewHost.HostAssemblyPath)
+        ];
+    }
+
+    private static string GetMcpAssemblyPath()
+    {
+        var mcpAssemblyPath = typeof(AvaScopeMcpTools).Assembly.Location;
+        return string.IsNullOrWhiteSpace(mcpAssemblyPath)
+            ? Path.Combine(AppContext.BaseDirectory, "AvaScope.Mcp.dll")
+            : mcpAssemblyPath;
     }
 
     private static bool TryParseOptionalSessionId(

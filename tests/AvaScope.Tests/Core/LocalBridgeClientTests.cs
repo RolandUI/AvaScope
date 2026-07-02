@@ -770,6 +770,59 @@ public sealed class LocalBridgeClientTests : IDisposable
     }
 
     [Fact]
+    public async Task DiagnosticsReportsMixedComponentRootsAsWarning()
+    {
+        var client = new LocalBridgeClient(_manifestDirectory);
+        var origins = new[]
+        {
+            new DiagnosticComponentOrigin(
+                "cli",
+                "C:\\repo\\.codex\\tools\\avascope\\avascope.dll",
+                "C:\\repo\\.codex\\tools\\avascope",
+                "C:\\repo",
+                "repository"),
+            new DiagnosticComponentOrigin(
+                "previewHost",
+                "C:\\repo\\artifacts\\executables\\avascope-win-x64-framework-dependent\\AvaScope.PreviewHost.dll",
+                "C:\\repo\\artifacts\\executables\\avascope-win-x64-framework-dependent",
+                "C:\\repo\\artifacts\\executables\\avascope-win-x64-framework-dependent",
+                "package_artifact")
+        };
+
+        var result = await client.DiagnosticsAsync(componentOrigins: origins);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(origins, result.Value!.ComponentOrigins);
+        var issue = Assert.Single(result.Value.Issues);
+        Assert.Equal(CoreErrorCodes.DiagnosticsMixedInstallRoots, issue.Code);
+        Assert.Contains("C:\\repo", issue.Details!["rootDirectories"], StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("previewHost:package_artifact", issue.Details["components"], StringComparison.Ordinal);
+        var diagnosticIssue = Assert.Single(result.Value.DiagnosticIssues);
+        Assert.Equal(DiagnosticIssueSources.Diagnostics, diagnosticIssue.Source);
+        Assert.Equal(DiagnosticIssueSeverities.Warning, diagnosticIssue.Severity);
+        Assert.Equal(DiagnosticStatuses.Available, diagnosticIssue.Status);
+        Assert.Equal(CoreErrorCodes.DiagnosticsMixedInstallRoots, diagnosticIssue.Code);
+    }
+
+    [Fact]
+    public void DiagnosticOriginBuilderClassifiesPackageArtifactRootBeforeRepositoryRoot()
+    {
+        var repositoryRoot = Path.Combine(_manifestDirectory, "repo");
+        var packageRoot = Path.Combine(repositoryRoot, "artifacts", "executables", "avascope-win-x64-framework-dependent");
+        var assemblyPath = Path.Combine(packageRoot, "AvaScope.PreviewHost.dll");
+        Directory.CreateDirectory(packageRoot);
+        File.WriteAllText(Path.Combine(repositoryRoot, "AvaScope.slnx"), string.Empty);
+        File.WriteAllText(assemblyPath, string.Empty);
+
+        var origin = DiagnosticOriginBuilder.Create("previewHost", assemblyPath);
+
+        Assert.Equal("previewHost", origin.Component);
+        Assert.Equal(Path.GetFullPath(packageRoot), origin.RootDirectory);
+        Assert.Equal("package_artifact", origin.OriginKind);
+        Assert.True(origin.Exists);
+    }
+
+    [Fact]
     public async Task DiagnosticsBuildsDiagnosticIssuesForPreviewHostAndPreviewSessions()
     {
         var client = new LocalBridgeClient(_manifestDirectory);
