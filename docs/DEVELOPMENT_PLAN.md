@@ -27,19 +27,21 @@ GitHub Issues and Milestones are the primary project-management source for auton
 ## Current Focus
 
 - `Release v1.1.1`
-- GitHub Issue: #58
+- GitHub Issue: #59
 - GitHub Milestone: `v1.1.1`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-07-02`
-- Goal: fix the v1.1.0 smoke-test regression where raw runtime `visual:*` node ids are too fragile for multi-step workflows without generation-scope diagnostics or selector-first guidance.
+- Goal: fix the v1.1.0 smoke-test regression where pointer diagnostics and pseudo-state pointer input can miss the selector-resolved control without reporting effective hit-test coordinates or a clear mismatch reason.
 
 ## Next Action
 
-Implement GitHub issue #58 with focused runtime target-resolution tests and selector-first guidance, then validate, commit, push, update the issue, and continue through the remaining `v1.1.1` smoke-test bugs.
+Implement GitHub issue #59 with focused runtime pointer diagnostics/input-coordinate tests covering effective hit-test coordinates, miss explanations, and pseudo-state/pointer-diagnostics target mismatch diagnostics where needed; then validate, commit, push, update the issue, and continue through the remaining `v1.1.1` smoke-test bugs.
 
 ## Latest Validation
 
+- `2026-07-02`: Completed local implementation for GitHub issue #59. Runtime visual-tree bounds now use top-level DIP coordinates, bridge pointer input responses report requested/effective coordinates plus hit/input target metadata, and `pointer-diagnostics` reports `runtime_pointer_input_hit_path_mismatch` when bridge input targets a node that the diagnostics hit path does not contain. Updated user/agent docs to call out effective pointer coordinates and mismatch diagnostics. Validation passed with `dotnet build AvaScope.slnx --no-restore -v:minimal`, focused pointer diagnostics/input-coordinate tests (`3` passed), related runtime pointer/pseudo-state tests (`10` passed), docs tests (`14` passed), full Debug tests (`363` passed), and `git diff --check` with only LF/CRLF normalization warnings.
+- `2026-07-02`: Completed and closed GitHub issue #58 in commit `537e6228f8ea9e304e56bb738d145c2f0f3826a7`; pushed to `master`, issue moved to `status:done`, and roadmap card moved to `Done / 100% / Completed`. Started GitHub issue #59 for the `v1.1.1` patch milestone. The issue is `status:in-progress`, the roadmap card is `In Progress / 25% / Current Slice`, and intended validation is focused runtime pointer diagnostics/input-coordinate tests covering effective hit-test coordinates and mismatch diagnostics plus build, relevant runtime tests, full Debug tests, and `git diff --check`.
 - `2026-07-02`: Completed local implementation for GitHub issue #58. `pseudo-state-matrix` now diagnoses raw `visual:*`/`logical:*` runtime node ids as generation-scoped, suggests selector fields from current node metadata, and re-resolves stale node ids through request filters (`automationId`, `name`, `nodeType`, `text`) when possible before forcing states or mutations. Updated user/agent docs to prefer selector-first pseudo-state requests. Validation passed with `dotnet build AvaScope.slnx --no-restore -v:minimal`, focused pseudo-state runtime tests (`3` passed), related pseudo-state/stable-surface tests (`10` passed), docs tests (`14` passed), full Debug tests (`361` passed), and `git diff --check` with only LF/CRLF normalization warnings.
 - `2026-07-02`: Completed and closed GitHub issue #57 in commit `c25a239231e4f41b5d5aa1a262bbc38674c56f70`; pushed to `master`, issue moved to `status:done`, and roadmap card moved to `Done / 100% / Completed`. Started GitHub issue #58 for the `v1.1.1` patch milestone. The issue is `status:in-progress`, the roadmap card is `In Progress / 25% / Current Slice`, and intended validation is focused runtime pseudo-state/target-resolution tests proving raw-id diagnostics and selector-first guidance plus build, relevant runtime tests, full Debug tests, and `git diff --check`.
 - `2026-07-02`: Completed local implementation for GitHub issue #57. PreviewHost now serializes `dotnet build` invocations per project path, build configuration, and selected target framework through a cross-process mutex before launching MSBuild, preserving isolated `BaseOutputPath` while avoiding shared `obj` collisions for parallel previews. Added `PreviewHostSerializesParallelBuildsForSameProject`, which deterministically fails without serialization by holding an exclusive lock under the default intermediate output. Validation passed with `dotnet build AvaScope.slnx --no-restore -v:minimal`, focused PreviewHost tests (`2` passed), full PreviewHost tests (`35` passed), a real parallel CLI smoke against `samples/AvaScope.GettingStartedApp` with two simultaneous previews, full Debug tests (`359` passed), and `git diff --check` with only LF/CRLF normalization warnings.

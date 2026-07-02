@@ -91,6 +91,70 @@ public sealed class RuntimePointerDiagnosticsRunnerTests : IDisposable
         Assert.Contains(result.Value.AgentReview.ArtifactPaths, artifact => artifact.Kind == "pointer_overlay");
     }
 
+    [Fact]
+    public async Task RunAsyncReportsInputTargetAndBoundsHitPathMismatchWithEffectiveCoordinates()
+    {
+        var sessionId = SessionId.New();
+        var topLevelId = "topLevel:main";
+        var pipeName = $"avascope-pointer-mismatch-{Guid.NewGuid():N}";
+        WriteManifest("pointer-mismatch.json", new BridgeSessionManifest(
+            sessionId,
+            Environment.ProcessId,
+            pipeName,
+            DateTimeOffset.UtcNow,
+            "Pointer diagnostics app",
+            processName: Process.GetCurrentProcess().ProcessName));
+
+        var serverTask = RespondToBridgeRequestsAsync(
+            pipeName,
+            expectedCount: 2,
+            (index, request) => index switch
+            {
+                0 => CreateInputResponse(
+                    request,
+                    sessionId,
+                    topLevelId,
+                    x: 88,
+                    y: 50,
+                    targetNodeId: "visual:button",
+                    metadata: new Dictionary<string, string>
+                    {
+                        ["coordinateSpace"] = "top_level_dip",
+                        ["hitTestSource"] = "TopLevel.GetVisualAt",
+                        ["effectiveX"] = "88",
+                        ["effectiveY"] = "50",
+                        ["hitVisualNodeId"] = "visual:button",
+                        ["inputTargetNodeType"] = "Avalonia.Controls.Button"
+                    }),
+                1 => CreateMismatchedTreeResponse(request, sessionId, topLevelId),
+                _ => throw new InvalidOperationException("Unexpected pointer diagnostics bridge request.")
+            });
+        var request = new RuntimePointerDiagnosticsRequest(
+            sessionId,
+            topLevelId,
+            [new RuntimePointerPathStep(RuntimePointerPathActions.Move, "move-nested", x: 88, y: 50)],
+            requestId: "pointer-mismatch",
+            includeAllTopLevels: false);
+
+        var result = await new RuntimePointerDiagnosticsRunner()
+            .RunAsync(new LocalBridgeClient(_manifestDirectory, BridgePipeTestTimeout), request);
+        await serverTask;
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal("passed", result.Value!.Status);
+        var diagnostic = Assert.Single(
+            result.Value.Diagnostics,
+            diagnostic => diagnostic.Code == "runtime_pointer_input_hit_path_mismatch");
+        Assert.Equal("visual:button", diagnostic.Details!["inputTargetNodeId"]);
+        Assert.Equal("visual:panel", diagnostic.Details["hitPathLeafNodeId"]);
+        Assert.Equal("88", diagnostic.Details["effectiveX"]);
+        Assert.Equal("50", diagnostic.Details["effectiveY"]);
+        Assert.Equal("top_level_dip", diagnostic.Details["coordinateSpace"]);
+        Assert.Contains("bounds", diagnostic.Details["nextAction"], StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("88", result.Value.Steps[0].Metadata["effectiveX"]);
+        Assert.Equal("visual:button", result.Value.Steps[0].Metadata["inputTargetNodeId"]);
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_testRoot))
@@ -106,7 +170,14 @@ public sealed class RuntimePointerDiagnosticsRunnerTests : IDisposable
         return path;
     }
 
-    private static BridgeIpcResponse CreateInputResponse(BridgeIpcRequest request, SessionId sessionId, string topLevelId, double x, double y)
+    private static BridgeIpcResponse CreateInputResponse(
+        BridgeIpcRequest request,
+        SessionId sessionId,
+        string topLevelId,
+        double x,
+        double y,
+        string targetNodeId = "visual:pointerTarget",
+        IReadOnlyDictionary<string, string>? metadata = null)
     {
         Assert.Equal(BridgeIpcMethods.Input, request.Method);
         Assert.Equal(InputActions.PointerMove, request.Action);
@@ -121,7 +192,8 @@ public sealed class RuntimePointerDiagnosticsRunnerTests : IDisposable
                 InputActions.PointerMove,
                 handled: true,
                 DateTimeOffset.UtcNow,
-                "visual:pointerTarget"));
+                targetNodeId,
+                metadata: metadata));
     }
 
     private static BridgeIpcResponse CreateTopLevelsResponse(BridgeIpcRequest request)
@@ -182,6 +254,46 @@ public sealed class RuntimePointerDiagnosticsRunnerTests : IDisposable
                     ]));
 
         return BridgeIpcResponse.Ok(request.RequestId, tree);
+    }
+
+    private static BridgeIpcResponse CreateMismatchedTreeResponse(
+        BridgeIpcRequest request,
+        SessionId sessionId,
+        string topLevelId)
+    {
+        Assert.Equal(BridgeIpcMethods.VisualTree, request.Method);
+        Assert.Equal(topLevelId, request.TopLevelId);
+
+        return BridgeIpcResponse.Ok(
+            request.RequestId,
+            new TreeResponse(
+                sessionId,
+                topLevelId,
+                TreeKinds.Visual,
+                request.MaxDepth ?? 16,
+                new TreeNodeSummary(
+                    "visual:root",
+                    "Avalonia.Controls.Window",
+                    "MainWindow",
+                    bounds: new NodeBounds(0, 0, 140, 100),
+                    children:
+                    [
+                        new TreeNodeSummary(
+                            "visual:panel",
+                            "Avalonia.Controls.Panel",
+                            "Sidebar",
+                            bounds: new NodeBounds(80, 40, 40, 40),
+                            children:
+                            [
+                                new TreeNodeSummary(
+                                    "visual:button",
+                                    "Avalonia.Controls.Button",
+                                    "SystemProfileQuickAccessButton",
+                                    automationId: "system-profile-quick-access",
+                                    text: "Profile",
+                                    bounds: new NodeBounds(8, 10, 24, 16))
+                            ])
+                    ])));
     }
 
     private static BridgeIpcResponse CreateScreenshotResponse(BridgeIpcRequest request, SessionId sessionId, string topLevelId)

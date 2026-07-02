@@ -638,7 +638,7 @@ public sealed class AvaScopeBridgeRuntime
             GetName(node),
             GetAutomationId(node),
             GetText(node),
-            GetBounds(node),
+            GetTreeNodeBounds(topLevel, node),
             GetClasses(node),
             computedProperties,
             target,
@@ -2378,6 +2378,7 @@ public sealed class AvaScopeBridgeRuntime
         }
 
         var target = topLevel.GetVisualAt(point.Value);
+        var metadata = CreatePointerInputMetadata(topLevel, point.Value, target, null);
         if (target is null)
         {
             return CoreResult<InputResponse>.Ok(new InputResponse(
@@ -2385,7 +2386,8 @@ public sealed class AvaScopeBridgeRuntime
                 topLevelId,
                 InputActions.PointerMove,
                 handled: false,
-                DateTimeOffset.UtcNow));
+                DateTimeOffset.UtcNow,
+                metadata: metadata));
         }
 
         var inputTarget = target as InputElement ?? target.FindAncestorOfType<InputElement>();
@@ -2413,7 +2415,8 @@ public sealed class AvaScopeBridgeRuntime
             handled: true,
             DateTimeOffset.UtcNow,
             CreateNodeId(inputTarget, TreeKinds.Visual),
-            CreateNodeTarget(topLevelId, TreeKinds.Visual, topLevel, inputTarget)));
+            CreateNodeTarget(topLevelId, TreeKinds.Visual, topLevel, inputTarget),
+            metadata: CreatePointerInputMetadata(topLevel, point.Value, target, inputTarget)));
     }
 
     private CoreResult<InputResponse> PointerButton(
@@ -2431,6 +2434,7 @@ public sealed class AvaScopeBridgeRuntime
         }
 
         var target = topLevel.GetVisualAt(point.Value);
+        var metadata = CreatePointerInputMetadata(topLevel, point.Value, target, null);
         if (target is null)
         {
             return CoreResult<InputResponse>.Ok(new InputResponse(
@@ -2438,7 +2442,8 @@ public sealed class AvaScopeBridgeRuntime
                 topLevelId,
                 action,
                 handled: false,
-                DateTimeOffset.UtcNow));
+                DateTimeOffset.UtcNow,
+                metadata: metadata));
         }
 
         var inputTarget = target as InputElement ?? target.FindAncestorOfType<InputElement>();
@@ -2489,7 +2494,8 @@ public sealed class AvaScopeBridgeRuntime
             DateTimeOffset.UtcNow,
             CreateNodeId(inputTarget, TreeKinds.Visual),
             CreateNodeTarget(topLevelId, TreeKinds.Visual, topLevel, inputTarget),
-            pointerButton: "left"));
+            pointerButton: "left",
+            metadata: CreatePointerInputMetadata(topLevel, point.Value, target, inputTarget)));
     }
 
     private CoreResult<InputResponse> Click(TopLevel topLevel, string topLevelId, double? x, double? y)
@@ -2520,7 +2526,49 @@ public sealed class AvaScopeBridgeRuntime
             DateTimeOffset.UtcNow,
             CreateNodeId(button, TreeKinds.Visual),
             CreateNodeTarget(topLevelId, TreeKinds.Visual, topLevel, button),
-            pointerButton: "left"));
+            pointerButton: "left",
+            metadata: CreatePointerInputMetadata(topLevel, point.Value, target, button)));
+    }
+
+    private static IReadOnlyDictionary<string, string> CreatePointerInputMetadata(
+        TopLevel topLevel,
+        Point point,
+        Visual? hitVisual,
+        InputElement? inputTarget)
+    {
+        var metadata = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["coordinateSpace"] = "top_level_dip",
+            ["hitTestSource"] = "TopLevel.GetVisualAt",
+            ["requestedX"] = point.X.ToString("0.###", CultureInfo.InvariantCulture),
+            ["requestedY"] = point.Y.ToString("0.###", CultureInfo.InvariantCulture),
+            ["effectiveX"] = point.X.ToString("0.###", CultureInfo.InvariantCulture),
+            ["effectiveY"] = point.Y.ToString("0.###", CultureInfo.InvariantCulture),
+            ["hitVisualNodeId"] = hitVisual is null ? "not_available" : CreateNodeId(hitVisual, TreeKinds.Visual),
+            ["hitVisualNodeType"] = hitVisual?.GetType().FullName ?? "not_available",
+            ["inputTargetNodeId"] = inputTarget is null ? "not_available" : CreateNodeId(inputTarget, TreeKinds.Visual),
+            ["inputTargetNodeType"] = inputTarget?.GetType().FullName ?? "not_available"
+        };
+
+        if (hitVisual is not null)
+        {
+            var hitBounds = GetGlobalBounds(hitVisual, topLevel);
+            if (hitBounds is not null)
+            {
+                metadata["hitVisualBounds"] = FormatRect(hitBounds.Value);
+            }
+        }
+
+        if (inputTarget is Visual inputVisual)
+        {
+            var targetBounds = GetGlobalBounds(inputVisual, topLevel);
+            if (targetBounds is not null)
+            {
+                metadata["inputTargetBounds"] = FormatRect(targetBounds.Value);
+            }
+        }
+
+        return metadata;
     }
 
     private CoreResult<InputResponse> KeyText(
@@ -3413,6 +3461,21 @@ public sealed class AvaScopeBridgeRuntime
         return new NodeBounds(
             visual.Bounds.X,
             visual.Bounds.Y,
+            visual.Bounds.Width,
+            visual.Bounds.Height);
+    }
+
+    private static NodeBounds? GetTreeNodeBounds(TopLevel topLevel, object node)
+    {
+        if (node is not Visual visual)
+        {
+            return null;
+        }
+
+        var origin = visual.TranslatePoint(new Point(0, 0), topLevel) ?? new Point(visual.Bounds.X, visual.Bounds.Y);
+        return new NodeBounds(
+            origin.X,
+            origin.Y,
             visual.Bounds.Width,
             visual.Bounds.Height);
     }

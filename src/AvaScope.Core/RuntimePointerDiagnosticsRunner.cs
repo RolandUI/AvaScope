@@ -135,6 +135,7 @@ public sealed class RuntimePointerDiagnosticsRunner
             var activeLayer = pointer is null
                 ? null
                 : await CaptureActiveLayerAsync(bridgeClient, request, pointer, diagnostics, cancellationToken);
+            AddInputHitPathMismatchDiagnostic(step, input, pointer, activeLayer, diagnostics);
             var transitions = CreateTransitions(request, previousLayer, activeLayer);
             var status = Passed;
             var message = CreatePassMessage(step, activeLayer, transitions);
@@ -198,7 +199,7 @@ public sealed class RuntimePointerDiagnosticsRunner
                     activeLayer,
                     transitions,
                     diagnostics,
-                    CreateStepMetadata(step, activeLayer)));
+                    CreateStepMetadata(step, input, activeLayer)));
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -432,6 +433,102 @@ public sealed class RuntimePointerDiagnosticsRunner
         return null;
     }
 
+    private static void AddInputHitPathMismatchDiagnostic(
+        RuntimePointerPathStep step,
+        InputResponse? input,
+        RuntimePointerLocation? pointer,
+        RuntimePointerLayerSnapshot? activeLayer,
+        List<ProtocolError> diagnostics)
+    {
+        if (input is null
+            || !input.Handled
+            || string.IsNullOrWhiteSpace(input.TargetNodeId)
+            || activeLayer?.HitTestPath.Any(node => string.Equals(node.NodeId, input.TargetNodeId, StringComparison.Ordinal)) == true)
+        {
+            return;
+        }
+
+        var details = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["stepId"] = step.Id,
+            ["action"] = step.Action,
+            ["inputTargetNodeId"] = input.TargetNodeId,
+            ["activeTopLevelId"] = activeLayer?.TopLevelId ?? "not_available",
+            ["activeLayerKind"] = activeLayer?.LayerKind ?? "not_available",
+            ["hitPathNodeIds"] = activeLayer is null ? string.Empty : string.Join(",", activeLayer.HitTestPath.Select(static node => node.NodeId)),
+            ["hitPathLeafNodeId"] = activeLayer?.HitTestPath.LastOrDefault()?.NodeId ?? "not_available",
+            ["nearestNodeId"] = activeLayer?.NearestNode?.NodeId ?? "not_available",
+            ["nearestDistance"] = activeLayer?.NearestNode?.Distance.ToString("0.###", CultureInfo.InvariantCulture) ?? "not_available",
+            ["mismatchKind"] = InferInputHitPathMismatchKind(input, activeLayer),
+            ["nextAction"] = "Inspect effectiveX/effectiveY, hitPathNodeIds, nearestNodeId, bounds, overlays, clipping, transforms, and any top-level chrome offset before trusting coordinate-based pointer assertions."
+        };
+
+        AddPointerCoordinateDetails(details, pointer, input);
+
+        diagnostics.Add(new ProtocolError(
+            "runtime_pointer_input_hit_path_mismatch",
+            $"Pointer input targeted node '{input.TargetNodeId}', but the diagnostics hit path did not contain that node.",
+            details));
+    }
+
+    private static string InferInputHitPathMismatchKind(InputResponse input, RuntimePointerLayerSnapshot? activeLayer)
+    {
+        if (activeLayer is null)
+        {
+            return "active_layer_not_available";
+        }
+
+        if (!string.Equals(input.TopLevelId, activeLayer.TopLevelId, StringComparison.Ordinal))
+        {
+            return "input_target_top_level_differs_from_active_layer";
+        }
+
+        if (activeLayer.HitTestPath.Count == 0)
+        {
+            return "no_tree_bounds_contains_pointer";
+        }
+
+        if (string.Equals(activeLayer.NearestNode?.NodeId, input.TargetNodeId, StringComparison.Ordinal))
+        {
+            return "input_target_nearest_but_outside_bounds_path";
+        }
+
+        return "input_target_not_in_bounds_hit_path";
+    }
+
+    private static void AddPointerCoordinateDetails(
+        IDictionary<string, string> details,
+        RuntimePointerLocation? pointer,
+        InputResponse input)
+    {
+        if (pointer is not null)
+        {
+            details["requestedX"] = pointer.X.ToString("0.###", CultureInfo.InvariantCulture);
+            details["requestedY"] = pointer.Y.ToString("0.###", CultureInfo.InvariantCulture);
+        }
+
+        CopyMetadata(input.Metadata, details, "coordinateSpace");
+        CopyMetadata(input.Metadata, details, "hitTestSource");
+        CopyMetadata(input.Metadata, details, "effectiveX");
+        CopyMetadata(input.Metadata, details, "effectiveY");
+        CopyMetadata(input.Metadata, details, "hitVisualNodeId");
+        CopyMetadata(input.Metadata, details, "hitVisualNodeType");
+        CopyMetadata(input.Metadata, details, "inputTargetNodeType");
+        CopyMetadata(input.Metadata, details, "hitVisualBounds");
+        CopyMetadata(input.Metadata, details, "inputTargetBounds");
+    }
+
+    private static void CopyMetadata(
+        IReadOnlyDictionary<string, string> source,
+        IDictionary<string, string> destination,
+        string key)
+    {
+        if (source.TryGetValue(key, out var value) && !string.IsNullOrWhiteSpace(value))
+        {
+            destination[key] = value;
+        }
+    }
+
     private static string? TryCreatePointerOverlay(
         ScreenshotResponse? screenshot,
         RuntimePointerLocation? pointer,
@@ -534,6 +631,7 @@ public sealed class RuntimePointerDiagnosticsRunner
 
     private static IReadOnlyDictionary<string, string> CreateStepMetadata(
         RuntimePointerPathStep step,
+        InputResponse? input,
         RuntimePointerLayerSnapshot? activeLayer)
     {
         var metadata = new Dictionary<string, string>(StringComparer.Ordinal)
@@ -545,6 +643,21 @@ public sealed class RuntimePointerDiagnosticsRunner
         {
             metadata["x"] = step.X.Value.ToString("0.###", CultureInfo.InvariantCulture);
             metadata["y"] = step.Y.Value.ToString("0.###", CultureInfo.InvariantCulture);
+        }
+
+        if (input is not null)
+        {
+            if (!string.IsNullOrWhiteSpace(input.TargetNodeId))
+            {
+                metadata["inputTargetNodeId"] = input.TargetNodeId;
+            }
+
+            CopyMetadata(input.Metadata, metadata, "coordinateSpace");
+            CopyMetadata(input.Metadata, metadata, "hitTestSource");
+            CopyMetadata(input.Metadata, metadata, "effectiveX");
+            CopyMetadata(input.Metadata, metadata, "effectiveY");
+            CopyMetadata(input.Metadata, metadata, "hitVisualNodeId");
+            CopyMetadata(input.Metadata, metadata, "inputTargetNodeId");
         }
 
         if (activeLayer is not null)

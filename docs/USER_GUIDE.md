@@ -596,7 +596,7 @@ Diagnose hover, popup, tooltip, and pointer transition behavior with a pointer-p
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll pointer-diagnostics --request .\pointer-diagnostics.json
 ```
 
-`pointer-diagnostics` returns `ToolResult<RuntimePointerDiagnosticsResponse>` with per-step pointer location, active top-level/layer, bounded visual-tree hit path, nearest node, inferred enter/exit transition diagnostics, screenshot paths, and pointer marker overlay paths. Transition diagnostics use explicit `bounds_snapshot_inference` provenance because AvaScope derives them from post-step visual-tree bounds instead of private Avalonia routed-event internals. When `parentHoverNodeId` is provided, moving into a popup-like layer outside that node reports whether parent hover exit behavior may run.
+`pointer-diagnostics` returns `ToolResult<RuntimePointerDiagnosticsResponse>` with per-step pointer location, effective top-level DIP hit-test coordinates from the bridge input response, active top-level/layer, bounded visual-tree hit path, nearest node, input-target versus hit-path mismatch diagnostics, inferred enter/exit transition diagnostics, screenshot paths, and pointer marker overlay paths. Transition diagnostics use explicit `bounds_snapshot_inference` provenance because AvaScope derives them from post-step visual-tree bounds instead of private Avalonia routed-event internals. When `parentHoverNodeId` is provided, moving into a popup-like layer outside that node reports whether parent hover exit behavior may run.
 
 Capture a selected runtime control across common pseudo-states:
 

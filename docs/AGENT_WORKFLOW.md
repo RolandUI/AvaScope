@@ -217,7 +217,7 @@ For hover, tooltip, popup, or flyout failures, use a pointer diagnostics request
 & $avascope pointer-diagnostics --request .\artifacts\samples\pointer-diagnostics.json
 ```
 
-`pointer-diagnostics` accepts move, wait, screenshot, and assert-hit steps. Results include per-step pointer coordinates, active top-level or popup-like layer, bounded visual-tree hit path, inferred enter/exit transition diagnostics with `bounds_snapshot_inference` provenance, screenshot paths, and pointer overlay PNG paths. Set `parentHoverNodeId` in the request when validating whether moving into a popup/flyout/tooltip may exit the parent hover region.
+`pointer-diagnostics` accepts move, wait, screenshot, and assert-hit steps. Results include requested and effective top-level DIP pointer coordinates, active top-level or popup-like layer, bounded visual-tree hit path, nearest node, input-target versus hit-path mismatch diagnostics, inferred enter/exit transition diagnostics with `bounds_snapshot_inference` provenance, screenshot paths, and pointer overlay PNG paths. Set `parentHoverNodeId` in the request when validating whether moving into a popup/flyout/tooltip may exit the parent hover region.
 
 For style regressions that only appear in specific control states, run a pseudo-state matrix instead of manually driving each state:
 

@@ -12,6 +12,7 @@ using AvaScope.Bridge;
 using AvaScope.Core;
 using AvaScope.Mcp;
 using AvaScope.Protocol;
+using System.Globalization;
 
 namespace AvaScope.Tests.Bridge;
 
@@ -1548,6 +1549,100 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                 Assert.Equal(BridgeErrorCodes.UnsupportedInputAction, unsupported.Error!.Code);
 
                 window.Close();
+            }, CancellationToken.None);
+        }
+        finally
+        {
+            DisposeHeadlessSessionAfterExplicitCleanup(session);
+        }
+    }
+
+    [Fact]
+    public async Task RuntimeTreeBoundsUseTopLevelCoordinatesForNestedPointerInput()
+    {
+        var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessTestApplication));
+
+        try
+        {
+            await session.Dispatch(async () =>
+            {
+                var pointerMoved = 0;
+                var target = new Border
+                {
+                    Name = "NestedPointerTarget",
+                    Width = 80,
+                    Height = 32,
+                    Background = Brushes.CornflowerBlue
+                };
+                target.PointerMoved += (_, _) => pointerMoved++;
+                Canvas.SetLeft(target, 72);
+                Canvas.SetTop(target, 48);
+
+                var window = new Window
+                {
+                    Title = "AvaScope Nested Pointer Sample",
+                    Width = 260,
+                    Height = 180,
+                    Content = new Canvas
+                    {
+                        Width = 220,
+                        Height = 140,
+                        Children =
+                        {
+                            target
+                        }
+                    }
+                };
+
+                var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Headless nested pointer sample"));
+                try
+                {
+                    window.Show();
+                    using var registration = runtime.RegisterTopLevel(window);
+                    Dispatcher.UIThread.RunJobs();
+
+                    var client = new LocalBridgeClient(Path.GetDirectoryName(runtime.SessionManifestPath)!);
+                    var topLevel = Assert.Single(await runtime.ListTopLevelsAsync());
+                    var tree = await AvaScopeMcpTools.VisualTree(
+                        client,
+                        runtime.SessionId.Value,
+                        topLevel.Id,
+                        maxDepth: 8);
+                    Assert.True(tree.Success, tree.Error?.Message);
+                    var targetNode = FindNode(tree.Value!.Root, node => node.Name == "NestedPointerTarget");
+                    Assert.NotNull(targetNode);
+                    Assert.NotNull(targetNode.Bounds);
+
+                    var translated = target.TranslatePoint(new Point(0, 0), window);
+                    Assert.NotNull(translated);
+                    Assert.InRange(Math.Abs(targetNode.Bounds!.X - translated.Value.X), 0, 0.5);
+                    Assert.InRange(Math.Abs(targetNode.Bounds.Y - translated.Value.Y), 0, 0.5);
+
+                    var x = targetNode.Bounds.X + targetNode.Bounds.Width / 2;
+                    var y = targetNode.Bounds.Y + targetNode.Bounds.Height / 2;
+                    var move = await AvaScopeMcpTools.Input(
+                        client,
+                        runtime.SessionId.Value,
+                        topLevel.Id,
+                        InputActions.PointerMove,
+                        x,
+                        y);
+
+                    Assert.True(move.Success, move.Error?.Message);
+                    Assert.True(move.Value!.Handled);
+                    Assert.Equal(targetNode.NodeId, move.Value.TargetNodeId);
+                    Assert.Equal("top_level_dip", move.Value.Metadata["coordinateSpace"]);
+                    Assert.Equal(x.ToString("0.###", CultureInfo.InvariantCulture), move.Value.Metadata["effectiveX"]);
+                    Assert.Equal(y.ToString("0.###", CultureInfo.InvariantCulture), move.Value.Metadata["effectiveY"]);
+                    Assert.Equal(targetNode.NodeId, move.Value.Metadata["inputTargetNodeId"]);
+                    Assert.Equal(1, pointerMoved);
+                }
+                finally
+                {
+                    window.Close();
+                    AvaScopeBridge.Deactivate();
+                    Dispatcher.UIThread.RunJobs();
+                }
             }, CancellationToken.None);
         }
         finally
