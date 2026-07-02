@@ -117,6 +117,19 @@ public sealed class ProtocolContractTests
         Assert.Contains(response.Tools, tool => tool.Adapter == "mcp" && tool.Name == "record_interaction_animation");
         Assert.Contains(response.Tools, tool => tool.Adapter == "mcp" && tool.Name == "semantic_diff");
         Assert.Empty(node["value"]!["diagnostics"]!.AsArray());
+
+        var layoutDescription = response.Capabilities.Single(static capability =>
+            capability.Id == AvaScopeCapabilityIds.RuntimeLayoutExplain).Description;
+        Assert.Contains("0x0", layoutDescription, StringComparison.Ordinal);
+        Assert.Contains("clipped", layoutDescription, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Grid row/column", layoutDescription, StringComparison.Ordinal);
+        Assert.Contains("ScrollViewer viewport", layoutDescription, StringComparison.Ordinal);
+
+        var stateVariantDescription = response.Capabilities.Single(static capability =>
+            capability.Id == AvaScopeCapabilityIds.PreviewStateVariants).Description;
+        Assert.Contains("preview profiles", stateVariantDescription, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("design-data factories", stateVariantDescription, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("does not synthesize arbitrary ViewModel state", stateVariantDescription, StringComparison.Ordinal);
     }
 
     [Fact]

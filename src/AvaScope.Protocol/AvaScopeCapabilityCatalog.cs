@@ -93,19 +93,19 @@ public static class AvaScopeCapabilityCatalog
             Capability(
                 AvaScopeCapabilityIds.RuntimeSourceMap,
                 "runtime",
-                "Return conservative runtime node source provenance including XAML file, line, x:Name, style, template, resource, and binding path hints where available.",
+                "Return conservative node-to-source provenance: XAML file/line, x:Name, style/template/resource origins, and binding path hints where public metadata is available.",
                 ["inspect-node", "visual-tree", "logical-tree", "inspect_node", "visual_tree", "logical_tree"],
                 requires: [AvaScopeCapabilityIds.RuntimeInspect]),
             Capability(
                 AvaScopeCapabilityIds.RuntimeBindingInspector,
                 "runtime",
-                "Return live DataContext, bound property, binding expression, resolved value, converter, fallback, null, and compiled binding diagnostics where public runtime metadata is available.",
+                "Expose node-level live binding and DataContext diagnostics: DataContext type/value summary, bound property/expression, resolved value, converter, fallback/null state, and compiled binding issues where public runtime metadata is available.",
                 ["inspect-node", "inspect_node"],
                 requires: [AvaScopeCapabilityIds.RuntimeInspect]),
             Capability(
                 AvaScopeCapabilityIds.RuntimeLayoutExplain,
                 "runtime",
-                "Explain node layout state with DesiredSize, Bounds, clipping, Grid, ScrollViewer, ancestor, and constraint diagnostics.",
+                "Explain why a node is 0x0, clipped, or constrained by parent layout, including DesiredSize, Bounds, available constraints, Grid row/column sizing, ScrollViewer viewport, clipping ancestors, and other layout diagnostics where available.",
                 ["inspect-node", "explain-layout", "inspect_node", "explain_layout"],
                 requires: [AvaScopeCapabilityIds.RuntimeInspect]),
             Capability(
@@ -123,7 +123,7 @@ public static class AvaScopeCapabilityCatalog
             Capability(
                 AvaScopeCapabilityIds.RuntimeSemanticWorkflow,
                 "runtime",
-                "Run semantic workflow steps against a local bridge session using AutomationId, text, role, binding path, command, or stable node selectors.",
+                "Run coordinate-free workflow steps against a local bridge session using AutomationId, text, role, binding path, command, or stable node selectors.",
                 ["run-workflow", "run_workflow"],
                 requires: [AvaScopeCapabilityIds.RuntimeFind, AvaScopeCapabilityIds.RuntimeInput]),
             Capability(
@@ -239,7 +239,7 @@ public static class AvaScopeCapabilityCatalog
             Capability(
                 AvaScopeCapabilityIds.PreviewStateVariants,
                 "preview",
-                "Render explicit design data state variants such as empty, loading, error, long text, validation, or dense data states.",
+                "Render named preview state variants supplied by preview profiles or design-data factories, such as empty, loading, error, long text, many rows, validation errors, or narrow viewport states; AvaScope does not synthesize arbitrary ViewModel state by itself.",
                 ["preview", "preview-animation", "create-preview-session", "baseline-create", "preview_axaml", "preview_axaml_multi", "preview_axaml_animation", "create_preview_session"],
                 requires: [AvaScopeCapabilityIds.PreviewAxaml]),
             Capability(

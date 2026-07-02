@@ -50,6 +50,41 @@ The roadmap below records the release-shaped plan through `v1.0.0`. It is intent
 - Every release must include targeted tests, full build/test validation, release dry-run validation, documentation updates, and explicit deferrals.
 - A release may be split into a patch release if a P0/P1 regression blocks users or CI, but patch scope must remain defect-focused.
 
+## Current Release Target
+
+- Release: `v1.1.0`
+- Target Version: `1.1.0`
+- Release State: `In Progress`
+- Scope Lock: `2026-07-02`
+- Release Commit: pending
+- Local Release Gate: pending
+- GitHub Release: pending
+- GitHub Milestone: `v1.1.0`
+- GitHub Issues: #55
+- Previous Release: `v1.0.2`
+
+### v1.1.0 Release Goals
+
+The `v1.1.0` release target is an additive minor release for agent-facing runtime diagnostics, semantic workflows, visual evidence workflows, artifact navigation, and discovery/versioning surfaces completed after `v1.0.2`.
+
+1. `RG-1.1.0-1 Runtime Source And Binding Diagnostics`: ship runtime node source maps, live binding/DataContext inspection, and layout explanation diagnostics with conservative public-metadata provenance.
+   Success signal: agents can inspect node source, binding, DataContext, layout, clipping, Grid, ScrollViewer, and constraint data without manually searching AXAML first.
+2. `RG-1.1.0-2 Semantic Runtime Workflows`: ship coordinate-free workflow/scenario execution, pointer diagnostics, pseudo-state matrices, and interaction-triggered animation frame capture.
+   Success signal: agents can act through AutomationId/text/role/binding/command selectors and capture structured evidence for hover, popup, state, and animation failures.
+3. `RG-1.1.0-3 Preview And Visual Evidence Workflows`: ship named preview state variants, isolated preview builds, semantic screenshot diff, design-quality audits, and clickable provenance maps in review artifacts.
+   Success signal: agents can preview explicit UI states, compare visual output against references, and navigate from artifacts back to runtime/source metadata.
+4. `RG-1.1.0-4 Diagnostics And Discovery Ergonomics`: ship concise diagnostics modes, run-index/latest-run artifact navigation, standard product-version surfaces, and improved capability descriptions.
+   Success signal: agents can discover capabilities through `capabilities`, gate required workflows by capability id, and resolve recent artifacts without directory scanning.
+5. `RG-1.1.0-5 Guarded Minor Release`: publish only after the local release gate passes and the Release workflow creates `v1.1.0`, NuGet/GitHub packages, executable ZIPs, manifest, and GitHub Release assets.
+
+### v1.1.0 Milestone Map
+
+- #55 `Release v1.1.0`; Status: `In Progress`.
+
+### v1.1.0 Implementation Validation
+
+- `2026-07-02`: Started release tracker #55 and selected `v1.1.0` because `master` contains additive feature commits after the published `v1.0.2` tag. Capability descriptions were tightened for agent discovery, especially source mapping, binding inspection, layout explanation, semantic workflows, and preview state variants. Release gate pending.
+
 ## v1.0 Readiness Definition
 
 AvaScope reaches `v1.0.0` when it is a stable local Avalonia inspection, preview, automation, and visual-regression toolkit that agents and developers can rely on without project-specific handholding.

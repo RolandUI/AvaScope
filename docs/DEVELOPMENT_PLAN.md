@@ -26,20 +26,21 @@ GitHub Issues and Milestones are the primary project-management source for auton
 
 ## Current Focus
 
-- `Expose Product Version Through Standard CLI And Capability Surfaces`
-- GitHub Issue: #53
-- GitHub Milestone: none
-- Status: `Done`
+- `Release v1.1.0`
+- GitHub Issue: #55
+- GitHub Milestone: `v1.1.0`
+- Status: `In Progress`
 - Owner: autonomous agent
-- Started: `2026-07-01`
-- Goal: expose the installed AvaScope product version through standard CLI, capability, doctor, and MCP-facing structured surfaces.
+- Started: `2026-07-02`
+- Goal: publish the additive agent-facing runtime diagnostics, semantic workflow, preview/evidence, artifact navigation, and discovery/versioning capabilities completed after `v1.0.2`.
 
 ## Next Action
 
-Commit and push #53, then update and close GitHub issue #53.
+Validate the capability description polish, run the `v1.1.0` release gate, bump `Directory.Build.props` to `1.1.0` in a `Release 1.1.0` commit, push, and verify the GitHub Release/tag/assets.
 
 ## Latest Validation
 
+- `2026-07-02`: Started release tracker #55 for `v1.1.0` because `master` contains additive feature commits after the published `v1.0.2` tag. Created the `v1.1.0` GitHub milestone, added the current release target to [RELEASE_PLAN.md](RELEASE_PLAN.md), and tightened capability descriptions for agent discovery around source mapping, live binding/DataContext inspection, layout explanation, coordinate-free semantic workflows, and preview state variants. Release gate pending.
 - `2026-07-01`: Completed local GitHub issue #53 product version discovery. Added `AvaScopeProduct.Version`, additive `productVersion` fields on `HealthResponse`, `AvaScopeCapabilitiesResponse`, and `DoctorResponse`, aligned CLI `--version`/`-v`, capabilities metadata, doctor output, and MCP `serverInfo.version` on the same product version, and updated docs/tests. Validation passed with `dotnet build AvaScope.slnx --no-restore -v:minimal`, focused #53 protocol/CLI/MCP/docs tests (`11` passed), full Debug tests (`356` passed), and `git diff --check` with only LF/CRLF normalization warnings.
 - `2026-07-01`: Completed local GitHub issue #52 diagnostics and artifact navigation ergonomics. Added diagnostics `summary` counts and `--mode all|active-only|minimal|json-minimal`, MCP diagnostics mode support, Protocol/Core artifact run-index DTOs and `ArtifactRunIndexStore`, CLI `latest-run`, optional `--run-index`, `--task`, and `--run-group` support for `preview`, `audit-ui`, and `baseline-check`, `artifacts.run_index` capability discovery, stable/user/agent/validation docs, latest pointer resolution, and focused coverage. Validation passed with `dotnet build AvaScope.slnx --no-restore -v:minimal`, focused #52 protocol/core/CLI/MCP/stable-surface tests (`71` passed), docs/stable focused tests (`12` passed), full Debug tests (`355` passed), and `git diff --check` with only LF/CRLF normalization warnings.
 - `2026-07-01`: Completed local GitHub issue #51 semantic screenshot comparison. Added Protocol `SemanticScreenshotComparisonRequest`/`SemanticScreenshotComparisonResponse`, Core `SemanticScreenshotComparer`, CLI `semantic-diff`, MCP `semantic_diff`, capability discovery, stable-surface/user/agent/validation docs, raw connected changed-region output, heuristic findings for center/edge/padding/border-seam/wrapping differences, annotated overview/crop artifacts, and fixture coverage for padding, center, and border differences. Validation passed with `dotnet build AvaScope.slnx --no-restore -v:minimal`, focused #51 protocol/core/CLI/MCP/capability/stable-surface/docs tests (`17` passed), cleanup-lock regression rerun (`1` passed), full Debug tests (`352` passed), and `git diff --check` with only LF/CRLF normalization warnings.
