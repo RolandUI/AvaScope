@@ -50,15 +50,16 @@ The roadmap below records the release-shaped plan through `v1.0.0`. It is intent
 - Every release must include targeted tests, full build/test validation, release dry-run validation, documentation updates, and explicit deferrals.
 - A release may be split into a patch release if a P0/P1 regression blocks users or CI, but patch scope must remain defect-focused.
 
-## Current Release Target
+## Released Target: v1.1.0
 
 - Release: `v1.1.0`
 - Target Version: `1.1.0`
-- Release State: `Release Candidate`
+- Release State: `Released`
 - Scope Lock: `2026-07-02`
-- Release Commit: pending
+- Release Commit: `88bc782cfe8d9ede259a3f542a3b3ab7e7bd449f` (`Release 1.1.0`)
 - Local Release Gate: passed on `2026-07-02`
-- GitHub Release: pending
+- Published At: `2026-07-02T05:08:51Z`
+- GitHub Release: https://github.com/RolandUI/AvaScope/releases/tag/v1.1.0
 - GitHub Milestone: `v1.1.0`
 - GitHub Issues: #55
 - Previous Release: `v1.0.2`
@@ -85,6 +86,18 @@ The `v1.1.0` release target is an additive minor release for agent-facing runtim
 
 - `2026-07-02`: Started release tracker #55 and selected `v1.1.0` because `master` contains additive feature commits after the published `v1.0.2` tag. Capability descriptions were tightened for agent discovery, especially source mapping, binding inspection, layout explanation, semantic workflows, and preview state variants.
 - `2026-07-02`: Local `v1.1.0` release gate passed after stopping a stale artifact-hosted MCP process that held the previous packaged output. Validation passed with `dotnet build AvaScope.slnx --no-restore -v:minimal`, `dotnet test AvaScope.slnx --no-build` (`356` passed), `eng/create-local-release.ps1` (Release build/test `356` passed, three `1.1.0` NuGet packages, win/linux framework-dependent ZIPs, manifest verification, packaged doctor smoke, and packaged sample preview smoke), `eng/publish-nuget.ps1 -DryRun`, `eng/publish-github-release.ps1 -Tag v1.1.0 -DryRun`, packaged `avascope.exe --version`, packaged `capabilities --require runtime.source_map,runtime.layout_explain,runtime.binding_inspector,runtime.semantic_workflow,preview.state_variants,artifacts.run_index`, and `git diff --check` with only LF/CRLF normalization warnings.
+- `2026-07-02`: Published `v1.1.0` from commit `88bc782cfe8d9ede259a3f542a3b3ab7e7bd449f` through Release workflow `28566542499` (`push`, success). The workflow published `AvaScope.Protocol`, `AvaScope.Core`, and `AvaScope.Bridge` `1.1.0` to nuget.org and GitHub Packages through NuGet trusted publishing, created tag `v1.1.0`, and uploaded the GitHub Release assets. `git ls-remote --tags origin refs/tags/v1.1.0` confirmed the tag points at `88bc782cfe8d9ede259a3f542a3b3ab7e7bd449f`.
+
+### v1.1.0 Published Assets
+
+| Asset | URL | SHA-256 |
+| --- | --- | --- |
+| `AvaScope.Protocol.1.1.0.nupkg` | https://github.com/RolandUI/AvaScope/releases/download/v1.1.0/AvaScope.Protocol.1.1.0.nupkg | `df25905b013f39d29afe8394fe55df0f534d4781c1db29b603ca7314750dbab1` |
+| `AvaScope.Core.1.1.0.nupkg` | https://github.com/RolandUI/AvaScope/releases/download/v1.1.0/AvaScope.Core.1.1.0.nupkg | `2c1b0667622ce29a6dbd522ce56482a2d5c91fdfafd8d2fe7f0ecfd402b62544` |
+| `AvaScope.Bridge.1.1.0.nupkg` | https://github.com/RolandUI/AvaScope/releases/download/v1.1.0/AvaScope.Bridge.1.1.0.nupkg | `64c937eefaf17d83c2a921bf2ae0a93fe0c26c20208ecdc37964fa481c51728e` |
+| `avascope-win-x64-framework-dependent.zip` | https://github.com/RolandUI/AvaScope/releases/download/v1.1.0/avascope-win-x64-framework-dependent.zip | `7c7bb09e59f59703644e3dbb55e617919a37b8526e4f0f5321ea7838480c92a9` |
+| `avascope-linux-x64-framework-dependent.zip` | https://github.com/RolandUI/AvaScope/releases/download/v1.1.0/avascope-linux-x64-framework-dependent.zip | `dceb6b12e5a6a3a51f43f5e23807c072e3e75fa746939d362a76f3b0653f7e22` |
+| `release-manifest.json` | https://github.com/RolandUI/AvaScope/releases/download/v1.1.0/release-manifest.json | `1e925a09c4fd6d06c40e04c1037112f7457e15f1bc409210bcfc5e9ff046212c` |
 
 ## v1.0 Readiness Definition
 
