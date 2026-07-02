@@ -29,17 +29,18 @@ GitHub Issues and Milestones are the primary project-management source for auton
 - `Release v1.1.1`
 - GitHub Issue: #62
 - GitHub Milestone: `v1.1.1`
-- Status: `In Progress`
+- Status: `Done`
 - Owner: autonomous agent
 - Started: `2026-07-02`
 - Goal: publish the defect-focused `v1.1.1` patch for the AvaScope 1.1.0 TradeR smoke report.
 
 ## Next Action
 
-Run the local release gate, commit `Release 1.1.1`, push, and verify the GitHub Release workflow, tag, packages, and assets.
+No active `v1.1.1` release issue remains after closing #62 and the milestone.
 
 ## Latest Validation
 
+- `2026-07-02`: Published `v1.1.1` from commit `6e710509aef727d4d74bf3580f5ee6ec0564c445` through Release workflow `28591077660` (`push`, success). The workflow published the three `1.1.1` packages to nuget.org and GitHub Packages, created tag `v1.1.1`, uploaded six GitHub Release assets, and `git ls-remote --tags origin refs/tags/v1.1.1` confirmed the tag points at the release commit.
 - `2026-07-02`: Local `v1.1.1` release gate passed after stopping three stale artifact-hosted `dotnet ...\AvaScope.Mcp.dll` processes that held the previous packaged output. Validation passed with `dotnet build AvaScope.slnx --no-restore -v:minimal`, full Debug tests (`369` passed), focused bridge/headless reproduction tests (`18` passed), `eng/create-local-release.ps1` (Release build/test `369` passed, three `1.1.1` NuGet packages, win/linux framework-dependent ZIPs, manifest verification, packaged doctor smoke, and packaged sample preview smoke), `eng/publish-nuget.ps1 -DryRun`, `eng/publish-github-release.ps1 -Tag v1.1.1 -DryRun`, packaged `avascope.exe --version` (`1.1.1`), and packaged capability gate for the runtime/preview/artifact ids.
 - `2026-07-02`: Started GitHub release tracker #62 for `v1.1.1`; issue moved to `status:in-progress`, roadmap card set to `In Progress / 25% / Release Tracker`, and the release-candidate working tree is scoped to the already-closed smoke-test bugs #56-#61 plus the guarded release gate.
 - `2026-07-02`: Completed and closed GitHub issue #61 in commit `55a7cf3f8ef6b760faa7828573ef5d7daf20f1ff`; pushed to `master`, issue moved to `status:done`, and roadmap card moved to `Done / 100% / Completed`. The `v1.1.1` smoke-test bug set #56-#61 is complete with no open issues remaining in the milestone.

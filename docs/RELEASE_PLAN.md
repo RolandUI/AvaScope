@@ -50,15 +50,16 @@ The roadmap below records the release-shaped plan through `v1.0.0`. It is intent
 - Every release must include targeted tests, full build/test validation, release dry-run validation, documentation updates, and explicit deferrals.
 - A release may be split into a patch release if a P0/P1 regression blocks users or CI, but patch scope must remain defect-focused.
 
-## Current Release Target
+## Released Target: v1.1.1
 
 - Release: `v1.1.1`
 - Target Version: `1.1.1`
-- Release State: `Release Candidate`
+- Release State: `Released`
 - Scope Lock: `2026-07-02`
-- Release Commit: pending
+- Release Commit: `6e710509aef727d4d74bf3580f5ee6ec0564c445` (`Release 1.1.1`)
 - Local Release Gate: passed on `2026-07-02`
-- GitHub Release: pending
+- Published At: `2026-07-02T12:54:41Z`
+- GitHub Release: https://github.com/RolandUI/AvaScope/releases/tag/v1.1.1
 - GitHub Milestone: `v1.1.1`
 - GitHub Issues: #56, #57, #58, #59, #60, #61, #62
 - Previous Release: `v1.1.0`
@@ -83,12 +84,24 @@ The `v1.1.1` release target is a defect-focused patch for the AvaScope 1.1.0 Tra
 - #59 `Pointer diagnostics and pseudo-state input miss selected control`; Status: `Done`.
 - #60 `Clarify baseline-create run-index capability/help mismatch`; Status: `Done`.
 - #61 `Diagnostics can report PreviewHost from a different install root than repo-local CLI`; Status: `Done`.
-- #62 `Release v1.1.1`; Status: `In Progress`.
+- #62 `Release v1.1.1`; Status: `Done`.
 
 ### v1.1.1 Implementation Validation
 
 - `2026-07-02`: Started release tracker #62 after #56-#61 were completed and closed. The patch scope is locked to the AvaScope 1.1.0 TradeR smoke-test bug set plus guarded release publication.
 - `2026-07-02`: Local `v1.1.1` release gate passed after stopping three stale artifact-hosted `dotnet ...\AvaScope.Mcp.dll` processes that held the previous packaged output. Validation passed with `dotnet build AvaScope.slnx --no-restore -v:minimal`, `dotnet test AvaScope.slnx --no-build` (`369` passed), focused bridge/headless reproduction tests (`18` passed), `eng/create-local-release.ps1` (Release build/test `369` passed, three `1.1.1` NuGet packages, win/linux framework-dependent ZIPs, manifest verification, packaged doctor smoke, and packaged sample preview smoke), `eng/publish-nuget.ps1 -DryRun`, `eng/publish-github-release.ps1 -Tag v1.1.1 -DryRun`, packaged `avascope.exe --version` (`1.1.1`), and packaged capability gate for the runtime/preview/artifact ids.
+- `2026-07-02`: Published `v1.1.1` from commit `6e710509aef727d4d74bf3580f5ee6ec0564c445` through Release workflow `28591077660` (`push`, success). The workflow published `AvaScope.Protocol`, `AvaScope.Core`, and `AvaScope.Bridge` `1.1.1` to nuget.org and GitHub Packages through NuGet trusted publishing, created tag `v1.1.1`, and uploaded the GitHub Release assets. `git ls-remote --tags origin refs/tags/v1.1.1` confirmed the tag points at `6e710509aef727d4d74bf3580f5ee6ec0564c445`.
+
+### v1.1.1 Published Assets
+
+| Asset | URL | SHA-256 |
+| --- | --- | --- |
+| `AvaScope.Protocol.1.1.1.nupkg` | https://github.com/RolandUI/AvaScope/releases/download/v1.1.1/AvaScope.Protocol.1.1.1.nupkg | `d9f505b182a6f6c8bf3c4a8ec01b71f047aad645c936fea59ad186608fcca717` |
+| `AvaScope.Core.1.1.1.nupkg` | https://github.com/RolandUI/AvaScope/releases/download/v1.1.1/AvaScope.Core.1.1.1.nupkg | `576b20e4933a60a271d79b8cf7ac2e96f090c02114023896abd6dbe257003a40` |
+| `AvaScope.Bridge.1.1.1.nupkg` | https://github.com/RolandUI/AvaScope/releases/download/v1.1.1/AvaScope.Bridge.1.1.1.nupkg | `493c95e229765fa4bb9977532b4e47e8f094ca7b5acf02fee6d0183790b3be3d` |
+| `avascope-win-x64-framework-dependent.zip` | https://github.com/RolandUI/AvaScope/releases/download/v1.1.1/avascope-win-x64-framework-dependent.zip | `6f2f0618373559add7fa8a9040dd3cca647c4da78c532e859a4bc55519dd68f6` |
+| `avascope-linux-x64-framework-dependent.zip` | https://github.com/RolandUI/AvaScope/releases/download/v1.1.1/avascope-linux-x64-framework-dependent.zip | `3eab66333bec1f39845fd2b116476db36cced46155055054c90babc9f041de34` |
+| `release-manifest.json` | https://github.com/RolandUI/AvaScope/releases/download/v1.1.1/release-manifest.json | `dfa02805e64f8bd74c81b4a8aa599c54422a8aea19d6f49e7ae4592be092c0b6` |
 
 ## Released Target: v1.1.0
 
