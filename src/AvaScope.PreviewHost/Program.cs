@@ -2,6 +2,8 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Xml;
@@ -30,6 +32,7 @@ internal static class Program
     private const string XamlNamespace = "http://schemas.microsoft.com/winfx/2006/xaml";
     private const int MaximumPreviewDiagnostics = 100;
     private const string DefaultBuildConfiguration = "Debug";
+    private static readonly TimeSpan ProjectBuildLockTimeout = TimeSpan.FromSeconds(60);
     private const double MinimumHitTargetSize = 24;
     private const double TextLayoutWidthTolerance = 1;
     private const double TextLayoutHeightTolerance = 4;
@@ -1519,6 +1522,12 @@ internal static class Program
         var workingDirectory = projectInfo.ProjectDirectory;
         var arguments = CreateBuildArguments(projectInfo);
         var command = FormatCommand("dotnet", arguments);
+        using var buildLock = AcquireProjectBuildLock(projectInfo, workingDirectory, command, out var buildLockError);
+        if (buildLockError is not null)
+        {
+            return buildLockError;
+        }
+
         using var process = new Process
         {
             StartInfo = new ProcessStartInfo
@@ -1688,6 +1697,98 @@ internal static class Program
             "build",
             $"{SanitizePathToken(outputStem)}-{Guid.NewGuid():N}",
             "bin");
+    }
+
+    private static ProjectBuildLock? AcquireProjectBuildLock(
+        PreviewProjectInfo projectInfo,
+        string workingDirectory,
+        string command,
+        out ProtocolError? error)
+    {
+        error = null;
+        var mutexName = CreateProjectBuildMutexName(projectInfo);
+        Mutex mutex;
+        try
+        {
+            mutex = new Mutex(false, mutexName);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            error = CreateProjectBuildError(
+                $"Could not create the preview project build lock for '{projectInfo.ProjectPath}': {exception.Message}",
+                projectInfo,
+                workingDirectory,
+                command,
+                outputTail: "AvaScope could not create the local build serialization lock for this project/configuration.",
+                buildLogPath: projectInfo.BuildLogPath);
+            return null;
+        }
+
+        var acquired = false;
+        try
+        {
+            acquired = mutex.WaitOne(ProjectBuildLockTimeout);
+        }
+        catch (AbandonedMutexException)
+        {
+            acquired = true;
+        }
+
+        if (acquired)
+        {
+            return new ProjectBuildLock(mutex);
+        }
+
+        mutex.Dispose();
+        error = CreateProjectBuildError(
+            $"Timed out waiting for another AvaScope preview build of '{projectInfo.ProjectPath}' to finish.",
+            projectInfo,
+            workingDirectory,
+            command,
+            timeoutMilliseconds: (int)ProjectBuildLockTimeout.TotalMilliseconds,
+            outputTail: "Another preview build for the same project, configuration, and target framework is still running. AvaScope serializes these builds to avoid MSBuild intermediate-output collisions.",
+            buildLogPath: projectInfo.BuildLogPath);
+        return null;
+    }
+
+    private static string CreateProjectBuildMutexName(PreviewProjectInfo projectInfo)
+    {
+        var key = string.Join(
+            "|",
+            Path.GetFullPath(projectInfo.ProjectPath).ToUpperInvariant(),
+            projectInfo.BuildConfiguration ?? DefaultBuildConfiguration,
+            projectInfo.SelectedTargetFramework ?? projectInfo.TargetFramework ?? string.Empty);
+        var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(key)));
+        return $"AvaScope.PreviewHost.ProjectBuild.{hash}";
+    }
+
+    private sealed class ProjectBuildLock : IDisposable
+    {
+        private readonly Mutex _mutex;
+        private bool _disposed;
+
+        public ProjectBuildLock(Mutex mutex)
+        {
+            _mutex = mutex;
+        }
+
+        public void Dispose()
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            _disposed = true;
+            try
+            {
+                _mutex.ReleaseMutex();
+            }
+            finally
+            {
+                _mutex.Dispose();
+            }
+        }
     }
 
     private static string CreateBuildLogPath(string fullOutputPath)

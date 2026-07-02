@@ -27,19 +27,21 @@ GitHub Issues and Milestones are the primary project-management source for auton
 ## Current Focus
 
 - `Release v1.1.1`
-- GitHub Issue: #56
+- GitHub Issue: #57
 - GitHub Milestone: `v1.1.1`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-07-02`
-- Goal: fix the v1.1.0 smoke-test regression where runtime MCP follow-up tools cannot resolve sessions launched or attached through a custom `manifestDirectory`.
+- Goal: fix the v1.1.0 smoke-test regression where parallel previews against the same project can collide on MSBuild/Avalonia intermediate output under `obj`.
 
 ## Next Action
 
-Implement GitHub issue #56 with focused MCP/Core regression coverage for custom manifest-directory session resolution, then validate, commit, push, update the issue, and continue through the remaining `v1.1.1` smoke-test bugs.
+Implement GitHub issue #57 with focused PreviewHost/Core regression coverage for parallel project preview builds, then validate, commit, push, update the issue, and continue through the remaining `v1.1.1` smoke-test bugs.
 
 ## Latest Validation
 
+- `2026-07-02`: Completed local implementation for GitHub issue #57. PreviewHost now serializes `dotnet build` invocations per project path, build configuration, and selected target framework through a cross-process mutex before launching MSBuild, preserving isolated `BaseOutputPath` while avoiding shared `obj` collisions for parallel previews. Added `PreviewHostSerializesParallelBuildsForSameProject`, which deterministically fails without serialization by holding an exclusive lock under the default intermediate output. Validation passed with `dotnet build AvaScope.slnx --no-restore -v:minimal`, focused PreviewHost tests (`2` passed), full PreviewHost tests (`35` passed), a real parallel CLI smoke against `samples/AvaScope.GettingStartedApp` with two simultaneous previews, full Debug tests (`359` passed), and `git diff --check` with only LF/CRLF normalization warnings.
+- `2026-07-02`: Completed and closed GitHub issue #56 in commit `4cd6df3cabb30e56b928d6e764e22fc053529146`; pushed to `master`, issue moved to `status:done`, and roadmap card moved to `Done / 100% / Completed`. Started GitHub issue #57 for the `v1.1.1` patch milestone. The issue is `status:in-progress`, the roadmap card is `In Progress / 25% / Current Slice`, and intended validation is focused PreviewHost/Core tests around isolated or serialized parallel project preview builds plus build, relevant preview tests, full Debug tests, and `git diff --check`.
 - `2026-07-02`: Completed local implementation for GitHub issue #56. MCP runtime follow-up tools that resolve bridge sessions by session id now accept `manifestDirectory` and use the selected manifest store consistently for `list_top_levels`, `screenshot`, `visual_tree`, `logical_tree`, `find_nodes`, `input`, `close_session`, and runtime `reload`. Added regressions for custom manifest-directory attach/diagnostics/list/close and fake-pipe `visual_tree` follow-up resolution. Validation passed with `dotnet build AvaScope.slnx --no-restore -v:minimal`, focused MCP/Core tests (`64` passed), full Debug tests (`358` passed), and `git diff --check` with only LF/CRLF normalization warnings.
 - `2026-07-02`: Started GitHub issue #56 for the `v1.1.1` patch milestone. The issue is `status:in-progress`, the roadmap card is `In Progress / 25% / Current Slice`, and intended validation is focused MCP/Core tests for launch/attach/diagnostics plus a follow-up runtime tool using a custom manifest store, followed by build and relevant test suites.
 - `2026-07-02`: Started release tracker #55 for `v1.1.0` because `master` contains additive feature commits after the published `v1.0.2` tag. Created the `v1.1.0` GitHub milestone, added the release target to [RELEASE_PLAN.md](RELEASE_PLAN.md), and tightened capability descriptions for agent discovery around source mapping, live binding/DataContext inspection, layout explanation, coordinate-free semantic workflows, and preview state variants.

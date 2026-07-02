@@ -1051,6 +1051,138 @@ public sealed class PreviewHostSmokeTests
     }
 
     [Fact]
+    public async Task PreviewHostSerializesParallelBuildsForSameProject()
+    {
+        var hostAssembly = Path.Combine(AppContext.BaseDirectory, "AvaScope.PreviewHost.dll");
+        Assert.True(File.Exists(hostAssembly), $"Expected preview host assembly at {hostAssembly}.");
+
+        var testRoot = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(testRoot);
+
+        var projectPath = Path.Combine(testRoot, "ParallelPreviewSample.csproj");
+        var viewsDirectory = Path.Combine(testRoot, "Views");
+        Directory.CreateDirectory(viewsDirectory);
+
+        var viewPath = Path.Combine(viewsDirectory, "MainView.axaml");
+        var codeBehindPath = Path.Combine(viewsDirectory, "MainView.axaml.cs");
+        var firstRequestPath = Path.Combine(testRoot, "first-request.json");
+        var secondRequestPath = Path.Combine(testRoot, "second-request.json");
+        var firstOutputPath = Path.Combine(testRoot, "first-preview.png");
+        var secondOutputPath = Path.Combine(testRoot, "second-preview.png");
+
+        await File.WriteAllTextAsync(projectPath, """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <UsingTask TaskName="HoldIntermediateOutputLock"
+                         TaskFactory="RoslynCodeTaskFactory"
+                         AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
+                <ParameterGroup>
+                  <FilePath ParameterType="System.String" Required="true" />
+                </ParameterGroup>
+                <Task>
+                  <Code Type="Fragment" Language="cs"><![CDATA[
+                    var directory = System.IO.Path.GetDirectoryName(FilePath);
+                    if (!string.IsNullOrWhiteSpace(directory))
+                    {
+                        System.IO.Directory.CreateDirectory(directory);
+                    }
+
+                    using (var stream = new System.IO.FileStream(
+                        FilePath,
+                        System.IO.FileMode.OpenOrCreate,
+                        System.IO.FileAccess.ReadWrite,
+                        System.IO.FileShare.None))
+                    {
+                        System.Threading.Thread.Sleep(1500);
+                    }
+                  ]]></Code>
+                </Task>
+              </UsingTask>
+
+              <PropertyGroup>
+                <TargetFramework>net10.0</TargetFramework>
+                <Nullable>enable</Nullable>
+              </PropertyGroup>
+
+              <ItemGroup>
+                <PackageReference Include="Avalonia" Version="12.0.4" />
+              </ItemGroup>
+
+              <Target Name="AvaScopeHoldIntermediateOutputLock" BeforeTargets="CoreCompile">
+                <HoldIntermediateOutputLock FilePath="$(BaseIntermediateOutputPath)avascope-build.lock" />
+              </Target>
+            </Project>
+            """);
+
+        await File.WriteAllTextAsync(viewPath, """
+            <UserControl xmlns="https://github.com/avaloniaui"
+                         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                         x:Class="ParallelPreviewSample.Views.MainView">
+              <Border Background="#FFFFFFFF" Padding="8">
+                <TextBlock Text="Parallel preview sample" />
+              </Border>
+            </UserControl>
+            """);
+
+        await File.WriteAllTextAsync(codeBehindPath, """
+            using Avalonia.Controls;
+
+            namespace ParallelPreviewSample.Views;
+
+            public partial class MainView : UserControl
+            {
+                public MainView()
+                {
+                    InitializeComponent();
+                }
+            }
+            """);
+
+        var firstRequest = new PreviewRequest(
+            firstOutputPath,
+            width: 260,
+            height: 180,
+            dpi: 96,
+            projectPath: projectPath,
+            viewPath: Path.Combine("Views", "MainView.axaml"),
+            themeVariant: "light");
+        var secondRequest = new PreviewRequest(
+            secondOutputPath,
+            width: 280,
+            height: 180,
+            dpi: 96,
+            projectPath: projectPath,
+            viewPath: Path.Combine("Views", "MainView.axaml"),
+            themeVariant: "light");
+
+        await File.WriteAllTextAsync(firstRequestPath, JsonSerializer.Serialize(firstRequest, JsonOptions));
+        await File.WriteAllTextAsync(secondRequestPath, JsonSerializer.Serialize(secondRequest, JsonOptions));
+
+        try
+        {
+            var firstTask = RunPreviewHostAsync(hostAssembly, firstRequestPath, expectedExitCode: 0);
+            var secondTask = RunPreviewHostAsync(hostAssembly, secondRequestPath, expectedExitCode: 0);
+            var results = await Task.WhenAll(firstTask, secondTask);
+
+            Assert.All(results, result =>
+            {
+                Assert.NotNull(result);
+                Assert.True(result!.Success, result.Error?.Message);
+                Assert.NotNull(result.Value!.ProjectInfo);
+                Assert.Equal("isolated_default_build", result.Value.ProjectInfo!.BuildMode);
+                Assert.NotNull(result.Value.ProjectInfo.BuildOutputRoot);
+                Assert.True(File.Exists(result.Value.FilePath), result.Value.FilePath);
+            });
+            Assert.NotEqual(
+                results[0]!.Value!.ProjectInfo!.BuildOutputRoot,
+                results[1]!.Value!.ProjectInfo!.BuildOutputRoot);
+        }
+        finally
+        {
+            await DeleteDirectoryWithRetryAsync(testRoot);
+        }
+    }
+
+    [Fact]
     public async Task PreviewHostCanRenderFromExplicitAssemblyPathWithoutBuild()
     {
         var hostAssembly = Path.Combine(AppContext.BaseDirectory, "AvaScope.PreviewHost.dll");
