@@ -93,6 +93,18 @@ public sealed class CliSmokeTests
             tool.Adapter == "cli"
             && tool.Name == "explain-layout"
             && tool.CapabilityIds.Contains(AvaScopeCapabilityIds.RuntimeLayoutExplain));
+        var baselineCreate = Assert.Single(payload.Value.Tools, tool =>
+            tool.Adapter == "cli"
+            && tool.Name == "baseline-create");
+        Assert.DoesNotContain(AvaScopeCapabilityIds.ArtifactsRunIndex, baselineCreate.CapabilityIds);
+        var baselineCheck = Assert.Single(payload.Value.Tools, tool =>
+            tool.Adapter == "cli"
+            && tool.Name == "baseline-check");
+        Assert.Contains(AvaScopeCapabilityIds.ArtifactsRunIndex, baselineCheck.CapabilityIds);
+        var runIndexCapability = Assert.Single(payload.Value.Capabilities, capability =>
+            capability.Id == AvaScopeCapabilityIds.ArtifactsRunIndex);
+        Assert.DoesNotContain("baseline-create", runIndexCapability.Tools);
+        Assert.Contains("baseline-check", runIndexCapability.Tools);
         Assert.Contains(payload.Value.RuntimeMutationCapabilities, capability =>
             capability.Name == RuntimeMutationCapabilityCatalog.RuntimeMutationContract);
     }
@@ -1219,6 +1231,63 @@ public sealed class CliSmokeTests
                 Directory.Delete(testRoot, recursive: true);
             }
         }
+    }
+
+    [Theory]
+    [InlineData("--run-index")]
+    [InlineData("--task")]
+    [InlineData("--run-group")]
+    public async Task BaselineCreateRejectsRunIndexFlagsWithBaselineCheckGuidance(string flag)
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var result = await RunCliAsync(cliAssembly, "baseline-create", "sample.csproj", flag, "value");
+
+        Assert.Equal(2, result.ExitCode);
+        Assert.True(string.IsNullOrWhiteSpace(result.StandardError), result.StandardError);
+
+        var payload = JsonSerializer.Deserialize<ToolResult<PreviewBaselineCreateResponse>>(
+            result.StandardOutput,
+            JsonOptions);
+        Assert.NotNull(payload);
+        Assert.False(payload.Success);
+        Assert.Null(payload.Value);
+        Assert.Equal("invalid_cli_arguments", payload.Error!.Code);
+        Assert.Contains("baseline-create does not support run-index flags", payload.Error.Message, StringComparison.Ordinal);
+        Assert.Contains(flag, payload.Error.Message, StringComparison.Ordinal);
+        Assert.Contains("baseline-check", payload.Error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task BaselineSuiteCreateRejectsRunIndexFlagsWithBaselineCheckGuidance()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var result = await RunCliAsync(
+            cliAssembly,
+            "baseline-create",
+            "--suite",
+            "suite.json",
+            "--manifest",
+            "baseline.json",
+            "--run-index",
+            "runs");
+
+        Assert.Equal(2, result.ExitCode);
+        Assert.True(string.IsNullOrWhiteSpace(result.StandardError), result.StandardError);
+
+        var payload = JsonSerializer.Deserialize<ToolResult<PreviewBaselineCreateResponse>>(
+            result.StandardOutput,
+            JsonOptions);
+        Assert.NotNull(payload);
+        Assert.False(payload.Success);
+        Assert.Null(payload.Value);
+        Assert.Equal("invalid_cli_arguments", payload.Error!.Code);
+        Assert.Contains("baseline-create does not support run-index flags", payload.Error.Message, StringComparison.Ordinal);
+        Assert.Contains("--run-index", payload.Error.Message, StringComparison.Ordinal);
+        Assert.Contains("baseline-check", payload.Error.Message, StringComparison.Ordinal);
     }
 
     [Fact]

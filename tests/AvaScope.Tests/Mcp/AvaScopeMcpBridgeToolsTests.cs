@@ -9,6 +9,8 @@ namespace AvaScope.Tests.Mcp;
 [Collection(BridgeCollectionDefinition.Name)]
 public sealed class AvaScopeMcpBridgeToolsTests : IDisposable
 {
+    private static readonly TimeSpan BridgePipeTestTimeout = TimeSpan.FromSeconds(30);
+
     public AvaScopeMcpBridgeToolsTests()
     {
         AvaScopeBridge.Deactivate();
@@ -23,7 +25,7 @@ public sealed class AvaScopeMcpBridgeToolsTests : IDisposable
     public async Task AttachToAppUsesLocalBridgeManifestAndPipeHealth()
     {
         var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Sample app"));
-        var client = new LocalBridgeClient(Path.GetDirectoryName(runtime.SessionManifestPath)!);
+        var client = new LocalBridgeClient(Path.GetDirectoryName(runtime.SessionManifestPath)!, BridgePipeTestTimeout);
 
         var result = await AvaScopeMcpTools.AttachToApp(client, sessionId: runtime.SessionId.Value);
 
@@ -41,7 +43,7 @@ public sealed class AvaScopeMcpBridgeToolsTests : IDisposable
     {
         var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Sample app"));
         var manifestDirectory = Path.GetDirectoryName(runtime.SessionManifestPath)!;
-        var client = new LocalBridgeClient(Path.Combine(manifestDirectory, "missing"));
+        var client = new LocalBridgeClient(Path.Combine(manifestDirectory, "missing"), BridgePipeTestTimeout);
 
         var result = await AvaScopeMcpTools.AttachToApp(
             client,
@@ -66,7 +68,7 @@ public sealed class AvaScopeMcpBridgeToolsTests : IDisposable
             "AvaScope.Tests",
             $"mcp-custom-manifest-{Guid.NewGuid():N}");
         var manifestDirectory = Path.Combine(testRoot, "sessions");
-        var client = new LocalBridgeClient(Path.Combine(testRoot, "missing"));
+        var client = new LocalBridgeClient(Path.Combine(testRoot, "missing"), BridgePipeTestTimeout);
 
         try
         {
@@ -141,7 +143,7 @@ public sealed class AvaScopeMcpBridgeToolsTests : IDisposable
     {
         var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Sample app"));
         var manifestPath = runtime.SessionManifestPath!;
-        var client = new LocalBridgeClient(Path.GetDirectoryName(manifestPath)!);
+        var client = new LocalBridgeClient(Path.GetDirectoryName(manifestPath)!, BridgePipeTestTimeout);
 
         var result = await AvaScopeMcpTools.CloseSession(client, runtime.SessionId.Value);
 
@@ -161,7 +163,7 @@ public sealed class AvaScopeMcpBridgeToolsTests : IDisposable
     {
         var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Sample app"));
         var manifestPath = runtime.SessionManifestPath!;
-        var client = new LocalBridgeClient(Path.GetDirectoryName(manifestPath)!);
+        var client = new LocalBridgeClient(Path.GetDirectoryName(manifestPath)!, BridgePipeTestTimeout);
         var previewHostClient = new PreviewHostClient(Path.Combine(AppContext.BaseDirectory, "AvaScope.PreviewHost.dll"));
         var previewSessionStore = new PreviewSessionStore(Path.Combine(
             Path.GetTempPath(),

@@ -1510,7 +1510,7 @@ public sealed class AvaScopeMcpTools
     {
         return string.IsNullOrWhiteSpace(manifestDirectory)
             ? bridgeClient
-            : new LocalBridgeClient(manifestDirectory);
+            : new LocalBridgeClient(manifestDirectory, bridgeClient.OperationTimeout);
     }
 
     private static DiagnosticsResponse ApplyDiagnosticsMode(

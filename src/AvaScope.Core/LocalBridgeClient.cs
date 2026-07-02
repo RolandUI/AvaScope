@@ -34,6 +34,8 @@ public sealed class LocalBridgeClient
 
     public string ManifestDirectory { get; }
 
+    public TimeSpan OperationTimeout => _operationTimeout;
+
     public IReadOnlyList<BridgeSessionManifest> ListSessionManifests()
     {
         if (!Directory.Exists(ManifestDirectory))

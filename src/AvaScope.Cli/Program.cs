@@ -1050,6 +1050,11 @@ internal static class Program
             return 2;
         }
 
+        if (!ValidateBaselineCreateRunIndexOptions(options.Values))
+        {
+            return 2;
+        }
+
         if (!ValidateOptions(
                 options.Values,
                 GetBaselineCreateUsage(),
@@ -1126,6 +1131,11 @@ internal static class Program
         if (!options.Success)
         {
             WriteFailure<PreviewBaselineCreateResponse>(InvalidCliArguments, options.Error!);
+            return 2;
+        }
+
+        if (!ValidateBaselineCreateRunIndexOptions(options.Values))
+        {
             return 2;
         }
 
@@ -2704,6 +2714,26 @@ internal static class Program
         }
 
         return true;
+    }
+
+    private static bool ValidateBaselineCreateRunIndexOptions(IReadOnlyDictionary<string, string> options)
+    {
+        var unsupported = options.Keys
+            .Where(static key => string.Equals(key, "run-index", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(key, "task", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(key, "run-group", StringComparison.OrdinalIgnoreCase))
+            .Select(static key => $"--{key}")
+            .OrderBy(static key => key, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        if (unsupported.Length == 0)
+        {
+            return true;
+        }
+
+        WriteFailure<PreviewBaselineCreateResponse>(
+            InvalidCliArguments,
+            $"baseline-create does not support run-index flags ({string.Join(", ", unsupported)}); use --run-index, --task, and --run-group with baseline-check after creating the baseline.");
+        return false;
     }
 
     private static void AddFileCheck(
