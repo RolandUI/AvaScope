@@ -26,20 +26,22 @@ GitHub Issues and Milestones are the primary project-management source for auton
 
 ## Current Focus
 
-- `Release v1.1.0`
-- GitHub Issue: #55
-- GitHub Milestone: `v1.1.0`
-- Status: `Done`
+- `Release v1.1.1`
+- GitHub Issue: #56
+- GitHub Milestone: `v1.1.1`
+- Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-07-02`
-- Goal: publish the additive agent-facing runtime diagnostics, semantic workflow, preview/evidence, artifact navigation, and discovery/versioning capabilities completed after `v1.0.2`.
+- Goal: fix the v1.1.0 smoke-test regression where runtime MCP follow-up tools cannot resolve sessions launched or attached through a custom `manifestDirectory`.
 
 ## Next Action
 
-No open GitHub issues remain. For the next release, create a new milestone/release tracker before implementation.
+Implement GitHub issue #56 with focused MCP/Core regression coverage for custom manifest-directory session resolution, then validate, commit, push, update the issue, and continue through the remaining `v1.1.1` smoke-test bugs.
 
 ## Latest Validation
 
+- `2026-07-02`: Completed local implementation for GitHub issue #56. MCP runtime follow-up tools that resolve bridge sessions by session id now accept `manifestDirectory` and use the selected manifest store consistently for `list_top_levels`, `screenshot`, `visual_tree`, `logical_tree`, `find_nodes`, `input`, `close_session`, and runtime `reload`. Added regressions for custom manifest-directory attach/diagnostics/list/close and fake-pipe `visual_tree` follow-up resolution. Validation passed with `dotnet build AvaScope.slnx --no-restore -v:minimal`, focused MCP/Core tests (`64` passed), full Debug tests (`358` passed), and `git diff --check` with only LF/CRLF normalization warnings.
+- `2026-07-02`: Started GitHub issue #56 for the `v1.1.1` patch milestone. The issue is `status:in-progress`, the roadmap card is `In Progress / 25% / Current Slice`, and intended validation is focused MCP/Core tests for launch/attach/diagnostics plus a follow-up runtime tool using a custom manifest store, followed by build and relevant test suites.
 - `2026-07-02`: Started release tracker #55 for `v1.1.0` because `master` contains additive feature commits after the published `v1.0.2` tag. Created the `v1.1.0` GitHub milestone, added the release target to [RELEASE_PLAN.md](RELEASE_PLAN.md), and tightened capability descriptions for agent discovery around source mapping, live binding/DataContext inspection, layout explanation, coordinate-free semantic workflows, and preview state variants.
 - `2026-07-02`: Local `v1.1.0` release gate passed after stopping a stale artifact-hosted MCP process that held the previous packaged output. Validation passed with `dotnet build AvaScope.slnx --no-restore -v:minimal`, `dotnet test AvaScope.slnx --no-build` (`356` passed), `eng/create-local-release.ps1` (Release build/test `356` passed, three `1.1.0` NuGet packages, win/linux framework-dependent ZIPs, manifest verification, packaged doctor smoke, and packaged sample preview smoke), `eng/publish-nuget.ps1 -DryRun`, `eng/publish-github-release.ps1 -Tag v1.1.0 -DryRun`, packaged `avascope.exe --version`, packaged capability gate for the new runtime/preview/artifact ids, and `git diff --check` with only LF/CRLF normalization warnings.
 - `2026-07-02`: Published `v1.1.0` from commit `88bc782cfe8d9ede259a3f542a3b3ab7e7bd449f` through Release workflow `28566542499` (`push`, success). The workflow published the three `1.1.0` packages to nuget.org and GitHub Packages, created tag `v1.1.0`, uploaded six GitHub Release assets, and `git ls-remote --tags origin refs/tags/v1.1.0` confirmed the tag points at the release commit.

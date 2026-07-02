@@ -112,6 +112,7 @@ public sealed class AvaScopeMcpTools
     public static async Task<ToolResult<ListTopLevelsResponse>> ListTopLevels(
         LocalBridgeClient bridgeClient,
         string sessionId,
+        string? manifestDirectory = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(bridgeClient);
@@ -121,7 +122,9 @@ public sealed class AvaScopeMcpTools
             return ToolResult<ListTopLevelsResponse>.Fail(error!);
         }
 
-        return ToToolResult(await bridgeClient.ListTopLevelsAsync(parsedSessionId!, cancellationToken));
+        return ToToolResult(await CreateBridgeClient(bridgeClient, manifestDirectory).ListTopLevelsAsync(
+            parsedSessionId!,
+            cancellationToken));
     }
 
     [McpServerTool(
@@ -138,6 +141,7 @@ public sealed class AvaScopeMcpTools
         string sessionId,
         string topLevelId,
         string outputPath,
+        string? manifestDirectory = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(bridgeClient);
@@ -147,7 +151,7 @@ public sealed class AvaScopeMcpTools
             return ToolResult<ScreenshotResponse>.Fail(error!);
         }
 
-        return ToToolResult(await bridgeClient.CaptureScreenshotAsync(
+        return ToToolResult(await CreateBridgeClient(bridgeClient, manifestDirectory).CaptureScreenshotAsync(
             parsedSessionId!,
             topLevelId,
             outputPath,
@@ -211,6 +215,7 @@ public sealed class AvaScopeMcpTools
         string sessionId,
         string topLevelId,
         int? maxDepth = null,
+        string? manifestDirectory = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(bridgeClient);
@@ -220,7 +225,7 @@ public sealed class AvaScopeMcpTools
             return ToolResult<TreeResponse>.Fail(error!);
         }
 
-        return ToToolResult(await bridgeClient.VisualTreeAsync(
+        return ToToolResult(await CreateBridgeClient(bridgeClient, manifestDirectory).VisualTreeAsync(
             parsedSessionId!,
             topLevelId,
             maxDepth,
@@ -241,6 +246,7 @@ public sealed class AvaScopeMcpTools
         string sessionId,
         string topLevelId,
         int? maxDepth = null,
+        string? manifestDirectory = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(bridgeClient);
@@ -250,7 +256,7 @@ public sealed class AvaScopeMcpTools
             return ToolResult<TreeResponse>.Fail(error!);
         }
 
-        return ToToolResult(await bridgeClient.LogicalTreeAsync(
+        return ToToolResult(await CreateBridgeClient(bridgeClient, manifestDirectory).LogicalTreeAsync(
             parsedSessionId!,
             topLevelId,
             maxDepth,
@@ -343,6 +349,7 @@ public sealed class AvaScopeMcpTools
         string? text = null,
         int? maxDepth = null,
         int? maxResults = null,
+        string? manifestDirectory = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(bridgeClient);
@@ -352,7 +359,7 @@ public sealed class AvaScopeMcpTools
             return ToolResult<FindNodesResponse>.Fail(error!);
         }
 
-        return ToToolResult(await bridgeClient.FindNodesAsync(
+        return ToToolResult(await CreateBridgeClient(bridgeClient, manifestDirectory).FindNodesAsync(
             parsedSessionId!,
             topLevelId,
             treeKind,
@@ -461,6 +468,7 @@ public sealed class AvaScopeMcpTools
         string? targetNodeId = null,
         string? inputKey = null,
         string? keyModifiers = null,
+        string? manifestDirectory = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(bridgeClient);
@@ -470,7 +478,7 @@ public sealed class AvaScopeMcpTools
             return ToolResult<InputResponse>.Fail(error!);
         }
 
-        return ToToolResult(await bridgeClient.InputAsync(
+        return ToToolResult(await CreateBridgeClient(bridgeClient, manifestDirectory).InputAsync(
             parsedSessionId!,
             topLevelId,
             action,
@@ -810,6 +818,7 @@ public sealed class AvaScopeMcpTools
     public static async Task<ToolResult<CloseSessionResponse>> CloseSession(
         LocalBridgeClient bridgeClient,
         string sessionId,
+        string? manifestDirectory = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(bridgeClient);
@@ -819,7 +828,9 @@ public sealed class AvaScopeMcpTools
             return ToolResult<CloseSessionResponse>.Fail(error!);
         }
 
-        return ToToolResult(await bridgeClient.CloseSessionAsync(parsedSessionId!, cancellationToken));
+        return ToToolResult(await CreateBridgeClient(bridgeClient, manifestDirectory).CloseSessionAsync(
+            parsedSessionId!,
+            cancellationToken));
     }
 
     [McpServerTool(
@@ -1401,6 +1412,7 @@ public sealed class AvaScopeMcpTools
         PreviewSessionRegistry previewSessions,
         LocalBridgeClient bridgeClient,
         string sessionId,
+        string? manifestDirectory = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(previewSessions);
@@ -1417,7 +1429,9 @@ public sealed class AvaScopeMcpTools
             return ToToolResult(previewReload);
         }
 
-        var runtimeReload = await bridgeClient.ReloadRuntimeAsync(parsedSessionId!, cancellationToken);
+        var runtimeReload = await CreateBridgeClient(bridgeClient, manifestDirectory).ReloadRuntimeAsync(
+            parsedSessionId!,
+            cancellationToken);
         return runtimeReload.Error!.Code == CoreErrorCodes.BridgeSessionNotFound
             ? ToToolResult(previewReload)
             : ToolResult<PreviewSessionSummary>.Fail(new ProtocolError(

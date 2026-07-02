@@ -1,3 +1,5 @@
+using System.IO.Pipes;
+using System.Text;
 using System.Text.Json;
 using AvaScope.Core;
 using AvaScope.Mcp;
@@ -213,6 +215,71 @@ public sealed class AvaScopeMcpToolsTests
         Assert.False(result.Success);
         Assert.Null(result.Value);
         Assert.Equal(CoreErrorCodes.InvalidBridgeRequest, result.Error!.Code);
+    }
+
+    [Fact]
+    public async Task VisualTreeUsesManifestDirectoryOverride()
+    {
+        var testRoot = Path.Combine(
+            Path.GetTempPath(),
+            "AvaScope.Tests",
+            $"mcp-visual-tree-manifest-{Guid.NewGuid():N}");
+        var manifestDirectory = Path.Combine(testRoot, "sessions");
+        Directory.CreateDirectory(manifestDirectory);
+        var sessionId = SessionId.New();
+        var topLevelId = "topLevel:mcp";
+        var pipeName = $"avascope-mcp-tree-{Guid.NewGuid():N}";
+        var manifestPath = Path.Combine(manifestDirectory, "runtime.json");
+        await File.WriteAllTextAsync(
+            manifestPath,
+            JsonSerializer.Serialize(new BridgeSessionManifest(
+                sessionId,
+                Environment.ProcessId,
+                pipeName,
+                DateTimeOffset.UtcNow,
+                "Custom manifest runtime")));
+        var serverTask = RespondToBridgeRequestAsync(
+            pipeName,
+            request =>
+            {
+                Assert.Equal(BridgeIpcMethods.VisualTree, request.Method);
+                Assert.Equal(topLevelId, request.TopLevelId);
+                Assert.Equal(2, request.MaxDepth);
+
+                return BridgeIpcResponse.Ok(
+                    request.RequestId,
+                    new TreeResponse(
+                        sessionId,
+                        topLevelId,
+                        TreeKinds.Visual,
+                        2,
+                        new TreeNodeSummary("visual:root", "Avalonia.Controls.Window", "Main")));
+            });
+        var client = new LocalBridgeClient(Path.Combine(testRoot, "missing"));
+
+        try
+        {
+            var result = await AvaScopeMcpTools.VisualTree(
+                client,
+                sessionId.Value,
+                topLevelId,
+                maxDepth: 2,
+                manifestDirectory: manifestDirectory);
+            var request = await serverTask;
+
+            Assert.True(result.Success, result.Error?.Message);
+            Assert.Equal(BridgeIpcMethods.VisualTree, request.Method);
+            Assert.Equal(sessionId, result.Value!.SessionId);
+            Assert.Equal(topLevelId, result.Value.TopLevelId);
+            Assert.Equal("visual:root", result.Value.Root.NodeId);
+        }
+        finally
+        {
+            if (Directory.Exists(testRoot))
+            {
+                Directory.Delete(testRoot, recursive: true);
+            }
+        }
     }
 
     [Fact]
@@ -813,6 +880,95 @@ public sealed class AvaScopeMcpToolsTests
                 Path.GetTempPath(),
                 "AvaScope.Tests",
                 $"missing-preview-host-{Guid.NewGuid():N}.dll")));
+    }
+
+    private static async Task<BridgeIpcRequest> RespondToBridgeRequestAsync(
+        string pipeName,
+        Func<BridgeIpcRequest, BridgeIpcResponse> responseFactory)
+    {
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        try
+        {
+            while (true)
+            {
+                await using var pipe = new NamedPipeServerStream(
+                    pipeName,
+                    PipeDirection.InOut,
+                    maxNumberOfServerInstances: 1,
+                    PipeTransmissionMode.Byte,
+                    PipeOptions.Asynchronous);
+
+                await pipe.WaitForConnectionAsync(cancellation.Token);
+                var requestLine = await ReadLineAsync(pipe, cancellation.Token);
+                if (string.IsNullOrWhiteSpace(requestLine))
+                {
+                    continue;
+                }
+
+                BridgeIpcRequest? request;
+                try
+                {
+                    request = JsonSerializer.Deserialize<BridgeIpcRequest>(requestLine);
+                }
+                catch (JsonException)
+                {
+                    continue;
+                }
+
+                if (request is null)
+                {
+                    continue;
+                }
+
+                var responseBytes = Encoding.UTF8.GetBytes(
+                    JsonSerializer.Serialize(responseFactory(request)) + Environment.NewLine);
+                try
+                {
+                    await pipe.WriteAsync(responseBytes, cancellation.Token);
+                    await pipe.FlushAsync(cancellation.Token);
+                }
+                catch (IOException)
+                {
+                    return request;
+                }
+
+                return request;
+            }
+        }
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+        {
+            throw new TimeoutException($"Timed out waiting for a bridge IPC request on pipe '{pipeName}'.");
+        }
+    }
+
+    private static async Task<string> ReadLineAsync(Stream stream, CancellationToken cancellationToken)
+    {
+        var bytes = new List<byte>();
+        var buffer = new byte[128];
+
+        while (true)
+        {
+            var read = await stream.ReadAsync(buffer.AsMemory(0, buffer.Length), cancellationToken);
+            if (read == 0)
+            {
+                break;
+            }
+
+            for (var index = 0; index < read; index++)
+            {
+                if (buffer[index] == (byte)'\n')
+                {
+                    return Encoding.UTF8.GetString(bytes.ToArray());
+                }
+
+                if (buffer[index] != (byte)'\r')
+                {
+                    bytes.Add(buffer[index]);
+                }
+            }
+        }
+
+        return Encoding.UTF8.GetString(bytes.ToArray());
     }
 
     private static void WriteSemanticFixture(string path, bool shifted, bool border)

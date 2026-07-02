@@ -57,6 +57,86 @@ public sealed class AvaScopeMcpBridgeToolsTests : IDisposable
     }
 
     [Fact]
+    public async Task RuntimeFollowUpToolsUseManifestDirectoryOverride()
+    {
+        var previousManifestDirectory = Environment.GetEnvironmentVariable(
+            BridgeSessionManifest.DirectoryEnvironmentVariable);
+        var testRoot = Path.Combine(
+            Path.GetTempPath(),
+            "AvaScope.Tests",
+            $"mcp-custom-manifest-{Guid.NewGuid():N}");
+        var manifestDirectory = Path.Combine(testRoot, "sessions");
+        var client = new LocalBridgeClient(Path.Combine(testRoot, "missing"));
+
+        try
+        {
+            Environment.SetEnvironmentVariable(
+                BridgeSessionManifest.DirectoryEnvironmentVariable,
+                manifestDirectory);
+            var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Custom manifest app"));
+            var manifestPath = runtime.SessionManifestPath!;
+
+            Assert.Equal(Path.GetFullPath(manifestDirectory), Path.GetDirectoryName(Path.GetFullPath(manifestPath)));
+
+            var attach = await AvaScopeMcpTools.AttachToApp(
+                client,
+                sessionId: runtime.SessionId.Value,
+                manifestDirectory: manifestDirectory);
+
+            Assert.True(attach.Success, attach.Error?.Message);
+            Assert.Equal(runtime.SessionId, attach.Value!.Session.SessionId);
+
+            var previewHostClient = new PreviewHostClient(Path.Combine(AppContext.BaseDirectory, "AvaScope.PreviewHost.dll"));
+            var previewSessionStore = new PreviewSessionStore(Path.Combine(testRoot, "preview-sessions"));
+            var diagnostics = await AvaScopeMcpTools.Diagnostics(
+                client,
+                previewHostClient,
+                previewSessionStore,
+                sessionId: runtime.SessionId.Value,
+                manifestDirectory: manifestDirectory);
+
+            Assert.True(diagnostics.Success, diagnostics.Error?.Message);
+            Assert.Equal(Path.GetFullPath(manifestDirectory), diagnostics.Value!.ManifestDirectory);
+            var bridge = Assert.Single(diagnostics.Value.BridgeSessions);
+            Assert.Equal(runtime.SessionId, bridge.Session!.SessionId);
+            Assert.Equal(DiagnosticStatuses.Available, bridge.Status);
+
+            var topLevels = await AvaScopeMcpTools.ListTopLevels(
+                client,
+                runtime.SessionId.Value,
+                manifestDirectory: manifestDirectory);
+
+            Assert.True(topLevels.Success, topLevels.Error?.Message);
+            Assert.Empty(topLevels.Value!.TopLevels);
+
+            var close = await AvaScopeMcpTools.CloseSession(
+                client,
+                runtime.SessionId.Value,
+                manifestDirectory: manifestDirectory);
+
+            Assert.True(close.Success, close.Error?.Message);
+            Assert.Equal(runtime.SessionId, close.Value!.Session.SessionId);
+            await WaitForAsync(() => !AvaScopeBridge.IsActive && !File.Exists(manifestPath));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(
+                BridgeSessionManifest.DirectoryEnvironmentVariable,
+                previousManifestDirectory);
+
+            if (AvaScopeBridge.IsActive)
+            {
+                AvaScopeBridge.Deactivate();
+            }
+
+            if (Directory.Exists(testRoot))
+            {
+                Directory.Delete(testRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
     public async Task CloseSessionUsesLocalBridgeManifestAndPipeHandshake()
     {
         var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Sample app"));
