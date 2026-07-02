@@ -54,10 +54,10 @@ The roadmap below records the release-shaped plan through `v1.0.0`. It is intent
 
 - Release: `v1.1.0`
 - Target Version: `1.1.0`
-- Release State: `In Progress`
+- Release State: `Release Candidate`
 - Scope Lock: `2026-07-02`
 - Release Commit: pending
-- Local Release Gate: pending
+- Local Release Gate: passed on `2026-07-02`
 - GitHub Release: pending
 - GitHub Milestone: `v1.1.0`
 - GitHub Issues: #55
@@ -83,7 +83,8 @@ The `v1.1.0` release target is an additive minor release for agent-facing runtim
 
 ### v1.1.0 Implementation Validation
 
-- `2026-07-02`: Started release tracker #55 and selected `v1.1.0` because `master` contains additive feature commits after the published `v1.0.2` tag. Capability descriptions were tightened for agent discovery, especially source mapping, binding inspection, layout explanation, semantic workflows, and preview state variants. Release gate pending.
+- `2026-07-02`: Started release tracker #55 and selected `v1.1.0` because `master` contains additive feature commits after the published `v1.0.2` tag. Capability descriptions were tightened for agent discovery, especially source mapping, binding inspection, layout explanation, semantic workflows, and preview state variants.
+- `2026-07-02`: Local `v1.1.0` release gate passed after stopping a stale artifact-hosted MCP process that held the previous packaged output. Validation passed with `dotnet build AvaScope.slnx --no-restore -v:minimal`, `dotnet test AvaScope.slnx --no-build` (`356` passed), `eng/create-local-release.ps1` (Release build/test `356` passed, three `1.1.0` NuGet packages, win/linux framework-dependent ZIPs, manifest verification, packaged doctor smoke, and packaged sample preview smoke), `eng/publish-nuget.ps1 -DryRun`, `eng/publish-github-release.ps1 -Tag v1.1.0 -DryRun`, packaged `avascope.exe --version`, packaged `capabilities --require runtime.source_map,runtime.layout_explain,runtime.binding_inspector,runtime.semantic_workflow,preview.state_variants,artifacts.run_index`, and `git diff --check` with only LF/CRLF normalization warnings.
 
 ## v1.0 Readiness Definition
 
