@@ -50,6 +50,46 @@ The roadmap below records the release-shaped plan through `v1.0.0`. It is intent
 - Every release must include targeted tests, full build/test validation, release dry-run validation, documentation updates, and explicit deferrals.
 - A release may be split into a patch release if a P0/P1 regression blocks users or CI, but patch scope must remain defect-focused.
 
+## Current Release Target
+
+- Release: `v1.1.1`
+- Target Version: `1.1.1`
+- Release State: `Release Candidate`
+- Scope Lock: `2026-07-02`
+- Release Commit: pending
+- Local Release Gate: passed on `2026-07-02`
+- GitHub Release: pending
+- GitHub Milestone: `v1.1.1`
+- GitHub Issues: #56, #57, #58, #59, #60, #61, #62
+- Previous Release: `v1.1.0`
+
+### v1.1.1 Release Goals
+
+The `v1.1.1` release target is a defect-focused patch for the AvaScope 1.1.0 TradeR smoke-test report. Scope is limited to the completed bug issues and guarded release publication.
+
+1. `RG-1.1.1-1 Runtime MCP Manifest Store Resolution`: ship #56 so runtime MCP follow-up tools consistently honor `manifestDirectory`.
+2. `RG-1.1.1-2 Serialized Preview Project Builds`: ship #57 so parallel previews do not collide on project intermediate output.
+3. `RG-1.1.1-3 Selector-First Runtime Targeting`: ship #58 so stale/raw runtime node ids get explicit diagnostics and selector-based recovery where possible.
+4. `RG-1.1.1-4 Pointer Diagnostics Target Evidence`: ship #59 so pointer workflows report requested/effective coordinates and hit-path mismatches.
+5. `RG-1.1.1-5 Run-Index Help Accuracy`: ship #60 so `baseline-create` rejects unsupported run-index flags with command-specific guidance.
+6. `RG-1.1.1-6 Component Origin Diagnostics`: ship #61 so diagnostics identify CLI, MCP, and PreviewHost component origins and mixed install roots.
+7. `RG-1.1.1-7 Guarded Patch Release`: publish only after the local release gate passes and the Release workflow creates `v1.1.1`, NuGet/GitHub packages, executable ZIPs, manifest, and GitHub Release assets.
+
+### v1.1.1 Milestone Map
+
+- #56 `Runtime MCP tools cannot resolve custom manifestDirectory bridge sessions`; Status: `Done`.
+- #57 `Parallel previews collide on project obj intermediate output`; Status: `Done`.
+- #58 `Runtime raw node ids are too fragile for multi-step workflows`; Status: `Done`.
+- #59 `Pointer diagnostics and pseudo-state input miss selected control`; Status: `Done`.
+- #60 `Clarify baseline-create run-index capability/help mismatch`; Status: `Done`.
+- #61 `Diagnostics can report PreviewHost from a different install root than repo-local CLI`; Status: `Done`.
+- #62 `Release v1.1.1`; Status: `In Progress`.
+
+### v1.1.1 Implementation Validation
+
+- `2026-07-02`: Started release tracker #62 after #56-#61 were completed and closed. The patch scope is locked to the AvaScope 1.1.0 TradeR smoke-test bug set plus guarded release publication.
+- `2026-07-02`: Local `v1.1.1` release gate passed after stopping three stale artifact-hosted `dotnet ...\AvaScope.Mcp.dll` processes that held the previous packaged output. Validation passed with `dotnet build AvaScope.slnx --no-restore -v:minimal`, `dotnet test AvaScope.slnx --no-build` (`369` passed), focused bridge/headless reproduction tests (`18` passed), `eng/create-local-release.ps1` (Release build/test `369` passed, three `1.1.1` NuGet packages, win/linux framework-dependent ZIPs, manifest verification, packaged doctor smoke, and packaged sample preview smoke), `eng/publish-nuget.ps1 -DryRun`, `eng/publish-github-release.ps1 -Tag v1.1.1 -DryRun`, packaged `avascope.exe --version` (`1.1.1`), and packaged capability gate for the runtime/preview/artifact ids.
+
 ## Released Target: v1.1.0
 
 - Release: `v1.1.0`

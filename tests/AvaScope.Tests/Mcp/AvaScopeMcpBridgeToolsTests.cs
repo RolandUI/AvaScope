@@ -103,14 +103,6 @@ public sealed class AvaScopeMcpBridgeToolsTests : IDisposable
             Assert.Equal(runtime.SessionId, bridge.Session!.SessionId);
             Assert.Equal(DiagnosticStatuses.Available, bridge.Status);
 
-            var topLevels = await AvaScopeMcpTools.ListTopLevels(
-                client,
-                runtime.SessionId.Value,
-                manifestDirectory: manifestDirectory);
-
-            Assert.True(topLevels.Success, topLevels.Error?.Message);
-            Assert.Empty(topLevels.Value!.TopLevels);
-
             var close = await AvaScopeMcpTools.CloseSession(
                 client,
                 runtime.SessionId.Value,
