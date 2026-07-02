@@ -120,6 +120,7 @@ public sealed class RuntimePseudoStateMatrixRunner
         ScreenshotResponse? screenshot = null;
         RuntimePseudoStateTargetSummary? targetSummary = null;
         Dictionary<string, string>? metadata = null;
+        var stateTarget = target;
         var screenshotPath = Path.Combine(
             outputDirectory,
             $"{(stateIndex + 1).ToString("00", CultureInfo.InvariantCulture)}-{SanitizeFileToken(state)}.png");
@@ -134,17 +135,22 @@ public sealed class RuntimePseudoStateMatrixRunner
                 return await CompleteAsync();
             }
 
-            var node = FindNodeById(currentTree.Value!.Root, target.NodeId);
-            if (node is null)
+            var targetResolution = ResolveStateTarget(currentTree.Value!.Root, request, target);
+            if (!targetResolution.Success)
             {
-                var diagnostic = new ProtocolError(
-                    "pseudo_state_target_not_found",
-                    $"Pseudo-state target node '{target.NodeId}' was not found in the visual tree.",
-                    new Dictionary<string, string> { ["nodeId"] = target.NodeId ?? "not_available" });
+                var diagnostic = ToProtocolError(targetResolution.Error!);
                 diagnostics.Add(diagnostic);
                 status = Failed;
                 message = diagnostic.Message;
                 return await CompleteAsync();
+            }
+
+            var node = targetResolution.Value!.Node;
+            stateTarget = targetResolution.Value.Target;
+            diagnostics.AddRange(targetResolution.Value.Diagnostics);
+            if (stateIndex == 0 && UsesExplicitRawNodeIdWithoutStableFilters(request))
+            {
+                diagnostics.Add(CreateRawNodeIdScopeDiagnostic(request, stateTarget, node));
             }
 
             targetSummary = ToTargetSummary(node);
@@ -203,7 +209,7 @@ public sealed class RuntimePseudoStateMatrixRunner
                         var mutation = await ApplyBoolMutationAsync(
                             bridgeClient,
                             request,
-                            target,
+                            stateTarget,
                             state,
                             operation.PropertyName!,
                             operation.Value,
@@ -246,7 +252,7 @@ public sealed class RuntimePseudoStateMatrixRunner
             screenshot = screenshotResult.Value!;
             var afterTree = await bridgeClient.VisualTreeAsync(request.SessionId, request.TopLevelId, request.MaxDepth, cancellationToken);
             var afterNode = afterTree.Success
-                ? FindNodeById(afterTree.Value!.Root, target.NodeId) ?? node
+                ? FindNodeById(afterTree.Value!.Root, stateTarget.NodeId) ?? node
                 : node;
             if (!afterTree.Success)
             {
@@ -290,7 +296,7 @@ public sealed class RuntimePseudoStateMatrixRunner
 
             foreach (var mutation in appliedMutations.Where(static mutation => mutation.Applied).Reverse<RuntimeMutationResponse>())
             {
-                var reset = await ResetMutationAsync(bridgeClient, request, target, mutation.MutationId, cancellationToken);
+                var reset = await ResetMutationAsync(bridgeClient, request, stateTarget, mutation.MutationId, cancellationToken);
                 if (reset.Success)
                 {
                     resetMutations.Add(reset.Value!);
@@ -410,6 +416,262 @@ public sealed class RuntimePseudoStateMatrixRunner
             request.TreeKind,
             matches.Value.Matches[0].Node.NodeId,
             targetKind: "node"));
+    }
+
+    private static CoreResult<StateTargetResolution> ResolveStateTarget(
+        TreeNodeSummary root,
+        RuntimePseudoStateMatrixRequest request,
+        RuntimeTargetContext target)
+    {
+        var node = FindNodeById(root, target.NodeId);
+        if (node is not null)
+        {
+            return CoreResult<StateTargetResolution>.Ok(new StateTargetResolution(
+                node,
+                CreateEffectiveTarget(request, target, node),
+                []));
+        }
+
+        if (HasStableTargetFilters(request))
+        {
+            var matches = FindNodesByFilters(root, request, maxResults: 2);
+            if (matches.Count > 0)
+            {
+                var selected = matches[0];
+                var diagnostics = new List<ProtocolError>
+                {
+                    CreateReresolvedTargetDiagnostic(request, target, matches)
+                };
+
+                return CoreResult<StateTargetResolution>.Ok(new StateTargetResolution(
+                    selected,
+                    CreateEffectiveTarget(request, target, selected),
+                    diagnostics));
+            }
+        }
+
+        return CoreResult<StateTargetResolution>.Fail(new CoreError(
+            "pseudo_state_target_not_found",
+            $"Pseudo-state target node '{target.NodeId ?? "not_available"}' was not found in the current visual tree.",
+            CreateTargetNotFoundDetails(request, target)));
+    }
+
+    private static RuntimeTargetContext CreateEffectiveTarget(
+        RuntimePseudoStateMatrixRequest request,
+        RuntimeTargetContext requestedTarget,
+        TreeNodeSummary node)
+    {
+        return node.Target ?? new RuntimeTargetContext(
+            request.SessionId,
+            request.TopLevelId,
+            requestedTarget.TreeKind ?? request.TreeKind,
+            node.NodeId,
+            targetKind: "node");
+    }
+
+    private static IReadOnlyList<TreeNodeSummary> FindNodesByFilters(
+        TreeNodeSummary root,
+        RuntimePseudoStateMatrixRequest request,
+        int maxResults)
+    {
+        var matches = new List<TreeNodeSummary>(maxResults);
+        CollectFilterMatches(root, request, matches, maxResults);
+        return matches;
+    }
+
+    private static void CollectFilterMatches(
+        TreeNodeSummary node,
+        RuntimePseudoStateMatrixRequest request,
+        List<TreeNodeSummary> matches,
+        int maxResults)
+    {
+        if (matches.Count >= maxResults)
+        {
+            return;
+        }
+
+        if (MatchesFilters(node, request))
+        {
+            matches.Add(node);
+        }
+
+        foreach (var child in node.Children)
+        {
+            CollectFilterMatches(child, request, matches, maxResults);
+            if (matches.Count >= maxResults)
+            {
+                break;
+            }
+        }
+    }
+
+    private static bool MatchesFilters(TreeNodeSummary node, RuntimePseudoStateMatrixRequest request)
+    {
+        return MatchesContains(node.NodeType, request.NodeType)
+            && MatchesEquals(node.Name, request.Name)
+            && MatchesEquals(node.AutomationId, request.AutomationId)
+            && MatchesContains(node.Text, request.Text);
+    }
+
+    private static bool MatchesContains(string? value, string? filter)
+    {
+        return string.IsNullOrWhiteSpace(filter)
+            || (!string.IsNullOrWhiteSpace(value)
+                && value.Contains(filter, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool MatchesEquals(string? value, string? filter)
+    {
+        return string.IsNullOrWhiteSpace(filter)
+            || string.Equals(value, filter, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool HasStableTargetFilters(RuntimePseudoStateMatrixRequest request)
+    {
+        return !string.IsNullOrWhiteSpace(request.NodeType)
+            || !string.IsNullOrWhiteSpace(request.Name)
+            || !string.IsNullOrWhiteSpace(request.AutomationId)
+            || !string.IsNullOrWhiteSpace(request.Text);
+    }
+
+    private static bool UsesExplicitRawNodeIdWithoutStableFilters(RuntimePseudoStateMatrixRequest request)
+    {
+        var nodeId = request.Target?.NodeId ?? request.NodeId;
+        return !HasStableTargetFilters(request) && IsRuntimeNodeId(nodeId);
+    }
+
+    private static bool IsRuntimeNodeId(string? nodeId)
+    {
+        return nodeId is not null
+            && (nodeId.StartsWith($"{TreeKinds.Visual}:", StringComparison.Ordinal)
+                || nodeId.StartsWith($"{TreeKinds.Logical}:", StringComparison.Ordinal));
+    }
+
+    private static ProtocolError CreateRawNodeIdScopeDiagnostic(
+        RuntimePseudoStateMatrixRequest request,
+        RuntimeTargetContext target,
+        TreeNodeSummary node)
+    {
+        var details = CreateTargetDiagnosticDetails(request, target);
+        details["nodeIdScope"] = "generation_scoped";
+        details["preferredTargeting"] = "automationId,name,nodeType,text";
+        details["nextAction"] = "For multi-step pseudo-state workflows, prefer selector fields such as automationId, name, nodeType, or text; otherwise refresh visual-tree/find-nodes and retry with a current target object.";
+        AddSuggestedSelectorDetails(details, node);
+
+        return new ProtocolError(
+            "pseudo_state_raw_node_id_generation_scoped",
+            $"Pseudo-state matrix target '{target.NodeId}' uses a generation-scoped runtime node id.",
+            details);
+    }
+
+    private static ProtocolError CreateReresolvedTargetDiagnostic(
+        RuntimePseudoStateMatrixRequest request,
+        RuntimeTargetContext target,
+        IReadOnlyList<TreeNodeSummary> matches)
+    {
+        var selected = matches[0];
+        var details = CreateTargetDiagnosticDetails(request, target);
+        details["nodeIdScope"] = "generation_scoped";
+        details["previousNodeId"] = target.NodeId ?? "not_available";
+        details["resolvedNodeId"] = selected.NodeId;
+        details["matchedNodeIds"] = string.Join(",", matches.Select(static match => match.NodeId));
+        details["nextAction"] = "Keep selector fields in long-running pseudo-state requests so the target can be re-resolved when generation-scoped runtime node ids change.";
+        AddRequestedSelectorDetails(details, request);
+        AddSuggestedSelectorDetails(details, selected);
+
+        return new ProtocolError(
+            matches.Count > 1
+                ? "pseudo_state_target_reresolved_ambiguous"
+                : "pseudo_state_target_reresolved",
+            matches.Count > 1
+                ? $"Pseudo-state target node '{target.NodeId}' was not found; selector filters matched multiple current nodes and the first match was used."
+                : $"Pseudo-state target node '{target.NodeId}' was not found; selector filters re-resolved current node '{selected.NodeId}'.",
+            details);
+    }
+
+    private static IReadOnlyDictionary<string, string> CreateTargetNotFoundDetails(
+        RuntimePseudoStateMatrixRequest request,
+        RuntimeTargetContext target)
+    {
+        var details = CreateTargetDiagnosticDetails(request, target);
+        details["nodeIdScope"] = IsRuntimeNodeId(target.NodeId) ? "generation_scoped" : "unknown";
+        details["preferredTargeting"] = "automationId,name,nodeType,text";
+        details["nextAction"] = HasStableTargetFilters(request)
+            ? "Refresh visual-tree/find-nodes and verify the selector fields still match a current node before retrying."
+            : "Refresh visual-tree/find-nodes and retry with the current target object, or use selector fields such as automationId, name, nodeType, or text for multi-step workflows.";
+        AddRequestedSelectorDetails(details, request);
+        return details;
+    }
+
+    private static Dictionary<string, string> CreateTargetDiagnosticDetails(
+        RuntimePseudoStateMatrixRequest request,
+        RuntimeTargetContext target)
+    {
+        var details = new Dictionary<string, string>
+        {
+            ["topLevelId"] = request.TopLevelId,
+            ["treeKind"] = target.TreeKind ?? request.TreeKind,
+            ["nodeId"] = target.NodeId ?? "not_available"
+        };
+
+        if (!string.IsNullOrWhiteSpace(target.TopLevelGeneration))
+        {
+            details["topLevelGeneration"] = target.TopLevelGeneration;
+        }
+
+        if (!string.IsNullOrWhiteSpace(target.NodeGeneration))
+        {
+            details["nodeGeneration"] = target.NodeGeneration;
+        }
+
+        return details;
+    }
+
+    private static void AddRequestedSelectorDetails(
+        IDictionary<string, string> details,
+        RuntimePseudoStateMatrixRequest request)
+    {
+        if (!string.IsNullOrWhiteSpace(request.NodeType))
+        {
+            details["requestedNodeType"] = request.NodeType;
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.Name))
+        {
+            details["requestedName"] = request.Name;
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.AutomationId))
+        {
+            details["requestedAutomationId"] = request.AutomationId;
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.Text))
+        {
+            details["requestedText"] = request.Text;
+        }
+    }
+
+    private static void AddSuggestedSelectorDetails(
+        IDictionary<string, string> details,
+        TreeNodeSummary node)
+    {
+        details["suggestedNodeType"] = node.NodeType;
+
+        if (!string.IsNullOrWhiteSpace(node.Name))
+        {
+            details["suggestedName"] = node.Name;
+        }
+
+        if (!string.IsNullOrWhiteSpace(node.AutomationId))
+        {
+            details["suggestedAutomationId"] = node.AutomationId;
+        }
+
+        if (!string.IsNullOrWhiteSpace(node.Text))
+        {
+            details["suggestedText"] = node.Text;
+        }
     }
 
     private static async Task<CoreResult<InputResponse>> MovePointerToTargetAsync(
@@ -795,6 +1057,11 @@ public sealed class RuntimePseudoStateMatrixRunner
         Pressed,
         SetBoolProperty
     }
+
+    private sealed record StateTargetResolution(
+        TreeNodeSummary Node,
+        RuntimeTargetContext Target,
+        IReadOnlyList<ProtocolError> Diagnostics);
 
     private sealed record SheetImage(RuntimePseudoStateMatrixEntry Entry, SKBitmap? Bitmap);
 }

@@ -428,7 +428,7 @@ dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll visual-tree --session s
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll logical-tree --session session-id --top-level topLevel:1234 --max-depth 4
 ```
 
-Runtime tree, search, inspect, input, and screenshot responses include a `target` object with the current `sessionId`, `topLevelId`, `targetKind`, `capturedAt`, top-level generation metadata, and, when applicable, `treeKind`, `nodeId`, and node generation metadata. Carry that object into follow-up commands instead of guessing which visual/logical node id or top-level context belongs together. Missing or stale node references return structured details with the requested `topLevelId`, `treeKind`, `nodeId`, request id when available, and a `nextAction`.
+Runtime tree, search, inspect, input, and screenshot responses include a `target` object with the current `sessionId`, `topLevelId`, `targetKind`, `capturedAt`, top-level generation metadata, and, when applicable, `treeKind`, `nodeId`, and node generation metadata. Carry that object into immediate follow-up commands instead of guessing which visual/logical node id or top-level context belongs together. Raw `visual:*` and `logical:*` node ids are runtime-generation scoped; for multi-step workflows, also carry stable selector fields such as `automationId`, `name`, `nodeType`, or `text` when available. Missing or stale node references return structured details with the requested `topLevelId`, `treeKind`, `nodeId`, request id when available, and a `nextAction`.
 
 Inspect a single runtime tree node by stable node id:
 
@@ -605,7 +605,9 @@ Capture a selected runtime control across common pseudo-states:
   "requestId": "button-state-matrix",
   "sessionId": "session-id",
   "topLevelId": "topLevel:1234",
-  "nodeId": "visual:button",
+  "automationId": "system-profile-quick-access",
+  "name": "SystemProfileQuickAccessButton",
+  "nodeType": "Button",
   "outputDirectory": "artifacts/pseudo-states/button",
   "contactSheetPath": "artifacts/pseudo-states/button/sheet.png",
   "states": ["normal", "pointerover", "pressed", "disabled", "selected", "selected+pointerover"]
@@ -616,7 +618,7 @@ Capture a selected runtime control across common pseudo-states:
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll pseudo-state-matrix --request .\pseudo-state-matrix.json
 ```
 
-`pseudo-state-matrix` returns `ToolResult<RuntimePseudoStateMatrixResponse>` with one entry per requested state, state screenshot paths, applied/reset mutation responses, input actions used for pointer states, per-state diagnostics, diff metadata against the normal baseline when available, and a labeled contact sheet path. Runtime forcing is local and reset per state. Unsupported states or unsupported target properties are reported in the relevant entry instead of being inferred from screenshots.
+`pseudo-state-matrix` returns `ToolResult<RuntimePseudoStateMatrixResponse>` with one entry per requested state, state screenshot paths, applied/reset mutation responses, input actions used for pointer states, per-state diagnostics, diff metadata against the normal baseline when available, and a labeled contact sheet path. Runtime forcing is local and reset per state. Prefer selector fields over raw `visual:*` node ids for repeatable requests; raw node ids are generation-scoped and diagnostics report that scope or re-resolve through selector fields when possible. Unsupported states or unsupported target properties are reported in the relevant entry instead of being inferred from screenshots.
 
 Record frames after a real runtime interaction and assert geometry across the transition:
 

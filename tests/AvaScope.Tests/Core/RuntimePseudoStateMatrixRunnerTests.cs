@@ -80,6 +80,108 @@ public sealed class RuntimePseudoStateMatrixRunnerTests : IDisposable
         Assert.Contains(result.Value.AgentReview.ArtifactPaths, artifact => artifact.Kind == "contact_sheet");
     }
 
+    [Fact]
+    public async Task RunAsyncReresolvesGenerationScopedNodeIdWhenSelectorFieldsMatch()
+    {
+        var sessionId = SessionId.New();
+        var topLevelId = "topLevel:matrix";
+        var staleTarget = new RuntimeTargetContext(sessionId, topLevelId, TreeKinds.Visual, "visual:stale");
+        var pipeName = $"avascope-state-reresolve-{Guid.NewGuid():N}";
+        WriteManifest("reresolve.json", new BridgeSessionManifest(
+            sessionId,
+            Environment.ProcessId,
+            pipeName,
+            DateTimeOffset.UtcNow,
+            "Pseudo-state matrix app",
+            processName: Process.GetCurrentProcess().ProcessName));
+        var outputDirectory = Path.Combine(_testRoot, "reresolve-artifacts");
+
+        var serverTask = RespondToBridgeRequestsAsync(
+            pipeName,
+            expectedCount: 3,
+            (index, request) => index switch
+            {
+                0 => CreateTreeResponse(request, sessionId, topLevelId, nodeId: "visual:fresh"),
+                1 => CreateScreenshotResponse(request, sessionId, topLevelId, SKColors.White),
+                2 => CreateTreeResponse(request, sessionId, topLevelId, nodeId: "visual:fresh"),
+                _ => throw new InvalidOperationException("Unexpected pseudo-state matrix bridge request.")
+            });
+        var request = new RuntimePseudoStateMatrixRequest(
+            sessionId,
+            topLevelId,
+            staleTarget,
+            [RuntimePseudoStates.Normal],
+            requestId: "matrix-reresolve",
+            outputDirectory: outputDirectory,
+            contactSheetPath: Path.Combine(outputDirectory, "sheet.png"),
+            automationId: "state-target",
+            name: "StateTarget",
+            nodeType: "ListBoxItem");
+
+        var result = await new RuntimePseudoStateMatrixRunner()
+            .RunAsync(new LocalBridgeClient(_manifestDirectory, BridgePipeTestTimeout), request);
+        await serverTask;
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal("passed", result.Value!.Status);
+        Assert.Equal("visual:fresh", result.Value.Entries[0].Target!.NodeId);
+        var diagnostic = Assert.Single(
+            result.Value.Diagnostics,
+            diagnostic => diagnostic.Code == "pseudo_state_target_reresolved");
+        Assert.Equal("visual:stale", diagnostic.Details!["previousNodeId"]);
+        Assert.Equal("visual:fresh", diagnostic.Details["resolvedNodeId"]);
+        Assert.Equal("generation_scoped", diagnostic.Details["nodeIdScope"]);
+        Assert.Contains("selector", diagnostic.Details["nextAction"], StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task RunAsyncReportsGenerationScopedNodeIdWhenRawTargetCannotBeResolved()
+    {
+        var sessionId = SessionId.New();
+        var topLevelId = "topLevel:matrix";
+        var target = new RuntimeTargetContext(sessionId, topLevelId, TreeKinds.Visual, "visual:missing");
+        var pipeName = $"avascope-state-missing-{Guid.NewGuid():N}";
+        WriteManifest("missing.json", new BridgeSessionManifest(
+            sessionId,
+            Environment.ProcessId,
+            pipeName,
+            DateTimeOffset.UtcNow,
+            "Pseudo-state matrix app",
+            processName: Process.GetCurrentProcess().ProcessName));
+        var outputDirectory = Path.Combine(_testRoot, "missing-artifacts");
+
+        var serverTask = RespondToBridgeRequestsAsync(
+            pipeName,
+            expectedCount: 1,
+            (index, request) => index switch
+            {
+                0 => CreateTreeResponse(request, sessionId, topLevelId),
+                _ => throw new InvalidOperationException("Unexpected pseudo-state matrix bridge request.")
+            });
+        var request = new RuntimePseudoStateMatrixRequest(
+            sessionId,
+            topLevelId,
+            target,
+            [RuntimePseudoStates.Normal],
+            requestId: "matrix-missing",
+            outputDirectory: outputDirectory,
+            contactSheetPath: Path.Combine(outputDirectory, "sheet.png"));
+
+        var result = await new RuntimePseudoStateMatrixRunner()
+            .RunAsync(new LocalBridgeClient(_manifestDirectory, BridgePipeTestTimeout), request);
+        await serverTask;
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal("failed", result.Value!.Status);
+        var entry = Assert.Single(result.Value.Entries);
+        Assert.Equal("failed", entry.Status);
+        var diagnostic = Assert.Single(entry.Diagnostics);
+        Assert.Equal("pseudo_state_target_not_found", diagnostic.Code);
+        Assert.Equal("visual:missing", diagnostic.Details!["nodeId"]);
+        Assert.Equal("generation_scoped", diagnostic.Details["nodeIdScope"]);
+        Assert.Contains("selector fields", diagnostic.Details["nextAction"], StringComparison.OrdinalIgnoreCase);
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_testRoot))
@@ -99,7 +201,8 @@ public sealed class RuntimePseudoStateMatrixRunnerTests : IDisposable
         BridgeIpcRequest request,
         SessionId sessionId,
         string topLevelId,
-        bool enabled = true)
+        bool enabled = true,
+        string nodeId = "visual:target")
     {
         Assert.Equal(BridgeIpcMethods.VisualTree, request.Method);
         Assert.Equal(topLevelId, request.TopLevelId);
@@ -119,14 +222,14 @@ public sealed class RuntimePseudoStateMatrixRunnerTests : IDisposable
                     children:
                     [
                         new TreeNodeSummary(
-                            "visual:target",
+                            nodeId,
                             "Avalonia.Controls.ListBoxItem",
                             "StateTarget",
                             automationId: "state-target",
                             text: "State target",
                             bounds: new NodeBounds(20, 20, 100, 32),
                             classes: enabled ? [] : ["disabled"],
-                            target: new RuntimeTargetContext(sessionId, topLevelId, TreeKinds.Visual, "visual:target"),
+                            target: new RuntimeTargetContext(sessionId, topLevelId, TreeKinds.Visual, nodeId),
                             accessibilityState: new RuntimeAccessibilityState("bridge", automationName: "State target", isEnabled: enabled))
                     ])));
     }

@@ -147,7 +147,7 @@ In another terminal:
 
 Use `--manifest-dir` on follow-up runtime commands when the inspected app writes bridge manifests outside the default temp location. `attach` also accepts `--process`, `--process-name`, `--session`, and `--manifest` so agents can avoid ambiguous selection when multiple bridge-enabled apps are running.
 
-Use the `target` object returned by `visual-tree`, `logical-tree`, `find-nodes`, `inspect-node`, `audit-ui`, `screenshot`, and `input` as the handoff source for follow-up commands. It contains the current `sessionId`, `topLevelId`, `targetKind`, `capturedAt`, generation metadata, and node `treeKind`/`nodeId` when a node is involved; stale nodes return structured details and a `nextAction`.
+Use the `target` object returned by `visual-tree`, `logical-tree`, `find-nodes`, `inspect-node`, `audit-ui`, `screenshot`, and `input` as the handoff source for immediate follow-up commands. It contains the current `sessionId`, `topLevelId`, `targetKind`, `capturedAt`, generation metadata, and node `treeKind`/`nodeId` when a node is involved; stale nodes return structured details and a `nextAction`. Raw `visual:*` and `logical:*` node ids are runtime-generation scoped, so multi-step requests should also carry selector fields such as `automationId`, `name`, `nodeType`, or `text` when those fields are available.
 
 `audit-ui` builds a bounded accessibility, validation, and component inventory report from the runtime tree. It reports missing accessible names, missing stable automation ids, keyboard focus metadata, runtime validation errors, control/class/component-pattern inventory, and explicit `not_available` entries for style/resource/template/theme scopes that the runtime tree cannot prove reliably. With `--run-index`, the audit response writes a task latest pointer containing diagnostics and warnings for later agent handoff.
 
@@ -225,7 +225,7 @@ For style regressions that only appear in specific control states, run a pseudo-
 & $avascope pseudo-state-matrix --request .\artifacts\samples\pseudo-state-matrix.json
 ```
 
-`pseudo-state-matrix` targets a runtime node by `target`/`nodeId` or supported find filters, captures states such as `normal`, `pointerover`, `pressed`, `disabled`, `selected`, and `selected+pointerover`, and writes one screenshot per state plus a labeled contact sheet. Results include applied mutation ids, reset mutation responses, pointer input evidence, per-state diagnostics, and explicit `unsupported` entries when a state cannot be safely forced on the selected control.
+`pseudo-state-matrix` targets a runtime node by supported find filters first, or by `target`/`nodeId` for immediate follow-ups. Prefer selector-first request fields (`automationId`, `name`, `nodeType`, `text`) for repeatable multi-step workflows; if a raw generation-scoped node id disappears, diagnostics report the scope and the selector fields needed to retry. The tool captures states such as `normal`, `pointerover`, `pressed`, `disabled`, `selected`, and `selected+pointerover`, and writes one screenshot per state plus a labeled contact sheet. Results include applied mutation ids, reset mutation responses, pointer input evidence, per-state diagnostics, and explicit `unsupported` entries when a state cannot be safely forced on the selected control.
 
 For animation bugs that only happen after real input, record frames after the scripted interaction instead of relying on a static preview time offset:
 
