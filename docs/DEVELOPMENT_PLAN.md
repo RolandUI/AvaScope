@@ -27,19 +27,20 @@ GitHub Issues and Milestones are the primary project-management source for auton
 ## Current Focus
 
 - `Release v1.1.1`
-- GitHub Issue: #61
+- GitHub Issue: none active (`v1.1.1` smoke-test bugs #56-#61 closed)
 - GitHub Milestone: `v1.1.1`
-- Status: `In Progress`
+- Status: `Done`
 - Owner: autonomous agent
 - Started: `2026-07-02`
-- Goal: make diagnostics distinguish CLI, MCP server, PreviewHost, package, and repo-local tool roots so mixed-install situations are explicit.
+- Goal: complete the `v1.1.1` smoke-test bug set opened from the AvaScope 1.1.0 TradeR smoke report.
 
 ## Next Action
 
-Implement GitHub issue #61 with focused diagnostics tests covering CLI assembly root, MCP server root, PreviewHost path/root, packaged executable roots, and explicit mixed-root metadata or diagnostics; then validate, commit, push, update the issue, and finish the `v1.1.1` smoke-test bug set.
+No active `v1.1.1` bug issue remains. Run a release gate and publish `v1.1.1` only after an explicit release decision.
 
 ## Latest Validation
 
+- `2026-07-02`: Completed and closed GitHub issue #61 in commit `55a7cf3f8ef6b760faa7828573ef5d7daf20f1ff`; pushed to `master`, issue moved to `status:done`, and roadmap card moved to `Done / 100% / Completed`. The `v1.1.1` smoke-test bug set #56-#61 is complete with no open issues remaining in the milestone.
 - `2026-07-02`: Completed local implementation for GitHub issue #61. Diagnostics now include additive `componentOrigins` metadata for `cli`, `mcp`, and `previewHost` components with assembly path, base directory, resolved root directory, origin kind, and file existence. CLI and MCP diagnostics populate those origins, Core reports `diagnostics_mixed_install_roots` as a warning when components resolve from different roots, and docs explain the new provenance fields. Validation passed with `dotnet build AvaScope.slnx --no-restore -v:minimal`, focused protocol/Core diagnostics tests (`9` passed), focused CLI/MCP diagnostics tests (`4` passed), docs tests (`14` passed), full Debug tests (`369` passed), and `git diff --check` with only LF/CRLF normalization warnings.
 - `2026-07-02`: Completed and closed GitHub issue #60 in commit `82e1a064cb14a9ab55bae1407ac35c99ef8e590f`; pushed to `master`, issue moved to `status:done`, and roadmap card moved to `Done / 100% / Completed`. Started GitHub issue #61 for the `v1.1.1` patch milestone. The issue is `status:in-progress`, the roadmap card is `In Progress / 25% / Current Slice`, and intended validation is focused CLI/Core/MCP diagnostics tests covering CLI assembly root, MCP server root, PreviewHost path/root, packaged/executable artifact roots, explicit mixed-root metadata or diagnostic, build, relevant diagnostics tests, full Debug tests, and `git diff --check`.
 - `2026-07-02`: Completed local implementation for GitHub issue #60. `baseline-create` now rejects `--run-index`, `--task`, and `--run-group` with a command-specific message directing users to `baseline-check`; suite and project forms share the same validation. Capability tests assert `baseline-create` does not advertise `artifacts.run_index` while `baseline-check` does. MCP manifest-directory override clients now preserve the injected `LocalBridgeClient` operation timeout, and the affected bridge tests use the same bounded pipe timeout pattern as the rest of the suite. Validation passed with `dotnet build AvaScope.slnx --no-restore -v:minimal`, focused #60 CLI/capability tests (`5` passed), MCP bridge override tests (`6` passed), stable/capability checks (`6` passed), docs tests (`14` passed), full Debug tests (`367` passed), and `git diff --check` with only LF/CRLF normalization warnings.
