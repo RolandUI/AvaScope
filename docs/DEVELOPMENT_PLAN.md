@@ -29,17 +29,18 @@ GitHub Issues and Milestones are the primary project-management source for auton
 - `Release v1.1.2`
 - GitHub Issue: #64
 - GitHub Milestone: `v1.1.2`
-- Status: `In Progress`
+- Status: `Review`
 - Owner: autonomous agent
 - Started: `2026-07-10`
 - Goal: ship the completed diagnostics root-normalization fix on the latest stable Avalonia `12.1.0` runtime line through the guarded `v1.1.2` release workflow.
 
 ## Next Action
 
-Upgrade all active Avalonia package references from `12.0.4` to `12.1.0`, run the full release gate, and publish `v1.1.2`.
+Commit and push `Release 1.1.2`, then verify the GitHub Release workflow, tag, packages, assets, issue, milestone, and roadmap completion.
 
 ## Latest Validation
 
+- `2026-07-10`: Full local `v1.1.2` release gate passed after stopping 11 stale repository artifact-hosted MCP processes. Release build passed with 0 warnings and 0 errors and 370 tests; three `1.1.2` NuGet packages, win-x64/linux-x64 framework-dependent ZIPs, and the verified release manifest were created; packaged `doctor` and sample preview smoke passed; NuGet and GitHub Release dry-runs passed; bug-report privacy validation scanned 22 files; packaged `--version` and required-capability smoke passed; artifact-ignore checks and the prospective `Release 1.1.2` commit guard passed; and remote tag `v1.1.2` remained absent before publication. Release tracker #64 and the roadmap card moved to `Review / 75% / Release Tracker`.
 - `2026-07-10`: Completed the Avalonia `12.1.0` upgrade slice for release tracker #64. All repository-owned and dynamically generated PreviewHost test-project package references now use `12.1.0`; PreviewHost and Bridge screenshot saves use the new explicit PNG encoder options. `dotnet restore AvaScope.slnx` passed, `dotnet build AvaScope.slnx --no-restore -v:minimal` passed with 0 warnings and 0 errors, the full Debug suite passed with 370 tests, the resolved package graph verified 45 Avalonia 12 entries at `12.1.0`, no tracked active source/package reference remained on `12.0.4`, and `git diff --check` passed with only LF/CRLF normalization warnings.
 - `2026-07-10`: Started release tracker #64 after closing #63. The live NuGet v3 feed and official Avalonia GitHub release confirmed `12.1.0` is the latest stable release, published on `2026-07-09`; corrected the initial `12.0.5` assumption and moved the issue and roadmap card to `In Progress / 25% / Release Tracker`.
 - `2026-07-10`: Completed local implementation for GitHub issue #63. Diagnostics now trim equivalent trailing directory separators before comparing component roots and use Windows case-insensitive versus non-Windows case-sensitive path comparison. The focused trailing-separator regression test passed, `dotnet build AvaScope.slnx --no-restore -v:minimal` passed with 0 warnings and 0 errors, the full Debug suite passed with 370 tests, and `git diff --check` passed with only LF/CRLF normalization warnings.

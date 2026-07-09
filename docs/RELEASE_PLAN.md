@@ -54,8 +54,9 @@ The roadmap below records the release-shaped plan through `v1.0.0`. It is intent
 
 - Release: `v1.1.2`
 - Target Version: `1.1.2`
-- Release State: `In Progress`
+- Release State: `Release Candidate`
 - Scope Lock: `2026-07-10`
+- Local Release Gate: passed on `2026-07-10`
 - GitHub Milestone: `v1.1.2`
 - GitHub Issues: #63, #64
 - Previous Release: `v1.1.1`
@@ -71,11 +72,12 @@ The `v1.1.2` release target is a patch release for diagnostics root normalizatio
 ### v1.1.2 Milestone Map
 
 - #63 `Diagnostics mixed-install warning treats trailing slash variants as different roots`; Status: `Done`.
-- #64 `Release v1.1.2`; Status: `In Progress`.
+- #64 `Release v1.1.2`; Status: `Review`.
 
 ### v1.1.2 Implementation Validation
 
 - `2026-07-10`: Upgraded all repository-owned and dynamically generated test-project Avalonia references from `12.0.4` to `12.1.0`. Migrated PreviewHost and Bridge PNG screenshot saves to `PngBitmapEncoderOptions.Default` for the Avalonia 12.1 encoder API. Restore passed; Debug build passed with 0 warnings and 0 errors; the full Debug suite passed with 370 tests; 45 resolved Avalonia 12 package entries were verified at `12.1.0`; and no tracked active source/package reference remained on `12.0.4`.
+- `2026-07-10`: Full `v1.1.2` local release gate passed. Release build passed with 0 warnings and 0 errors; 370 tests passed; three `1.1.2` NuGet packages, win-x64 and linux-x64 framework-dependent ZIPs, and the verified release manifest were created; packaged `doctor` and sample preview smoke passed; NuGet and GitHub Release dry-runs passed; bug-report privacy validation scanned 22 files; packaged version/capability smoke and artifact-ignore checks passed; the prospective release-commit guard passed; and remote tag `v1.1.2` remained absent before publication.
 
 ## Released Target: v1.1.1
 
