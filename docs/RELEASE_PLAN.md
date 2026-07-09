@@ -50,13 +50,16 @@ The roadmap below records the release-shaped plan through `v1.0.0`. It is intent
 - Every release must include targeted tests, full build/test validation, release dry-run validation, documentation updates, and explicit deferrals.
 - A release may be split into a patch release if a P0/P1 regression blocks users or CI, but patch scope must remain defect-focused.
 
-## Current Release Target
+## Released Target: v1.1.2
 
 - Release: `v1.1.2`
 - Target Version: `1.1.2`
-- Release State: `Release Candidate`
+- Release State: `Released`
 - Scope Lock: `2026-07-10`
+- Release Commit: `ca3e49fd6e5c30709b7cf53cc5f1b13ae557e744` (`Release 1.1.2`)
 - Local Release Gate: passed on `2026-07-10`
+- Published At: `2026-07-09T22:50:50Z`
+- GitHub Release: https://github.com/RolandUI/AvaScope/releases/tag/v1.1.2
 - GitHub Milestone: `v1.1.2`
 - GitHub Issues: #63, #64
 - Previous Release: `v1.1.1`
@@ -72,12 +75,24 @@ The `v1.1.2` release target is a patch release for diagnostics root normalizatio
 ### v1.1.2 Milestone Map
 
 - #63 `Diagnostics mixed-install warning treats trailing slash variants as different roots`; Status: `Done`.
-- #64 `Release v1.1.2`; Status: `Review`.
+- #64 `Release v1.1.2`; Status: `Done`.
 
 ### v1.1.2 Implementation Validation
 
 - `2026-07-10`: Upgraded all repository-owned and dynamically generated test-project Avalonia references from `12.0.4` to `12.1.0`. Migrated PreviewHost and Bridge PNG screenshot saves to `PngBitmapEncoderOptions.Default` for the Avalonia 12.1 encoder API. Restore passed; Debug build passed with 0 warnings and 0 errors; the full Debug suite passed with 370 tests; 45 resolved Avalonia 12 package entries were verified at `12.1.0`; and no tracked active source/package reference remained on `12.0.4`.
 - `2026-07-10`: Full `v1.1.2` local release gate passed. Release build passed with 0 warnings and 0 errors; 370 tests passed; three `1.1.2` NuGet packages, win-x64 and linux-x64 framework-dependent ZIPs, and the verified release manifest were created; packaged `doctor` and sample preview smoke passed; NuGet and GitHub Release dry-runs passed; bug-report privacy validation scanned 22 files; packaged version/capability smoke and artifact-ignore checks passed; the prospective release-commit guard passed; and remote tag `v1.1.2` remained absent before publication.
+- `2026-07-10`: GitHub Release workflow `29055197705` passed for release commit `ca3e49f`; trusted publishing completed for nuget.org and GitHub Packages, tag `v1.1.2` was created at the release commit, and six GitHub Release assets were uploaded. The downloaded remote manifest reported version `1.1.2` and hashes matching the five package/ZIP asset digests returned by GitHub.
+
+### v1.1.2 Published Assets
+
+| Asset | URL | SHA-256 |
+| --- | --- | --- |
+| `AvaScope.Protocol.1.1.2.nupkg` | https://github.com/RolandUI/AvaScope/releases/download/v1.1.2/AvaScope.Protocol.1.1.2.nupkg | `86e54c52e26706ce63ad00c5f0fe9e5c0c520a25f7e562a302720622af84bebb` |
+| `AvaScope.Core.1.1.2.nupkg` | https://github.com/RolandUI/AvaScope/releases/download/v1.1.2/AvaScope.Core.1.1.2.nupkg | `3da4081474ab63766813f323086abc35c864cdf45f7502f669c8b9cd616ae748` |
+| `AvaScope.Bridge.1.1.2.nupkg` | https://github.com/RolandUI/AvaScope/releases/download/v1.1.2/AvaScope.Bridge.1.1.2.nupkg | `75e68996008a6f9420a42e0f704339a8865750968a5a4aa1642c9306a135349e` |
+| `avascope-win-x64-framework-dependent.zip` | https://github.com/RolandUI/AvaScope/releases/download/v1.1.2/avascope-win-x64-framework-dependent.zip | `18688438729ffa6cbbe40c1c9dbe36ab4e3a59cdbb8377e84ac62dc1b9ee40b7` |
+| `avascope-linux-x64-framework-dependent.zip` | https://github.com/RolandUI/AvaScope/releases/download/v1.1.2/avascope-linux-x64-framework-dependent.zip | `c4bd9a949b8a423841a05e307c2885b1180772168a84507c3483fb49bd3bf42f` |
+| `release-manifest.json` | https://github.com/RolandUI/AvaScope/releases/download/v1.1.2/release-manifest.json | `ba0f410cc9b655f6cb1277d5f94829e58f6e1bc526f598daaf67eab6a4828e93` |
 
 ## Released Target: v1.1.1
 
