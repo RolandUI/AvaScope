@@ -62,16 +62,20 @@ The roadmap below records the release-shaped plan through `v1.0.0`. It is intent
 
 ### v1.1.2 Release Goals
 
-The `v1.1.2` release target is a patch release for diagnostics root normalization and the latest stable Avalonia 12 patch.
+The `v1.1.2` release target is a patch release for diagnostics root normalization and the latest stable Avalonia release.
 
 1. `RG-1.1.2-1 Diagnostics Root Normalization`: complete #63 so equivalent component roots with and without trailing directory separators do not emit `diagnostics_mixed_install_roots`.
-2. `RG-1.1.2-2 Avalonia 12.0.5`: upgrade every repository-owned Avalonia package reference from `12.0.4` to the latest stable `12.0.5` release and revalidate runtime, preview, bridge, sample, and headless paths.
+2. `RG-1.1.2-2 Avalonia 12.1.0`: upgrade every repository-owned Avalonia package reference from `12.0.4` to the latest stable `12.1.0` release and revalidate runtime, preview, bridge, sample, and headless paths.
 3. `RG-1.1.2-3 Guarded Patch Release`: publish only after the local release gate passes and the Release workflow creates `v1.1.2`, NuGet/GitHub packages, executable ZIPs, manifest, and GitHub Release assets.
 
 ### v1.1.2 Milestone Map
 
 - #63 `Diagnostics mixed-install warning treats trailing slash variants as different roots`; Status: `Done`.
-- #64 `Release v1.1.2`; Status: `Ready`.
+- #64 `Release v1.1.2`; Status: `In Progress`.
+
+### v1.1.2 Implementation Validation
+
+- `2026-07-10`: Upgraded all repository-owned and dynamically generated test-project Avalonia references from `12.0.4` to `12.1.0`. Migrated PreviewHost and Bridge PNG screenshot saves to `PngBitmapEncoderOptions.Default` for the Avalonia 12.1 encoder API. Restore passed; Debug build passed with 0 warnings and 0 errors; the full Debug suite passed with 370 tests; 45 resolved Avalonia 12 package entries were verified at `12.1.0`; and no tracked active source/package reference remained on `12.0.4`.
 
 ## Released Target: v1.1.1
 

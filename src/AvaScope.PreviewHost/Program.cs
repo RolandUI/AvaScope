@@ -18,6 +18,7 @@ using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
+using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -308,7 +309,7 @@ internal static class Program
 
             using (var stream = File.Create(fullOutputPath))
             {
-                frame.Save(stream);
+                frame.Save(stream, PngBitmapEncoderOptions.Default);
             }
 
             return ToolResult<PreviewResponse>.Ok(new PreviewResponse(

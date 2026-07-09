@@ -461,7 +461,7 @@ public sealed class AvaScopeBridgeRuntime
 
             using (var stream = File.Create(fullPath))
             {
-                bitmap.Save(stream);
+                bitmap.Save(stream, PngBitmapEncoderOptions.Default);
             }
 
             return CoreResult<ScreenshotResponse>.Ok(new ScreenshotResponse(

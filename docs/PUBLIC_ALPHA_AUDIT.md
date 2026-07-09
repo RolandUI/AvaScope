@@ -8,7 +8,7 @@ This audit is the release-candidate gate for the current public-alpha goal. It r
 
 | Requirement | Evidence | Status |
 | --- | --- | --- |
-| Avalonia 12 and `net10.0` target | Project files target `net10.0`; Avalonia-facing packages reference Avalonia `12.0.4`; `AGENTS.md` and README state Avalonia 12. | Met |
+| Avalonia 12 and `net10.0` target | Project files target `net10.0`; Avalonia-facing packages reference Avalonia `12.1.0`; `AGENTS.md` and README state Avalonia 12. | Met |
 | Agent-owned project management | `AGENTS.md` defines agent ownership and `docs/DEVELOPMENT_PLAN.md` workflow; development plan contains milestone tracking, validation history, decision log, and change log. | Met |
 | Stable protocol/core/session foundation | `AvaScope.Protocol` contains transport-neutral DTOs; `AvaScope.Core` owns session registry, local bridge client, preview client, preview-session store; protocol/core tests cover JSON and lifecycle behavior. | Met |
 | MCP/CLI adapter workflows | MCP exposes health, sessions, runtime inspection/control, diagnostics, preview sessions, and reload; CLI exposes matching local workflows plus `doctor`, preview profiles, packaged workflow docs, and baseline reports. Both stay thin over Core. | Met |

@@ -209,8 +209,8 @@ public sealed class PreviewHostSmokeTests
                 <Nullable>enable</Nullable>
               </PropertyGroup>
               <ItemGroup>
-                <PackageReference Include="Avalonia" Version="12.0.4" />
-                <PackageReference Include="Avalonia.Themes.Fluent" Version="12.0.4" />
+                <PackageReference Include="Avalonia" Version="12.1.0" />
+                <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.0" />
               </ItemGroup>
             </Project>
             """);
@@ -333,7 +333,7 @@ public sealed class PreviewHostSmokeTests
                 <Nullable>enable</Nullable>
               </PropertyGroup>
               <ItemGroup>
-                <PackageReference Include="Avalonia" Version="12.0.4" />
+                <PackageReference Include="Avalonia" Version="12.1.0" />
               </ItemGroup>
             </Project>
             """);
@@ -423,7 +423,7 @@ public sealed class PreviewHostSmokeTests
                 <Nullable>enable</Nullable>
               </PropertyGroup>
               <ItemGroup>
-                <PackageReference Include="Avalonia" Version="12.0.4" />
+                <PackageReference Include="Avalonia" Version="12.1.0" />
               </ItemGroup>
             </Project>
             """);
@@ -522,7 +522,7 @@ public sealed class PreviewHostSmokeTests
                 <Nullable>enable</Nullable>
               </PropertyGroup>
               <ItemGroup>
-                <PackageReference Include="Avalonia" Version="12.0.4" />
+                <PackageReference Include="Avalonia" Version="12.1.0" />
               </ItemGroup>
             </Project>
             """);
@@ -617,7 +617,7 @@ public sealed class PreviewHostSmokeTests
                 <Nullable>enable</Nullable>
               </PropertyGroup>
               <ItemGroup>
-                <PackageReference Include="Avalonia" Version="12.0.4" />
+                <PackageReference Include="Avalonia" Version="12.1.0" />
               </ItemGroup>
             </Project>
             """);
@@ -968,7 +968,7 @@ public sealed class PreviewHostSmokeTests
                 <Nullable>enable</Nullable>
               </PropertyGroup>
               <ItemGroup>
-                <PackageReference Include="Avalonia" Version="12.0.4" />
+                <PackageReference Include="Avalonia" Version="12.1.0" />
               </ItemGroup>
             </Project>
             """);
@@ -1104,7 +1104,7 @@ public sealed class PreviewHostSmokeTests
               </PropertyGroup>
 
               <ItemGroup>
-                <PackageReference Include="Avalonia" Version="12.0.4" />
+                <PackageReference Include="Avalonia" Version="12.1.0" />
               </ItemGroup>
 
               <Target Name="AvaScopeHoldIntermediateOutputLock" BeforeTargets="CoreCompile">
@@ -1209,7 +1209,7 @@ public sealed class PreviewHostSmokeTests
                 <Nullable>enable</Nullable>
               </PropertyGroup>
               <ItemGroup>
-                <PackageReference Include="Avalonia" Version="12.0.4" />
+                <PackageReference Include="Avalonia" Version="12.1.0" />
               </ItemGroup>
             </Project>
             """);
@@ -1307,7 +1307,7 @@ public sealed class PreviewHostSmokeTests
                 <Nullable>enable</Nullable>
               </PropertyGroup>
               <ItemGroup>
-                <PackageReference Include="Avalonia" Version="12.0.4" />
+                <PackageReference Include="Avalonia" Version="12.1.0" />
               </ItemGroup>
             </Project>
             """);
@@ -1389,7 +1389,7 @@ public sealed class PreviewHostSmokeTests
                 <Nullable>enable</Nullable>
               </PropertyGroup>
               <ItemGroup>
-                <PackageReference Include="Avalonia" Version="12.0.4" />
+                <PackageReference Include="Avalonia" Version="12.1.0" />
               </ItemGroup>
             </Project>
             """);
@@ -1501,7 +1501,7 @@ public sealed class PreviewHostSmokeTests
                 <Nullable>enable</Nullable>
               </PropertyGroup>
               <ItemGroup>
-                <PackageReference Include="Avalonia" Version="12.0.4" />
+                <PackageReference Include="Avalonia" Version="12.1.0" />
               </ItemGroup>
             </Project>
             """);
@@ -1608,8 +1608,8 @@ public sealed class PreviewHostSmokeTests
                 <Nullable>enable</Nullable>
               </PropertyGroup>
               <ItemGroup>
-                <PackageReference Include="Avalonia" Version="12.0.4" />
-                <PackageReference Include="Avalonia.Themes.Fluent" Version="12.0.4" />
+                <PackageReference Include="Avalonia" Version="12.1.0" />
+                <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.0" />
               </ItemGroup>
             </Project>
             """);
@@ -1732,7 +1732,7 @@ public sealed class PreviewHostSmokeTests
                 <Nullable>enable</Nullable>
               </PropertyGroup>
               <ItemGroup>
-                <PackageReference Include="Avalonia" Version="12.0.4" />
+                <PackageReference Include="Avalonia" Version="12.1.0" />
               </ItemGroup>
             </Project>
             """);
@@ -1849,7 +1849,7 @@ public sealed class PreviewHostSmokeTests
                 <Nullable>enable</Nullable>
               </PropertyGroup>
               <ItemGroup>
-                <PackageReference Include="Avalonia" Version="12.0.4" />
+                <PackageReference Include="Avalonia" Version="12.1.0" />
               </ItemGroup>
             </Project>
             """);
@@ -1966,7 +1966,7 @@ public sealed class PreviewHostSmokeTests
                 <Nullable>enable</Nullable>
               </PropertyGroup>
               <ItemGroup>
-                <PackageReference Include="Avalonia" Version="12.0.4" />
+                <PackageReference Include="Avalonia" Version="12.1.0" />
               </ItemGroup>
             </Project>
             """);
@@ -2098,8 +2098,8 @@ public sealed class PreviewHostSmokeTests
                 <Nullable>enable</Nullable>
               </PropertyGroup>
               <ItemGroup>
-                <PackageReference Include="Avalonia" Version="12.0.4" />
-                <PackageReference Include="Avalonia.Themes.Fluent" Version="12.0.4" />
+                <PackageReference Include="Avalonia" Version="12.1.0" />
+                <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.0" />
               </ItemGroup>
             </Project>
             """);
@@ -2206,8 +2206,8 @@ public sealed class PreviewHostSmokeTests
                 <Nullable>enable</Nullable>
               </PropertyGroup>
               <ItemGroup>
-                <PackageReference Include="Avalonia" Version="12.0.4" />
-                <PackageReference Include="Avalonia.Themes.Fluent" Version="12.0.4" />
+                <PackageReference Include="Avalonia" Version="12.1.0" />
+                <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.0" />
               </ItemGroup>
             </Project>
             """);
@@ -2327,7 +2327,7 @@ public sealed class PreviewHostSmokeTests
                 <Nullable>enable</Nullable>
               </PropertyGroup>
               <ItemGroup>
-                <PackageReference Include="Avalonia" Version="12.0.4" />
+                <PackageReference Include="Avalonia" Version="12.1.0" />
               </ItemGroup>
             </Project>
             """);
@@ -2450,7 +2450,7 @@ public sealed class PreviewHostSmokeTests
                 <Nullable>enable</Nullable>
               </PropertyGroup>
               <ItemGroup>
-                <PackageReference Include="Avalonia" Version="12.0.4" />
+                <PackageReference Include="Avalonia" Version="12.1.0" />
               </ItemGroup>
             </Project>
             """);
@@ -2566,7 +2566,7 @@ public sealed class PreviewHostSmokeTests
                 <Nullable>enable</Nullable>
               </PropertyGroup>
               <ItemGroup>
-                <PackageReference Include="Avalonia" Version="12.0.4" />
+                <PackageReference Include="Avalonia" Version="12.1.0" />
               </ItemGroup>
             </Project>
             """);
@@ -2652,7 +2652,7 @@ public sealed class PreviewHostSmokeTests
                 <Nullable>enable</Nullable>
               </PropertyGroup>
               <ItemGroup>
-                <PackageReference Include="Avalonia" Version="12.0.4" />
+                <PackageReference Include="Avalonia" Version="12.1.0" />
               </ItemGroup>
             </Project>
             """);
@@ -2743,7 +2743,7 @@ public sealed class PreviewHostSmokeTests
                 <Nullable>enable</Nullable>
               </PropertyGroup>
               <ItemGroup>
-                <PackageReference Include="Avalonia" Version="12.0.4" />
+                <PackageReference Include="Avalonia" Version="12.1.0" />
               </ItemGroup>
             </Project>
             """);
@@ -2851,7 +2851,7 @@ public sealed class PreviewHostSmokeTests
                 <Nullable>enable</Nullable>
               </PropertyGroup>
               <ItemGroup>
-                <PackageReference Include="Avalonia" Version="12.0.4" />
+                <PackageReference Include="Avalonia" Version="12.1.0" />
               </ItemGroup>
             </Project>
             """);
@@ -2949,7 +2949,7 @@ public sealed class PreviewHostSmokeTests
                 <Nullable>enable</Nullable>
               </PropertyGroup>
               <ItemGroup>
-                <PackageReference Include="Avalonia" Version="12.0.4" />
+                <PackageReference Include="Avalonia" Version="12.1.0" />
               </ItemGroup>
             </Project>
             """);
@@ -3209,7 +3209,7 @@ public sealed class PreviewHostSmokeTests
                 <TargetFramework>net10.0</TargetFramework>
               </PropertyGroup>
               <ItemGroup>
-                <PackageReference Include="Avalonia" Version="12.0.4" />
+                <PackageReference Include="Avalonia" Version="12.1.0" />
               </ItemGroup>
             </Project>
             """);
