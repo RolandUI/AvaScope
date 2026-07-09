@@ -950,7 +950,8 @@ public sealed class LocalBridgeClient
             .Where(static origin => origin.Exists)
             .Select(static origin => origin.RootDirectory)
             .Where(static root => !string.IsNullOrWhiteSpace(root))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Select(static root => Path.TrimEndingDirectorySeparator(root))
+            .Distinct(OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal)
             .ToArray();
         if (roots.Length <= 1)
         {

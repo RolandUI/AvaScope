@@ -26,20 +26,22 @@ GitHub Issues and Milestones are the primary project-management source for auton
 
 ## Current Focus
 
-- `Release v1.1.1`
-- GitHub Issue: #62
-- GitHub Milestone: `v1.1.1`
+- `Diagnostics root normalization for v1.1.2`
+- GitHub Issue: #63
+- GitHub Milestone: `v1.1.2`
 - Status: `Done`
 - Owner: autonomous agent
-- Started: `2026-07-02`
-- Goal: publish the defect-focused `v1.1.1` patch for the AvaScope 1.1.0 TradeR smoke report.
+- Started: `2026-07-10`
+- Goal: normalize diagnostics component roots before comparison so trailing directory separators cannot create false mixed-install warnings.
 
 ## Next Action
 
-No active `v1.1.1` release issue remains after closing #62 and the milestone.
+Start release tracker #64 to upgrade Avalonia from `12.0.4` to `12.0.5`, run the full release gate, and publish `v1.1.2`.
 
 ## Latest Validation
 
+- `2026-07-10`: Completed local implementation for GitHub issue #63. Diagnostics now trim equivalent trailing directory separators before comparing component roots and use Windows case-insensitive versus non-Windows case-sensitive path comparison. The focused trailing-separator regression test passed, `dotnet build AvaScope.slnx --no-restore -v:minimal` passed with 0 warnings and 0 errors, the full Debug suite passed with 370 tests, and `git diff --check` passed with only LF/CRLF normalization warnings.
+- `2026-07-10`: Started GitHub issue #63 for the `v1.1.2` milestone; issue and roadmap card moved to `In Progress / 25% / Current Slice`. Created release tracker #64 in `status:ready` and locked the patch scope to diagnostics root normalization, the stable Avalonia `12.0.5` package update, and the guarded release gate.
 - `2026-07-02`: Published `v1.1.1` from commit `6e710509aef727d4d74bf3580f5ee6ec0564c445` through Release workflow `28591077660` (`push`, success). The workflow published the three `1.1.1` packages to nuget.org and GitHub Packages, created tag `v1.1.1`, uploaded six GitHub Release assets, and `git ls-remote --tags origin refs/tags/v1.1.1` confirmed the tag points at the release commit.
 - `2026-07-02`: Local `v1.1.1` release gate passed after stopping three stale artifact-hosted `dotnet ...\AvaScope.Mcp.dll` processes that held the previous packaged output. Validation passed with `dotnet build AvaScope.slnx --no-restore -v:minimal`, full Debug tests (`369` passed), focused bridge/headless reproduction tests (`18` passed), `eng/create-local-release.ps1` (Release build/test `369` passed, three `1.1.1` NuGet packages, win/linux framework-dependent ZIPs, manifest verification, packaged doctor smoke, and packaged sample preview smoke), `eng/publish-nuget.ps1 -DryRun`, `eng/publish-github-release.ps1 -Tag v1.1.1 -DryRun`, packaged `avascope.exe --version` (`1.1.1`), and packaged capability gate for the runtime/preview/artifact ids.
 - `2026-07-02`: Started GitHub release tracker #62 for `v1.1.1`; issue moved to `status:in-progress`, roadmap card set to `In Progress / 25% / Release Tracker`, and the release-candidate working tree is scoped to the already-closed smoke-test bugs #56-#61 plus the guarded release gate.

@@ -50,6 +50,29 @@ The roadmap below records the release-shaped plan through `v1.0.0`. It is intent
 - Every release must include targeted tests, full build/test validation, release dry-run validation, documentation updates, and explicit deferrals.
 - A release may be split into a patch release if a P0/P1 regression blocks users or CI, but patch scope must remain defect-focused.
 
+## Current Release Target
+
+- Release: `v1.1.2`
+- Target Version: `1.1.2`
+- Release State: `In Progress`
+- Scope Lock: `2026-07-10`
+- GitHub Milestone: `v1.1.2`
+- GitHub Issues: #63, #64
+- Previous Release: `v1.1.1`
+
+### v1.1.2 Release Goals
+
+The `v1.1.2` release target is a patch release for diagnostics root normalization and the latest stable Avalonia 12 patch.
+
+1. `RG-1.1.2-1 Diagnostics Root Normalization`: complete #63 so equivalent component roots with and without trailing directory separators do not emit `diagnostics_mixed_install_roots`.
+2. `RG-1.1.2-2 Avalonia 12.0.5`: upgrade every repository-owned Avalonia package reference from `12.0.4` to the latest stable `12.0.5` release and revalidate runtime, preview, bridge, sample, and headless paths.
+3. `RG-1.1.2-3 Guarded Patch Release`: publish only after the local release gate passes and the Release workflow creates `v1.1.2`, NuGet/GitHub packages, executable ZIPs, manifest, and GitHub Release assets.
+
+### v1.1.2 Milestone Map
+
+- #63 `Diagnostics mixed-install warning treats trailing slash variants as different roots`; Status: `Done`.
+- #64 `Release v1.1.2`; Status: `Ready`.
+
 ## Released Target: v1.1.1
 
 - Release: `v1.1.1`

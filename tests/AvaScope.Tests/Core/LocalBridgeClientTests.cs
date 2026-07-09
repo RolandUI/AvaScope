@@ -805,6 +805,41 @@ public sealed class LocalBridgeClientTests : IDisposable
     }
 
     [Fact]
+    public async Task DiagnosticsTreatsTrailingDirectorySeparatorsAsTheSameComponentRoot()
+    {
+        var client = new LocalBridgeClient(_manifestDirectory);
+        var rootDirectory = Path.Combine(_manifestDirectory, "install-root");
+        var origins = new[]
+        {
+            new DiagnosticComponentOrigin(
+                "cli",
+                Path.Combine(rootDirectory, "avascope.dll"),
+                rootDirectory,
+                rootDirectory,
+                "directory"),
+            new DiagnosticComponentOrigin(
+                "mcp",
+                Path.Combine(rootDirectory, "AvaScope.Mcp.dll"),
+                rootDirectory,
+                rootDirectory + Path.DirectorySeparatorChar,
+                "directory"),
+            new DiagnosticComponentOrigin(
+                "previewHost",
+                Path.Combine(rootDirectory, "AvaScope.PreviewHost.dll"),
+                rootDirectory,
+                rootDirectory + Path.AltDirectorySeparatorChar,
+                "directory")
+        };
+
+        var result = await client.DiagnosticsAsync(componentOrigins: origins);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(origins, result.Value!.ComponentOrigins);
+        Assert.DoesNotContain(result.Value.Issues, issue => issue.Code == CoreErrorCodes.DiagnosticsMixedInstallRoots);
+        Assert.DoesNotContain(result.Value.DiagnosticIssues, issue => issue.Code == CoreErrorCodes.DiagnosticsMixedInstallRoots);
+    }
+
+    [Fact]
     public void DiagnosticOriginBuilderClassifiesPackageArtifactRootBeforeRepositoryRoot()
     {
         var repositoryRoot = Path.Combine(_manifestDirectory, "repo");
