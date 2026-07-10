@@ -50,6 +50,33 @@ The roadmap below records the release-shaped plan through `v1.0.0`. It is intent
 - Every release must include targeted tests, full build/test validation, release dry-run validation, documentation updates, and explicit deferrals.
 - A release may be split into a patch release if a P0/P1 regression blocks users or CI, but patch scope must remain defect-focused.
 
+## In Progress Target: v1.1.3
+
+- Release: `v1.1.3`
+- Target Version: `1.1.3`
+- Release State: `In Progress`
+- Scope Lock: `2026-07-10`
+- GitHub Milestone: `v1.1.3`
+- GitHub Issues: #65, #66
+- Previous Release: `v1.1.2`
+
+### v1.1.3 Release Goals
+
+The `v1.1.3` patch release resolves the missing public license grant and package provenance metadata discovered before opening the source repository.
+
+1. `RG-1.1.3-1 Apache-2.0 License Grant`: license AvaScope-authored source and official release artifacts, including versions `0.1.0` and later, under Apache-2.0 while preserving third-party licenses.
+2. `RG-1.1.3-2 Verifiable Distribution Metadata`: embed license, repository, project, copyright, scope, and third-party notice data in NuGet and executable artifacts and validate the packed outputs.
+3. `RG-1.1.3-3 Guarded Patch Release`: publish only after the local release gate passes and the Release workflow creates `v1.1.3`, packages, executable ZIPs, manifest, and GitHub Release assets.
+
+### v1.1.3 Milestone Map
+
+- #65 `Add Apache-2.0 licensing and package provenance metadata`; Status: `Review`.
+- #66 `Release v1.1.3`; Status: `Ready`.
+
+### v1.1.3 Implementation Validation
+
+- `2026-07-10`: #65 added the canonical Apache-2.0 license and an explicit scope grant for AvaScope-authored official releases from `0.1.0` onward; packaged legal/provenance metadata is now verified for all NuGet packages and Windows/Linux executable ZIPs. Debug build passed with 0 warnings and 0 errors, focused stable-surface tests passed (`4`), the full Debug suite passed (`370`), Release package/ZIP generation with tests and sample smoke skipped passed the new artifact checks, NuGet and GitHub Release dry-runs passed, and `git diff --check` reported only line-ending normalization warnings.
+
 ## Released Target: v1.1.2
 
 - Release: `v1.1.2`

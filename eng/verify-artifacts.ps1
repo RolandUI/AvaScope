@@ -8,6 +8,80 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+
+$requiredLegalFiles = @(
+    "LICENSE",
+    "NOTICE",
+    "LICENSE-SCOPE.md",
+    "THIRD-PARTY-NOTICES.md"
+)
+
+function Assert-NuGetPackageMetadata {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+
+    $archive = [System.IO.Compression.ZipFile]::OpenRead($Path)
+    try {
+        $nuspecEntries = @($archive.Entries | Where-Object { $_.FullName.EndsWith(".nuspec", [System.StringComparison]::OrdinalIgnoreCase) })
+        if ($nuspecEntries.Count -ne 1) {
+            throw "Expected exactly one nuspec in package: $Path"
+        }
+
+        $reader = [System.IO.StreamReader]::new($nuspecEntries[0].Open())
+        try {
+            [xml]$nuspec = $reader.ReadToEnd()
+        }
+        finally {
+            $reader.Dispose()
+        }
+
+        $metadata = $nuspec.package.metadata
+        if ($metadata.license.InnerText -ne "Apache-2.0" -or $metadata.license.type -ne "expression") {
+            throw "Package must declare Apache-2.0 as a license expression: $Path"
+        }
+
+        if ($metadata.projectUrl -ne "https://github.com/RolandUI/AvaScope") {
+            throw "Package projectUrl is missing or unexpected: $Path"
+        }
+
+        if ($metadata.repository.type -ne "git" -or $metadata.repository.url -ne "https://github.com/RolandUI/AvaScope.git") {
+            throw "Package repository metadata is missing or unexpected: $Path"
+        }
+
+        $entryNames = @($archive.Entries | ForEach-Object { $_.FullName.TrimEnd("/") })
+        foreach ($legalFileName in $requiredLegalFiles) {
+            if ($entryNames -notcontains $legalFileName) {
+                throw "Package is missing required legal file '$legalFileName': $Path"
+            }
+        }
+    }
+    finally {
+        $archive.Dispose()
+    }
+}
+
+function Assert-ExecutableLegalFiles {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+
+    $archive = [System.IO.Compression.ZipFile]::OpenRead($Path)
+    try {
+        $entryNames = @($archive.Entries | ForEach-Object { $_.FullName.TrimEnd("/") })
+        foreach ($legalFileName in $requiredLegalFiles) {
+            if ($entryNames -notcontains $legalFileName) {
+                throw "Executable artifact is missing required legal file '$legalFileName': $Path"
+            }
+        }
+    }
+    finally {
+        $archive.Dispose()
+    }
+}
 
 function Test-IsUnderDirectory {
     param(
@@ -139,6 +213,14 @@ Get-ChildItem -LiteralPath $executableRootPath -Filter "avascope-*.zip" -File | 
     if (-not $expectedExecutableZipNames.ContainsKey($_.Name)) {
         throw "Unexpected executable ZIP artifact is not covered by the manifest: $($_.FullName)"
     }
+}
+
+foreach ($artifact in $requiredArtifacts | Where-Object { $_.Kind -eq "nuget-package" }) {
+    Assert-NuGetPackageMetadata -Path $artifact.Path
+}
+
+foreach ($artifact in $requiredArtifacts | Where-Object { $_.Kind -eq "executable-zip" }) {
+    Assert-ExecutableLegalFiles -Path $artifact.Path
 }
 
 $artifacts = foreach ($artifact in $requiredArtifacts) {

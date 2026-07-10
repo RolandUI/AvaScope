@@ -147,6 +147,17 @@ public sealed class StableSurfaceContractTests
 
         var buildProps = XDocument.Load(Path.Combine(root, "Directory.Build.props"));
         Assert.Equal("net10.0", buildProps.Descendants("TargetFramework").Single().Value);
+        Assert.Equal("Apache-2.0", buildProps.Descendants("PackageLicenseExpression").Single().Value);
+        Assert.Equal("https://github.com/RolandUI/AvaScope", buildProps.Descendants("PackageProjectUrl").Single().Value);
+        Assert.Equal("https://github.com/RolandUI/AvaScope.git", buildProps.Descendants("RepositoryUrl").Single().Value);
+
+        foreach (var legalFileName in new[] { "LICENSE", "NOTICE", "LICENSE-SCOPE.md", "THIRD-PARTY-NOTICES.md" })
+        {
+            Assert.True(File.Exists(Path.Combine(root, legalFileName)), $"Missing required legal file: {legalFileName}");
+        }
+
+        var licenseScope = File.ReadAllText(Path.Combine(root, "LICENSE-SCOPE.md"));
+        Assert.Contains("versions 0.1.0 and later", licenseScope, StringComparison.Ordinal);
 
         var verifyArtifacts = File.ReadAllText(Path.Combine(root, "eng", "verify-artifacts.ps1"));
         Assert.Contains("AvaScope.Protocol.$version.nupkg", verifyArtifacts, StringComparison.Ordinal);
@@ -168,6 +179,12 @@ public sealed class StableSurfaceContractTests
         Assert.Contains("avascope.discovery.json", installer, StringComparison.Ordinal);
         Assert.Contains("avascope.cmd", installer, StringComparison.Ordinal);
         Assert.Contains("AvaScope.Mcp.dll", installer, StringComparison.Ordinal);
+
+        var packageExecutables = File.ReadAllText(Path.Combine(root, "eng", "package-executables.ps1"));
+        var verifyArtifactsScript = File.ReadAllText(Path.Combine(root, "eng", "verify-artifacts.ps1"));
+        Assert.Contains("THIRD-PARTY-NOTICES.md", packageExecutables, StringComparison.Ordinal);
+        Assert.Contains("Assert-NuGetPackageMetadata", verifyArtifactsScript, StringComparison.Ordinal);
+        Assert.Contains("Assert-ExecutableLegalFiles", verifyArtifactsScript, StringComparison.Ordinal);
     }
 
     [Fact]

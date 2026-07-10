@@ -67,6 +67,10 @@ Executable ZIPs and package artifacts are published from GitHub Releases when a 
 - MCP is a thin adapter over reusable local libraries and uses structured results instead of unbounded UI payloads.
 - Runtime control is intentionally narrow, local-only, and non-destructive in the stable v1 surface. Bridge-enabled apps support bounded reversible temporary UI mutations for selected style, layout, text, class, and resource experiments, plus before/after evidence capture, session-local mutation review, and reset/close cleanup for agent review loops.
 
+## License
+
+AvaScope-authored source code and official AvaScope release artifacts published by RolandUI, including previously published official releases, are licensed under the [Apache License 2.0](LICENSE). See [LICENSE-SCOPE.md](LICENSE-SCOPE.md) for the exact scope of the grant and [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) for separately licensed dependencies.
+
 ## Project Status
 
 AvaScope `v1.0.0` is the stable agent control-plane release. Package identities, protocol DTOs, CLI commands, MCP tools, exit codes, artifact names, and release workflow behavior are documented in [docs/STABLE_SURFACE.md](docs/STABLE_SURFACE.md).

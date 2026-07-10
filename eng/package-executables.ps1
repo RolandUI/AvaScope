@@ -102,6 +102,12 @@ if (-not (Test-IsUnderDirectory -Path $outputRootPath -Directory $repoRoot)) {
 }
 
 $projectPath = Join-Path $repoRoot "src/AvaScope.Cli/AvaScope.Cli.csproj"
+$legalFileNames = @(
+    "LICENSE",
+    "NOTICE",
+    "LICENSE-SCOPE.md",
+    "THIRD-PARTY-NOTICES.md"
+)
 
 New-Item -ItemType Directory -Path $outputRootPath -Force | Out-Null
 Assert-NoRunningOutputProcesses -OutputRootPath $outputRootPath
@@ -180,6 +186,13 @@ foreach ($runtimeIdentifier in $RuntimeIdentifiers) {
         throw "dotnet publish failed for $runtimeIdentifier with exit code $LASTEXITCODE."
     }
 
+    foreach ($legalFileName in $legalFileNames) {
+        Copy-Item `
+            -LiteralPath (Join-Path $repoRoot $legalFileName) `
+            -Destination (Join-Path $publishDirectory $legalFileName) `
+            -Force
+    }
+
     $appHostExtension = if ($runtimeIdentifier.StartsWith("win-", [System.StringComparison]::OrdinalIgnoreCase)) {
         ".exe"
     } else {
@@ -202,6 +215,7 @@ foreach ($runtimeIdentifier in $RuntimeIdentifiers) {
         "AvaScope.Core.dll",
         "AvaScope.Protocol.dll"
     )
+    $requiredFiles += $legalFileNames
 
     foreach ($file in $requiredFiles) {
         $path = Join-Path $publishDirectory $file
