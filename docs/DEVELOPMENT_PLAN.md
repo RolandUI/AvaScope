@@ -27,19 +27,20 @@ GitHub Issues and Milestones are the primary project-management source for auton
 ## Current Focus
 
 - `Release v1.1.3`
-- GitHub Issue: #65
+- GitHub Issue: #66
 - GitHub Milestone: `v1.1.3`
-- Status: `Review`
+- Status: `Not Started`
 - Owner: autonomous agent
 - Started: `2026-07-10`
-- Goal: establish Apache-2.0 licensing for AvaScope-authored source and official releases, add verifiable package/release legal metadata, and publish the remediation through the guarded `v1.1.3` release workflow.
+- Goal: collect the remaining planned modifications after the completed Apache-2.0 licensing slice, then publish them together through the guarded `v1.1.3` release workflow.
 
 ## Next Action
 
-Merge the validated #65 licensing change, close the issue, then start release tracker #66.
+Keep release tracker #66 in `status:ready` until the remaining modifications are implemented and explicitly approved for release.
 
 ## Latest Validation
 
+- `2026-07-10`: Merged licensing PR #67 to `master` as `7c76ce9e87a407d8c7cf6ec1aa9650ff5d7b3099` (`Add Apache-2.0 licensing (#67)`), closed #65 as completed, and moved its roadmap card to `Done / 100% / Completed`. Per explicit product direction, no `v1.1.3` release was started: #66 remains `Ready / 0% / Release Tracker` until the remaining modifications are complete, and no version bump or publication occurred.
 - `2026-07-10`: Completed local implementation for GitHub issue #65. Added the canonical Apache-2.0 license, an explicit license grant covering AvaScope-authored official releases from `0.1.0` onward, a project notice, third-party dependency notices, shared NuGet license/repository/copyright metadata, and packaged-output validation for NuGet and executable legal files. Debug build passed with 0 warnings and 0 errors; focused stable-surface tests passed (`4`); the full Debug suite passed (`370`); a Release packaging run with tests/sample smoke skipped produced and verified three NuGet packages plus Windows/Linux ZIPs; NuGet and GitHub Release dry-runs passed; and `git diff --check` passed with only line-ending normalization warnings. Issue #65 and its roadmap card moved to `Review / 75% / Current Slice`.
 - `2026-07-10`: Started GitHub issue #65 for the `v1.1.3` milestone after selecting Apache-2.0 for its permissive adoption model and explicit patent grant. The issue and roadmap card moved to `In Progress / 25% / Current Slice`; release tracker #66 is `Ready / 0% / Release Tracker`. Intended validation covers repository legal files, shared NuGet metadata, packed nuspec/legal-file inspection, executable ZIP notices, build, full tests, release dry-runs, and `git diff --check`.
 - `2026-07-10`: Published `v1.1.2` from release commit `ca3e49fd6e5c30709b7cf53cc5f1b13ae557e744` through Release workflow `29055197705` (`push`, success, 10m34s). The workflow published the three `1.1.2` packages to nuget.org and GitHub Packages, created tag `v1.1.2` at the release commit, and uploaded six GitHub Release assets. `gh release view`, `git ls-remote`, and the downloaded remote release manifest verified the public release, tag target, asset set, version, sizes, and SHA-256 digests; the public nuget.org flat-container index subsequently exposed `1.1.2` for Protocol, Core, and Bridge.
