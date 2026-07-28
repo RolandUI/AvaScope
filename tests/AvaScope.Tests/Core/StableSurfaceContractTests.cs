@@ -227,20 +227,24 @@ public sealed class StableSurfaceContractTests
     }
 
     [Fact]
-    public void WorkflowTriggersKeepDevelopmentValidationManualAndReleaseVersionScoped()
+    public void WorkflowTriggersKeepPullRequestValidationReadOnlyAndReleaseVersionScoped()
     {
         var root = FindRepositoryRoot();
         var ciWorkflow = NormalizeLineEndings(File.ReadAllText(Path.Combine(root, ".github", "workflows", "ci.yml")));
         var releaseWorkflow = NormalizeLineEndings(File.ReadAllText(Path.Combine(root, ".github", "workflows", "publish-nuget.yml")));
 
         Assert.Contains("\n  workflow_dispatch:", ciWorkflow, StringComparison.Ordinal);
+        Assert.Contains("\n  pull_request:", ciWorkflow, StringComparison.Ordinal);
+        Assert.Contains("\n    branches:\n      - master", ciWorkflow, StringComparison.Ordinal);
         Assert.DoesNotContain("\n  push:", ciWorkflow, StringComparison.Ordinal);
-        Assert.DoesNotContain("\n  pull_request:", ciWorkflow, StringComparison.Ordinal);
+        Assert.DoesNotContain("pull_request_target", ciWorkflow, StringComparison.Ordinal);
+        Assert.Contains("\npermissions:\n  contents: read", ciWorkflow, StringComparison.Ordinal);
 
         Assert.Contains("\n  push:", releaseWorkflow, StringComparison.Ordinal);
         Assert.Contains("\n    paths:", releaseWorkflow, StringComparison.Ordinal);
         Assert.Contains("\n      - Directory.Build.props", releaseWorkflow, StringComparison.Ordinal);
         Assert.Contains("\n  workflow_dispatch:", releaseWorkflow, StringComparison.Ordinal);
+        Assert.DoesNotContain("\n  pull_request:", releaseWorkflow, StringComparison.Ordinal);
     }
 
     private static IReadOnlyList<string> ReadRegexGroupValues(string path, string pattern)

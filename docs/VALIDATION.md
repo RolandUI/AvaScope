@@ -352,7 +352,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.p
 powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v1.0.0 -ExecutableRuntimeIdentifiers win-x64 -ExecutablePackageKind self-contained -DryRun
 ```
 
-The repository `CI` workflow remains manual-only after `v1.0.0` publication to protect GitHub Actions quota; validate development slices locally with the commands above unless the user explicitly approves a GitHub Actions run or a separate maintenance change re-enables CI. NuGet publishing in CI requires a repository secret named `NUGET_API_KEY`. The `Release` workflow publishes from `master` or `main` when a push changes `Directory.Build.props` and the `<Version>` value has no matching remote `v<Version>` tag yet.
+The repository `CI` workflow runs for pull requests targeting `master` and by manual dispatch. Pull-request code receives read-only repository permissions; the workflow does not use `pull_request_target` or publishing credentials. Development slices must still pass the relevant local commands above before push. NuGet publishing in CI requires a repository secret named `NUGET_API_KEY`. The separate `Release` workflow publishes from `master` or `main` when a push changes `Directory.Build.props` and the `<Version>` value has no matching remote `v<Version>` tag yet.
 
 The release workflow publishes library packages to nuget.org and GitHub Packages, creates the `v<Version>` tag, creates or updates the matching GitHub Release, and uploads the three `.nupkg` files, RID-specific framework-dependent executable ZIPs, Windows/Linux installer artifacts, and `artifacts\release-manifest.json`.
 

@@ -26,20 +26,22 @@ GitHub Issues and Milestones are the primary project-management source for auton
 
 ## Current Focus
 
-- `v1.1.3 guarded release`
-- GitHub Issue: #66
-- GitHub Milestone: `v1.1.3`
-- Status: `Done`
+- `Public open-source launch readiness`
+- GitHub Issue: #73
+- GitHub Milestone: none; this is repository-maintenance work outside a release version.
+- Status: `Review`
 - Owner: autonomous agent
 - Started: `2026-07-28`
-- Goal: publish the validated Apache-2.0 licensing, provenance, Windows/Linux installers, and AvaScope branding as `v1.1.3`.
+- Goal: prepare policies, public installation guidance, safe contribution CI, and repository security settings without changing repository visibility before explicit approval.
 
 ## Next Action
 
-`v1.1.3` is released. Define the next release target and GitHub milestone before starting further release-scoped implementation.
+Complete local validation and available private-repository security settings, commit and push the readiness slice, then request explicit approval before changing repository visibility and performing anonymous verification.
 
 ## Latest Validation
 
+- `2026-07-28`: Completed and validated the pre-public portion of #73. Added public security, contribution, and trademark policies; direct Windows/Linux installer guidance and unsigned-installer disclosure; and read-only `pull_request` CI for `master` without `pull_request_target` or release credentials. GitHub vulnerability alerts and Dependabot security updates are enabled. Private vulnerability reporting, secret scanning/push protection, and branch protection were confirmed unavailable while the repository remains private on the current plan and are reserved for immediate post-public activation. Checksum-verified actionlint `v1.7.12` passed; Release build passed with `0` warnings/errors; focused policy/workflow tests passed (`7`); the full Release suite passed (`372`); and `git diff --check` passed with line-ending normalization warnings only.
+- `2026-07-28`: Started open-source readiness tracker #73. Official Gitleaks `v8.30.1` was checksum-verified and scanned all `239` commits plus the current worktree with `0` findings. A separate tracked-file audit found no credential-like filenames, absolute local user paths, or common token/private-key patterns. The existing public Git author email was explicitly accepted; agent-development instructions and planning history remain intentionally public.
 - `2026-07-28`: Published `v1.1.3` from release commit `3fed6b8b422e8f33efdda35665a2d4f9bebf35d1` through Release workflow `30387366119` (success). The workflow published AvaScope.Protocol, AvaScope.Core, and AvaScope.Bridge `1.1.3` to nuget.org and GitHub Packages, created tag `v1.1.3` at the exact release commit, and uploaded eight GitHub Release assets: three NuGet packages, two framework-dependent portable ZIPs, branded `AvaScopeSetup.exe`, the Linux installer, and `release-manifest.json`. The remote manifest matched all seven packaged asset SHA-256 digests and sizes; all three nuget.org flat-container indexes expose `1.1.3`. Release tracker #66 and the v1.1.3 milestone are complete.
 - `2026-07-28`: The complete local v1.1.3 release gate passed and the target moved to `Release Candidate`. Debug and Release builds passed with 0 warnings/errors and all `371` tests passed in each configuration; the Release suite passed twice more during artifact attempts. Three NuGet packages, two framework-dependent portable ZIPs, `AvaScopeSetup.exe`, the Linux installer, and the SHA-256 release manifest were generated at exact version `1.1.3` and verified for package metadata, legal/provenance files, packaged doctor, and a real Avalonia sample preview. The Windows installer passed artifact-backed install/version/doctor/MCP/repair/uninstall validation; the Linux installer passed the equivalent WSL Ubuntu smoke with a temporary user-local .NET 10 runtime. NuGet and GitHub Release dry-runs passed without publication. Two initial artifact attempts stopped safely because stale repository-hosted MCP processes held the prior payload; after those exact processes were terminated, the clean artifact gate passed. Release tracker #66 is ready for the exact `Release 1.1.3` commit and guarded publish workflow.
 - `2026-07-28`: Started release tracker #66 after explicit publication approval. The tracker and roadmap card moved to `In Progress / 25% / Release Tracker`. The guarded gate covers clean/tag preflight, full Debug and Release build/tests, local artifact creation, Windows and WSL Linux installer smoke, seven-artifact hash/legal verification, NuGet and GitHub Release dry-runs, release-commit validation, and `git diff --check`. The version remains `1.1.2` until the gate passes.

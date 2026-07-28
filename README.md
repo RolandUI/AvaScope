@@ -30,6 +30,20 @@ AvaScope targets Avalonia 12 and `net10.0`.
 - `AvaScope.PreviewHost`: an isolated child process that builds/loads project views and renders previews without loading user code into the CLI or MCP server.
 - `AvaScope.Protocol` and `AvaScope.Core`: shared contracts and reusable runtime/preview plumbing.
 
+## Install From a Release
+
+Download the current stable artifacts from the [latest AvaScope release](https://github.com/RolandUI/AvaScope/releases/latest). AvaScope currently requires a compatible [.NET 10 runtime](https://dotnet.microsoft.com/download/dotnet/10.0).
+
+- Windows: download and run [AvaScopeSetup.exe](https://github.com/RolandUI/AvaScope/releases/latest/download/AvaScopeSetup.exe). The graphical installer is per-user and does not require administrator access.
+- Linux x64: download [avascope-linux-x64-installer](https://github.com/RolandUI/AvaScope/releases/latest/download/avascope-linux-x64-installer), then run:
+
+```bash
+chmod +x avascope-linux-x64-installer
+./avascope-linux-x64-installer
+```
+
+The current Windows installer is not Authenticode-signed, so Windows SmartScreen may show an unknown-publisher warning. Verify the downloaded file against `release-manifest.json` on the release page. Trusted signing is tracked in [issue #72](https://github.com/RolandUI/AvaScope/issues/72).
+
 ## Quick Start From Source
 
 ```powershell
@@ -64,6 +78,9 @@ Per-user Windows and Linux installers, portable executable ZIPs, and package art
 - [Visual regression CI](docs/VISUAL_REGRESSION_CI.md): baseline-check artifact collection for GitHub Actions.
 - [Release plan](docs/RELEASE_PLAN.md): release goals, milestones, non-goals, and roadmap.
 - [Project workflow](docs/GITHUB_PROJECT_WORKFLOW.md): GitHub Issues, Milestones, labels, and Project board conventions.
+- [Security policy](SECURITY.md): private vulnerability reporting and supported-version policy.
+- [Contributing](CONTRIBUTING.md): issue, development, validation, and pull-request expectations.
+- [Trademark policy](TRADEMARKS.md): permitted use of the AvaScope name and official branding.
 
 ## Safety Model
 
@@ -75,11 +92,11 @@ Per-user Windows and Linux installers, portable executable ZIPs, and package art
 
 ## License
 
-AvaScope-authored source code and official AvaScope release artifacts published by RolandUI, including previously published official releases, are licensed under the [Apache License 2.0](LICENSE). See [LICENSE-SCOPE.md](LICENSE-SCOPE.md) for the exact scope of the grant and [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) for separately licensed dependencies.
+AvaScope-authored source code and official AvaScope release artifacts published by RolandUI, including previously published official releases, are licensed under the [Apache License 2.0](LICENSE). See [LICENSE-SCOPE.md](LICENSE-SCOPE.md) for the exact scope of the grant, [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) for separately licensed dependencies, and [TRADEMARKS.md](TRADEMARKS.md) for use of the project name and branding.
 
 ## Project Status
 
-AvaScope `v1.0.0` is the stable agent control-plane release. Package identities, protocol DTOs, CLI commands, MCP tools, exit codes, artifact names, and release workflow behavior are documented in [docs/STABLE_SURFACE.md](docs/STABLE_SURFACE.md).
+AvaScope `v1.1.3` is the current stable agent control-plane release. Package identities, protocol DTOs, CLI commands, MCP tools, exit codes, artifact names, and release workflow behavior are documented in [docs/STABLE_SURFACE.md](docs/STABLE_SURFACE.md).
 
 Development is tracked in GitHub Issues, Milestones, and the public [AvaScope Roadmap](https://github.com/users/RolandUI/projects/4) Project board.
 

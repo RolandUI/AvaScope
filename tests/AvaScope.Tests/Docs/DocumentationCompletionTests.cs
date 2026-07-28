@@ -9,6 +9,9 @@ public sealed class DocumentationCompletionTests
         var primaryDocs = new[]
         {
             Path.Combine(root, "README.md"),
+            Path.Combine(root, "CONTRIBUTING.md"),
+            Path.Combine(root, "SECURITY.md"),
+            Path.Combine(root, "TRADEMARKS.md"),
             Path.Combine(root, "docs", "AGENT_WORKFLOW.md"),
             Path.Combine(root, "docs", "SECURITY_THREAT_MODEL.md"),
             Path.Combine(root, "docs", "STABLE_SURFACE.md"),
@@ -31,6 +34,35 @@ public sealed class DocumentationCompletionTests
             Assert.DoesNotContain("TODO", document, StringComparison.OrdinalIgnoreCase);
             Assert.DoesNotContain("TBD", document, StringComparison.OrdinalIgnoreCase);
         }
+    }
+
+    [Fact]
+    public void RepositoryDocumentsPublicInstallContributionSecurityAndBrandingPolicies()
+    {
+        var root = FindRepositoryRoot();
+        var readme = File.ReadAllText(Path.Combine(root, "README.md"));
+        var contributing = File.ReadAllText(Path.Combine(root, "CONTRIBUTING.md"));
+        var security = File.ReadAllText(Path.Combine(root, "SECURITY.md"));
+        var trademarks = File.ReadAllText(Path.Combine(root, "TRADEMARKS.md"));
+
+        Assert.Contains("releases/latest/download/AvaScopeSetup.exe", readme, StringComparison.Ordinal);
+        Assert.Contains("releases/latest/download/avascope-linux-x64-installer", readme, StringComparison.Ordinal);
+        Assert.Contains("not Authenticode-signed", readme, StringComparison.Ordinal);
+        Assert.Contains("SECURITY.md", readme, StringComparison.Ordinal);
+        Assert.Contains("CONTRIBUTING.md", readme, StringComparison.Ordinal);
+        Assert.Contains("TRADEMARKS.md", readme, StringComparison.Ordinal);
+
+        Assert.Contains("dotnet test AvaScope.slnx", contributing, StringComparison.Ordinal);
+        Assert.Contains("Apache License 2.0", contributing, StringComparison.Ordinal);
+        Assert.Contains("autonomous", contributing, StringComparison.OrdinalIgnoreCase);
+
+        Assert.Contains("security/advisories/new", security, StringComparison.Ordinal);
+        Assert.Contains("docs/SECURITY_THREAT_MODEL.md", security, StringComparison.Ordinal);
+        Assert.Contains("Do not open a public issue", security, StringComparison.Ordinal);
+
+        Assert.Contains("does not grant", trademarks, StringComparison.Ordinal);
+        Assert.Contains("AvaScope name", trademarks, StringComparison.Ordinal);
+        Assert.Contains("modified distributions", trademarks, StringComparison.Ordinal);
     }
 
     [Fact]

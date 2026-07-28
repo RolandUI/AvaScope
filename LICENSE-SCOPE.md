@@ -10,4 +10,4 @@ Unless a file or release explicitly states otherwise, the Apache License 2.0 in 
 
 This license grant includes official AvaScope versions 0.1.0 and later, including versions published before the repository received its root license file.
 
-This grant does not relicense third-party code, libraries, fonts, native binaries, trademarks, or other materials. Those components remain under their respective licenses and notices, including the materials listed in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
+This grant does not relicense third-party code, libraries, fonts, native binaries, trademarks, or other materials. Those components remain under their respective licenses and notices, including the materials listed in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md). Use of the AvaScope name and official branding is described in [TRADEMARKS.md](TRADEMARKS.md).
