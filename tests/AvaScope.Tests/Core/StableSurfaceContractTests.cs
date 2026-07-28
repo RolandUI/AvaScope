@@ -239,6 +239,14 @@ public sealed class StableSurfaceContractTests
         Assert.DoesNotContain("\n  push:", ciWorkflow, StringComparison.Ordinal);
         Assert.DoesNotContain("pull_request_target", ciWorkflow, StringComparison.Ordinal);
         Assert.Contains("\npermissions:\n  contents: read", ciWorkflow, StringComparison.Ordinal);
+        Assert.Contains(
+            "AVASCOPE_INSTALLER_ARTIFACT: ${{ github.workspace }}/artifacts/executables/AvaScopeSetup.exe",
+            ciWorkflow,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "AVASCOPE_INSTALLER_ARTIFACT: ${{ github.workspace }}/artifacts/executables/avascope-linux-x64-installer",
+            ciWorkflow,
+            StringComparison.Ordinal);
 
         Assert.Contains("\n  push:", releaseWorkflow, StringComparison.Ordinal);
         Assert.Contains("\n    paths:", releaseWorkflow, StringComparison.Ordinal);
