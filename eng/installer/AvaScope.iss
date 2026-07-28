@@ -54,9 +54,6 @@ Type: filesandordirs; Name: "{app}\current"
 Source: "{#PayloadDir}\*"; DestDir: "{app}\current"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#RepoRoot}\eng\installer\avascope.cmd"; DestDir: "{app}\bin"; Flags: ignoreversion
 
-[Run]
-Filename: "{app}\bin\avascope.cmd"; Parameters: "--version"; Description: "Verify the AvaScope command"; Flags: postinstall skipifsilent nowait unchecked
-
 [UninstallDelete]
 Type: files; Name: "{app}\avascope.discovery.json"
 Type: filesandordirs; Name: "{app}\bin"
@@ -212,6 +209,36 @@ begin
     RaiseException('Could not write AvaScope discovery metadata.');
 end;
 
+procedure VerifyInstalledCommand;
+var
+  ResultCode: Integer;
+  Output: TExecOutput;
+begin
+  if not ExecAndCaptureOutput(
+      ExpandConstant('{app}\current\avascope.exe'),
+      '--version',
+      ExpandConstant('{app}\current'),
+      SW_SHOWNORMAL,
+      ewWaitUntilTerminated,
+      ResultCode,
+      Output) then
+  begin
+    RaiseException(
+      'AvaScope command verification failed.' + #13#10 + #13#10 +
+      'Make sure the Microsoft .NET 10 Runtime is installed, then run Setup again.');
+  end;
+
+  if (ResultCode <> 0) or
+     (GetArrayLength(Output.StdOut) = 0) or
+     (Trim(Output.StdOut[0]) <> '{#AppVersion}') then
+  begin
+    RaiseException(
+      'AvaScope command verification failed.' + #13#10 + #13#10 +
+      'Make sure the Microsoft .NET 10 Runtime is installed, then run Setup again.' + #13#10 +
+      'Process exit code: ' + IntToStr(ResultCode));
+  end;
+end;
+
 procedure CurStepChanged(CurStep: TSetupStep);
 begin
   if CurStep = ssPostInstall then
@@ -219,6 +246,22 @@ begin
     WriteDiscoveryManifest;
     if WizardIsTaskSelected('addtopath') then
       AddCommandToPath;
+    VerifyInstalledCommand;
+  end;
+end;
+
+procedure CurPageChanged(CurPageID: Integer);
+begin
+  if CurPageID = wpFinished then
+  begin
+    WizardForm.FinishedLabel.Caption :=
+      'AvaScope has been installed and its command was verified successfully.';
+    if WizardIsTaskSelected('addtopath') then
+      WizardForm.FinishedLabel.Caption := WizardForm.FinishedLabel.Caption + #13#10 + #13#10 +
+        'Open a new terminal and run: avascope --version'
+    else
+      WizardForm.FinishedLabel.Caption := WizardForm.FinishedLabel.Caption + #13#10 + #13#10 +
+        'Command: ' + ExpandConstant('{app}\bin\avascope.cmd');
   end;
 end;
 

@@ -197,6 +197,9 @@ public sealed class StableSurfaceContractTests
         Assert.Contains("WizardStyle=modern dynamic", windowsInstaller, StringComparison.Ordinal);
         Assert.Contains("PrivilegesRequired=lowest", windowsInstaller, StringComparison.Ordinal);
         Assert.Contains("avascope.discovery.json", windowsInstaller, StringComparison.Ordinal);
+        Assert.Contains("ExecAndCaptureOutput(", windowsInstaller, StringComparison.Ordinal);
+        Assert.Contains("verified successfully", windowsInstaller, StringComparison.Ordinal);
+        Assert.DoesNotContain("Verify the AvaScope command", windowsInstaller, StringComparison.Ordinal);
         Assert.Contains("Assert-NuGetPackageMetadata", verifyArtifactsScript, StringComparison.Ordinal);
         Assert.Contains("Assert-ExecutableLegalFiles", verifyArtifactsScript, StringComparison.Ordinal);
     }

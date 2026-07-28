@@ -187,7 +187,7 @@ avascope --version
 avascope doctor
 ```
 
-The Windows installer is a modern light/dark-aware setup wizard. It shows the Apache-2.0 license, lets the user choose the destination and whether to add AvaScope to `PATH`, uses `%LOCALAPPDATA%\AvaScope` by default, registers a current-user Apps & Features uninstaller, and writes `%LOCALAPPDATA%\AvaScope\bin\avascope.cmd`. Open a new terminal after installation. Installation and uninstall do not require administrator rights.
+The Windows installer is a modern light/dark-aware setup wizard. It shows the Apache-2.0 license, lets the user choose the destination and whether to add AvaScope to `PATH`, uses `%LOCALAPPDATA%\AvaScope` by default, registers a current-user Apps & Features uninstaller, and writes `%LOCALAPPDATA%\AvaScope\bin\avascope.cmd`. Setup verifies the installed CLI invisibly before showing an explicit success message; a missing .NET 10 runtime produces an actionable installer error instead of flashing a terminal. Open a new terminal after installation. Installation and uninstall do not require administrator rights.
 
 Install on Linux:
 
