@@ -57,26 +57,29 @@ The roadmap below records the release-shaped plan through `v1.0.0`. It is intent
 - Release State: `Planned`
 - Scope Lock: pending remaining modifications
 - GitHub Milestone: `v1.1.3`
-- GitHub Issues: #65, #66
+- GitHub Issues: #65, #66, #70
 - Previous Release: `v1.1.2`
 
 ### v1.1.3 Release Goals
 
-The `v1.1.3` patch release resolves the missing public license grant and package provenance metadata discovered before opening the source repository.
+The `v1.1.3` patch release resolves the missing public license grant and package provenance metadata discovered before opening the source repository, and adds user-local Windows and Linux installers before publication.
 
 Release execution is intentionally deferred until the remaining planned modifications are implemented and added to this milestone.
 
 1. `RG-1.1.3-1 Apache-2.0 License Grant`: license AvaScope-authored source and official release artifacts, including versions `0.1.0` and later, under Apache-2.0 while preserving third-party licenses.
 2. `RG-1.1.3-2 Verifiable Distribution Metadata`: embed license, repository, project, copyright, scope, and third-party notice data in NuGet and executable artifacts and validate the packed outputs.
-3. `RG-1.1.3-3 Guarded Patch Release`: publish only after the local release gate passes and the Release workflow creates `v1.1.3`, packages, executable ZIPs, manifest, and GitHub Release assets.
+3. `RG-1.1.3-3 Windows And Linux Installers`: add non-admin, per-user install, upgrade, and uninstall workflows for Windows and Linux while retaining portable ZIPs; macOS and system-wide Linux packages remain out of scope.
+4. `RG-1.1.3-4 Guarded Patch Release`: publish only after the local release gate passes and the Release workflow creates `v1.1.3`, packages, portable executable ZIPs, installer artifacts, manifest, and GitHub Release assets.
 
 ### v1.1.3 Milestone Map
 
 - #65 `Add Apache-2.0 licensing and package provenance metadata`; Status: `Done`.
+- #70 `Add non-admin Windows and Linux installers`; Status: `Ready`.
 - #66 `Release v1.1.3`; Status: `Ready`.
 
 ### v1.1.3 Implementation Validation
 
+- `2026-07-28`: Added #70 as the next release-preparation slice: non-admin Windows and Linux installers with install/upgrade/uninstall validation, installed CLI/MCP smoke tests, release-manifest integration, and portable ZIP fallback. macOS, `.deb`, `.rpm`, system-wide installation, and mandatory production signing are explicitly deferred. No implementation, version bump, tag, or publication was started.
 - `2026-07-10`: #65 added the canonical Apache-2.0 license and an explicit scope grant for AvaScope-authored official releases from `0.1.0` onward; packaged legal/provenance metadata is now verified for all NuGet packages and Windows/Linux executable ZIPs. Debug build passed with 0 warnings and 0 errors, focused stable-surface tests passed (`4`), the full Debug suite passed (`370`), Release package/ZIP generation with tests and sample smoke skipped passed the new artifact checks, NuGet and GitHub Release dry-runs passed, and `git diff --check` reported only line-ending normalization warnings. PR #67 merged the slice to `master` as `7c76ce9`; #65 closed as completed. Release tracker #66 remains ready and unpublished pending the remaining planned modifications.
 
 ## Released Target: v1.1.2
