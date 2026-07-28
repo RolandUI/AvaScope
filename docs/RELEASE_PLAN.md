@@ -74,11 +74,12 @@ Release execution is intentionally deferred until the remaining planned modifica
 ### v1.1.3 Milestone Map
 
 - #65 `Add Apache-2.0 licensing and package provenance metadata`; Status: `Done`.
-- #70 `Add non-admin Windows and Linux installers`; Status: `Review`.
+- #70 `Add non-admin Windows and Linux installers`; Status: `Done`.
 - #66 `Release v1.1.3`; Status: `Ready`.
 
 ### v1.1.3 Implementation Validation
 
+- `2026-07-28`: Integrated the seven validated installer and branding commits directly into `master` through `c0025cd`. GitHub automatically marked the existing draft PR #71 as merged after its full commit history became reachable from `master`; no PR merge action, version bump, tag, or publication occurred. Issue #70 is complete and release tracker #66 remains ready pending explicit release approval.
 - `2026-07-28`: Completed the `Atomic A` AvaScope identity integration with deterministic light/dark repository exports, a theme-aware README lockup, and consistent setup/wizard/uninstall/application-list branding. The GitHub description was set to the product tagline. Release build, Windows/Linux installer packaging, seven-artifact verification, seven focused artifact-backed tests, PE icon inspection, and `git diff --check` passed. No version bump, tag, or publication occurred.
 - `2026-07-28`: Started integration of the selected `Atomic A` AvaScope identity into repository documentation and the Windows installer. Validation covers theme-aware README artwork, setup/uninstall/application-list icons, the installed icon file, artifact verification, and focused tests. No version bump, tag, or publication was started.
 - `2026-07-28`: Completed terminal color polish: only the `SUCCESS`/`FAILED` marker is green/red and all other text stays white. Success/failure ANSI assertions, setup rebuild, seven-artifact verification, Release build, and seven focused tests passed. No version bump, tag, or publication occurred.
