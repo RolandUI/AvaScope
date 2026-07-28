@@ -23,9 +23,12 @@ DefaultGroupName=AvaScope
 DisableProgramGroupPage=yes
 LicenseFile={#RepoRoot}\LICENSE
 OutputBaseFilename=AvaScopeSetup
+SetupIconFile={#RepoRoot}\assets\brand\avascope.ico
 Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern dynamic
+WizardSmallImageFile={#RepoRoot}\assets\brand\avascope-icon.png
+WizardSmallImageFileDynamicDark={#RepoRoot}\assets\brand\avascope-icon-dark.png
 PrivilegesRequired=lowest
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
@@ -34,7 +37,7 @@ ChangesEnvironment=yes
 CloseApplications=yes
 RestartApplications=no
 UninstallDisplayName=AvaScope
-UninstallDisplayIcon={app}\current\avascope.exe
+UninstallDisplayIcon={app}\AvaScope.ico
 VersionInfoVersion={#AppVersion}
 VersionInfoCompany=RolandUI
 VersionInfoDescription=AvaScope Setup
@@ -52,6 +55,7 @@ Type: filesandordirs; Name: "{app}\current"
 
 [Files]
 Source: "{#PayloadDir}\*"; DestDir: "{app}\current"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#RepoRoot}\assets\brand\avascope.ico"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#RepoRoot}\eng\installer\avascope.cmd"; DestDir: "{app}\bin"; Flags: ignoreversion
 Source: "{#RepoRoot}\eng\installer\verify-avascope.cmd"; DestDir: "{app}\bin"; Flags: ignoreversion
 

@@ -189,18 +189,39 @@ public sealed class StableSurfaceContractTests
         var packageInstallers = File.ReadAllText(Path.Combine(root, "eng", "package-installers.ps1"));
         var windowsInstaller = File.ReadAllText(Path.Combine(root, "eng", "installer", "AvaScope.iss"));
         var verifyArtifactsScript = File.ReadAllText(Path.Combine(root, "eng", "verify-artifacts.ps1"));
+        var readme = File.ReadAllText(Path.Combine(root, "README.md"));
         Assert.Contains("THIRD-PARTY-NOTICES.md", packageExecutables, StringComparison.Ordinal);
         Assert.Contains("AvaScopeInstallerPayload", packageInstallers, StringComparison.Ordinal);
         Assert.Contains("AvaScope.iss", packageInstallers, StringComparison.Ordinal);
         Assert.Contains("Resolve-InnoSetupCompiler", packageInstallers, StringComparison.Ordinal);
         Assert.Contains("WindowsSignToolPath", packageInstallers, StringComparison.Ordinal);
         Assert.Contains("WizardStyle=modern dynamic", windowsInstaller, StringComparison.Ordinal);
+        Assert.Contains(@"SetupIconFile={#RepoRoot}\assets\brand\avascope.ico", windowsInstaller, StringComparison.Ordinal);
+        Assert.Contains(@"WizardSmallImageFile={#RepoRoot}\assets\brand\avascope-icon.png", windowsInstaller, StringComparison.Ordinal);
+        Assert.Contains(@"WizardSmallImageFileDynamicDark={#RepoRoot}\assets\brand\avascope-icon-dark.png", windowsInstaller, StringComparison.Ordinal);
         Assert.Contains("PrivilegesRequired=lowest", windowsInstaller, StringComparison.Ordinal);
+        Assert.Contains(@"UninstallDisplayIcon={app}\AvaScope.ico", windowsInstaller, StringComparison.Ordinal);
         Assert.Contains("avascope.discovery.json", windowsInstaller, StringComparison.Ordinal);
         Assert.Contains("verify-avascope.cmd", windowsInstaller, StringComparison.Ordinal);
         Assert.Contains("Verify the AvaScope installation", windowsInstaller, StringComparison.Ordinal);
         Assert.Contains("postinstall skipifsilent nowait", windowsInstaller, StringComparison.Ordinal);
         Assert.DoesNotContain("ExecAndCaptureOutput(", windowsInstaller, StringComparison.Ordinal);
+        Assert.Contains("assets/brand/avascope-logo.png", readme, StringComparison.Ordinal);
+        Assert.Contains("assets/brand/avascope-logo-dark.png", readme, StringComparison.Ordinal);
+        foreach (var brandFileName in new[]
+                 {
+                     "avascope-logo.png",
+                     "avascope-logo-dark.png",
+                     "avascope-icon.png",
+                     "avascope-icon-dark.png",
+                     "avascope.ico",
+                     "brand-assets.json"
+                 })
+        {
+            Assert.True(
+                File.Exists(Path.Combine(root, "assets", "brand", brandFileName)),
+                $"Missing required brand asset: {brandFileName}");
+        }
         Assert.Contains("Assert-NuGetPackageMetadata", verifyArtifactsScript, StringComparison.Ordinal);
         Assert.Contains("Assert-ExecutableLegalFiles", verifyArtifactsScript, StringComparison.Ordinal);
     }

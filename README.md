@@ -1,6 +1,12 @@
-# AvaScope
+<h1 align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/brand/avascope-logo-dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="assets/brand/avascope-logo.png">
+    <img alt="AvaScope" src="assets/brand/avascope-logo.png" width="720">
+  </picture>
+</h1>
 
-Agent control plane for Avalonia apps.
+<p align="center"><strong>Agent control plane for Avalonia apps.</strong></p>
 
 AvaScope is a local-first agent tool for understanding, validating, and controlling Avalonia UI through structured CLI and MCP workflows. It helps an agent inspect running UI trees, render `.axaml` previews in an isolated process, capture screenshots, send narrow non-destructive input, collect diagnostics, and produce evidence artifacts without relying on unstructured screen reading.
 

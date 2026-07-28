@@ -1,0 +1,37 @@
+{
+  "product": "AvaScope",
+  "concept": "Atomic A",
+  "generatedAt": "2026-07-28",
+  "assets": [
+    {
+      "path": "avascope-logo.png",
+      "purpose": "Horizontal lockup for light backgrounds",
+      "dimensions": "1639x500",
+      "sha256": "df8aeb0a658a5072f1266c40d03df2d54c6340d527060d24e969f91c59b28f57"
+    },
+    {
+      "path": "avascope-logo-dark.png",
+      "purpose": "Horizontal lockup for dark backgrounds",
+      "dimensions": "1639x500",
+      "sha256": "893effce6be882894a1c313658907c3b40c6c60e4e861e0b2b756268d80ae455"
+    },
+    {
+      "path": "avascope-icon.png",
+      "purpose": "Standalone icon for light backgrounds",
+      "dimensions": "1254x1254",
+      "sha256": "5e300e67ee63622997549cf0d4a57ab816db69695a9db4ac13d2ff8e0395c1b2"
+    },
+    {
+      "path": "avascope-icon-dark.png",
+      "purpose": "Standalone icon for dark backgrounds",
+      "dimensions": "1254x1254",
+      "sha256": "38551918d1b3eb6068b1e8acc04ae7a396e05200ed3743187f58d74c744c652d"
+    },
+    {
+      "path": "avascope.ico",
+      "purpose": "Windows setup, uninstall, and application-list icon",
+      "dimensions": "16,20,24,32,40,48,64,128,256 px",
+      "sha256": "52d45be0c7ad99dad36610e04028734c69344bfd18994225b75ea6650b3c4027"
+    }
+  ]
+}

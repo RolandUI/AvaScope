@@ -111,6 +111,9 @@ public sealed class InstallerWorkflowTests
 
             if (OperatingSystem.IsWindows())
             {
+                var installedIconPath = Path.Combine(installRoot, "AvaScope.ico");
+                Assert.True(File.Exists(installedIconPath), $"Expected installed application icon at {installedIconPath}.");
+
                 var verificationPath = Path.Combine(binDirectory, "verify-avascope.cmd");
                 Assert.True(File.Exists(verificationPath), $"Expected installed verification command at {verificationPath}.");
                 var verificationResult = await RunProcessAsync(
