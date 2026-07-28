@@ -26,21 +26,21 @@ GitHub Issues and Milestones are the primary project-management source for auton
 
 ## Current Focus
 
-- `Release v1.1.3`
-- GitHub Issue: #66
+- `Windows and Linux installers`
+- GitHub Issue: #70
 - GitHub Milestone: `v1.1.3`
-- Status: `Not Started`
+- Status: `Review`
 - Owner: autonomous agent
-- Started: not started
-- Goal: hold the guarded release until publication is explicitly approved; the Apache-2.0/provenance and Windows/Linux installer slices are complete.
+- Started: `2026-07-28`
+- Goal: review and merge draft PR #71 for the validated Windows/Linux installer slice without starting the release.
 
 ## Next Action
 
-Keep release tracker #66 in `status:ready` until release publication is explicitly approved. Do not bump the version, create a tag, or publish assets before that approval.
+Review and merge draft PR #71, then close #70 as completed. Keep release tracker #66 in `status:ready` until release publication is explicitly approved.
 
 ## Latest Validation
 
-- `2026-07-28`: Completed #70. Added a framework-dependent single-file installer host and generated `avascope-win-x64-installer.exe` plus `avascope-linux-x64-installer` from the same multi-file payloads as the portable ZIPs. Implemented non-admin install, deterministic repair/upgrade replacement, discovery metadata, legal-file installation, owned-path-safe uninstall, Windows current-user PATH/Apps & Features integration, Linux `~/.local/bin` setup, and an optional Authenticode signing hook. Added Windows/Linux CI lanes and artifact-backed tests for verify, install, `--version`, `doctor`, MCP stdio/startup, repair, unsafe-uninstall rejection, and uninstall. Debug and Release builds passed with 0 warnings/errors; full Debug and Release tests each passed `371`; Windows and WSL Ubuntu installer smokes passed; the local release workflow verified seven hashed artifacts; NuGet and GitHub Release dry-runs passed without publication. Version remains `1.1.2`; no tag or release was created.
+- `2026-07-28`: Completed local implementation for #70 in commit `664e17a` and opened draft PR #71. Added a framework-dependent single-file installer host and generated `avascope-win-x64-installer.exe` plus `avascope-linux-x64-installer` from the same multi-file payloads as the portable ZIPs. Implemented non-admin install, deterministic repair/upgrade replacement, discovery metadata, legal-file installation, owned-path-safe uninstall, Windows current-user PATH/Apps & Features integration, Linux `~/.local/bin` setup, and an optional Authenticode signing hook. Added Windows/Linux CI lanes and artifact-backed tests for verify, install, `--version`, `doctor`, MCP stdio/startup, repair, unsafe-uninstall rejection, and uninstall. Debug and Release builds passed with 0 warnings/errors; full Debug and Release tests each passed `371`; Windows and WSL Ubuntu installer smokes passed; the local release workflow verified seven hashed artifacts; NuGet and GitHub Release dry-runs passed without publication. Version remains `1.1.2`; no tag or release was created.
 - `2026-07-28`: Started #70 at `In Progress / 25% / Current Slice`. Intended validation covers Windows/Linux clean install, repair/upgrade replacement, uninstall, installed CLI `--version`/`doctor`, MCP stdio startup, installer payload/legal verification, release manifest and publish dry-runs, full build/tests, and `git diff --check`. No version bump, tag, or release publication is in scope.
 - `2026-07-28`: Created GitHub issue #70 as the next `v1.1.3` slice and placed it at `Ready / 0% / Planned Slice` on the AvaScope Roadmap. Scope covers user-local Windows and Linux install, upgrade, and uninstall workflows, installed CLI/MCP smoke tests, release manifest and legal/provenance validation, a Windows signing hook without credentials, and portable ZIP fallback. macOS, `.deb`, `.rpm`, system-wide Linux installation, mandatory production signing, version bump, tag creation, and publication remain out of scope. No implementation or release execution was started.
 - `2026-07-10`: Merged licensing PR #67 to `master` as `7c76ce9e87a407d8c7cf6ec1aa9650ff5d7b3099` (`Add Apache-2.0 licensing (#67)`), closed #65 as completed, and moved its roadmap card to `Done / 100% / Completed`. Per explicit product direction, no `v1.1.3` release was started: #66 remains `Ready / 0% / Release Tracker` until the remaining modifications are complete, and no version bump or publication occurred.
