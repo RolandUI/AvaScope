@@ -83,6 +83,19 @@ function Assert-ExecutableLegalFiles {
     }
 }
 
+function Get-WindowsSignatureStatus {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+
+    if (-not $IsWindows -and $env:OS -ne "Windows_NT") {
+        return "not-checked"
+    }
+
+    return (Get-AuthenticodeSignature -LiteralPath $Path).Status.ToString().ToLowerInvariant()
+}
+
 function Test-IsUnderDirectory {
     param(
         [Parameter(Mandatory = $true)]
@@ -191,6 +204,17 @@ foreach ($runtimeIdentifier in $ExecutableRuntimeIdentifiers) {
         Kind = "executable-zip"
         Path = Join-Path $executableRootPath "avascope-$runtimeIdentifier-$ExecutablePackageKind.zip"
     }
+
+    $installerExtension = if ($runtimeIdentifier.StartsWith("win-", [System.StringComparison]::OrdinalIgnoreCase)) {
+        ".exe"
+    } else {
+        ""
+    }
+    $requiredArtifacts += [pscustomobject]@{
+        Kind = "installer"
+        Path = Join-Path $executableRootPath "avascope-$runtimeIdentifier-installer$installerExtension"
+        RuntimeIdentifier = $runtimeIdentifier
+    }
 }
 
 $expectedPackageNames = @{}
@@ -215,6 +239,17 @@ Get-ChildItem -LiteralPath $executableRootPath -Filter "avascope-*.zip" -File | 
     }
 }
 
+$expectedInstallerNames = @{}
+foreach ($artifact in $requiredArtifacts | Where-Object { $_.Kind -eq "installer" }) {
+    $expectedInstallerNames[(Split-Path -Leaf $artifact.Path)] = $true
+}
+
+Get-ChildItem -LiteralPath $executableRootPath -Filter "avascope-*-installer*" -File | ForEach-Object {
+    if (-not $expectedInstallerNames.ContainsKey($_.Name)) {
+        throw "Unexpected installer artifact is not covered by the manifest: $($_.FullName)"
+    }
+}
+
 foreach ($artifact in $requiredArtifacts | Where-Object { $_.Kind -eq "nuget-package" }) {
     Assert-NuGetPackageMetadata -Path $artifact.Path
 }
@@ -236,6 +271,13 @@ $artifacts = foreach ($artifact in $requiredArtifacts) {
         relativePath = Get-RepoRelativePath -Path $file.FullName -RepoRoot $repoRoot
         sizeBytes = $file.Length
         sha256 = $hash.Hash.ToLowerInvariant()
+        runtimeIdentifier = $artifact.RuntimeIdentifier
+        signatureStatus = if ($artifact.Kind -eq "installer" -and
+            $artifact.RuntimeIdentifier.StartsWith("win-", [System.StringComparison]::OrdinalIgnoreCase)) {
+            Get-WindowsSignatureStatus -Path $artifact.Path
+        } else {
+            $null
+        }
     }
 }
 

@@ -8,7 +8,7 @@ The intended agent loop is: check readiness, preview the UI, inspect a running a
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1
-powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\install-avascope.ps1 -SourcePath .\artifacts\executables\avascope-win-x64-framework-dependent
+.\artifacts\executables\avascope-win-x64-installer.exe
 ```
 
 Use the installed command when it is available:

@@ -38,6 +38,7 @@ The `v0.7.0` release line added the runtime control-plane layer: bounded reversi
 
 - `src/AvaScope.Protocol`: transport-neutral DTOs and stable JSON contracts.
 - `src/AvaScope.Core`: reusable session registry, local bridge client, and preview host client.
+- `src/AvaScope.Installer`: single-file, per-user Windows/Linux installer host.
 - `src/AvaScope.Bridge`: opt-in package loaded by Avalonia apps for runtime inspection.
 - `src/AvaScope.PreviewHost`: child process that builds/loads views and renders previews.
 - `src/AvaScope.Mcp`: stdio MCP adapter over Core.
@@ -74,7 +75,7 @@ One-command local Release build for external project testing:
 powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1
 ```
 
-The script runs Release restore/build/test, creates local NuGet packages, creates framework-dependent executable ZIPs, verifies `artifacts\release-manifest.json`, and smoke-tests the packaged Windows CLI against the getting-started sample. Use the printed `artifacts\executables\avascope-win-x64-framework-dependent\avascope.exe` path for testing other Avalonia projects.
+The script runs Release restore/build/test, creates local NuGet packages, creates framework-dependent executable ZIPs plus single-file Windows/Linux installers, verifies `artifacts\release-manifest.json`, and smoke-tests the installed Windows CLI/MCP and packaged Windows CLI against the getting-started sample. Use the printed `artifacts\executables\avascope-win-x64-framework-dependent\avascope.exe` path for testing other Avalonia projects.
 
 Local package validation:
 
@@ -95,7 +96,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\package-executables.ps
 powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\verify-artifacts.ps1
 ```
 
-The executable package slice produces framework-dependent publish artifacts by default, such as `artifacts\executables\avascope-win-x64-framework-dependent.zip` and `artifacts\executables\avascope-linux-x64-framework-dependent.zip`. Each ZIP contains the `avascope` CLI, `AvaScope.Mcp`, and `AvaScope.PreviewHost` in one directory so `avascope mcp` and preview rendering can find their co-located assemblies. Framework-dependent packages require a compatible local .NET runtime and do not publish to any feed.
+The executable package slice produces framework-dependent portable artifacts by default, such as `artifacts\executables\avascope-win-x64-framework-dependent.zip` and `artifacts\executables\avascope-linux-x64-framework-dependent.zip`. `eng\package-installers.ps1` embeds those exact payloads into `avascope-win-x64-installer.exe` and `avascope-linux-x64-installer`. Each installed payload keeps the `avascope` CLI, `AvaScope.Mcp`, and `AvaScope.PreviewHost` co-located. Framework-dependent packages and installers require a compatible local .NET 10 runtime and do not publish to any feed.
 
 Self-contained executable ZIPs are available as an explicit local/package validation lane:
 
@@ -105,7 +106,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.p
 
 This produces artifacts such as `artifacts\executables\avascope-win-x64-self-contained.zip`. Self-contained ZIPs are not the default CI or release asset set yet; use the package kind parameter intentionally when validating or publishing that artifact shape.
 
-`eng\verify-artifacts.ps1` writes `artifacts\release-manifest.json`, a local ignored JSON manifest with artifact names, relative paths, byte sizes, SHA-256 hashes, and executable package kind for the three NuGet packages plus executable ZIP artifacts.
+`eng\verify-artifacts.ps1` writes `artifacts\release-manifest.json`, a local ignored JSON manifest with artifact names, relative paths, byte sizes, SHA-256 hashes, runtime identifiers, Windows signature status, and executable package kind for the three NuGet packages, portable executable ZIPs, and installer artifacts.
 
 The default executable package targets are `win-x64` and `linux-x64`. Pass `-RuntimeIdentifiers win-x64` or `-ExecutableRuntimeIdentifiers win-x64` to the package and verify scripts when validating a narrower local artifact set. Pass `-PackageKind self-contained` to `package-executables.ps1`, or `-ExecutablePackageKind self-contained` to `create-local-release.ps1`, `verify-artifacts.ps1`, or `publish-github-release.ps1` when working with the opt-in self-contained lane.
 
@@ -138,6 +139,8 @@ The same workflow creates or updates the GitHub Release for the tag and uploads 
 - `AvaScope.Protocol`, `AvaScope.Core`, and `AvaScope.Bridge` `.nupkg` files.
 - `avascope-win-x64-framework-dependent.zip`.
 - `avascope-linux-x64-framework-dependent.zip`.
+- `avascope-win-x64-installer.exe`.
+- `avascope-linux-x64-installer`.
 - `release-manifest.json`.
 
 The default workflow publishes framework-dependent executable ZIPs. To manually validate or publish a self-contained GitHub Release asset set, create local artifacts with `-ExecutablePackageKind self-contained` and pass the same package kind to `eng\publish-github-release.ps1`.
@@ -167,7 +170,7 @@ The workflow can also be run manually. Manual runs validate by default; set `pub
 
 ## Install From Release Artifacts
 
-AvaScope release artifacts are published as NuGet packages plus framework-dependent executable ZIPs. Windows users can install the packaged CLI into a stable per-user location with `eng\install-avascope.ps1`; direct ZIP execution remains supported. Self-contained ZIPs remain an explicit local/publish-script artifact lane.
+AvaScope release artifacts include non-admin, per-user Windows and Linux installers plus the framework-dependent portable ZIPs. The installers embed the same multi-file payload as the matching ZIP, support idempotent reinstall/repair and complete payload replacement on upgrade, write discovery metadata, and install an uninstaller. Self-contained ZIPs remain an explicit local/publish-script artifact lane.
 
 Create and verify local Release artifacts:
 
@@ -175,15 +178,40 @@ Create and verify local Release artifacts:
 powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1
 ```
 
-Install the packaged Windows CLI for the current user:
+Install on Windows:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\install-avascope.ps1 -SourcePath .\artifacts\executables\avascope-win-x64-framework-dependent
+.\artifacts\executables\avascope-win-x64-installer.exe
 avascope --version
 avascope doctor
 ```
 
-The installer copies the bundle to `%LOCALAPPDATA%\AvaScope\current`, writes command shims under `%LOCALAPPDATA%\AvaScope\bin`, updates the user `PATH` unless `-SkipPathUpdate` is supplied, and writes `%LOCALAPPDATA%\AvaScope\avascope.discovery.json`.
+The Windows installer uses `%LOCALAPPDATA%\AvaScope`, registers a current-user Apps & Features uninstaller, writes `%LOCALAPPDATA%\AvaScope\bin\avascope.cmd`, and adds that directory to the current-user `PATH`. Open a new terminal after installation. Installation and uninstall do not require administrator rights.
+
+Install on Linux:
+
+```bash
+chmod +x ./avascope-linux-x64-installer
+./avascope-linux-x64-installer
+~/.local/bin/avascope --version
+~/.local/bin/avascope doctor
+```
+
+The Linux installer uses `$XDG_DATA_HOME/avascope` when `XDG_DATA_HOME` is set, otherwise `~/.local/share/avascope`, and writes the command shim to `~/.local/bin/avascope`. It does not modify shell profiles or require `sudo`; add `~/.local/bin` to `PATH` if the distribution does not already include it.
+
+Uninstall:
+
+```powershell
+& "$env:LOCALAPPDATA\AvaScope\uninstall\avascope-uninstall.exe" --uninstall
+```
+
+```bash
+~/.local/share/avascope/uninstall/avascope-uninstall --uninstall
+```
+
+The portable ZIPs remain supported when installation or PATH/Apps & Features registration is not wanted. The repository-owned `eng\install-avascope.ps1` remains available for Windows development installs from an unpacked directory or ZIP.
+
+Windows release installers may be Authenticode-signed by passing `-WindowsSignToolPath` and `-WindowsSignToolArguments` to `eng\package-installers.ps1`. Local and dry-run artifacts remain buildable unsigned; `release-manifest.json` records the observed Windows signature status. Signing credentials and certificates are never stored in the repository.
 
 The discovery manifest is stable machine-readable install metadata:
 
@@ -192,11 +220,13 @@ The discovery manifest is stable machine-readable install metadata:
   "schemaVersion": 1,
   "product": "AvaScope",
   "serviceName": "avascope",
-  "version": "1.0.2",
+  "version": "<version>",
   "installMode": "per-user",
   "installRoot": "%LOCALAPPDATA%\\AvaScope",
   "commandPath": "%LOCALAPPDATA%\\AvaScope\\bin\\avascope.cmd",
   "executablePath": "%LOCALAPPDATA%\\AvaScope\\current\\avascope.exe",
+  "uninstallPath": "%LOCALAPPDATA%\\AvaScope\\uninstall\\avascope-uninstall.exe",
+  "pathEntryManaged": true,
   "mcp": {
     "transport": "stdio",
     "serverName": "avascope",
@@ -209,8 +239,8 @@ The discovery manifest is stable machine-readable install metadata:
 Agent discovery order should be:
 
 1. Run `avascope` from `PATH`.
-2. Read `%LOCALAPPDATA%\AvaScope\avascope.discovery.json`.
-3. Probe `%LOCALAPPDATA%\AvaScope\bin\avascope.cmd` and `%LOCALAPPDATA%\AvaScope\current\avascope.exe`.
+2. Read `%LOCALAPPDATA%\AvaScope\avascope.discovery.json`, `$XDG_DATA_HOME/avascope/avascope.discovery.json`, or `~/.local/share/avascope/avascope.discovery.json`.
+3. Probe the documented Windows or Linux command/install paths.
 4. Fall back to repository or unpacked release artifact paths.
 
 ## Version Discovery

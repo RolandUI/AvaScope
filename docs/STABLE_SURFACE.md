@@ -22,11 +22,12 @@ The package ids, package dependency direction, and SemVer major compatibility ru
 These executable or test assemblies are intentionally not NuGet package surfaces:
 
 - `AvaScope.Cli`
+- `AvaScope.Installer`
 - `AvaScope.Mcp`
 - `AvaScope.PreviewHost`
 - `AvaScope.Tests`
 
-They are distributed through executable ZIPs and source, not as package APIs.
+They are distributed through installers, executable ZIPs, and source, not as package APIs.
 
 ## Protocol Contracts
 
@@ -177,6 +178,8 @@ Stable release artifact names:
 - `AvaScope.Bridge.<version>.nupkg`
 - `avascope-win-x64-framework-dependent.zip`
 - `avascope-linux-x64-framework-dependent.zip`
+- `avascope-win-x64-installer.exe`
+- `avascope-linux-x64-installer`
 - `release-manifest.json`
 
 Stable local executable artifact directory and ZIP pattern:
@@ -189,6 +192,14 @@ Stable Windows per-user install paths:
 - `%LOCALAPPDATA%\AvaScope\current\avascope.exe`
 - `%LOCALAPPDATA%\AvaScope\bin\avascope.cmd`
 - `%LOCALAPPDATA%\AvaScope\avascope.discovery.json`
+- `%LOCALAPPDATA%\AvaScope\uninstall\avascope-uninstall.exe`
+
+Stable Linux per-user install paths:
+
+- `$XDG_DATA_HOME/avascope/current/avascope` or `~/.local/share/avascope/current/avascope`
+- `~/.local/bin/avascope`
+- `$XDG_DATA_HOME/avascope/avascope.discovery.json` or `~/.local/share/avascope/avascope.discovery.json`
+- `$XDG_DATA_HOME/avascope/uninstall/avascope-uninstall` or `~/.local/share/avascope/uninstall/avascope-uninstall`
 
 Stable discovery manifest fields:
 
@@ -202,6 +213,8 @@ Stable discovery manifest fields:
 - `shimDirectory`
 - `commandPath`
 - `executablePath`
+- `uninstallPath`
+- `pathEntryManaged`
 - `mcp.transport`
 - `mcp.serverName`
 - `mcp.commandPath`

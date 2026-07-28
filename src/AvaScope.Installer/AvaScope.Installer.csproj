@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>avascope-installer</AssemblyName>
+    <RootNamespace>AvaScope.Installer</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <PublishSingleFile>true</PublishSingleFile>
+    <DebugType>none</DebugType>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(AvaScopeInstallerPayload)' != ''">
+    <EmbeddedResource Include="$(AvaScopeInstallerPayload)" LogicalName="AvaScope.Installer.Payload.zip" />
+  </ItemGroup>
+
+</Project>

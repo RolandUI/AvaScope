@@ -131,6 +131,14 @@ try {
         throw "eng/package-executables.ps1 failed with exit code $LASTEXITCODE."
     }
 
+    & (Join-Path $repoRoot "eng/package-installers.ps1") `
+        -Configuration $Configuration `
+        -RuntimeIdentifiers $RuntimeIdentifiers `
+        -ExecutablePackageKind $ExecutablePackageKind
+    if ($LASTEXITCODE -ne 0) {
+        throw "eng/package-installers.ps1 failed with exit code $LASTEXITCODE."
+    }
+
     & (Join-Path $repoRoot "eng/verify-artifacts.ps1") `
         -ExecutableRuntimeIdentifiers $RuntimeIdentifiers `
         -ExecutablePackageKind $ExecutablePackageKind
@@ -144,8 +152,28 @@ try {
     if ($winRuntimeIdentifier) {
         $releaseDirectory = Join-Path $executableRoot "avascope-$winRuntimeIdentifier-$ExecutablePackageKind"
         $releaseExe = Join-Path $releaseDirectory "avascope.exe"
+        $installerPath = Join-Path $executableRoot "avascope-$winRuntimeIdentifier-installer.exe"
         if (-not (Test-Path -LiteralPath $releaseExe -PathType Leaf)) {
             throw "Packaged Windows avascope.exe was not produced: $releaseExe"
+        }
+        if (-not (Test-Path -LiteralPath $installerPath -PathType Leaf)) {
+            throw "Packaged Windows installer was not produced: $installerPath"
+        }
+
+        $previousInstallerArtifact = $env:AVASCOPE_INSTALLER_ARTIFACT
+        try {
+            $env:AVASCOPE_INSTALLER_ARTIFACT = $installerPath
+            Invoke-DotNet -Arguments @(
+                "test",
+                $solutionPath,
+                "-c",
+                $Configuration,
+                "--no-build",
+                "--filter",
+                "FullyQualifiedName~PackagedInstallerSupportsInstallRepairDoctorMcpAndUninstall")
+        }
+        finally {
+            $env:AVASCOPE_INSTALLER_ARTIFACT = $previousInstallerArtifact
         }
 
         $doctorRoot = Join-Path $sampleRoot "doctor-smoke"

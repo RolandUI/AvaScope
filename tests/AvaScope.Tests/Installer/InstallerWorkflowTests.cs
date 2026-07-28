@@ -9,6 +9,157 @@ namespace AvaScope.Tests.Installer;
 public sealed class InstallerWorkflowTests
 {
     [Fact]
+    public async Task PackagedInstallerSupportsInstallRepairDoctorMcpAndUninstall()
+    {
+        var installerPath = Environment.GetEnvironmentVariable("AVASCOPE_INSTALLER_ARTIFACT");
+        if (string.IsNullOrWhiteSpace(installerPath))
+        {
+            return;
+        }
+
+        installerPath = Path.GetFullPath(installerPath);
+        Assert.True(File.Exists(installerPath), $"Expected installer artifact at {installerPath}.");
+        if (!OperatingSystem.IsWindows())
+        {
+            File.SetUnixFileMode(
+                installerPath,
+                UnixFileMode.UserRead |
+                UnixFileMode.UserWrite |
+                UnixFileMode.UserExecute |
+                UnixFileMode.GroupRead |
+                UnixFileMode.GroupExecute |
+                UnixFileMode.OtherRead |
+                UnixFileMode.OtherExecute);
+        }
+
+        var root = FindRepositoryRoot();
+        var installRoot = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", $"packaged-install-{Guid.NewGuid():N}");
+        var unownedRoot = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", $"unowned-install-{Guid.NewGuid():N}");
+        var binDirectory = Path.Combine(installRoot, "bin");
+        var commandPath = Path.Combine(binDirectory, OperatingSystem.IsWindows() ? "avascope.cmd" : "avascope");
+        var expectedVersion = XDocument.Load(Path.Combine(root, "Directory.Build.props"))
+            .Descendants("Version")
+            .Single()
+            .Value;
+        var installerArguments = new[]
+        {
+            "--install-root",
+            installRoot,
+            "--bin-dir",
+            binDirectory,
+            "--no-path-update",
+            "--no-registration"
+        };
+
+        try
+        {
+            var verifyResult = await RunProcessAsync(installerPath, ["--verify"], root);
+            Assert.Equal(0, verifyResult.ExitCode);
+            Assert.Contains("\"product\":\"AvaScope\"", verifyResult.StandardOutput, StringComparison.Ordinal);
+
+            Directory.CreateDirectory(unownedRoot);
+            var unownedMarker = Path.Combine(unownedRoot, "keep.txt");
+            await File.WriteAllTextAsync(unownedMarker, "not owned by AvaScope");
+            var unsafeUninstallResult = await RunProcessAsync(
+                installerPath,
+                [
+                    "--uninstall",
+                    "--install-root",
+                    unownedRoot,
+                    "--bin-dir",
+                    Path.Combine(unownedRoot, "bin"),
+                    "--no-path-update",
+                    "--no-registration"
+                ],
+                root);
+            Assert.NotEqual(0, unsafeUninstallResult.ExitCode);
+            Assert.True(File.Exists(unownedMarker), "Uninstall must preserve directories not owned by AvaScope.");
+
+            var installResult = await RunProcessAsync(installerPath, installerArguments, root);
+            Assert.Equal(0, installResult.ExitCode);
+            Assert.True(string.IsNullOrWhiteSpace(installResult.StandardError), installResult.StandardError);
+
+            Assert.True(File.Exists(commandPath), $"Expected installed command at {commandPath}.");
+            var discoveryPath = Path.Combine(installRoot, "avascope.discovery.json");
+            using (var discovery = JsonDocument.Parse(await File.ReadAllTextAsync(discoveryPath)))
+            {
+                var uninstallPath = discovery.RootElement.GetProperty("uninstallPath").GetString();
+                Assert.False(string.IsNullOrWhiteSpace(uninstallPath));
+                Assert.True(File.Exists(uninstallPath), $"Expected installed uninstaller at {uninstallPath}.");
+            }
+
+            foreach (var legalFileName in new[] { "LICENSE", "NOTICE", "LICENSE-SCOPE.md", "THIRD-PARTY-NOTICES.md" })
+            {
+                Assert.True(
+                    File.Exists(Path.Combine(installRoot, "current", legalFileName)),
+                    $"Expected installed legal file: {legalFileName}");
+            }
+
+            var versionResult = await RunProcessAsync(commandPath, ["--version"], root);
+            Assert.Equal(0, versionResult.ExitCode);
+            Assert.Equal(expectedVersion, versionResult.StandardOutput.Trim());
+
+            var doctorResult = await RunProcessAsync(
+                commandPath,
+                [
+                    "doctor",
+                    "--manifest-dir",
+                    Path.Combine(installRoot, "sessions"),
+                    "--preview-session-store",
+                    Path.Combine(installRoot, "preview-sessions")
+                ],
+                root);
+            Assert.Equal(0, doctorResult.ExitCode);
+            Assert.Contains("\"status\":\"available\"", doctorResult.StandardOutput, StringComparison.Ordinal);
+
+            var stderr = new List<string>();
+            using (var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(20)))
+            {
+                var environment = StdioClientTransportOptions.GetDefaultEnvironmentVariables();
+                var installedMcpPath = Path.Combine(
+                    installRoot,
+                    "current",
+                    OperatingSystem.IsWindows() ? "AvaScope.Mcp.exe" : "AvaScope.Mcp");
+                await using var client = await McpClient.CreateAsync(
+                    new StdioClientTransport(new StdioClientTransportOptions
+                    {
+                        Name = "AvaScope packaged installer",
+                        Command = installedMcpPath,
+                        WorkingDirectory = root,
+                        InheritEnvironmentVariables = false,
+                        EnvironmentVariables = environment,
+                        ShutdownTimeout = TimeSpan.FromSeconds(5),
+                        StandardErrorLines = stderr.Add
+                    }),
+                    cancellationToken: cancellation.Token);
+
+                var tools = await client.ListToolsAsync(cancellationToken: cancellation.Token);
+                Assert.Equal("avascope", client.ServerInfo.Name);
+                Assert.Equal(AvaScopeProduct.Version, client.ServerInfo.Version);
+                Assert.Contains(tools, static tool => tool.Name == "health");
+            }
+
+            var stalePath = Path.Combine(installRoot, "current", "stale-upgrade-sentinel.txt");
+            await File.WriteAllTextAsync(stalePath, "stale");
+            var repairResult = await RunProcessAsync(installerPath, installerArguments, root);
+            Assert.Equal(0, repairResult.ExitCode);
+            Assert.False(File.Exists(stalePath), "Repair/upgrade should replace the complete current payload.");
+
+            var uninstallResult = await RunProcessAsync(
+                installerPath,
+                ["--uninstall", .. installerArguments],
+                root);
+            Assert.Equal(0, uninstallResult.ExitCode);
+            Assert.False(Directory.Exists(installRoot), "Uninstall should remove the user-local install root.");
+        }
+        finally
+        {
+            await DeleteDirectoryWithRetryAsync(installRoot);
+            await DeleteDirectoryWithRetryAsync(unownedRoot);
+        }
+    }
+
+    [Fact]
     public async Task InstallScriptCreatesStableCommandAndDiscoveryManifest()
     {
         if (!OperatingSystem.IsWindows())
@@ -119,6 +270,7 @@ public sealed class InstallerWorkflowTests
             Assert.True(string.IsNullOrWhiteSpace(installResult.StandardError), installResult.StandardError);
 
             var commandPath = Path.Combine(installRoot, "bin", "avascope.cmd");
+            var installedMcpPath = Path.Combine(installRoot, "current", "AvaScope.Mcp.exe");
             var stderr = new List<string>();
             using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(20));
             var environment = StdioClientTransportOptions.GetDefaultEnvironmentVariables();
@@ -127,8 +279,7 @@ public sealed class InstallerWorkflowTests
                 new StdioClientTransport(new StdioClientTransportOptions
                 {
                     Name = "AvaScope installed",
-                    Command = commandPath,
-                    Arguments = ["mcp"],
+                    Command = installedMcpPath,
                     WorkingDirectory = root,
                     InheritEnvironmentVariables = false,
                     EnvironmentVariables = environment,

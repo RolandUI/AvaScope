@@ -10,6 +10,8 @@ jobs:
   validate:
     name: Build, Test, Pack
     runs-on: windows-latest
+    outputs:
+      requires_validation: ${{ steps.changes.outputs.requires_validation }}
 
     env:
       DOTNET_CLI_TELEMETRY_OPTOUT: "1"
@@ -113,6 +115,20 @@ jobs:
           powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\package-executables.ps1
           Get-ChildItem artifacts\executables
 
+      - name: Package installers
+        if: ${{ steps.changes.outputs.requires_validation == 'true' }}
+        shell: pwsh
+        run: |
+          powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\package-installers.ps1
+          Get-ChildItem artifacts\executables\avascope-*-installer*
+
+      - name: Test packaged Windows installer
+        if: ${{ steps.changes.outputs.requires_validation == 'true' }}
+        shell: pwsh
+        env:
+          AVASCOPE_INSTALLER_ARTIFACT: artifacts/executables/avascope-win-x64-installer.exe
+        run: dotnet test AvaScope.slnx -c Release --no-build --filter FullyQualifiedName~PackagedInstallerSupportsInstallRepairDoctorMcpAndUninstall
+
       - name: Verify artifacts
         if: ${{ steps.changes.outputs.requires_validation == 'true' }}
         shell: pwsh
@@ -124,3 +140,44 @@ jobs:
         if: ${{ steps.changes.outputs.requires_validation != 'true' }}
         shell: pwsh
         run: Write-Host "Only documentation files changed; skipped Restore, Build, Test, Pack, and artifact verification."
+
+  installer-linux:
+    name: Linux Installer
+    needs: validate
+    if: ${{ needs.validate.outputs.requires_validation == 'true' }}
+    runs-on: ubuntu-latest
+
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+      DOTNET_NOLOGO: "1"
+      DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "1"
+      AVASCOPE_INSTALLER_ARTIFACT: artifacts/executables/avascope-linux-x64-installer
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore AvaScope.slnx
+
+      - name: Build
+        run: dotnet build AvaScope.slnx -c Release --no-restore
+
+      - name: Package Linux executable
+        shell: pwsh
+        run: pwsh -NoProfile -File ./eng/package-executables.ps1 -RuntimeIdentifiers linux-x64
+
+      - name: Package Linux installer
+        shell: pwsh
+        run: pwsh -NoProfile -File ./eng/package-installers.ps1 -RuntimeIdentifiers linux-x64
+
+      - name: Test packaged Linux installer
+        run: |
+          expected_version="$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' Directory.Build.props)"
+          bash ./eng/test-linux-installer.sh "$AVASCOPE_INSTALLER_ARTIFACT" "$expected_version"
+          dotnet test AvaScope.slnx -c Release --no-build --filter FullyQualifiedName~PackagedInstallerSupportsInstallRepairDoctorMcpAndUninstall

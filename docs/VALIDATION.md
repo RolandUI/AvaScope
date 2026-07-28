@@ -80,11 +80,12 @@ For installer and CLI discovery work, include:
 
 ```powershell
 dotnet test AvaScope.slnx --filter FullyQualifiedName~InstallerWorkflowTests
-powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1 -RuntimeIdentifiers win-x64 -SkipTests
-powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\install-avascope.ps1 -SourcePath .\artifacts\executables\avascope-win-x64-framework-dependent
-avascope --version
-avascope doctor
+powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1 -RuntimeIdentifiers win-x64 -SkipTests -SkipSampleSmoke
+$env:AVASCOPE_INSTALLER_ARTIFACT = ".\artifacts\executables\avascope-win-x64-installer.exe"
+dotnet test AvaScope.slnx -c Release --no-build --filter FullyQualifiedName~PackagedInstallerSupportsInstallRepairDoctorMcpAndUninstall
 ```
+
+On Linux, package `linux-x64`, then run `bash ./eng/test-linux-installer.sh ./artifacts/executables/avascope-linux-x64-installer <version>` and the same artifact-backed .NET test with `AVASCOPE_INSTALLER_ARTIFACT` set to that path. These checks cover embedded payload/legal verification, clean install, `--version`, `doctor`, MCP stdio startup, repair/upgrade replacement, unsafe-uninstall rejection, and uninstall.
 
 For CLI doctor/self-test work, include:
 
@@ -331,6 +332,7 @@ dotnet pack .\src\AvaScope.Protocol\AvaScope.Protocol.csproj -c Release --no-bui
 dotnet pack .\src\AvaScope.Core\AvaScope.Core.csproj -c Release --no-build --output .\artifacts\packages
 dotnet pack .\src\AvaScope.Bridge\AvaScope.Bridge.csproj -c Release --no-build --output .\artifacts\packages
 powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\package-executables.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\package-installers.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\verify-artifacts.ps1
 ```
 
@@ -352,7 +354,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release
 
 The repository `CI` workflow remains manual-only after `v1.0.0` publication to protect GitHub Actions quota; validate development slices locally with the commands above unless the user explicitly approves a GitHub Actions run or a separate maintenance change re-enables CI. NuGet publishing in CI requires a repository secret named `NUGET_API_KEY`. The `Release` workflow publishes from `master` or `main` when a push changes `Directory.Build.props` and the `<Version>` value has no matching remote `v<Version>` tag yet.
 
-The release workflow publishes library packages to nuget.org and GitHub Packages, creates the `v<Version>` tag, creates or updates the matching GitHub Release, and uploads the three `.nupkg` files, RID-specific framework-dependent executable ZIPs, and `artifacts\release-manifest.json`.
+The release workflow publishes library packages to nuget.org and GitHub Packages, creates the `v<Version>` tag, creates or updates the matching GitHub Release, and uploads the three `.nupkg` files, RID-specific framework-dependent executable ZIPs, Windows/Linux installer artifacts, and `artifacts\release-manifest.json`.
 
 Before publishing library packages manually, validate the exact publish set without pushing:
 
@@ -366,5 +368,5 @@ Manual NuGet publishing requires a nuget.org API key supplied by `AVASCOPE_NUGET
 Then verify generated artifacts are ignored:
 
 ```powershell
-git check-ignore -v artifacts\release-manifest.json artifacts\packages\AvaScope.Protocol.1.0.0.nupkg artifacts\executables\avascope-win-x64-framework-dependent.zip artifacts\samples\getting-started-preview-release.png
+git check-ignore -v artifacts\release-manifest.json artifacts\packages\AvaScope.Protocol.1.0.0.nupkg artifacts\executables\avascope-win-x64-framework-dependent.zip artifacts\executables\avascope-win-x64-installer.exe artifacts\samples\getting-started-preview-release.png
 ```

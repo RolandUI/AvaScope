@@ -40,7 +40,7 @@ dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll doctor
 
 For the first sample preview and runtime bridge workflow, see the [getting started sample guide](docs/USER_GUIDE.md#getting-started-sample).
 
-Executable ZIPs and package artifacts are published from GitHub Releases when a release is cut.
+Per-user Windows and Linux installers, portable executable ZIPs, and package artifacts are published from GitHub Releases when a release is cut.
 
 ## Documentation
 
@@ -85,5 +85,6 @@ Development is tracked in GitHub Issues, Milestones, and the public [AvaScope Ro
 - `src/AvaScope.PreviewHost`: isolated preview renderer.
 - `src/AvaScope.Mcp`: MCP stdio adapter.
 - `src/AvaScope.Cli`: local command-line interface.
+- `src/AvaScope.Installer`: single-file Windows/Linux per-user installer.
 - `samples/AvaScope.GettingStartedApp`: small Avalonia sample app.
 - `tests/AvaScope.Tests`: protocol, core, MCP, bridge, preview host, and CLI tests.
