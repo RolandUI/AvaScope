@@ -29,17 +29,18 @@ GitHub Issues and Milestones are the primary project-management source for auton
 - `v1.1.3 guarded release`
 - GitHub Issue: #66
 - GitHub Milestone: `v1.1.3`
-- Status: `In Progress`
+- Status: `Review`
 - Owner: autonomous agent
 - Started: `2026-07-28`
 - Goal: publish the validated Apache-2.0 licensing, provenance, Windows/Linux installers, and AvaScope branding as `v1.1.3`.
 
 ## Next Action
 
-Run the complete local release gate. Bump to `1.1.3` only after every check passes, then push the exact `Release 1.1.3` commit and verify the remote tag, packages, installer assets, manifest, and GitHub Release.
+Push the exact `Release 1.1.3` commit, monitor the guarded GitHub workflow, then verify the remote tag, NuGet packages, installer assets, manifest, and GitHub Release before closing #66.
 
 ## Latest Validation
 
+- `2026-07-28`: The complete local v1.1.3 release gate passed and the target moved to `Release Candidate`. Debug and Release builds passed with 0 warnings/errors and all `371` tests passed in each configuration; the Release suite passed twice more during artifact attempts. Three NuGet packages, two framework-dependent portable ZIPs, `AvaScopeSetup.exe`, the Linux installer, and the SHA-256 release manifest were generated at exact version `1.1.3` and verified for package metadata, legal/provenance files, packaged doctor, and a real Avalonia sample preview. The Windows installer passed artifact-backed install/version/doctor/MCP/repair/uninstall validation; the Linux installer passed the equivalent WSL Ubuntu smoke with a temporary user-local .NET 10 runtime. NuGet and GitHub Release dry-runs passed without publication. Two initial artifact attempts stopped safely because stale repository-hosted MCP processes held the prior payload; after those exact processes were terminated, the clean artifact gate passed. Release tracker #66 is ready for the exact `Release 1.1.3` commit and guarded publish workflow.
 - `2026-07-28`: Started release tracker #66 after explicit publication approval. The tracker and roadmap card moved to `In Progress / 25% / Release Tracker`. The guarded gate covers clean/tag preflight, full Debug and Release build/tests, local artifact creation, Windows and WSL Linux installer smoke, seven-artifact hash/legal verification, NuGet and GitHub Release dry-runs, release-commit validation, and `git diff --check`. The version remains `1.1.2` until the gate passes.
 - `2026-07-28`: Fast-forwarded the seven validated installer and branding commits directly onto `master` through `c0025cd` and pushed `master` to GitHub. GitHub automatically recorded the pre-existing draft PR #71 as merged because its complete head commit history became part of `master`; no pull-request merge operation, version bump, tag, or release was performed. Issue #70 is complete, while release tracker #66 remains ready and unpublished.
 - `2026-07-28`: Completed the selected `Atomic A` brand integration. Added transparent light/dark icon and horizontal lockup exports with a deterministic asset manifest and provenance note; the README now switches lockups with the GitHub color scheme; and the Windows setup EXE, modern wizard, uninstaller, and Installed Apps entry use the AvaScope icon. The GitHub repository description is now `Agent control plane for Avalonia apps.` Release build passed with 0 warnings/errors; setup and Linux installer packaging succeeded; all seven release artifacts were verified; artifact-backed installer/stable-surface tests passed (`7`); the setup PE icon was extracted and visually checked; and `git diff --check` passed with line-ending normalization warnings only. No version bump, tag, or release was created.

@@ -50,11 +50,11 @@ The roadmap below records the release-shaped plan through `v1.0.0`. It is intent
 - Every release must include targeted tests, full build/test validation, release dry-run validation, documentation updates, and explicit deferrals.
 - A release may be split into a patch release if a P0/P1 regression blocks users or CI, but patch scope must remain defect-focused.
 
-## Planned Target: v1.1.3
+## Current Release Target
 
 - Release: `v1.1.3`
 - Target Version: `1.1.3`
-- Release State: `In Progress`
+- Release State: `Release Candidate`
 - Scope Lock: `2026-07-28`
 - GitHub Milestone: `v1.1.3`
 - GitHub Issues: #65, #66, #70
@@ -75,10 +75,11 @@ Release execution began on `2026-07-28` after the remaining planned modification
 
 - #65 `Add Apache-2.0 licensing and package provenance metadata`; Status: `Done`.
 - #70 `Add non-admin Windows and Linux installers`; Status: `Done`.
-- #66 `Release v1.1.3`; Status: `In Progress`.
+- #66 `Release v1.1.3`; Status: `Review`.
 
 ### v1.1.3 Implementation Validation
 
+- `2026-07-28`: The complete local release gate passed and v1.1.3 moved to `Release Candidate`. Debug and Release builds completed with 0 warnings/errors and `371` passing tests in each configuration; the Release suite passed twice more while diagnosing stale artifact-hosted MCP locks. Exact `1.1.3` NuGet packages, Windows/Linux portable ZIPs, branded `AvaScopeSetup.exe`, the Linux installer, and the SHA-256 manifest passed metadata/legal/provenance verification, packaged doctor, sample preview, Windows installer install/version/doctor/MCP/repair/uninstall, and equivalent WSL Ubuntu Linux installer smoke using a temporary user-local .NET 10 runtime. NuGet and GitHub Release dry-runs passed without publication. The release is ready for the exact `Release 1.1.3` commit and guarded workflow.
 - `2026-07-28`: Started the guarded v1.1.3 release after explicit publication approval. The release tracker moved to `In Progress / 25%`; the version remains `1.1.2` until the complete local gate passes.
 - `2026-07-28`: Integrated the seven validated installer and branding commits directly into `master` through `c0025cd`. GitHub automatically marked the existing draft PR #71 as merged after its full commit history became reachable from `master`; no PR merge action, version bump, tag, or publication occurred. Issue #70 is complete and release tracker #66 remains ready pending explicit release approval.
 - `2026-07-28`: Completed the `Atomic A` AvaScope identity integration with deterministic light/dark repository exports, a theme-aware README lockup, and consistent setup/wizard/uninstall/application-list branding. The GitHub description was set to the product tagline. Release build, Windows/Linux installer packaging, seven-artifact verification, seven focused artifact-backed tests, PE icon inspection, and `git diff --check` passed. No version bump, tag, or publication occurred.
