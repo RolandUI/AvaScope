@@ -54,8 +54,8 @@ The roadmap below records the release-shaped plan through `v1.0.0`. It is intent
 
 - Release: `v1.1.3`
 - Target Version: `1.1.3`
-- Release State: `Planned`
-- Scope Lock: pending remaining modifications
+- Release State: `In Progress`
+- Scope Lock: `2026-07-28`
 - GitHub Milestone: `v1.1.3`
 - GitHub Issues: #65, #66, #70
 - Previous Release: `v1.1.2`
@@ -64,7 +64,7 @@ The roadmap below records the release-shaped plan through `v1.0.0`. It is intent
 
 The `v1.1.3` patch release resolves the missing public license grant and package provenance metadata discovered before opening the source repository, and adds user-local Windows and Linux installers before publication.
 
-Release execution is intentionally deferred until the remaining planned modifications are implemented and added to this milestone.
+Release execution began on `2026-07-28` after the remaining planned modifications were completed and publication was explicitly approved.
 
 1. `RG-1.1.3-1 Apache-2.0 License Grant`: license AvaScope-authored source and official release artifacts, including versions `0.1.0` and later, under Apache-2.0 while preserving third-party licenses.
 2. `RG-1.1.3-2 Verifiable Distribution Metadata`: embed license, repository, project, copyright, scope, and third-party notice data in NuGet and executable artifacts and validate the packed outputs.
@@ -75,10 +75,11 @@ Release execution is intentionally deferred until the remaining planned modifica
 
 - #65 `Add Apache-2.0 licensing and package provenance metadata`; Status: `Done`.
 - #70 `Add non-admin Windows and Linux installers`; Status: `Done`.
-- #66 `Release v1.1.3`; Status: `Ready`.
+- #66 `Release v1.1.3`; Status: `In Progress`.
 
 ### v1.1.3 Implementation Validation
 
+- `2026-07-28`: Started the guarded v1.1.3 release after explicit publication approval. The release tracker moved to `In Progress / 25%`; the version remains `1.1.2` until the complete local gate passes.
 - `2026-07-28`: Integrated the seven validated installer and branding commits directly into `master` through `c0025cd`. GitHub automatically marked the existing draft PR #71 as merged after its full commit history became reachable from `master`; no PR merge action, version bump, tag, or publication occurred. Issue #70 is complete and release tracker #66 remains ready pending explicit release approval.
 - `2026-07-28`: Completed the `Atomic A` AvaScope identity integration with deterministic light/dark repository exports, a theme-aware README lockup, and consistent setup/wizard/uninstall/application-list branding. The GitHub description was set to the product tagline. Release build, Windows/Linux installer packaging, seven-artifact verification, seven focused artifact-backed tests, PE icon inspection, and `git diff --check` passed. No version bump, tag, or publication occurred.
 - `2026-07-28`: Started integration of the selected `Atomic A` AvaScope identity into repository documentation and the Windows installer. Validation covers theme-aware README artwork, setup/uninstall/application-list icons, the installed icon file, artifact verification, and focused tests. No version bump, tag, or publication was started.

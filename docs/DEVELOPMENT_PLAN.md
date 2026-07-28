@@ -26,20 +26,21 @@ GitHub Issues and Milestones are the primary project-management source for auton
 
 ## Current Focus
 
-- `Windows and Linux installers`
-- GitHub Issue: #70
+- `v1.1.3 guarded release`
+- GitHub Issue: #66
 - GitHub Milestone: `v1.1.3`
-- Status: `Done`
+- Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-07-28`
-- Goal: deliver the validated Windows/Linux installers and AvaScope brand integration directly on `master` without starting the release.
+- Goal: publish the validated Apache-2.0 licensing, provenance, Windows/Linux installers, and AvaScope branding as `v1.1.3`.
 
 ## Next Action
 
-Keep release tracker #66 in `status:ready` until release publication is explicitly approved.
+Run the complete local release gate. Bump to `1.1.3` only after every check passes, then push the exact `Release 1.1.3` commit and verify the remote tag, packages, installer assets, manifest, and GitHub Release.
 
 ## Latest Validation
 
+- `2026-07-28`: Started release tracker #66 after explicit publication approval. The tracker and roadmap card moved to `In Progress / 25% / Release Tracker`. The guarded gate covers clean/tag preflight, full Debug and Release build/tests, local artifact creation, Windows and WSL Linux installer smoke, seven-artifact hash/legal verification, NuGet and GitHub Release dry-runs, release-commit validation, and `git diff --check`. The version remains `1.1.2` until the gate passes.
 - `2026-07-28`: Fast-forwarded the seven validated installer and branding commits directly onto `master` through `c0025cd` and pushed `master` to GitHub. GitHub automatically recorded the pre-existing draft PR #71 as merged because its complete head commit history became part of `master`; no pull-request merge operation, version bump, tag, or release was performed. Issue #70 is complete, while release tracker #66 remains ready and unpublished.
 - `2026-07-28`: Completed the selected `Atomic A` brand integration. Added transparent light/dark icon and horizontal lockup exports with a deterministic asset manifest and provenance note; the README now switches lockups with the GitHub color scheme; and the Windows setup EXE, modern wizard, uninstaller, and Installed Apps entry use the AvaScope icon. The GitHub repository description is now `Agent control plane for Avalonia apps.` Release build passed with 0 warnings/errors; setup and Linux installer packaging succeeded; all seven release artifacts were verified; artifact-backed installer/stable-surface tests passed (`7`); the setup PE icon was extracted and visually checked; and `git diff --check` passed with line-ending normalization warnings only. No version bump, tag, or release was created.
 - `2026-07-28`: Started the selected `Atomic A` brand integration for #70. Scope covers transparent light/dark repository assets, a theme-aware README lockup, setup/uninstall/application-list branding, and artifact-backed installer validation. No version bump, tag, or release publication is in scope.
