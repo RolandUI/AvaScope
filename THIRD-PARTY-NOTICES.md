@@ -13,6 +13,7 @@ The released dependency graph is authoritative for exact versions. The principal
 | HarfBuzzSharp and native assets | 8.3.1.3 | MIT package license; copyright Xamarin, Inc. and Microsoft Corporation. Native components retain any additional notices shipped by their upstream packages. |
 | Microsoft.Extensions, Microsoft.Extensions.AI and System.Diagnostics.EventLog packages | 10.x | MIT; copyright Microsoft Corporation. |
 | ModelContextProtocol and ModelContextProtocol.Core | 1.4.0 | Package metadata declares Apache-2.0. The [upstream license](https://github.com/modelcontextprotocol/csharp-sdk/blob/v1.4.0/LICENSE) also documents an Apache-2.0 transition in which contributions not yet relicensed remain MIT. Both the repository Apache-2.0 text and the MIT text below accompany AvaScope distributions. |
+| Inno Setup setup and uninstall engine (Windows installer only) | 6.7.x or compatible 7.x compiler | Inno Setup License; copyright 1997-2026 Jordan Russell and portions copyright 2000-2026 Martijn Laan. See the [official license](https://jrsoftware.org/files/is/license.txt). |
 
 Package or native-asset notices that are more specific than this summary continue to apply. This file does not replace or narrow any upstream license.
 

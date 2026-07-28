@@ -81,7 +81,7 @@ For installer and CLI discovery work, include:
 ```powershell
 dotnet test AvaScope.slnx --filter FullyQualifiedName~InstallerWorkflowTests
 powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1 -RuntimeIdentifiers win-x64 -SkipTests -SkipSampleSmoke
-$env:AVASCOPE_INSTALLER_ARTIFACT = ".\artifacts\executables\avascope-win-x64-installer.exe"
+$env:AVASCOPE_INSTALLER_ARTIFACT = ".\artifacts\executables\AvaScopeSetup.exe"
 dotnet test AvaScope.slnx -c Release --no-build --filter FullyQualifiedName~PackagedInstallerSupportsInstallRepairDoctorMcpAndUninstall
 ```
 
@@ -368,5 +368,5 @@ Manual NuGet publishing requires a nuget.org API key supplied by `AVASCOPE_NUGET
 Then verify generated artifacts are ignored:
 
 ```powershell
-git check-ignore -v artifacts\release-manifest.json artifacts\packages\AvaScope.Protocol.1.0.0.nupkg artifacts\executables\avascope-win-x64-framework-dependent.zip artifacts\executables\avascope-win-x64-installer.exe artifacts\samples\getting-started-preview-release.png
+git check-ignore -v artifacts\release-manifest.json artifacts\packages\AvaScope.Protocol.1.0.0.nupkg artifacts\executables\avascope-win-x64-framework-dependent.zip artifacts\executables\AvaScopeSetup.exe artifacts\samples\getting-started-preview-release.png
 ```

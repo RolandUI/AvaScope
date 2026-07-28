@@ -131,12 +131,12 @@ foreach ($runtimeIdentifier in $ExecutableRuntimeIdentifiers) {
     }
 
     $assetPaths += Join-Path $executableRootPath "avascope-$runtimeIdentifier-$ExecutablePackageKind.zip"
-    $installerExtension = if ($runtimeIdentifier.StartsWith("win-", [System.StringComparison]::OrdinalIgnoreCase)) {
-        ".exe"
+    $installerName = if ($runtimeIdentifier.StartsWith("win-", [System.StringComparison]::OrdinalIgnoreCase)) {
+        "AvaScopeSetup.exe"
     } else {
-        ""
+        "avascope-$runtimeIdentifier-installer"
     }
-    $assetPaths += Join-Path $executableRootPath "avascope-$runtimeIdentifier-installer$installerExtension"
+    $assetPaths += Join-Path $executableRootPath $installerName
 }
 
 $assetPaths += $manifestPathValue

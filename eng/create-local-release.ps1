@@ -152,7 +152,7 @@ try {
     if ($winRuntimeIdentifier) {
         $releaseDirectory = Join-Path $executableRoot "avascope-$winRuntimeIdentifier-$ExecutablePackageKind"
         $releaseExe = Join-Path $releaseDirectory "avascope.exe"
-        $installerPath = Join-Path $executableRoot "avascope-$winRuntimeIdentifier-installer.exe"
+        $installerPath = Join-Path $executableRoot "AvaScopeSetup.exe"
         if (-not (Test-Path -LiteralPath $releaseExe -PathType Leaf)) {
             throw "Packaged Windows avascope.exe was not produced: $releaseExe"
         }

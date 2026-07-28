@@ -205,14 +205,14 @@ foreach ($runtimeIdentifier in $ExecutableRuntimeIdentifiers) {
         Path = Join-Path $executableRootPath "avascope-$runtimeIdentifier-$ExecutablePackageKind.zip"
     }
 
-    $installerExtension = if ($runtimeIdentifier.StartsWith("win-", [System.StringComparison]::OrdinalIgnoreCase)) {
-        ".exe"
+    $installerName = if ($runtimeIdentifier.StartsWith("win-", [System.StringComparison]::OrdinalIgnoreCase)) {
+        "AvaScopeSetup.exe"
     } else {
-        ""
+        "avascope-$runtimeIdentifier-installer"
     }
     $requiredArtifacts += [pscustomobject]@{
         Kind = "installer"
-        Path = Join-Path $executableRootPath "avascope-$runtimeIdentifier-installer$installerExtension"
+        Path = Join-Path $executableRootPath $installerName
         RuntimeIdentifier = $runtimeIdentifier
     }
 }
@@ -248,6 +248,11 @@ Get-ChildItem -LiteralPath $executableRootPath -Filter "avascope-*-installer*" -
     if (-not $expectedInstallerNames.ContainsKey($_.Name)) {
         throw "Unexpected installer artifact is not covered by the manifest: $($_.FullName)"
     }
+}
+$windowsSetupPath = Join-Path $executableRootPath "AvaScopeSetup.exe"
+if ((Test-Path -LiteralPath $windowsSetupPath -PathType Leaf) -and
+    -not $expectedInstallerNames.ContainsKey("AvaScopeSetup.exe")) {
+    throw "Unexpected Windows setup artifact is not covered by the manifest: $windowsSetupPath"
 }
 
 foreach ($artifact in $requiredArtifacts | Where-Object { $_.Kind -eq "nuget-package" }) {

@@ -115,18 +115,24 @@ jobs:
           powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\package-executables.ps1
           Get-ChildItem artifacts\executables
 
+      - name: Install Inno Setup
+        if: ${{ steps.changes.outputs.requires_validation == 'true' }}
+        shell: pwsh
+        run: winget install --id JRSoftware.InnoSetup -e --source winget --silent --accept-package-agreements --accept-source-agreements --disable-interactivity
+
       - name: Package installers
         if: ${{ steps.changes.outputs.requires_validation == 'true' }}
         shell: pwsh
         run: |
           powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\package-installers.ps1
-          Get-ChildItem artifacts\executables\avascope-*-installer*
+          Get-Item artifacts\executables\AvaScopeSetup.exe
+          Get-Item artifacts\executables\avascope-linux-x64-installer
 
       - name: Test packaged Windows installer
         if: ${{ steps.changes.outputs.requires_validation == 'true' }}
         shell: pwsh
         env:
-          AVASCOPE_INSTALLER_ARTIFACT: artifacts/executables/avascope-win-x64-installer.exe
+          AVASCOPE_INSTALLER_ARTIFACT: artifacts/executables/AvaScopeSetup.exe
         run: dotnet test AvaScope.slnx -c Release --no-build --filter FullyQualifiedName~PackagedInstallerSupportsInstallRepairDoctorMcpAndUninstall
 
       - name: Verify artifacts

@@ -90,6 +90,11 @@ jobs:
         shell: pwsh
         run: powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-release-commit.ps1 -Version "${{ steps.release_metadata.outputs.version }}"
 
+      - name: Install Inno Setup
+        if: ${{ steps.release_metadata.outputs.should_validate == 'true' }}
+        shell: pwsh
+        run: winget install --id JRSoftware.InnoSetup -e --source winget --silent --accept-package-agreements --accept-source-agreements --disable-interactivity
+
       - name: Create release artifacts
         if: ${{ steps.release_metadata.outputs.should_validate == 'true' }}
         shell: pwsh

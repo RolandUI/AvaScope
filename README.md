@@ -85,6 +85,7 @@ Development is tracked in GitHub Issues, Milestones, and the public [AvaScope Ro
 - `src/AvaScope.PreviewHost`: isolated preview renderer.
 - `src/AvaScope.Mcp`: MCP stdio adapter.
 - `src/AvaScope.Cli`: local command-line interface.
-- `src/AvaScope.Installer`: single-file Windows/Linux per-user installer.
+- `src/AvaScope.Installer`: single-file Linux per-user installer host.
+- `eng/installer`: Windows Inno Setup wizard definition and command shim.
 - `samples/AvaScope.GettingStartedApp`: small Avalonia sample app.
 - `tests/AvaScope.Tests`: protocol, core, MCP, bridge, preview host, and CLI tests.

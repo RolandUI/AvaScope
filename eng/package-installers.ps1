@@ -4,6 +4,7 @@ param(
     [string[]]$RuntimeIdentifiers = @("win-x64", "linux-x64"),
     [ValidateSet("framework-dependent", "self-contained")]
     [string]$ExecutablePackageKind = "framework-dependent",
+    [string]$InnoSetupCompilerPath,
     [string]$WindowsSignToolPath,
     [string[]]$WindowsSignToolArguments = @()
 )
@@ -64,6 +65,39 @@ function Invoke-DotNet {
     }
 }
 
+function Resolve-InnoSetupCompiler {
+    param([string]$ExplicitPath)
+
+    $candidates = @()
+    if (-not [string]::IsNullOrWhiteSpace($ExplicitPath)) {
+        $candidates += $ExplicitPath
+    }
+    if (-not [string]::IsNullOrWhiteSpace($env:INNO_SETUP_COMPILER)) {
+        $candidates += $env:INNO_SETUP_COMPILER
+    }
+
+    $command = Get-Command "ISCC.exe" -ErrorAction SilentlyContinue
+    if ($command) {
+        $candidates += $command.Source
+    }
+
+    $programFilesX86 = [Environment]::GetFolderPath("ProgramFilesX86")
+    $candidates += @(
+        (Join-Path $programFilesX86 "Inno Setup 7/ISCC.exe"),
+        (Join-Path $programFilesX86 "Inno Setup 6/ISCC.exe"),
+        (Join-Path $env:LOCALAPPDATA "Programs/Inno Setup 7/ISCC.exe"),
+        (Join-Path $env:LOCALAPPDATA "Programs/Inno Setup 6/ISCC.exe")
+    )
+
+    foreach ($candidate in $candidates | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }) {
+        if (Test-Path -LiteralPath $candidate -PathType Leaf) {
+            return [System.IO.Path]::GetFullPath($candidate)
+        }
+    }
+
+    throw "Inno Setup compiler was not found. Install it with 'winget install --id JRSoftware.InnoSetup -e' or pass -InnoSetupCompilerPath."
+}
+
 $repoRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot ".."))
 $executableRootPath = if ([System.IO.Path]::IsPathRooted($ExecutableRoot)) {
     [System.IO.Path]::GetFullPath($ExecutableRoot)
@@ -76,6 +110,7 @@ if (-not (Test-IsUnderDirectory -Path $executableRootPath -Directory $repoRoot))
 }
 
 $installerProject = Join-Path $repoRoot "src/AvaScope.Installer/AvaScope.Installer.csproj"
+$innoSetupScript = Join-Path $repoRoot "eng/installer/AvaScope.iss"
 $buildRoot = Join-Path $executableRootPath ".installer-build"
 New-Item -ItemType Directory -Path $executableRootPath -Force | Out-Null
 Remove-InstallerItem -Path $buildRoot -AllowedRoot $executableRootPath -Recurse
@@ -84,6 +119,7 @@ Get-ChildItem -LiteralPath $executableRootPath -Filter "avascope-*-installer*" -
     ForEach-Object {
         Remove-InstallerItem -Path $_.FullName -AllowedRoot $executableRootPath
     }
+Remove-InstallerItem -Path (Join-Path $executableRootPath "AvaScopeSetup.exe") -AllowedRoot $executableRootPath
 
 $createdInstallers = @()
 try {
@@ -97,36 +133,61 @@ try {
             throw "Installer payload does not exist: $payloadPath. Run eng/package-executables.ps1 first."
         }
 
-        $publishDirectory = Join-Path $buildRoot $runtimeIdentifier
-        New-Item -ItemType Directory -Path $publishDirectory -Force | Out-Null
-        $installerSelfContained = if ($ExecutablePackageKind -eq "self-contained") { "true" } else { "false" }
-        Invoke-DotNet -Arguments @(
-            "publish",
-            $installerProject,
-            "-c",
-            $Configuration,
-            "-r",
-            $runtimeIdentifier,
-            "--self-contained",
-            $installerSelfContained,
-            "--output",
-            $publishDirectory,
-            "-p:PublishSingleFile=true",
-            "-p:PublishTrimmed=false",
-            "-p:SelfContained=$installerSelfContained",
-            "-p:AvaScopeInstallerPayload=$payloadPath")
+        if ($runtimeIdentifier.StartsWith("win-", [System.StringComparison]::OrdinalIgnoreCase)) {
+            if (-not $runtimeIdentifier.Equals("win-x64", [System.StringComparison]::OrdinalIgnoreCase)) {
+                throw "The Windows wizard currently supports win-x64 only: $runtimeIdentifier"
+            }
 
-        $extension = if ($runtimeIdentifier.StartsWith("win-", [System.StringComparison]::OrdinalIgnoreCase)) {
-            ".exe"
-        } else {
-            ""
+            $compilerPath = Resolve-InnoSetupCompiler -ExplicitPath $InnoSetupCompilerPath
+            $payloadDirectory = Join-Path $buildRoot "$runtimeIdentifier-payload"
+            $outputDirectory = Join-Path $buildRoot "$runtimeIdentifier-inno"
+            New-Item -ItemType Directory -Path $payloadDirectory, $outputDirectory -Force | Out-Null
+            Expand-Archive -LiteralPath $payloadPath -DestinationPath $payloadDirectory -Force
+
+            [xml]$buildProps = Get-Content -LiteralPath (Join-Path $repoRoot "Directory.Build.props")
+            $version = [string]$buildProps.Project.PropertyGroup.Version
+            & $compilerPath `
+                "/Qp" `
+                "/DAppVersion=$version" `
+                "/DPayloadDir=$payloadDirectory" `
+                "/DRepoRoot=$repoRoot" `
+                "/O$outputDirectory" `
+                "/FAvaScopeSetup" `
+                $innoSetupScript
+            if ($LASTEXITCODE -ne 0) {
+                throw "Inno Setup compilation failed with exit code $LASTEXITCODE."
+            }
+
+            $publishedInstaller = Join-Path $outputDirectory "AvaScopeSetup.exe"
+            $installerPath = Join-Path $executableRootPath "AvaScopeSetup.exe"
         }
-        $publishedInstaller = Join-Path $publishDirectory "avascope-installer$extension"
+        else {
+            $publishDirectory = Join-Path $buildRoot $runtimeIdentifier
+            New-Item -ItemType Directory -Path $publishDirectory -Force | Out-Null
+            $installerSelfContained = if ($ExecutablePackageKind -eq "self-contained") { "true" } else { "false" }
+            Invoke-DotNet -Arguments @(
+                "publish",
+                $installerProject,
+                "-c",
+                $Configuration,
+                "-r",
+                $runtimeIdentifier,
+                "--self-contained",
+                $installerSelfContained,
+                "--output",
+                $publishDirectory,
+                "-p:PublishSingleFile=true",
+                "-p:PublishTrimmed=false",
+                "-p:SelfContained=$installerSelfContained",
+                "-p:AvaScopeInstallerPayload=$payloadPath")
+
+            $publishedInstaller = Join-Path $publishDirectory "avascope-installer"
+            $installerPath = Join-Path $executableRootPath "avascope-$runtimeIdentifier-installer"
+        }
+
         if (-not (Test-Path -LiteralPath $publishedInstaller -PathType Leaf)) {
-            throw "Installer publish did not produce the expected app host: $publishedInstaller"
+            throw "Installer build did not produce the expected artifact: $publishedInstaller"
         }
-
-        $installerPath = Join-Path $executableRootPath "avascope-$runtimeIdentifier-installer$extension"
         Copy-Item -LiteralPath $publishedInstaller -Destination $installerPath -Force
 
         if ($runtimeIdentifier.StartsWith("win-", [System.StringComparison]::OrdinalIgnoreCase) -and

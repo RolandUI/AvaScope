@@ -41,39 +41,52 @@ public sealed class InstallerWorkflowTests
             .Descendants("Version")
             .Single()
             .Value;
-        var installerArguments = new[]
-        {
-            "--install-root",
-            installRoot,
-            "--bin-dir",
-            binDirectory,
-            "--no-path-update",
-            "--no-registration"
-        };
+        string[] installerArguments = OperatingSystem.IsWindows()
+            ?
+            [
+                "/VERYSILENT",
+                "/SUPPRESSMSGBOXES",
+                "/NORESTART",
+                "/SP-",
+                $"/DIR={installRoot}",
+                "/TASKS="
+            ]
+            :
+            [
+                "--install-root",
+                installRoot,
+                "--bin-dir",
+                binDirectory,
+                "--no-path-update",
+                "--no-registration"
+            ];
 
         try
         {
-            var verifyResult = await RunProcessAsync(installerPath, ["--verify"], root);
-            Assert.Equal(0, verifyResult.ExitCode);
-            Assert.Contains("\"product\":\"AvaScope\"", verifyResult.StandardOutput, StringComparison.Ordinal);
+            if (!OperatingSystem.IsWindows())
+            {
+                var verifyResult = await RunProcessAsync(installerPath, ["--verify"], root);
+                Assert.Equal(0, verifyResult.ExitCode);
+                Assert.Contains("\"product\":\"AvaScope\"", verifyResult.StandardOutput, StringComparison.Ordinal);
 
-            Directory.CreateDirectory(unownedRoot);
-            var unownedMarker = Path.Combine(unownedRoot, "keep.txt");
-            await File.WriteAllTextAsync(unownedMarker, "not owned by AvaScope");
-            var unsafeUninstallResult = await RunProcessAsync(
-                installerPath,
-                [
-                    "--uninstall",
-                    "--install-root",
-                    unownedRoot,
-                    "--bin-dir",
-                    Path.Combine(unownedRoot, "bin"),
-                    "--no-path-update",
-                    "--no-registration"
-                ],
-                root);
-            Assert.NotEqual(0, unsafeUninstallResult.ExitCode);
-            Assert.True(File.Exists(unownedMarker), "Uninstall must preserve directories not owned by AvaScope.");
+                Directory.CreateDirectory(unownedRoot);
+                var unownedMarker = Path.Combine(unownedRoot, "keep.txt");
+                await File.WriteAllTextAsync(unownedMarker, "not owned by AvaScope");
+                var unsafeUninstallResult = await RunProcessAsync(
+                    installerPath,
+                    [
+                        "--uninstall",
+                        "--install-root",
+                        unownedRoot,
+                        "--bin-dir",
+                        Path.Combine(unownedRoot, "bin"),
+                        "--no-path-update",
+                        "--no-registration"
+                    ],
+                    root);
+                Assert.NotEqual(0, unsafeUninstallResult.ExitCode);
+                Assert.True(File.Exists(unownedMarker), "Uninstall must preserve directories not owned by AvaScope.");
+            }
 
             var installResult = await RunProcessAsync(installerPath, installerArguments, root);
             Assert.Equal(0, installResult.ExitCode);
@@ -81,9 +94,10 @@ public sealed class InstallerWorkflowTests
 
             Assert.True(File.Exists(commandPath), $"Expected installed command at {commandPath}.");
             var discoveryPath = Path.Combine(installRoot, "avascope.discovery.json");
+            string uninstallPath;
             using (var discovery = JsonDocument.Parse(await File.ReadAllTextAsync(discoveryPath)))
             {
-                var uninstallPath = discovery.RootElement.GetProperty("uninstallPath").GetString();
+                uninstallPath = discovery.RootElement.GetProperty("uninstallPath").GetString()!;
                 Assert.False(string.IsNullOrWhiteSpace(uninstallPath));
                 Assert.True(File.Exists(uninstallPath), $"Expected installed uninstaller at {uninstallPath}.");
             }
@@ -145,11 +159,20 @@ public sealed class InstallerWorkflowTests
             Assert.Equal(0, repairResult.ExitCode);
             Assert.False(File.Exists(stalePath), "Repair/upgrade should replace the complete current payload.");
 
-            var uninstallResult = await RunProcessAsync(
-                installerPath,
-                ["--uninstall", .. installerArguments],
-                root);
+            var uninstallResult = OperatingSystem.IsWindows()
+                ? await RunProcessAsync(
+                    uninstallPath,
+                    ["/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART"],
+                    root)
+                : await RunProcessAsync(
+                    installerPath,
+                    ["--uninstall", .. installerArguments],
+                    root);
             Assert.Equal(0, uninstallResult.ExitCode);
+            if (OperatingSystem.IsWindows())
+            {
+                await WaitForDirectoryDeletionAsync(installRoot);
+            }
             Assert.False(Directory.Exists(installRoot), "Uninstall should remove the user-local install root.");
         }
         finally
@@ -355,6 +378,14 @@ public sealed class InstallerWorkflowTests
         }
 
         throw new IOException($"Timed out deleting test directory '{path}'.", lastException);
+    }
+
+    private static async Task WaitForDirectoryDeletionAsync(string path)
+    {
+        for (var attempt = 0; attempt < 50 && Directory.Exists(path); attempt++)
+        {
+            await Task.Delay(TimeSpan.FromMilliseconds(100));
+        }
     }
 
     private static string FindRepositoryRoot()

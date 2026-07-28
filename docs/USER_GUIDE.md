@@ -38,7 +38,8 @@ The `v0.7.0` release line added the runtime control-plane layer: bounded reversi
 
 - `src/AvaScope.Protocol`: transport-neutral DTOs and stable JSON contracts.
 - `src/AvaScope.Core`: reusable session registry, local bridge client, and preview host client.
-- `src/AvaScope.Installer`: single-file, per-user Windows/Linux installer host.
+- `src/AvaScope.Installer`: single-file, per-user Linux installer host.
+- `eng/installer`: Windows Inno Setup wizard definition and command shim.
 - `src/AvaScope.Bridge`: opt-in package loaded by Avalonia apps for runtime inspection.
 - `src/AvaScope.PreviewHost`: child process that builds/loads views and renders previews.
 - `src/AvaScope.Mcp`: stdio MCP adapter over Core.
@@ -75,7 +76,7 @@ One-command local Release build for external project testing:
 powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1
 ```
 
-The script runs Release restore/build/test, creates local NuGet packages, creates framework-dependent executable ZIPs plus single-file Windows/Linux installers, verifies `artifacts\release-manifest.json`, and smoke-tests the installed Windows CLI/MCP and packaged Windows CLI against the getting-started sample. Use the printed `artifacts\executables\avascope-win-x64-framework-dependent\avascope.exe` path for testing other Avalonia projects.
+The script runs Release restore/build/test, creates local NuGet packages, creates framework-dependent executable ZIPs plus a graphical Windows setup and single-file Linux installer, verifies `artifacts\release-manifest.json`, and smoke-tests the installed Windows CLI/MCP and packaged Windows CLI against the getting-started sample. Building the Windows setup requires Inno Setup 6 or 7; install it with `winget install --id JRSoftware.InnoSetup -e`. Use the printed `artifacts\executables\avascope-win-x64-framework-dependent\avascope.exe` path for testing other Avalonia projects.
 
 Local package validation:
 
@@ -96,7 +97,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\package-executables.ps
 powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\verify-artifacts.ps1
 ```
 
-The executable package slice produces framework-dependent portable artifacts by default, such as `artifacts\executables\avascope-win-x64-framework-dependent.zip` and `artifacts\executables\avascope-linux-x64-framework-dependent.zip`. `eng\package-installers.ps1` embeds those exact payloads into `avascope-win-x64-installer.exe` and `avascope-linux-x64-installer`. Each installed payload keeps the `avascope` CLI, `AvaScope.Mcp`, and `AvaScope.PreviewHost` co-located. Framework-dependent packages and installers require a compatible local .NET 10 runtime and do not publish to any feed.
+The executable package slice produces framework-dependent portable artifacts by default, such as `artifacts\executables\avascope-win-x64-framework-dependent.zip` and `artifacts\executables\avascope-linux-x64-framework-dependent.zip`. `eng\package-installers.ps1` embeds those exact payloads into the graphical `AvaScopeSetup.exe` Windows wizard and the terminal-based `avascope-linux-x64-installer`. Each installed payload keeps the `avascope` CLI, `AvaScope.Mcp`, and `AvaScope.PreviewHost` co-located. Framework-dependent packages and installers require a compatible local .NET 10 runtime and do not publish to any feed.
 
 Self-contained executable ZIPs are available as an explicit local/package validation lane:
 
@@ -139,7 +140,7 @@ The same workflow creates or updates the GitHub Release for the tag and uploads 
 - `AvaScope.Protocol`, `AvaScope.Core`, and `AvaScope.Bridge` `.nupkg` files.
 - `avascope-win-x64-framework-dependent.zip`.
 - `avascope-linux-x64-framework-dependent.zip`.
-- `avascope-win-x64-installer.exe`.
+- `AvaScopeSetup.exe`.
 - `avascope-linux-x64-installer`.
 - `release-manifest.json`.
 
@@ -181,12 +182,12 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.p
 Install on Windows:
 
 ```powershell
-.\artifacts\executables\avascope-win-x64-installer.exe
+.\artifacts\executables\AvaScopeSetup.exe
 avascope --version
 avascope doctor
 ```
 
-The Windows installer uses `%LOCALAPPDATA%\AvaScope`, registers a current-user Apps & Features uninstaller, writes `%LOCALAPPDATA%\AvaScope\bin\avascope.cmd`, and adds that directory to the current-user `PATH`. Open a new terminal after installation. Installation and uninstall do not require administrator rights.
+The Windows installer is a modern light/dark-aware setup wizard. It shows the Apache-2.0 license, lets the user choose the destination and whether to add AvaScope to `PATH`, uses `%LOCALAPPDATA%\AvaScope` by default, registers a current-user Apps & Features uninstaller, and writes `%LOCALAPPDATA%\AvaScope\bin\avascope.cmd`. Open a new terminal after installation. Installation and uninstall do not require administrator rights.
 
 Install on Linux:
 
@@ -199,11 +200,7 @@ chmod +x ./avascope-linux-x64-installer
 
 The Linux installer uses `$XDG_DATA_HOME/avascope` when `XDG_DATA_HOME` is set, otherwise `~/.local/share/avascope`, and writes the command shim to `~/.local/bin/avascope`. It does not modify shell profiles or require `sudo`; add `~/.local/bin` to `PATH` if the distribution does not already include it.
 
-Uninstall:
-
-```powershell
-& "$env:LOCALAPPDATA\AvaScope\uninstall\avascope-uninstall.exe" --uninstall
-```
+On Windows, uninstall AvaScope from Settings > Apps > Installed apps or launch `%LOCALAPPDATA%\AvaScope\unins000.exe`.
 
 ```bash
 ~/.local/share/avascope/uninstall/avascope-uninstall --uninstall

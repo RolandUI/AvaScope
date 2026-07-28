@@ -165,13 +165,15 @@ public sealed class StableSurfaceContractTests
         Assert.Contains("AvaScope.Core.$version.nupkg", verifyArtifacts, StringComparison.Ordinal);
         Assert.Contains("AvaScope.Bridge.$version.nupkg", verifyArtifacts, StringComparison.Ordinal);
         Assert.Contains("avascope-$runtimeIdentifier-$ExecutablePackageKind.zip", verifyArtifacts, StringComparison.Ordinal);
-        Assert.Contains("avascope-$runtimeIdentifier-installer$installerExtension", verifyArtifacts, StringComparison.Ordinal);
+        Assert.Contains("AvaScopeSetup.exe", verifyArtifacts, StringComparison.Ordinal);
+        Assert.Contains("avascope-$runtimeIdentifier-installer", verifyArtifacts, StringComparison.Ordinal);
         Assert.Contains("artifacts/release-manifest.json", verifyArtifacts, StringComparison.Ordinal);
 
         var publishGitHubRelease = File.ReadAllText(Path.Combine(root, "eng", "publish-github-release.ps1"));
         Assert.Contains("$expectedTag = \"v$version\"", publishGitHubRelease, StringComparison.Ordinal);
         Assert.Contains("AvaScope.Protocol.$version.nupkg", publishGitHubRelease, StringComparison.Ordinal);
-        Assert.Contains("avascope-$runtimeIdentifier-installer$installerExtension", publishGitHubRelease, StringComparison.Ordinal);
+        Assert.Contains("AvaScopeSetup.exe", publishGitHubRelease, StringComparison.Ordinal);
+        Assert.Contains("avascope-$runtimeIdentifier-installer", publishGitHubRelease, StringComparison.Ordinal);
         Assert.Contains("release-manifest.json", publishGitHubRelease, StringComparison.Ordinal);
 
         var releaseCommitGuard = File.ReadAllText(Path.Combine(root, "eng", "validate-release-commit.ps1"));
@@ -185,10 +187,16 @@ public sealed class StableSurfaceContractTests
 
         var packageExecutables = File.ReadAllText(Path.Combine(root, "eng", "package-executables.ps1"));
         var packageInstallers = File.ReadAllText(Path.Combine(root, "eng", "package-installers.ps1"));
+        var windowsInstaller = File.ReadAllText(Path.Combine(root, "eng", "installer", "AvaScope.iss"));
         var verifyArtifactsScript = File.ReadAllText(Path.Combine(root, "eng", "verify-artifacts.ps1"));
         Assert.Contains("THIRD-PARTY-NOTICES.md", packageExecutables, StringComparison.Ordinal);
         Assert.Contains("AvaScopeInstallerPayload", packageInstallers, StringComparison.Ordinal);
+        Assert.Contains("AvaScope.iss", packageInstallers, StringComparison.Ordinal);
+        Assert.Contains("Resolve-InnoSetupCompiler", packageInstallers, StringComparison.Ordinal);
         Assert.Contains("WindowsSignToolPath", packageInstallers, StringComparison.Ordinal);
+        Assert.Contains("WizardStyle=modern dynamic", windowsInstaller, StringComparison.Ordinal);
+        Assert.Contains("PrivilegesRequired=lowest", windowsInstaller, StringComparison.Ordinal);
+        Assert.Contains("avascope.discovery.json", windowsInstaller, StringComparison.Ordinal);
         Assert.Contains("Assert-NuGetPackageMetadata", verifyArtifactsScript, StringComparison.Ordinal);
         Assert.Contains("Assert-ExecutableLegalFiles", verifyArtifactsScript, StringComparison.Ordinal);
     }

@@ -178,7 +178,7 @@ Stable release artifact names:
 - `AvaScope.Bridge.<version>.nupkg`
 - `avascope-win-x64-framework-dependent.zip`
 - `avascope-linux-x64-framework-dependent.zip`
-- `avascope-win-x64-installer.exe`
+- `AvaScopeSetup.exe`
 - `avascope-linux-x64-installer`
 - `release-manifest.json`
 
@@ -192,7 +192,7 @@ Stable Windows per-user install paths:
 - `%LOCALAPPDATA%\AvaScope\current\avascope.exe`
 - `%LOCALAPPDATA%\AvaScope\bin\avascope.cmd`
 - `%LOCALAPPDATA%\AvaScope\avascope.discovery.json`
-- `%LOCALAPPDATA%\AvaScope\uninstall\avascope-uninstall.exe`
+- `%LOCALAPPDATA%\AvaScope\unins000.exe`
 
 Stable Linux per-user install paths:
 
