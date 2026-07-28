@@ -109,6 +109,38 @@ public sealed class InstallerWorkflowTests
                     $"Expected installed legal file: {legalFileName}");
             }
 
+            if (OperatingSystem.IsWindows())
+            {
+                var verificationPath = Path.Combine(binDirectory, "verify-avascope.cmd");
+                Assert.True(File.Exists(verificationPath), $"Expected installed verification command at {verificationPath}.");
+                var verificationResult = await RunProcessAsync(
+                    verificationPath,
+                    ["--no-pause"],
+                    root);
+                Assert.Equal(0, verificationResult.ExitCode);
+                Assert.Contains("AVASCOPE SETUP CHECK", verificationResult.StandardOutput, StringComparison.Ordinal);
+                Assert.Contains("[ SUCCESS ]", verificationResult.StandardOutput, StringComparison.Ordinal);
+                Assert.Contains($"Installed version : {expectedVersion}", verificationResult.StandardOutput, StringComparison.Ordinal);
+
+                var installedExecutablePath = Path.Combine(installRoot, "current", "avascope.exe");
+                var hiddenExecutablePath = installedExecutablePath + ".verification-test";
+                File.Move(installedExecutablePath, hiddenExecutablePath);
+                try
+                {
+                    var failedVerificationResult = await RunProcessAsync(
+                        verificationPath,
+                        ["--no-pause"],
+                        root);
+                    Assert.NotEqual(0, failedVerificationResult.ExitCode);
+                    Assert.Contains("[ FAILED ]", failedVerificationResult.StandardOutput, StringComparison.Ordinal);
+                    Assert.Contains("Microsoft .NET 10 Runtime", failedVerificationResult.StandardOutput, StringComparison.Ordinal);
+                }
+                finally
+                {
+                    File.Move(hiddenExecutablePath, installedExecutablePath);
+                }
+            }
+
             var versionResult = await RunProcessAsync(commandPath, ["--version"], root);
             Assert.Equal(0, versionResult.ExitCode);
             Assert.Equal(expectedVersion, versionResult.StandardOutput.Trim());
