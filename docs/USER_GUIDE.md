@@ -187,7 +187,7 @@ avascope --version
 avascope doctor
 ```
 
-The Windows installer is a modern light/dark-aware setup wizard. It shows the Apache-2.0 license, lets the user choose the destination and whether to add AvaScope to `PATH`, uses `%LOCALAPPDATA%\AvaScope` by default, registers a current-user Apps & Features uninstaller, and writes `%LOCALAPPDATA%\AvaScope\bin\avascope.cmd`. The final page offers a `Verify the AvaScope installation` checkbox. When selected, it opens a persistent ASCII status terminal showing the installed version and a clear `SUCCESS` or `FAILED` result; the window closes only after a keypress. Open a new terminal after installation. Installation and uninstall do not require administrator rights.
+The Windows installer is a modern light/dark-aware setup wizard. It shows the Apache-2.0 license, lets the user choose the destination and whether to add AvaScope to `PATH`, uses `%LOCALAPPDATA%\AvaScope` by default, registers a current-user Apps & Features uninstaller, and writes `%LOCALAPPDATA%\AvaScope\bin\avascope.cmd`. The final page offers a `Verify the AvaScope installation` checkbox. When selected, it opens a persistent ASCII status terminal showing the installed version and a clear `SUCCESS` or `FAILED` result; only that status marker is green or red while all other text remains white, and the window closes only after a keypress. Open a new terminal after installation. Installation and uninstall do not require administrator rights.
 
 Install on Linux:
 

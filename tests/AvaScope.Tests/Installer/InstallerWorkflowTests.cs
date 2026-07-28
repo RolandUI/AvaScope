@@ -120,6 +120,8 @@ public sealed class InstallerWorkflowTests
                 Assert.Equal(0, verificationResult.ExitCode);
                 Assert.Contains("AVASCOPE SETUP CHECK", verificationResult.StandardOutput, StringComparison.Ordinal);
                 Assert.Contains("[ SUCCESS ]", verificationResult.StandardOutput, StringComparison.Ordinal);
+                Assert.Contains("\u001b[92m", verificationResult.StandardOutput, StringComparison.Ordinal);
+                Assert.DoesNotContain("\u001b[91m", verificationResult.StandardOutput, StringComparison.Ordinal);
                 Assert.Contains($"Installed version : {expectedVersion}", verificationResult.StandardOutput, StringComparison.Ordinal);
 
                 var installedExecutablePath = Path.Combine(installRoot, "current", "avascope.exe");
@@ -133,6 +135,8 @@ public sealed class InstallerWorkflowTests
                         root);
                     Assert.NotEqual(0, failedVerificationResult.ExitCode);
                     Assert.Contains("[ FAILED ]", failedVerificationResult.StandardOutput, StringComparison.Ordinal);
+                    Assert.Contains("\u001b[91m", failedVerificationResult.StandardOutput, StringComparison.Ordinal);
+                    Assert.DoesNotContain("\u001b[92m", failedVerificationResult.StandardOutput, StringComparison.Ordinal);
                     Assert.Contains("Microsoft .NET 10 Runtime", failedVerificationResult.StandardOutput, StringComparison.Ordinal);
                 }
                 finally

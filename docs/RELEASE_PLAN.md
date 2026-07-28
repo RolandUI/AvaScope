@@ -79,6 +79,8 @@ Release execution is intentionally deferred until the remaining planned modifica
 
 ### v1.1.3 Implementation Validation
 
+- `2026-07-28`: Completed terminal color polish: only the `SUCCESS`/`FAILED` marker is green/red and all other text stays white. Success/failure ANSI assertions, setup rebuild, seven-artifact verification, Release build, and seven focused tests passed. No version bump, tag, or publication occurred.
+- `2026-07-28`: Reopened #70 for final terminal color polish: retain white output and color only the `SUCCESS`/`FAILED` marker. No version bump, tag, or publication was started.
 - `2026-07-28`: Completed the clarified verification UX: the Finish-page checkbox now launches a persistent ASCII terminal with installed version, green success or red failure state, actionable guidance, and keypress-to-close behavior. Windows artifact tests assert both success and simulated failure output; seven-artifact verification, Release build, and seven focused tests passed. No version bump, tag, or publication occurred.
 - `2026-07-28`: Reopened #70 after product clarification: retain the Finish-page verification checkbox and replace its disappearing raw terminal with a persistent ASCII success/failure status screen. No version bump, tag, or publication was started.
 - `2026-07-28`: Completed the Finish-page UX correction. `AvaScopeSetup.exe` now verifies the installed CLI and exact product version with captured hidden output, shows explicit success guidance, and reports an actionable .NET 10 runtime error instead of flashing a terminal. Windows installer smoke, seven-artifact verification, Release build, and seven focused tests passed. No version bump, tag, or publication occurred.
