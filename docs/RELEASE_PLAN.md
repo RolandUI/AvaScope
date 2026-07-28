@@ -50,12 +50,16 @@ The roadmap below records the release-shaped plan through `v1.0.0`. It is intent
 - Every release must include targeted tests, full build/test validation, release dry-run validation, documentation updates, and explicit deferrals.
 - A release may be split into a patch release if a P0/P1 regression blocks users or CI, but patch scope must remain defect-focused.
 
-## Current Release Target
+## Released Target: v1.1.3
 
 - Release: `v1.1.3`
 - Target Version: `1.1.3`
-- Release State: `Release Candidate`
+- Release State: `Released`
 - Scope Lock: `2026-07-28`
+- Release Commit: `3fed6b8b422e8f33efdda35665a2d4f9bebf35d1` (`Release 1.1.3`)
+- Local Release Gate: passed on `2026-07-28`
+- Published At: `2026-07-28T18:36:23Z`
+- GitHub Release: https://github.com/RolandUI/AvaScope/releases/tag/v1.1.3
 - GitHub Milestone: `v1.1.3`
 - GitHub Issues: #65, #66, #70
 - Previous Release: `v1.1.2`
@@ -75,10 +79,11 @@ Release execution began on `2026-07-28` after the remaining planned modification
 
 - #65 `Add Apache-2.0 licensing and package provenance metadata`; Status: `Done`.
 - #70 `Add non-admin Windows and Linux installers`; Status: `Done`.
-- #66 `Release v1.1.3`; Status: `Review`.
+- #66 `Release v1.1.3`; Status: `Done`.
 
 ### v1.1.3 Implementation Validation
 
+- `2026-07-28`: Published v1.1.3 from exact release commit `3fed6b8` through successful Release workflow `30387366119`. The tag resolves to the release commit; nuget.org and GitHub Packages received Protocol, Core, and Bridge `1.1.3`; the GitHub Release exposes three NuGet packages, Windows/Linux portable ZIPs, branded Windows and Linux installers, and the release manifest. The downloaded manifest matched all seven packaged asset SHA-256 digests and sizes, and all three public nuget.org indexes expose `1.1.3`.
 - `2026-07-28`: The complete local release gate passed and v1.1.3 moved to `Release Candidate`. Debug and Release builds completed with 0 warnings/errors and `371` passing tests in each configuration; the Release suite passed twice more while diagnosing stale artifact-hosted MCP locks. Exact `1.1.3` NuGet packages, Windows/Linux portable ZIPs, branded `AvaScopeSetup.exe`, the Linux installer, and the SHA-256 manifest passed metadata/legal/provenance verification, packaged doctor, sample preview, Windows installer install/version/doctor/MCP/repair/uninstall, and equivalent WSL Ubuntu Linux installer smoke using a temporary user-local .NET 10 runtime. NuGet and GitHub Release dry-runs passed without publication. The release is ready for the exact `Release 1.1.3` commit and guarded workflow.
 - `2026-07-28`: Started the guarded v1.1.3 release after explicit publication approval. The release tracker moved to `In Progress / 25%`; the version remains `1.1.2` until the complete local gate passes.
 - `2026-07-28`: Integrated the seven validated installer and branding commits directly into `master` through `c0025cd`. GitHub automatically marked the existing draft PR #71 as merged after its full commit history became reachable from `master`; no PR merge action, version bump, tag, or publication occurred. Issue #70 is complete and release tracker #66 remains ready pending explicit release approval.
