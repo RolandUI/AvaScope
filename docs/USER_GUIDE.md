@@ -913,9 +913,36 @@ Use `includeChildren`, `includeBounds`, `includeAccessibility`,
 `inspect_node` for complete detail.
 
 `native_picker` is local-only and process-scoped. On Windows it detects and
-controls only a picker owned by the selected session process. Its
-`predefine_result` operation provides deterministic `success`, `cancelled`,
-`unavailable_path`, and `deleted_path` outcomes for isolated scenarios.
+controls only a picker whose window and owner chain belong to the selected
+session process. Detection and commands use bounded timeouts, and selected
+paths are redacted by default.
+
+`predefine_result` stores a session-scoped, request-correlated, TTL-bounded
+one-shot result. A `run_scenario` request can prepare the result inline with
+`pickerResult`; a `picker_result` workflow step consumes it using the scenario
+request id (or the step `text` as an explicit correlation id). Supported
+deterministic outcomes are `success`, `cancelled`, `unavailable_path`, and
+`deleted_path`. Replays return `not_prepared`, and late consumption returns
+`expired`.
+
+```json
+{
+  "requestId": "download-logs",
+  "sessionId": "session-1",
+  "topLevelId": "topLevel:main",
+  "pickerResult": {
+    "result": "deleted_path",
+    "path": "C:\\temp\\removed",
+    "ttlMs": 30000
+  },
+  "steps": [
+    {
+      "id": "consume-picker",
+      "action": "picker_result"
+    }
+  ]
+}
+```
 
 Preview results contain a bounded diagnostic list, counts by severity and
 category, a short summary, explicit comparison provenance, and a path to the

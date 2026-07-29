@@ -312,7 +312,12 @@ public sealed class ProtocolContractTests
             outputDirectory: "C:\\state\\artifacts",
             captureAfterEachStep: true,
             isolatedStateDirectory: "C:\\state\\isolated",
-            timelinePath: "C:\\state\\timeline.md");
+            timelinePath: "C:\\state\\timeline.md",
+            pickerResult: new RuntimeScenarioPickerResult(
+                NativePickerResultStates.DeletedPath,
+                "C:\\state\\deleted",
+                "picker-1",
+                5000));
         var workflow = new SemanticWorkflowResponse(
             "scenario-1",
             sessionId,
@@ -341,7 +346,17 @@ public sealed class ProtocolContractTests
             isolatedStateStatus: "applied_environment",
             isolatedStateDirectory: "C:\\state\\isolated",
             timelinePath: "C:\\state\\timeline.md",
-            metadata: new Dictionary<string, string> { ["scenarioMode"] = "launch" });
+            metadata: new Dictionary<string, string> { ["scenarioMode"] = "launch" },
+            preparedPickerResult: new NativePickerResponse(
+                sessionId,
+                42,
+                NativePickerOperations.PredefineResult,
+                NativePickerResultStates.DeletedPath,
+                false,
+                "<redacted>\\deleted",
+                correlationId: "picker-1",
+                expiresAt: at.AddSeconds(5),
+                pathRedacted: true));
 
         var requestNode = JsonNode.Parse(JsonSerializer.Serialize(request))!;
         var responseNode = JsonNode.Parse(JsonSerializer.Serialize(response))!;
@@ -352,11 +367,15 @@ public sealed class ProtocolContractTests
         Assert.Equal("test", requestNode["launch"]!["environment"]!["APP_ENV"]!.GetValue<string>());
         Assert.Equal("delete-button", requestNode["steps"]![0]!["selector"]!["automationId"]!.GetValue<string>());
         Assert.True(requestNode["captureAfterEachStep"]!.GetValue<bool>());
+        Assert.Equal(NativePickerResultStates.DeletedPath, requestNode["pickerResult"]!["result"]!.GetValue<string>());
+        Assert.Equal("picker-1", requestNode["pickerResult"]!["correlationId"]!.GetValue<string>());
         Assert.Equal("passed", responseNode["status"]!.GetValue<string>());
         Assert.Equal("session-scenario", responseNode["sessionId"]!.GetValue<string>());
         Assert.Equal("applied_environment", responseNode["isolatedStateStatus"]!.GetValue<string>());
         Assert.Equal("launch", responseNode["metadata"]!["scenarioMode"]!.GetValue<string>());
         Assert.Equal("click-delete", responseNode["workflow"]!["steps"]![0]!["stepId"]!.GetValue<string>());
+        Assert.Equal("picker-1", responseNode["preparedPickerResult"]!["correlationId"]!.GetValue<string>());
+        Assert.True(responseNode["preparedPickerResult"]!["pathRedacted"]!.GetValue<bool>());
     }
 
     [Fact]

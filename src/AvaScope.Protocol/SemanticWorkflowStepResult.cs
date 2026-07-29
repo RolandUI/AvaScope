@@ -16,7 +16,8 @@ public sealed record SemanticWorkflowStepResult
         InspectNodeResponse? inspection = null,
         ScreenshotResponse? screenshot = null,
         IReadOnlyList<ProtocolError>? diagnostics = null,
-        IReadOnlyDictionary<string, string>? metadata = null)
+        IReadOnlyDictionary<string, string>? metadata = null,
+        NativePickerResponse? picker = null)
     {
         if (string.IsNullOrWhiteSpace(stepId))
         {
@@ -49,6 +50,7 @@ public sealed record SemanticWorkflowStepResult
         Screenshot = screenshot;
         Diagnostics = diagnostics ?? Array.Empty<ProtocolError>();
         Metadata = metadata ?? new Dictionary<string, string>();
+        Picker = picker;
     }
 
     [JsonPropertyName("stepId")]
@@ -87,4 +89,8 @@ public sealed record SemanticWorkflowStepResult
 
     [JsonPropertyName("metadata")]
     public IReadOnlyDictionary<string, string> Metadata { get; }
+
+    [JsonPropertyName("picker")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public NativePickerResponse? Picker { get; }
 }

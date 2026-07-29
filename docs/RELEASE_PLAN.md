@@ -54,11 +54,11 @@ The roadmap below records the release-shaped plan through `v1.0.0`. It is intent
 
 - Release: `v1.2.0`
 - Target Version: `1.2.0`
-- Release State: `Release Candidate`
+- Release State: `In Progress`
 - Candidate Commit Subject: `Release 1.2.0`
 - Scope Lock: `2026-07-29`
 - GitHub Milestone: `v1.2.0`
-- GitHub Issues: #76, #77, #78, #79, #80, #81, #82, #83, #84, #85, #86
+- GitHub Issues: #76, #77, #78, #79, #80, #81, #82, #83, #84, #85, #86, #87, #88, #89, #90, #91, #92
 - Previous Release: `v1.1.4`
 
 ### v1.2.0 Release Goals
@@ -70,6 +70,9 @@ The `v1.2.0` minor release implements the complete runtime interaction and agent
 3. `RG-1.2.0-3 Safe Runtime Lifecycle`: optionally terminate only AvaScope-owned launched processes and add guarded native file/folder picker automation with deterministic scenario results.
 4. `RG-1.2.0-4 Truthful And Bounded Results`: align operation success semantics, return compact node search matches, and provide bounded preview diagnostic summaries with full artifacts.
 5. `RG-1.2.0-5 Guarded Minor Release`: publish only after focused tests, full Debug/Release validation, packaged workflow checks, installer validation, and publish dry-runs pass.
+6. `RG-1.2.0-6 Deterministic Agent Workflows`: add consumable picker injection, bounded waits, idempotency/replay protection, and non-mutating action/mutation validation.
+7. `RG-1.2.0-7 Negotiated And Budgeted Contracts`: expose effective session capabilities, complete closed-set parity, return real binding summaries, and enforce artifact-backed response budgets.
+8. `RG-1.2.0-8 Diagnostic Regression Triage`: compare preview diagnostics against baselines and keep filters consistent across every preview surface.
 
 ### v1.2.0 Milestone Map
 
@@ -83,7 +86,13 @@ The `v1.2.0` minor release implements the complete runtime interaction and agent
 - #83 `Return compact node search matches by default`; Status: `Done`.
 - #84 `Standardize mutation operation names and prevalidate supported properties`; Status: `Done`.
 - #85 `Provide bounded structured summaries for preview diagnostics`; Status: `Done`.
-- #86 `Release v1.2.0`; Status: `Review`.
+- #87 `R1.2.0-M11 Deterministic native picker injection and dialog hardening`; Status: `In Progress`.
+- #88 `R1.2.0-M12 Truthful close-session and partial-failure evidence`; Status: `Backlog`.
+- #89 `R1.2.0-M13 Effective session capabilities and closed-set schema parity`; Status: `Backlog`.
+- #90 `R1.2.0-M14 Compact binding summaries and global response budgets`; Status: `Backlog`.
+- #91 `R1.2.0-M15 Preview diagnostics baseline and filter parity`; Status: `Backlog`.
+- #92 `R1.2.0-M16 Deterministic waits, idempotency, and dry-run validation`; Status: `Backlog`.
+- #86 `Release v1.2.0`; Status: `Backlog`.
 
 ### Explicit Deferrals
 
@@ -93,6 +102,7 @@ The `v1.2.0` minor release implements the complete runtime interaction and agent
 
 ### v1.2.0 Implementation Validation
 
+- `2026-07-29`: Reopened the candidate for the post-review hardening scope in #87–#92. The previously passing release gate remains historical evidence only; the complete gate must be rerun after these slices before the target can return to `Release Candidate`.
 - `2026-07-29`: The complete local v1.2.0 release gate passed from `ca627cb`. Debug and Release builds completed with `0` warnings/errors and all `385` tests passed in each configuration; the Release suite passed again inside the artifact workflow. Exact `1.2.0` Protocol/Core/Bridge NuGet packages, Windows/Linux portable ZIPs, Windows/Linux installers, and the seven-entry SHA-256 manifest passed artifact verification. Packaged Windows installer install/repair/doctor/MCP/uninstall, packaged doctor, real Avalonia preview (including the bounded diagnostic summary and full JSON artifact), and WSL Ubuntu Linux installer smoke with temporary .NET `10.0.10` passed. NuGet and GitHub Release dry-runs passed; no `v1.2.0` tag or release exists remotely. Eight exact artifact-hosted smoke processes were terminated after identity/path verification when stale test processes locked the packaging directory.
 - `2026-07-29`: Completed #77 with target-centered click derivation in top-level DIP space, explicit x/y precedence, target/hit-test validation, and bounded stale, invisible, zero-sized, clipped, or wrong-target diagnostics before dispatch. Targeted Bridge (`117`), CLI (`148`), MCP (`50`), and Protocol (`61`) tests passed; the full Debug suite passed with `382` tests and the build completed with `0` warnings/errors.
 - `2026-07-29`: Completed #76 with public Avalonia automation-provider dispatch for invoke, selector-based select, toggle, expand, and collapse across Protocol, Bridge, Core semantic workflows, CLI, MCP, capability discovery, and documentation. Targeted Bridge (`115`), CLI (`145`), MCP (`50`), and Protocol (`61`) tests passed; the full Debug suite passed with `379` tests and the build completed with `0` warnings/errors.

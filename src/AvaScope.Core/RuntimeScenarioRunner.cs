@@ -28,6 +28,7 @@ public sealed class RuntimeScenarioRunner
         string? topLevelId = request.TopLevelId;
         LaunchAppResponse? launch = null;
         AttachToAppResponse? attach = null;
+        NativePickerResponse? preparedPickerResult = null;
         LocalBridgeClient workflowClient = bridgeClient;
         var scenarioMode = "session";
 
@@ -149,6 +150,39 @@ public sealed class RuntimeScenarioRunner
                 scenarioMode));
         }
 
+        if (request.PickerResult is not null)
+        {
+            var picker = request.PickerResult;
+            var correlationId = picker.CorrelationId ?? request.RequestId;
+            var prepareResult = workflowClient.NativePicker(
+                sessionId,
+                NativePickerOperations.PredefineResult,
+                picker.Path,
+                picker.Result,
+                correlationId,
+                picker.TtlMs);
+            if (!prepareResult.Success)
+            {
+                diagnostics.Add(ToProtocolError(prepareResult.Error!));
+                return CoreResult<RuntimeScenarioResponse>.Ok(CreateResponse(
+                    request,
+                    Failed,
+                    startedAt,
+                    sessionId,
+                    topLevelId,
+                    launch,
+                    attach,
+                    workflow: null,
+                    isolation,
+                    timelinePath,
+                    diagnostics,
+                    outputDirectory,
+                    scenarioMode));
+            }
+
+            preparedPickerResult = prepareResult.Value;
+        }
+
         topLevelId ??= await ResolveFirstTopLevelIdAsync(workflowClient, sessionId, cancellationToken);
         if (string.IsNullOrWhiteSpace(topLevelId))
         {
@@ -172,7 +206,8 @@ public sealed class RuntimeScenarioRunner
                 timelinePath,
                 diagnostics,
                 outputDirectory,
-                scenarioMode));
+                scenarioMode,
+                preparedPickerResult));
         }
 
         var workflowRequest = new SemanticWorkflowRequest(
@@ -202,7 +237,8 @@ public sealed class RuntimeScenarioRunner
                 timelinePath,
                 diagnostics,
                 outputDirectory,
-                scenarioMode));
+                scenarioMode,
+                preparedPickerResult));
         }
 
         diagnostics.AddRange(workflow.Value!.Diagnostics);
@@ -222,7 +258,8 @@ public sealed class RuntimeScenarioRunner
             timelinePath,
             diagnostics,
             outputDirectory,
-            scenarioMode));
+            scenarioMode,
+            preparedPickerResult));
     }
 
     private async Task<CoreResult<LaunchAppResponse>> LaunchAsync(
@@ -280,7 +317,8 @@ public sealed class RuntimeScenarioRunner
         string timelinePath,
         IReadOnlyList<ProtocolError> diagnostics,
         string outputDirectory,
-        string scenarioMode)
+        string scenarioMode,
+        NativePickerResponse? preparedPickerResult = null)
     {
         var completedAt = DateTimeOffset.UtcNow;
         var metadata = new Dictionary<string, string>(StringComparer.Ordinal)
@@ -310,7 +348,8 @@ public sealed class RuntimeScenarioRunner
             isolation.Directory,
             timelinePath,
             diagnostics,
-            metadata);
+            metadata,
+            preparedPickerResult);
 
         WriteTimeline(response);
         return response;

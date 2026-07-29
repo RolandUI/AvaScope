@@ -181,9 +181,12 @@ public static class AvaScopeCapabilityCatalog
                 metadata: new Dictionary<string, string>
                 {
                     ["platform"] = "windows",
-                    ["operations"] = "detect,select_path,confirm,cancel,predefine_result",
+                    ["operations"] = "detect,select_path,confirm,cancel,predefine_result,consume_predefined_result",
                     ["predefinedResults"] = "success,cancelled,unavailable_path,deleted_path",
-                    ["processScope"] = "selected_session_process_only"
+                    ["processScope"] = "selected_session_process_only",
+                    ["scenarioSemantics"] = "session_scoped_one_shot_ttl_request_correlated",
+                    ["defaultPathRedaction"] = "true",
+                    ["maximumTimeoutMs"] = "30000"
                 }),
             Capability(
                 AvaScopeCapabilityIds.RuntimePointerDiagnostics,

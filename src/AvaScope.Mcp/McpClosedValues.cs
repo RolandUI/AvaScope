@@ -62,7 +62,17 @@ public enum McpNativePickerOperation
     [JsonStringEnumMemberName(NativePickerOperations.SelectPath)] SelectPath,
     [JsonStringEnumMemberName(NativePickerOperations.Confirm)] Confirm,
     [JsonStringEnumMemberName(NativePickerOperations.Cancel)] Cancel,
-    [JsonStringEnumMemberName(NativePickerOperations.PredefineResult)] PredefineResult
+    [JsonStringEnumMemberName(NativePickerOperations.PredefineResult)] PredefineResult,
+    [JsonStringEnumMemberName(NativePickerOperations.ConsumePredefinedResult)] ConsumePredefinedResult
+}
+
+[JsonConverter(typeof(JsonStringEnumConverter<McpNativePickerResult>))]
+public enum McpNativePickerResult
+{
+    [JsonStringEnumMemberName(NativePickerResultStates.Success)] Success,
+    [JsonStringEnumMemberName(NativePickerResultStates.Cancelled)] Cancelled,
+    [JsonStringEnumMemberName(NativePickerResultStates.UnavailablePath)] UnavailablePath,
+    [JsonStringEnumMemberName(NativePickerResultStates.DeletedPath)] DeletedPath
 }
 
 internal static class McpClosedValueNames
@@ -99,6 +109,16 @@ internal static class McpClosedValueNames
         McpNativePickerOperation.Confirm => NativePickerOperations.Confirm,
         McpNativePickerOperation.Cancel => NativePickerOperations.Cancel,
         McpNativePickerOperation.PredefineResult => NativePickerOperations.PredefineResult,
+        McpNativePickerOperation.ConsumePredefinedResult => NativePickerOperations.ConsumePredefinedResult,
+        _ => throw new ArgumentOutOfRangeException(nameof(value))
+    };
+
+    public static string ToProtocolName(this McpNativePickerResult value) => value switch
+    {
+        McpNativePickerResult.Success => NativePickerResultStates.Success,
+        McpNativePickerResult.Cancelled => NativePickerResultStates.Cancelled,
+        McpNativePickerResult.UnavailablePath => NativePickerResultStates.UnavailablePath,
+        McpNativePickerResult.DeletedPath => NativePickerResultStates.DeletedPath,
         _ => throw new ArgumentOutOfRangeException(nameof(value))
     };
 }

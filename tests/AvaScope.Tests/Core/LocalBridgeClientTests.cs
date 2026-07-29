@@ -550,6 +550,119 @@ public sealed class LocalBridgeClientTests : IDisposable
     }
 
     [Fact]
+    public void NativePickerPredefinedResultIsCorrelatedRedactedAndConsumedOnce()
+    {
+        Directory.CreateDirectory(_manifestDirectory);
+        var sessionId = new SessionId("picker-one-shot");
+        WriteManifest(
+            "picker-one-shot.json",
+            new BridgeSessionManifest(
+                sessionId,
+                Environment.ProcessId,
+                "picker-one-shot-pipe",
+                DateTimeOffset.UtcNow,
+                processName: Process.GetCurrentProcess().ProcessName));
+        var client = new LocalBridgeClient(_manifestDirectory);
+
+        var prepared = client.NativePicker(
+            sessionId,
+            NativePickerOperations.PredefineResult,
+            @"C:\private\exports\logs",
+            NativePickerResultStates.Success,
+            correlationId: "scenario-42",
+            ttlMs: 5000);
+        var wrongCorrelation = client.NativePicker(
+            sessionId,
+            NativePickerOperations.ConsumePredefinedResult,
+            correlationId: "scenario-other");
+        var consumed = client.NativePicker(
+            sessionId,
+            NativePickerOperations.ConsumePredefinedResult,
+            correlationId: "scenario-42");
+        var replay = client.NativePicker(
+            sessionId,
+            NativePickerOperations.ConsumePredefinedResult,
+            correlationId: "scenario-42");
+
+        Assert.True(prepared.Success, prepared.Error?.Message);
+        Assert.Equal("scenario-42", prepared.Value!.CorrelationId);
+        Assert.True(prepared.Value.PathRedacted);
+        Assert.DoesNotContain("private", prepared.Value.SelectedPath!, StringComparison.OrdinalIgnoreCase);
+        Assert.NotNull(prepared.Value.ExpiresAt);
+        Assert.Equal(NativePickerResultStates.NotPrepared, wrongCorrelation.Value!.Status);
+        Assert.Equal(NativePickerResultStates.Success, consumed.Value!.Status);
+        Assert.NotNull(consumed.Value.ConsumedAt);
+        Assert.Equal(NativePickerResultStates.NotPrepared, replay.Value!.Status);
+    }
+
+    [Fact]
+    public void NativePickerPredefinedResultExpiresBeforeConsumption()
+    {
+        Directory.CreateDirectory(_manifestDirectory);
+        var sessionId = new SessionId("picker-expiry");
+        WriteManifest(
+            "picker-expiry.json",
+            new BridgeSessionManifest(
+                sessionId,
+                Environment.ProcessId,
+                "picker-expiry-pipe",
+                DateTimeOffset.UtcNow,
+                processName: Process.GetCurrentProcess().ProcessName));
+        var client = new LocalBridgeClient(_manifestDirectory);
+
+        var prepared = client.NativePicker(
+            sessionId,
+            NativePickerOperations.PredefineResult,
+            predefinedResult: NativePickerResultStates.Cancelled,
+            correlationId: "expires",
+            ttlMs: 100);
+        Thread.Sleep(250);
+        var consumed = client.NativePicker(
+            sessionId,
+            NativePickerOperations.ConsumePredefinedResult,
+            correlationId: "expires");
+
+        Assert.True(prepared.Success, prepared.Error?.Message);
+        Assert.Equal(NativePickerResultStates.Expired, consumed.Value!.Status);
+        Assert.NotNull(consumed.Value.ConsumedAt);
+    }
+
+    [Fact]
+    public async Task SemanticWorkflowConsumesPreparedPickerResultByRequestId()
+    {
+        Directory.CreateDirectory(_manifestDirectory);
+        var sessionId = new SessionId("picker-workflow");
+        WriteManifest(
+            "picker-workflow.json",
+            new BridgeSessionManifest(
+                sessionId,
+                Environment.ProcessId,
+                "picker-workflow-pipe",
+                DateTimeOffset.UtcNow,
+                processName: Process.GetCurrentProcess().ProcessName));
+        var client = new LocalBridgeClient(_manifestDirectory);
+        var prepared = client.NativePicker(
+            sessionId,
+            NativePickerOperations.PredefineResult,
+            predefinedResult: NativePickerResultStates.Cancelled,
+            correlationId: "workflow-picker");
+        var request = new SemanticWorkflowRequest(
+            sessionId,
+            "topLevel:test",
+            [new SemanticWorkflowStep(SemanticWorkflowActions.PickerResult, "consume")],
+            requestId: "workflow-picker");
+
+        var result = await new SemanticWorkflowRunner().RunAsync(client, request);
+
+        Assert.True(prepared.Success, prepared.Error?.Message);
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal("passed", result.Value!.Status);
+        var step = Assert.Single(result.Value.Steps);
+        Assert.Equal(NativePickerResultStates.Cancelled, step.Picker!.Status);
+        Assert.Equal("true", step.Metadata["oneShot"]);
+    }
+
+    [Fact]
     public async Task ReloadRuntimeReturnsStructuredErrorWhenNoManifestMatches()
     {
         var client = new LocalBridgeClient(_manifestDirectory);

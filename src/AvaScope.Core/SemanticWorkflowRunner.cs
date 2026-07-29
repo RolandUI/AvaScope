@@ -94,6 +94,7 @@ public sealed class SemanticWorkflowRunner
                 SemanticWorkflowActions.Screenshot => await ScreenshotAsync(bridgeClient, request, step, stepIndex, cancellationToken),
                 SemanticWorkflowActions.Inspect => await InspectAsync(bridgeClient, request, step, cancellationToken),
                 SemanticWorkflowActions.AssertState => await AssertStateAsync(bridgeClient, request, step, cancellationToken),
+                SemanticWorkflowActions.PickerResult => ConsumePickerResult(bridgeClient, request, step),
                 SemanticWorkflowActions.Click => await InputAsync(bridgeClient, request, step, InputActions.Click, cancellationToken),
                 SemanticWorkflowActions.TypeText => await InputAsync(bridgeClient, request, step, InputActions.KeyText, cancellationToken),
                 SemanticWorkflowActions.ClearText => await InputAsync(bridgeClient, request, step, InputActions.ClearText, cancellationToken),
@@ -133,6 +134,55 @@ public sealed class SemanticWorkflowRunner
             {
                 ["waitMs"] = waitMs.ToString(CultureInfo.InvariantCulture)
             });
+    }
+
+    private static SemanticWorkflowStepResult ConsumePickerResult(
+        LocalBridgeClient bridgeClient,
+        SemanticWorkflowRequest request,
+        SemanticWorkflowStep step)
+    {
+        var correlationId = step.Text ?? request.RequestId;
+        var result = bridgeClient.NativePicker(
+            request.SessionId,
+            NativePickerOperations.ConsumePredefinedResult,
+            correlationId: correlationId);
+        if (!result.Success)
+        {
+            return Fail(step, result.Error!);
+        }
+
+        var picker = result.Value!;
+        if (picker.Status is NativePickerResultStates.NotPrepared or NativePickerResultStates.Expired)
+        {
+            return new SemanticWorkflowStepResult(
+                step.Id,
+                step.Action,
+                "failed",
+                picker.Message ?? $"Picker result is {picker.Status}.",
+                DateTimeOffset.UtcNow,
+                diagnostics:
+                [
+                    new ProtocolError(
+                        $"native_picker_{picker.Status}",
+                        picker.Message ?? $"Picker result is {picker.Status}.",
+                        new Dictionary<string, string>
+                        {
+                            ["correlationId"] = correlationId
+                        })
+                ],
+                picker: picker);
+        }
+
+        return Pass(
+            step,
+            $"Consumed deterministic picker result '{picker.Status}'.",
+            metadata: new Dictionary<string, string>
+            {
+                ["correlationId"] = correlationId,
+                ["pickerStatus"] = picker.Status,
+                ["oneShot"] = "true"
+            },
+            picker: picker);
     }
 
     private static async Task<SemanticWorkflowStepResult> InputAsync(
@@ -535,7 +585,8 @@ public sealed class SemanticWorkflowRunner
         InputResponse? input = null,
         InspectNodeResponse? inspection = null,
         ScreenshotResponse? screenshot = null,
-        IReadOnlyDictionary<string, string>? metadata = null)
+        IReadOnlyDictionary<string, string>? metadata = null,
+        NativePickerResponse? picker = null)
     {
         return new SemanticWorkflowStepResult(
             step.Id,
@@ -547,7 +598,8 @@ public sealed class SemanticWorkflowRunner
             input,
             inspection,
             screenshot,
-            metadata: metadata);
+            metadata: metadata,
+            picker: picker);
     }
 
     private static SemanticWorkflowStepResult Fail(

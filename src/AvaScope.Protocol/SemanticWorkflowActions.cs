@@ -17,4 +17,5 @@ public static class SemanticWorkflowActions
     public const string Screenshot = "screenshot";
     public const string Inspect = "inspect";
     public const string Wait = "wait";
+    public const string PickerResult = "picker_result";
 }

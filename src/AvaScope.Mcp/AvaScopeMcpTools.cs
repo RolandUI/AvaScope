@@ -1099,7 +1099,11 @@ public sealed class AvaScopeMcpTools
         string sessionId,
         McpNativePickerOperation operation,
         string? path = null,
-        string? predefinedResult = null,
+        McpNativePickerResult? predefinedResult = null,
+        string? correlationId = null,
+        int ttlMs = 30000,
+        int timeoutMs = 1000,
+        bool redactPath = true,
         string? manifestDirectory = null)
     {
         if (!TryParseRequiredSessionId(sessionId, out var parsedSessionId, out var error))
@@ -1111,7 +1115,11 @@ public sealed class AvaScopeMcpTools
             parsedSessionId!,
             operation.ToProtocolName(),
             path,
-            predefinedResult));
+            predefinedResult?.ToProtocolName(),
+            correlationId,
+            ttlMs,
+            timeoutMs,
+            redactPath));
     }
 
     [McpServerTool(

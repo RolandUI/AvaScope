@@ -2,6 +2,8 @@
 
 GitHub Issues and Milestones are the primary project-management source for autonomous agents working on AvaScope. This document is the compact local handoff and validation log. Update it whenever meaningful implementation, validation, or planning changes the active GitHub issue or release state.
 
+- `2026-07-29`: Reopened v1.2.0 from Release Candidate to In Progress for hardening issues #87–#92. Active issue #87 replaces the non-consumable picker placeholder with session-scoped, request-correlated, TTL-bounded one-shot result injection and hardens process-owned Windows picker automation.
+- `2026-07-29`: Completed #87 implementation validation: Debug build passed with `0` warnings/errors; focused Protocol/Core coverage passed `88` tests; CLI/MCP coverage passed `143` tests; and the full Debug suite passed all `388` tests. Prepared picker results are now session/request correlated, TTL-bounded, redacted by default, consumed exactly once by `picker_result`, and guarded live commands verify process ownership with bounded waits.
 - `2026-07-29`: The v1.2.0 local release gate passed from `ca627cb`: exact `1.2.0` NuGet/ZIP/Windows installer/Linux installer/seven-entry manifest verification; packaged Windows install/repair/doctor/MCP/uninstall; packaged doctor and real preview; WSL Ubuntu Linux installer smoke with temporary .NET `10.0.10`; and NuGet/GitHub Release dry-runs. No tag, package, or release was published. The guarded Release workflow rejected the earlier version-only commit before any publish step because its subject was intentionally not `Release 1.2.0`; the final candidate uses the required subject and will be validated with `publish=false`. Release tracker #86 is in review.
 - `2026-07-29`: Advanced the repository/package product version from `1.1.4` to the active `1.2.0` minor-release target before running artifact and installer gates.
 - `2026-07-29`: Implemented the v1.2.0 feedback contract hardening slice for #78 and #80–#85: canonical self-describing input actions; truthful operation-level `success` plus `transportSuccess`; MCP enums for input, diagnostics, mutation, picker, and preview severity; compact find-node results with opt-in bounded expansion; canonical mutation properties including valid `IsSelected` targets and pre-dispatch rejection; process-scoped Windows native picker operations plus deterministic isolated results; and bounded preview diagnostic summaries with full JSON artifacts. Focused coverage passed (`66` plus stable-surface retry `7`); full Debug and Release suites each passed all `385` tests; both builds completed with `0` warnings/errors.
@@ -30,17 +32,17 @@ GitHub Issues and Milestones are the primary project-management source for auton
 
 ## Current Focus
 
-- `v1.2.0 selector-centered click input`
-- GitHub Issue: #77
+- `v1.2.0 deterministic native picker injection and dialog hardening`
+- GitHub Issue: #87
 - GitHub Milestone: `v1.2.0`
-- Status: `Done`
+- Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-07-29`
-- Goal: derive click coordinates from a resolved target's current bounds, preserve explicit coordinate precedence, and reject stale, clipped, or non-actionable targets without dispatch.
+- Goal: make prepared picker outcomes consumable exactly once by an isolated scenario and keep live native dialog automation bounded, process-owned, and privacy-safe.
 
 ## Next Action
 
-Start #79 and add safe optional termination for AvaScope-owned launched processes during close-session.
+Complete #87 focused and full validation, then start P0 issue #88.
 
 ## Latest Validation
 

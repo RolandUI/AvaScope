@@ -18,7 +18,8 @@ public sealed record RuntimeScenarioRequest
         bool isolateState = true,
         string? isolatedStateDirectory = null,
         string? timelinePath = null,
-        int maxDepth = 16)
+        int maxDepth = 16,
+        RuntimeScenarioPickerResult? pickerResult = null)
     {
         if (steps is null || steps.Count == 0)
         {
@@ -53,6 +54,7 @@ public sealed record RuntimeScenarioRequest
         IsolatedStateDirectory = string.IsNullOrWhiteSpace(isolatedStateDirectory) ? null : Path.GetFullPath(isolatedStateDirectory);
         TimelinePath = string.IsNullOrWhiteSpace(timelinePath) ? null : Path.GetFullPath(timelinePath);
         MaxDepth = maxDepth;
+        PickerResult = pickerResult;
     }
 
     [JsonPropertyName("requestId")]
@@ -100,6 +102,50 @@ public sealed record RuntimeScenarioRequest
 
     [JsonPropertyName("maxDepth")]
     public int MaxDepth { get; }
+
+    [JsonPropertyName("pickerResult")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public RuntimeScenarioPickerResult? PickerResult { get; }
+}
+
+public sealed record RuntimeScenarioPickerResult
+{
+    [JsonConstructor]
+    public RuntimeScenarioPickerResult(
+        string result,
+        string? path = null,
+        string? correlationId = null,
+        int ttlMs = 30000)
+    {
+        if (string.IsNullOrWhiteSpace(result))
+        {
+            throw new ArgumentException("Picker result cannot be empty.", nameof(result));
+        }
+
+        if (ttlMs is < 100 or > 300000)
+        {
+            throw new ArgumentOutOfRangeException(nameof(ttlMs), ttlMs, "Picker result TTL must be between 100 and 300000 ms.");
+        }
+
+        Result = result.Trim();
+        Path = string.IsNullOrWhiteSpace(path) ? null : path;
+        CorrelationId = string.IsNullOrWhiteSpace(correlationId) ? null : correlationId.Trim();
+        TtlMs = ttlMs;
+    }
+
+    [JsonPropertyName("result")]
+    public string Result { get; }
+
+    [JsonPropertyName("path")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Path { get; }
+
+    [JsonPropertyName("correlationId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? CorrelationId { get; }
+
+    [JsonPropertyName("ttlMs")]
+    public int TtlMs { get; }
 }
 
 public sealed record RuntimeScenarioLaunchOptions

@@ -12,7 +12,11 @@ public sealed record NativePickerResponse
         string status,
         bool dialogDetected,
         string? selectedPath = null,
-        string? message = null)
+        string? message = null,
+        string? correlationId = null,
+        DateTimeOffset? expiresAt = null,
+        DateTimeOffset? consumedAt = null,
+        bool pathRedacted = false)
     {
         SessionId = sessionId;
         ProcessId = processId;
@@ -21,6 +25,10 @@ public sealed record NativePickerResponse
         DialogDetected = dialogDetected;
         SelectedPath = string.IsNullOrWhiteSpace(selectedPath) ? null : selectedPath;
         Message = string.IsNullOrWhiteSpace(message) ? null : message;
+        CorrelationId = string.IsNullOrWhiteSpace(correlationId) ? null : correlationId.Trim();
+        ExpiresAt = expiresAt;
+        ConsumedAt = consumedAt;
+        PathRedacted = pathRedacted;
     }
 
     [JsonPropertyName("sessionId")] public SessionId SessionId { get; }
@@ -30,6 +38,10 @@ public sealed record NativePickerResponse
     [JsonPropertyName("dialogDetected")] public bool DialogDetected { get; }
     [JsonPropertyName("selectedPath")] public string? SelectedPath { get; }
     [JsonPropertyName("message")] public string? Message { get; }
+    [JsonPropertyName("correlationId")] public string? CorrelationId { get; }
+    [JsonPropertyName("expiresAt")] public DateTimeOffset? ExpiresAt { get; }
+    [JsonPropertyName("consumedAt")] public DateTimeOffset? ConsumedAt { get; }
+    [JsonPropertyName("pathRedacted")] public bool PathRedacted { get; }
 }
 
 public static class NativePickerOperations
@@ -39,6 +51,7 @@ public static class NativePickerOperations
     public const string Confirm = "confirm";
     public const string Cancel = "cancel";
     public const string PredefineResult = "predefine_result";
+    public const string ConsumePredefinedResult = "consume_predefined_result";
 }
 
 public static class NativePickerResultStates
@@ -47,4 +60,6 @@ public static class NativePickerResultStates
     public const string Cancelled = "cancelled";
     public const string UnavailablePath = "unavailable_path";
     public const string DeletedPath = "deleted_path";
+    public const string Expired = "expired";
+    public const string NotPrepared = "not_prepared";
 }

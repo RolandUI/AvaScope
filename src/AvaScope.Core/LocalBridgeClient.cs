@@ -549,12 +549,25 @@ public sealed class LocalBridgeClient
         SessionId sessionId,
         string operation,
         string? path = null,
-        string? predefinedResult = null)
+        string? predefinedResult = null,
+        string? correlationId = null,
+        int ttlMs = 30000,
+        int timeoutMs = 1000,
+        bool redactPath = true)
     {
         ArgumentNullException.ThrowIfNull(sessionId);
         var manifest = FindSingleManifest(null, sessionId);
         return manifest.Success
-            ? NativePickerAutomation.Execute(manifest.Value!, operation, path, predefinedResult)
+            ? NativePickerAutomation.Execute(
+                manifest.Value!,
+                ManifestDirectory,
+                operation,
+                path,
+                predefinedResult,
+                correlationId,
+                ttlMs,
+                timeoutMs,
+                redactPath)
             : CoreResult<NativePickerResponse>.Fail(manifest.Error!);
     }
 

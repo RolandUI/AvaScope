@@ -3692,12 +3692,15 @@ internal static class Program
 
     private static int NativePicker(string[] args)
     {
-        var usage = "Usage: avascope native-picker --session <session-id> --operation detect|select_path|confirm|cancel|predefine_result [--path <path>] [--predefined-result success|cancelled|unavailable_path|deleted_path] [--manifest-dir <dir>]";
+        var usage = "Usage: avascope native-picker --session <session-id> --operation detect|select_path|confirm|cancel|predefine_result|consume_predefined_result [--path <path>] [--predefined-result success|cancelled|unavailable_path|deleted_path] [--correlation-id <id>] [--ttl-ms <100-300000>] [--timeout-ms <0-30000>] [--redact-path <true|false>] [--manifest-dir <dir>]";
         var options = ParseOptions(args, usage);
         if (!options.Success
-            || !ValidateOptions(options.Values, usage, "session", "operation", "path", "predefined-result", "manifest-dir")
+            || !ValidateOptions(options.Values, usage, "session", "operation", "path", "predefined-result", "correlation-id", "ttl-ms", "timeout-ms", "redact-path", "manifest-dir")
             || !TryReadRequiredSessionId(options.Values, usage, out var sessionId)
-            || !TryReadRequiredOption(options.Values, "operation", usage, out var operation))
+            || !TryReadRequiredOption(options.Values, "operation", usage, out var operation)
+            || !TryReadOptionalPositiveInt(options.Values, "ttl-ms", out var ttlMs)
+            || !TryReadOptionalNonNegativeInt(options.Values, "timeout-ms", out var timeoutMs)
+            || !TryReadOptionalBoolean(options.Values, "redact-path", out var redactPath))
         {
             return 2;
         }
@@ -3706,7 +3709,11 @@ internal static class Program
             sessionId!,
             operation!,
             options.Values.GetValueOrDefault("path"),
-            options.Values.GetValueOrDefault("predefined-result"));
+            options.Values.GetValueOrDefault("predefined-result"),
+            options.Values.GetValueOrDefault("correlation-id"),
+            ttlMs ?? 30000,
+            timeoutMs ?? 1000,
+            options.Values.ContainsKey("redact-path") ? redactPath : true);
         WriteResult(result);
         return result.Success ? 0 : 1;
     }
