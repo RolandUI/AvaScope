@@ -3989,7 +3989,7 @@ internal static class Program
 
     private static string GetFindNodesUsage()
     {
-        return "Usage: avascope find-nodes --session <session-id> --top-level <top-level-id> [--tree-kind visual|logical] [--type <type>] [--name <name>] [--automation-id <id>] [--text <text>] [--max-depth <n>] [--max-results <n>] [--manifest-dir <dir>]";
+        return "Usage: avascope find-nodes --session <session-id> --top-level <top-level-id> [--tree-kind visual|logical] [--type <type>] [--name <name>] [--automation-id <id>] [--text <text>] [--max-depth <n>] [--max-results <n>] [--include-children true|false] [--include-bounds true|false] [--include-accessibility true|false] [--include-bindings true|false] [--max-response-depth <n>] [--manifest-dir <dir>]";
     }
 
     private static string GetAuditUiUsage()

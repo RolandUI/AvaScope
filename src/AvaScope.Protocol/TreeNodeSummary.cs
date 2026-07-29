@@ -17,7 +17,8 @@ public sealed record TreeNodeSummary
         RuntimeTargetContext? target = null,
         RuntimeAccessibilityState? accessibilityState = null,
         RuntimeValidationState? validationState = null,
-        RuntimeNodeSourceMap? sourceMap = null)
+        RuntimeNodeSourceMap? sourceMap = null,
+        RuntimeBindingSummary? bindingSummary = null)
     {
         if (string.IsNullOrWhiteSpace(nodeId))
         {
@@ -41,6 +42,7 @@ public sealed record TreeNodeSummary
         AccessibilityState = accessibilityState;
         ValidationState = validationState;
         SourceMap = sourceMap;
+        BindingSummary = bindingSummary;
     }
 
     [JsonPropertyName("nodeId")]
@@ -86,4 +88,8 @@ public sealed record TreeNodeSummary
     [JsonPropertyName("sourceMap")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public RuntimeNodeSourceMap? SourceMap { get; }
+
+    [JsonPropertyName("bindingSummary")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public RuntimeBindingSummary? BindingSummary { get; }
 }

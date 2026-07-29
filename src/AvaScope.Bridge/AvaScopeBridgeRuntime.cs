@@ -497,7 +497,10 @@ public sealed class AvaScopeBridgeRuntime
         }
     }
 
-    private CoreResult<TreeResponse> GetVisualTree(string topLevelId, int? maxDepth)
+    private CoreResult<TreeResponse> GetVisualTree(
+        string topLevelId,
+        int? maxDepth,
+        bool applyResponseBudget = true)
     {
         Dispatcher.UIThread.VerifyAccess();
 
@@ -515,16 +518,21 @@ public sealed class AvaScopeBridgeRuntime
 
         var normalizedDepth = depthLimit.Value;
 
-        return CoreResult<TreeResponse>.Ok(new TreeResponse(
+        var response = new TreeResponse(
             SessionId,
             topLevelId,
             TreeKinds.Visual,
             normalizedDepth,
             SerializeVisualNode(topLevel, topLevelId, topLevel, depth: 0, normalizedDepth),
-            CreateTreeTarget(topLevelId, TreeKinds.Visual, topLevel)));
+            CreateTreeTarget(topLevelId, TreeKinds.Visual, topLevel));
+        return CoreResult<TreeResponse>.Ok(
+            applyResponseBudget ? ResponseBudgeter.Apply(response) : response);
     }
 
-    private CoreResult<TreeResponse> GetLogicalTree(string topLevelId, int? maxDepth)
+    private CoreResult<TreeResponse> GetLogicalTree(
+        string topLevelId,
+        int? maxDepth,
+        bool applyResponseBudget = true)
     {
         Dispatcher.UIThread.VerifyAccess();
 
@@ -542,13 +550,15 @@ public sealed class AvaScopeBridgeRuntime
 
         var normalizedDepth = depthLimit.Value;
 
-        return CoreResult<TreeResponse>.Ok(new TreeResponse(
+        var response = new TreeResponse(
             SessionId,
             topLevelId,
             TreeKinds.Logical,
             normalizedDepth,
             SerializeLogicalNode(topLevel, topLevelId, topLevel, depth: 0, normalizedDepth),
-            CreateTreeTarget(topLevelId, TreeKinds.Logical, topLevel)));
+            CreateTreeTarget(topLevelId, TreeKinds.Logical, topLevel));
+        return CoreResult<TreeResponse>.Ok(
+            applyResponseBudget ? ResponseBudgeter.Apply(response) : response);
     }
 
     private CoreResult<FindNodesResponse> FindNodes(
@@ -584,8 +594,8 @@ public sealed class AvaScopeBridgeRuntime
 
         var treeResult = treeKind switch
         {
-            TreeKinds.Visual => GetVisualTree(topLevelId, maxDepth),
-            TreeKinds.Logical => GetLogicalTree(topLevelId, maxDepth),
+            TreeKinds.Visual => GetVisualTree(topLevelId, maxDepth, applyResponseBudget: false),
+            TreeKinds.Logical => GetLogicalTree(topLevelId, maxDepth, applyResponseBudget: false),
             _ => InvalidTreeKind(topLevelId, treeKind)
         };
 
@@ -610,13 +620,13 @@ public sealed class AvaScopeBridgeRuntime
             includeBindings,
             Math.Clamp(maxResponseDepth ?? 1, 0, 8));
 
-        return CoreResult<FindNodesResponse>.Ok(new FindNodesResponse(
+        return CoreResult<FindNodesResponse>.Ok(ResponseBudgeter.Apply(new FindNodesResponse(
             SessionId,
             topLevelId,
             treeKind,
             treeResult.Value.DepthLimit,
             matches,
-            treeResult.Value.Target));
+            treeResult.Value.Target)));
     }
 
     private CoreResult<InspectNodeResponse> InspectNode(string topLevelId, string treeKind, string nodeId)
@@ -3694,7 +3704,7 @@ public sealed class AvaScopeBridgeRuntime
             }));
     }
 
-    private static void CollectMatches(
+    private void CollectMatches(
         TreeNodeSummary node,
         string? nodeType,
         string? name,
@@ -3737,7 +3747,7 @@ public sealed class AvaScopeBridgeRuntime
         path.RemoveAt(path.Count - 1);
     }
 
-    private static TreeNodeSummary ProjectFindNode(
+    private TreeNodeSummary ProjectFindNode(
         TreeNodeSummary node,
         bool includeChildren,
         bool includeBounds,
@@ -3767,7 +3777,48 @@ public sealed class AvaScopeBridgeRuntime
             node.Target,
             includeAccessibility ? node.AccessibilityState : null,
             node.ValidationState,
-            includeBindings ? node.SourceMap : null);
+            sourceMap: null,
+            bindingSummary: includeBindings ? CreateBindingSummary(node) : null);
+    }
+
+    private RuntimeBindingSummary CreateBindingSummary(TreeNodeSummary summary)
+    {
+        var target = summary.Target;
+        if (target is null)
+        {
+            return new RuntimeBindingSummary("not_available", null, 0);
+        }
+
+        var topLevel = FindTopLevel(target.TopLevelId);
+        object? node = target.TreeKind switch
+        {
+            TreeKinds.Visual when topLevel is not null => FindVisualNodeById(topLevel, target.NodeId!),
+            TreeKinds.Logical when topLevel is ILogical logical => FindLogicalNodeById(logical, target.NodeId!),
+            _ => null
+        };
+        if (node is null)
+        {
+            return new RuntimeBindingSummary("stale_target", null, 0);
+        }
+
+        var computedProperties = GetComputedProperties(node);
+        var sourceMap = CreateRuntimeSourceMap(node, computedProperties);
+        var state = GetBindingState(node, sourceMap, computedProperties);
+        var entries = state.BoundProperties
+            .Take(RuntimeBindingSummary.MaximumEntries)
+            .Select(static property => new RuntimeBindingSummaryEntry(
+                property.PropertyName,
+                property.BindingPath,
+                property.Status,
+                property.ResolvedValueStatus,
+                property.CompiledBindingStatus))
+            .ToArray();
+        return new RuntimeBindingSummary(
+            state.BindingMetadataStatus,
+            state.DataContextType,
+            state.BoundProperties.Count,
+            entries,
+            state.BoundProperties.Count > entries.Length);
     }
 
     private static bool Matches(

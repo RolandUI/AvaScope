@@ -1595,6 +1595,18 @@ public sealed class ProtocolContractTests
                         name: "TitleText",
                         automationId: "title-text",
                         text: "AvaScope",
+                        bindingSummary: new RuntimeBindingSummary(
+                            "available",
+                            "SampleViewModel",
+                            1,
+                            [
+                                new RuntimeBindingSummaryEntry(
+                                    "Text",
+                                    "Title",
+                                    "source_declared",
+                                    "resolved",
+                                    "not_available")
+                            ]),
                         target: new RuntimeTargetContext(
                             new SessionId("session-1"),
                             "topLevel:abc",
@@ -1652,6 +1664,18 @@ public sealed class ProtocolContractTests
                         name: "TitleText",
                         automationId: "title-text",
                         text: "AvaScope",
+                        bindingSummary: new RuntimeBindingSummary(
+                            "available",
+                            "SampleViewModel",
+                            1,
+                            [
+                                new RuntimeBindingSummaryEntry(
+                                    "Text",
+                                    "Title",
+                                    "source_declared",
+                                    "resolved",
+                                    "not_available")
+                            ]),
                         target: new RuntimeTargetContext(
                             new SessionId("session-1"),
                             "topLevel:abc",
@@ -1671,6 +1695,9 @@ public sealed class ProtocolContractTests
         Assert.Equal("TitleText", node["matches"]![0]!["node"]!["name"]!.GetValue<string>());
         Assert.Equal("title-text", node["matches"]![0]!["node"]!["automationId"]!.GetValue<string>());
         Assert.Equal("AvaScope", node["matches"]![0]!["node"]!["text"]!.GetValue<string>());
+        Assert.Equal("available", node["matches"]![0]!["node"]!["bindingSummary"]!["status"]!.GetValue<string>());
+        Assert.Equal("Title", node["matches"]![0]!["node"]!["bindingSummary"]!["entries"]![0]!["bindingPath"]!.GetValue<string>());
+        Assert.Null(node["matches"]![0]!["node"]!["sourceMap"]);
         Assert.Equal("visual:root", node["matches"]![0]!["path"]![0]!.GetValue<string>());
         Assert.Equal("visual:text", node["matches"]![0]!["path"]![1]!.GetValue<string>());
         Assert.Equal("session-1", node["target"]!["sessionId"]!.GetValue<string>());

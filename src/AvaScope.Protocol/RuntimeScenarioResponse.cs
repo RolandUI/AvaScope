@@ -20,7 +20,8 @@ public sealed record RuntimeScenarioResponse
         string? timelinePath = null,
         IReadOnlyList<ProtocolError>? diagnostics = null,
         IReadOnlyDictionary<string, string>? metadata = null,
-        NativePickerResponse? preparedPickerResult = null)
+        NativePickerResponse? preparedPickerResult = null,
+        ResponseBudgetInfo? responseBudget = null)
     {
         if (string.IsNullOrWhiteSpace(requestId))
         {
@@ -47,6 +48,7 @@ public sealed record RuntimeScenarioResponse
         Diagnostics = diagnostics ?? [];
         Metadata = metadata ?? new Dictionary<string, string>();
         PreparedPickerResult = preparedPickerResult;
+        ResponseBudget = responseBudget;
     }
 
     [JsonPropertyName("requestId")]
@@ -101,4 +103,8 @@ public sealed record RuntimeScenarioResponse
     [JsonPropertyName("preparedPickerResult")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public NativePickerResponse? PreparedPickerResult { get; }
+
+    [JsonPropertyName("responseBudget")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public ResponseBudgetInfo? ResponseBudget { get; }
 }

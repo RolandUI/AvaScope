@@ -15,7 +15,8 @@ public sealed record DiagnosticsResponse
         IReadOnlyList<PreviewSessionDiagnostic>? previewSessions = null,
         IReadOnlyList<DiagnosticIssue>? diagnosticIssues = null,
         DiagnosticsSummary? summary = null,
-        IReadOnlyList<DiagnosticComponentOrigin>? componentOrigins = null)
+        IReadOnlyList<DiagnosticComponentOrigin>? componentOrigins = null,
+        ResponseBudgetInfo? responseBudget = null)
     {
         ArgumentNullException.ThrowIfNull(service);
 
@@ -34,6 +35,7 @@ public sealed record DiagnosticsResponse
         DiagnosticIssues = diagnosticIssues ?? [];
         Summary = summary ?? DiagnosticsSummary.Create(BridgeSessions, PreviewSessions, DiagnosticIssues);
         ComponentOrigins = componentOrigins ?? [];
+        ResponseBudget = responseBudget;
     }
 
     [JsonPropertyName("service")]
@@ -66,6 +68,10 @@ public sealed record DiagnosticsResponse
 
     [JsonPropertyName("componentOrigins")]
     public IReadOnlyList<DiagnosticComponentOrigin> ComponentOrigins { get; }
+
+    [JsonPropertyName("responseBudget")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public ResponseBudgetInfo? ResponseBudget { get; }
 }
 
 public sealed record DiagnosticComponentOrigin

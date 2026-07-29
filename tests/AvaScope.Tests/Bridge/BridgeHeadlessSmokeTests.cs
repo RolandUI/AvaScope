@@ -236,6 +236,31 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                     var boundText = Assert.Single(inspect.Value.BindingState.BoundProperties, property => property.PropertyName == "Text");
                     Assert.Equal("Title", boundText.BindingPath);
                     Assert.Equal("source_declared", boundText.Status);
+
+                    var bindingSearch = runtime.FindNodesAsync(
+                        topLevel.Id,
+                        TreeKinds.Visual,
+                        name: "SourceMappedTitle",
+                        maxDepth: 8,
+                        includeBindings: true).GetAwaiter().GetResult();
+                    Assert.True(bindingSearch.Success, bindingSearch.Error?.Message);
+                    var bindingMatch = Assert.Single(bindingSearch.Value!.Matches).Node;
+                    Assert.Null(bindingMatch.SourceMap);
+                    Assert.NotNull(bindingMatch.BindingSummary);
+                    Assert.Equal("available", bindingMatch.BindingSummary!.Status);
+                    Assert.Contains(
+                        bindingMatch.BindingSummary.Entries,
+                        entry => entry.PropertyName == "Text" && entry.BindingPath == "Title");
+
+                    var compactSearch = runtime.FindNodesAsync(
+                        topLevel.Id,
+                        TreeKinds.Visual,
+                        name: "SourceMappedTitle",
+                        maxDepth: 8).GetAwaiter().GetResult();
+                    var compactMatch = Assert.Single(compactSearch.Value!.Matches).Node;
+                    Assert.Null(compactMatch.SourceMap);
+                    Assert.Null(compactMatch.BindingSummary);
+
                     Assert.Equal("issues_found", inspect.Value.LayoutExplanation!.Status);
                     Assert.Contains(inspect.Value.LayoutExplanation.Reasons, reason => reason.Code == "arranged_zero_size");
                     Assert.Contains(inspect.Value.LayoutExplanation.Reasons, reason => reason.Code == "grid_cell_constraint");
@@ -253,6 +278,63 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                 {
                     window.Close();
                     DeleteDirectoryIfExists(testRoot);
+                    AvaScopeBridge.Deactivate();
+                    Dispatcher.UIThread.RunJobs();
+                }
+            }, CancellationToken.None);
+        }
+        finally
+        {
+            DisposeHeadlessSessionAfterExplicitCleanup(session);
+        }
+    }
+
+    [Fact]
+    public async Task FindNodesSearchesCompleteTreeBeforeApplyingResponseBudget()
+    {
+        var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessTestApplication));
+
+        try
+        {
+            await session.Dispatch(() =>
+            {
+                var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Headless response budget sample"));
+                var panel = new StackPanel();
+                for (var index = 0; index < 250; index++)
+                {
+                    panel.Children.Add(new TextBlock
+                    {
+                        Name = $"BudgetNode{index}",
+                        Text = $"Node {index}"
+                    });
+                }
+
+                var window = new Window { Content = panel };
+                try
+                {
+                    window.Show();
+                    using var registration = runtime.RegisterTopLevel(window);
+                    Dispatcher.UIThread.RunJobs();
+                    var topLevel = Assert.Single(runtime.ListTopLevelsAsync().GetAwaiter().GetResult());
+
+                    var tree = runtime.GetVisualTreeAsync(topLevel.Id, maxDepth: 8).GetAwaiter().GetResult();
+                    Assert.True(tree.Success, tree.Error?.Message);
+                    Assert.NotNull(tree.Value!.ResponseBudget);
+                    Assert.True(tree.Value.ResponseBudget!.Truncated);
+                    Assert.Contains("item_budget", tree.Value.ResponseBudget.Reasons);
+
+                    var search = runtime.FindNodesAsync(
+                        topLevel.Id,
+                        TreeKinds.Visual,
+                        name: "BudgetNode249",
+                        maxDepth: 8).GetAwaiter().GetResult();
+
+                    Assert.True(search.Success, search.Error?.Message);
+                    Assert.Equal("BudgetNode249", Assert.Single(search.Value!.Matches).Node.Name);
+                }
+                finally
+                {
+                    window.Close();
                     AvaScopeBridge.Deactivate();
                     Dispatcher.UIThread.RunJobs();
                 }

@@ -911,7 +911,15 @@ severity filters as closed enums.
 `find_nodes` returns compact matching nodes without descendants by default.
 Use `includeChildren`, `includeBounds`, `includeAccessibility`,
 `includeBindings`, and `maxResponseDepth` for bounded expansion; use
-`inspect_node` for complete detail.
+`inspect_node` for complete detail. `includeBindings` returns a runtime binding
+summary capped at 16 entries (`status`, data-context type, property/path and
+resolution state); it never returns source-map data.
+
+Tree, node-search, diagnostics, workflow, and runtime-scenario results share
+inline byte, item, and depth budgets. When a budget is exceeded,
+`responseBudget.truncated` is `true`, `reasons` identifies the exhausted
+budget, and `artifactPath` points to the complete local JSON payload. The
+inline result remains a deterministic bounded summary.
 
 `native_picker` is local-only and process-scoped. On Windows it detects and
 controls only a picker whose window and owner chain belong to the selected

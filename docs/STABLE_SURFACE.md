@@ -156,6 +156,12 @@ The stable MCP tool name set is:
 - `close_preview_session`
 - `reload`
 
+Large tree, `find_nodes`, diagnostics, workflow, and scenario results may carry
+an additive `responseBudget` object. When `truncated` is true, the inline
+payload is bounded and `artifactPath` identifies the complete local JSON
+payload. `find_nodes.includeBindings` returns bounded runtime binding metadata,
+not source-map data.
+
 MCP compatibility rules:
 
 - MCP stays a thin stdio adapter over reusable Core and Protocol contracts.

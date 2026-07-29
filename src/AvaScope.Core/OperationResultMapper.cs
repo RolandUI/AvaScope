@@ -13,10 +13,11 @@ public static class OperationResultMapper
             return ToolResult<T>.Fail(ToProtocolError(result.Error!));
         }
 
-        var outcomeError = GetOutcomeError(result.Value);
+        var value = ResponseBudgeter.Apply(result.Value!);
+        var outcomeError = GetOutcomeError(value);
         return outcomeError is null
-            ? ToolResult<T>.Ok(result.Value!)
-            : ToolResult<T>.Fail(outcomeError, result.Value);
+            ? ToolResult<T>.Ok(value)
+            : ToolResult<T>.Fail(outcomeError, value);
     }
 
     public static bool IsSuccessful<T>(CoreResult<T> result) =>
