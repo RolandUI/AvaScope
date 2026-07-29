@@ -26,20 +26,21 @@ GitHub Issues and Milestones are the primary project-management source for auton
 
 ## Current Focus
 
-- `Rider Copilot MCP output-schema compatibility`
-- GitHub Issue: #75
+- `Guarded v1.1.4 patch release`
+- GitHub Issue: #74
 - GitHub Milestone: `v1.1.4`
 - Status: `In Progress`
 - Owner: autonomous agent
 - Started: `2026-07-29`
-- Goal: make every serialized MCP `ToolResult<T>` contain the fields required by its advertised output schema, including explicit nulls for the inactive success/error branch.
+- Goal: publish the validated Rider Copilot compatibility fix through the complete release gate, exact version commit, and verified GitHub Release workflow.
 
 ## Next Action
 
-Complete #75 with protocol and real stdio MCP regression coverage, then run and publish the guarded v1.1.4 patch release through #74.
+Run the complete v1.1.4 local release gate, move the target to `Release Candidate`, publish from the exact `Release 1.1.4` commit, and verify public packages and release assets.
 
 ## Latest Validation
 
+- `2026-07-29`: Completed #75 in commit `fb15795` and pushed it to `master`. The issue and roadmap card are done. Started release tracker #74 with the guarded Debug/Release, artifact, packaged MCP, installer, dry-run, release-commit, publication, and remote verification gate.
 - `2026-07-29`: Implemented the #75 compatibility fix by forcing `ToolResult<T>.value` and `.error` to serialize even when null, overriding the MCP SDK's global null-omission setting. Focused protocol and real stdio MCP tests passed (`59`), including advertised required-field checks against successful `health` and failed `close_session` responses. The full Debug build passed with `0` warnings/errors and all `373` tests passed.
 - `2026-07-29`: Started #75 after Rider Copilot feedback showed JSON-RPC `-32602` failures when AvaScope 1.1.3 omitted null `ToolResult<T>` properties that its MCP output schema marks required. The v1.1.4 milestone and release tracker #74 were created; validation targets focused protocol serialization, real MCP schema/response matching for success and failure, full Debug/Release tests, packaged MCP smoke, and the guarded release gate.
 - `2026-07-28`: Completed #73 after explicit approval by changing `RolandUI/AvaScope` to public visibility. Enabled GitHub vulnerability alerts, Dependabot security updates, private vulnerability reporting, secret scanning, and push protection. Protected `master` with strict `Build, Test, Pack` status checks and disabled force-push and branch deletion while preserving administrator direct-push compatibility. A credential-free shallow clone resolved public HEAD `39b07778c56ec05e8053aacfe5266529cd705a18`; public README/security/contribution/trademark documents matched the clone; issue #73 returned HTTP `200`; the anonymous GitHub API reported Apache-2.0, `master`, latest release `v1.1.3`, and eight release assets. Anonymous Windows and Linux installer downloads matched the public release manifest byte sizes and SHA-256 values exactly (`a111cd7c969bca02ad940cd6aae0801b6939e05d4c30961e0383d977d106024c` and `236911439b35d1196437821109f3e080848a1b88b72937b37fa0e5b221d4b57f`).

@@ -70,11 +70,12 @@ The v1.1.4 patch release restores MCP interoperability with Rider Copilot and ot
 
 ### v1.1.4 Milestone Map
 
-- #75 `Rider Copilot rejects MCP responses that omit required null result fields`; Status: `In Progress`.
-- #74 `Release v1.1.4`; Status: `Ready`.
+- #75 `Rider Copilot rejects MCP responses that omit required null result fields`; Status: `Done`.
+- #74 `Release v1.1.4`; Status: `In Progress`.
 
 ### v1.1.4 Implementation Validation
 
+- `2026-07-29`: Completed #75 in commit `fb15795` after the focused and full Debug validation passed, then started guarded release tracker #74. The release gate covers Debug/Release builds and tests, complete packages/ZIPs/installers and manifest, packaged MCP and sample smoke, Windows/WSL installer validation, publish dry-runs, release-commit guard, and remote publication verification.
 - `2026-07-29`: Implemented explicit null serialization for both inactive `ToolResult<T>` branches, including an override of the MCP SDK's global null-omission behavior. Focused protocol and real stdio MCP schema/response tests passed (`59`); representative successful and failed tool calls contained all advertised required fields. The full Debug build passed with `0` warnings/errors and all `373` tests passed.
 - `2026-07-29`: Started #75 from Rider Copilot feedback against AvaScope 1.1.3. The defect is scoped to the mismatch between required `value`/`error` output-schema properties and null-omitting JSON serialization; the patch preserves the stable three-field result contract and adds real stdio MCP regression coverage.
 
