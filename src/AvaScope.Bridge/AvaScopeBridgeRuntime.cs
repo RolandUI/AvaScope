@@ -174,7 +174,12 @@ public sealed class AvaScopeBridgeRuntime
         string? text = null,
         int? maxDepth = null,
         int? maxResults = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        bool includeChildren = false,
+        bool includeBounds = true,
+        bool includeAccessibility = false,
+        bool includeBindings = false,
+        int? maxResponseDepth = null)
     {
         if (string.IsNullOrWhiteSpace(topLevelId))
         {
@@ -196,7 +201,12 @@ public sealed class AvaScopeBridgeRuntime
                 automationId,
                 text,
                 maxDepth,
-                maxResults));
+                maxResults,
+                includeChildren,
+                includeBounds,
+                includeAccessibility,
+                includeBindings,
+                maxResponseDepth));
         }
 
         return Dispatcher.UIThread
@@ -209,7 +219,12 @@ public sealed class AvaScopeBridgeRuntime
                     automationId,
                     text,
                     maxDepth,
-                    maxResults),
+                    maxResults,
+                    includeChildren,
+                    includeBounds,
+                    includeAccessibility,
+                    includeBindings,
+                    maxResponseDepth),
                 DispatcherPriority.Background,
                 cancellationToken)
             .GetTask();
@@ -544,7 +559,12 @@ public sealed class AvaScopeBridgeRuntime
         string? automationId,
         string? text,
         int? maxDepth,
-        int? maxResults)
+        int? maxResults,
+        bool includeChildren,
+        bool includeBounds,
+        bool includeAccessibility,
+        bool includeBindings,
+        int? maxResponseDepth)
     {
         Dispatcher.UIThread.VerifyAccess();
 
@@ -583,7 +603,12 @@ public sealed class AvaScopeBridgeRuntime
             text,
             new List<string>(),
             matches,
-            resultLimit.Value);
+            resultLimit.Value,
+            includeChildren,
+            includeBounds,
+            includeAccessibility,
+            includeBindings,
+            Math.Clamp(maxResponseDepth ?? 1, 0, 8));
 
         return CoreResult<FindNodesResponse>.Ok(new FindNodesResponse(
             SessionId,
@@ -765,7 +790,12 @@ public sealed class AvaScopeBridgeRuntime
             InputActions.Scroll => ScrollTarget(topLevel, topLevelId, targetNodeId, x, y),
             _ => CoreResult<InputResponse>.Fail(new CoreError(
                 BridgeErrorCodes.UnsupportedInputAction,
-                $"Input action '{action}' is not supported."))
+                $"Input action '{action}' is not supported.",
+                new Dictionary<string, string>
+                {
+                    ["supportedActions"] = string.Join(",", InputActions.All),
+                    ["nextAction"] = "Read runtime.input capability metadata for parameter requirements and examples."
+                }))
         };
     }
 
@@ -1698,7 +1728,7 @@ public sealed class AvaScopeBridgeRuntime
                 ["operation"] = operation,
                 ["propertyName"] = propertyName,
                 ["nodeType"] = node.GetType().FullName ?? node.GetType().Name,
-                ["supportedProperties"] = "width,height,minWidth,minHeight,maxWidth,maxHeight,margin,padding,opacity,text,content,background,foreground,isEnabled,isSelected,isExpanded",
+                ["supportedProperties"] = string.Join(",", RuntimeMutationPropertyNames.All),
                 ["nextAction"] = "Retry with a supported property for the selected node type."
             });
     }
@@ -3672,7 +3702,12 @@ public sealed class AvaScopeBridgeRuntime
         string? text,
         List<string> path,
         List<FindNodeMatch> matches,
-        int maxResults)
+        int maxResults,
+        bool includeChildren,
+        bool includeBounds,
+        bool includeAccessibility,
+        bool includeBindings,
+        int maxResponseDepth)
     {
         if (matches.Count >= maxResults)
         {
@@ -3683,12 +3718,16 @@ public sealed class AvaScopeBridgeRuntime
 
         if (Matches(node, nodeType, name, automationId, text))
         {
-            matches.Add(new FindNodeMatch(node, path.ToArray()));
+            matches.Add(new FindNodeMatch(
+                ProjectFindNode(node, includeChildren, includeBounds, includeAccessibility, includeBindings, maxResponseDepth),
+                path.ToArray()));
         }
 
         foreach (var child in node.Children)
         {
-            CollectMatches(child, nodeType, name, automationId, text, path, matches, maxResults);
+            CollectMatches(
+                child, nodeType, name, automationId, text, path, matches, maxResults,
+                includeChildren, includeBounds, includeAccessibility, includeBindings, maxResponseDepth);
             if (matches.Count >= maxResults)
             {
                 break;
@@ -3696,6 +3735,39 @@ public sealed class AvaScopeBridgeRuntime
         }
 
         path.RemoveAt(path.Count - 1);
+    }
+
+    private static TreeNodeSummary ProjectFindNode(
+        TreeNodeSummary node,
+        bool includeChildren,
+        bool includeBounds,
+        bool includeAccessibility,
+        bool includeBindings,
+        int remainingDepth)
+    {
+        var children = includeChildren && remainingDepth > 0
+            ? node.Children.Select(child => ProjectFindNode(
+                child,
+                true,
+                includeBounds,
+                includeAccessibility,
+                includeBindings,
+                remainingDepth - 1)).ToArray()
+            : [];
+
+        return new TreeNodeSummary(
+            node.NodeId,
+            node.NodeType,
+            node.Name,
+            node.AutomationId,
+            node.Text,
+            includeBounds ? node.Bounds : null,
+            node.Classes,
+            children,
+            node.Target,
+            includeAccessibility ? node.AccessibilityState : null,
+            node.ValidationState,
+            includeBindings ? node.SourceMap : null);
     }
 
     private static bool Matches(

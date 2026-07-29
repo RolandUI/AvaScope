@@ -49,6 +49,7 @@ internal static class Program
             "mutate-node-evidence" => await MutateNodeEvidence(args[1..]),
             "mutation-review" => await MutationReview(args[1..]),
             "close-session" => await CloseSession(args[1..]),
+            "native-picker" => NativePicker(args[1..]),
             "diagnostics" => await Diagnostics(args[1..]),
             "launch-app" => await LaunchApp(args[1..]),
             "doctor" => await Doctor(args[1..]),
@@ -1480,15 +1481,31 @@ internal static class Program
                 "text",
                 "max-depth",
                 "max-results",
+                "include-children",
+                "include-bounds",
+                "include-accessibility",
+                "include-bindings",
+                "max-response-depth",
                 "manifest-dir")
             || !TryReadRequiredSessionId(options.Values, GetFindNodesUsage(), out var sessionId)
             || !TryReadRequiredOption(options.Values, "top-level", GetFindNodesUsage(), out var topLevelId)
             || !TryReadOptionalTreeKind(options.Values, out var treeKind)
             || !TryReadOptionalNonNegativeInt(options.Values, "max-depth", out var maxDepth)
-            || !TryReadOptionalPositiveInt(options.Values, "max-results", out var maxResults))
+            || !TryReadOptionalPositiveInt(options.Values, "max-results", out var maxResults)
+            || !TryReadOptionalNonNegativeInt(options.Values, "max-response-depth", out var maxResponseDepth))
         {
             return 2;
         }
+
+        if (!TryReadOptionalBoolean(options.Values, "include-children", out var includeChildren)
+            || !TryReadOptionalBoolean(options.Values, "include-bounds", out var parsedIncludeBounds)
+            || !TryReadOptionalBoolean(options.Values, "include-accessibility", out var includeAccessibility)
+            || !TryReadOptionalBoolean(options.Values, "include-bindings", out var includeBindings))
+        {
+            WriteFailure(InvalidCliArguments, "Find include options must be true or false.");
+            return 2;
+        }
+        var includeBounds = !options.Values.ContainsKey("include-bounds") || parsedIncludeBounds;
 
         var nodeType = options.Values.GetValueOrDefault("type");
         var name = options.Values.GetValueOrDefault("name");
@@ -1512,7 +1529,12 @@ internal static class Program
             automationId,
             text,
             maxDepth,
-            maxResults);
+            maxResults,
+            includeChildren: includeChildren,
+            includeBounds: includeBounds,
+            includeAccessibility: includeAccessibility,
+            includeBindings: includeBindings,
+            maxResponseDepth: maxResponseDepth);
         WriteResult(result);
 
         return result.Success ? 0 : 1;
@@ -3174,7 +3196,7 @@ internal static class Program
     private static bool TryNormalizeInputAction(string action, out string normalizedAction)
     {
         normalizedAction = action;
-        foreach (var supportedAction in SupportedInputActions)
+        foreach (var supportedAction in InputActions.All)
         {
             if (string.Equals(action, supportedAction, StringComparison.OrdinalIgnoreCase))
             {
@@ -3668,6 +3690,27 @@ internal static class Program
         return false;
     }
 
+    private static int NativePicker(string[] args)
+    {
+        var usage = "Usage: avascope native-picker --session <session-id> --operation detect|select_path|confirm|cancel|predefine_result [--path <path>] [--predefined-result success|cancelled|unavailable_path|deleted_path] [--manifest-dir <dir>]";
+        var options = ParseOptions(args, usage);
+        if (!options.Success
+            || !ValidateOptions(options.Values, usage, "session", "operation", "path", "predefined-result", "manifest-dir")
+            || !TryReadRequiredSessionId(options.Values, usage, out var sessionId)
+            || !TryReadRequiredOption(options.Values, "operation", usage, out var operation))
+        {
+            return 2;
+        }
+
+        var result = CreateBridgeClient(options.Values).NativePicker(
+            sessionId!,
+            operation!,
+            options.Values.GetValueOrDefault("path"),
+            options.Values.GetValueOrDefault("predefined-result"));
+        WriteResult(result);
+        return result.Success ? 0 : 1;
+    }
+
     private static bool RequireClickTarget(
         string action,
         double? x,
@@ -3994,32 +4037,39 @@ internal static class Program
 
     private static void WriteResult<T>(CoreResult<T> result)
     {
-        WriteResult(result.Success
-            ? ToolResult<T>.Ok(result.Value!)
-            : ToolResult<T>.Fail(new ProtocolError(
+        if (!result.Success)
+        {
+            WriteResult(ToolResult<T>.Fail(new ProtocolError(
                 result.Error!.Code,
                 result.Error.Message,
                 result.Error.Details)));
-    }
+            return;
+        }
 
-    private static readonly string[] SupportedInputActions =
-    [
-        InputActions.PointerMove,
-        InputActions.PointerDown,
-        InputActions.PointerUp,
-        InputActions.Click,
-        InputActions.Focus,
-        InputActions.KeyText,
-        InputActions.ClearText,
-        InputActions.KeyDown,
-        InputActions.KeyUp,
-        InputActions.Invoke,
-        InputActions.Select,
-        InputActions.Toggle,
-        InputActions.Expand,
-        InputActions.Collapse,
-        InputActions.Scroll
-    ];
+        var failure = result.Value switch
+        {
+            SemanticWorkflowResponse response when response.Status != "passed"
+                => response.Diagnostics.FirstOrDefault()
+                    ?? new ProtocolError("workflow_failed", $"Workflow completed with status '{response.Status}'."),
+            RuntimeScenarioResponse response when response.Status != "passed"
+                => response.Diagnostics.FirstOrDefault()
+                    ?? new ProtocolError("scenario_failed", $"Scenario completed with status '{response.Status}'."),
+            RuntimeMutationResponse response when response.Status is RuntimeMutationStatuses.Rejected
+                or RuntimeMutationStatuses.Unsupported or RuntimeMutationStatuses.StaleTarget
+                or RuntimeMutationStatuses.Unavailable
+                => response.Diagnostics.FirstOrDefault()
+                    ?? new ProtocolError("mutation_failed", $"Mutation completed with status '{response.Status}'."),
+            RuntimeMutationEvidenceResponse response when response.Mutation.Status is RuntimeMutationStatuses.Rejected
+                or RuntimeMutationStatuses.Unsupported or RuntimeMutationStatuses.StaleTarget
+                or RuntimeMutationStatuses.Unavailable
+                => response.Mutation.Diagnostics.FirstOrDefault()
+                    ?? new ProtocolError("mutation_failed", $"Mutation completed with status '{response.Mutation.Status}'."),
+            _ => null
+        };
+        WriteResult(failure is null
+            ? ToolResult<T>.Ok(result.Value!)
+            : ToolResult<T>.Fail(failure));
+    }
 
     private sealed record OptionParseResult(
         bool Success,

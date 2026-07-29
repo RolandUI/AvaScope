@@ -523,6 +523,33 @@ public sealed class LocalBridgeClientTests : IDisposable
     }
 
     [Fact]
+    public void NativePickerPredefinedDeletedPathIsDeterministicAndProcessScoped()
+    {
+        Directory.CreateDirectory(_manifestDirectory);
+        var sessionId = new SessionId("picker-session");
+        WriteManifest(
+            "picker.json",
+            new BridgeSessionManifest(
+                sessionId,
+                Environment.ProcessId,
+                "picker-test-pipe",
+                DateTimeOffset.UtcNow,
+                processName: Process.GetCurrentProcess().ProcessName));
+        var client = new LocalBridgeClient(_manifestDirectory);
+
+        var result = client.NativePicker(
+            sessionId,
+            NativePickerOperations.PredefineResult,
+            @"C:\deleted",
+            NativePickerResultStates.DeletedPath);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(NativePickerResultStates.DeletedPath, result.Value!.Status);
+        Assert.Equal(Environment.ProcessId, result.Value.ProcessId);
+        Assert.False(result.Value.DialogDetected);
+    }
+
+    [Fact]
     public async Task ReloadRuntimeReturnsStructuredErrorWhenNoManifestMatches()
     {
         var client = new LocalBridgeClient(_manifestDirectory);

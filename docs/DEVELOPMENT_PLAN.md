@@ -2,6 +2,8 @@
 
 GitHub Issues and Milestones are the primary project-management source for autonomous agents working on AvaScope. This document is the compact local handoff and validation log. Update it whenever meaningful implementation, validation, or planning changes the active GitHub issue or release state.
 
+- `2026-07-29`: Implemented the v1.2.0 feedback contract hardening slice for #78 and #80–#85: canonical self-describing input actions; truthful operation-level `success` plus `transportSuccess`; MCP enums for input, diagnostics, mutation, picker, and preview severity; compact find-node results with opt-in bounded expansion; canonical mutation properties including valid `IsSelected` targets and pre-dispatch rejection; process-scoped Windows native picker operations plus deterministic isolated results; and bounded preview diagnostic summaries with full JSON artifacts. Focused coverage passed (`66` plus stable-surface retry `7`); full Debug and Release suites each passed all `385` tests; both builds completed with `0` warnings/errors.
+
 ## Project Operating Rules
 
 - Work in small vertical slices that produce buildable, testable behavior.

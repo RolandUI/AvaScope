@@ -161,11 +161,9 @@ public sealed class AvaScopeMcpToolsTests
         {
             var result = await AvaScopeMcpTools.RunScenario(client, request);
 
-            Assert.True(result.Success, result.Error?.Message);
-            Assert.Equal("failed", result.Value!.Status);
-            Assert.Equal("mcp-scenario", result.Value.RequestId);
-            Assert.Equal(CoreErrorCodes.BridgeSessionNotFound, Assert.Single(result.Value.Diagnostics).Code);
-            Assert.Equal(Path.GetFullPath(timelinePath), result.Value.TimelinePath);
+            Assert.False(result.Success);
+            Assert.Null(result.Value);
+            Assert.Equal(CoreErrorCodes.BridgeSessionNotFound, result.Error!.Code);
             Assert.True(File.Exists(timelinePath), timelinePath);
         }
         finally

@@ -77,7 +77,10 @@ public sealed class PreviewHostClient
                 JsonSerializer.Serialize(request, JsonOptions),
                 cancellationToken);
 
-            return await RunPreviewHostAsync(requestPath, cancellationToken);
+            var result = await RunPreviewHostAsync(requestPath, cancellationToken);
+            return result.Success
+                ? CoreResult<PreviewResponse>.Ok(await BoundDiagnosticsAsync(result.Value!, cancellationToken))
+                : result;
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException)
         {
@@ -89,6 +92,53 @@ public sealed class PreviewHostClient
         {
             TryDeleteDirectory(requestDirectory);
         }
+    }
+
+    private static async Task<PreviewResponse> BoundDiagnosticsAsync(
+        PreviewResponse response,
+        CancellationToken cancellationToken)
+    {
+        const int maximumInlineDiagnostics = 16;
+        var all = response.Diagnostics;
+        var artifactPath = $"{Path.GetFullPath(response.FilePath)}.diagnostics.json";
+        var directory = Path.GetDirectoryName(artifactPath);
+        if (!string.IsNullOrWhiteSpace(directory))
+        {
+            Directory.CreateDirectory(directory);
+        }
+
+        await File.WriteAllTextAsync(
+            artifactPath,
+            JsonSerializer.Serialize(all, JsonOptions),
+            cancellationToken);
+        var inline = all
+            .OrderBy(static item => item.Severity == PreviewDiagnosticSeverities.Error ? 0
+                : item.Severity == PreviewDiagnosticSeverities.Warning ? 1 : 2)
+            .Take(maximumInlineDiagnostics)
+            .ToArray();
+        var summary = PreviewResponse.CreateDiagnosticSummary(
+            all,
+            truncated: all.Count > inline.Length,
+            totalCount: all.Count);
+
+        return new PreviewResponse(
+            response.FilePath,
+            response.PixelWidth,
+            response.PixelHeight,
+            response.Dpi,
+            response.RenderedAt,
+            response.ProjectPath,
+            response.ViewPath,
+            response.ThemeVariant,
+            response.Culture,
+            response.DesignDataType,
+            inline,
+            response.AnimationTimeOffsetMs,
+            response.ProjectInfo,
+            response.StateVariant,
+            response.RunIndex,
+            summary,
+            artifactPath);
     }
 
     public async Task<CoreResult<PreviewBatchResponse>> RenderBatchAsync(

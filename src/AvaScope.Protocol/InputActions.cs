@@ -17,4 +17,10 @@ public static class InputActions
     public const string Expand = "expand";
     public const string Collapse = "collapse";
     public const string Scroll = "scroll";
+
+    public static IReadOnlyList<string> All { get; } =
+    [
+        PointerMove, PointerDown, PointerUp, Click, KeyText, ClearText, Focus,
+        KeyDown, KeyUp, Invoke, Select, Toggle, Expand, Collapse, Scroll
+    ];
 }

@@ -45,24 +45,7 @@ public static class RuntimeMutationCapabilityCatalog
                     RuntimeMutationOperationKinds.ResetMutation,
                     RuntimeMutationOperationKinds.ResetAll
                 ],
-                supportedProperties:
-                [
-                    "width",
-                    "height",
-                    "minWidth",
-                    "minHeight",
-                    "maxWidth",
-                    "maxHeight",
-                    "margin",
-                    "padding",
-                    "opacity",
-                    "text",
-                    "content",
-                    "background",
-                    "foreground",
-                    "class",
-                    "resource"
-                ],
+                supportedProperties: RuntimeMutationPropertyNames.All,
                 reason: styleLayoutAvailable
                     ? null
                     : "Style, layout, class, and resource mutation application is not available without an active local bridge.",

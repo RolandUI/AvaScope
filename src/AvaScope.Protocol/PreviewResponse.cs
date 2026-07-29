@@ -20,7 +20,9 @@ public sealed record PreviewResponse
         int? animationTimeOffsetMs = null,
         PreviewProjectInfo? projectInfo = null,
         string? stateVariant = null,
-        ArtifactRunIndexResponse? runIndex = null)
+        ArtifactRunIndexResponse? runIndex = null,
+        PreviewDiagnosticSummary? diagnosticSummary = null,
+        string? diagnosticsArtifactPath = null)
     {
         if (string.IsNullOrWhiteSpace(filePath))
         {
@@ -62,6 +64,10 @@ public sealed record PreviewResponse
         ProjectInfo = projectInfo;
         StateVariant = string.IsNullOrWhiteSpace(stateVariant) ? null : stateVariant;
         RunIndex = runIndex;
+        DiagnosticSummary = diagnosticSummary ?? CreateDiagnosticSummary(Diagnostics);
+        DiagnosticsArtifactPath = string.IsNullOrWhiteSpace(diagnosticsArtifactPath)
+            ? null
+            : Path.GetFullPath(diagnosticsArtifactPath);
     }
 
     [JsonPropertyName("filePath")]
@@ -117,4 +123,34 @@ public sealed record PreviewResponse
     [JsonPropertyName("runIndex")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public ArtifactRunIndexResponse? RunIndex { get; }
+
+    [JsonPropertyName("diagnosticSummary")]
+    public PreviewDiagnosticSummary DiagnosticSummary { get; }
+
+    [JsonPropertyName("diagnosticsArtifactPath")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? DiagnosticsArtifactPath { get; }
+
+    public static PreviewDiagnosticSummary CreateDiagnosticSummary(
+        IReadOnlyList<PreviewDiagnostic> diagnostics,
+        bool truncated = false,
+        int? totalCount = null)
+    {
+        var severityCounts = diagnostics
+            .GroupBy(static item => item.Severity, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(static group => group.Key, static group => group.Count(), StringComparer.OrdinalIgnoreCase);
+        var categoryCounts = diagnostics
+            .GroupBy(static item => item.Category, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(static group => group.Key, static group => group.Count(), StringComparer.OrdinalIgnoreCase);
+        var total = totalCount ?? diagnostics.Count;
+        var errors = severityCounts.GetValueOrDefault(PreviewDiagnosticSeverities.Error);
+        var warnings = severityCounts.GetValueOrDefault(PreviewDiagnosticSeverities.Warning);
+        return new PreviewDiagnosticSummary(
+            total,
+            severityCounts,
+            categoryCounts,
+            $"{total} diagnostic(s): {errors} error(s), {warnings} warning(s).",
+            truncated: truncated,
+            inlineCount: diagnostics.Count);
+    }
 }

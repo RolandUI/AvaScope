@@ -1138,7 +1138,19 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                 nodeType: "TextBlock",
                 maxDepth: 8);
             Assert.True(byType.Success, byType.Error?.Message);
-            Assert.Single(byType.Value!.Matches);
+            Assert.Empty(Assert.Single(byType.Value!.Matches).Node.Children);
+
+            var expanded = await AvaScopeMcpTools.FindNodes(
+                client,
+                runtime.SessionId.Value,
+                topLevel.Id,
+                TreeKinds.Visual,
+                nodeType: "Window",
+                maxDepth: 8,
+                includeChildren: true,
+                maxResponseDepth: 1);
+            Assert.True(expanded.Success, expanded.Error?.Message);
+            Assert.NotEmpty(Assert.Single(expanded.Value!.Matches).Node.Children);
 
             var byName = await AvaScopeMcpTools.FindNodes(
                 client,

@@ -74,14 +74,14 @@ The `v1.2.0` minor release implements the complete runtime interaction and agent
 
 - #76 `Add semantic automation actions for invoke, select, toggle, expand, and collapse`; Status: `Done`.
 - #77 `Center semantic clicks on selector-resolved node bounds`; Status: `Done`.
-- #78 `Publish input action capabilities, requirements, targets, and examples`; Status: `Backlog`.
-- #79 `Optionally terminate AvaScope-owned launched processes when closing sessions`; Status: `Backlog`.
-- #80 `Add native file and folder picker automation for runtime scenarios`; Status: `Backlog`.
-- #81 `Align operation success with workflow and mutation outcomes`; Status: `Backlog`.
-- #82 `Use JSON Schema enums for closed tool parameter sets`; Status: `Backlog`.
-- #83 `Return compact node search matches by default`; Status: `Backlog`.
-- #84 `Standardize mutation operation names and prevalidate supported properties`; Status: `Backlog`.
-- #85 `Provide bounded structured summaries for preview diagnostics`; Status: `Backlog`.
+- #78 `Publish input action capabilities, requirements, targets, and examples`; Status: `Done`.
+- #79 `Optionally terminate AvaScope-owned launched processes when closing sessions`; Status: `Done`.
+- #80 `Add native file and folder picker automation for runtime scenarios`; Status: `Done`.
+- #81 `Align operation success with workflow and mutation outcomes`; Status: `Done`.
+- #82 `Use JSON Schema enums for closed tool parameter sets`; Status: `Done`.
+- #83 `Return compact node search matches by default`; Status: `Done`.
+- #84 `Standardize mutation operation names and prevalidate supported properties`; Status: `Done`.
+- #85 `Provide bounded structured summaries for preview diagnostics`; Status: `Done`.
 - #86 `Release v1.2.0`; Status: `Backlog`.
 
 ### Explicit Deferrals

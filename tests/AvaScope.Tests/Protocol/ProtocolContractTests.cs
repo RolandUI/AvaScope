@@ -2877,4 +2877,26 @@ public sealed class ProtocolContractTests
         Assert.True(node["launchedProcessOwned"]!.GetValue<bool>());
         Assert.True(node["processTerminated"]!.GetValue<bool>());
     }
+
+    [Fact]
+    public void PreviewResponseIncludesStructuredDiagnosticSummary()
+    {
+        var response = new PreviewResponse(
+            @"C:\previews\main.png",
+            800,
+            600,
+            96,
+            DateTimeOffset.UtcNow,
+            diagnostics:
+            [
+                new PreviewDiagnostic(PreviewDiagnosticSeverities.Warning, "binding", "binding_warning", "Warning"),
+                new PreviewDiagnostic(PreviewDiagnosticSeverities.Error, "xaml", "xaml_error", "Error")
+            ]);
+
+        Assert.Equal(2, response.DiagnosticSummary.TotalCount);
+        Assert.Equal(1, response.DiagnosticSummary.SeverityCounts[PreviewDiagnosticSeverities.Warning]);
+        Assert.Equal(1, response.DiagnosticSummary.SeverityCounts[PreviewDiagnosticSeverities.Error]);
+        Assert.Equal("unavailable", response.DiagnosticSummary.ComparisonProvenance);
+        Assert.Contains("1 error", response.DiagnosticSummary.Summary, StringComparison.Ordinal);
+    }
 }

@@ -128,6 +128,22 @@ public static class AvaScopeCapabilityCatalog
                 requires: [AvaScopeCapabilityIds.RuntimeAttach],
                 metadata: new Dictionary<string, string>
                 {
+                    ["actions"] = string.Join(",", InputActions.All),
+                    ["pointer_move"] = """{"required":["x","y"],"targets":["TopLevel"],"example":{"action":"pointer_move","x":100,"y":80}}""",
+                    ["pointer_down"] = """{"required":["x","y"],"targets":["TopLevel"],"example":{"action":"pointer_down","x":100,"y":80}}""",
+                    ["pointer_up"] = """{"required":["x","y"],"targets":["TopLevel"],"example":{"action":"pointer_up","x":100,"y":80}}""",
+                    ["click"] = """{"requiredAny":[["x","y"],["targetNodeId"]],"targets":["Button"],"example":{"action":"click","targetNodeId":"visual:1"}}""",
+                    ["key_text"] = """{"required":["inputText"],"optional":["targetNodeId"],"targets":["TextBox"],"example":{"action":"key_text","targetNodeId":"visual:1","inputText":"hello"}}""",
+                    ["clear_text"] = """{"required":["targetNodeId"],"targets":["TextBox"],"example":{"action":"clear_text","targetNodeId":"visual:1"}}""",
+                    ["focus"] = """{"requiredAny":[["targetNodeId"],["x","y"]],"targets":["Control"],"example":{"action":"focus","targetNodeId":"visual:1"}}""",
+                    ["key_down"] = """{"required":["inputKey"],"optional":["targetNodeId","keyModifiers"],"targets":["Control"],"example":{"action":"key_down","inputKey":"Enter"}}""",
+                    ["key_up"] = """{"required":["inputKey"],"optional":["targetNodeId","keyModifiers"],"targets":["Control"],"example":{"action":"key_up","inputKey":"Enter"}}""",
+                    ["invoke"] = """{"required":["targetNodeId"],"patterns":["Invoke"],"example":{"action":"invoke","targetNodeId":"visual:1"}}""",
+                    ["select"] = """{"required":["targetNodeId"],"optional":["inputText"],"patterns":["SelectionItem"],"example":{"action":"select","targetNodeId":"visual:1"}}""",
+                    ["toggle"] = """{"required":["targetNodeId"],"patterns":["Toggle"],"example":{"action":"toggle","targetNodeId":"visual:1"}}""",
+                    ["expand"] = """{"required":["targetNodeId"],"patterns":["ExpandCollapse"],"example":{"action":"expand","targetNodeId":"visual:1"}}""",
+                    ["collapse"] = """{"required":["targetNodeId"],"patterns":["ExpandCollapse"],"example":{"action":"collapse","targetNodeId":"visual:1"}}""",
+                    ["scroll"] = """{"required":["targetNodeId"],"optional":["x","y"],"targets":["ScrollViewer"],"example":{"action":"scroll","targetNodeId":"visual:1","y":120}}""",
                     ["clickCoordinates"] = "explicit_or_target_center",
                     ["explicitCoordinatePrecedence"] = "true",
                     ["coordinateSpace"] = "top_level_dip"
@@ -156,6 +172,19 @@ public static class AvaScopeCapabilityCatalog
                 "Run safe local runtime scenarios by launching or attaching to a bridge session, isolating launched app state, executing semantic workflow steps, and writing timeline artifacts.",
                 ["run-scenario", "run_scenario"],
                 requires: [AvaScopeCapabilityIds.RuntimeSemanticWorkflow, AvaScopeCapabilityIds.RuntimeSessionLifecycle]),
+            Capability(
+                AvaScopeCapabilityIds.RuntimeNativePicker,
+                "runtime",
+                "Control Windows file/folder pickers owned by the selected session process or prepare deterministic isolated-scenario picker outcomes.",
+                ["native_picker"],
+                requires: [AvaScopeCapabilityIds.RuntimeAttach, AvaScopeCapabilityIds.SafetyLocalOnly],
+                metadata: new Dictionary<string, string>
+                {
+                    ["platform"] = "windows",
+                    ["operations"] = "detect,select_path,confirm,cancel,predefine_result",
+                    ["predefinedResults"] = "success,cancelled,unavailable_path,deleted_path",
+                    ["processScope"] = "selected_session_process_only"
+                }),
             Capability(
                 AvaScopeCapabilityIds.RuntimePointerDiagnostics,
                 "runtime",
@@ -405,6 +434,8 @@ public static class AvaScopeCapabilityCatalog
             Mcp("run_workflow", AvaScopeCapabilityIds.RuntimeSemanticWorkflow, AvaScopeCapabilityIds.RuntimeSemanticAutomation),
             Cli("run-scenario", AvaScopeCapabilityIds.RuntimeScenarioRunner, AvaScopeCapabilityIds.SafetyLocalOnly),
             Mcp("run_scenario", AvaScopeCapabilityIds.RuntimeScenarioRunner, AvaScopeCapabilityIds.SafetyLocalOnly),
+            Mcp("native_picker", AvaScopeCapabilityIds.RuntimeNativePicker, AvaScopeCapabilityIds.SafetyLocalOnly),
+            Cli("native-picker", AvaScopeCapabilityIds.RuntimeNativePicker, AvaScopeCapabilityIds.SafetyLocalOnly),
             Cli("pointer-diagnostics", AvaScopeCapabilityIds.RuntimePointerDiagnostics, AvaScopeCapabilityIds.ArtifactsScreenshot),
             Mcp("pointer_diagnostics", AvaScopeCapabilityIds.RuntimePointerDiagnostics, AvaScopeCapabilityIds.ArtifactsScreenshot),
             Cli("pseudo-state-matrix", AvaScopeCapabilityIds.RuntimePseudoStateMatrix, AvaScopeCapabilityIds.ArtifactsScreenshot),

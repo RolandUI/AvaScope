@@ -3573,10 +3573,9 @@ public sealed class CliSmokeTests
 
             var payload = JsonSerializer.Deserialize<ToolResult<RuntimeScenarioResponse>>(result.StandardOutput, JsonOptions);
             Assert.NotNull(payload);
-            Assert.True(payload.Success, payload.Error?.Message);
-            Assert.Equal("failed", payload.Value!.Status);
-            var diagnostic = Assert.Single(payload.Value.Diagnostics);
-            Assert.Equal("semantic_workflow_destructive_target_requires_isolation", diagnostic.Code);
+            Assert.False(payload.Success);
+            Assert.Null(payload.Value);
+            Assert.Equal("semantic_workflow_destructive_target_requires_isolation", payload.Error!.Code);
             Assert.True(File.Exists(timelinePath), timelinePath);
             var timeline = await File.ReadAllTextAsync(timelinePath);
             Assert.Contains("semantic_workflow_destructive_target_requires_isolation", timeline, StringComparison.Ordinal);
@@ -3638,14 +3637,10 @@ public sealed class CliSmokeTests
 
             var payload = JsonSerializer.Deserialize<ToolResult<RuntimeScenarioResponse>>(result.StandardOutput, JsonOptions);
             Assert.NotNull(payload);
-            Assert.True(payload.Success, payload.Error?.Message);
-            Assert.Equal("failed", payload.Value!.Status);
-            Assert.Equal("launch", payload.Value.Metadata["scenarioMode"]);
-            Assert.Equal("applied_environment", payload.Value.IsolatedStateStatus);
-            Assert.Equal(Path.GetFullPath(isolatedStateDirectory), payload.Value.IsolatedStateDirectory);
+            Assert.False(payload.Success);
+            Assert.Null(payload.Value);
+            Assert.Equal(CoreErrorCodes.BridgeSessionNotFound, payload.Error!.Code);
             Assert.True(Directory.Exists(Path.Combine(isolatedStateDirectory, "appdata", "local")));
-            Assert.Contains("AVASCOPE_SCENARIO_STATE_DIR", payload.Value.Metadata["isolatedEnvironmentVariables"], StringComparison.Ordinal);
-            Assert.Contains("LOCALAPPDATA", payload.Value.Metadata["isolatedEnvironmentVariables"], StringComparison.Ordinal);
             Assert.True(File.Exists(timelinePath), timelinePath);
             var timeline = await File.ReadAllTextAsync(timelinePath);
             Assert.Contains("applied_environment", timeline, StringComparison.Ordinal);
@@ -3799,11 +3794,9 @@ public sealed class CliSmokeTests
 
             var payload = JsonSerializer.Deserialize<ToolResult<RuntimeMutationResponse>>(result.StandardOutput, JsonOptions);
             Assert.NotNull(payload);
-            Assert.True(payload.Success, payload.Error?.Message);
-            Assert.Equal(RuntimeMutationStatuses.Unsupported, payload.Value!.Status);
-            Assert.False(payload.Value.Applied);
-            Assert.True(payload.Value.Diagnostics.Count <= RuntimeMutationResponse.MaximumDiagnostics);
-            Assert.Equal(RuntimeMutationErrorCodes.UnsupportedRuntimeMutationProperty, Assert.Single(payload.Value.Diagnostics).Code);
+            Assert.False(payload.Success);
+            Assert.Null(payload.Value);
+            Assert.Equal(RuntimeMutationErrorCodes.UnsupportedRuntimeMutationProperty, payload.Error!.Code);
         }
         finally
         {

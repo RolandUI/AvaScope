@@ -27,7 +27,12 @@ public sealed record BridgeIpcRequest
         string? keyModifiers = null,
         double? deltaX = null,
         double? deltaY = null,
-        RuntimeMutationRequest? mutation = null)
+        RuntimeMutationRequest? mutation = null,
+        bool includeChildren = false,
+        bool includeBounds = true,
+        bool includeAccessibility = false,
+        bool includeBindings = false,
+        int? maxResponseDepth = null)
     {
         if (string.IsNullOrWhiteSpace(requestId))
         {
@@ -61,6 +66,11 @@ public sealed record BridgeIpcRequest
         DeltaX = deltaX;
         DeltaY = deltaY;
         Mutation = mutation;
+        IncludeChildren = includeChildren;
+        IncludeBounds = includeBounds;
+        IncludeAccessibility = includeAccessibility;
+        IncludeBindings = includeBindings;
+        MaxResponseDepth = maxResponseDepth;
     }
 
     [JsonPropertyName("requestId")]
@@ -148,4 +158,20 @@ public sealed record BridgeIpcRequest
     [JsonPropertyName("mutation")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public RuntimeMutationRequest? Mutation { get; }
+
+    [JsonPropertyName("includeChildren")]
+    public bool IncludeChildren { get; }
+
+    [JsonPropertyName("includeBounds")]
+    public bool IncludeBounds { get; }
+
+    [JsonPropertyName("includeAccessibility")]
+    public bool IncludeAccessibility { get; }
+
+    [JsonPropertyName("includeBindings")]
+    public bool IncludeBindings { get; }
+
+    [JsonPropertyName("maxResponseDepth")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? MaxResponseDepth { get; }
 }

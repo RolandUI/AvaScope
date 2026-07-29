@@ -886,6 +886,7 @@ Implemented tools:
 - `mutate_node_evidence`
 - `mutation_review`
 - `close_session`
+- `native_picker`
 - `diagnostics`
 - `preview_axaml`
 - `preview_axaml_multi`
@@ -899,6 +900,27 @@ Implemented tools:
 - `reload`
 
 Post-1.0 deferrals: runtime hot reload, drag/drop, full preview startup orchestration, macOS release policy, native signed installers, and broader hosted review integrations. These are not required for the stable v1 local control-plane workflow.
+
+Runtime input capability metadata is the canonical action reference. It lists
+all pointer, keyboard, text, focus, scroll, and automation-pattern actions
+with required parameters and examples. MCP schemas expose input actions,
+mutation operations, diagnostics modes, picker operations, and preview
+severity filters as closed enums.
+
+`find_nodes` returns compact matching nodes without descendants by default.
+Use `includeChildren`, `includeBounds`, `includeAccessibility`,
+`includeBindings`, and `maxResponseDepth` for bounded expansion; use
+`inspect_node` for complete detail.
+
+`native_picker` is local-only and process-scoped. On Windows it detects and
+controls only a picker owned by the selected session process. Its
+`predefine_result` operation provides deterministic `success`, `cancelled`,
+`unavailable_path`, and `deleted_path` outcomes for isolated scenarios.
+
+Preview results contain a bounded diagnostic list, counts by severity and
+category, a short summary, explicit comparison provenance, and a path to the
+complete unfiltered JSON diagnostics artifact. MCP callers can use
+`errorsOnly` or the schema-constrained `minimumSeverity` filter.
 
 `capabilities` returns the same discovery manifest as the CLI command and accepts optional `requiredCapabilities` as comma-separated ids. It is the compatibility gate for clients that need specific runtime, preview, diagnostics, baseline, report, artifact, or mutation surfaces before invoking newer tools.
 

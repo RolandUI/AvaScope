@@ -243,7 +243,12 @@ public sealed class LocalBridgeClient
         string? text = null,
         int? maxDepth = null,
         int? maxResults = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        bool includeChildren = false,
+        bool includeBounds = true,
+        bool includeAccessibility = false,
+        bool includeBindings = false,
+        int? maxResponseDepth = null)
     {
         ArgumentNullException.ThrowIfNull(sessionId);
 
@@ -286,7 +291,12 @@ public sealed class LocalBridgeClient
                 name: name,
                 automationId: automationId,
                 text: text,
-            maxResults: maxResults),
+            maxResults: maxResults,
+            includeChildren: includeChildren,
+            includeBounds: includeBounds,
+            includeAccessibility: includeAccessibility,
+            includeBindings: includeBindings,
+            maxResponseDepth: maxResponseDepth),
             cancellationToken);
     }
 
@@ -533,6 +543,19 @@ public sealed class LocalBridgeClient
         }
 
         return CoreResult<CloseSessionResponse>.Ok(TerminateOwnedProcess(ownership, closed.ClosedAt));
+    }
+
+    public CoreResult<NativePickerResponse> NativePicker(
+        SessionId sessionId,
+        string operation,
+        string? path = null,
+        string? predefinedResult = null)
+    {
+        ArgumentNullException.ThrowIfNull(sessionId);
+        var manifest = FindSingleManifest(null, sessionId);
+        return manifest.Success
+            ? NativePickerAutomation.Execute(manifest.Value!, operation, path, predefinedResult)
+            : CoreResult<NativePickerResponse>.Fail(manifest.Error!);
     }
 
     private static CloseSessionResponse TerminateOwnedProcess(

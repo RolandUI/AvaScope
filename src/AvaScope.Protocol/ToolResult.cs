@@ -25,6 +25,9 @@ public sealed record ToolResult<T>
     [JsonPropertyName("success")]
     public bool Success { get; }
 
+    [JsonPropertyName("transportSuccess")]
+    public bool TransportSuccess => true;
+
     [JsonPropertyName("value")]
     [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
     public T? Value { get; }

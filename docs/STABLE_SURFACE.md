@@ -80,6 +80,7 @@ The stable CLI command name set is:
 - `mutate-node`
 - `mutate-node-evidence`
 - `mutation-review`
+- `native-picker`
 - `close-session`
 - `screenshot`
 - `preview`
@@ -131,6 +132,7 @@ The stable MCP tool name set is:
 - `input`
 - `run_workflow`
 - `run_scenario`
+- `native_picker`
 - `pointer_diagnostics`
 - `pseudo_state_matrix`
 - `record_interaction_animation`

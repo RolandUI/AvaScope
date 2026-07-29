@@ -104,6 +104,28 @@ public sealed class McpStdioSmokeTests
         var tools = await client.ListToolsAsync(cancellationToken: cancellation.Token);
         var healthTool = Assert.Single(tools, static tool => tool.Name == "health");
         var closeSessionTool = Assert.Single(tools, static tool => tool.Name == "close_session");
+        AssertSchemaEnum(
+            Assert.Single(tools, static tool => tool.Name == "input").ProtocolTool.InputSchema,
+            "action",
+            InputActions.All);
+        AssertSchemaEnum(
+            Assert.Single(tools, static tool => tool.Name == "diagnostics").ProtocolTool.InputSchema,
+            "mode",
+            ["all", "active-only", "minimal", "json-minimal"]);
+        AssertSchemaEnum(
+            Assert.Single(tools, static tool => tool.Name == "mutate_node").ProtocolTool.InputSchema,
+            "operation",
+            [
+                RuntimeMutationOperationKinds.NoOp,
+                RuntimeMutationOperationKinds.SetProperty,
+                RuntimeMutationOperationKinds.AddClass,
+                RuntimeMutationOperationKinds.RemoveClass,
+                RuntimeMutationOperationKinds.ToggleClass,
+                RuntimeMutationOperationKinds.SetResource,
+                RuntimeMutationOperationKinds.RemoveResource,
+                RuntimeMutationOperationKinds.ResetMutation,
+                RuntimeMutationOperationKinds.ResetAll
+            ]);
 
         var healthResult = await client.CallToolAsync(
             "health",
@@ -143,5 +165,17 @@ public sealed class McpStdioSmokeTests
         {
             Assert.True(response.ContainsKey(field), $"Required output field '{field}' was omitted.");
         }
+    }
+
+    private static void AssertSchemaEnum(
+        JsonElement? inputSchema,
+        string propertyName,
+        IReadOnlyList<string> expected)
+    {
+        var schema = JsonSerializer.SerializeToNode(inputSchema)!.AsObject();
+        var values = schema["properties"]![propertyName]!["enum"]!.AsArray()
+            .Select(static value => value!.GetValue<string>())
+            .ToArray();
+        Assert.Equal(expected, values);
     }
 }

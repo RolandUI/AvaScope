@@ -336,7 +336,12 @@ internal sealed class LocalBridgeServer : IDisposable
             request.Text,
             request.MaxDepth,
             request.MaxResults,
-            cancellationToken);
+            cancellationToken,
+            request.IncludeChildren,
+            request.IncludeBounds,
+            request.IncludeAccessibility,
+            request.IncludeBindings,
+            request.MaxResponseDepth);
 
         return result.Success
             ? BridgeIpcResponse.Ok(request.RequestId, result.Value)

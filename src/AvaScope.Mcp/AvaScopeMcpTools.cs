@@ -349,6 +349,11 @@ public sealed class AvaScopeMcpTools
         string? text = null,
         int? maxDepth = null,
         int? maxResults = null,
+        bool includeChildren = false,
+        bool includeBounds = true,
+        bool includeAccessibility = false,
+        bool includeBindings = false,
+        int? maxResponseDepth = null,
         string? manifestDirectory = null,
         CancellationToken cancellationToken = default)
     {
@@ -369,7 +374,12 @@ public sealed class AvaScopeMcpTools
             text,
             maxDepth,
             maxResults,
-            cancellationToken));
+            cancellationToken,
+            includeChildren,
+            includeBounds,
+            includeAccessibility,
+            includeBindings,
+            maxResponseDepth));
     }
 
     [McpServerTool(
@@ -462,7 +472,7 @@ public sealed class AvaScopeMcpTools
         string sessionId,
         string topLevelId,
         [Description("Input action name. Supported semantic automation actions are invoke, select, toggle, expand, and collapse.")]
-        string action,
+        McpInputAction action,
         double? x = null,
         double? y = null,
         string? inputText = null,
@@ -482,7 +492,7 @@ public sealed class AvaScopeMcpTools
         return ToToolResult(await CreateBridgeClient(bridgeClient, manifestDirectory).InputAsync(
             parsedSessionId!,
             topLevelId,
-            action,
+            action.ToProtocolName(),
             x,
             y,
             inputText,
@@ -490,6 +500,30 @@ public sealed class AvaScopeMcpTools
             inputKey,
             keyModifiers,
             cancellationToken));
+    }
+
+    public static async Task<ToolResult<InputResponse>> Input(
+        LocalBridgeClient bridgeClient,
+        string sessionId,
+        string topLevelId,
+        string action,
+        double? x = null,
+        double? y = null,
+        string? inputText = null,
+        string? targetNodeId = null,
+        string? inputKey = null,
+        string? keyModifiers = null,
+        string? manifestDirectory = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(bridgeClient);
+        if (!TryParseRequiredSessionId(sessionId, out var parsedSessionId, out var error))
+        {
+            return ToolResult<InputResponse>.Fail(error!);
+        }
+
+        return ToToolResult(await CreateBridgeClient(bridgeClient, manifestDirectory).InputAsync(
+            parsedSessionId!, topLevelId, action, x, y, inputText, targetNodeId, inputKey, keyModifiers, cancellationToken));
     }
 
     [McpServerTool(
@@ -626,7 +660,7 @@ public sealed class AvaScopeMcpTools
         string sessionId,
         string topLevelId,
         string nodeId,
-        string operation,
+        McpMutationOperation operation,
         string treeKind = TreeKinds.Visual,
         string? propertyName = null,
         string? value = null,
@@ -645,13 +679,26 @@ public sealed class AvaScopeMcpTools
             return ToolResult<RuntimeMutationResponse>.Fail(error!);
         }
 
+        if (operation == McpMutationOperation.SetProperty
+            && !RuntimeMutationPropertyNames.IsSupported(propertyName))
+        {
+            return ToolResult<RuntimeMutationResponse>.Fail(new ProtocolError(
+                RuntimeMutationErrorCodes.UnsupportedRuntimeMutationProperty,
+                $"Runtime property '{propertyName}' is not supported.",
+                new Dictionary<string, string>
+                {
+                    ["supportedProperties"] = string.Join(",", RuntimeMutationPropertyNames.All),
+                    ["validationPhase"] = "pre_dispatch"
+                }));
+        }
+
         RuntimeMutationRequest request;
         try
         {
             request = new RuntimeMutationRequest(
                 string.IsNullOrWhiteSpace(requestId) ? Guid.NewGuid().ToString("n") : requestId,
                 new RuntimeTargetContext(parsedSessionId!, topLevelId, treeKind, nodeId),
-                new RuntimeMutationOperation(operation, propertyName, value, valueType, className, resourceKey, mutationId),
+                new RuntimeMutationOperation(operation.ToProtocolName(), propertyName, value, valueType, className, resourceKey, mutationId),
                 [
                     RuntimeMutationCapabilityCatalog.RuntimeMutationContract,
                     RuntimeMutationCapabilityCatalog.StyleLayoutMutation
@@ -668,6 +715,44 @@ public sealed class AvaScopeMcpTools
             parsedSessionId!,
             request,
             cancellationToken));
+    }
+
+    public static async Task<ToolResult<RuntimeMutationResponse>> MutateNode(
+        LocalBridgeClient bridgeClient,
+        string sessionId,
+        string topLevelId,
+        string nodeId,
+        string operation,
+        string treeKind = TreeKinds.Visual,
+        string? propertyName = null,
+        string? value = null,
+        string? valueType = null,
+        string? className = null,
+        string? resourceKey = null,
+        string? mutationId = null,
+        string? requestId = null,
+        string? manifestDirectory = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (!TryParseRequiredSessionId(sessionId, out var parsedSessionId, out var error))
+        {
+            return ToolResult<RuntimeMutationResponse>.Fail(error!);
+        }
+
+        try
+        {
+            var request = new RuntimeMutationRequest(
+                string.IsNullOrWhiteSpace(requestId) ? Guid.NewGuid().ToString("n") : requestId,
+                new RuntimeTargetContext(parsedSessionId!, topLevelId, treeKind, nodeId),
+                new RuntimeMutationOperation(operation, propertyName, value, valueType, className, resourceKey, mutationId),
+                [RuntimeMutationCapabilityCatalog.RuntimeMutationContract, RuntimeMutationCapabilityCatalog.StyleLayoutMutation]);
+            return ToToolResult(await CreateBridgeClient(bridgeClient, manifestDirectory).MutateNodeAsync(
+                parsedSessionId!, request, cancellationToken));
+        }
+        catch (Exception exception) when (exception is ArgumentException or ArgumentOutOfRangeException)
+        {
+            return ToolResult<RuntimeMutationResponse>.Fail(new ProtocolError(CoreErrorCodes.InvalidBridgeRequest, exception.Message));
+        }
     }
 
     [McpServerTool(
@@ -855,7 +940,7 @@ public sealed class AvaScopeMcpTools
         string? manifestPath = null,
         string? manifestDirectory = null,
         int maxSessions = 50,
-        string? mode = null,
+        McpDiagnosticsMode mode = McpDiagnosticsMode.All,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(bridgeClient);
@@ -867,12 +952,7 @@ public sealed class AvaScopeMcpTools
             return ToolResult<DiagnosticsResponse>.Fail(error!);
         }
 
-        if (!DiagnosticsResponseModes.TryNormalize(mode, out var diagnosticsMode))
-        {
-            return ToolResult<DiagnosticsResponse>.Fail(new ProtocolError(
-                CoreErrorCodes.InvalidBridgeRequest,
-                "Diagnostics mode must be all, active-only, minimal, or json-minimal."));
-        }
+        var diagnosticsMode = mode.ToProtocolName();
 
         var client = CreateBridgeClient(bridgeClient, manifestDirectory);
         var previewHost = previewHostClient.GetDiagnostics();
@@ -963,6 +1043,8 @@ public sealed class AvaScopeMcpTools
         string? buildOutputRoot = null,
         string? assemblyPath = null,
         bool noBuild = false,
+        bool errorsOnly = false,
+        McpMinimumSeverity minimumSeverity = McpMinimumSeverity.All,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(previewHostClient);
@@ -992,7 +1074,44 @@ public sealed class AvaScopeMcpTools
                 exception.Message));
         }
 
-        return ToToolResult(await previewHostClient.RenderAsync(request, cancellationToken));
+        var result = await previewHostClient.RenderAsync(request, cancellationToken);
+        if (!result.Success)
+        {
+            return ToToolResult(result);
+        }
+
+        return ToolResult<PreviewResponse>.Ok(FilterPreviewDiagnostics(
+            result.Value!,
+            errorsOnly ? McpMinimumSeverity.Error : minimumSeverity));
+    }
+
+    [McpServerTool(
+        Name = "native_picker",
+        Title = "Native picker",
+        ReadOnly = false,
+        Idempotent = false,
+        Destructive = false,
+        OpenWorld = false,
+        UseStructuredContent = true)]
+    [Description("Detects and controls a Windows file/folder picker only when it belongs to the selected AvaScope session process, or prepares a deterministic isolated-scenario picker result.")]
+    public static ToolResult<NativePickerResponse> NativePicker(
+        LocalBridgeClient bridgeClient,
+        string sessionId,
+        McpNativePickerOperation operation,
+        string? path = null,
+        string? predefinedResult = null,
+        string? manifestDirectory = null)
+    {
+        if (!TryParseRequiredSessionId(sessionId, out var parsedSessionId, out var error))
+        {
+            return ToolResult<NativePickerResponse>.Fail(error!);
+        }
+
+        return ToToolResult(CreateBridgeClient(bridgeClient, manifestDirectory).NativePicker(
+            parsedSessionId!,
+            operation.ToProtocolName(),
+            path,
+            predefinedResult));
     }
 
     [McpServerTool(
@@ -1470,12 +1589,107 @@ public sealed class AvaScopeMcpTools
 
     private static ToolResult<T> ToToolResult<T>(CoreResult<T> result)
     {
-        return result.Success
-            ? ToolResult<T>.Ok(result.Value!)
-            : ToolResult<T>.Fail(new ProtocolError(
+        if (!result.Success)
+        {
+            return ToolResult<T>.Fail(new ProtocolError(
                 result.Error!.Code,
                 result.Error.Message,
                 result.Error.Details));
+        }
+
+        var outcomeError = GetOperationOutcomeError(result.Value);
+        return outcomeError is null
+            ? ToolResult<T>.Ok(result.Value!)
+            : ToolResult<T>.Fail(outcomeError);
+    }
+
+    private static PreviewResponse FilterPreviewDiagnostics(
+        PreviewResponse response,
+        McpMinimumSeverity minimumSeverity)
+    {
+        var minimumRank = minimumSeverity switch
+        {
+            McpMinimumSeverity.All or McpMinimumSeverity.Info => 0,
+            McpMinimumSeverity.Warning => 1,
+            McpMinimumSeverity.Error => 2,
+            _ => 0
+        };
+        var diagnostics = response.Diagnostics
+            .Where(item => item.Severity switch
+            {
+                PreviewDiagnosticSeverities.Error => 2 >= minimumRank,
+                PreviewDiagnosticSeverities.Warning => 1 >= minimumRank,
+                _ => minimumRank == 0
+            })
+            .ToArray();
+        var summary = PreviewResponse.CreateDiagnosticSummary(
+            diagnostics,
+            response.DiagnosticSummary.Truncated,
+            diagnostics.Length);
+        return new PreviewResponse(
+            response.FilePath,
+            response.PixelWidth,
+            response.PixelHeight,
+            response.Dpi,
+            response.RenderedAt,
+            response.ProjectPath,
+            response.ViewPath,
+            response.ThemeVariant,
+            response.Culture,
+            response.DesignDataType,
+            diagnostics,
+            response.AnimationTimeOffsetMs,
+            response.ProjectInfo,
+            response.StateVariant,
+            response.RunIndex,
+            summary,
+            response.DiagnosticsArtifactPath);
+    }
+
+    private static ProtocolError? GetOperationOutcomeError<T>(T? value)
+    {
+        return value switch
+        {
+            SemanticWorkflowResponse response when response.Status != "passed"
+                => OutcomeError("workflow_failed", response.Status, response.Diagnostics),
+            RuntimeScenarioResponse response when response.Status != "passed"
+                => OutcomeError("scenario_failed", response.Status, response.Diagnostics),
+            RuntimeMutationResponse response when response.Status is
+                RuntimeMutationStatuses.Rejected or
+                RuntimeMutationStatuses.Unsupported or
+                RuntimeMutationStatuses.StaleTarget or
+                RuntimeMutationStatuses.Unavailable
+                => OutcomeError("mutation_failed", response.Status, response.Diagnostics),
+            RuntimeMutationEvidenceResponse response when response.Mutation.Status is
+                RuntimeMutationStatuses.Rejected or
+                RuntimeMutationStatuses.Unsupported or
+                RuntimeMutationStatuses.StaleTarget or
+                RuntimeMutationStatuses.Unavailable
+                => OutcomeError("mutation_failed", response.Mutation.Status, response.Diagnostics.Concat(response.Mutation.Diagnostics)),
+            RuntimePointerDiagnosticsResponse response when response.Status == "failed"
+                => OutcomeError("pointer_diagnostics_failed", response.Status, response.Diagnostics),
+            RuntimePseudoStateMatrixResponse response when response.Status is "failed" or "unsupported"
+                => OutcomeError("pseudo_state_matrix_failed", response.Status, response.Diagnostics),
+            RuntimeInteractionAnimationResponse response when response.Status == "failed"
+                => OutcomeError("interaction_animation_failed", response.Status, response.Diagnostics),
+            _ => null
+        };
+    }
+
+    private static ProtocolError OutcomeError(
+        string fallbackCode,
+        string status,
+        IEnumerable<ProtocolError> diagnostics)
+    {
+        var diagnostic = diagnostics.FirstOrDefault();
+        return diagnostic ?? new ProtocolError(
+            fallbackCode,
+            $"The requested operation completed with status '{status}'.",
+            new Dictionary<string, string>
+            {
+                ["operationStatus"] = status,
+                ["transportSuccess"] = "true"
+            });
     }
 
     private static RuntimeMutationReviewResponse WithReviewArtifact(
