@@ -50,12 +50,16 @@ The roadmap below records the release-shaped plan through `v1.0.0`. It is intent
 - Every release must include targeted tests, full build/test validation, release dry-run validation, documentation updates, and explicit deferrals.
 - A release may be split into a patch release if a P0/P1 regression blocks users or CI, but patch scope must remain defect-focused.
 
-## Current Release Target
+## Released Target: v1.1.4
 
 - Release: `v1.1.4`
 - Target Version: `1.1.4`
-- Release State: `Release Candidate`
+- Release State: `Released`
 - Scope Lock: `2026-07-29`
+- Release Commit: `b40a34ab3b586f2e4033fd2d62c5f1fa8e9c8ee1` (`Release 1.1.4`)
+- Local Release Gate: passed on `2026-07-29`
+- Published At: `2026-07-29T09:20:08Z`
+- GitHub Release: https://github.com/RolandUI/AvaScope/releases/tag/v1.1.4
 - GitHub Milestone: `v1.1.4`
 - GitHub Issues: #74, #75
 - Previous Release: `v1.1.3`
@@ -71,10 +75,11 @@ The v1.1.4 patch release restores MCP interoperability with Rider Copilot and ot
 ### v1.1.4 Milestone Map
 
 - #75 `Rider Copilot rejects MCP responses that omit required null result fields`; Status: `Done`.
-- #74 `Release v1.1.4`; Status: `Review`.
+- #74 `Release v1.1.4`; Status: `Done`.
 
 ### v1.1.4 Implementation Validation
 
+- `2026-07-29`: Published v1.1.4 from exact release commit `b40a34a` through successful Release workflow `30438646374`. The tag resolves to the release commit; nuget.org and GitHub Packages received Protocol, Core, and Bridge `1.1.4`; the GitHub Release exposes three NuGet packages, Windows/Linux portable ZIPs, Windows/Linux installers, and the release manifest. The downloaded manifest matched all seven packaged asset SHA-256 digests and sizes, and all three public nuget.org flat-container indexes expose `1.1.4`.
 - `2026-07-29`: The complete local v1.1.4 release gate passed. Debug and Release builds completed with `0` warnings/errors and all `373` tests passed in each configuration; Release tests passed twice during safe cleanup of four stale artifact-hosted MCP child processes. The exact `1.1.4` three-package, two-ZIP, Windows/Linux installer, and seven-entry SHA-256 manifest set passed metadata/legal/provenance verification, packaged doctor, real Avalonia preview, Windows install/version/doctor/MCP/repair/uninstall, and WSL Ubuntu Linux installer smoke with a temporary .NET `10.0.10` runtime. NuGet and GitHub Release dry-runs and intake privacy validation passed, and `v1.1.4` remains absent remotely. The target is ready for the exact `Release 1.1.4` commit and guarded publish workflow.
 - `2026-07-29`: Completed #75 in commit `fb15795` after the focused and full Debug validation passed, then started guarded release tracker #74. The release gate covers Debug/Release builds and tests, complete packages/ZIPs/installers and manifest, packaged MCP and sample smoke, Windows/WSL installer validation, publish dry-runs, release-commit guard, and remote publication verification.
 - `2026-07-29`: Implemented explicit null serialization for both inactive `ToolResult<T>` branches, including an override of the MCP SDK's global null-omission behavior. Focused protocol and real stdio MCP schema/response tests passed (`59`); representative successful and failed tool calls contained all advertised required fields. The full Debug build passed with `0` warnings/errors and all `373` tests passed.
