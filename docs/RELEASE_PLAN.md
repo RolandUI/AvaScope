@@ -55,6 +55,7 @@ The roadmap below records the release-shaped plan through `v1.0.0`. It is intent
 - Release: `v1.2.0`
 - Target Version: `1.2.0`
 - Release State: `Release Candidate`
+- Candidate Commit Subject: `Release 1.2.0`
 - Scope Lock: `2026-07-29`
 - GitHub Milestone: `v1.2.0`
 - GitHub Issues: #76, #77, #78, #79, #80, #81, #82, #83, #84, #85, #86
