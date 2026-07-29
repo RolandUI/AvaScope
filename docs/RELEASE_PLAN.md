@@ -50,11 +50,11 @@ The roadmap below records the release-shaped plan through `v1.0.0`. It is intent
 - Every release must include targeted tests, full build/test validation, release dry-run validation, documentation updates, and explicit deferrals.
 - A release may be split into a patch release if a P0/P1 regression blocks users or CI, but patch scope must remain defect-focused.
 
-## Active Target: v1.1.4
+## Current Release Target
 
 - Release: `v1.1.4`
 - Target Version: `1.1.4`
-- Release State: `In Progress`
+- Release State: `Release Candidate`
 - Scope Lock: `2026-07-29`
 - GitHub Milestone: `v1.1.4`
 - GitHub Issues: #74, #75
@@ -71,10 +71,11 @@ The v1.1.4 patch release restores MCP interoperability with Rider Copilot and ot
 ### v1.1.4 Milestone Map
 
 - #75 `Rider Copilot rejects MCP responses that omit required null result fields`; Status: `Done`.
-- #74 `Release v1.1.4`; Status: `In Progress`.
+- #74 `Release v1.1.4`; Status: `Review`.
 
 ### v1.1.4 Implementation Validation
 
+- `2026-07-29`: The complete local v1.1.4 release gate passed. Debug and Release builds completed with `0` warnings/errors and all `373` tests passed in each configuration; Release tests passed twice during safe cleanup of four stale artifact-hosted MCP child processes. The exact `1.1.4` three-package, two-ZIP, Windows/Linux installer, and seven-entry SHA-256 manifest set passed metadata/legal/provenance verification, packaged doctor, real Avalonia preview, Windows install/version/doctor/MCP/repair/uninstall, and WSL Ubuntu Linux installer smoke with a temporary .NET `10.0.10` runtime. NuGet and GitHub Release dry-runs and intake privacy validation passed, and `v1.1.4` remains absent remotely. The target is ready for the exact `Release 1.1.4` commit and guarded publish workflow.
 - `2026-07-29`: Completed #75 in commit `fb15795` after the focused and full Debug validation passed, then started guarded release tracker #74. The release gate covers Debug/Release builds and tests, complete packages/ZIPs/installers and manifest, packaged MCP and sample smoke, Windows/WSL installer validation, publish dry-runs, release-commit guard, and remote publication verification.
 - `2026-07-29`: Implemented explicit null serialization for both inactive `ToolResult<T>` branches, including an override of the MCP SDK's global null-omission behavior. Focused protocol and real stdio MCP schema/response tests passed (`59`); representative successful and failed tool calls contained all advertised required fields. The full Debug build passed with `0` warnings/errors and all `373` tests passed.
 - `2026-07-29`: Started #75 from Rider Copilot feedback against AvaScope 1.1.3. The defect is scoped to the mismatch between required `value`/`error` output-schema properties and null-omitting JSON serialization; the patch preserves the stable three-field result contract and adds real stdio MCP regression coverage.

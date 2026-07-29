@@ -29,17 +29,18 @@ GitHub Issues and Milestones are the primary project-management source for auton
 - `Guarded v1.1.4 patch release`
 - GitHub Issue: #74
 - GitHub Milestone: `v1.1.4`
-- Status: `In Progress`
+- Status: `Review`
 - Owner: autonomous agent
 - Started: `2026-07-29`
 - Goal: publish the validated Rider Copilot compatibility fix through the complete release gate, exact version commit, and verified GitHub Release workflow.
 
 ## Next Action
 
-Run the complete v1.1.4 local release gate, move the target to `Release Candidate`, publish from the exact `Release 1.1.4` commit, and verify public packages and release assets.
+Push the exact `Release 1.1.4` commit, monitor the guarded GitHub Release workflow, then verify the public tag, NuGet packages, installers, manifest, and release assets before closing #74.
 
 ## Latest Validation
 
+- `2026-07-29`: The complete local v1.1.4 release gate passed and the target moved to `Release Candidate`. Debug and Release builds passed with `0` warnings/errors and all `373` tests passed in each configuration; the Release suite passed twice while resolving stale artifact-hosted MCP locks. Exact `1.1.4` NuGet packages, Windows/Linux portable ZIPs, `AvaScopeSetup.exe`, the Linux installer, and a seven-artifact SHA-256 manifest passed metadata/legal/provenance verification. The Windows installer passed install/version/doctor/MCP/repair/uninstall validation; the Linux installer passed the equivalent WSL Ubuntu smoke with a temporary .NET `10.0.10` runtime. Packaged doctor and real Avalonia preview smoke passed, with explicit inactive-branch JSON nulls visible in the packaged results. NuGet and GitHub Release dry-runs and bug-report privacy validation passed; remote tag `v1.1.4` remains absent. Two artifact attempts stopped safely because four old launcher processes left four exact artifact-hosted `dotnet AvaScope.Mcp.dll` children; only those identified processes were terminated before the clean packaging pass.
 - `2026-07-29`: Completed #75 in commit `fb15795` and pushed it to `master`. The issue and roadmap card are done. Started release tracker #74 with the guarded Debug/Release, artifact, packaged MCP, installer, dry-run, release-commit, publication, and remote verification gate.
 - `2026-07-29`: Implemented the #75 compatibility fix by forcing `ToolResult<T>.value` and `.error` to serialize even when null, overriding the MCP SDK's global null-omission setting. Focused protocol and real stdio MCP tests passed (`59`), including advertised required-field checks against successful `health` and failed `close_session` responses. The full Debug build passed with `0` warnings/errors and all `373` tests passed.
 - `2026-07-29`: Started #75 after Rider Copilot feedback showed JSON-RPC `-32602` failures when AvaScope 1.1.3 omitted null `ToolResult<T>` properties that its MCP output schema marks required. The v1.1.4 milestone and release tracker #74 were created; validation targets focused protocol serialization, real MCP schema/response matching for success and failure, full Debug/Release tests, packaged MCP smoke, and the guarded release gate.
