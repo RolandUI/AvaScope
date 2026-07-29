@@ -162,8 +162,11 @@ public sealed class AvaScopeMcpToolsTests
             var result = await AvaScopeMcpTools.RunScenario(client, request);
 
             Assert.False(result.Success);
-            Assert.Null(result.Value);
+            Assert.NotNull(result.Value);
+            Assert.Equal("failed", result.Value!.Status);
+            Assert.Equal(timelinePath, result.Value.TimelinePath);
             Assert.Equal(CoreErrorCodes.BridgeSessionNotFound, result.Error!.Code);
+            Assert.Equal("true", result.Error.Details!["partialValueAvailable"]);
             Assert.True(File.Exists(timelinePath), timelinePath);
         }
         finally
@@ -357,6 +360,64 @@ public sealed class AvaScopeMcpToolsTests
         Assert.False(result.Success);
         Assert.Null(result.Value);
         Assert.Equal(CoreErrorCodes.InvalidBridgeRequest, result.Error!.Code);
+    }
+
+    [Fact]
+    public async Task CloseSessionReturnsPartialValueWhenRequestedProcessIsNotOwned()
+    {
+        var manifestDirectory = Path.Combine(
+            Path.GetTempPath(),
+            "AvaScope.Tests",
+            $"mcp-close-partial-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(manifestDirectory);
+        var sessionId = SessionId.New();
+        var pipeName = $"avascope-mcp-close-partial-{Guid.NewGuid():N}";
+        var manifestPath = Path.Combine(manifestDirectory, $"{sessionId.Value}.json");
+        File.WriteAllText(
+            manifestPath,
+            JsonSerializer.Serialize(new BridgeSessionManifest(
+                sessionId,
+                Environment.ProcessId,
+                pipeName,
+                DateTimeOffset.UtcNow,
+                "MCP fake bridge")));
+        var closedAt = DateTimeOffset.UtcNow;
+        var serverTask = RespondToBridgeRequestAsync(pipeName, request =>
+            BridgeIpcResponse.Ok(
+                request.RequestId,
+                new CloseSessionResponse(
+                    new SessionSummary(
+                        sessionId,
+                        SessionKinds.Runtime,
+                        SessionStates.Closed,
+                        closedAt,
+                        "MCP fake bridge"),
+                    Environment.ProcessId,
+                    closedAt)));
+
+        try
+        {
+            var result = await AvaScopeMcpTools.CloseSession(
+                new LocalBridgeClient(manifestDirectory),
+                sessionId.Value,
+                terminateLaunchedProcess: true);
+            await serverTask;
+
+            Assert.False(result.Success);
+            Assert.True(result.TransportSuccess);
+            Assert.Equal("launched_process_not_owned", result.Error!.Code);
+            Assert.Equal("true", result.Error.Details!["sessionClosed"]);
+            Assert.NotNull(result.Value);
+            Assert.Equal(SessionStates.Closed, result.Value!.Session.State);
+            Assert.Equal(CloseSessionOutcomes.NotOwned, result.Value.Outcome);
+        }
+        finally
+        {
+            if (Directory.Exists(manifestDirectory))
+            {
+                Directory.Delete(manifestDirectory, recursive: true);
+            }
+        }
     }
 
     [Fact]

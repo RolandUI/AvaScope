@@ -1595,21 +1595,8 @@ public sealed class AvaScopeMcpTools
         };
     }
 
-    private static ToolResult<T> ToToolResult<T>(CoreResult<T> result)
-    {
-        if (!result.Success)
-        {
-            return ToolResult<T>.Fail(new ProtocolError(
-                result.Error!.Code,
-                result.Error.Message,
-                result.Error.Details));
-        }
-
-        var outcomeError = GetOperationOutcomeError(result.Value);
-        return outcomeError is null
-            ? ToolResult<T>.Ok(result.Value!)
-            : ToolResult<T>.Fail(outcomeError);
-    }
+    private static ToolResult<T> ToToolResult<T>(CoreResult<T> result) =>
+        OperationResultMapper.ToToolResult(result);
 
     private static PreviewResponse FilterPreviewDiagnostics(
         PreviewResponse response,
@@ -1652,52 +1639,6 @@ public sealed class AvaScopeMcpTools
             response.RunIndex,
             summary,
             response.DiagnosticsArtifactPath);
-    }
-
-    private static ProtocolError? GetOperationOutcomeError<T>(T? value)
-    {
-        return value switch
-        {
-            SemanticWorkflowResponse response when response.Status != "passed"
-                => OutcomeError("workflow_failed", response.Status, response.Diagnostics),
-            RuntimeScenarioResponse response when response.Status != "passed"
-                => OutcomeError("scenario_failed", response.Status, response.Diagnostics),
-            RuntimeMutationResponse response when response.Status is
-                RuntimeMutationStatuses.Rejected or
-                RuntimeMutationStatuses.Unsupported or
-                RuntimeMutationStatuses.StaleTarget or
-                RuntimeMutationStatuses.Unavailable
-                => OutcomeError("mutation_failed", response.Status, response.Diagnostics),
-            RuntimeMutationEvidenceResponse response when response.Mutation.Status is
-                RuntimeMutationStatuses.Rejected or
-                RuntimeMutationStatuses.Unsupported or
-                RuntimeMutationStatuses.StaleTarget or
-                RuntimeMutationStatuses.Unavailable
-                => OutcomeError("mutation_failed", response.Mutation.Status, response.Diagnostics.Concat(response.Mutation.Diagnostics)),
-            RuntimePointerDiagnosticsResponse response when response.Status == "failed"
-                => OutcomeError("pointer_diagnostics_failed", response.Status, response.Diagnostics),
-            RuntimePseudoStateMatrixResponse response when response.Status is "failed" or "unsupported"
-                => OutcomeError("pseudo_state_matrix_failed", response.Status, response.Diagnostics),
-            RuntimeInteractionAnimationResponse response when response.Status == "failed"
-                => OutcomeError("interaction_animation_failed", response.Status, response.Diagnostics),
-            _ => null
-        };
-    }
-
-    private static ProtocolError OutcomeError(
-        string fallbackCode,
-        string status,
-        IEnumerable<ProtocolError> diagnostics)
-    {
-        var diagnostic = diagnostics.FirstOrDefault();
-        return diagnostic ?? new ProtocolError(
-            fallbackCode,
-            $"The requested operation completed with status '{status}'.",
-            new Dictionary<string, string>
-            {
-                ["operationStatus"] = status,
-                ["transportSuccess"] = "true"
-            });
     }
 
     private static RuntimeMutationReviewResponse WithReviewArtifact(

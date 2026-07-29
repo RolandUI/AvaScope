@@ -3574,8 +3574,13 @@ public sealed class CliSmokeTests
             var payload = JsonSerializer.Deserialize<ToolResult<RuntimeScenarioResponse>>(result.StandardOutput, JsonOptions);
             Assert.NotNull(payload);
             Assert.False(payload.Success);
-            Assert.Null(payload.Value);
+            Assert.NotNull(payload.Value);
+            Assert.Equal("failed", payload.Value!.Status);
+            Assert.NotNull(payload.Value.Workflow);
+            Assert.Equal(timelinePath, payload.Value.TimelinePath);
+            Assert.Single(payload.Value.Workflow.Steps);
             Assert.Equal("semantic_workflow_destructive_target_requires_isolation", payload.Error!.Code);
+            Assert.Equal("true", payload.Error.Details!["partialValueAvailable"]);
             Assert.True(File.Exists(timelinePath), timelinePath);
             var timeline = await File.ReadAllTextAsync(timelinePath);
             Assert.Contains("semantic_workflow_destructive_target_requires_isolation", timeline, StringComparison.Ordinal);
@@ -3638,8 +3643,11 @@ public sealed class CliSmokeTests
             var payload = JsonSerializer.Deserialize<ToolResult<RuntimeScenarioResponse>>(result.StandardOutput, JsonOptions);
             Assert.NotNull(payload);
             Assert.False(payload.Success);
-            Assert.Null(payload.Value);
+            Assert.NotNull(payload.Value);
+            Assert.Equal("failed", payload.Value!.Status);
+            Assert.Equal(timelinePath, payload.Value.TimelinePath);
             Assert.Equal(CoreErrorCodes.BridgeSessionNotFound, payload.Error!.Code);
+            Assert.Equal("true", payload.Error.Details!["partialValueAvailable"]);
             Assert.True(Directory.Exists(Path.Combine(isolatedStateDirectory, "appdata", "local")));
             Assert.True(File.Exists(timelinePath), timelinePath);
             var timeline = await File.ReadAllTextAsync(timelinePath);
@@ -3795,8 +3803,11 @@ public sealed class CliSmokeTests
             var payload = JsonSerializer.Deserialize<ToolResult<RuntimeMutationResponse>>(result.StandardOutput, JsonOptions);
             Assert.NotNull(payload);
             Assert.False(payload.Success);
-            Assert.Null(payload.Value);
+            Assert.NotNull(payload.Value);
+            Assert.Equal(RuntimeMutationStatuses.Unsupported, payload.Value!.Status);
+            Assert.Equal("visual:button", payload.Value.Target.NodeId);
             Assert.Equal(RuntimeMutationErrorCodes.UnsupportedRuntimeMutationProperty, payload.Error!.Code);
+            Assert.Equal("true", payload.Error.Details!["partialValueAvailable"]);
         }
         finally
         {
@@ -4271,6 +4282,71 @@ public sealed class CliSmokeTests
         Assert.NotNull(payload);
         Assert.False(payload.Success);
         Assert.Equal(CoreErrorCodes.BridgeSessionNotFound, payload.Error!.Code);
+    }
+
+    [Fact]
+    public async Task CloseSessionCommandPreservesClosedSessionWhenRequestedProcessIsNotOwned()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        var sessionId = SessionId.New();
+        var pipeName = $"avascope-cli-close-partial-{Guid.NewGuid():N}";
+        var manifestDirectory = Path.Combine(
+            Path.GetTempPath(),
+            "AvaScope.Tests",
+            $"cli-close-partial-{Guid.NewGuid():N}");
+        var manifestPath = WriteBridgeManifest(sessionId, pipeName, manifestDirectory);
+        var closedAt = DateTimeOffset.UtcNow;
+        var serverTask = RespondToBridgeRequestAsync(pipeName, request =>
+            BridgeIpcResponse.Ok(
+                request.RequestId,
+                new CloseSessionResponse(
+                    new SessionSummary(
+                        sessionId,
+                        SessionKinds.Runtime,
+                        SessionStates.Closed,
+                        closedAt,
+                        "CLI fake bridge"),
+                    Environment.ProcessId,
+                    closedAt)));
+
+        try
+        {
+            var result = await RunCliAsync(
+                cliAssembly,
+                "close-session",
+                "--session",
+                sessionId.Value,
+                "--terminate-launched-process",
+                "true",
+                "--manifest-dir",
+                manifestDirectory);
+            await serverTask;
+
+            Assert.Equal(1, result.ExitCode);
+            var payload = JsonSerializer.Deserialize<ToolResult<CloseSessionResponse>>(
+                result.StandardOutput,
+                JsonOptions);
+            Assert.NotNull(payload);
+            Assert.False(payload.Success);
+            Assert.True(payload.TransportSuccess);
+            Assert.Equal("launched_process_not_owned", payload.Error!.Code);
+            Assert.Equal("true", payload.Error.Details!["sessionClosed"]);
+            Assert.NotNull(payload.Value);
+            Assert.Equal(SessionStates.Closed, payload.Value!.Session.State);
+            Assert.Equal(CloseSessionOutcomes.NotOwned, payload.Value.Outcome);
+        }
+        finally
+        {
+            if (File.Exists(manifestPath))
+            {
+                File.Delete(manifestPath);
+            }
+
+            if (Directory.Exists(manifestDirectory))
+            {
+                Directory.Delete(manifestDirectory, recursive: true);
+            }
+        }
     }
 
     [Fact]

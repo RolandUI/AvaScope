@@ -38,5 +38,6 @@ public sealed record ToolResult<T>
 
     public static ToolResult<T> Ok(T value) => new(true, value, null);
 
-    public static ToolResult<T> Fail(ProtocolError error) => new(false, default, error);
+    public static ToolResult<T> Fail(ProtocolError error, T? partialValue = default) =>
+        new(false, partialValue, error);
 }

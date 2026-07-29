@@ -1693,8 +1693,8 @@ internal static class Program
         }
 
         var result = await new SemanticWorkflowRunner().RunAsync(CreateBridgeClient(options.Values), request);
-        WriteResult(result);
-        return result.Success ? 0 : 1;
+        var output = WriteResult(result);
+        return output.Success ? 0 : 1;
     }
 
     private static async Task<int> RunScenario(string[] args)
@@ -2632,9 +2632,9 @@ internal static class Program
         var result = await CreateBridgeClient(options.Values).CloseSessionAsync(
             sessionId!,
             terminateLaunchedProcess: terminateLaunchedProcess);
-        WriteResult(result);
+        var output = WriteResult(result);
 
-        return result.Success ? 0 : 1;
+        return output.Success ? 0 : 1;
     }
 
     private static async Task<int> Screenshot(string[] args)
@@ -4042,40 +4042,11 @@ internal static class Program
         Console.WriteLine(JsonSerializer.Serialize(result, JsonOptions));
     }
 
-    private static void WriteResult<T>(CoreResult<T> result)
+    private static ToolResult<T> WriteResult<T>(CoreResult<T> result)
     {
-        if (!result.Success)
-        {
-            WriteResult(ToolResult<T>.Fail(new ProtocolError(
-                result.Error!.Code,
-                result.Error.Message,
-                result.Error.Details)));
-            return;
-        }
-
-        var failure = result.Value switch
-        {
-            SemanticWorkflowResponse response when response.Status != "passed"
-                => response.Diagnostics.FirstOrDefault()
-                    ?? new ProtocolError("workflow_failed", $"Workflow completed with status '{response.Status}'."),
-            RuntimeScenarioResponse response when response.Status != "passed"
-                => response.Diagnostics.FirstOrDefault()
-                    ?? new ProtocolError("scenario_failed", $"Scenario completed with status '{response.Status}'."),
-            RuntimeMutationResponse response when response.Status is RuntimeMutationStatuses.Rejected
-                or RuntimeMutationStatuses.Unsupported or RuntimeMutationStatuses.StaleTarget
-                or RuntimeMutationStatuses.Unavailable
-                => response.Diagnostics.FirstOrDefault()
-                    ?? new ProtocolError("mutation_failed", $"Mutation completed with status '{response.Status}'."),
-            RuntimeMutationEvidenceResponse response when response.Mutation.Status is RuntimeMutationStatuses.Rejected
-                or RuntimeMutationStatuses.Unsupported or RuntimeMutationStatuses.StaleTarget
-                or RuntimeMutationStatuses.Unavailable
-                => response.Mutation.Diagnostics.FirstOrDefault()
-                    ?? new ProtocolError("mutation_failed", $"Mutation completed with status '{response.Mutation.Status}'."),
-            _ => null
-        };
-        WriteResult(failure is null
-            ? ToolResult<T>.Ok(result.Value!)
-            : ToolResult<T>.Fail(failure));
+        var output = OperationResultMapper.ToToolResult(result);
+        WriteResult(output);
+        return output;
     }
 
     private sealed record OptionParseResult(

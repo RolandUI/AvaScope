@@ -1747,6 +1747,34 @@ public sealed class ProtocolContractTests
     }
 
     [Fact]
+    public void ToolResultFailureCanSerializeBoundedPartialValue()
+    {
+        var partial = new CloseSessionResponse(
+            new SessionSummary(
+                new SessionId("partial-close"),
+                SessionKinds.Runtime,
+                SessionStates.Closed,
+                DateTimeOffset.UtcNow,
+                "App"),
+            42,
+            DateTimeOffset.UtcNow,
+            true,
+            CloseSessionOutcomes.NotOwned,
+            terminationMessage: "Not owned.");
+        var result = ToolResult<CloseSessionResponse>.Fail(
+            new ProtocolError("launched_process_not_owned", "Not owned."),
+            partial);
+
+        var node = JsonNode.Parse(JsonSerializer.Serialize(result))!;
+
+        Assert.False(node["success"]!.GetValue<bool>());
+        Assert.True(node["transportSuccess"]!.GetValue<bool>());
+        Assert.Equal("closed", node["value"]!["session"]!["state"]!.GetValue<string>());
+        Assert.Equal(CloseSessionOutcomes.NotOwned, node["value"]!["outcome"]!.GetValue<string>());
+        Assert.Equal("launched_process_not_owned", node["error"]!["code"]!.GetValue<string>());
+    }
+
+    [Fact]
     public void InspectNodeResponseSerializesRuntimeStateShape()
     {
         var response = new InspectNodeResponse(

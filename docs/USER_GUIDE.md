@@ -951,6 +951,16 @@ complete unfiltered JSON diagnostics artifact. MCP callers can use
 
 `capabilities` returns the same discovery manifest as the CLI command and accepts optional `requiredCapabilities` as comma-separated ids. It is the compatibility gate for clients that need specific runtime, preview, diagnostics, baseline, report, artifact, or mutation surfaces before invoking newer tools.
 
+Every CLI/MCP operation separates transport completion from operation
+completion. `transportSuccess` is true when AvaScope handled the request;
+`success` is true only when the requested outcome was achieved. A failed
+workflow, unsupported/rejected mutation, or requested process termination that
+ends as `not_owned` or `termination_failed` therefore returns `success: false`.
+Such operation failures can still contain a non-null `value` with bounded
+partial evidence: completed steps, diagnostics, timeline/artifact paths, or the
+already-closed session. Clients should inspect `error` first and retain `value`
+for triage and cleanup.
+
 `diagnostics` reports AvaScope service metadata, local bridge manifest/pipe health, stale, invalid, unauthorized, unavailable, duplicate, and protocol-incompatible bridge records, preview host readiness, stale or invalid preview-session metadata, and `componentOrigins` for CLI/MCP/PreviewHost assembly roots without building or loading user projects. The response keeps the legacy `issues` list and also includes `summary` counts, `nextCommands`, and bounded `diagnosticIssues` entries with source, severity, status, provenance, request ids, and related path/session metadata for agent triage. Mixed repo-local/package roots are reported as `diagnostics_mixed_install_roots`. The optional `mode` parameter accepts `all`, `active-only`, `minimal`, or `json-minimal`.
 
 Preview readiness/build/render failures preserve the stable `error.code` and `error.message` shape and may include bounded `error.details` fields such as `phase`, `requirement`, `projectPath`, `viewPath`, `outputPath`, `exitCode`, `outputTail`, and `nextAction`. Readiness failures cover local prerequisites that can be checked before rendering, such as missing co-located PreviewHost assemblies, missing project files, missing view files, and unavailable `dotnet` process startup.
