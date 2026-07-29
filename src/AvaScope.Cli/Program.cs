@@ -3187,8 +3187,9 @@ internal static class Program
     {
         return action switch
         {
-            InputActions.PointerMove or InputActions.PointerDown or InputActions.PointerUp or InputActions.Click
+            InputActions.PointerMove or InputActions.PointerDown or InputActions.PointerUp
                 => RequireCoordinates(action, x, y),
+            InputActions.Click => RequireClickTarget(action, x, y, targetNodeId),
             InputActions.Focus => !string.IsNullOrWhiteSpace(targetNodeId) || RequireCoordinates(action, x, y),
             InputActions.KeyText => RequireText(action, inputText, "text"),
             InputActions.ClearText => true,
@@ -3654,6 +3655,27 @@ internal static class Program
         }
 
         WriteFailure(InvalidCliArguments, $"{action} requires x and y coordinates.");
+        return false;
+    }
+
+    private static bool RequireClickTarget(
+        string action,
+        double? x,
+        double? y,
+        string? targetNodeId)
+    {
+        if ((x is null) != (y is null))
+        {
+            WriteFailure(InvalidCliArguments, $"{action} requires both x and y when either coordinate is provided.");
+            return false;
+        }
+
+        if (x is not null || !string.IsNullOrWhiteSpace(targetNodeId))
+        {
+            return true;
+        }
+
+        WriteFailure(InvalidCliArguments, $"{action} requires x and y coordinates or target-node.");
         return false;
     }
 

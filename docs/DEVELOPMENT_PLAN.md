@@ -26,20 +26,21 @@ GitHub Issues and Milestones are the primary project-management source for auton
 
 ## Current Focus
 
-- `v1.2.0 semantic runtime interaction`
-- GitHub Issue: #76
+- `v1.2.0 selector-centered click input`
+- GitHub Issue: #77
 - GitHub Milestone: `v1.2.0`
 - Status: `Done`
 - Owner: autonomous agent
 - Started: `2026-07-29`
-- Goal: add invoke, select, toggle, expand, and collapse actions across Protocol, Bridge, Core, CLI, and MCP with capability/schema discovery and focused runtime validation.
+- Goal: derive click coordinates from a resolved target's current bounds, preserve explicit coordinate precedence, and reject stale, clipped, or non-actionable targets without dispatch.
 
 ## Next Action
 
-Start #77 and add selector-centered click coordinates while preserving explicit coordinate overrides.
+Start #79 and add safe optional termination for AvaScope-owned launched processes during close-session.
 
 ## Latest Validation
 
+- `2026-07-29`: Completed local implementation for #77. Target-only `click` now derives the selected visual's center in top-level DIP space; explicit x/y coordinates take precedence when both are supplied. Bridge validation rejects stale, non-visual, invisible, zero-sized, non-finite, fully clipped, non-Button, or mismatched hit-test targets before dispatch and returns bounded remediation details. Capability metadata, MCP descriptions, CLI validation, user/agent docs, semantic-workflow regression coverage, and direct target-only CLI/MCP coverage were updated. Debug build passed with `0` warnings/errors; targeted Bridge (`117`), CLI (`148`), MCP (`50`), and Protocol (`61`) tests passed; the full Debug suite passed with `382` tests; `git diff --check` passed with line-ending normalization warnings only.
 - `2026-07-29`: Completed local implementation for #76. Added public Avalonia automation-provider-backed `invoke`, target-only `select`, `toggle`, `expand`, and `collapse` across Protocol, Bridge, Core semantic workflows, CLI, MCP, capability discovery, and user/agent documentation. Unsupported target/pattern combinations return bounded required/supported-pattern diagnostics, while the existing `select --text <index-or-item>` form remains compatible. Debug build passed with `0` warnings/errors; targeted Bridge (`115`), CLI (`145`), MCP (`50`), and Protocol (`61`) tests passed; the full Debug suite passed with `379` tests; `git diff --check` passed with line-ending normalization warnings only.
 - `2026-07-29`: Published `v1.1.4` from exact release commit `b40a34ab3b586f2e4033fd2d62c5f1fa8e9c8ee1` through successful Release workflow `30438646374`. The workflow published AvaScope.Protocol, AvaScope.Core, and AvaScope.Bridge `1.1.4` to nuget.org and GitHub Packages, created the tag at the release commit, and uploaded eight GitHub Release assets. The downloaded `1.1.4` manifest matched all seven packaged asset SHA-256 digests and sizes; all three nuget.org package pages and flat-container indexes expose `1.1.4`.
 - `2026-07-29`: The complete local v1.1.4 release gate passed and the target moved to `Release Candidate`. Debug and Release builds passed with `0` warnings/errors and all `373` tests passed in each configuration; the Release suite passed twice while resolving stale artifact-hosted MCP locks. Exact `1.1.4` NuGet packages, Windows/Linux portable ZIPs, `AvaScopeSetup.exe`, the Linux installer, and a seven-artifact SHA-256 manifest passed metadata/legal/provenance verification. The Windows installer passed install/version/doctor/MCP/repair/uninstall validation; the Linux installer passed the equivalent WSL Ubuntu smoke with a temporary .NET `10.0.10` runtime. Packaged doctor and real Avalonia preview smoke passed, with explicit inactive-branch JSON nulls visible in the packaged results. NuGet and GitHub Release dry-runs and bug-report privacy validation passed; remote tag `v1.1.4` remains absent. Two artifact attempts stopped safely because four old launcher processes left four exact artifact-hosted `dotnet AvaScope.Mcp.dll` children; only those identified processes were terminated before the clean packaging pass.

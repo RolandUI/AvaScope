@@ -73,7 +73,7 @@ The `v1.2.0` minor release implements the complete runtime interaction and agent
 ### v1.2.0 Milestone Map
 
 - #76 `Add semantic automation actions for invoke, select, toggle, expand, and collapse`; Status: `Done`.
-- #77 `Center semantic clicks on selector-resolved node bounds`; Status: `Backlog`.
+- #77 `Center semantic clicks on selector-resolved node bounds`; Status: `Done`.
 - #78 `Publish input action capabilities, requirements, targets, and examples`; Status: `Backlog`.
 - #79 `Optionally terminate AvaScope-owned launched processes when closing sessions`; Status: `Backlog`.
 - #80 `Add native file and folder picker automation for runtime scenarios`; Status: `Backlog`.
@@ -92,6 +92,7 @@ The `v1.2.0` minor release implements the complete runtime interaction and agent
 
 ### v1.2.0 Implementation Validation
 
+- `2026-07-29`: Completed #77 with target-centered click derivation in top-level DIP space, explicit x/y precedence, target/hit-test validation, and bounded stale, invisible, zero-sized, clipped, or wrong-target diagnostics before dispatch. Targeted Bridge (`117`), CLI (`148`), MCP (`50`), and Protocol (`61`) tests passed; the full Debug suite passed with `382` tests and the build completed with `0` warnings/errors.
 - `2026-07-29`: Completed #76 with public Avalonia automation-provider dispatch for invoke, selector-based select, toggle, expand, and collapse across Protocol, Bridge, Core semantic workflows, CLI, MCP, capability discovery, and documentation. Targeted Bridge (`115`), CLI (`145`), MCP (`50`), and Protocol (`61`) tests passed; the full Debug suite passed with `379` tests and the build completed with `0` warnings/errors.
 
 ## Released Target: v1.1.4

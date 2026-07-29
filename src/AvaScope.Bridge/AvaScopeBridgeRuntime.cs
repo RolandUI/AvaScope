@@ -749,7 +749,7 @@ public sealed class AvaScopeBridgeRuntime
             InputActions.PointerMove => PointerMove(topLevel, topLevelId, x, y),
             InputActions.PointerDown => PointerButton(topLevel, topLevelId, x, y, InputActions.PointerDown, isPressed: true),
             InputActions.PointerUp => PointerButton(topLevel, topLevelId, x, y, InputActions.PointerUp, isPressed: false),
-            InputActions.Click => Click(topLevel, topLevelId, x, y),
+            InputActions.Click => Click(topLevel, topLevelId, x, y, targetNodeId),
             InputActions.KeyText => KeyText(topLevel, topLevelId, targetNodeId, inputText),
             InputActions.ClearText => ClearText(topLevel, topLevelId, targetNodeId),
             InputActions.Focus => FocusTarget(topLevel, topLevelId, targetNodeId, x, y),
@@ -2506,25 +2506,151 @@ public sealed class AvaScopeBridgeRuntime
             metadata: CreatePointerInputMetadata(topLevel, point.Value, target, inputTarget)));
     }
 
-    private CoreResult<InputResponse> Click(TopLevel topLevel, string topLevelId, double? x, double? y)
+    private CoreResult<InputResponse> Click(
+        TopLevel topLevel,
+        string topLevelId,
+        double? x,
+        double? y,
+        string? targetNodeId)
     {
-        var point = GetInputPoint(x, y);
-        if (!point.Success)
-        {
-            return CoreResult<InputResponse>.Fail(point.Error!);
-        }
-
-        var target = topLevel.GetVisualAt(point.Value);
-        var button = target as Button ?? target?.FindAncestorOfType<Button>();
-        if (button is null)
+        if ((x is null) != (y is null))
         {
             return CoreResult<InputResponse>.Fail(new CoreError(
-                BridgeErrorCodes.UnsupportedInputAction,
-                "Click MVP currently supports Button targets only."));
+                BridgeErrorCodes.InvalidInputRequest,
+                "Click input requires both x and y when either explicit coordinate is provided."));
+        }
+
+        var normalizedTargetNodeId = string.IsNullOrWhiteSpace(targetNodeId) ? null : targetNodeId.Trim();
+        object? requestedNode = null;
+        Visual? requestedVisual = null;
+        Button? requestedButton = null;
+        Rect? requestedBounds = null;
+        if (normalizedTargetNodeId is not null)
+        {
+            requestedNode = FindNodeById(topLevel, normalizedTargetNodeId);
+            if (requestedNode is null)
+            {
+                return CoreResult<InputResponse>.Fail(new CoreError(
+                    BridgeErrorCodes.NodeNotFound,
+                    $"Click target node '{normalizedTargetNodeId}' was not found.",
+                    CreateTargetErrorDetails(null, null, normalizedTargetNodeId)));
+            }
+
+            requestedVisual = requestedNode as Visual;
+            if (requestedVisual is null)
+            {
+                return InvalidClickTarget(
+                    normalizedTargetNodeId,
+                    requestedNode.GetType().FullName ?? requestedNode.GetType().Name,
+                    "Click target is not a visual element.");
+            }
+
+            requestedButton = requestedVisual as Button ?? requestedVisual.FindAncestorOfType<Button>();
+            requestedBounds = GetGlobalBounds(requestedVisual, topLevel);
+        }
+
+        var coordinateSource = x is not null ? "explicit" : "target_center";
+        Point point;
+        if (x is not null && y is not null)
+        {
+            point = new Point(x.Value, y.Value);
+        }
+        else
+        {
+            if (normalizedTargetNodeId is null)
+            {
+                return CoreResult<InputResponse>.Fail(new CoreError(
+                    BridgeErrorCodes.InvalidInputRequest,
+                    "Click input requires x and y coordinates or a target node id."));
+            }
+
+            if (!requestedVisual!.IsEffectivelyVisible)
+            {
+                return InvalidClickTarget(
+                    normalizedTargetNodeId,
+                    requestedVisual.GetType().FullName ?? requestedVisual.GetType().Name,
+                    "Click target is not effectively visible.");
+            }
+
+            if (requestedBounds is null
+                || requestedBounds.Value.Width <= 0
+                || requestedBounds.Value.Height <= 0
+                || !double.IsFinite(requestedBounds.Value.X)
+                || !double.IsFinite(requestedBounds.Value.Y)
+                || !double.IsFinite(requestedBounds.Value.Width)
+                || !double.IsFinite(requestedBounds.Value.Height))
+            {
+                return InvalidClickTarget(
+                    normalizedTargetNodeId,
+                    requestedVisual.GetType().FullName ?? requestedVisual.GetType().Name,
+                    "Click target does not have finite, positive arranged bounds.",
+                    requestedBounds);
+            }
+
+            point = requestedBounds.Value.Center;
+            var topLevelBounds = new Rect(topLevel.Bounds.Size);
+            if (!topLevelBounds.Contains(point))
+            {
+                return InvalidClickTarget(
+                    normalizedTargetNodeId,
+                    requestedVisual.GetType().FullName ?? requestedVisual.GetType().Name,
+                    "Click target center is clipped outside the top-level bounds.",
+                    requestedBounds);
+            }
+        }
+
+        var hitTarget = topLevel.GetVisualAt(point);
+        var button = hitTarget as Button ?? hitTarget?.FindAncestorOfType<Button>();
+        if (button is null)
+        {
+            return InvalidClickTarget(
+                normalizedTargetNodeId,
+                requestedNode?.GetType().FullName ?? requestedNode?.GetType().Name ?? "not_available",
+                "Click currently supports Button targets only.",
+                requestedBounds,
+                hitTarget);
+        }
+
+        if (requestedButton is not null && !ReferenceEquals(requestedButton, button))
+        {
+            return InvalidClickTarget(
+                normalizedTargetNodeId!,
+                requestedVisual!.GetType().FullName ?? requestedVisual.GetType().Name,
+                "Click coordinates do not hit the requested target Button.",
+                requestedBounds,
+                hitTarget);
+        }
+
+        if (normalizedTargetNodeId is not null && requestedButton is null)
+        {
+            return InvalidClickTarget(
+                normalizedTargetNodeId,
+                requestedVisual!.GetType().FullName ?? requestedVisual.GetType().Name,
+                "Requested click target is not a Button or inside a Button.",
+                requestedBounds,
+                hitTarget);
         }
 
         button.Focus(NavigationMethod.Pointer);
         button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, button));
+
+        var metadata = new Dictionary<string, string>(
+            CreatePointerInputMetadata(topLevel, point, hitTarget, button),
+            StringComparer.Ordinal)
+        {
+            ["coordinateSource"] = coordinateSource,
+            ["requestedX"] = x?.ToString("0.###", CultureInfo.InvariantCulture) ?? "not_provided",
+            ["requestedY"] = y?.ToString("0.###", CultureInfo.InvariantCulture) ?? "not_provided"
+        };
+        if (normalizedTargetNodeId is not null)
+        {
+            metadata["requestedTargetNodeId"] = normalizedTargetNodeId;
+        }
+
+        if (requestedBounds is not null)
+        {
+            metadata["requestedTargetBounds"] = FormatRect(requestedBounds.Value);
+        }
 
         return CoreResult<InputResponse>.Ok(new InputResponse(
             SessionId,
@@ -2535,7 +2661,38 @@ public sealed class AvaScopeBridgeRuntime
             CreateNodeId(button, TreeKinds.Visual),
             CreateNodeTarget(topLevelId, TreeKinds.Visual, topLevel, button),
             pointerButton: "left",
-            metadata: CreatePointerInputMetadata(topLevel, point.Value, target, button)));
+            metadata: metadata));
+    }
+
+    private CoreResult<InputResponse> InvalidClickTarget(
+        string? targetNodeId,
+        string targetType,
+        string message,
+        Rect? targetBounds = null,
+        Visual? hitTarget = null)
+    {
+        var details = new Dictionary<string, string>
+        {
+            ["targetNodeId"] = targetNodeId ?? "not_provided",
+            ["targetType"] = targetType,
+            ["coordinateSpace"] = "top_level_dip",
+            ["nextAction"] = "Refresh the visual tree and use a visible Button target, or provide explicit x and y coordinates that hit it."
+        };
+        if (targetBounds is not null)
+        {
+            details["targetBounds"] = FormatRect(targetBounds.Value);
+        }
+
+        if (hitTarget is not null)
+        {
+            details["hitNodeId"] = CreateNodeId(hitTarget, TreeKinds.Visual);
+            details["hitNodeType"] = hitTarget.GetType().FullName ?? hitTarget.GetType().Name;
+        }
+
+        return CoreResult<InputResponse>.Fail(new CoreError(
+            BridgeErrorCodes.UnsupportedInputAction,
+            message,
+            details));
     }
 
     private static IReadOnlyDictionary<string, string> CreatePointerInputMetadata(

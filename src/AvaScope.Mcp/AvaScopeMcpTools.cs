@@ -456,7 +456,7 @@ public sealed class AvaScopeMcpTools
         Destructive = false,
         OpenWorld = false,
         UseStructuredContent = true)]
-    [Description("Sends a local-only input command to an attached AvaScope bridge session.")]
+    [Description("Sends a local-only input command to an attached AvaScope bridge session. Click accepts explicit x/y coordinates or derives the center of targetNodeId bounds; explicit coordinates take precedence.")]
     public static async Task<ToolResult<InputResponse>> Input(
         LocalBridgeClient bridgeClient,
         string sessionId,

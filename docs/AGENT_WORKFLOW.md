@@ -207,12 +207,13 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\collect-baseline-artif
 & $avascope input --session <runtime-session-id> --top-level <topLevel:id> --action key_text --target-node <textBox-node-id> --text "hello"
 & $avascope input --session <runtime-session-id> --top-level <topLevel:id> --action clear_text --target-node <textBox-node-id>
 & $avascope input --session <runtime-session-id> --top-level <topLevel:id> --action click --x 120 --y 40
+& $avascope input --session <runtime-session-id> --top-level <topLevel:id> --action click --target-node <button-node-id>
 & $avascope input --session <runtime-session-id> --top-level <topLevel:id> --action select --target-node <tabItem-node-id>
 & $avascope input --session <runtime-session-id> --top-level <topLevel:id> --action toggle --target-node <toggle-node-id>
 & $avascope input --session <runtime-session-id> --top-level <topLevel:id> --action expand --target-node <expander-node-id>
 ```
 
-Prefer semantic workflow steps with stable selectors for repeated scenarios: `invoke`, `select`, `toggle`, `expand`, and `collapse` resolve the selected node and use its public Avalonia automation provider. Direct input accepts the same actions with a target node id. Unsupported target/pattern combinations return structured errors that name the required provider and the semantic actions the target actually supports.
+Selector-resolved workflow `click` steps and direct target-only clicks use the center of current target bounds automatically. Supply both explicit coordinates only when an offset inside the selected Button is required; explicit coordinates take precedence. Prefer semantic workflow steps with stable selectors for repeated scenarios: `invoke`, `select`, `toggle`, `expand`, and `collapse` resolve the selected node and use its public Avalonia automation provider. Direct input accepts the same actions with a target node id. Unsupported target/pattern combinations return structured errors that name the required provider and the semantic actions the target actually supports.
 
 Runtime input is intentionally narrow, local-only, and non-destructive. Unsupported actions return structured errors.
 

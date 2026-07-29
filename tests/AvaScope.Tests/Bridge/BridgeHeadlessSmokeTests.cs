@@ -1743,6 +1743,11 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                     Assert.All(result.Value.Steps, step => Assert.Equal("passed", step.Status));
                     var assertion = Assert.Single(result.Value.Steps, step => step.StepId == "assert-value");
                     Assert.Equal("agent", assertion.Metadata["actual"]);
+                    var click = Assert.Single(result.Value.Steps, step => step.StepId == "click-run");
+                    Assert.Equal("target_center", click.Input!.Metadata["coordinateSource"]);
+                    Assert.Equal("not_provided", click.Input.Metadata["requestedX"]);
+                    Assert.Equal("not_provided", click.Input.Metadata["requestedY"]);
+                    Assert.Equal(click.Target!.NodeId, click.Input.Metadata["requestedTargetNodeId"]);
 
                     var screenshots = result.Value.Steps.Where(step => step.Screenshot is not null).ToArray();
                     Assert.Equal(3, screenshots.Length);
@@ -1998,6 +2003,142 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                 Assert.Equal("10..20", debugInspect.Value.DebugState.Fields["visibleRange"]);
 
                 window.Close();
+            }, CancellationToken.None);
+        }
+        finally
+        {
+            DisposeHeadlessSessionAfterExplicitCleanup(session);
+        }
+    }
+
+    [Fact]
+    public async Task TargetedClickDerivesCenterAndExplicitCoordinatesTakePrecedence()
+    {
+        var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessTestApplication));
+
+        try
+        {
+            await session.Dispatch(async () =>
+            {
+                var clicked = 0;
+                var button = new Button
+                {
+                    Content = "Deploy",
+                    Width = 140,
+                    Height = 48
+                };
+                AutomationProperties.SetAutomationId(button, "center-click-target");
+                button.Click += (_, _) => clicked++;
+
+                var clippedButton = new Button
+                {
+                    Content = "Clipped",
+                    Width = 100,
+                    Height = 40
+                };
+                AutomationProperties.SetAutomationId(clippedButton, "clipped-click-target");
+                Canvas.SetLeft(clippedButton, -300);
+                Canvas.SetTop(clippedButton, 10);
+
+                var window = new Window
+                {
+                    Title = "AvaScope Targeted Click Sample",
+                    Width = 320,
+                    Height = 180,
+                    Content = new Canvas
+                    {
+                        Children =
+                        {
+                            button,
+                            clippedButton
+                        }
+                    }
+                };
+                Canvas.SetLeft(button, 70);
+                Canvas.SetTop(button, 50);
+
+                var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Headless targeted click sample"));
+                try
+                {
+                    window.Show();
+                    using var registration = runtime.RegisterTopLevel(window);
+                    Dispatcher.UIThread.RunJobs();
+
+                    var client = new LocalBridgeClient(Path.GetDirectoryName(runtime.SessionManifestPath)!);
+                    var topLevel = Assert.Single(await runtime.ListTopLevelsAsync());
+                    var tree = await AvaScopeMcpTools.VisualTree(
+                        client,
+                        runtime.SessionId.Value,
+                        topLevel.Id,
+                        maxDepth: 8);
+                    Assert.True(tree.Success, tree.Error?.Message);
+                    var target = Assert.IsType<TreeNodeSummary>(
+                        FindNode(tree.Value!.Root, node => node.AutomationId == "center-click-target"));
+                    var clipped = Assert.IsType<TreeNodeSummary>(
+                        FindNode(tree.Value.Root, node => node.AutomationId == "clipped-click-target"));
+                    Assert.NotNull(target.Bounds);
+
+                    var centered = await AvaScopeMcpTools.Input(
+                        client,
+                        runtime.SessionId.Value,
+                        topLevel.Id,
+                        InputActions.Click,
+                        targetNodeId: target.NodeId);
+                    Assert.True(centered.Success, centered.Error?.Message);
+                    Assert.Equal(1, clicked);
+                    Assert.Equal("target_center", centered.Value!.Metadata["coordinateSource"]);
+                    Assert.Equal("not_provided", centered.Value.Metadata["requestedX"]);
+                    Assert.Equal("not_provided", centered.Value.Metadata["requestedY"]);
+                    Assert.Equal(
+                        (target.Bounds!.X + target.Bounds.Width / 2).ToString("0.###", CultureInfo.InvariantCulture),
+                        centered.Value.Metadata["effectiveX"]);
+                    Assert.Equal(
+                        (target.Bounds.Y + target.Bounds.Height / 2).ToString("0.###", CultureInfo.InvariantCulture),
+                        centered.Value.Metadata["effectiveY"]);
+
+                    var explicitX = target.Bounds.X + 8;
+                    var explicitY = target.Bounds.Y + 8;
+                    var explicitClick = await AvaScopeMcpTools.Input(
+                        client,
+                        runtime.SessionId.Value,
+                        topLevel.Id,
+                        InputActions.Click,
+                        explicitX,
+                        explicitY,
+                        targetNodeId: target.NodeId);
+                    Assert.True(explicitClick.Success, explicitClick.Error?.Message);
+                    Assert.Equal(2, clicked);
+                    Assert.Equal("explicit", explicitClick.Value!.Metadata["coordinateSource"]);
+                    Assert.Equal(explicitX.ToString("0.###", CultureInfo.InvariantCulture), explicitClick.Value.Metadata["effectiveX"]);
+                    Assert.Equal(explicitY.ToString("0.###", CultureInfo.InvariantCulture), explicitClick.Value.Metadata["effectiveY"]);
+
+                    var clippedClick = await AvaScopeMcpTools.Input(
+                        client,
+                        runtime.SessionId.Value,
+                        topLevel.Id,
+                        InputActions.Click,
+                        targetNodeId: clipped.NodeId);
+                    Assert.False(clippedClick.Success);
+                    Assert.Equal(BridgeErrorCodes.UnsupportedInputAction, clippedClick.Error!.Code);
+                    Assert.Contains("clipped", clippedClick.Error.Message, StringComparison.OrdinalIgnoreCase);
+                    Assert.Equal(2, clicked);
+
+                    var staleClick = await AvaScopeMcpTools.Input(
+                        client,
+                        runtime.SessionId.Value,
+                        topLevel.Id,
+                        InputActions.Click,
+                        targetNodeId: "visual:stale-click-target");
+                    Assert.False(staleClick.Success);
+                    Assert.Equal(BridgeErrorCodes.NodeNotFound, staleClick.Error!.Code);
+                    Assert.Equal(2, clicked);
+                }
+                finally
+                {
+                    window.Close();
+                    AvaScopeBridge.Deactivate();
+                    Dispatcher.UIThread.RunJobs();
+                }
             }, CancellationToken.None);
         }
         finally

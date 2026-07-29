@@ -66,6 +66,8 @@ public sealed class McpStdioSmokeTests
         Assert.Contains("cleanup_bridge_sessions", toolNames);
 
         var input = Assert.Single(tools, static tool => tool.Name == "input");
+        Assert.Contains("derives the center", input.ProtocolTool.Description, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("explicit coordinates take precedence", input.ProtocolTool.Description, StringComparison.OrdinalIgnoreCase);
         var inputSchema = JsonSerializer.SerializeToNode(input.ProtocolTool.InputSchema)!.AsObject();
         var actionDescription = inputSchema["properties"]!["action"]!["description"]!.GetValue<string>();
         Assert.Contains("invoke", actionDescription, StringComparison.Ordinal);

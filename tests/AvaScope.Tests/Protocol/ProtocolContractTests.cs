@@ -106,6 +106,10 @@ public sealed class ProtocolContractTests
         var semanticAutomation = Assert.Single(response.Capabilities, capability =>
             capability.Id == AvaScopeCapabilityIds.RuntimeSemanticAutomation);
         Assert.Equal("invoke,select,toggle,expand,collapse", semanticAutomation.Metadata["actions"]);
+        var runtimeInput = Assert.Single(response.Capabilities, capability =>
+            capability.Id == AvaScopeCapabilityIds.RuntimeInput);
+        Assert.Equal("explicit_or_target_center", runtimeInput.Metadata["clickCoordinates"]);
+        Assert.Equal("true", runtimeInput.Metadata["explicitCoordinatePrecedence"]);
         Assert.Contains(response.Tools, tool =>
             tool.Adapter == "mcp"
             && tool.Name == "input"

@@ -119,7 +119,13 @@ public static class AvaScopeCapabilityCatalog
                 "runtime",
                 "Send local runtime pointer, keyboard, text, focus, clear, selection, scroll, and semantic automation input to attached sessions.",
                 ["input"],
-                requires: [AvaScopeCapabilityIds.RuntimeAttach]),
+                requires: [AvaScopeCapabilityIds.RuntimeAttach],
+                metadata: new Dictionary<string, string>
+                {
+                    ["clickCoordinates"] = "explicit_or_target_center",
+                    ["explicitCoordinatePrecedence"] = "true",
+                    ["coordinateSpace"] = "top_level_dip"
+                }),
             Capability(
                 AvaScopeCapabilityIds.RuntimeSemanticAutomation,
                 "runtime",

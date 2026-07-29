@@ -2694,6 +2694,69 @@ public sealed class CliSmokeTests
     }
 
     [Fact]
+    public async Task InputCommandSendsTargetOnlyClickThroughBridgePipe()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var sessionId = SessionId.New();
+        var pipeName = $"avascope-cli-test-{Guid.NewGuid():N}";
+        var manifestPath = WriteBridgeManifest(sessionId, pipeName);
+
+        var serverTask = RespondToBridgeRequestAsync(pipeName, request =>
+        {
+            Assert.Equal(BridgeIpcMethods.Input, request.Method);
+            Assert.Equal(InputActions.Click, request.Action);
+            Assert.Null(request.X);
+            Assert.Null(request.Y);
+            Assert.Equal("visual:deploy", request.TargetNodeId);
+            return BridgeIpcResponse.Ok(
+                request.RequestId,
+                new InputResponse(
+                    sessionId,
+                    request.TopLevelId!,
+                    InputActions.Click,
+                    true,
+                    DateTimeOffset.UtcNow,
+                    request.TargetNodeId,
+                    metadata: new Dictionary<string, string>
+                    {
+                        ["coordinateSource"] = "target_center"
+                    }));
+        });
+
+        try
+        {
+            var result = await RunCliAsync(
+                cliAssembly,
+                "input",
+                "--session",
+                sessionId.Value,
+                "--top-level",
+                "topLevel:cli",
+                "--action",
+                InputActions.Click,
+                "--target-node",
+                "visual:deploy");
+            var request = await serverTask;
+
+            Assert.Equal(0, result.ExitCode);
+            Assert.Equal("visual:deploy", request.TargetNodeId);
+            var payload = JsonSerializer.Deserialize<ToolResult<InputResponse>>(result.StandardOutput, JsonOptions);
+            Assert.NotNull(payload);
+            Assert.True(payload.Success, payload.Error?.Message);
+            Assert.Equal("target_center", payload.Value!.Metadata["coordinateSource"]);
+        }
+        finally
+        {
+            if (File.Exists(manifestPath))
+            {
+                File.Delete(manifestPath);
+            }
+        }
+    }
+
+    [Fact]
     public async Task InputCommandSendsKeyTextThroughBridgePipe()
     {
         var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
@@ -3048,6 +3111,7 @@ public sealed class CliSmokeTests
 
     [Theory]
     [InlineData("click", "--x", "1")]
+    [InlineData("click", "--target-node", "")]
     [InlineData("key_text", "--target-node", "visual:textbox")]
     [InlineData("key_down", "--target-node", "visual:textbox")]
     [InlineData("focus", "--text", "ignored")]

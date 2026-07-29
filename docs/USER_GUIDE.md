@@ -505,6 +505,7 @@ Send local-only runtime input to an active bridge session:
 
 ```powershell
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll input --session session-id --top-level topLevel:1234 --action click --x 120 --y 40
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll input --session session-id --top-level topLevel:1234 --action click --target-node visual:button
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll input --session session-id --top-level topLevel:1234 --action focus --target-node visual:5678
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll input --session session-id --top-level topLevel:1234 --action clear_text --target-node visual:5678
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll input --session session-id --top-level topLevel:1234 --action key_down --key Enter --modifiers Control+Shift --target-node visual:5678
@@ -516,6 +517,8 @@ dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll input --session session
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll input --session session-id --top-level topLevel:1234 --action select --target-node visual:tabControl --text 1
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll input --session session-id --top-level topLevel:1234 --action scroll --target-node visual:scrollViewer --y 120
 ```
+
+Targeted `click` derives top-level DIP coordinates from the center of the selected node's current bounds. If both `x` and `y` are supplied they take precedence; coordinate-only clicks still require both. Stale, invisible, zero-sized, fully clipped, or non-Button targets fail before click dispatch with bounded target/hit-test diagnostics.
 
 `invoke`, target-only `select`, `toggle`, `expand`, and `collapse` use the target control's public Avalonia automation provider. Unsupported target/pattern combinations fail without dispatch and identify the required pattern plus the target's supported semantic actions. The existing `select --text <index-or-item>` form remains available for selecting an item on a `SelectingItemsControl`.
 
