@@ -2915,6 +2915,11 @@ public sealed class CliSmokeTests
 
     [Theory]
     [InlineData("select", "1", null, null)]
+    [InlineData("select", null, null, null)]
+    [InlineData("invoke", null, null, null)]
+    [InlineData("toggle", null, null, null)]
+    [InlineData("expand", null, null, null)]
+    [InlineData("collapse", null, null, null)]
     [InlineData("scroll", null, "0", "40")]
     public async Task InputCommandSendsExpandedInputThroughBridgePipe(
         string action,

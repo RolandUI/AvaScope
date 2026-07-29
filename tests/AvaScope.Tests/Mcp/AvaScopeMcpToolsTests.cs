@@ -34,6 +34,9 @@ public sealed class AvaScopeMcpToolsTests
             capability.Id == AvaScopeCapabilityIds.RuntimeUiAudit
             && capability.Status == AvaScopeCapabilityStatuses.Available);
         Assert.Contains(result.Value.Capabilities, capability =>
+            capability.Id == AvaScopeCapabilityIds.RuntimeSemanticAutomation
+            && capability.Metadata["actions"] == "invoke,select,toggle,expand,collapse");
+        Assert.Contains(result.Value.Capabilities, capability =>
             capability.Id == AvaScopeCapabilityIds.RuntimeDesignQualityAudit
             && capability.Status == AvaScopeCapabilityStatuses.Available);
         Assert.Contains(result.Value.Capabilities, capability =>

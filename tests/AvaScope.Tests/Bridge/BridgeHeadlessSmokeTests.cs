@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -1997,6 +1998,178 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                 Assert.Equal("10..20", debugInspect.Value.DebugState.Fields["visibleRange"]);
 
                 window.Close();
+            }, CancellationToken.None);
+        }
+        finally
+        {
+            DisposeHeadlessSessionAfterExplicitCleanup(session);
+        }
+    }
+
+    [Fact]
+    public async Task SemanticAutomationActionsUsePublicAvaloniaProviders()
+    {
+        var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessTestApplication));
+
+        try
+        {
+            await session.Dispatch(async () =>
+            {
+                var invoked = 0;
+                var invokeButton = new Button
+                {
+                    Content = "Invoke",
+                    Width = 100,
+                    Height = 36
+                };
+                AutomationProperties.SetAutomationId(invokeButton, "semantic-invoke");
+                invokeButton.Click += (_, _) => invoked++;
+
+                var firstTab = new TabItem { Header = "First", Content = "First content" };
+                var deployTab = new TabItem { Header = "Deploy", Content = "Deploy content" };
+                AutomationProperties.SetAutomationId(deployTab, "DeployTab");
+                var tabs = new TabControl
+                {
+                    Items =
+                    {
+                        firstTab,
+                        deployTab
+                    }
+                };
+
+                var toggle = new ToggleButton
+                {
+                    Content = "Toggle",
+                    Width = 100,
+                    Height = 36
+                };
+                AutomationProperties.SetAutomationId(toggle, "semantic-toggle");
+
+                var expander = new Expander
+                {
+                    Header = "Advanced",
+                    Content = new TextBlock { Text = "Advanced content" }
+                };
+                AutomationProperties.SetAutomationId(expander, "semantic-expander");
+
+                var unsupported = new TextBlock { Text = "Read only" };
+                AutomationProperties.SetAutomationId(unsupported, "semantic-unsupported");
+
+                var window = new Window
+                {
+                    Title = "AvaScope Semantic Automation Sample",
+                    Width = 420,
+                    Height = 360,
+                    Content = new StackPanel
+                    {
+                        Children =
+                        {
+                            invokeButton,
+                            tabs,
+                            toggle,
+                            expander,
+                            unsupported
+                        }
+                    }
+                };
+
+                var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Headless semantic automation sample"));
+                try
+                {
+                    window.Show();
+                    using var registration = runtime.RegisterTopLevel(window);
+                    Dispatcher.UIThread.RunJobs();
+
+                    var client = new LocalBridgeClient(Path.GetDirectoryName(runtime.SessionManifestPath)!);
+                    var topLevel = Assert.Single(await runtime.ListTopLevelsAsync());
+                    var tree = await AvaScopeMcpTools.VisualTree(
+                        client,
+                        runtime.SessionId.Value,
+                        topLevel.Id,
+                        maxDepth: 12);
+                    Assert.True(tree.Success, tree.Error?.Message);
+
+                    TreeNodeSummary RequireAutomationNode(string automationId)
+                    {
+                        return Assert.IsType<TreeNodeSummary>(
+                            FindNode(tree.Value!.Root, node => node.AutomationId == automationId));
+                    }
+
+                    var invoke = await AvaScopeMcpTools.Input(
+                        client,
+                        runtime.SessionId.Value,
+                        topLevel.Id,
+                        InputActions.Invoke,
+                        targetNodeId: RequireAutomationNode("semantic-invoke").NodeId);
+                    Assert.True(invoke.Success, invoke.Error?.Message);
+                    Assert.Equal(1, invoked);
+                    Assert.Equal(nameof(Avalonia.Automation.Provider.IInvokeProvider), invoke.Value!.Metadata["automationPattern"]);
+
+                    var selectRequest = new SemanticWorkflowRequest(
+                        runtime.SessionId,
+                        topLevel.Id,
+                        [
+                            new SemanticWorkflowStep(
+                                SemanticWorkflowActions.Select,
+                                "select-deploy",
+                                new SemanticWorkflowSelector(automationId: "DeployTab"))
+                        ],
+                        requestId: "semantic-select-smoke",
+                        maxDepth: 12);
+                    var select = await AvaScopeMcpTools.RunWorkflow(client, selectRequest);
+                    Assert.True(select.Success, select.Error?.Message);
+                    Assert.Equal("passed", select.Value!.Status);
+                    Assert.Equal(1, tabs.SelectedIndex);
+
+                    var toggleResult = await AvaScopeMcpTools.Input(
+                        client,
+                        runtime.SessionId.Value,
+                        topLevel.Id,
+                        InputActions.Toggle,
+                        targetNodeId: RequireAutomationNode("semantic-toggle").NodeId);
+                    Assert.True(toggleResult.Success, toggleResult.Error?.Message);
+                    Assert.True(toggle.IsChecked);
+                    Assert.Equal("Off", toggleResult.Value!.Metadata["previousState"]);
+                    Assert.Equal("On", toggleResult.Value.Metadata["currentState"]);
+
+                    var expanderNode = RequireAutomationNode("semantic-expander");
+                    var expand = await AvaScopeMcpTools.Input(
+                        client,
+                        runtime.SessionId.Value,
+                        topLevel.Id,
+                        InputActions.Expand,
+                        targetNodeId: expanderNode.NodeId);
+                    Assert.True(expand.Success, expand.Error?.Message);
+                    Assert.True(expander.IsExpanded);
+                    Assert.Equal("Expanded", expand.Value!.Metadata["currentState"]);
+
+                    var collapse = await AvaScopeMcpTools.Input(
+                        client,
+                        runtime.SessionId.Value,
+                        topLevel.Id,
+                        InputActions.Collapse,
+                        targetNodeId: expanderNode.NodeId);
+                    Assert.True(collapse.Success, collapse.Error?.Message);
+                    Assert.False(expander.IsExpanded);
+                    Assert.Equal("Collapsed", collapse.Value!.Metadata["currentState"]);
+
+                    var unsupportedResult = await AvaScopeMcpTools.Input(
+                        client,
+                        runtime.SessionId.Value,
+                        topLevel.Id,
+                        InputActions.Invoke,
+                        targetNodeId: RequireAutomationNode("semantic-unsupported").NodeId);
+                    Assert.False(unsupportedResult.Success);
+                    Assert.Equal(BridgeErrorCodes.UnsupportedInputAction, unsupportedResult.Error!.Code);
+                    Assert.Equal(nameof(Avalonia.Automation.Provider.IInvokeProvider), unsupportedResult.Error.Details!["requiredPattern"]);
+                    Assert.Equal("none", unsupportedResult.Error.Details["supportedSemanticActions"]);
+                }
+                finally
+                {
+                    window.Close();
+                    AvaScopeBridge.Deactivate();
+                    Dispatcher.UIThread.RunJobs();
+                }
             }, CancellationToken.None);
         }
         finally

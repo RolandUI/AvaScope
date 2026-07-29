@@ -3193,7 +3193,12 @@ internal static class Program
             InputActions.KeyText => RequireText(action, inputText, "text"),
             InputActions.ClearText => true,
             InputActions.KeyDown or InputActions.KeyUp => RequireText(action, inputKey, "key"),
-            InputActions.Select => RequireTargetNode(action, targetNodeId) && RequireText(action, inputText, "text"),
+            InputActions.Invoke
+                or InputActions.Select
+                or InputActions.Toggle
+                or InputActions.Expand
+                or InputActions.Collapse
+                => RequireTargetNode(action, targetNodeId),
             InputActions.Scroll => RequireTargetNode(action, targetNodeId) && RequireAnyCoordinate(action, x, y),
             _ => false
         };
@@ -3976,7 +3981,11 @@ internal static class Program
         InputActions.ClearText,
         InputActions.KeyDown,
         InputActions.KeyUp,
+        InputActions.Invoke,
         InputActions.Select,
+        InputActions.Toggle,
+        InputActions.Expand,
+        InputActions.Collapse,
         InputActions.Scroll
     ];
 

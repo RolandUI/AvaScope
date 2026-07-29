@@ -508,11 +508,18 @@ dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll input --session session
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll input --session session-id --top-level topLevel:1234 --action focus --target-node visual:5678
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll input --session session-id --top-level topLevel:1234 --action clear_text --target-node visual:5678
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll input --session session-id --top-level topLevel:1234 --action key_down --key Enter --modifiers Control+Shift --target-node visual:5678
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll input --session session-id --top-level topLevel:1234 --action invoke --target-node visual:button
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll input --session session-id --top-level topLevel:1234 --action select --target-node visual:tabItem
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll input --session session-id --top-level topLevel:1234 --action toggle --target-node visual:toggleButton
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll input --session session-id --top-level topLevel:1234 --action expand --target-node visual:expander
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll input --session session-id --top-level topLevel:1234 --action collapse --target-node visual:expander
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll input --session session-id --top-level topLevel:1234 --action select --target-node visual:tabControl --text 1
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll input --session session-id --top-level topLevel:1234 --action scroll --target-node visual:scrollViewer --y 120
 ```
 
-Input responses include `pointerButton` for supported pointer/click actions, `inputKey`/`keyModifiers` for routed key actions, wheel/scroll deltas for scroll actions, and bounded metadata such as selected index/item or before/after scroll offsets.
+`invoke`, target-only `select`, `toggle`, `expand`, and `collapse` use the target control's public Avalonia automation provider. Unsupported target/pattern combinations fail without dispatch and identify the required pattern plus the target's supported semantic actions. The existing `select --text <index-or-item>` form remains available for selecting an item on a `SelectingItemsControl`.
+
+Input responses include `pointerButton` for supported pointer/click actions, `inputKey`/`keyModifiers` for routed key actions, wheel/scroll deltas for scroll actions, and bounded metadata such as the automation peer/pattern, previous/current automation state, selected index/item, or before/after scroll offsets.
 
 Run semantic workflow steps by stable runtime selectors instead of coordinates:
 
@@ -559,7 +566,7 @@ Run semantic workflow steps by stable runtime selectors instead of coordinates:
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll run-workflow --request .\workflow.json
 ```
 
-Workflow selectors can target `nodeId`, `automationId`, `text`, `name`, `nodeType`, `role`, `bindingPath`, or `commandName`. Destructive-looking click/select targets are rejected unless the request declares `allowDestructive` or an `isolatedStateDirectory`.
+Workflow selectors can target `nodeId`, `automationId`, `text`, `name`, `nodeType`, `role`, `bindingPath`, or `commandName`. The semantic action set is `invoke`, `select`, `toggle`, `expand`, and `collapse`; each action resolves the selector first and then uses the target control's corresponding Avalonia automation provider. Destructive-looking click/invoke/select/toggle/expand/collapse targets are rejected unless the request declares `allowDestructive` or an `isolatedStateDirectory`.
 
 Use `run-scenario` when the workflow should launch or attach before running steps and produce a human-readable evidence timeline:
 

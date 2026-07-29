@@ -1,5 +1,7 @@
 using Avalonia;
 using Avalonia.Automation;
+using Avalonia.Automation.Peers;
+using Avalonia.Automation.Provider;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Controls.Primitives;
@@ -753,7 +755,13 @@ public sealed class AvaScopeBridgeRuntime
             InputActions.Focus => FocusTarget(topLevel, topLevelId, targetNodeId, x, y),
             InputActions.KeyDown => KeyInput(topLevel, topLevelId, InputActions.KeyDown, targetNodeId, inputKey, keyModifiers),
             InputActions.KeyUp => KeyInput(topLevel, topLevelId, InputActions.KeyUp, targetNodeId, inputKey, keyModifiers),
+            InputActions.Invoke => SemanticAutomationAction(topLevel, topLevelId, InputActions.Invoke, targetNodeId),
+            InputActions.Select when string.IsNullOrWhiteSpace(inputText)
+                => SemanticAutomationAction(topLevel, topLevelId, InputActions.Select, targetNodeId),
             InputActions.Select => SelectTarget(topLevel, topLevelId, targetNodeId, inputText),
+            InputActions.Toggle => SemanticAutomationAction(topLevel, topLevelId, InputActions.Toggle, targetNodeId),
+            InputActions.Expand => SemanticAutomationAction(topLevel, topLevelId, InputActions.Expand, targetNodeId),
+            InputActions.Collapse => SemanticAutomationAction(topLevel, topLevelId, InputActions.Collapse, targetNodeId),
             InputActions.Scroll => ScrollTarget(topLevel, topLevelId, targetNodeId, x, y),
             _ => CoreResult<InputResponse>.Fail(new CoreError(
                 BridgeErrorCodes.UnsupportedInputAction,
@@ -2897,6 +2905,263 @@ public sealed class AvaScopeBridgeRuntime
             CreateNodeId(selector, TreeKinds.Visual),
             CreateNodeTarget(topLevelId, TreeKinds.Visual, topLevel, selector),
             metadata: metadata));
+    }
+
+    private CoreResult<InputResponse> SemanticAutomationAction(
+        TopLevel topLevel,
+        string topLevelId,
+        string action,
+        string? targetNodeId)
+    {
+        if (string.IsNullOrWhiteSpace(targetNodeId))
+        {
+            return CoreResult<InputResponse>.Fail(new CoreError(
+                BridgeErrorCodes.InvalidInputRequest,
+                $"Input action '{action}' requires target node id."));
+        }
+
+        var normalizedTargetNodeId = targetNodeId.Trim();
+        var node = FindNodeById(topLevel, normalizedTargetNodeId);
+        if (node is null)
+        {
+            return CoreResult<InputResponse>.Fail(new CoreError(
+                BridgeErrorCodes.NodeNotFound,
+                $"Semantic automation target node '{normalizedTargetNodeId}' was not found.",
+                CreateTargetErrorDetails(null, null, normalizedTargetNodeId)));
+        }
+
+        if (node is not Control control)
+        {
+            return UnsupportedAutomationPattern(
+                action,
+                normalizedTargetNodeId,
+                node.GetType().FullName ?? node.GetType().Name,
+                requiredPattern: GetAutomationPatternName(action));
+        }
+
+        if (!control.IsEffectivelyEnabled)
+        {
+            return CoreResult<InputResponse>.Fail(new CoreError(
+                BridgeErrorCodes.UnsupportedInputAction,
+                $"Semantic automation target '{normalizedTargetNodeId}' is disabled.",
+                new Dictionary<string, string>
+                {
+                    ["action"] = action,
+                    ["targetNodeId"] = normalizedTargetNodeId,
+                    ["targetType"] = control.GetType().FullName ?? control.GetType().Name,
+                    ["requiredPattern"] = GetAutomationPatternName(action),
+                    ["enabled"] = bool.FalseString
+                }));
+        }
+
+        var peer = ControlAutomationPeer.CreatePeerForElement(control);
+        if (peer is null)
+        {
+            return UnsupportedAutomationPattern(
+                action,
+                normalizedTargetNodeId,
+                control.GetType().FullName ?? control.GetType().Name,
+                requiredPattern: GetAutomationPatternName(action));
+        }
+
+        var previousState = GetAutomationState(peer, action);
+        try
+        {
+            var handled = action switch
+            {
+                InputActions.Invoke => Invoke(peer),
+                InputActions.Select => Select(peer),
+                InputActions.Toggle => Toggle(peer),
+                InputActions.Expand => Expand(peer),
+                InputActions.Collapse => Collapse(peer),
+                _ => false
+            };
+
+            if (!handled)
+            {
+                return UnsupportedAutomationPattern(
+                    action,
+                    normalizedTargetNodeId,
+                    control.GetType().FullName ?? control.GetType().Name,
+                    GetAutomationPatternName(action),
+                    GetSupportedSemanticAutomationActions(peer));
+            }
+        }
+        catch (InvalidOperationException exception)
+        {
+            return CoreResult<InputResponse>.Fail(new CoreError(
+                BridgeErrorCodes.UnsupportedInputAction,
+                $"Automation pattern '{GetAutomationPatternName(action)}' could not execute action '{action}'.",
+                new Dictionary<string, string>
+                {
+                    ["action"] = action,
+                    ["targetNodeId"] = normalizedTargetNodeId,
+                    ["targetType"] = control.GetType().FullName ?? control.GetType().Name,
+                    ["requiredPattern"] = GetAutomationPatternName(action),
+                    ["reason"] = exception.Message
+                }));
+        }
+
+        var metadata = new Dictionary<string, string>
+        {
+            ["automationPattern"] = GetAutomationPatternName(action),
+            ["automationPeer"] = peer.GetType().FullName ?? peer.GetType().Name,
+            ["targetType"] = control.GetType().FullName ?? control.GetType().Name,
+            ["supportedSemanticActions"] = string.Join(",", GetSupportedSemanticAutomationActions(peer))
+        };
+        if (previousState is not null)
+        {
+            metadata["previousState"] = previousState;
+        }
+
+        var currentState = GetAutomationState(peer, action);
+        if (currentState is not null)
+        {
+            metadata["currentState"] = currentState;
+        }
+
+        return CoreResult<InputResponse>.Ok(new InputResponse(
+            SessionId,
+            topLevelId,
+            action,
+            handled: true,
+            DateTimeOffset.UtcNow,
+            CreateNodeId(control, TreeKinds.Visual),
+            CreateNodeTarget(topLevelId, TreeKinds.Visual, topLevel, control),
+            metadata: metadata));
+    }
+
+    private static bool Invoke(AutomationPeer peer)
+    {
+        var provider = peer.GetProvider<IInvokeProvider>();
+        if (provider is null)
+        {
+            return false;
+        }
+
+        provider.Invoke();
+        return true;
+    }
+
+    private static bool Select(AutomationPeer peer)
+    {
+        var provider = peer.GetProvider<ISelectionItemProvider>();
+        if (provider is null)
+        {
+            return false;
+        }
+
+        provider.Select();
+        return true;
+    }
+
+    private static bool Toggle(AutomationPeer peer)
+    {
+        var provider = peer.GetProvider<IToggleProvider>();
+        if (provider is null)
+        {
+            return false;
+        }
+
+        provider.Toggle();
+        return true;
+    }
+
+    private static bool Expand(AutomationPeer peer)
+    {
+        var provider = peer.GetProvider<IExpandCollapseProvider>();
+        if (provider is null)
+        {
+            return false;
+        }
+
+        provider.Expand();
+        return true;
+    }
+
+    private static bool Collapse(AutomationPeer peer)
+    {
+        var provider = peer.GetProvider<IExpandCollapseProvider>();
+        if (provider is null)
+        {
+            return false;
+        }
+
+        provider.Collapse();
+        return true;
+    }
+
+    private static string? GetAutomationState(AutomationPeer peer, string action)
+    {
+        return action switch
+        {
+            InputActions.Select => peer.GetProvider<ISelectionItemProvider>()?.IsSelected.ToString(),
+            InputActions.Toggle => peer.GetProvider<IToggleProvider>()?.ToggleState.ToString(),
+            InputActions.Expand or InputActions.Collapse
+                => peer.GetProvider<IExpandCollapseProvider>()?.ExpandCollapseState.ToString(),
+            _ => null
+        };
+    }
+
+    private static IReadOnlyList<string> GetSupportedSemanticAutomationActions(AutomationPeer peer)
+    {
+        var actions = new List<string>(5);
+        if (peer.GetProvider<IInvokeProvider>() is not null)
+        {
+            actions.Add(InputActions.Invoke);
+        }
+
+        if (peer.GetProvider<ISelectionItemProvider>() is not null)
+        {
+            actions.Add(InputActions.Select);
+        }
+
+        if (peer.GetProvider<IToggleProvider>() is not null)
+        {
+            actions.Add(InputActions.Toggle);
+        }
+
+        if (peer.GetProvider<IExpandCollapseProvider>() is not null)
+        {
+            actions.Add(InputActions.Expand);
+            actions.Add(InputActions.Collapse);
+        }
+
+        return actions;
+    }
+
+    private CoreResult<InputResponse> UnsupportedAutomationPattern(
+        string action,
+        string targetNodeId,
+        string targetType,
+        string requiredPattern,
+        IReadOnlyList<string>? supportedActions = null)
+    {
+        return CoreResult<InputResponse>.Fail(new CoreError(
+            BridgeErrorCodes.UnsupportedInputAction,
+            $"Target '{targetNodeId}' does not support automation pattern '{requiredPattern}' for action '{action}'.",
+            new Dictionary<string, string>
+            {
+                ["action"] = action,
+                ["targetNodeId"] = targetNodeId,
+                ["targetType"] = targetType,
+                ["requiredPattern"] = requiredPattern,
+                ["supportedSemanticActions"] = supportedActions is { Count: > 0 }
+                    ? string.Join(",", supportedActions)
+                    : "none"
+            }));
+    }
+
+    private static string GetAutomationPatternName(string action)
+    {
+        return action switch
+        {
+            InputActions.Invoke => nameof(IInvokeProvider),
+            InputActions.Select => nameof(ISelectionItemProvider),
+            InputActions.Toggle => nameof(IToggleProvider),
+            InputActions.Expand or InputActions.Collapse => nameof(IExpandCollapseProvider),
+            _ => "unknown"
+        };
     }
 
     private CoreResult<InputResponse> ScrollTarget(

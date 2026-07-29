@@ -117,9 +117,21 @@ public static class AvaScopeCapabilityCatalog
             Capability(
                 AvaScopeCapabilityIds.RuntimeInput,
                 "runtime",
-                "Send local runtime pointer, keyboard, text, focus, clear, and selection input to attached sessions.",
+                "Send local runtime pointer, keyboard, text, focus, clear, selection, scroll, and semantic automation input to attached sessions.",
                 ["input"],
                 requires: [AvaScopeCapabilityIds.RuntimeAttach]),
+            Capability(
+                AvaScopeCapabilityIds.RuntimeSemanticAutomation,
+                "runtime",
+                "Invoke, select, toggle, expand, or collapse a selected local runtime control through its public Avalonia automation provider.",
+                ["input", "run-workflow", "run_workflow"],
+                requires: [AvaScopeCapabilityIds.RuntimeInput],
+                metadata: new Dictionary<string, string>
+                {
+                    ["actions"] = "invoke,select,toggle,expand,collapse",
+                    ["providerApi"] = "Avalonia.Automation.Provider",
+                    ["unsupportedBehavior"] = "structured_error"
+                }),
             Capability(
                 AvaScopeCapabilityIds.RuntimeSemanticWorkflow,
                 "runtime",
@@ -375,10 +387,10 @@ public static class AvaScopeCapabilityCatalog
             Mcp("audit_ui", AvaScopeCapabilityIds.RuntimeUiAudit),
             Cli("design-audit", AvaScopeCapabilityIds.RuntimeDesignQualityAudit),
             Mcp("design_quality_audit", AvaScopeCapabilityIds.RuntimeDesignQualityAudit),
-            Cli("input", AvaScopeCapabilityIds.RuntimeInput),
-            Mcp("input", AvaScopeCapabilityIds.RuntimeInput),
-            Cli("run-workflow", AvaScopeCapabilityIds.RuntimeSemanticWorkflow),
-            Mcp("run_workflow", AvaScopeCapabilityIds.RuntimeSemanticWorkflow),
+            Cli("input", AvaScopeCapabilityIds.RuntimeInput, AvaScopeCapabilityIds.RuntimeSemanticAutomation),
+            Mcp("input", AvaScopeCapabilityIds.RuntimeInput, AvaScopeCapabilityIds.RuntimeSemanticAutomation),
+            Cli("run-workflow", AvaScopeCapabilityIds.RuntimeSemanticWorkflow, AvaScopeCapabilityIds.RuntimeSemanticAutomation),
+            Mcp("run_workflow", AvaScopeCapabilityIds.RuntimeSemanticWorkflow, AvaScopeCapabilityIds.RuntimeSemanticAutomation),
             Cli("run-scenario", AvaScopeCapabilityIds.RuntimeScenarioRunner, AvaScopeCapabilityIds.SafetyLocalOnly),
             Mcp("run_scenario", AvaScopeCapabilityIds.RuntimeScenarioRunner, AvaScopeCapabilityIds.SafetyLocalOnly),
             Cli("pointer-diagnostics", AvaScopeCapabilityIds.RuntimePointerDiagnostics, AvaScopeCapabilityIds.ArtifactsScreenshot),

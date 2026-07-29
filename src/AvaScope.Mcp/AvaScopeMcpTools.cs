@@ -461,6 +461,7 @@ public sealed class AvaScopeMcpTools
         LocalBridgeClient bridgeClient,
         string sessionId,
         string topLevelId,
+        [Description("Input action name. Supported semantic automation actions are invoke, select, toggle, expand, and collapse.")]
         string action,
         double? x = null,
         double? y = null,

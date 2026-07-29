@@ -50,6 +50,50 @@ The roadmap below records the release-shaped plan through `v1.0.0`. It is intent
 - Every release must include targeted tests, full build/test validation, release dry-run validation, documentation updates, and explicit deferrals.
 - A release may be split into a patch release if a P0/P1 regression blocks users or CI, but patch scope must remain defect-focused.
 
+## Active Target: v1.2.0
+
+- Release: `v1.2.0`
+- Target Version: `1.2.0`
+- Release State: `In Progress`
+- Scope Lock: `2026-07-29`
+- GitHub Milestone: `v1.2.0`
+- GitHub Issues: #76, #77, #78, #79, #80, #81, #82, #83, #84, #85, #86
+- Previous Release: `v1.1.4`
+
+### v1.2.0 Release Goals
+
+The `v1.2.0` minor release implements the complete runtime interaction and agent API reliability feedback set received after the v1.1.4 compatibility release.
+
+1. `RG-1.2.0-1 Semantic Runtime Interaction`: add invoke, select, toggle, expand, and collapse automation actions plus selector-centered clicks.
+2. `RG-1.2.0-2 Discoverable And Validated Contracts`: publish input requirements, target support, examples, schema enums, canonical mutation operations, and supported mutation properties.
+3. `RG-1.2.0-3 Safe Runtime Lifecycle`: optionally terminate only AvaScope-owned launched processes and add guarded native file/folder picker automation with deterministic scenario results.
+4. `RG-1.2.0-4 Truthful And Bounded Results`: align operation success semantics, return compact node search matches, and provide bounded preview diagnostic summaries with full artifacts.
+5. `RG-1.2.0-5 Guarded Minor Release`: publish only after focused tests, full Debug/Release validation, packaged workflow checks, installer validation, and publish dry-runs pass.
+
+### v1.2.0 Milestone Map
+
+- #76 `Add semantic automation actions for invoke, select, toggle, expand, and collapse`; Status: `Done`.
+- #77 `Center semantic clicks on selector-resolved node bounds`; Status: `Backlog`.
+- #78 `Publish input action capabilities, requirements, targets, and examples`; Status: `Backlog`.
+- #79 `Optionally terminate AvaScope-owned launched processes when closing sessions`; Status: `Backlog`.
+- #80 `Add native file and folder picker automation for runtime scenarios`; Status: `Backlog`.
+- #81 `Align operation success with workflow and mutation outcomes`; Status: `Backlog`.
+- #82 `Use JSON Schema enums for closed tool parameter sets`; Status: `Backlog`.
+- #83 `Return compact node search matches by default`; Status: `Backlog`.
+- #84 `Standardize mutation operation names and prevalidate supported properties`; Status: `Backlog`.
+- #85 `Provide bounded structured summaries for preview diagnostics`; Status: `Backlog`.
+- #86 `Release v1.2.0`; Status: `Backlog`.
+
+### Explicit Deferrals
+
+- Trusted Windows Authenticode signing remains tracked separately in #72 and is not required for the runtime/API feature scope.
+- Remote inspection, process injection, CLR profiling, private Avalonia hooks, and unauthenticated remote control remain out of scope.
+- Native picker automation must fail explicitly on unsupported platforms or picker implementations; it must not broaden control beyond the selected local application process.
+
+### v1.2.0 Implementation Validation
+
+- `2026-07-29`: Completed #76 with public Avalonia automation-provider dispatch for invoke, selector-based select, toggle, expand, and collapse across Protocol, Bridge, Core semantic workflows, CLI, MCP, capability discovery, and documentation. Targeted Bridge (`115`), CLI (`145`), MCP (`50`), and Protocol (`61`) tests passed; the full Debug suite passed with `379` tests and the build completed with `0` warnings/errors.
+
 ## Released Target: v1.1.4
 
 - Release: `v1.1.4`

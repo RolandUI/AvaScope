@@ -98,7 +98,11 @@ public sealed class SemanticWorkflowRunner
                 SemanticWorkflowActions.TypeText => await InputAsync(bridgeClient, request, step, InputActions.KeyText, cancellationToken),
                 SemanticWorkflowActions.ClearText => await InputAsync(bridgeClient, request, step, InputActions.ClearText, cancellationToken),
                 SemanticWorkflowActions.Focus => await InputAsync(bridgeClient, request, step, InputActions.Focus, cancellationToken),
+                SemanticWorkflowActions.Invoke => await InputAsync(bridgeClient, request, step, InputActions.Invoke, cancellationToken),
                 SemanticWorkflowActions.Select => await InputAsync(bridgeClient, request, step, InputActions.Select, cancellationToken),
+                SemanticWorkflowActions.Toggle => await InputAsync(bridgeClient, request, step, InputActions.Toggle, cancellationToken),
+                SemanticWorkflowActions.Expand => await InputAsync(bridgeClient, request, step, InputActions.Expand, cancellationToken),
+                SemanticWorkflowActions.Collapse => await InputAsync(bridgeClient, request, step, InputActions.Collapse, cancellationToken),
                 SemanticWorkflowActions.KeyDown => await InputAsync(bridgeClient, request, step, InputActions.KeyDown, cancellationToken),
                 SemanticWorkflowActions.KeyUp => await InputAsync(bridgeClient, request, step, InputActions.KeyUp, cancellationToken),
                 _ => Fail(step, "semantic_workflow_action_not_supported", $"Workflow action '{step.Action}' is not supported.")
@@ -476,7 +480,12 @@ public sealed class SemanticWorkflowRunner
 
     private static bool LooksDestructive(SemanticWorkflowStep step, ResolvedWorkflowTarget target)
     {
-        if (step.Action is not SemanticWorkflowActions.Click and not SemanticWorkflowActions.Select)
+        if (step.Action is not SemanticWorkflowActions.Click
+            and not SemanticWorkflowActions.Invoke
+            and not SemanticWorkflowActions.Select
+            and not SemanticWorkflowActions.Toggle
+            and not SemanticWorkflowActions.Expand
+            and not SemanticWorkflowActions.Collapse)
         {
             return false;
         }

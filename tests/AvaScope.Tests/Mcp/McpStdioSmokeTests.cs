@@ -64,6 +64,15 @@ public sealed class McpStdioSmokeTests
         Assert.Contains("reload", toolNames);
         Assert.Contains("cleanup", toolNames);
         Assert.Contains("cleanup_bridge_sessions", toolNames);
+
+        var input = Assert.Single(tools, static tool => tool.Name == "input");
+        var inputSchema = JsonSerializer.SerializeToNode(input.ProtocolTool.InputSchema)!.AsObject();
+        var actionDescription = inputSchema["properties"]!["action"]!["description"]!.GetValue<string>();
+        Assert.Contains("invoke", actionDescription, StringComparison.Ordinal);
+        Assert.Contains("select", actionDescription, StringComparison.Ordinal);
+        Assert.Contains("toggle", actionDescription, StringComparison.Ordinal);
+        Assert.Contains("expand", actionDescription, StringComparison.Ordinal);
+        Assert.Contains("collapse", actionDescription, StringComparison.Ordinal);
     }
 
     [Fact]

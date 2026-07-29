@@ -103,6 +103,13 @@ public sealed class ProtocolContractTests
         Assert.Equal(RuntimeMutationCapabilityCatalog.RuntimeMutationContract, node["value"]!["runtimeMutationCapabilities"]![0]!["name"]!.GetValue<string>());
         Assert.Contains(response.Capabilities, capability => capability.Id == AvaScopeCapabilityIds.RuntimeSourceMap);
         Assert.Contains(response.Capabilities, capability => capability.Id == AvaScopeCapabilityIds.RuntimeLayoutExplain);
+        var semanticAutomation = Assert.Single(response.Capabilities, capability =>
+            capability.Id == AvaScopeCapabilityIds.RuntimeSemanticAutomation);
+        Assert.Equal("invoke,select,toggle,expand,collapse", semanticAutomation.Metadata["actions"]);
+        Assert.Contains(response.Tools, tool =>
+            tool.Adapter == "mcp"
+            && tool.Name == "input"
+            && tool.CapabilityIds.Contains(AvaScopeCapabilityIds.RuntimeSemanticAutomation));
         Assert.Contains(response.Capabilities, capability => capability.Id == AvaScopeCapabilityIds.RuntimeSemanticWorkflow);
         Assert.Contains(response.Capabilities, capability => capability.Id == AvaScopeCapabilityIds.RuntimeScenarioRunner);
         Assert.Contains(response.Capabilities, capability => capability.Id == AvaScopeCapabilityIds.RuntimePointerDiagnostics);
@@ -1708,7 +1715,11 @@ public sealed class ProtocolContractTests
         Assert.Equal("focus", InputActions.Focus);
         Assert.Equal("key_down", InputActions.KeyDown);
         Assert.Equal("key_up", InputActions.KeyUp);
+        Assert.Equal("invoke", InputActions.Invoke);
         Assert.Equal("select", InputActions.Select);
+        Assert.Equal("toggle", InputActions.Toggle);
+        Assert.Equal("expand", InputActions.Expand);
+        Assert.Equal("collapse", InputActions.Collapse);
         Assert.Equal("scroll", InputActions.Scroll);
     }
 
