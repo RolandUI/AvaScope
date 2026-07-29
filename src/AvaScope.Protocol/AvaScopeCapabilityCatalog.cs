@@ -345,6 +345,17 @@ public static class AvaScopeCapabilityCatalog
                 ["diagnostics", "doctor"],
                 metadata: new Dictionary<string, string> { ["modes"] = string.Join(",", DiagnosticsResponseModes.Values) }),
             Capability(
+                AvaScopeCapabilityIds.PreviewDiagnosticBaseline,
+                "preview",
+                "Fingerprint, filter, and compare preview diagnostics against an artifact or explicit fingerprint baseline across one-shot, multi-size, animation, and session renders.",
+                ["preview", "preview-animation", "create-preview-session", "preview_axaml", "preview_axaml_multi", "preview_axaml_animation", "create_preview_session"],
+                requires: [AvaScopeCapabilityIds.PreviewAxaml, AvaScopeCapabilityIds.ReportsJson],
+                metadata: new Dictionary<string, string>
+                {
+                    ["minimumSeverities"] = string.Join(",", PreviewMinimumSeverities.Values),
+                    ["maximumBaselineFingerprints"] = PreviewDiagnosticBaseline.MaximumFingerprints.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                }),
+            Capability(
                 AvaScopeCapabilityIds.BaselineSingle,
                 "baseline",
                 "Create and check single-view preview baselines with screenshot diff outputs.",
@@ -468,13 +479,13 @@ public static class AvaScopeCapabilityCatalog
             Mcp("close_session", AvaScopeCapabilityIds.RuntimeSessionLifecycle),
             Cli("screenshot", AvaScopeCapabilityIds.ArtifactsScreenshot),
             Mcp("screenshot", AvaScopeCapabilityIds.ArtifactsScreenshot),
-            Cli("preview", AvaScopeCapabilityIds.PreviewAxaml, AvaScopeCapabilityIds.PreviewMultiSize, AvaScopeCapabilityIds.PreviewStateVariants, AvaScopeCapabilityIds.ArtifactsScreenshot, AvaScopeCapabilityIds.ArtifactsRunIndex),
-            Mcp("preview_axaml", AvaScopeCapabilityIds.PreviewAxaml, AvaScopeCapabilityIds.PreviewStateVariants, AvaScopeCapabilityIds.ArtifactsScreenshot),
-            Mcp("preview_axaml_multi", AvaScopeCapabilityIds.PreviewMultiSize, AvaScopeCapabilityIds.PreviewStateVariants, AvaScopeCapabilityIds.ArtifactsScreenshot),
-            Cli("preview-animation", AvaScopeCapabilityIds.PreviewAnimation, AvaScopeCapabilityIds.PreviewStateVariants, AvaScopeCapabilityIds.ArtifactsHtmlViewer),
-            Mcp("preview_axaml_animation", AvaScopeCapabilityIds.PreviewAnimation, AvaScopeCapabilityIds.PreviewStateVariants, AvaScopeCapabilityIds.ArtifactsHtmlViewer),
-            Cli("create-preview-session", AvaScopeCapabilityIds.PreviewSessions, AvaScopeCapabilityIds.PreviewStateVariants),
-            Mcp("create_preview_session", AvaScopeCapabilityIds.PreviewSessions, AvaScopeCapabilityIds.PreviewStateVariants),
+            Cli("preview", AvaScopeCapabilityIds.PreviewAxaml, AvaScopeCapabilityIds.PreviewMultiSize, AvaScopeCapabilityIds.PreviewStateVariants, AvaScopeCapabilityIds.PreviewDiagnosticBaseline, AvaScopeCapabilityIds.ArtifactsScreenshot, AvaScopeCapabilityIds.ArtifactsRunIndex),
+            Mcp("preview_axaml", AvaScopeCapabilityIds.PreviewAxaml, AvaScopeCapabilityIds.PreviewStateVariants, AvaScopeCapabilityIds.PreviewDiagnosticBaseline, AvaScopeCapabilityIds.ArtifactsScreenshot),
+            Mcp("preview_axaml_multi", AvaScopeCapabilityIds.PreviewMultiSize, AvaScopeCapabilityIds.PreviewStateVariants, AvaScopeCapabilityIds.PreviewDiagnosticBaseline, AvaScopeCapabilityIds.ArtifactsScreenshot),
+            Cli("preview-animation", AvaScopeCapabilityIds.PreviewAnimation, AvaScopeCapabilityIds.PreviewStateVariants, AvaScopeCapabilityIds.PreviewDiagnosticBaseline, AvaScopeCapabilityIds.ArtifactsHtmlViewer),
+            Mcp("preview_axaml_animation", AvaScopeCapabilityIds.PreviewAnimation, AvaScopeCapabilityIds.PreviewStateVariants, AvaScopeCapabilityIds.PreviewDiagnosticBaseline, AvaScopeCapabilityIds.ArtifactsHtmlViewer),
+            Cli("create-preview-session", AvaScopeCapabilityIds.PreviewSessions, AvaScopeCapabilityIds.PreviewStateVariants, AvaScopeCapabilityIds.PreviewDiagnosticBaseline),
+            Mcp("create_preview_session", AvaScopeCapabilityIds.PreviewSessions, AvaScopeCapabilityIds.PreviewStateVariants, AvaScopeCapabilityIds.PreviewDiagnosticBaseline),
             Cli("list-preview-sessions", AvaScopeCapabilityIds.PreviewSessions),
             Mcp("list_preview_sessions", AvaScopeCapabilityIds.PreviewSessions),
             Cli("reload-preview-session", AvaScopeCapabilityIds.PreviewReload),

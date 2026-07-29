@@ -137,6 +137,21 @@ public sealed class McpStdioSmokeTests
             Assert.Single(tools, static tool => tool.Name == "native_picker").ProtocolTool.InputSchema,
             "predefinedResult",
             NativePickerResultStates.Preparable);
+        foreach (var toolName in new[]
+                 {
+                     "preview_axaml",
+                     "preview_axaml_multi",
+                     "preview_axaml_animation",
+                     "create_preview_session"
+                 })
+        {
+            var schema = Assert.Single(tools, tool => tool.Name == toolName).ProtocolTool.InputSchema;
+            AssertSchemaEnum(schema, "minimumSeverity", PreviewMinimumSeverities.Values);
+            var properties = JsonSerializer.SerializeToNode(schema)!.AsObject()["properties"]!.AsObject();
+            Assert.True(properties.ContainsKey("errorsOnly"));
+            Assert.True(properties.ContainsKey("diagnosticsBaselinePath"));
+            Assert.True(properties.ContainsKey("diagnosticsBaselineFingerprints"));
+        }
 
         var healthResult = await client.CallToolAsync(
             "health",

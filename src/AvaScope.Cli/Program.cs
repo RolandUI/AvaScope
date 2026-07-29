@@ -169,7 +169,11 @@ internal static class Program
                 "contact-sheet",
                 "run-index",
                 "task",
-                "run-group"))
+                "run-group",
+                "errors-only",
+                "minimum-severity",
+                "diagnostics-baseline",
+                "diagnostics-fingerprints"))
         {
             return 2;
         }
@@ -306,6 +310,11 @@ internal static class Program
             return false;
         }
 
+        if (!TryCreatePreviewDiagnosticOptions(options, out var diagnosticOptions, out error))
+        {
+            return false;
+        }
+
         try
         {
             request = new PreviewRequest(
@@ -325,7 +334,8 @@ internal static class Program
                 assemblyPath: options.TryGetValue("assembly-path", out var assemblyPath)
                     ? Path.GetFullPath(assemblyPath)
                     : null,
-                noBuild: noBuild);
+                noBuild: noBuild,
+                diagnosticOptions: diagnosticOptions);
             return true;
         }
         catch (Exception exception) when (exception is ArgumentException or ArgumentOutOfRangeException or PathTooLongException)
@@ -371,7 +381,11 @@ internal static class Program
                 "variant",
                 "time-offsets",
                 "frame-strip",
-                "viewer"))
+                "viewer",
+                "errors-only",
+                "minimum-severity",
+                "diagnostics-baseline",
+                "diagnostics-fingerprints"))
         {
             return 2;
         }
@@ -399,6 +413,47 @@ internal static class Program
         var result = await new PreviewHostClient().RenderAnimationAsync(request!);
         WriteResult(result);
         return result.Success && result.Value!.Frames.Any(static frame => frame.Render.Success) ? 0 : 1;
+    }
+
+    private static bool TryCreatePreviewDiagnosticOptions(
+        IReadOnlyDictionary<string, string> options,
+        out PreviewDiagnosticOptions? diagnosticOptions,
+        out ProtocolError? error)
+    {
+        diagnosticOptions = null;
+        error = null;
+        var errorsOnly = false;
+        if (options.TryGetValue("errors-only", out var errorsOnlyText)
+            && !bool.TryParse(errorsOnlyText, out errorsOnly))
+        {
+            error = new ProtocolError(InvalidCliArguments, "errors-only must be true or false.");
+            return false;
+        }
+
+        var minimumSeverity = options.GetValueOrDefault(
+            "minimum-severity",
+            PreviewMinimumSeverities.All);
+        var fingerprints = options.TryGetValue("diagnostics-fingerprints", out var fingerprintText)
+            ? fingerprintText.Split(
+                ',',
+                StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            : [];
+        try
+        {
+            diagnosticOptions = new PreviewDiagnosticOptions(
+                minimumSeverity,
+                errorsOnly,
+                options.TryGetValue("diagnostics-baseline", out var baselinePath)
+                    ? Path.GetFullPath(baselinePath)
+                    : null,
+                fingerprints);
+            return true;
+        }
+        catch (Exception exception) when (exception is ArgumentException or PathTooLongException or NotSupportedException)
+        {
+            error = new ProtocolError(CoreErrorCodes.InvalidPreviewRequest, exception.Message);
+            return false;
+        }
     }
 
     private static bool TryCreatePreviewAnimationRequest(
@@ -464,6 +519,11 @@ internal static class Program
             return false;
         }
 
+        if (!TryCreatePreviewDiagnosticOptions(options, out var diagnosticOptions, out error))
+        {
+            return false;
+        }
+
         try
         {
             request = new PreviewAnimationRequest(
@@ -486,7 +546,8 @@ internal static class Program
                 assemblyPath: options.TryGetValue("assembly-path", out var assemblyPath)
                     ? Path.GetFullPath(assemblyPath)
                     : null,
-                noBuild: noBuild);
+                noBuild: noBuild,
+                diagnosticOptions: diagnosticOptions);
             return true;
         }
         catch (Exception exception) when (exception is ArgumentException or ArgumentOutOfRangeException or PathTooLongException)
@@ -840,7 +901,11 @@ internal static class Program
                 "profile",
                 "profile-file",
                 "variant",
-                "display-name"))
+                "display-name",
+                "errors-only",
+                "minimum-severity",
+                "diagnostics-baseline",
+                "diagnostics-fingerprints"))
         {
             return 2;
         }
@@ -3909,17 +3974,17 @@ internal static class Program
 
     private static string GetPreviewUsage()
     {
-        return "Usage: avascope preview <project.csproj> [--profile <name>] [--profile-file <path>] [--variant <name>] --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--sizes <w>x<h>[,<w>x<h>...]] [--contact-sheet <sheet.png>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] [--state-variant <state>] [--build-output-root <dir>] [--assembly-path <dll>] [--no-build true|false] [--run-index <dir>] [--task <name>] [--run-group <name>]";
+        return "Usage: avascope preview <project.csproj> [--profile <name>] [--profile-file <path>] [--variant <name>] --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--sizes <w>x<h>[,<w>x<h>...]] [--contact-sheet <sheet.png>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] [--state-variant <state>] [--build-output-root <dir>] [--assembly-path <dll>] [--no-build true|false] [--errors-only true|false] [--minimum-severity all|info|warning|error] [--diagnostics-baseline <json>] [--diagnostics-fingerprints <sha256>[,<sha256>...]] [--run-index <dir>] [--task <name>] [--run-group <name>]";
     }
 
     private static string GetPreviewAnimationUsage()
     {
-        return "Usage: avascope preview-animation <project.csproj> [--profile <name>] [--profile-file <path>] [--variant <name>] --view <view.axaml> --out <frame.png> --time-offsets <ms>[,<ms>...] [--frame-strip <strip.png>] [--viewer <viewer.html>] [--width <width>] [--height <height>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] [--state-variant <state>] [--build-output-root <dir>] [--assembly-path <dll>] [--no-build true|false]";
+        return "Usage: avascope preview-animation <project.csproj> [--profile <name>] [--profile-file <path>] [--variant <name>] --view <view.axaml> --out <frame.png> --time-offsets <ms>[,<ms>...] [--frame-strip <strip.png>] [--viewer <viewer.html>] [--width <width>] [--height <height>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] [--state-variant <state>] [--build-output-root <dir>] [--assembly-path <dll>] [--no-build true|false] [--errors-only true|false] [--minimum-severity all|info|warning|error] [--diagnostics-baseline <json>] [--diagnostics-fingerprints <sha256>[,<sha256>...]]";
     }
 
     private static string GetCreatePreviewSessionUsage()
     {
-        return "Usage: avascope create-preview-session <project.csproj> [--profile <name>] [--profile-file <path>] [--variant <name>] --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] [--state-variant <state>] [--build-output-root <dir>] [--assembly-path <dll>] [--no-build true|false] [--display-name <name>]";
+        return "Usage: avascope create-preview-session <project.csproj> [--profile <name>] [--profile-file <path>] [--variant <name>] --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] [--state-variant <state>] [--build-output-root <dir>] [--assembly-path <dll>] [--no-build true|false] [--display-name <name>] [--errors-only true|false] [--minimum-severity all|info|warning|error] [--diagnostics-baseline <json>] [--diagnostics-fingerprints <sha256>[,<sha256>...]]";
     }
 
     private static string GetListPreviewSessionsUsage()

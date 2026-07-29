@@ -946,7 +946,8 @@ public sealed class AvaScopeMcpToolsTests
                 viewPath: viewPath,
                 themeVariant: "light",
                 culture: "ja-JP",
-                designDataType: "McpPreviewSample.PreviewDesignData");
+                designDataType: "McpPreviewSample.PreviewDesignData",
+                diagnosticsBaselinePath: Path.Combine(testRoot, "missing-diagnostics.json"));
 
             Assert.True(result.Success, result.Error?.Message);
             Assert.Equal(Path.GetFullPath(outputPath), result.Value!.FilePath);
@@ -956,6 +957,10 @@ public sealed class AvaScopeMcpToolsTests
             Assert.Equal("McpPreviewSample.PreviewDesignData", result.Value.DesignDataType);
             Assert.True(File.Exists(result.Value.FilePath));
             Assert.True(new FileInfo(result.Value.FilePath).Length > 0);
+            Assert.Equal("invalid", result.Value.DiagnosticSummary.ComparisonProvenance);
+            Assert.Equal(
+                CoreErrorCodes.PreviewDiagnosticsBaselineInvalid,
+                result.Value.DiagnosticSummary.ComparisonError!.Code);
         }
         finally
         {

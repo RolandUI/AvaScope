@@ -24,7 +24,8 @@ public sealed record PreviewAnimationRequest
         string? stateVariant = null,
         string? buildOutputRoot = null,
         string? assemblyPath = null,
-        bool noBuild = false)
+        bool noBuild = false,
+        PreviewDiagnosticOptions? diagnosticOptions = null)
     {
         if (string.IsNullOrWhiteSpace(outputPath))
         {
@@ -85,6 +86,7 @@ public sealed record PreviewAnimationRequest
         BuildOutputRoot = string.IsNullOrWhiteSpace(buildOutputRoot) ? null : buildOutputRoot;
         AssemblyPath = string.IsNullOrWhiteSpace(assemblyPath) ? null : assemblyPath;
         NoBuild = noBuild;
+        DiagnosticOptions = diagnosticOptions;
     }
 
     [JsonPropertyName("outputPath")]
@@ -147,4 +149,8 @@ public sealed record PreviewAnimationRequest
     [JsonPropertyName("noBuild")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public bool NoBuild { get; }
+
+    [JsonPropertyName("diagnosticOptions")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PreviewDiagnosticOptions? DiagnosticOptions { get; }
 }

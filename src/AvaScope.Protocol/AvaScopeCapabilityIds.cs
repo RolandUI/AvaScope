@@ -42,6 +42,7 @@ public static class AvaScopeCapabilityIds
     public const string PreviewAnimation = "preview.animation";
     public const string PreviewStateVariants = "preview.state_variants";
     public const string PreviewSemanticDiff = "preview.semantic_diff";
+    public const string PreviewDiagnosticBaseline = "preview.diagnostic_baseline";
 
     public const string DiagnosticsSummary = "diagnostics.summary";
 

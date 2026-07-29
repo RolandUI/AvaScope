@@ -89,8 +89,8 @@ The `v1.2.0` minor release implements the complete runtime interaction and agent
 - #87 `R1.2.0-M11 Deterministic native picker injection and dialog hardening`; Status: `Done`.
 - #88 `R1.2.0-M12 Truthful close-session and partial-failure evidence`; Status: `Done`.
 - #89 `R1.2.0-M13 Effective session capabilities and closed-set schema parity`; Status: `Done`.
-- #90 `R1.2.0-M14 Compact binding summaries and global response budgets`; Status: `Review`.
-- #91 `R1.2.0-M15 Preview diagnostics baseline and filter parity`; Status: `Backlog`.
+- #90 `R1.2.0-M14 Compact binding summaries and global response budgets`; Status: `Done`.
+- #91 `R1.2.0-M15 Preview diagnostics baseline and filter parity`; Status: `Review`.
 - #92 `R1.2.0-M16 Deterministic waits, idempotency, and dry-run validation`; Status: `Backlog`.
 - #86 `Release v1.2.0`; Status: `Backlog`.
 

@@ -19,6 +19,7 @@ public static class CoreErrorCodes
     public const string InvalidPreviewRequest = "invalid_preview_request";
     public const string PreviewBaselineFailed = "preview_baseline_failed";
     public const string PreviewBaselineManifestInvalid = "preview_baseline_manifest_invalid";
+    public const string PreviewDiagnosticsBaselineInvalid = "preview_diagnostics_baseline_invalid";
     public const string ImageDiffDimensionMismatch = "image_diff_dimension_mismatch";
     public const string ImageDiffFailed = "image_diff_failed";
     public const string ImageRegionAssertionFailed = "image_region_assertion_failed";

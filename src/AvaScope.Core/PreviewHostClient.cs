@@ -79,7 +79,10 @@ public sealed class PreviewHostClient
 
             var result = await RunPreviewHostAsync(requestPath, cancellationToken);
             return result.Success
-                ? CoreResult<PreviewResponse>.Ok(await BoundDiagnosticsAsync(result.Value!, cancellationToken))
+                ? CoreResult<PreviewResponse>.Ok(await BoundDiagnosticsAsync(
+                    result.Value!,
+                    request.DiagnosticOptions,
+                    cancellationToken))
                 : result;
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException)
@@ -96,30 +99,15 @@ public sealed class PreviewHostClient
 
     private static async Task<PreviewResponse> BoundDiagnosticsAsync(
         PreviewResponse response,
+        PreviewDiagnosticOptions? options,
         CancellationToken cancellationToken)
     {
-        const int maximumInlineDiagnostics = 16;
-        var all = response.Diagnostics;
         var artifactPath = $"{Path.GetFullPath(response.FilePath)}.diagnostics.json";
-        var directory = Path.GetDirectoryName(artifactPath);
-        if (!string.IsNullOrWhiteSpace(directory))
-        {
-            Directory.CreateDirectory(directory);
-        }
-
-        await File.WriteAllTextAsync(
+        var processed = await new PreviewDiagnosticProcessor().ProcessAsync(
+            response.Diagnostics,
             artifactPath,
-            JsonSerializer.Serialize(all, JsonOptions),
+            options,
             cancellationToken);
-        var inline = all
-            .OrderBy(static item => item.Severity == PreviewDiagnosticSeverities.Error ? 0
-                : item.Severity == PreviewDiagnosticSeverities.Warning ? 1 : 2)
-            .Take(maximumInlineDiagnostics)
-            .ToArray();
-        var summary = PreviewResponse.CreateDiagnosticSummary(
-            all,
-            truncated: all.Count > inline.Length,
-            totalCount: all.Count);
 
         return new PreviewResponse(
             response.FilePath,
@@ -132,13 +120,13 @@ public sealed class PreviewHostClient
             response.ThemeVariant,
             response.Culture,
             response.DesignDataType,
-            inline,
+            processed.Diagnostics,
             response.AnimationTimeOffsetMs,
             response.ProjectInfo,
             response.StateVariant,
             response.RunIndex,
-            summary,
-            artifactPath);
+            processed.Summary,
+            processed.ArtifactPath);
     }
 
     public async Task<CoreResult<PreviewBatchResponse>> RenderBatchAsync(
@@ -175,7 +163,8 @@ public sealed class PreviewHostClient
                 stateVariant: request.StateVariant,
                 buildOutputRoot: request.BuildOutputRoot,
                 assemblyPath: request.AssemblyPath,
-                noBuild: request.NoBuild);
+                noBuild: request.NoBuild,
+                diagnosticOptions: request.DiagnosticOptions);
             var result = await RenderAsync(viewportRequest, cancellationToken);
             entries.Add(new PreviewBatchEntry(
                 viewport,
@@ -305,7 +294,8 @@ public sealed class PreviewHostClient
                 request.StateVariant,
                 request.BuildOutputRoot,
                 request.AssemblyPath,
-                request.NoBuild);
+                request.NoBuild,
+                request.DiagnosticOptions);
 
             var result = await RenderAsync(frameRequest, cancellationToken);
             frames.Add(new PreviewAnimationFrame(
@@ -338,12 +328,19 @@ public sealed class PreviewHostClient
         }
 
         var sampledAt = DateTimeOffset.UtcNow;
+        var processedDiagnostics = await new PreviewDiagnosticProcessor().ProcessAsync(
+            diagnostics,
+            $"{Path.GetFullPath(request.OutputPath)}.animation.diagnostics.json",
+            request.DiagnosticOptions,
+            cancellationToken);
         var response = new PreviewAnimationResponse(
             frames,
             fullFrameStripPath,
             motion,
-            diagnostics,
-            sampledAt);
+            processedDiagnostics.Diagnostics,
+            sampledAt,
+            diagnosticSummary: processedDiagnostics.Summary,
+            diagnosticsArtifactPath: processedDiagnostics.ArtifactPath);
         if (!string.IsNullOrWhiteSpace(request.ViewerPath))
         {
             var viewerResult = new PreviewAnimationViewerExporter().Export(response, request.ViewerPath);
@@ -356,9 +353,11 @@ public sealed class PreviewHostClient
                 frames,
                 fullFrameStripPath,
                 motion,
-                diagnostics,
+                processedDiagnostics.Diagnostics,
                 sampledAt,
-                viewerResult.Value);
+                viewerResult.Value,
+                processedDiagnostics.Summary,
+                processedDiagnostics.ArtifactPath);
         }
 
         return CoreResult<PreviewAnimationResponse>.Ok(response);

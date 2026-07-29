@@ -13,8 +13,11 @@ public sealed record PreviewDiagnosticSummary
         string comparisonProvenance = "unavailable",
         int? newCount = null,
         int? existingCount = null,
+        int? resolvedCount = null,
         bool truncated = false,
-        int inlineCount = 0)
+        int inlineCount = 0,
+        int? baselineCount = null,
+        ProtocolError? comparisonError = null)
     {
         TotalCount = totalCount;
         SeverityCounts = severityCounts ?? new Dictionary<string, int>();
@@ -23,8 +26,11 @@ public sealed record PreviewDiagnosticSummary
         ComparisonProvenance = comparisonProvenance;
         NewCount = newCount;
         ExistingCount = existingCount;
+        ResolvedCount = resolvedCount;
         Truncated = truncated;
         InlineCount = inlineCount;
+        BaselineCount = baselineCount;
+        ComparisonError = comparisonError;
     }
 
     [JsonPropertyName("totalCount")] public int TotalCount { get; }
@@ -34,6 +40,12 @@ public sealed record PreviewDiagnosticSummary
     [JsonPropertyName("comparisonProvenance")] public string ComparisonProvenance { get; }
     [JsonPropertyName("newCount")] public int? NewCount { get; }
     [JsonPropertyName("existingCount")] public int? ExistingCount { get; }
+    [JsonPropertyName("resolvedCount")] public int? ResolvedCount { get; }
     [JsonPropertyName("truncated")] public bool Truncated { get; }
     [JsonPropertyName("inlineCount")] public int InlineCount { get; }
+    [JsonPropertyName("baselineCount")] public int? BaselineCount { get; }
+
+    [JsonPropertyName("comparisonError")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public ProtocolError? ComparisonError { get; }
 }

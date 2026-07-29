@@ -129,6 +129,15 @@ internal static class McpClosedValueNames
         _ => throw new ArgumentOutOfRangeException(nameof(value))
     };
 
+    public static string ToProtocolName(this McpMinimumSeverity value) => value switch
+    {
+        McpMinimumSeverity.All => PreviewMinimumSeverities.All,
+        McpMinimumSeverity.Info => PreviewMinimumSeverities.Info,
+        McpMinimumSeverity.Warning => PreviewMinimumSeverities.Warning,
+        McpMinimumSeverity.Error => PreviewMinimumSeverities.Error,
+        _ => throw new ArgumentOutOfRangeException(nameof(value))
+    };
+
     public static string ToProtocolName(this McpTreeKind value) => value switch
     {
         McpTreeKind.Visual => TreeKinds.Visual,

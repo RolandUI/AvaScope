@@ -1543,6 +1543,30 @@ public sealed class CliSmokeTests
     }
 
     [Fact]
+    public async Task PreviewCommandRejectsInvalidMinimumDiagnosticSeverityBeforeRendering()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        var result = await RunCliAsync(
+            cliAssembly,
+            "preview",
+            "sample.csproj",
+            "--view",
+            "MainView.axaml",
+            "--out",
+            "preview.png",
+            "--minimum-severity",
+            "critical");
+
+        Assert.Equal(2, result.ExitCode);
+        var payload = JsonSerializer.Deserialize<ToolResult<PreviewResponse>>(
+            result.StandardOutput,
+            JsonOptions);
+        Assert.False(payload!.Success);
+        Assert.Equal(CoreErrorCodes.InvalidPreviewRequest, payload.Error!.Code);
+        Assert.Contains("all, info, warning, error", payload.Error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task PreviewCommandPreservesPreviewReadinessFailureDetails()
     {
         var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");

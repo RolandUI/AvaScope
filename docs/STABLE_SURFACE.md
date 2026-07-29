@@ -256,6 +256,16 @@ Stable pointer diagnostics artifact suffixes:
 
 - `-pointer-overlay.png`
 
+Stable preview diagnostics artifact suffixes:
+
+- `.diagnostics.json`
+- `.animation.diagnostics.json`
+
+Preview diagnostics expose stable SHA-256 `fingerprint` values and optional
+`baselineStatus` (`new` or `existing`). The additive diagnostic summary
+comparison fields are `comparisonProvenance`, `newCount`, `existingCount`,
+`resolvedCount`, `baselineCount`, and `comparisonError`.
+
 Stable pseudo-state matrix artifact suffixes:
 
 - `-contact-sheet.png`

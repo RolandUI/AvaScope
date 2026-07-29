@@ -145,6 +145,106 @@ public sealed class PreviewHostClientTests : IDisposable
         Assert.Contains("animation-json", viewerHtml);
         Assert.Equal("static", result.Value.Motion.Status);
         Assert.Contains(result.Value.Diagnostics, static diagnostic => diagnostic.Code == "animation_static_frames");
+        Assert.True(File.Exists(result.Value.DiagnosticsArtifactPath));
+        Assert.All(
+            result.Value.Diagnostics,
+            static diagnostic => Assert.Equal(64, diagnostic.Fingerprint!.Length));
+        Assert.Equal("unavailable", result.Value.DiagnosticSummary.ComparisonProvenance);
+    }
+
+    [Fact]
+    public async Task RenderAsyncKeepsRenderResultWhenDiagnosticsBaselineIsMissing()
+    {
+        Directory.CreateDirectory(_testRoot);
+        var hostAssembly = Path.Combine(AppContext.BaseDirectory, "AvaScope.PreviewHost.dll");
+        var viewPath = Path.Combine(_testRoot, "MissingBaselineView.axaml");
+        var outputPath = Path.Combine(_testRoot, "missing-baseline.png");
+        await File.WriteAllTextAsync(viewPath, """
+            <UserControl xmlns="https://github.com/avaloniaui">
+              <TextBlock Text="Missing diagnostics baseline" />
+            </UserControl>
+            """);
+
+        var result = await new PreviewHostClient(hostAssembly).RenderAsync(new PreviewRequest(
+            outputPath,
+            width: 240,
+            height: 120,
+            viewPath: viewPath,
+            diagnosticOptions: new PreviewDiagnosticOptions(
+                baselinePath: Path.Combine(_testRoot, "missing-diagnostics.json"))));
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.True(File.Exists(result.Value!.FilePath));
+        Assert.Equal("invalid", result.Value.DiagnosticSummary.ComparisonProvenance);
+        Assert.Equal(
+            CoreErrorCodes.PreviewDiagnosticsBaselineInvalid,
+            result.Value.DiagnosticSummary.ComparisonError!.Code);
+    }
+
+    [Fact]
+    public async Task SeverityFilteringIsConsistentAcrossOneShotBatchAnimationAndSession()
+    {
+        Directory.CreateDirectory(_testRoot);
+        var hostAssembly = Path.Combine(AppContext.BaseDirectory, "AvaScope.PreviewHost.dll");
+        var viewPath = Path.Combine(_testRoot, "FilterParityView.axaml");
+        await File.WriteAllTextAsync(viewPath, """
+            <UserControl xmlns="https://github.com/avaloniaui">
+              <TextBlock Text="Diagnostic filter parity" />
+            </UserControl>
+            """);
+        var options = new PreviewDiagnosticOptions(minimumSeverity: PreviewMinimumSeverities.Error);
+        var client = new PreviewHostClient(hostAssembly);
+
+        var oneShot = await client.RenderAsync(new PreviewRequest(
+            Path.Combine(_testRoot, "one-shot.png"),
+            width: 200,
+            height: 100,
+            viewPath: viewPath,
+            diagnosticOptions: options));
+        var batch = await client.RenderBatchAsync(
+            new PreviewRequest(
+                Path.Combine(_testRoot, "batch.png"),
+                viewPath: viewPath,
+                diagnosticOptions: options),
+            [new PreviewViewport(200, 100)]);
+        var animation = await client.RenderAnimationAsync(new PreviewAnimationRequest(
+            Path.Combine(_testRoot, "animation-filter.png"),
+            [0],
+            width: 200,
+            height: 100,
+            viewPath: viewPath,
+            diagnosticOptions: options));
+        var sessions = new PreviewSessionRegistry(new SessionRegistry(), client);
+        var session = await sessions.CreateAsync(new PreviewRequest(
+            Path.Combine(_testRoot, "session.png"),
+            width: 200,
+            height: 100,
+            viewPath: viewPath,
+            diagnosticOptions: options));
+
+        Assert.True(oneShot.Success, oneShot.Error?.Message);
+        Assert.True(batch.Success, batch.Error?.Message);
+        Assert.True(animation.Success, animation.Error?.Message);
+        Assert.True(session.Success, session.Error?.Message);
+        var responses = new[]
+        {
+            oneShot.Value!,
+            Assert.Single(batch.Value!.Entries).Render.Value!,
+            Assert.Single(animation.Value!.Frames).Render.Value!,
+            session.Value!.LastRender.Value!
+        };
+        Assert.All(responses, response =>
+        {
+            Assert.All(
+                response.Diagnostics,
+                static diagnostic => Assert.Equal(
+                    PreviewDiagnosticSeverities.Error,
+                    diagnostic.Severity));
+            Assert.True(File.Exists(response.DiagnosticsArtifactPath));
+        });
+        Assert.Empty(animation.Value.Diagnostics);
+        Assert.Equal(0, animation.Value.DiagnosticSummary.TotalCount);
+        Assert.True(File.Exists(animation.Value.DiagnosticsArtifactPath));
     }
 
     [Fact]

@@ -2194,7 +2194,11 @@ public sealed class ProtocolContractTests
             viewPath: "Views\\MainView.axaml",
             buildOutputRoot: "C:\\isolated\\bin",
             assemblyPath: "C:\\isolated\\bin\\Debug\\net10.0\\Sample.dll",
-            noBuild: true);
+            noBuild: true,
+            diagnosticOptions: new PreviewDiagnosticOptions(
+                PreviewMinimumSeverities.Warning,
+                baselinePath: "C:\\previews\\baseline.diagnostics.json",
+                baselineFingerprints: [new string('a', 64)]));
 
         var json = JsonSerializer.Serialize(request);
         var node = JsonNode.Parse(json)!;
@@ -2202,6 +2206,11 @@ public sealed class ProtocolContractTests
         Assert.Equal("C:\\isolated\\bin", node["buildOutputRoot"]!.GetValue<string>());
         Assert.Equal("C:\\isolated\\bin\\Debug\\net10.0\\Sample.dll", node["assemblyPath"]!.GetValue<string>());
         Assert.True(node["noBuild"]!.GetValue<bool>());
+        Assert.Equal("warning", node["diagnosticOptions"]!["minimumSeverity"]!.GetValue<string>());
+        Assert.Equal(
+            "C:\\previews\\baseline.diagnostics.json",
+            node["diagnosticOptions"]!["baselinePath"]!.GetValue<string>());
+        Assert.Equal(new string('a', 64), node["diagnosticOptions"]!["baselineFingerprints"]![0]!.GetValue<string>());
     }
 
     [Fact]
@@ -2421,6 +2430,7 @@ public sealed class ProtocolContractTests
         Assert.Equal("changed", responseNode["motion"]!["status"]!.GetValue<string>());
         Assert.Equal(42, responseNode["motion"]!["changedPixels"]!.GetValue<long>());
         Assert.Equal("animation", responseNode["diagnostics"]![0]!["category"]!.GetValue<string>());
+        Assert.Equal(1, responseNode["diagnosticSummary"]!["totalCount"]!.GetValue<int>());
         Assert.Equal("C:\\previews\\animation-strip.png", responseNode["frameStripPath"]!.GetValue<string>());
         Assert.Equal("file:///C:/previews/animation.html", responseNode["viewer"]!["previewUrl"]!.GetValue<string>());
     }
@@ -3011,7 +3021,13 @@ public sealed class ProtocolContractTests
             DateTimeOffset.UtcNow,
             diagnostics:
             [
-                new PreviewDiagnostic(PreviewDiagnosticSeverities.Warning, "binding", "binding_warning", "Warning"),
+                new PreviewDiagnostic(
+                    PreviewDiagnosticSeverities.Warning,
+                    "binding",
+                    "binding_warning",
+                    "Warning",
+                    fingerprint: new string('b', 64),
+                    baselineStatus: "existing"),
                 new PreviewDiagnostic(PreviewDiagnosticSeverities.Error, "xaml", "xaml_error", "Error")
             ]);
 
@@ -3020,5 +3036,7 @@ public sealed class ProtocolContractTests
         Assert.Equal(1, response.DiagnosticSummary.SeverityCounts[PreviewDiagnosticSeverities.Error]);
         Assert.Equal("unavailable", response.DiagnosticSummary.ComparisonProvenance);
         Assert.Contains("1 error", response.DiagnosticSummary.Summary, StringComparison.Ordinal);
+        Assert.Equal(new string('b', 64), response.Diagnostics[0].Fingerprint);
+        Assert.Equal("existing", response.Diagnostics[0].BaselineStatus);
     }
 }

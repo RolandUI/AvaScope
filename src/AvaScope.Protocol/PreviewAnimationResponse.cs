@@ -11,7 +11,9 @@ public sealed record PreviewAnimationResponse
         PreviewAnimationMotionSummary motion,
         IReadOnlyList<PreviewDiagnostic>? diagnostics,
         DateTimeOffset sampledAt,
-        PreviewAnimationViewerResponse? viewer = null)
+        PreviewAnimationViewerResponse? viewer = null,
+        PreviewDiagnosticSummary? diagnosticSummary = null,
+        string? diagnosticsArtifactPath = null)
     {
         ArgumentNullException.ThrowIfNull(motion);
 
@@ -21,6 +23,10 @@ public sealed record PreviewAnimationResponse
         Diagnostics = diagnostics ?? [];
         SampledAt = sampledAt;
         Viewer = viewer;
+        DiagnosticSummary = diagnosticSummary ?? PreviewResponse.CreateDiagnosticSummary(Diagnostics);
+        DiagnosticsArtifactPath = string.IsNullOrWhiteSpace(diagnosticsArtifactPath)
+            ? null
+            : Path.GetFullPath(diagnosticsArtifactPath);
     }
 
     [JsonPropertyName("frames")]
@@ -42,4 +48,11 @@ public sealed record PreviewAnimationResponse
     [JsonPropertyName("viewer")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public PreviewAnimationViewerResponse? Viewer { get; }
+
+    [JsonPropertyName("diagnosticSummary")]
+    public PreviewDiagnosticSummary DiagnosticSummary { get; }
+
+    [JsonPropertyName("diagnosticsArtifactPath")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? DiagnosticsArtifactPath { get; }
 }

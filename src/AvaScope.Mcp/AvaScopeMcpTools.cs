@@ -1064,6 +1064,8 @@ public sealed class AvaScopeMcpTools
         bool noBuild = false,
         bool errorsOnly = false,
         McpMinimumSeverity minimumSeverity = McpMinimumSeverity.All,
+        string? diagnosticsBaselinePath = null,
+        IReadOnlyList<string>? diagnosticsBaselineFingerprints = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(previewHostClient);
@@ -1084,7 +1086,12 @@ public sealed class AvaScopeMcpTools
                 stateVariant: stateVariant,
                 buildOutputRoot: buildOutputRoot,
                 assemblyPath: assemblyPath,
-                noBuild: noBuild);
+                noBuild: noBuild,
+                diagnosticOptions: new PreviewDiagnosticOptions(
+                    minimumSeverity.ToProtocolName(),
+                    errorsOnly,
+                    diagnosticsBaselinePath,
+                    diagnosticsBaselineFingerprints));
         }
         catch (Exception exception) when (exception is ArgumentException or ArgumentOutOfRangeException)
         {
@@ -1093,15 +1100,7 @@ public sealed class AvaScopeMcpTools
                 exception.Message));
         }
 
-        var result = await previewHostClient.RenderAsync(request, cancellationToken);
-        if (!result.Success)
-        {
-            return ToToolResult(result);
-        }
-
-        return ToolResult<PreviewResponse>.Ok(FilterPreviewDiagnostics(
-            result.Value!,
-            errorsOnly ? McpMinimumSeverity.Error : minimumSeverity));
+        return ToToolResult(await previewHostClient.RenderAsync(request, cancellationToken));
     }
 
     [McpServerTool(
@@ -1270,6 +1269,10 @@ public sealed class AvaScopeMcpTools
         string? buildOutputRoot = null,
         string? assemblyPath = null,
         bool noBuild = false,
+        bool errorsOnly = false,
+        McpMinimumSeverity minimumSeverity = McpMinimumSeverity.All,
+        string? diagnosticsBaselinePath = null,
+        IReadOnlyList<string>? diagnosticsBaselineFingerprints = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(previewHostClient);
@@ -1295,7 +1298,12 @@ public sealed class AvaScopeMcpTools
                 stateVariant: stateVariant,
                 buildOutputRoot: buildOutputRoot,
                 assemblyPath: assemblyPath,
-                noBuild: noBuild);
+                noBuild: noBuild,
+                diagnosticOptions: new PreviewDiagnosticOptions(
+                    minimumSeverity.ToProtocolName(),
+                    errorsOnly,
+                    diagnosticsBaselinePath,
+                    diagnosticsBaselineFingerprints));
         }
         catch (Exception exception) when (exception is ArgumentException or ArgumentOutOfRangeException)
         {
@@ -1338,6 +1346,10 @@ public sealed class AvaScopeMcpTools
         string? buildOutputRoot = null,
         string? assemblyPath = null,
         bool noBuild = false,
+        bool errorsOnly = false,
+        McpMinimumSeverity minimumSeverity = McpMinimumSeverity.All,
+        string? diagnosticsBaselinePath = null,
+        IReadOnlyList<string>? diagnosticsBaselineFingerprints = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(previewHostClient);
@@ -1368,7 +1380,12 @@ public sealed class AvaScopeMcpTools
                 stateVariant: stateVariant,
                 buildOutputRoot: buildOutputRoot,
                 assemblyPath: assemblyPath,
-                noBuild: noBuild);
+                noBuild: noBuild,
+                diagnosticOptions: new PreviewDiagnosticOptions(
+                    minimumSeverity.ToProtocolName(),
+                    errorsOnly,
+                    diagnosticsBaselinePath,
+                    diagnosticsBaselineFingerprints));
         }
         catch (Exception exception) when (exception is ArgumentException or ArgumentOutOfRangeException)
         {
@@ -1443,6 +1460,10 @@ public sealed class AvaScopeMcpTools
         string? buildOutputRoot = null,
         string? assemblyPath = null,
         bool noBuild = false,
+        bool errorsOnly = false,
+        McpMinimumSeverity minimumSeverity = McpMinimumSeverity.All,
+        string? diagnosticsBaselinePath = null,
+        IReadOnlyList<string>? diagnosticsBaselineFingerprints = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(previewSessions);
@@ -1463,7 +1484,12 @@ public sealed class AvaScopeMcpTools
                 stateVariant: stateVariant,
                 buildOutputRoot: buildOutputRoot,
                 assemblyPath: assemblyPath,
-                noBuild: noBuild);
+                noBuild: noBuild,
+                diagnosticOptions: new PreviewDiagnosticOptions(
+                    minimumSeverity.ToProtocolName(),
+                    errorsOnly,
+                    diagnosticsBaselinePath,
+                    diagnosticsBaselineFingerprints));
         }
         catch (Exception exception) when (exception is ArgumentException or ArgumentOutOfRangeException)
         {
@@ -1616,49 +1642,6 @@ public sealed class AvaScopeMcpTools
 
     private static ToolResult<T> ToToolResult<T>(CoreResult<T> result) =>
         OperationResultMapper.ToToolResult(result);
-
-    private static PreviewResponse FilterPreviewDiagnostics(
-        PreviewResponse response,
-        McpMinimumSeverity minimumSeverity)
-    {
-        var minimumRank = minimumSeverity switch
-        {
-            McpMinimumSeverity.All or McpMinimumSeverity.Info => 0,
-            McpMinimumSeverity.Warning => 1,
-            McpMinimumSeverity.Error => 2,
-            _ => 0
-        };
-        var diagnostics = response.Diagnostics
-            .Where(item => item.Severity switch
-            {
-                PreviewDiagnosticSeverities.Error => 2 >= minimumRank,
-                PreviewDiagnosticSeverities.Warning => 1 >= minimumRank,
-                _ => minimumRank == 0
-            })
-            .ToArray();
-        var summary = PreviewResponse.CreateDiagnosticSummary(
-            diagnostics,
-            response.DiagnosticSummary.Truncated,
-            diagnostics.Length);
-        return new PreviewResponse(
-            response.FilePath,
-            response.PixelWidth,
-            response.PixelHeight,
-            response.Dpi,
-            response.RenderedAt,
-            response.ProjectPath,
-            response.ViewPath,
-            response.ThemeVariant,
-            response.Culture,
-            response.DesignDataType,
-            diagnostics,
-            response.AnimationTimeOffsetMs,
-            response.ProjectInfo,
-            response.StateVariant,
-            response.RunIndex,
-            summary,
-            response.DiagnosticsArtifactPath);
-    }
 
     private static RuntimeMutationReviewResponse WithReviewArtifact(
         RuntimeMutationReviewResponse response,

@@ -19,7 +19,9 @@ public sealed record PreviewDiagnostic
         string? phase = null,
         string? provenance = null,
         string? suggestedAction = null,
-        string? suppressionReason = null)
+        string? suppressionReason = null,
+        string? fingerprint = null,
+        string? baselineStatus = null)
     {
         if (string.IsNullOrWhiteSpace(severity))
         {
@@ -57,6 +59,8 @@ public sealed record PreviewDiagnostic
             ?? TryGetDetail(Details, "suggestedAction")
             ?? TryGetDetail(Details, "nextAction");
         SuppressionReason = NormalizeOptionalText(suppressionReason) ?? TryGetDetail(Details, "suppressionReason");
+        Fingerprint = NormalizeOptionalText(fingerprint);
+        BaselineStatus = NormalizeOptionalText(baselineStatus);
     }
 
     [JsonPropertyName("severity")]
@@ -109,6 +113,14 @@ public sealed record PreviewDiagnostic
     [JsonPropertyName("suppressionReason")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? SuppressionReason { get; }
+
+    [JsonPropertyName("fingerprint")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Fingerprint { get; }
+
+    [JsonPropertyName("baselineStatus")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? BaselineStatus { get; }
 
     private static string? NormalizeOptionalText(string? value)
     {

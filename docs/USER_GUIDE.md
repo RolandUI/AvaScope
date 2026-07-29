@@ -955,8 +955,19 @@ deterministic outcomes are `success`, `cancelled`, `unavailable_path`, and
 
 Preview results contain a bounded diagnostic list, counts by severity and
 category, a short summary, explicit comparison provenance, and a path to the
-complete unfiltered JSON diagnostics artifact. MCP callers can use
-`errorsOnly` or the schema-constrained `minimumSeverity` filter.
+complete unfiltered JSON diagnostics artifact. Every diagnostic carries a
+stable SHA-256 `fingerprint`. One-shot, multi-size, animation, and preview
+session renders use identical filtering and comparison semantics.
+
+MCP callers can use `errorsOnly`, the schema-constrained `minimumSeverity`,
+`diagnosticsBaselinePath`, or `diagnosticsBaselineFingerprints`. CLI preview,
+`preview-animation`, and `create-preview-session` expose the matching
+`--errors-only`, `--minimum-severity`, `--diagnostics-baseline`, and
+`--diagnostics-fingerprints` options. A prior `.diagnostics.json` artifact can
+be used directly as the next baseline. The summary reports `newCount`,
+`existingCount`, `resolvedCount`, `baselineCount`, and
+`comparisonProvenance`; a missing or malformed baseline leaves the render
+successful and returns an actionable `comparisonError`.
 
 `capabilities` returns the same discovery manifest as the CLI command and accepts optional `requiredCapabilities` as comma-separated ids. It is the compatibility gate for clients that need specific runtime, preview, diagnostics, baseline, report, artifact, or mutation surfaces before invoking newer tools.
 
