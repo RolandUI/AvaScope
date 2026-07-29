@@ -12,7 +12,9 @@ public static class BridgeIpcMethods
     public const string ExplainLayout = "explain_layout";
     public const string FindNodes = "find_nodes";
     public const string Input = "input";
+    public const string ValidateInput = "validate_input";
     public const string MutateNode = "mutate_node";
+    public const string ValidateMutation = "validate_mutation";
     public const string MutationReview = "mutation_review";
     public const string CloseSession = "close_session";
 
@@ -28,7 +30,9 @@ public static class BridgeIpcMethods
         ExplainLayout,
         FindNodes,
         Input,
+        ValidateInput,
         MutateNode,
+        ValidateMutation,
         MutationReview,
         CloseSession
     ];

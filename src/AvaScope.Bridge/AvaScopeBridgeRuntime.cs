@@ -332,6 +332,42 @@ public sealed class AvaScopeBridgeRuntime
             .GetTask();
     }
 
+    public Task<CoreResult<InputResponse>> ValidateInputAsync(
+        string topLevelId,
+        string action,
+        double? x = null,
+        double? y = null,
+        string? inputText = null,
+        string? targetNodeId = null,
+        string? inputKey = null,
+        string? keyModifiers = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(topLevelId))
+        {
+            throw new ArgumentException("Top-level id cannot be empty.", nameof(topLevelId));
+        }
+
+        if (string.IsNullOrWhiteSpace(action))
+        {
+            throw new ArgumentException("Input action cannot be empty.", nameof(action));
+        }
+
+        if (Dispatcher.UIThread.CheckAccess())
+        {
+            return Task.FromResult(ValidateInput(
+                topLevelId, action, x, y, inputText, targetNodeId, inputKey, keyModifiers));
+        }
+
+        return Dispatcher.UIThread
+            .InvokeAsync(
+                () => ValidateInput(
+                    topLevelId, action, x, y, inputText, targetNodeId, inputKey, keyModifiers),
+                DispatcherPriority.Background,
+                cancellationToken)
+            .GetTask();
+    }
+
     public Task<CoreResult<RuntimeMutationResponse>> MutateNodeAsync(
         RuntimeMutationRequest request,
         CancellationToken cancellationToken = default)
@@ -345,6 +381,25 @@ public sealed class AvaScopeBridgeRuntime
 
         return Dispatcher.UIThread
             .InvokeAsync(() => MutateNode(request), DispatcherPriority.Background, cancellationToken)
+            .GetTask();
+    }
+
+    public Task<CoreResult<RuntimeMutationResponse>> ValidateMutationAsync(
+        RuntimeMutationRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        if (Dispatcher.UIThread.CheckAccess())
+        {
+            return Task.FromResult(EvaluateMutation(request, validateOnly: true));
+        }
+
+        return Dispatcher.UIThread
+            .InvokeAsync(
+                () => EvaluateMutation(request, validateOnly: true),
+                DispatcherPriority.Background,
+                cancellationToken)
             .GetTask();
     }
 
@@ -809,6 +864,202 @@ public sealed class AvaScopeBridgeRuntime
         };
     }
 
+    private CoreResult<InputResponse> ValidateInput(
+        string topLevelId,
+        string action,
+        double? x,
+        double? y,
+        string? inputText,
+        string? targetNodeId,
+        string? inputKey,
+        string? keyModifiers)
+    {
+        Dispatcher.UIThread.VerifyAccess();
+
+        var topLevel = FindTopLevel(topLevelId);
+        if (topLevel is null)
+        {
+            return TopLevelNotFound<InputResponse>(topLevelId);
+        }
+
+        if (!InputActions.All.Contains(action, StringComparer.Ordinal))
+        {
+            return CoreResult<InputResponse>.Fail(new CoreError(
+                BridgeErrorCodes.UnsupportedInputAction,
+                $"Input action '{action}' is not supported.",
+                new Dictionary<string, string>
+                {
+                    ["supportedActions"] = string.Join(",", InputActions.All)
+                }));
+        }
+
+        if (action == InputActions.Click)
+        {
+            return Click(topLevel, topLevelId, x, y, targetNodeId, validateOnly: true);
+        }
+
+        if (action is InputActions.PointerMove or InputActions.PointerDown or InputActions.PointerUp)
+        {
+            var point = GetInputPoint(x, y);
+            if (!point.Success)
+            {
+                return CoreResult<InputResponse>.Fail(point.Error!);
+            }
+
+            var pointerTarget = ResolveInputTarget(
+                topLevel,
+                targetNodeId: null,
+                x,
+                y,
+                $"Input action '{action}' requires x/y coordinates.");
+            return pointerTarget.Success
+                ? ValidatedInput(topLevelId, action, pointerTarget.Value!)
+                : CoreResult<InputResponse>.Fail(pointerTarget.Error!);
+        }
+
+        if (action is InputActions.Invoke or InputActions.Toggle
+            or InputActions.Expand or InputActions.Collapse
+            || action == InputActions.Select && string.IsNullOrWhiteSpace(inputText))
+        {
+            return SemanticAutomationAction(
+                topLevel,
+                topLevelId,
+                action,
+                targetNodeId,
+                validateOnly: true);
+        }
+
+        if (action == InputActions.KeyText && string.IsNullOrEmpty(inputText))
+        {
+            return Invalid("Text input requires non-empty input text.");
+        }
+
+        if (action is InputActions.KeyDown or InputActions.KeyUp)
+        {
+            var key = ParseInputKey(inputKey);
+            if (!key.Success)
+            {
+                return CoreResult<InputResponse>.Fail(key.Error!);
+            }
+
+            var modifiers = ParseKeyModifiers(keyModifiers);
+            if (!modifiers.Success)
+            {
+                return CoreResult<InputResponse>.Fail(modifiers.Error!);
+            }
+        }
+
+        var target = ResolveInputTarget(
+            topLevel,
+            targetNodeId,
+            x,
+            y,
+            $"Input action '{action}' requires a target node id or x/y coordinates.");
+        if (!target.Success)
+        {
+            return CoreResult<InputResponse>.Fail(target.Error!);
+        }
+
+        var inputTarget = target.Value!;
+        if (action == InputActions.Focus && !inputTarget.Focusable)
+        {
+            return Unsupported("Focus target is not focusable.");
+        }
+
+        if ((action is InputActions.KeyDown or InputActions.KeyUp)
+            && (!inputTarget.Focusable || !inputTarget.IsEnabled || !inputTarget.IsVisible))
+        {
+            return Unsupported("Key input target cannot accept focus.");
+        }
+
+        if (action is InputActions.KeyText or InputActions.ClearText)
+        {
+            var textBox = inputTarget as TextBox
+                ?? (inputTarget as Visual)?.FindAncestorOfType<TextBox>();
+            if (textBox is null)
+            {
+                return Unsupported("Text input target is not a TextBox.");
+            }
+
+            if (textBox.IsReadOnly)
+            {
+                return Unsupported("Text input target is read-only.");
+            }
+
+            if (!textBox.Focusable || !textBox.IsEnabled || !textBox.IsVisible)
+            {
+                return Unsupported("Text input target cannot accept focus.");
+            }
+
+            inputTarget = textBox;
+        }
+
+        if (action == InputActions.Select && !string.IsNullOrWhiteSpace(inputText))
+        {
+            var selector = inputTarget as SelectingItemsControl
+                ?? (inputTarget as Visual)?.FindAncestorOfType<SelectingItemsControl>();
+            if (selector is null)
+            {
+                return Unsupported("Select target is not a SelectingItemsControl.");
+            }
+
+            if (TryResolveSelectionIndex(selector, inputText.Trim()) is null)
+            {
+                return Unsupported($"Select target does not contain item '{inputText.Trim()}'.");
+            }
+
+            inputTarget = selector;
+        }
+
+        if (action == InputActions.Scroll)
+        {
+            if (x is null && y is null)
+            {
+                return Invalid("Scroll input requires x or y delta.");
+            }
+
+            var viewer = inputTarget as ScrollViewer
+                ?? (inputTarget as Visual)?.FindAncestorOfType<ScrollViewer>();
+            if (viewer is null)
+            {
+                return Unsupported("Scroll input requires a ScrollViewer target.");
+            }
+
+            inputTarget = viewer;
+        }
+
+        return ValidatedInput(topLevelId, action, inputTarget);
+
+        static CoreResult<InputResponse> Invalid(string message) =>
+            CoreResult<InputResponse>.Fail(new CoreError(BridgeErrorCodes.InvalidInputRequest, message));
+
+        static CoreResult<InputResponse> Unsupported(string message) =>
+            CoreResult<InputResponse>.Fail(new CoreError(BridgeErrorCodes.UnsupportedInputAction, message));
+    }
+
+    private CoreResult<InputResponse> ValidatedInput(
+        string topLevelId,
+        string action,
+        InputElement target) =>
+        CoreResult<InputResponse>.Ok(new InputResponse(
+            SessionId,
+            topLevelId,
+            action,
+            handled: false,
+            DateTimeOffset.UtcNow,
+            CreateNodeId(target, TreeKinds.Visual),
+            new RuntimeTargetContext(
+                SessionId,
+                topLevelId,
+                TreeKinds.Visual,
+                CreateNodeId(target, TreeKinds.Visual)),
+            metadata: new Dictionary<string, string>
+            {
+                ["dryRun"] = "true",
+                ["validationStatus"] = "validated",
+                ["targetType"] = target.GetType().FullName ?? target.GetType().Name
+            }));
+
     private CoreResult<RuntimeMutationResponse> MutateNode(RuntimeMutationRequest request)
     {
         Dispatcher.UIThread.VerifyAccess();
@@ -822,7 +1073,9 @@ public sealed class AvaScopeBridgeRuntime
         return result;
     }
 
-    private CoreResult<RuntimeMutationResponse> EvaluateMutation(RuntimeMutationRequest request)
+    private CoreResult<RuntimeMutationResponse> EvaluateMutation(
+        RuntimeMutationRequest request,
+        bool validateOnly = false)
     {
         Dispatcher.UIThread.VerifyAccess();
 
@@ -899,7 +1152,9 @@ public sealed class AvaScopeBridgeRuntime
                 validation);
         }
 
-        return ApplyMutation(request, targetResult.Value!);
+        return validateOnly
+            ? ValidateMutationTarget(request, targetResult.Value!)
+            : ApplyMutation(request, targetResult.Value!);
     }
 
     private CoreResult<RuntimeMutationResponse> ApplyMutation(
@@ -930,6 +1185,78 @@ public sealed class AvaScopeBridgeRuntime
                     RuntimeMutationErrorCodes.UnsupportedRuntimeMutationOperation,
                     $"Runtime mutation operation '{request.Operation.Kind}' is not supported."))
         };
+    }
+
+    private CoreResult<RuntimeMutationResponse> ValidateMutationTarget(
+        RuntimeMutationRequest request,
+        ResolvedMutationTarget resolvedTarget)
+    {
+        CoreError? error = request.Operation.Kind switch
+        {
+            RuntimeMutationOperationKinds.SetProperty => ValidatePropertyMutation(
+                resolvedTarget.Node,
+                request.Operation),
+            RuntimeMutationOperationKinds.AddClass
+                or RuntimeMutationOperationKinds.RemoveClass
+                or RuntimeMutationOperationKinds.ToggleClass
+                when resolvedTarget.Node is not StyledElement => new CoreError(
+                    RuntimeMutationErrorCodes.UnsupportedRuntimeMutationProperty,
+                    "Class mutations require a StyledElement target."),
+            RuntimeMutationOperationKinds.SetResource
+                or RuntimeMutationOperationKinds.RemoveResource
+                when resolvedTarget.Node is not StyledElement => new CoreError(
+                    RuntimeMutationErrorCodes.UnsupportedRuntimeMutationProperty,
+                    "Resource mutations require a StyledElement target."),
+            RuntimeMutationOperationKinds.SetResource => ValidateResourceMutation(request.Operation),
+            RuntimeMutationOperationKinds.ResetMutation
+                when !_activeMutations.ContainsKey(request.Operation.MutationId!) => new CoreError(
+                    RuntimeMutationErrorCodes.RuntimeMutationResetTargetNotFound,
+                    $"Runtime mutation '{request.Operation.MutationId}' is not active and cannot be reset."),
+            _ => null
+        };
+
+        if (error is not null)
+        {
+            return MutationResponse(
+                request,
+                MutationStatusForDiagnostic(error.Code),
+                applied: false,
+                resolvedTarget.Target,
+                ToProtocolError(error));
+        }
+
+        return MutationResponseWithMetadata(
+            request,
+            RuntimeMutationStatuses.Validated,
+            applied: false,
+            resolvedTarget.Target,
+            metadata: new Dictionary<string, string>
+            {
+                ["dryRun"] = "true",
+                ["validationStatus"] = RuntimeMutationStatuses.Validated,
+                ["targetType"] = resolvedTarget.Node.GetType().FullName
+                    ?? resolvedTarget.Node.GetType().Name
+            });
+    }
+
+    private static CoreError? ValidatePropertyMutation(
+        object node,
+        RuntimeMutationOperation operation)
+    {
+        var property = ResolveMutableProperty(node, operation.PropertyName!);
+        if (!property.Success)
+        {
+            return property.Error;
+        }
+
+        var value = ConvertMutationValue(operation, property.Value!.ValueKind);
+        return value.Success ? null : value.Error;
+    }
+
+    private static CoreError? ValidateResourceMutation(RuntimeMutationOperation operation)
+    {
+        var value = ConvertResourceMutationValue(operation);
+        return value.Success ? null : value.Error;
     }
 
     private CoreResult<RuntimeMutationResponse> ApplyPropertyMutation(
@@ -2551,7 +2878,8 @@ public sealed class AvaScopeBridgeRuntime
         string topLevelId,
         double? x,
         double? y,
-        string? targetNodeId)
+        string? targetNodeId,
+        bool validateOnly = false)
     {
         if ((x is null) != (y is null))
         {
@@ -2671,8 +2999,11 @@ public sealed class AvaScopeBridgeRuntime
                 hitTarget);
         }
 
-        button.Focus(NavigationMethod.Pointer);
-        button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, button));
+        if (!validateOnly)
+        {
+            button.Focus(NavigationMethod.Pointer);
+            button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, button));
+        }
 
         var metadata = new Dictionary<string, string>(
             CreatePointerInputMetadata(topLevel, point, hitTarget, button),
@@ -2680,7 +3011,9 @@ public sealed class AvaScopeBridgeRuntime
         {
             ["coordinateSource"] = coordinateSource,
             ["requestedX"] = x?.ToString("0.###", CultureInfo.InvariantCulture) ?? "not_provided",
-            ["requestedY"] = y?.ToString("0.###", CultureInfo.InvariantCulture) ?? "not_provided"
+            ["requestedY"] = y?.ToString("0.###", CultureInfo.InvariantCulture) ?? "not_provided",
+            ["dryRun"] = validateOnly.ToString().ToLowerInvariant(),
+            ["validationStatus"] = validateOnly ? "validated" : "executed"
         };
         if (normalizedTargetNodeId is not null)
         {
@@ -3108,7 +3441,8 @@ public sealed class AvaScopeBridgeRuntime
         TopLevel topLevel,
         string topLevelId,
         string action,
-        string? targetNodeId)
+        string? targetNodeId,
+        bool validateOnly = false)
     {
         if (string.IsNullOrWhiteSpace(targetNodeId))
         {
@@ -3161,10 +3495,21 @@ public sealed class AvaScopeBridgeRuntime
                 requiredPattern: GetAutomationPatternName(action));
         }
 
+        var supportedActions = GetSupportedSemanticAutomationActions(peer);
+        if (!supportedActions.Contains(action, StringComparer.Ordinal))
+        {
+            return UnsupportedAutomationPattern(
+                action,
+                normalizedTargetNodeId,
+                control.GetType().FullName ?? control.GetType().Name,
+                GetAutomationPatternName(action),
+                supportedActions);
+        }
+
         var previousState = GetAutomationState(peer, action);
         try
         {
-            var handled = action switch
+            var handled = validateOnly || action switch
             {
                 InputActions.Invoke => Invoke(peer),
                 InputActions.Select => Select(peer),
@@ -3204,7 +3549,9 @@ public sealed class AvaScopeBridgeRuntime
             ["automationPattern"] = GetAutomationPatternName(action),
             ["automationPeer"] = peer.GetType().FullName ?? peer.GetType().Name,
             ["targetType"] = control.GetType().FullName ?? control.GetType().Name,
-            ["supportedSemanticActions"] = string.Join(",", GetSupportedSemanticAutomationActions(peer))
+            ["supportedSemanticActions"] = string.Join(",", supportedActions),
+            ["dryRun"] = validateOnly.ToString().ToLowerInvariant(),
+            ["validationStatus"] = validateOnly ? "validated" : "executed"
         };
         if (previousState is not null)
         {
@@ -3221,7 +3568,7 @@ public sealed class AvaScopeBridgeRuntime
             SessionId,
             topLevelId,
             action,
-            handled: true,
+            handled: !validateOnly,
             DateTimeOffset.UtcNow,
             CreateNodeId(control, TreeKinds.Visual),
             CreateNodeTarget(topLevelId, TreeKinds.Visual, topLevel, control),

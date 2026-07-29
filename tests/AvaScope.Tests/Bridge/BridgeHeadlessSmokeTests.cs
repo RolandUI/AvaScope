@@ -1889,6 +1889,212 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
     }
 
     [Fact]
+    public async Task SemanticWorkflowWaitsValidatesAndReplaysIdempotentInput()
+    {
+        var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessTestApplication));
+
+        try
+        {
+            await session.Dispatch(async () =>
+            {
+                var invoked = 0;
+                var input = new TextBox
+                {
+                    Name = "ResilientWorkflowInput",
+                    Text = "ready",
+                    Width = 160
+                };
+                AutomationProperties.SetAutomationId(input, "resilient-input");
+                var button = new Button
+                {
+                    Name = "ResilientWorkflowButton",
+                    Content = "Invoke",
+                    Width = 120,
+                    Height = 40
+                };
+                AutomationProperties.SetAutomationId(button, "resilient-button");
+                button.Click += (_, _) => invoked++;
+
+                var window = new Window
+                {
+                    Title = "AvaScope resilient workflow",
+                    Width = 360,
+                    Height = 240,
+                    Content = new StackPanel
+                    {
+                        Children =
+                        {
+                            input,
+                            button
+                        }
+                    }
+                };
+
+                var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Resilient workflow sample"));
+                var manifestDirectory = Path.GetDirectoryName(runtime.SessionManifestPath)!;
+                var idempotencyDirectory = Path.Combine(manifestDirectory, ".avascope-idempotency");
+                try
+                {
+                    window.Show();
+                    using var registration = runtime.RegisterTopLevel(window);
+                    Dispatcher.UIThread.RunJobs();
+
+                    var client = new LocalBridgeClient(manifestDirectory);
+                    var topLevel = Assert.Single(await runtime.ListTopLevelsAsync());
+                    var request = new SemanticWorkflowRequest(
+                        runtime.SessionId,
+                        topLevel.Id,
+                        [
+                            new SemanticWorkflowStep(
+                                SemanticWorkflowActions.WaitForNode,
+                                "wait-node",
+                                new SemanticWorkflowSelector(automationId: "resilient-input"),
+                                timeoutMs: 500,
+                                pollIntervalMs: 25),
+                            new SemanticWorkflowStep(
+                                SemanticWorkflowActions.WaitForState,
+                                "wait-state",
+                                new SemanticWorkflowSelector(automationId: "resilient-input"),
+                                assertProperty: "text",
+                                expected: "ready",
+                                timeoutMs: 500,
+                                pollIntervalMs: 25),
+                            new SemanticWorkflowStep(
+                                SemanticWorkflowActions.ValidateAction,
+                                "validate-invoke",
+                                new SemanticWorkflowSelector(automationId: "resilient-button"),
+                                inputAction: InputActions.Invoke),
+                            new SemanticWorkflowStep(
+                                SemanticWorkflowActions.ValidateMutation,
+                                "validate-width",
+                                new SemanticWorkflowSelector(automationId: "resilient-input"),
+                                mutation: new RuntimeMutationOperation(
+                                    RuntimeMutationOperationKinds.SetProperty,
+                                    propertyName: "Width",
+                                    value: "240",
+                                    valueType: "double")),
+                            new SemanticWorkflowStep(
+                                SemanticWorkflowActions.Invoke,
+                                "invoke-once",
+                                new SemanticWorkflowSelector(automationId: "resilient-button"),
+                                idempotencyKey: "invoke-once")
+                        ],
+                        requestId: "resilient-workflow",
+                        maxDepth: 8);
+
+                    var first = await new SemanticWorkflowRunner().RunAsync(client, request);
+                    var second = await new SemanticWorkflowRunner().RunAsync(client, request);
+
+                    Assert.True(first.Success, first.Error?.Message);
+                    Assert.Equal("passed", first.Value!.Status);
+                    Assert.Equal(1, invoked);
+                    Assert.Equal(160, input.Width);
+                    var actionValidation = Assert.Single(
+                        first.Value.Steps,
+                        step => step.StepId == "validate-invoke");
+                    Assert.False(actionValidation.Input!.Handled);
+                    Assert.Equal("true", actionValidation.Input.Metadata["dryRun"]);
+                    var mutationValidation = Assert.Single(
+                        first.Value.Steps,
+                        step => step.StepId == "validate-width");
+                    Assert.Equal(RuntimeMutationStatuses.Validated, mutationValidation.Mutation!.Status);
+                    Assert.False(mutationValidation.Mutation.Applied);
+
+                    Assert.True(second.Success, second.Error?.Message);
+                    Assert.Equal("passed", second.Value!.Status);
+                    Assert.Equal(1, invoked);
+                    var replay = Assert.Single(second.Value.Steps, step => step.StepId == "invoke-once");
+                    Assert.Equal("true", replay.Metadata["idempotencyReplay"]);
+                    Assert.Equal("1", second.Value.Metadata["idempotencyReplayCount"]);
+
+                    var conflictRequest = new SemanticWorkflowRequest(
+                        runtime.SessionId,
+                        topLevel.Id,
+                        [
+                            new SemanticWorkflowStep(
+                                SemanticWorkflowActions.Invoke,
+                                "invoke-different-step",
+                                new SemanticWorkflowSelector(automationId: "resilient-button"),
+                                idempotencyKey: "invoke-once")
+                        ]);
+                    var conflict = await new SemanticWorkflowRunner().RunAsync(client, conflictRequest);
+                    Assert.Equal("failed", conflict.Value!.Status);
+                    Assert.Equal(
+                        "semantic_workflow_idempotency_conflict",
+                        Assert.Single(Assert.Single(conflict.Value.Steps).Diagnostics).Code);
+                    Assert.Equal(1, invoked);
+
+                    var timeoutRequest = new SemanticWorkflowRequest(
+                        runtime.SessionId,
+                        topLevel.Id,
+                        [
+                            new SemanticWorkflowStep(
+                                SemanticWorkflowActions.WaitForNode,
+                                "wait-missing",
+                                new SemanticWorkflowSelector(automationId: "missing-node"),
+                                timeoutMs: 50,
+                                pollIntervalMs: 25)
+                        ]);
+                    var timeout = await new SemanticWorkflowRunner().RunAsync(client, timeoutRequest);
+                    Assert.Equal("failed", timeout.Value!.Status);
+                    var diagnostic = Assert.Single(Assert.Single(timeout.Value.Steps).Diagnostics);
+                    Assert.Equal("semantic_workflow_wait_timeout", diagnostic.Code);
+                    Assert.True(int.Parse(diagnostic.Details!["attempts"], CultureInfo.InvariantCulture) >= 1);
+
+                    var dialogTimeoutRequest = new SemanticWorkflowRequest(
+                        runtime.SessionId,
+                        topLevel.Id,
+                        [
+                            new SemanticWorkflowStep(
+                                SemanticWorkflowActions.WaitForDialog,
+                                "wait-dialog",
+                                timeoutMs: 50,
+                                pollIntervalMs: 25)
+                        ]);
+                    var dialogTimeout = await new SemanticWorkflowRunner().RunAsync(client, dialogTimeoutRequest);
+                    Assert.Equal("failed", dialogTimeout.Value!.Status);
+                    Assert.Equal(
+                        "semantic_workflow_wait_timeout",
+                        Assert.Single(Assert.Single(dialogTimeout.Value.Steps).Diagnostics).Code);
+
+                    using var cancellation = new CancellationTokenSource(50);
+                    var cancelledRequest = new SemanticWorkflowRequest(
+                        runtime.SessionId,
+                        topLevel.Id,
+                        [
+                            new SemanticWorkflowStep(
+                                SemanticWorkflowActions.WaitForNode,
+                                "wait-cancelled",
+                                new SemanticWorkflowSelector(automationId: "never-available"),
+                                timeoutMs: 5000,
+                                pollIntervalMs: 25)
+                        ]);
+                    await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+                        new SemanticWorkflowRunner().RunAsync(
+                            client,
+                            cancelledRequest,
+                            cancellation.Token));
+                }
+                finally
+                {
+                    if (Directory.Exists(idempotencyDirectory))
+                    {
+                        Directory.Delete(idempotencyDirectory, recursive: true);
+                    }
+
+                    window.Close();
+                    AvaScopeBridge.Deactivate();
+                    Dispatcher.UIThread.RunJobs();
+                }
+            }, CancellationToken.None);
+        }
+        finally
+        {
+            DisposeHeadlessSessionAfterExplicitCleanup(session);
+        }
+    }
+
+    [Fact]
     public async Task PseudoStateMatrixCapturesCommonStatesAndResetsRuntimeForcing()
     {
         var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessTestApplication));

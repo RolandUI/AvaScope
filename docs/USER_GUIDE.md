@@ -571,6 +571,47 @@ dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll run-workflow --request 
 
 Workflow selectors can target `nodeId`, `automationId`, `text`, `name`, `nodeType`, `role`, `bindingPath`, or `commandName`. The semantic action set is `invoke`, `select`, `toggle`, `expand`, and `collapse`; each action resolves the selector first and then uses the target control's corresponding Avalonia automation provider. Destructive-looking click/invoke/select/toggle/expand/collapse targets are rejected unless the request declares `allowDestructive` or an `isolatedStateDirectory`.
 
+Deterministic workflows can use `wait_for_node`, `wait_for_state`, and `wait_for_dialog`. Each wait accepts `timeoutMs` (default `5000`, maximum `60000`) and `pollIntervalMs` (default `100`, range `25`–`5000`), uses cancellation-aware bounded polling, and returns `semantic_workflow_wait_timeout` with attempt/elapsed/last-state evidence instead of requiring client polling loops.
+
+Add `idempotencyKey` to a side-effecting step to prevent duplicate dispatch after a client retry. Results are persisted under the selected local session manifest directory, scoped by session and request signature, and replayed with `idempotencyReplay: true`. `idempotencyTtlMs` defaults to `300000` and accepts `100`–`86400000`; reusing a live key with different step content fails with `semantic_workflow_idempotency_conflict`.
+
+Use `validate_action` with `inputAction`, or `validate_mutation` with a structured `mutation`, to run the same selector, target, provider/property, and value checks without input dispatch or runtime state changes:
+
+```json
+{
+  "steps": [
+    {
+      "id": "wait-deploy",
+      "action": "wait_for_node",
+      "selector": { "automationId": "DeployTab" },
+      "timeoutMs": 10000
+    },
+    {
+      "id": "check-select",
+      "action": "validate_action",
+      "selector": { "automationId": "DeployTab" },
+      "inputAction": "select"
+    },
+    {
+      "id": "select-once",
+      "action": "select",
+      "selector": { "automationId": "DeployTab" },
+      "idempotencyKey": "deploy-tab-select"
+    },
+    {
+      "id": "check-width",
+      "action": "validate_mutation",
+      "selector": { "automationId": "DeployTab" },
+      "mutation": {
+        "kind": "set_property",
+        "propertyName": "Width",
+        "value": "240"
+      }
+    }
+  ]
+}
+```
+
 Use `run-scenario` when the workflow should launch or attach before running steps and produce a human-readable evidence timeline:
 
 ```json

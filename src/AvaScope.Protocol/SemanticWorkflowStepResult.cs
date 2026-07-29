@@ -17,7 +17,8 @@ public sealed record SemanticWorkflowStepResult
         ScreenshotResponse? screenshot = null,
         IReadOnlyList<ProtocolError>? diagnostics = null,
         IReadOnlyDictionary<string, string>? metadata = null,
-        NativePickerResponse? picker = null)
+        NativePickerResponse? picker = null,
+        RuntimeMutationResponse? mutation = null)
     {
         if (string.IsNullOrWhiteSpace(stepId))
         {
@@ -51,6 +52,7 @@ public sealed record SemanticWorkflowStepResult
         Diagnostics = diagnostics ?? Array.Empty<ProtocolError>();
         Metadata = metadata ?? new Dictionary<string, string>();
         Picker = picker;
+        Mutation = mutation;
     }
 
     [JsonPropertyName("stepId")]
@@ -93,4 +95,8 @@ public sealed record SemanticWorkflowStepResult
     [JsonPropertyName("picker")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public NativePickerResponse? Picker { get; }
+
+    [JsonPropertyName("mutation")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public RuntimeMutationResponse? Mutation { get; }
 }

@@ -476,6 +476,11 @@ public sealed class RuntimeScenarioRunner
                 ? string.Empty
                 : $"{step.Target.TopLevelId}/{step.Target.NodeId ?? step.Target.TargetKind}";
             var evidence = step.Screenshot?.FilePath
+                ?? (step.Mutation is null ? null : $"mutation:{step.Mutation.Status}")
+                ?? (step.Metadata.TryGetValue("idempotencyReplay", out var replay)
+                    && string.Equals(replay, "true", StringComparison.Ordinal)
+                        ? "idempotency:replay"
+                        : null)
                 ?? step.Metadata.FirstOrDefault(static item => item.Key.EndsWith("Path", StringComparison.OrdinalIgnoreCase)).Value
                 ?? string.Empty;
             builder.AppendLine(

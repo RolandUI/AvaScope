@@ -156,6 +156,8 @@ The stable MCP tool name set is:
 - `close_preview_session`
 - `reload`
 
+The additive v1.2 workflow contract includes bounded `wait_for_node`, `wait_for_state`, and `wait_for_dialog` actions; non-mutating `validate_action` and `validate_mutation`; and optional session-scoped `idempotencyKey` / `idempotencyTtlMs` step fields. Replay evidence is exposed through step metadata and mutation dry-run evidence through `SemanticWorkflowStepResult.mutation`.
+
 Large tree, `find_nodes`, diagnostics, workflow, and scenario results may carry
 an additive `responseBudget` object. When `truncated` is true, the inline
 payload is bounded and `artifactPath` identifies the complete local JSON

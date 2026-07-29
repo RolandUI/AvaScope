@@ -553,7 +553,7 @@ public sealed class AvaScopeMcpTools
         Destructive = false,
         OpenWorld = false,
         UseStructuredContent = true)]
-    [Description("Runs a semantic local workflow against an attached AvaScope bridge session using node selectors such as AutomationId, text, role, binding path, command, or stable node id.")]
+    [Description("Runs a semantic local workflow with bounded wait_for_node/wait_for_state/wait_for_dialog steps, optional step idempotency keys, and validate_action/validate_mutation dry runs. Selectors may use AutomationId, text, role, binding path, command, or stable node id.")]
     public static async Task<ToolResult<SemanticWorkflowResponse>> RunWorkflow(
         LocalBridgeClient bridgeClient,
         SemanticWorkflowRequest request,

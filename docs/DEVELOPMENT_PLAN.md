@@ -10,6 +10,8 @@ GitHub Issues and Milestones are the primary project-management source for auton
 - `2026-07-29`: Completed #90 implementation validation: Debug build passed with `0` warnings/errors; 7 focused protocol/core/bridge regressions passed; the full Debug suite passed all `409` tests; and `git diff --check` passed with line-ending normalization warnings only. A 250-node bridge regression confirms tree output is truncated with artifact fallback while search still traverses the complete tree.
 - `2026-07-29`: Started #91. A shared Core preview-diagnostic processor now generates stable SHA-256 fingerprints, loads prior diagnostic artifacts or explicit fingerprint sets as baselines, classifies new/existing/resolved diagnostics, preserves complete unfiltered artifacts, and applies one severity policy across one-shot, multi-size, animation, and preview-session renders.
 - `2026-07-29`: Completed #91 implementation validation: Debug build passed with `0` warnings/errors; 128 focused Protocol/Core/CLI/MCP/capability/schema tests passed; the full Debug suite passed all `415` tests; and `git diff --check` passed with line-ending normalization warnings only. Cross-surface rendering tests cover one-shot, multi-size, animation, and preview-session parity; missing and malformed baselines preserve successful render evidence with actionable comparison errors.
+- `2026-07-29`: Started #92. Semantic workflows now share bridge-side dry-run validation with real input/mutation execution, provide cancellation-aware bounded node/state/dialog waits, and persist session-scoped idempotency results so exact retries replay without repeating side effects.
+- `2026-07-29`: Completed #92 implementation validation: Debug build passed with `0` warnings/errors; 131 focused Protocol/Core/Bridge/CLI/MCP/stable-surface tests passed; and the full Debug suite passed all `417` tests. Coverage verifies bounded node/state/dialog timeouts, external cancellation, selector/provider/property/value dry runs with no side effects, durable exact replay across runner instances, conflict rejection, and one-dispatch behavior.
 - `2026-07-29`: The v1.2.0 local release gate passed from `ca627cb`: exact `1.2.0` NuGet/ZIP/Windows installer/Linux installer/seven-entry manifest verification; packaged Windows install/repair/doctor/MCP/uninstall; packaged doctor and real preview; WSL Ubuntu Linux installer smoke with temporary .NET `10.0.10`; and NuGet/GitHub Release dry-runs. No tag, package, or release was published. The guarded Release workflow rejected the earlier version-only commit before any publish step because its subject was intentionally not `Release 1.2.0`; the final candidate uses the required subject and will be validated with `publish=false`. Release tracker #86 is in review.
 - `2026-07-29`: Advanced the repository/package product version from `1.1.4` to the active `1.2.0` minor-release target before running artifact and installer gates.
 - `2026-07-29`: Implemented the v1.2.0 feedback contract hardening slice for #78 and #80–#85: canonical self-describing input actions; truthful operation-level `success` plus `transportSuccess`; MCP enums for input, diagnostics, mutation, picker, and preview severity; compact find-node results with opt-in bounded expansion; canonical mutation properties including valid `IsSelected` targets and pre-dispatch rejection; process-scoped Windows native picker operations plus deterministic isolated results; and bounded preview diagnostic summaries with full JSON artifacts. Focused coverage passed (`66` plus stable-surface retry `7`); full Debug and Release suites each passed all `385` tests; both builds completed with `0` warnings/errors.
@@ -38,17 +40,17 @@ GitHub Issues and Milestones are the primary project-management source for auton
 
 ## Current Focus
 
-- `v1.2.0 preview diagnostics baseline and filter parity`
-- GitHub Issue: #91
+- `v1.2.0 deterministic workflow resilience`
+- GitHub Issue: #92
 - GitHub Milestone: `v1.2.0`
 - Status: `Review`
 - Owner: autonomous agent
 - Started: `2026-07-29`
-- Goal: distinguish new preview regressions from existing diagnostics and keep baseline/filter semantics identical across every preview entry point.
+- Goal: make waits bounded, retries idempotent, and action/mutation validation non-mutating while preserving the same resolvers and capability checks as execution.
 
 ## Next Action
 
-Commit and close #91, then start #92.
+Commit, push, and close #92, then start the final v1.2.0 release gate.
 
 ## Latest Validation
 

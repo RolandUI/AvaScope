@@ -114,7 +114,12 @@ public sealed class ProtocolContractTests
             tool.Adapter == "mcp"
             && tool.Name == "input"
             && tool.CapabilityIds.Contains(AvaScopeCapabilityIds.RuntimeSemanticAutomation));
-        Assert.Contains(response.Capabilities, capability => capability.Id == AvaScopeCapabilityIds.RuntimeSemanticWorkflow);
+        var semanticWorkflow = Assert.Single(response.Capabilities, capability =>
+            capability.Id == AvaScopeCapabilityIds.RuntimeSemanticWorkflow);
+        Assert.Contains(SemanticWorkflowActions.WaitForNode, semanticWorkflow.Metadata["actions"], StringComparison.Ordinal);
+        Assert.Equal("wait_for_node,wait_for_state,wait_for_dialog", semanticWorkflow.Metadata["waitActions"]);
+        Assert.Equal("validate_action,validate_mutation", semanticWorkflow.Metadata["dryRunActions"]);
+        Assert.Contains("replay_detected", semanticWorkflow.Metadata["idempotency"], StringComparison.Ordinal);
         Assert.Contains(response.Capabilities, capability => capability.Id == AvaScopeCapabilityIds.RuntimeScenarioRunner);
         Assert.Contains(response.Capabilities, capability => capability.Id == AvaScopeCapabilityIds.RuntimePointerDiagnostics);
         Assert.Contains(response.Capabilities, capability => capability.Id == AvaScopeCapabilityIds.RuntimePseudoStateMatrix);
@@ -285,6 +290,37 @@ public sealed class ProtocolContractTests
         Assert.Equal("TitleText", treeNodeJson["sourceMap"]!["xName"]!.GetValue<string>());
         Assert.Equal("workflow-1", workflowNode["requestId"]!.GetValue<string>());
         Assert.Equal(SemanticWorkflowActions.AssertState, workflowNode["steps"]![0]!["action"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public void ResilientWorkflowStepSerializesStableShape()
+    {
+        var step = new SemanticWorkflowStep(
+            SemanticWorkflowActions.ValidateMutation,
+            "validate-width",
+            new SemanticWorkflowSelector(automationId: "target"),
+            timeoutMs: 2500,
+            pollIntervalMs: 50,
+            inputAction: InputActions.Invoke,
+            mutation: new RuntimeMutationOperation(
+                RuntimeMutationOperationKinds.SetProperty,
+                propertyName: "Width",
+                value: "240"),
+            idempotencyKey: "validate-width-once",
+            idempotencyTtlMs: 60000);
+
+        var node = JsonNode.Parse(JsonSerializer.Serialize(step))!;
+
+        Assert.Equal("validate_mutation", node["action"]!.GetValue<string>());
+        Assert.Equal(2500, node["timeoutMs"]!.GetValue<int>());
+        Assert.Equal(50, node["pollIntervalMs"]!.GetValue<int>());
+        Assert.Equal("invoke", node["inputAction"]!.GetValue<string>());
+        Assert.Equal("set_property", node["mutation"]!["kind"]!.GetValue<string>());
+        Assert.Equal("validate-width-once", node["idempotencyKey"]!.GetValue<string>());
+        Assert.Equal(60000, node["idempotencyTtlMs"]!.GetValue<int>());
+        Assert.Contains(SemanticWorkflowActions.WaitForDialog, SemanticWorkflowActions.All);
+        Assert.Contains(BridgeIpcMethods.ValidateInput, BridgeIpcMethods.All);
+        Assert.Contains(BridgeIpcMethods.ValidateMutation, BridgeIpcMethods.All);
     }
 
     [Fact]

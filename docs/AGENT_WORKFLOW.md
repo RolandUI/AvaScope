@@ -215,6 +215,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\collect-baseline-artif
 
 Selector-resolved workflow `click` steps and direct target-only clicks use the center of current target bounds automatically. Supply both explicit coordinates only when an offset inside the selected Button is required; explicit coordinates take precedence. Prefer semantic workflow steps with stable selectors for repeated scenarios: `invoke`, `select`, `toggle`, `expand`, and `collapse` resolve the selected node and use its public Avalonia automation provider. Direct input accepts the same actions with a target node id. Unsupported target/pattern combinations return structured errors that name the required provider and the semantic actions the target actually supports.
 
+For asynchronous UI state, put bounded `wait_for_node`, `wait_for_state`, or `wait_for_dialog` steps in the workflow instead of client polling. Add an `idempotencyKey` to side-effecting steps that may be retried; an exact replay returns the original bounded result without dispatching again, while conflicting content is rejected. Before execution, `validate_action` and `validate_mutation` run the same selector and capability/property checks without sending input or changing runtime state.
+
 Runtime input is intentionally narrow, local-only, and non-destructive. Unsupported actions return structured errors.
 
 For hover, tooltip, popup, or flyout failures, use a pointer diagnostics request instead of trying to infer everything from one screenshot:

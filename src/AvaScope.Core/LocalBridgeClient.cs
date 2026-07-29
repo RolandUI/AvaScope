@@ -449,6 +449,93 @@ public sealed class LocalBridgeClient
             cancellationToken);
     }
 
+    public async Task<CoreResult<InputResponse>> ValidateInputAsync(
+        SessionId sessionId,
+        string topLevelId,
+        string action,
+        double? x = null,
+        double? y = null,
+        string? inputText = null,
+        string? targetNodeId = null,
+        string? inputKey = null,
+        string? keyModifiers = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(sessionId);
+
+        if (string.IsNullOrWhiteSpace(topLevelId) || string.IsNullOrWhiteSpace(action))
+        {
+            return CoreResult<InputResponse>.Fail(new CoreError(
+                CoreErrorCodes.InvalidBridgeRequest,
+                "Dry-run input requires a top-level id and action."));
+        }
+
+        var manifestResult = FindSingleManifest(null, sessionId);
+        if (!manifestResult.Success)
+        {
+            return CoreResult<InputResponse>.Fail(manifestResult.Error!);
+        }
+
+        return await SendAsync<InputResponse>(
+            manifestResult.Value!,
+            new BridgeIpcRequest(
+                NewRequestId(),
+                BridgeIpcMethods.ValidateInput,
+                topLevelId,
+                action: action,
+                x: x,
+                y: y,
+                inputText: inputText,
+                targetNodeId: targetNodeId,
+                inputKey: inputKey,
+                keyModifiers: keyModifiers),
+            cancellationToken);
+    }
+
+    public async Task<CoreResult<RuntimeMutationResponse>> ValidateMutationAsync(
+        SessionId sessionId,
+        RuntimeMutationRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(sessionId);
+        ArgumentNullException.ThrowIfNull(request);
+
+        if (request.Target.SessionId != sessionId)
+        {
+            return RuntimeMutationUnavailable(
+                sessionId,
+                request,
+                new ProtocolError(
+                    RuntimeMutationErrorCodes.RuntimeMutationNonLocalSession,
+                    "Runtime mutation validation must target the selected local bridge session."));
+        }
+
+        var manifestResult = FindSingleManifest(null, sessionId);
+        if (!manifestResult.Success)
+        {
+            return CoreResult<RuntimeMutationResponse>.Fail(manifestResult.Error!);
+        }
+
+        var manifest = manifestResult.Value!;
+        if (!string.Equals(manifest.TransportScope, BridgeTransportScopes.LocalOnly, StringComparison.Ordinal))
+        {
+            return RuntimeMutationUnavailable(
+                sessionId,
+                request,
+                new ProtocolError(
+                    RuntimeMutationErrorCodes.RuntimeMutationNonLocalSession,
+                    "Runtime mutation validation is available only for local bridge sessions."));
+        }
+
+        return await SendAsync<RuntimeMutationResponse>(
+            manifest,
+            new BridgeIpcRequest(
+                request.RequestId,
+                BridgeIpcMethods.ValidateMutation,
+                mutation: request),
+            cancellationToken);
+    }
+
     public async Task<CoreResult<RuntimeMutationReviewResponse>> MutationReviewAsync(
         SessionId sessionId,
         int? maxResults = null,

@@ -90,8 +90,8 @@ The `v1.2.0` minor release implements the complete runtime interaction and agent
 - #88 `R1.2.0-M12 Truthful close-session and partial-failure evidence`; Status: `Done`.
 - #89 `R1.2.0-M13 Effective session capabilities and closed-set schema parity`; Status: `Done`.
 - #90 `R1.2.0-M14 Compact binding summaries and global response budgets`; Status: `Done`.
-- #91 `R1.2.0-M15 Preview diagnostics baseline and filter parity`; Status: `Review`.
-- #92 `R1.2.0-M16 Deterministic waits, idempotency, and dry-run validation`; Status: `Backlog`.
+- #91 `R1.2.0-M15 Preview diagnostics baseline and filter parity`; Status: `Done`.
+- #92 `R1.2.0-M16 Deterministic waits, idempotency, and dry-run validation`; Status: `Review`.
 - #86 `Release v1.2.0`; Status: `Backlog`.
 
 ### Explicit Deferrals
@@ -103,6 +103,7 @@ The `v1.2.0` minor release implements the complete runtime interaction and agent
 ### v1.2.0 Implementation Validation
 
 - `2026-07-29`: Reopened the candidate for the post-review hardening scope in #87–#92. The previously passing release gate remains historical evidence only; the complete gate must be rerun after these slices before the target can return to `Release Candidate`.
+- `2026-07-29`: Completed #92 implementation validation. Added cancellation-aware `wait_for_node`, `wait_for_state`, and `wait_for_dialog`; session-scoped TTL-bounded idempotency leases/results with exact replay and conflict detection; and `validate_action` / `validate_mutation` dry runs that share bridge target, automation-provider, supported-property, and value checks without dispatch or mutation. Debug build passed with `0` warnings/errors, 131 focused tests passed, and the full Debug suite passed all `417` tests.
 - `2026-07-29`: The complete local v1.2.0 release gate passed from `ca627cb`. Debug and Release builds completed with `0` warnings/errors and all `385` tests passed in each configuration; the Release suite passed again inside the artifact workflow. Exact `1.2.0` Protocol/Core/Bridge NuGet packages, Windows/Linux portable ZIPs, Windows/Linux installers, and the seven-entry SHA-256 manifest passed artifact verification. Packaged Windows installer install/repair/doctor/MCP/uninstall, packaged doctor, real Avalonia preview (including the bounded diagnostic summary and full JSON artifact), and WSL Ubuntu Linux installer smoke with temporary .NET `10.0.10` passed. NuGet and GitHub Release dry-runs passed; no `v1.2.0` tag or release exists remotely. Eight exact artifact-hosted smoke processes were terminated after identity/path verification when stale test processes locked the packaging directory.
 - `2026-07-29`: Completed #77 with target-centered click derivation in top-level DIP space, explicit x/y precedence, target/hit-test validation, and bounded stale, invisible, zero-sized, clipped, or wrong-target diagnostics before dispatch. Targeted Bridge (`117`), CLI (`148`), MCP (`50`), and Protocol (`61`) tests passed; the full Debug suite passed with `382` tests and the build completed with `0` warnings/errors.
 - `2026-07-29`: Completed #76 with public Avalonia automation-provider dispatch for invoke, selector-based select, toggle, expand, and collapse across Protocol, Bridge, Core semantic workflows, CLI, MCP, capability discovery, and documentation. Targeted Bridge (`115`), CLI (`145`), MCP (`50`), and Protocol (`61`) tests passed; the full Debug suite passed with `379` tests and the build completed with `0` warnings/errors.

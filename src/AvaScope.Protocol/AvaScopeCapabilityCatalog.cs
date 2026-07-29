@@ -174,9 +174,21 @@ public static class AvaScopeCapabilityCatalog
             Capability(
                 AvaScopeCapabilityIds.RuntimeSemanticWorkflow,
                 "runtime",
-                "Run coordinate-free workflow steps against a local bridge session using AutomationId, text, role, binding path, command, or stable node selectors.",
+                "Run coordinate-free workflow steps with bounded waits, durable idempotency replay protection, and non-mutating action or mutation validation against a local bridge session.",
                 ["run-workflow", "run_workflow"],
-                requires: [AvaScopeCapabilityIds.RuntimeFind, AvaScopeCapabilityIds.RuntimeInput]),
+                requires: [AvaScopeCapabilityIds.RuntimeFind, AvaScopeCapabilityIds.RuntimeInput],
+                metadata: new Dictionary<string, string>
+                {
+                    ["actions"] = string.Join(",", SemanticWorkflowActions.All),
+                    ["waitActions"] = "wait_for_node,wait_for_state,wait_for_dialog",
+                    ["waitDefaultTimeoutMs"] = "5000",
+                    ["waitMaximumTimeoutMs"] = "60000",
+                    ["waitDefaultPollIntervalMs"] = "100",
+                    ["idempotency"] = "optional_step_key,file_backed,session_scoped,ttl_bounded,replay_detected",
+                    ["idempotencyDefaultTtlMs"] = "300000",
+                    ["dryRunActions"] = "validate_action,validate_mutation",
+                    ["dryRunSideEffects"] = "none"
+                }),
             Capability(
                 AvaScopeCapabilityIds.RuntimeScenarioRunner,
                 "runtime",

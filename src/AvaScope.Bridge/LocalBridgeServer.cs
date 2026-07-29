@@ -229,7 +229,9 @@ internal sealed class LocalBridgeServer : IDisposable
             BridgeIpcMethods.ExplainLayout => Respond(await ExplainLayoutAsync(request, cancellationToken)),
             BridgeIpcMethods.FindNodes => Respond(await FindNodesAsync(request, cancellationToken)),
             BridgeIpcMethods.Input => Respond(await InputAsync(request, cancellationToken)),
+            BridgeIpcMethods.ValidateInput => Respond(await InputAsync(request, cancellationToken, validateOnly: true)),
             BridgeIpcMethods.MutateNode => Respond(await MutateNodeAsync(request, cancellationToken)),
+            BridgeIpcMethods.ValidateMutation => Respond(await MutateNodeAsync(request, cancellationToken, validateOnly: true)),
             BridgeIpcMethods.MutationReview => Respond(await MutationReviewAsync(request, cancellationToken)),
             BridgeIpcMethods.CloseSession => CloseSession(request),
             _ => Respond(BridgeIpcResponse.Fail(
@@ -433,7 +435,8 @@ internal sealed class LocalBridgeServer : IDisposable
 
     private async Task<BridgeIpcResponse> InputAsync(
         BridgeIpcRequest request,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool validateOnly = false)
     {
         if (string.IsNullOrWhiteSpace(request.TopLevelId))
         {
@@ -449,16 +452,27 @@ internal sealed class LocalBridgeServer : IDisposable
                 new ProtocolError(BridgeErrorCodes.InvalidInputRequest, "Input requests require an action."));
         }
 
-        var result = await _runtime.InputAsync(
-            request.TopLevelId,
-            request.Action,
-            request.X,
-            request.Y,
-            request.InputText,
-            request.TargetNodeId,
-            request.InputKey,
-            request.KeyModifiers,
-            cancellationToken);
+        var result = validateOnly
+            ? await _runtime.ValidateInputAsync(
+                request.TopLevelId,
+                request.Action,
+                request.X,
+                request.Y,
+                request.InputText,
+                request.TargetNodeId,
+                request.InputKey,
+                request.KeyModifiers,
+                cancellationToken)
+            : await _runtime.InputAsync(
+                request.TopLevelId,
+                request.Action,
+                request.X,
+                request.Y,
+                request.InputText,
+                request.TargetNodeId,
+                request.InputKey,
+                request.KeyModifiers,
+                cancellationToken);
 
         return result.Success
             ? BridgeIpcResponse.Ok(request.RequestId, result.Value)
@@ -469,7 +483,8 @@ internal sealed class LocalBridgeServer : IDisposable
 
     private async Task<BridgeIpcResponse> MutateNodeAsync(
         BridgeIpcRequest request,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool validateOnly = false)
     {
         if (request.Mutation is null)
         {
@@ -494,7 +509,9 @@ internal sealed class LocalBridgeServer : IDisposable
                     }));
         }
 
-        var result = await _runtime.MutateNodeAsync(request.Mutation, cancellationToken);
+        var result = validateOnly
+            ? await _runtime.ValidateMutationAsync(request.Mutation, cancellationToken)
+            : await _runtime.MutateNodeAsync(request.Mutation, cancellationToken);
 
         return result.Success
             ? BridgeIpcResponse.Ok(request.RequestId, result.Value)

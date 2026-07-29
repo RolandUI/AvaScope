@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Diagnostics;
 using AvaScope.Protocol;
 
 namespace AvaScope.Core;
@@ -26,6 +27,8 @@ public sealed class SemanticWorkflowRunner
         var startedAt = DateTimeOffset.UtcNow;
         var results = new List<SemanticWorkflowStepResult>();
         var diagnostics = new List<ProtocolError>();
+        var idempotencyStore = new WorkflowIdempotencyStore(bridgeClient.ManifestDirectory);
+        var replayCount = 0;
         var isolatedStateStatus = string.IsNullOrWhiteSpace(request.IsolatedStateDirectory)
             ? "not_configured"
             : "declared_by_request";
@@ -37,11 +40,24 @@ public sealed class SemanticWorkflowRunner
 
         foreach (var step in request.Steps)
         {
-            var result = await ExecuteStepAsync(bridgeClient, request, step, results.Count, cancellationToken);
+            var result = await ExecuteStepWithIdempotencyAsync(
+                bridgeClient,
+                idempotencyStore,
+                request,
+                step,
+                results.Count,
+                cancellationToken);
             results.Add(result);
+            var replayed = result.Metadata.TryGetValue("idempotencyReplay", out var replay)
+                && string.Equals(replay, "true", StringComparison.Ordinal);
+            if (replayed)
+            {
+                replayCount++;
+            }
 
             if (request.CaptureAfterEachStep
                 && result.Status == "passed"
+                && !replayed
                 && result.Screenshot is null
                 && !string.IsNullOrWhiteSpace(request.OutputDirectory)
                 && step.Action != SemanticWorkflowActions.Wait)
@@ -75,8 +91,64 @@ public sealed class SemanticWorkflowRunner
             {
                 ["requestedSteps"] = request.Steps.Count.ToString(CultureInfo.InvariantCulture),
                 ["executedSteps"] = results.Count.ToString(CultureInfo.InvariantCulture),
+                ["idempotencyReplayCount"] = replayCount.ToString(CultureInfo.InvariantCulture),
                 ["selectorMode"] = "automation_text_name_type_binding_or_node_id"
             }));
+    }
+
+    private static async Task<SemanticWorkflowStepResult> ExecuteStepWithIdempotencyAsync(
+        LocalBridgeClient bridgeClient,
+        WorkflowIdempotencyStore store,
+        SemanticWorkflowRequest request,
+        SemanticWorkflowStep step,
+        int stepIndex,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(step.IdempotencyKey))
+        {
+            return await ExecuteStepAsync(
+                bridgeClient,
+                request,
+                step,
+                stepIndex,
+                cancellationToken);
+        }
+
+        var lease = await store.AcquireAsync(
+            request.SessionId,
+            step.IdempotencyKey,
+            cancellationToken);
+        if (!lease.Success)
+        {
+            return Fail(step, lease.Error!);
+        }
+
+        using var idempotencyLease = lease.Value!;
+        var signature = WorkflowIdempotencyStore.CreateSignature(request, step);
+        var replay = store.TryReplay(request.SessionId, step.IdempotencyKey, signature);
+        if (!replay.Success)
+        {
+            return Fail(step, replay.Error!);
+        }
+
+        if (replay.Value is not null)
+        {
+            return replay.Value;
+        }
+
+        var result = await ExecuteStepAsync(
+            bridgeClient,
+            request,
+            step,
+            stepIndex,
+            cancellationToken);
+        var save = store.Save(
+            request.SessionId,
+            step.IdempotencyKey,
+            signature,
+            TimeSpan.FromMilliseconds(step.IdempotencyTtlMs ?? 300_000),
+            result);
+        return save.Success ? result : Fail(step, save.Error!, result.Target);
     }
 
     private static async Task<SemanticWorkflowStepResult> ExecuteStepAsync(
@@ -91,6 +163,11 @@ public sealed class SemanticWorkflowRunner
             return step.Action switch
             {
                 SemanticWorkflowActions.Wait => await WaitAsync(step, cancellationToken),
+                SemanticWorkflowActions.WaitForNode => await WaitForNodeAsync(bridgeClient, request, step, cancellationToken),
+                SemanticWorkflowActions.WaitForState => await WaitForStateAsync(bridgeClient, request, step, cancellationToken),
+                SemanticWorkflowActions.WaitForDialog => await WaitForDialogAsync(bridgeClient, request, step, cancellationToken),
+                SemanticWorkflowActions.ValidateAction => await ValidateActionAsync(bridgeClient, request, step, cancellationToken),
+                SemanticWorkflowActions.ValidateMutation => await ValidateMutationAsync(bridgeClient, request, step, cancellationToken),
                 SemanticWorkflowActions.Screenshot => await ScreenshotAsync(bridgeClient, request, step, stepIndex, cancellationToken),
                 SemanticWorkflowActions.Inspect => await InspectAsync(bridgeClient, request, step, cancellationToken),
                 SemanticWorkflowActions.AssertState => await AssertStateAsync(bridgeClient, request, step, cancellationToken),
@@ -134,6 +211,437 @@ public sealed class SemanticWorkflowRunner
             {
                 ["waitMs"] = waitMs.ToString(CultureInfo.InvariantCulture)
             });
+    }
+
+    private static async Task<SemanticWorkflowStepResult> WaitForNodeAsync(
+        LocalBridgeClient bridgeClient,
+        SemanticWorkflowRequest request,
+        SemanticWorkflowStep step,
+        CancellationToken cancellationToken)
+    {
+        if (step.Selector is null || !step.Selector.HasSearchCriteria)
+        {
+            return Fail(step, "semantic_workflow_selector_required", "wait_for_node requires a selector.");
+        }
+
+        var timeoutMs = step.TimeoutMs ?? 5_000;
+        var pollMs = step.PollIntervalMs ?? 100;
+        var stopwatch = Stopwatch.StartNew();
+        var attempts = 0;
+        CoreError? lastError = null;
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            attempts++;
+            using var attemptCancellation = CreateWaitAttemptCancellation(
+                stopwatch,
+                timeoutMs,
+                cancellationToken);
+            CoreResult<ResolvedWorkflowTarget> target;
+            try
+            {
+                target = await ResolveTargetAsync(
+                    bridgeClient,
+                    request,
+                    step,
+                    attemptCancellation.Token);
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                return WaitTimeout(
+                    step,
+                    timeoutMs,
+                    pollMs,
+                    attempts,
+                    stopwatch.ElapsedMilliseconds,
+                    lastError);
+            }
+            if (target.Success)
+            {
+                return Pass(
+                    step,
+                    $"Node became available after {attempts.ToString(CultureInfo.InvariantCulture)} attempt(s).",
+                    target.Value!.Target,
+                    metadata: CreateWaitMetadata(timeoutMs, pollMs, attempts, stopwatch.ElapsedMilliseconds));
+            }
+
+            lastError = target.Error;
+            if (stopwatch.ElapsedMilliseconds >= timeoutMs)
+            {
+                return WaitTimeout(step, timeoutMs, pollMs, attempts, stopwatch.ElapsedMilliseconds, lastError);
+            }
+
+            await DelayUntilNextPollAsync(stopwatch, timeoutMs, pollMs, cancellationToken);
+        }
+    }
+
+    private static async Task<SemanticWorkflowStepResult> WaitForStateAsync(
+        LocalBridgeClient bridgeClient,
+        SemanticWorkflowRequest request,
+        SemanticWorkflowStep step,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(step.AssertProperty))
+        {
+            return Fail(step, "semantic_workflow_assert_property_required", "wait_for_state requires assertProperty.");
+        }
+
+        if (step.Selector is null || !step.Selector.HasSearchCriteria)
+        {
+            return Fail(step, "semantic_workflow_selector_required", "wait_for_state requires a selector.");
+        }
+
+        var timeoutMs = step.TimeoutMs ?? 5_000;
+        var pollMs = step.PollIntervalMs ?? 100;
+        var stopwatch = Stopwatch.StartNew();
+        var attempts = 0;
+        CoreError? lastError = null;
+        InspectNodeResponse? lastInspection = null;
+        RuntimeTargetContext? lastTarget = null;
+        string? lastActual = null;
+
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            attempts++;
+            using var attemptCancellation = CreateWaitAttemptCancellation(
+                stopwatch,
+                timeoutMs,
+                cancellationToken);
+            CoreResult<ResolvedWorkflowTarget> target;
+            try
+            {
+                target = await ResolveTargetAsync(
+                    bridgeClient,
+                    request,
+                    step,
+                    attemptCancellation.Token);
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                var timeoutMetadata = CreateWaitMetadata(
+                    timeoutMs,
+                    pollMs,
+                    attempts,
+                    stopwatch.ElapsedMilliseconds);
+                timeoutMetadata["assertProperty"] = step.AssertProperty;
+                timeoutMetadata["actual"] = lastActual ?? "unavailable";
+                timeoutMetadata["expected"] = step.Expected ?? "null";
+                return Fail(
+                    step,
+                    "semantic_workflow_wait_timeout",
+                    $"Timed out waiting for '{step.AssertProperty}'.",
+                    lastTarget,
+                    lastInspection,
+                    timeoutMetadata);
+            }
+            if (target.Success)
+            {
+                lastTarget = target.Value!.Target;
+                CoreResult<InspectNodeResponse> inspect;
+                try
+                {
+                    inspect = await bridgeClient.InspectNodeAsync(
+                        request.SessionId,
+                        request.TopLevelId,
+                        lastTarget.TreeKind ?? TreeKinds.Visual,
+                        lastTarget.NodeId!,
+                        attemptCancellation.Token);
+                }
+                catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+                {
+                    var timeoutMetadata = CreateWaitMetadata(
+                        timeoutMs,
+                        pollMs,
+                        attempts,
+                        stopwatch.ElapsedMilliseconds);
+                    timeoutMetadata["assertProperty"] = step.AssertProperty;
+                    timeoutMetadata["actual"] = lastActual ?? "unavailable";
+                    timeoutMetadata["expected"] = step.Expected ?? "null";
+                    return Fail(
+                        step,
+                        "semantic_workflow_wait_timeout",
+                        $"Timed out waiting for '{step.AssertProperty}'.",
+                        lastTarget,
+                        lastInspection,
+                        timeoutMetadata);
+                }
+                if (inspect.Success)
+                {
+                    lastInspection = inspect.Value;
+                    lastActual = ReadInspectableValue(inspect.Value!, step.AssertProperty);
+                    if (string.Equals(lastActual, step.Expected, StringComparison.Ordinal))
+                    {
+                        var metadata = CreateWaitMetadata(
+                            timeoutMs,
+                            pollMs,
+                            attempts,
+                            stopwatch.ElapsedMilliseconds);
+                        metadata["assertProperty"] = step.AssertProperty;
+                        metadata["actual"] = lastActual ?? "null";
+                        metadata["expected"] = step.Expected ?? "null";
+                        return Pass(
+                            step,
+                            $"State '{step.AssertProperty}' reached the expected value.",
+                            lastTarget,
+                            inspection: lastInspection,
+                            metadata: metadata);
+                    }
+                }
+                else
+                {
+                    lastError = inspect.Error;
+                }
+            }
+            else
+            {
+                lastError = target.Error;
+            }
+
+            if (stopwatch.ElapsedMilliseconds >= timeoutMs)
+            {
+                var metadata = CreateWaitMetadata(
+                    timeoutMs,
+                    pollMs,
+                    attempts,
+                    stopwatch.ElapsedMilliseconds);
+                metadata["assertProperty"] = step.AssertProperty;
+                metadata["actual"] = lastActual ?? "unavailable";
+                metadata["expected"] = step.Expected ?? "null";
+                CopyLastError(metadata, lastError);
+                return Fail(
+                    step,
+                    "semantic_workflow_wait_timeout",
+                    $"Timed out waiting for '{step.AssertProperty}'.",
+                    lastTarget,
+                    lastInspection,
+                    metadata);
+            }
+
+            await DelayUntilNextPollAsync(stopwatch, timeoutMs, pollMs, cancellationToken);
+        }
+    }
+
+    private static async Task<SemanticWorkflowStepResult> WaitForDialogAsync(
+        LocalBridgeClient bridgeClient,
+        SemanticWorkflowRequest request,
+        SemanticWorkflowStep step,
+        CancellationToken cancellationToken)
+    {
+        var timeoutMs = step.TimeoutMs ?? 5_000;
+        var pollMs = step.PollIntervalMs ?? 100;
+        var stopwatch = Stopwatch.StartNew();
+        var attempts = 0;
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            attempts++;
+            var picker = bridgeClient.NativePicker(
+                request.SessionId,
+                NativePickerOperations.Detect,
+                timeoutMs: 0);
+            if (!picker.Success)
+            {
+                return Fail(step, picker.Error!);
+            }
+
+            if (picker.Value!.DialogDetected)
+            {
+                return Pass(
+                    step,
+                    $"Native picker detected after {attempts.ToString(CultureInfo.InvariantCulture)} attempt(s).",
+                    metadata: CreateWaitMetadata(timeoutMs, pollMs, attempts, stopwatch.ElapsedMilliseconds),
+                    picker: picker.Value);
+            }
+
+            if (stopwatch.ElapsedMilliseconds >= timeoutMs)
+            {
+                var metadata = CreateWaitMetadata(
+                    timeoutMs,
+                    pollMs,
+                    attempts,
+                    stopwatch.ElapsedMilliseconds);
+                metadata["pickerStatus"] = picker.Value.Status;
+                return new SemanticWorkflowStepResult(
+                    step.Id,
+                    step.Action,
+                    "failed",
+                    "Timed out waiting for a native file or folder picker.",
+                    DateTimeOffset.UtcNow,
+                    diagnostics:
+                    [
+                        new ProtocolError(
+                            "semantic_workflow_wait_timeout",
+                            "Timed out waiting for a native file or folder picker.",
+                            metadata)
+                    ],
+                    metadata: metadata,
+                    picker: picker.Value);
+            }
+
+            await DelayUntilNextPollAsync(stopwatch, timeoutMs, pollMs, cancellationToken);
+        }
+    }
+
+    private static async Task<SemanticWorkflowStepResult> ValidateActionAsync(
+        LocalBridgeClient bridgeClient,
+        SemanticWorkflowRequest request,
+        SemanticWorkflowStep step,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(step.InputAction))
+        {
+            return Fail(step, "semantic_workflow_input_action_required", "validate_action requires inputAction.");
+        }
+
+        var target = await ResolveTargetAsync(bridgeClient, request, step, cancellationToken);
+        if (!target.Success)
+        {
+            return Fail(step, target.Error!);
+        }
+
+        if (LooksDestructive(step, target.Value!)
+            && !request.AllowDestructive
+            && string.IsNullOrWhiteSpace(request.IsolatedStateDirectory))
+        {
+            return Fail(
+                step,
+                "semantic_workflow_destructive_target_requires_isolation",
+                "The selected target looks destructive; provide isolatedStateDirectory or set allowDestructive explicitly.",
+                target.Value!.Target);
+        }
+
+        var validation = await bridgeClient.ValidateInputAsync(
+            request.SessionId,
+            request.TopLevelId,
+            step.InputAction,
+            inputText: step.Text,
+            targetNodeId: target.Value!.Target.NodeId,
+            inputKey: step.Key,
+            keyModifiers: step.Modifiers,
+            cancellationToken: cancellationToken);
+        return validation.Success
+            ? Pass(
+                step,
+                $"Input action '{step.InputAction}' validated without execution.",
+                target.Value.Target,
+                validation.Value,
+                metadata: validation.Value!.Metadata)
+            : Fail(step, validation.Error!, target.Value.Target);
+    }
+
+    private static async Task<SemanticWorkflowStepResult> ValidateMutationAsync(
+        LocalBridgeClient bridgeClient,
+        SemanticWorkflowRequest request,
+        SemanticWorkflowStep step,
+        CancellationToken cancellationToken)
+    {
+        if (step.Mutation is null)
+        {
+            return Fail(step, "semantic_workflow_mutation_required", "validate_mutation requires mutation.");
+        }
+
+        var target = await ResolveTargetAsync(bridgeClient, request, step, cancellationToken);
+        if (!target.Success)
+        {
+            return Fail(step, target.Error!);
+        }
+
+        var mutationRequest = new RuntimeMutationRequest(
+            $"{request.RequestId}:{step.Id}:validation",
+            target.Value!.Target,
+            step.Mutation);
+        var validation = await bridgeClient.ValidateMutationAsync(
+            request.SessionId,
+            mutationRequest,
+            cancellationToken);
+        if (!validation.Success)
+        {
+            return Fail(step, validation.Error!, target.Value.Target);
+        }
+
+        var response = validation.Value!;
+        if (!string.Equals(response.Status, RuntimeMutationStatuses.Validated, StringComparison.Ordinal))
+        {
+            var diagnostic = response.Diagnostics.FirstOrDefault()
+                ?? new ProtocolError(
+                    "semantic_workflow_mutation_validation_failed",
+                    $"Mutation validation returned status '{response.Status}'.");
+            return Fail(step, diagnostic, target.Value.Target, mutation: response);
+        }
+
+        return Pass(
+            step,
+            "Runtime mutation validated without applying it.",
+            target.Value.Target,
+            metadata: response.Metadata,
+            mutation: response);
+    }
+
+    private static async Task DelayUntilNextPollAsync(
+        Stopwatch stopwatch,
+        int timeoutMs,
+        int pollMs,
+        CancellationToken cancellationToken)
+    {
+        var remaining = timeoutMs - stopwatch.ElapsedMilliseconds;
+        if (remaining > 0)
+        {
+            await Task.Delay(
+                (int)Math.Min(pollMs, remaining),
+                cancellationToken);
+        }
+    }
+
+    private static CancellationTokenSource CreateWaitAttemptCancellation(
+        Stopwatch stopwatch,
+        int timeoutMs,
+        CancellationToken cancellationToken)
+    {
+        var source = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        source.CancelAfter((int)Math.Max(1, timeoutMs - stopwatch.ElapsedMilliseconds));
+        return source;
+    }
+
+    private static SemanticWorkflowStepResult WaitTimeout(
+        SemanticWorkflowStep step,
+        int timeoutMs,
+        int pollMs,
+        int attempts,
+        long elapsedMs,
+        CoreError? lastError)
+    {
+        var metadata = CreateWaitMetadata(timeoutMs, pollMs, attempts, elapsedMs);
+        CopyLastError(metadata, lastError);
+        return Fail(
+            step,
+            "semantic_workflow_wait_timeout",
+            "Timed out waiting for a matching node.",
+            metadata: metadata);
+    }
+
+    private static Dictionary<string, string> CreateWaitMetadata(
+        int timeoutMs,
+        int pollMs,
+        int attempts,
+        long elapsedMs) =>
+        new(StringComparer.Ordinal)
+        {
+            ["timeoutMs"] = timeoutMs.ToString(CultureInfo.InvariantCulture),
+            ["pollIntervalMs"] = pollMs.ToString(CultureInfo.InvariantCulture),
+            ["attempts"] = attempts.ToString(CultureInfo.InvariantCulture),
+            ["elapsedMs"] = elapsedMs.ToString(CultureInfo.InvariantCulture)
+        };
+
+    private static void CopyLastError(
+        IDictionary<string, string> metadata,
+        CoreError? error)
+    {
+        if (error is not null)
+        {
+            metadata["lastErrorCode"] = error.Code;
+            metadata["lastErrorMessage"] = error.Message;
+        }
     }
 
     private static SemanticWorkflowStepResult ConsumePickerResult(
@@ -530,7 +1038,10 @@ public sealed class SemanticWorkflowRunner
 
     private static bool LooksDestructive(SemanticWorkflowStep step, ResolvedWorkflowTarget target)
     {
-        if (step.Action is not SemanticWorkflowActions.Click
+        var effectiveAction = step.Action == SemanticWorkflowActions.ValidateAction
+            ? step.InputAction
+            : step.Action;
+        if (effectiveAction is not SemanticWorkflowActions.Click
             and not SemanticWorkflowActions.Invoke
             and not SemanticWorkflowActions.Select
             and not SemanticWorkflowActions.Toggle
@@ -586,7 +1097,8 @@ public sealed class SemanticWorkflowRunner
         InspectNodeResponse? inspection = null,
         ScreenshotResponse? screenshot = null,
         IReadOnlyDictionary<string, string>? metadata = null,
-        NativePickerResponse? picker = null)
+        NativePickerResponse? picker = null,
+        RuntimeMutationResponse? mutation = null)
     {
         return new SemanticWorkflowStepResult(
             step.Id,
@@ -599,7 +1111,8 @@ public sealed class SemanticWorkflowRunner
             inspection,
             screenshot,
             metadata: metadata,
-            picker: picker);
+            picker: picker,
+            mutation: mutation);
     }
 
     private static SemanticWorkflowStepResult Fail(
@@ -613,7 +1126,8 @@ public sealed class SemanticWorkflowRunner
     private static SemanticWorkflowStepResult Fail(
         SemanticWorkflowStep step,
         ProtocolError error,
-        RuntimeTargetContext? target = null)
+        RuntimeTargetContext? target = null,
+        RuntimeMutationResponse? mutation = null)
     {
         return new SemanticWorkflowStepResult(
             step.Id,
@@ -622,7 +1136,8 @@ public sealed class SemanticWorkflowRunner
             error.Message,
             DateTimeOffset.UtcNow,
             target,
-            diagnostics: [error]);
+            diagnostics: [error],
+            mutation: mutation);
     }
 
     private static SemanticWorkflowStepResult Fail(
