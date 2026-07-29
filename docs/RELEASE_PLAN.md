@@ -54,7 +54,7 @@ The roadmap below records the release-shaped plan through `v1.0.0`. It is intent
 
 - Release: `v1.2.0`
 - Target Version: `1.2.0`
-- Release State: `In Progress`
+- Release State: `Release Candidate`
 - Scope Lock: `2026-07-29`
 - GitHub Milestone: `v1.2.0`
 - GitHub Issues: #76, #77, #78, #79, #80, #81, #82, #83, #84, #85, #86
@@ -82,7 +82,7 @@ The `v1.2.0` minor release implements the complete runtime interaction and agent
 - #83 `Return compact node search matches by default`; Status: `Done`.
 - #84 `Standardize mutation operation names and prevalidate supported properties`; Status: `Done`.
 - #85 `Provide bounded structured summaries for preview diagnostics`; Status: `Done`.
-- #86 `Release v1.2.0`; Status: `Backlog`.
+- #86 `Release v1.2.0`; Status: `Review`.
 
 ### Explicit Deferrals
 
@@ -92,6 +92,7 @@ The `v1.2.0` minor release implements the complete runtime interaction and agent
 
 ### v1.2.0 Implementation Validation
 
+- `2026-07-29`: The complete local v1.2.0 release gate passed from `ca627cb`. Debug and Release builds completed with `0` warnings/errors and all `385` tests passed in each configuration; the Release suite passed again inside the artifact workflow. Exact `1.2.0` Protocol/Core/Bridge NuGet packages, Windows/Linux portable ZIPs, Windows/Linux installers, and the seven-entry SHA-256 manifest passed artifact verification. Packaged Windows installer install/repair/doctor/MCP/uninstall, packaged doctor, real Avalonia preview (including the bounded diagnostic summary and full JSON artifact), and WSL Ubuntu Linux installer smoke with temporary .NET `10.0.10` passed. NuGet and GitHub Release dry-runs passed; no `v1.2.0` tag or release exists remotely. Eight exact artifact-hosted smoke processes were terminated after identity/path verification when stale test processes locked the packaging directory.
 - `2026-07-29`: Completed #77 with target-centered click derivation in top-level DIP space, explicit x/y precedence, target/hit-test validation, and bounded stale, invisible, zero-sized, clipped, or wrong-target diagnostics before dispatch. Targeted Bridge (`117`), CLI (`148`), MCP (`50`), and Protocol (`61`) tests passed; the full Debug suite passed with `382` tests and the build completed with `0` warnings/errors.
 - `2026-07-29`: Completed #76 with public Avalonia automation-provider dispatch for invoke, selector-based select, toggle, expand, and collapse across Protocol, Bridge, Core semantic workflows, CLI, MCP, capability discovery, and documentation. Targeted Bridge (`115`), CLI (`145`), MCP (`50`), and Protocol (`61`) tests passed; the full Debug suite passed with `379` tests and the build completed with `0` warnings/errors.
 
