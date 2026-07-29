@@ -36,7 +36,7 @@ The MCP initialization handshake reports `serverInfo.name` as `avascope` and `se
 
 Stable protocol primitives:
 
-- `ToolResult<T>` preserves `success`, `value`, and `error`.
+- `ToolResult<T>` preserves `success`, `value`, and `error`; the inactive `value` or `error` branch is serialized as an explicit JSON `null` so strict MCP clients receive every advertised required field.
 - `ProtocolError` preserves `code`, `message`, and optional `details`.
 - `SessionId` serializes as a JSON string.
 - `HealthResponse`, `AvaScopeCapabilitiesResponse`, and `DoctorResponse` expose `productVersion`.

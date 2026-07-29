@@ -1,5 +1,7 @@
 using ModelContextProtocol.Client;
 using AvaScope.Protocol;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace AvaScope.Tests.Mcp;
 
@@ -62,5 +64,73 @@ public sealed class McpStdioSmokeTests
         Assert.Contains("reload", toolNames);
         Assert.Contains("cleanup", toolNames);
         Assert.Contains("cleanup_bridge_sessions", toolNames);
+    }
+
+    [Fact]
+    public async Task AdvertisedRequiredOutputFieldsArePresentInSuccessAndFailureResponses()
+    {
+        var serverAssembly = Path.Combine(AppContext.BaseDirectory, "AvaScope.Mcp.dll");
+        Assert.True(File.Exists(serverAssembly), $"Expected MCP server assembly at {serverAssembly}.");
+
+        var stderr = new List<string>();
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+        var environment = StdioClientTransportOptions.GetDefaultEnvironmentVariables();
+
+        await using var client = await McpClient.CreateAsync(
+            new StdioClientTransport(new StdioClientTransportOptions
+            {
+                Name = "AvaScope",
+                Command = "dotnet",
+                Arguments = [serverAssembly],
+                WorkingDirectory = AppContext.BaseDirectory,
+                InheritEnvironmentVariables = false,
+                EnvironmentVariables = environment,
+                ShutdownTimeout = TimeSpan.FromSeconds(5),
+                StandardErrorLines = stderr.Add
+            }),
+            cancellationToken: cancellation.Token);
+
+        var tools = await client.ListToolsAsync(cancellationToken: cancellation.Token);
+        var healthTool = Assert.Single(tools, static tool => tool.Name == "health");
+        var closeSessionTool = Assert.Single(tools, static tool => tool.Name == "close_session");
+
+        var healthResult = await client.CallToolAsync(
+            "health",
+            new Dictionary<string, object?>(),
+            cancellationToken: cancellation.Token);
+        var closeSessionResult = await client.CallToolAsync(
+            "close_session",
+            new Dictionary<string, object?>
+            {
+                ["sessionId"] = "rider-schema-validation-missing-session"
+            },
+            cancellationToken: cancellation.Token);
+
+        AssertRequiredFieldsPresent(healthTool.ProtocolTool.OutputSchema, healthResult.StructuredContent);
+        AssertRequiredFieldsPresent(closeSessionTool.ProtocolTool.OutputSchema, closeSessionResult.StructuredContent);
+
+        var success = JsonSerializer.SerializeToNode(healthResult.StructuredContent)!.AsObject();
+        Assert.True(success["success"]!.GetValue<bool>());
+        Assert.True(success.ContainsKey("error"));
+        Assert.Null(success["error"]);
+
+        var failure = JsonSerializer.SerializeToNode(closeSessionResult.StructuredContent)!.AsObject();
+        Assert.False(failure["success"]!.GetValue<bool>());
+        Assert.True(failure.ContainsKey("value"));
+        Assert.Null(failure["value"]);
+        Assert.NotNull(failure["error"]);
+    }
+
+    private static void AssertRequiredFieldsPresent(JsonElement? outputSchema, JsonElement? structuredContent)
+    {
+        var schema = JsonSerializer.SerializeToNode(outputSchema)!.AsObject();
+        var response = JsonSerializer.SerializeToNode(structuredContent)!.AsObject();
+        var required = schema["required"]!.AsArray()
+            .Select(static field => field!.GetValue<string>());
+
+        foreach (var field in required)
+        {
+            Assert.True(response.ContainsKey(field), $"Required output field '{field}' was omitted.");
+        }
     }
 }

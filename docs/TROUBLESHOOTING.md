@@ -2,6 +2,10 @@
 
 Use this when an agent workflow fails and the next action is not obvious from the structured result. Prefer the exact error code, `nextAction`, artifact path, and session id returned by the CLI or MCP response.
 
+## MCP Clients
+
+- Rider Copilot and other strict MCP clients require structured responses to match each advertised output schema. AvaScope 1.1.4 and later always serialize `success`, `value`, and `error`, using an explicit JSON `null` for the inactive result branch. Upgrade the complete CLI/MCP installation and reconnect the stdio server if an older installation fails tool calls with JSON-RPC `-32602` and a missing `value` or `error` field.
+
 ## Attach And Bridge Sessions
 
 - `bridge_session_not_found`: no active local manifest matched the selected process, session, process name, or manifest path. Run `avascope diagnostics --manifest-dir <dir>`, then retry with `--session` or `--manifest`.

@@ -26,11 +26,11 @@ public sealed record ToolResult<T>
     public bool Success { get; }
 
     [JsonPropertyName("value")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
     public T? Value { get; }
 
     [JsonPropertyName("error")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
     public ProtocolError? Error { get; }
 
     public static ToolResult<T> Ok(T value) => new(true, value, null);

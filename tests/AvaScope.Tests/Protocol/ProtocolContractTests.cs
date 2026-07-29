@@ -27,6 +27,7 @@ public sealed class ProtocolContractTests
 
         Assert.True(node["success"]!.GetValue<bool>());
         Assert.Equal("session-1", node["value"]!.GetValue<string>());
+        Assert.True(node.AsObject().ContainsKey("error"));
         Assert.Null(node["error"]);
     }
 
@@ -38,6 +39,7 @@ public sealed class ProtocolContractTests
         var node = JsonNode.Parse(json)!;
 
         Assert.False(node["success"]!.GetValue<bool>());
+        Assert.True(node.AsObject().ContainsKey("value"));
         Assert.Null(node["value"]);
         Assert.Equal("session_not_found", node["error"]!["code"]!.GetValue<string>());
         Assert.Equal("Session was not found.", node["error"]!["message"]!.GetValue<string>());

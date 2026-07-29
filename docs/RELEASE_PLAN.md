@@ -50,6 +50,34 @@ The roadmap below records the release-shaped plan through `v1.0.0`. It is intent
 - Every release must include targeted tests, full build/test validation, release dry-run validation, documentation updates, and explicit deferrals.
 - A release may be split into a patch release if a P0/P1 regression blocks users or CI, but patch scope must remain defect-focused.
 
+## Active Target: v1.1.4
+
+- Release: `v1.1.4`
+- Target Version: `1.1.4`
+- Release State: `In Progress`
+- Scope Lock: `2026-07-29`
+- GitHub Milestone: `v1.1.4`
+- GitHub Issues: #74, #75
+- Previous Release: `v1.1.3`
+
+### v1.1.4 Release Goals
+
+The v1.1.4 patch release restores MCP interoperability with Rider Copilot and other clients that validate structured tool responses strictly against the advertised output schema.
+
+1. `RG-1.1.4-1 Strict MCP Output Compatibility`: serialize the inactive `ToolResult<T>` branch as an explicit null so successful and failed responses both contain every field required by the published schema.
+2. `RG-1.1.4-2 Regression Coverage`: validate representative success and failure results against the output schemas returned by the real stdio MCP server.
+3. `RG-1.1.4-3 Guarded Patch Release`: publish only after the full local release gate passes and the Release workflow creates `v1.1.4`, packages, portable ZIPs, installers, manifest, and GitHub Release assets.
+
+### v1.1.4 Milestone Map
+
+- #75 `Rider Copilot rejects MCP responses that omit required null result fields`; Status: `In Progress`.
+- #74 `Release v1.1.4`; Status: `Ready`.
+
+### v1.1.4 Implementation Validation
+
+- `2026-07-29`: Implemented explicit null serialization for both inactive `ToolResult<T>` branches, including an override of the MCP SDK's global null-omission behavior. Focused protocol and real stdio MCP schema/response tests passed (`59`); representative successful and failed tool calls contained all advertised required fields. The full Debug build passed with `0` warnings/errors and all `373` tests passed.
+- `2026-07-29`: Started #75 from Rider Copilot feedback against AvaScope 1.1.3. The defect is scoped to the mismatch between required `value`/`error` output-schema properties and null-omitting JSON serialization; the patch preserves the stable three-field result contract and adds real stdio MCP regression coverage.
+
 ## Released Target: v1.1.3
 
 - Release: `v1.1.3`
