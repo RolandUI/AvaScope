@@ -50,13 +50,15 @@ The roadmap below records the release-shaped plan through `v1.0.0`. It is intent
 - Every release must include targeted tests, full build/test validation, release dry-run validation, documentation updates, and explicit deferrals.
 - A release may be split into a patch release if a P0/P1 regression blocks users or CI, but patch scope must remain defect-focused.
 
-## Current Release Target
+## Released Target: v1.2.0
 
 - Release: `v1.2.0`
 - Target Version: `1.2.0`
-- Release State: `Release Candidate`
-- Candidate Commit Subject: `Release 1.2.0`
+- Release State: `Released`
+- Release Commit: `1bcdb06550126b9ed328e160255d179f4b815eae` (`Release 1.2.0`)
 - Scope Lock: `2026-07-29`
+- Published At: `2026-07-29T20:10:59Z`
+- GitHub Release: https://github.com/RolandUI/AvaScope/releases/tag/v1.2.0
 - GitHub Milestone: `v1.2.0`
 - GitHub Issues: #76, #77, #78, #79, #80, #81, #82, #83, #84, #85, #86, #87, #88, #89, #90, #91, #92
 - Previous Release: `v1.1.4`
@@ -92,7 +94,7 @@ The `v1.2.0` minor release implements the complete runtime interaction and agent
 - #90 `R1.2.0-M14 Compact binding summaries and global response budgets`; Status: `Done`.
 - #91 `R1.2.0-M15 Preview diagnostics baseline and filter parity`; Status: `Done`.
 - #92 `R1.2.0-M16 Deterministic waits, idempotency, and dry-run validation`; Status: `Done`.
-- #86 `Release v1.2.0`; Status: `Review`.
+- #86 `Release v1.2.0`; Status: `Done`.
 
 ### Explicit Deferrals
 
@@ -101,6 +103,8 @@ The `v1.2.0` minor release implements the complete runtime interaction and agent
 - Native picker automation must fail explicitly on unsupported platforms or picker implementations; it must not broaden control beyond the selected local application process.
 
 ### v1.2.0 Implementation Validation
+
+- `2026-07-29`: Published v1.2.0 from exact release commit `1bcdb06550126b9ed328e160255d179f4b815eae` through successful Release workflow `30486987163` after non-publishing workflow `30486445224` passed on the same commit. The tag resolves to the release commit and the GitHub Release exposes all eight expected assets. The downloaded manifest matched all seven packaged asset SHA-256 digests and sizes and every GitHub asset digest. NuGet.org exposes repository-signed Protocol/Core/Bridge `1.2.0` packages whose unsigned entries match the GitHub Release packages, and GitHub Packages shows `1.2.0` as Latest for all three packages.
 
 - `2026-07-29`: Reopened the candidate for the post-review hardening scope in #87–#92. The previously passing release gate remains historical evidence only; the complete gate must be rerun after these slices before the target can return to `Release Candidate`.
 - `2026-07-29`: Completed #92 implementation validation. Added cancellation-aware `wait_for_node`, `wait_for_state`, and `wait_for_dialog`; session-scoped TTL-bounded idempotency leases/results with exact replay and conflict detection; and `validate_action` / `validate_mutation` dry runs that share bridge target, automation-provider, supported-property, and value checks without dispatch or mutation. Debug build passed with `0` warnings/errors, 131 focused tests passed, and the full Debug suite passed all `417` tests.

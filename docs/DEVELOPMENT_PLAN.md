@@ -2,6 +2,7 @@
 
 GitHub Issues and Milestones are the primary project-management source for autonomous agents working on AvaScope. This document is the compact local handoff and validation log. Update it whenever meaningful implementation, validation, or planning changes the active GitHub issue or release state.
 
+- `2026-07-29`: Published `v1.2.0` from exact release commit `1bcdb06550126b9ed328e160255d179f4b815eae` through successful Release workflow `30486987163`, after non-publishing workflow `30486445224` passed on the same commit. The tag resolves to the release commit; all eight GitHub Release assets are present; the downloaded seven-entry manifest matches every packaged asset size and SHA-256 digest; nuget.org exposes repository-signed Protocol/Core/Bridge `1.2.0` packages with matching unsigned entries; and GitHub Packages marks `1.2.0` Latest for all three packages. Release tracker #86 and the v1.2.0 milestone are complete.
 - `2026-07-29`: Reopened v1.2.0 from Release Candidate to In Progress for hardening issues #87–#92. Active issue #87 replaces the non-consumable picker placeholder with session-scoped, request-correlated, TTL-bounded one-shot result injection and hardens process-owned Windows picker automation.
 - `2026-07-29`: Completed #87 implementation validation: Debug build passed with `0` warnings/errors; focused Protocol/Core coverage passed `88` tests; CLI/MCP coverage passed `143` tests; and the full Debug suite passed all `388` tests. Prepared picker results are now session/request correlated, TTL-bounded, redacted by default, consumed exactly once by `picker_result`, and guarded live commands verify process ownership with bounded waits.
 - `2026-07-29`: Completed #88 implementation validation: Debug build passed with `0` warnings/errors; focused Protocol/Core/CLI/MCP coverage passed `211` tests; MCP and CLI close-session tests preserve the closed session on `not_owned`; and the clean full Debug retry passed all `397` tests. The first full attempt had one unrelated Avalonia Headless dispose null-reference; the exact test passed immediately in isolation before the clean full retry.
@@ -41,20 +42,21 @@ GitHub Issues and Milestones are the primary project-management source for auton
 
 ## Current Focus
 
-- `v1.2.0 guarded publication`
-- GitHub Issue: #86
-- GitHub Milestone: `v1.2.0`
-- Status: `Review`
+- `Post-v1.2.0 planning`
+- GitHub Issue: none
+- GitHub Milestone: none
+- Status: `Done`
 - Owner: autonomous agent
-- Started: `2026-07-29`
-- Goal: publish the validated v1.2.0 release commit through the guarded workflow and verify every remote package, asset, digest, and tag.
+- Completed: `2026-07-29`
+- Goal: keep the released v1.2.0 state recorded while the next release scope is selected.
 
 ## Next Action
 
-Create and push the exact `Release 1.2.0` commit, run the guarded workflow with `publish=false`, then publish and verify remotely.
+Define the next release target and milestone before starting feature implementation.
 
 ## Latest Validation
 
+- `2026-07-29`: The v1.2.0 publication gate completed successfully. Release workflow `30486987163` published from exact commit `1bcdb06550126b9ed328e160255d179f4b815eae`; tag and release metadata, all eight assets, the seven-entry manifest, SHA-256 digests and sizes, three repository-signed nuget.org packages, and three GitHub Packages Latest versions were verified remotely.
 - `2026-07-29`: Completed local implementation for #77. Target-only `click` now derives the selected visual's center in top-level DIP space; explicit x/y coordinates take precedence when both are supplied. Bridge validation rejects stale, non-visual, invisible, zero-sized, non-finite, fully clipped, non-Button, or mismatched hit-test targets before dispatch and returns bounded remediation details. Capability metadata, MCP descriptions, CLI validation, user/agent docs, semantic-workflow regression coverage, and direct target-only CLI/MCP coverage were updated. Debug build passed with `0` warnings/errors; targeted Bridge (`117`), CLI (`148`), MCP (`50`), and Protocol (`61`) tests passed; the full Debug suite passed with `382` tests; `git diff --check` passed with line-ending normalization warnings only.
 - `2026-07-29`: Completed local implementation for #76. Added public Avalonia automation-provider-backed `invoke`, target-only `select`, `toggle`, `expand`, and `collapse` across Protocol, Bridge, Core semantic workflows, CLI, MCP, capability discovery, and user/agent documentation. Unsupported target/pattern combinations return bounded required/supported-pattern diagnostics, while the existing `select --text <index-or-item>` form remains compatible. Debug build passed with `0` warnings/errors; targeted Bridge (`115`), CLI (`145`), MCP (`50`), and Protocol (`61`) tests passed; the full Debug suite passed with `379` tests; `git diff --check` passed with line-ending normalization warnings only.
 - `2026-07-29`: Published `v1.1.4` from exact release commit `b40a34ab3b586f2e4033fd2d62c5f1fa8e9c8ee1` through successful Release workflow `30438646374`. The workflow published AvaScope.Protocol, AvaScope.Core, and AvaScope.Bridge `1.1.4` to nuget.org and GitHub Packages, created the tag at the release commit, and uploaded eight GitHub Release assets. The downloaded `1.1.4` manifest matched all seven packaged asset SHA-256 digests and sizes; all three nuget.org package pages and flat-container indexes expose `1.1.4`.
