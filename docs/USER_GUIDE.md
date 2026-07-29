@@ -701,7 +701,14 @@ Close an active local bridge session:
 
 ```powershell
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll close-session --session session-id
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll close-session --session session-id --terminate-launched-process true
 ```
+
+The opt-in termination flag only affects an app started by AvaScope
+`launch-app`. AvaScope verifies the recorded PID and process start time before
+terminating the owned process tree; otherwise it reports `not_owned`. The
+default remains session-only close. Outcomes are `closed_only`, `terminated`,
+`already_exited`, `not_owned`, and `termination_failed`.
 
 Read local bridge and preview-host diagnostics:
 

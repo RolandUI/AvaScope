@@ -483,20 +483,125 @@ public sealed class LocalBridgeClient
 
     public async Task<CoreResult<CloseSessionResponse>> CloseSessionAsync(
         SessionId sessionId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        bool terminateLaunchedProcess = false)
     {
         ArgumentNullException.ThrowIfNull(sessionId);
 
+        var ownership = new LaunchOwnershipStore(ManifestDirectory).TryRead(sessionId);
         var manifestResult = FindSingleManifest(null, sessionId);
         if (!manifestResult.Success)
         {
+            if (terminateLaunchedProcess && ownership is not null)
+            {
+                return CoreResult<CloseSessionResponse>.Ok(TerminateOwnedProcess(
+                    ownership,
+                    DateTimeOffset.UtcNow,
+                    sessionAlreadyClosed: true));
+            }
+
             return CoreResult<CloseSessionResponse>.Fail(manifestResult.Error!);
         }
 
-        return await SendAsync<CloseSessionResponse>(
+        var closeResult = await SendAsync<CloseSessionResponse>(
             manifestResult.Value!,
             new BridgeIpcRequest(NewRequestId(), BridgeIpcMethods.CloseSession),
             cancellationToken);
+        if (!closeResult.Success)
+        {
+            return closeResult;
+        }
+
+        var closed = closeResult.Value!;
+        if (!terminateLaunchedProcess)
+        {
+            return CoreResult<CloseSessionResponse>.Ok(new CloseSessionResponse(
+                closed.Session,
+                closed.ProcessId,
+                closed.ClosedAt));
+        }
+
+        if (ownership is null || ownership.ProcessId != manifestResult.Value!.ProcessId)
+        {
+            return CoreResult<CloseSessionResponse>.Ok(new CloseSessionResponse(
+                closed.Session,
+                closed.ProcessId,
+                closed.ClosedAt,
+                true,
+                CloseSessionOutcomes.NotOwned,
+                terminationMessage: "The process was not launched and owned by AvaScope."));
+        }
+
+        return CoreResult<CloseSessionResponse>.Ok(TerminateOwnedProcess(ownership, closed.ClosedAt));
+    }
+
+    private static CloseSessionResponse TerminateOwnedProcess(
+        LaunchOwnershipRecord ownership,
+        DateTimeOffset closedAt,
+        bool sessionAlreadyClosed = false)
+    {
+        if (!LaunchOwnershipStore.TryGetProcessIdentity(ownership.ProcessId, out var process, out var actualStartedAt))
+        {
+            return new CloseSessionResponse(
+                ClosedSession(ownership.Session),
+                ownership.ProcessId,
+                closedAt,
+                true,
+                CloseSessionOutcomes.AlreadyExited,
+                launchedProcessOwned: true,
+                terminationMessage: sessionAlreadyClosed ? "The session was already closed and the launched process had exited." : null);
+        }
+
+        using (process)
+        {
+            if (!LaunchOwnershipStore.IsSameProcess(ownership.ProcessStartedAt, actualStartedAt))
+            {
+                return new CloseSessionResponse(
+                    ClosedSession(ownership.Session),
+                    ownership.ProcessId,
+                    closedAt,
+                    true,
+                    CloseSessionOutcomes.NotOwned,
+                    terminationMessage: "The process id was reused; AvaScope did not terminate the current process.");
+            }
+
+            try
+            {
+                process.Kill(entireProcessTree: true);
+                process.WaitForExit(5000);
+                var terminated = process.HasExited;
+                return new CloseSessionResponse(
+                    ClosedSession(ownership.Session),
+                    ownership.ProcessId,
+                    closedAt,
+                    true,
+                    terminated ? CloseSessionOutcomes.Terminated : CloseSessionOutcomes.TerminationFailed,
+                    launchedProcessOwned: true,
+                    processTerminated: terminated,
+                    terminationMessage: terminated ? null : "The owned process did not exit within five seconds.");
+            }
+            catch (Exception exception) when (exception is InvalidOperationException or System.ComponentModel.Win32Exception or NotSupportedException)
+            {
+                return new CloseSessionResponse(
+                    ClosedSession(ownership.Session),
+                    ownership.ProcessId,
+                    closedAt,
+                    true,
+                    CloseSessionOutcomes.TerminationFailed,
+                    launchedProcessOwned: true,
+                    terminationMessage: exception.Message);
+            }
+        }
+    }
+
+    private static SessionSummary ClosedSession(SessionSummary session)
+    {
+        return new SessionSummary(
+            session.SessionId,
+            session.Kind,
+            SessionStates.Closed,
+            session.CreatedAt,
+            session.DisplayName);
     }
 
     public async Task<CoreResult<SessionSummary>> ReloadRuntimeAsync(

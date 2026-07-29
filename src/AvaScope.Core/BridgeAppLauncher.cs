@@ -149,6 +149,28 @@ public sealed class BridgeAppLauncher
                     topLevelId,
                     attach.Value.ManifestPath);
 
+                if (!LaunchOwnershipStore.TryGetProcessIdentity(manifest.ProcessId, out var launchedProcess, out var processStartedAt))
+                {
+                    DetachLaunchProcess(process, outputCancellation);
+                    return Fail("The launched app process exited before launch ownership could be recorded.");
+                }
+
+                launchedProcess.Dispose();
+                try
+                {
+                    new LaunchOwnershipStore(fullManifestDirectory).Save(new LaunchOwnershipRecord(
+                        response.Session,
+                        response.ProcessId,
+                        response.ProcessName,
+                        processStartedAt,
+                        startedAt));
+                }
+                catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+                {
+                    DetachLaunchProcess(process, outputCancellation);
+                    return Fail($"The launched app was attached, but launch ownership could not be recorded: {exception.Message}");
+                }
+
                 DetachLaunchProcess(process, outputCancellation);
                 return CoreResult<LaunchAppResponse>.Ok(response);
             }

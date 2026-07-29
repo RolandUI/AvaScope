@@ -77,7 +77,13 @@ public static class AvaScopeCapabilityCatalog
                 "runtime",
                 "Launch local bridge-enabled apps and close active local bridge sessions through explicit local lifecycle commands.",
                 ["launch-app", "launch_app", "close-session", "close_session"],
-                requires: [AvaScopeCapabilityIds.SafetyLocalOnly]),
+                requires: [AvaScopeCapabilityIds.SafetyLocalOnly],
+                metadata: new Dictionary<string, string>
+                {
+                    ["closeSessionDefault"] = "close_session_only",
+                    ["optionalProcessTermination"] = "avascope_owned_launches_only",
+                    ["closeSessionExample"] = """{"sessionId":"<id>","terminateLaunchedProcess":true}"""
+                }),
             Capability(
                 AvaScopeCapabilityIds.RuntimeTrees,
                 "runtime",

@@ -815,11 +815,12 @@ public sealed class AvaScopeMcpTools
         Destructive = false,
         OpenWorld = false,
         UseStructuredContent = true)]
-    [Description("Closes a local AvaScope bridge session and removes its local manifest.")]
+    [Description("Closes a local AvaScope bridge session. Optionally terminates the process only when it was launched and ownership-recorded by AvaScope.")]
     public static async Task<ToolResult<CloseSessionResponse>> CloseSession(
         LocalBridgeClient bridgeClient,
         string sessionId,
         string? manifestDirectory = null,
+        bool terminateLaunchedProcess = false,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(bridgeClient);
@@ -831,7 +832,8 @@ public sealed class AvaScopeMcpTools
 
         return ToToolResult(await CreateBridgeClient(bridgeClient, manifestDirectory).CloseSessionAsync(
             parsedSessionId!,
-            cancellationToken));
+            cancellationToken,
+            terminateLaunchedProcess));
     }
 
     [McpServerTool(

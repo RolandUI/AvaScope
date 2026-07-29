@@ -2593,13 +2593,23 @@ internal static class Program
             return 2;
         }
 
-        if (!ValidateOptions(options.Values, GetCloseSessionUsage(), "session", "manifest-dir")
+        if (!ValidateOptions(options.Values, GetCloseSessionUsage(), "session", "manifest-dir", "terminate-launched-process")
             || !TryReadRequiredSessionId(options.Values, GetCloseSessionUsage(), out var sessionId))
         {
             return 2;
         }
 
-        var result = await CreateBridgeClient(options.Values).CloseSessionAsync(sessionId!);
+        var terminateLaunchedProcess = false;
+        if (options.Values.TryGetValue("terminate-launched-process", out var terminateText)
+            && !bool.TryParse(terminateText, out terminateLaunchedProcess))
+        {
+            WriteFailure<CloseSessionResponse>(InvalidCliArguments, "terminate-launched-process must be true or false.");
+            return 2;
+        }
+
+        var result = await CreateBridgeClient(options.Values).CloseSessionAsync(
+            sessionId!,
+            terminateLaunchedProcess: terminateLaunchedProcess);
         WriteResult(result);
 
         return result.Success ? 0 : 1;
@@ -3909,7 +3919,7 @@ internal static class Program
 
     private static string GetCloseSessionUsage()
     {
-        return "Usage: avascope close-session --session <session-id> [--manifest-dir <dir>]";
+        return "Usage: avascope close-session --session <session-id> [--terminate-launched-process true|false] [--manifest-dir <dir>]";
     }
 
     private static string GetDiagnosticsUsage()

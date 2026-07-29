@@ -2847,5 +2847,34 @@ public sealed class ProtocolContractTests
         Assert.Equal("closed", node["session"]!["state"]!.GetValue<string>());
         Assert.Equal("Sample app", node["session"]!["displayName"]!.GetValue<string>());
         Assert.Equal(closedAt, DateTimeOffset.Parse(node["closedAt"]!.GetValue<string>(), CultureInfo.InvariantCulture));
+        Assert.False(node["terminateLaunchedProcessRequested"]!.GetValue<bool>());
+        Assert.Equal(CloseSessionOutcomes.ClosedOnly, node["outcome"]!.GetValue<string>());
+        Assert.False(node["launchedProcessOwned"]!.GetValue<bool>());
+        Assert.False(node["processTerminated"]!.GetValue<bool>());
+    }
+
+    [Fact]
+    public void CloseSessionResponseSerializesOwnedProcessTermination()
+    {
+        var closedAt = new DateTimeOffset(2026, 7, 29, 12, 0, 0, TimeSpan.Zero);
+        var response = new CloseSessionResponse(
+            new SessionSummary(
+                new SessionId("owned-session"),
+                SessionKinds.Runtime,
+                SessionStates.Closed,
+                closedAt.AddMinutes(-1)),
+            4321,
+            closedAt,
+            terminateLaunchedProcessRequested: true,
+            outcome: CloseSessionOutcomes.Terminated,
+            launchedProcessOwned: true,
+            processTerminated: true);
+
+        var node = JsonNode.Parse(JsonSerializer.Serialize(response))!;
+
+        Assert.True(node["terminateLaunchedProcessRequested"]!.GetValue<bool>());
+        Assert.Equal(CloseSessionOutcomes.Terminated, node["outcome"]!.GetValue<string>());
+        Assert.True(node["launchedProcessOwned"]!.GetValue<bool>());
+        Assert.True(node["processTerminated"]!.GetValue<bool>());
     }
 }
