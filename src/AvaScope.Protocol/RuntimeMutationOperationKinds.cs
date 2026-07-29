@@ -11,4 +11,17 @@ public static class RuntimeMutationOperationKinds
     public const string RemoveResource = "remove_resource";
     public const string ResetMutation = "reset_mutation";
     public const string ResetAll = "reset_all";
+
+    public static IReadOnlyList<string> All { get; } =
+    [
+        NoOp,
+        SetProperty,
+        AddClass,
+        RemoveClass,
+        ToggleClass,
+        SetResource,
+        RemoveResource,
+        ResetMutation,
+        ResetAll
+    ];
 }

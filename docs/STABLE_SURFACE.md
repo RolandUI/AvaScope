@@ -62,6 +62,7 @@ The stable CLI command name set is:
 - `doctor`
 - `diagnostics`
 - `attach`
+- `session-capabilities`
 - `launch-app`
 - `list-top-levels`
 - `visual-tree`
@@ -118,6 +119,7 @@ The stable MCP tool name set is:
 - `capabilities`
 - `list_sessions`
 - `attach_to_app`
+- `session_capabilities`
 - `launch_app`
 - `list_top_levels`
 - `screenshot`

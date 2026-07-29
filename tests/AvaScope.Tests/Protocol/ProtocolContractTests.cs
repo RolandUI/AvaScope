@@ -950,6 +950,54 @@ public sealed class ProtocolContractTests
     }
 
     [Fact]
+    public void SessionCapabilitiesRevisionIsStableAndComplete()
+    {
+        var first = SessionCapabilitiesResponse.Current(new SessionId("session-a"), 10);
+        var second = SessionCapabilitiesResponse.Current(new SessionId("session-b"), 20);
+
+        Assert.Equal(first.Revision, second.Revision);
+        Assert.Equal(64, first.Revision.Length);
+        Assert.Equal(AvaScopeProduct.Version, first.ProductVersion);
+        Assert.Equal(AvaScopeProtocol.CurrentVersion, first.ProtocolVersion);
+        Assert.Equal(BridgeIpcMethods.All, first.SupportedMethods);
+        Assert.Equal(InputActions.All, first.InputActions);
+        Assert.Equal(AutomationPatterns.All, first.AutomationPatterns);
+        Assert.Equal(NativePickerOperations.All, first.NativePickerOperations);
+        Assert.Equal(
+            RuntimeMutationOperationKinds.All,
+            first.MutationCapabilities
+                .SelectMany(static capability => capability.SupportedOperations)
+                .Distinct(StringComparer.Ordinal)
+            .ToArray());
+    }
+
+    [Fact]
+    public void ClosedValueCapabilityMetadataMatchesRuntimeCatalogs()
+    {
+        var catalog = AvaScopeCapabilityCatalog.Current();
+        var input = Assert.Single(
+            catalog.Capabilities,
+            static capability => capability.Id == AvaScopeCapabilityIds.RuntimeInput);
+        var picker = Assert.Single(
+            catalog.Capabilities,
+            static capability => capability.Id == AvaScopeCapabilityIds.RuntimeNativePicker);
+        var diagnostics = Assert.Single(
+            catalog.Capabilities,
+            static capability => capability.Id == AvaScopeCapabilityIds.DiagnosticsSummary);
+
+        Assert.Equal(InputActions.All, input.Metadata["actions"].Split(','));
+        Assert.Equal(NativePickerOperations.All, picker.Metadata["operations"].Split(','));
+        Assert.Equal(NativePickerResultStates.Preparable, picker.Metadata["predefinedResults"].Split(','));
+        Assert.Equal(DiagnosticsResponseModes.Values, diagnostics.Metadata["modes"].Split(','));
+        Assert.Equal(
+            RuntimeMutationOperationKinds.All,
+            catalog.RuntimeMutationCapabilities
+                .SelectMany(static capability => capability.SupportedOperations)
+                .Distinct(StringComparer.Ordinal)
+                .ToArray());
+    }
+
+    [Fact]
     public void ToolResultRoundTripsThroughJson()
     {
         var original = ToolResult<ListSessionsResponse>.Ok(new ListSessionsResponse());

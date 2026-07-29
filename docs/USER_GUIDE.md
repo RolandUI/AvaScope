@@ -886,6 +886,7 @@ Implemented tools:
 - `mutate_node_evidence`
 - `mutation_review`
 - `close_session`
+- `session_capabilities`
 - `native_picker`
 - `diagnostics`
 - `preview_axaml`
@@ -950,6 +951,15 @@ complete unfiltered JSON diagnostics artifact. MCP callers can use
 `errorsOnly` or the schema-constrained `minimumSeverity` filter.
 
 `capabilities` returns the same discovery manifest as the CLI command and accepts optional `requiredCapabilities` as comma-separated ids. It is the compatibility gate for clients that need specific runtime, preview, diagnostics, baseline, report, artifact, or mutation surfaces before invoking newer tools.
+
+After attach, use `session_capabilities` (CLI:
+`session-capabilities --session <id>`) as the effective compatibility gate.
+It reports the connected bridge/product and protocol versions, supported IPC
+methods, input actions, automation patterns, mutation operations/properties,
+native-picker mode, and a deterministic SHA-256 `revision`. New bridges also
+include the same object in `attach_to_app.value.effectiveCapabilities`; older
+compatible bridges leave that additive field null, so clients can fall back to
+the explicit query or the global catalog.
 
 Every CLI/MCP operation separates transport completion from operation
 completion. `transportSuccess` is true when AvaScope handled the request;

@@ -136,6 +136,50 @@ public sealed class AvaScopeMcpToolsTests
     }
 
     [Fact]
+    public async Task SessionCapabilitiesReturnsEffectiveBridgeContract()
+    {
+        var manifestDirectory = Path.Combine(
+            Path.GetTempPath(),
+            "AvaScope.Tests",
+            $"mcp-capabilities-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(manifestDirectory);
+        var sessionId = SessionId.New();
+        var pipeName = $"avascope-mcp-capabilities-{Guid.NewGuid():N}";
+        File.WriteAllText(
+            Path.Combine(manifestDirectory, $"{sessionId.Value}.json"),
+            JsonSerializer.Serialize(new BridgeSessionManifest(
+                sessionId,
+                Environment.ProcessId,
+                pipeName,
+                DateTimeOffset.UtcNow,
+                "MCP capabilities")));
+        var expected = SessionCapabilitiesResponse.Current(sessionId, Environment.ProcessId);
+        var serverTask = RespondToBridgeRequestAsync(
+            pipeName,
+            request => BridgeIpcResponse.Ok(request.RequestId, expected));
+
+        try
+        {
+            var result = await AvaScopeMcpTools.SessionCapabilities(
+                new LocalBridgeClient(manifestDirectory),
+                sessionId.Value);
+            var request = await serverTask;
+
+            Assert.True(result.Success, result.Error?.Message);
+            Assert.Equal(BridgeIpcMethods.Capabilities, request.Method);
+            Assert.Equal(expected.Revision, result.Value!.Revision);
+            Assert.Equal(InputActions.All, result.Value.InputActions);
+        }
+        finally
+        {
+            if (Directory.Exists(manifestDirectory))
+            {
+                Directory.Delete(manifestDirectory, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
     public async Task RunScenarioReturnsScenarioFailureModelWhenAttachFails()
     {
         var client = new LocalBridgeClient(CreateMissingManifestDirectory());

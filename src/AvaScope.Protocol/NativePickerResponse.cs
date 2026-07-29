@@ -52,6 +52,16 @@ public static class NativePickerOperations
     public const string Cancel = "cancel";
     public const string PredefineResult = "predefine_result";
     public const string ConsumePredefinedResult = "consume_predefined_result";
+
+    public static IReadOnlyList<string> All { get; } =
+    [
+        Detect,
+        SelectPath,
+        Confirm,
+        Cancel,
+        PredefineResult,
+        ConsumePredefinedResult
+    ];
 }
 
 public static class NativePickerResultStates
@@ -62,4 +72,12 @@ public static class NativePickerResultStates
     public const string DeletedPath = "deleted_path";
     public const string Expired = "expired";
     public const string NotPrepared = "not_prepared";
+
+    public static IReadOnlyList<string> Preparable { get; } =
+    [
+        Success,
+        Cancelled,
+        UnavailablePath,
+        DeletedPath
+    ];
 }

@@ -9,7 +9,8 @@ public sealed record AttachToAppResponse
         SessionSummary session,
         int processId,
         string? processName = null,
-        string? manifestPath = null)
+        string? manifestPath = null,
+        SessionCapabilitiesResponse? effectiveCapabilities = null)
     {
         Session = session ?? throw new ArgumentNullException(nameof(session));
 
@@ -21,6 +22,7 @@ public sealed record AttachToAppResponse
         ProcessId = processId;
         ProcessName = string.IsNullOrWhiteSpace(processName) ? null : processName.Trim();
         ManifestPath = string.IsNullOrWhiteSpace(manifestPath) ? null : Path.GetFullPath(manifestPath);
+        EffectiveCapabilities = effectiveCapabilities;
     }
 
     [JsonPropertyName("session")]
@@ -36,4 +38,8 @@ public sealed record AttachToAppResponse
     [JsonPropertyName("manifestPath")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? ManifestPath { get; }
+
+    [JsonPropertyName("effectiveCapabilities")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public SessionCapabilitiesResponse? EffectiveCapabilities { get; }
 }

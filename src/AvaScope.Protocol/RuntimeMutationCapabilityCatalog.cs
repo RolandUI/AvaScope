@@ -35,16 +35,8 @@ public static class RuntimeMutationCapabilityCatalog
                 StyleLayoutMutation,
                 available: styleLayoutAvailable,
                 supportedOperations:
-                [
-                    RuntimeMutationOperationKinds.SetProperty,
-                    RuntimeMutationOperationKinds.AddClass,
-                    RuntimeMutationOperationKinds.RemoveClass,
-                    RuntimeMutationOperationKinds.ToggleClass,
-                    RuntimeMutationOperationKinds.SetResource,
-                    RuntimeMutationOperationKinds.RemoveResource,
-                    RuntimeMutationOperationKinds.ResetMutation,
-                    RuntimeMutationOperationKinds.ResetAll
-                ],
+                RuntimeMutationOperationKinds.All.Where(static operation =>
+                    operation != RuntimeMutationOperationKinds.NoOp).ToArray(),
                 supportedProperties: RuntimeMutationPropertyNames.All,
                 reason: styleLayoutAvailable
                     ? null

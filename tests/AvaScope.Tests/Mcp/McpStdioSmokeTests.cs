@@ -38,6 +38,7 @@ public sealed class McpStdioSmokeTests
         Assert.Equal(AvaScopeProduct.Version, client.ServerInfo.Version);
         Assert.Contains("health", toolNames);
         Assert.Contains("capabilities", toolNames);
+        Assert.Contains("session_capabilities", toolNames);
         Assert.Contains("list_sessions", toolNames);
         Assert.Contains("close_session", toolNames);
         Assert.Contains("diagnostics", toolNames);
@@ -115,17 +116,27 @@ public sealed class McpStdioSmokeTests
         AssertSchemaEnum(
             Assert.Single(tools, static tool => tool.Name == "mutate_node").ProtocolTool.InputSchema,
             "operation",
-            [
-                RuntimeMutationOperationKinds.NoOp,
-                RuntimeMutationOperationKinds.SetProperty,
-                RuntimeMutationOperationKinds.AddClass,
-                RuntimeMutationOperationKinds.RemoveClass,
-                RuntimeMutationOperationKinds.ToggleClass,
-                RuntimeMutationOperationKinds.SetResource,
-                RuntimeMutationOperationKinds.RemoveResource,
-                RuntimeMutationOperationKinds.ResetMutation,
-                RuntimeMutationOperationKinds.ResetAll
-            ]);
+            RuntimeMutationOperationKinds.All);
+        foreach (var toolName in new[] { "inspect_node", "explain_layout", "find_nodes", "audit_ui", "mutate_node", "mutate_node_evidence" })
+        {
+            AssertSchemaEnum(
+                Assert.Single(tools, tool => tool.Name == toolName).ProtocolTool.InputSchema,
+                "treeKind",
+                [TreeKinds.Visual, TreeKinds.Logical]);
+        }
+
+        AssertSchemaEnum(
+            Assert.Single(tools, static tool => tool.Name == "mutate_node_evidence").ProtocolTool.InputSchema,
+            "operation",
+            RuntimeMutationOperationKinds.All);
+        AssertSchemaEnum(
+            Assert.Single(tools, static tool => tool.Name == "native_picker").ProtocolTool.InputSchema,
+            "operation",
+            NativePickerOperations.All);
+        AssertSchemaEnum(
+            Assert.Single(tools, static tool => tool.Name == "native_picker").ProtocolTool.InputSchema,
+            "predefinedResult",
+            NativePickerResultStates.Preparable);
 
         var healthResult = await client.CallToolAsync(
             "health",
@@ -174,6 +185,7 @@ public sealed class McpStdioSmokeTests
     {
         var schema = JsonSerializer.SerializeToNode(inputSchema)!.AsObject();
         var values = schema["properties"]![propertyName]!["enum"]!.AsArray()
+            .Where(static value => value is not null)
             .Select(static value => value!.GetValue<string>())
             .ToArray();
         Assert.Equal(expected, values);

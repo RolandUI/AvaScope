@@ -1755,6 +1755,52 @@ public sealed class CliSmokeTests
     }
 
     [Fact]
+    public async Task SessionCapabilitiesCommandReturnsNegotiatedContract()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        var manifestDirectory = Path.Combine(
+            Path.GetTempPath(),
+            "AvaScope.Tests",
+            $"cli-capabilities-{Guid.NewGuid():N}");
+        var sessionId = SessionId.New();
+        var pipeName = $"avascope-cli-capabilities-{Guid.NewGuid():N}";
+        WriteBridgeManifest(sessionId, pipeName, manifestDirectory);
+        var expected = SessionCapabilitiesResponse.Current(sessionId, Environment.ProcessId);
+        var serverTask = RespondToBridgeRequestAsync(
+            pipeName,
+            request => BridgeIpcResponse.Ok(request.RequestId, expected));
+
+        try
+        {
+            var result = await RunCliAsync(
+                cliAssembly,
+                "session-capabilities",
+                "--session",
+                sessionId.Value,
+                "--manifest-dir",
+                manifestDirectory);
+            var request = await serverTask;
+
+            Assert.Equal(0, result.ExitCode);
+            Assert.Equal(BridgeIpcMethods.Capabilities, request.Method);
+            var payload = JsonSerializer.Deserialize<ToolResult<SessionCapabilitiesResponse>>(
+                result.StandardOutput,
+                JsonOptions);
+            Assert.NotNull(payload);
+            Assert.True(payload.Success, payload.Error?.Message);
+            Assert.Equal(expected.Revision, payload.Value!.Revision);
+            Assert.Equal(InputActions.All, payload.Value.InputActions);
+        }
+        finally
+        {
+            if (Directory.Exists(manifestDirectory))
+            {
+                Directory.Delete(manifestDirectory, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
     public async Task ListTopLevelsCommandReturnsStructuredErrorWhenNoBridgeSessionMatches()
     {
         var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
@@ -4282,6 +4328,33 @@ public sealed class CliSmokeTests
         Assert.NotNull(payload);
         Assert.False(payload.Success);
         Assert.Equal(CoreErrorCodes.BridgeSessionNotFound, payload.Error!.Code);
+    }
+
+    [Fact]
+    public async Task MutateNodeCommandRejectsNonCanonicalOperationBeforeDispatch()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+
+        var result = await RunCliAsync(
+            cliAssembly,
+            "mutate-node",
+            "--session",
+            "schema-parity",
+            "--top-level",
+            "topLevel:main",
+            "--node",
+            "visual:1",
+            "--operation",
+            "setProperty");
+
+        Assert.Equal(2, result.ExitCode);
+        var payload = JsonSerializer.Deserialize<ToolResult<RuntimeMutationResponse>>(
+            result.StandardOutput,
+            JsonOptions);
+        Assert.NotNull(payload);
+        Assert.False(payload.Success);
+        Assert.Equal("invalid_cli_arguments", payload.Error!.Code);
+        Assert.Contains(RuntimeMutationOperationKinds.SetProperty, payload.Error.Message, StringComparison.Ordinal);
     }
 
     [Fact]

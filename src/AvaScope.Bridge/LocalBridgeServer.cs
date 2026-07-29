@@ -213,7 +213,12 @@ internal sealed class LocalBridgeServer : IDisposable
 
         return request.Method switch
         {
-            BridgeIpcMethods.Health => Respond(BridgeIpcResponse.Ok(request.RequestId, HealthResponse.Current())),
+            BridgeIpcMethods.Health => Respond(BridgeIpcResponse.Ok(
+                request.RequestId,
+                HealthResponse.Current(SessionCapabilitiesResponse.Current(_runtime.SessionId, Environment.ProcessId)))),
+            BridgeIpcMethods.Capabilities => Respond(BridgeIpcResponse.Ok(
+                request.RequestId,
+                SessionCapabilitiesResponse.Current(_runtime.SessionId, Environment.ProcessId))),
             BridgeIpcMethods.ListTopLevels => Respond(BridgeIpcResponse.Ok(
                 request.RequestId,
                 await _runtime.ListTopLevelsAsync(cancellationToken))),

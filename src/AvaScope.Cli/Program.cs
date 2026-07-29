@@ -30,6 +30,7 @@ internal static class Program
             "preview" => await Preview(args[1..]),
             "preview-animation" => await PreviewAnimation(args[1..]),
             "attach" => await Attach(args[1..]),
+            "session-capabilities" => await SessionCapabilities(args[1..]),
             "list-top-levels" => await ListTopLevels(args[1..]),
             "screenshot" => await Screenshot(args[1..]),
             "visual-tree" => await Tree(args[1..], TreeKinds.Visual, GetVisualTreeUsage()),
@@ -1982,6 +1983,7 @@ internal static class Program
             || !TryReadRequiredOption(options.Values, "top-level", GetMutateNodeUsage(), out var topLevelId)
             || !TryReadRequiredOption(options.Values, "node", GetMutateNodeUsage(), out var nodeId)
             || !TryReadRequiredOption(options.Values, "operation", GetMutateNodeUsage(), out var operationKind)
+            || !TryNormalizeMutationOperation(operationKind!, out operationKind)
             || !TryReadOptionalTreeKind(options.Values, out var treeKind))
         {
             return 2;
@@ -2054,6 +2056,7 @@ internal static class Program
             || !TryReadRequiredOption(options.Values, "top-level", GetMutateNodeEvidenceUsage(), out var topLevelId)
             || !TryReadRequiredOption(options.Values, "node", GetMutateNodeEvidenceUsage(), out var nodeId)
             || !TryReadRequiredOption(options.Values, "operation", GetMutateNodeEvidenceUsage(), out var operationKind)
+            || !TryNormalizeMutationOperation(operationKind!, out operationKind)
             || !TryReadRequiredOption(options.Values, "out-dir", GetMutateNodeEvidenceUsage(), out var outputDirectory)
             || !TryReadOptionalTreeKind(options.Values, out var treeKind)
             || !TryReadOptionalNonNegativeInt(options.Values, "max-depth", out var maxDepth)
@@ -3690,6 +3693,81 @@ internal static class Program
         return false;
     }
 
+    private static bool TryNormalizeMutationOperation(string operation, out string normalizedOperation)
+    {
+        normalizedOperation = operation;
+        foreach (var supportedOperation in RuntimeMutationOperationKinds.All)
+        {
+            if (string.Equals(operation, supportedOperation, StringComparison.OrdinalIgnoreCase))
+            {
+                normalizedOperation = supportedOperation;
+                return true;
+            }
+        }
+
+        WriteFailure<RuntimeMutationResponse>(
+            InvalidCliArguments,
+            $"Unsupported mutation operation '{operation}'. Supported operations: {string.Join(", ", RuntimeMutationOperationKinds.All)}.");
+        return false;
+    }
+
+    private static bool TryNormalizeNativePickerOperation(string operation, out string normalizedOperation)
+    {
+        normalizedOperation = operation;
+        foreach (var supportedOperation in NativePickerOperations.All)
+        {
+            if (string.Equals(operation, supportedOperation, StringComparison.OrdinalIgnoreCase))
+            {
+                normalizedOperation = supportedOperation;
+                return true;
+            }
+        }
+
+        WriteFailure<NativePickerResponse>(
+            InvalidCliArguments,
+            $"Unsupported native picker operation '{operation}'. Supported operations: {string.Join(", ", NativePickerOperations.All)}.");
+        return false;
+    }
+
+    private static bool TryNormalizeOptionalPickerResult(string? result, out string? normalizedResult)
+    {
+        normalizedResult = result;
+        if (string.IsNullOrWhiteSpace(result))
+        {
+            return true;
+        }
+
+        foreach (var supportedResult in NativePickerResultStates.Preparable)
+        {
+            if (string.Equals(result, supportedResult, StringComparison.OrdinalIgnoreCase))
+            {
+                normalizedResult = supportedResult;
+                return true;
+            }
+        }
+
+        WriteFailure<NativePickerResponse>(
+            InvalidCliArguments,
+            $"Unsupported predefined picker result '{result}'. Supported results: {string.Join(", ", NativePickerResultStates.Preparable)}.");
+        return false;
+    }
+
+    private static async Task<int> SessionCapabilities(string[] args)
+    {
+        const string usage = "Usage: avascope session-capabilities --session <session-id> [--manifest-dir <dir>]";
+        var options = ParseOptions(args, usage);
+        if (!options.Success
+            || !ValidateOptions(options.Values, usage, "session", "manifest-dir")
+            || !TryReadRequiredSessionId(options.Values, usage, out var sessionId))
+        {
+            return 2;
+        }
+
+        var result = await CreateBridgeClient(options.Values).SessionCapabilitiesAsync(sessionId!);
+        WriteResult(result);
+        return result.Success ? 0 : 1;
+    }
+
     private static int NativePicker(string[] args)
     {
         var usage = "Usage: avascope native-picker --session <session-id> --operation detect|select_path|confirm|cancel|predefine_result|consume_predefined_result [--path <path>] [--predefined-result success|cancelled|unavailable_path|deleted_path] [--correlation-id <id>] [--ttl-ms <100-300000>] [--timeout-ms <0-30000>] [--redact-path <true|false>] [--manifest-dir <dir>]";
@@ -3698,6 +3776,8 @@ internal static class Program
             || !ValidateOptions(options.Values, usage, "session", "operation", "path", "predefined-result", "correlation-id", "ttl-ms", "timeout-ms", "redact-path", "manifest-dir")
             || !TryReadRequiredSessionId(options.Values, usage, out var sessionId)
             || !TryReadRequiredOption(options.Values, "operation", usage, out var operation)
+            || !TryNormalizeNativePickerOperation(operation!, out operation)
+            || !TryNormalizeOptionalPickerResult(options.Values.GetValueOrDefault("predefined-result"), out var predefinedResult)
             || !TryReadOptionalPositiveInt(options.Values, "ttl-ms", out var ttlMs)
             || !TryReadOptionalNonNegativeInt(options.Values, "timeout-ms", out var timeoutMs)
             || !TryReadOptionalBoolean(options.Values, "redact-path", out var redactPath))
@@ -3709,7 +3789,7 @@ internal static class Program
             sessionId!,
             operation!,
             options.Values.GetValueOrDefault("path"),
-            options.Values.GetValueOrDefault("predefined-result"),
+            predefinedResult,
             options.Values.GetValueOrDefault("correlation-id"),
             ttlMs ?? 30000,
             timeoutMs ?? 1000,

@@ -3,6 +3,7 @@ namespace AvaScope.Protocol;
 public static class BridgeIpcMethods
 {
     public const string Health = "health";
+    public const string Capabilities = "capabilities";
     public const string ListTopLevels = "list_top_levels";
     public const string Screenshot = "screenshot";
     public const string VisualTree = "visual_tree";
@@ -14,4 +15,21 @@ public static class BridgeIpcMethods
     public const string MutateNode = "mutate_node";
     public const string MutationReview = "mutation_review";
     public const string CloseSession = "close_session";
+
+    public static IReadOnlyList<string> All { get; } =
+    [
+        Health,
+        Capabilities,
+        ListTopLevels,
+        Screenshot,
+        VisualTree,
+        LogicalTree,
+        InspectNode,
+        ExplainLayout,
+        FindNodes,
+        Input,
+        MutateNode,
+        MutationReview,
+        CloseSession
+    ];
 }

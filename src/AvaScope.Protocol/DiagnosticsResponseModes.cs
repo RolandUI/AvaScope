@@ -7,6 +7,14 @@ public static class DiagnosticsResponseModes
     public const string Minimal = "minimal";
     public const string JsonMinimal = "json-minimal";
 
+    public static IReadOnlyList<string> Values { get; } =
+    [
+        All,
+        ActiveOnly,
+        Minimal,
+        JsonMinimal
+    ];
+
     public static bool TryNormalize(string? mode, out string normalized)
     {
         normalized = All;
@@ -16,11 +24,6 @@ public static class DiagnosticsResponseModes
         }
 
         normalized = mode.Trim().ToLowerInvariant();
-        if (normalized is "active")
-        {
-            normalized = ActiveOnly;
-        }
-
-        return normalized is All or ActiveOnly or Minimal or JsonMinimal;
+        return Values.Contains(normalized, StringComparer.Ordinal);
     }
 }

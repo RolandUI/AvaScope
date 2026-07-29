@@ -83,7 +83,9 @@ public sealed class LocalBridgeClientTests : IDisposable
                 processName: processName));
         var serverTask = RespondToBridgeRequestAsync(
             pipeName,
-            request => BridgeIpcResponse.Ok(request.RequestId, HealthResponse.Current()));
+            request => BridgeIpcResponse.Ok(
+                request.RequestId,
+                HealthResponse.Current(SessionCapabilitiesResponse.Current(sessionId, Environment.ProcessId))));
         var client = new LocalBridgeClient(Path.Combine(_manifestDirectory, "unused"), BridgePipeTestTimeout);
 
         var result = await client.AttachToAppAsync(
@@ -97,6 +99,44 @@ public sealed class LocalBridgeClientTests : IDisposable
         Assert.Equal(Environment.ProcessId, result.Value.ProcessId);
         Assert.Equal(processName, result.Value.ProcessName);
         Assert.Equal(Path.GetFullPath(manifestPath), result.Value.ManifestPath);
+        Assert.NotNull(result.Value.EffectiveCapabilities);
+        Assert.Equal(sessionId, result.Value.EffectiveCapabilities!.SessionId);
+        Assert.Contains(InputActions.Select, result.Value.EffectiveCapabilities.InputActions);
+        Assert.Equal(64, result.Value.EffectiveCapabilities.Revision.Length);
+    }
+
+    [Fact]
+    public async Task SessionCapabilitiesReturnsEffectiveBridgeHandshake()
+    {
+        Directory.CreateDirectory(_manifestDirectory);
+        var sessionId = SessionId.New();
+        var pipeName = $"avascope-capabilities-{Guid.NewGuid():N}";
+        WriteManifest(
+            "capabilities.json",
+            new BridgeSessionManifest(
+                sessionId,
+                Environment.ProcessId,
+                pipeName,
+                DateTimeOffset.UtcNow,
+                "Capabilities"));
+        var expected = SessionCapabilitiesResponse.Current(sessionId, Environment.ProcessId);
+        var serverTask = RespondToBridgeRequestAsync(
+            pipeName,
+            request => BridgeIpcResponse.Ok(request.RequestId, expected));
+        var client = new LocalBridgeClient(_manifestDirectory, BridgePipeTestTimeout);
+
+        var result = await client.SessionCapabilitiesAsync(sessionId);
+        var request = await serverTask;
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(BridgeIpcMethods.Capabilities, request.Method);
+        Assert.Equal(expected.Revision, result.Value!.Revision);
+        Assert.Equal(BridgeIpcMethods.All, result.Value.SupportedMethods);
+        Assert.Equal(InputActions.All, result.Value.InputActions);
+        Assert.Equal(RuntimeMutationOperationKinds.All, result.Value.MutationCapabilities
+            .SelectMany(static capability => capability.SupportedOperations)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray());
     }
 
     [Fact]

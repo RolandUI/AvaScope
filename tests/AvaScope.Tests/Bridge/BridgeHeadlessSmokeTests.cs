@@ -95,6 +95,28 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
     }
 
     [Fact]
+    public async Task BridgePublishesEffectiveSessionCapabilities()
+    {
+        using var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessTestApplication));
+        AvaScopeBridgeRuntime? runtime = null;
+
+        await session.Dispatch(() =>
+        {
+            runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Capability handshake"));
+        }, CancellationToken.None);
+
+        var result = await new LocalBridgeClient().SessionCapabilitiesAsync(runtime!.SessionId);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(runtime.SessionId, result.Value!.SessionId);
+        Assert.Equal(Environment.ProcessId, result.Value.ProcessId);
+        Assert.Contains(BridgeIpcMethods.Capabilities, result.Value.SupportedMethods);
+        Assert.Equal(InputActions.All, result.Value.InputActions);
+        Assert.Equal(AutomationPatterns.All, result.Value.AutomationPatterns);
+        Assert.Equal(64, result.Value.Revision.Length);
+    }
+
+    [Fact]
     public async Task ScreenshotCaptureForMissingTopLevelReturnsStructuredError()
     {
         using var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessTestApplication));
@@ -982,9 +1004,9 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                         runtime.SessionId.Value,
                         topLevel.Id,
                         targetNode.NodeId,
-                        RuntimeMutationOperationKinds.SetProperty,
+                        McpMutationOperation.SetProperty,
                         artifactDirectory,
-                        TreeKinds.Visual,
+                        McpTreeKind.Visual,
                         propertyName: "Background",
                         value: "#0000ff",
                         valueType: "brush",
@@ -1134,7 +1156,7 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                 client,
                 runtime.SessionId.Value,
                 topLevel.Id,
-                TreeKinds.Visual,
+                McpTreeKind.Visual,
                 nodeType: "TextBlock",
                 maxDepth: 8);
             Assert.True(byType.Success, byType.Error?.Message);
@@ -1144,7 +1166,7 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                 client,
                 runtime.SessionId.Value,
                 topLevel.Id,
-                TreeKinds.Visual,
+                McpTreeKind.Visual,
                 nodeType: "Window",
                 maxDepth: 8,
                 includeChildren: true,
@@ -1156,7 +1178,7 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                 client,
                 runtime.SessionId.Value,
                 topLevel.Id,
-                TreeKinds.Visual,
+                McpTreeKind.Visual,
                 name: "PipeText",
                 maxDepth: 8);
             Assert.True(byName.Success, byName.Error?.Message);
@@ -1173,7 +1195,7 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                 runtime.SessionId.Value,
                 topLevel.Id,
                 pipeTextNode.NodeId,
-                TreeKinds.Visual);
+                McpTreeKind.Visual);
 
             Assert.True(inspected.Success, inspected.Error?.Message);
             Assert.Equal(runtime.SessionId, inspected.Value!.SessionId);
@@ -1200,7 +1222,7 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                 client,
                 runtime.SessionId.Value,
                 topLevel.Id,
-                TreeKinds.Visual,
+                McpTreeKind.Visual,
                 maxDepth: 8,
                 maxIssues: 20,
                 maxInventoryItems: 20);
@@ -1219,7 +1241,7 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                 runtime.SessionId.Value,
                 topLevel.Id,
                 "visual:missing",
-                TreeKinds.Visual);
+                McpTreeKind.Visual);
 
             Assert.False(missingInspect.Success);
             Assert.Equal(BridgeErrorCodes.NodeNotFound, missingInspect.Error!.Code);
@@ -1232,7 +1254,7 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                 client,
                 runtime.SessionId.Value,
                 topLevel.Id,
-                TreeKinds.Visual,
+                McpTreeKind.Visual,
                 automationId: "pipe-text",
                 maxDepth: 8);
             Assert.True(byAutomationId.Success, byAutomationId.Error?.Message);
@@ -1244,7 +1266,7 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                 client,
                 runtime.SessionId.Value,
                 topLevel.Id,
-                TreeKinds.Logical,
+                McpTreeKind.Logical,
                 text: "AvaScope pipe",
                 maxDepth: 4);
             Assert.True(byText.Success, byText.Error?.Message);
@@ -1994,7 +2016,7 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                     runtime.SessionId.Value,
                     topLevel.Id,
                     scrollNode.NodeId,
-                    TreeKinds.Visual);
+                    McpTreeKind.Visual);
 
                 Assert.True(scrollInspect.Success, scrollInspect.Error?.Message);
                 Assert.Equal("available", scrollInspect.Value!.ScrollState!.Status);
@@ -2006,7 +2028,7 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                     runtime.SessionId.Value,
                     topLevel.Id,
                     debugNode.NodeId,
-                    TreeKinds.Visual);
+                    McpTreeKind.Visual);
 
                 Assert.True(debugInspect.Success, debugInspect.Error?.Message);
                 Assert.Equal("available", debugInspect.Value!.BindingState!.DataContextStatus);

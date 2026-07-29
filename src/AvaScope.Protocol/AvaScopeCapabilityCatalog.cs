@@ -73,6 +73,17 @@ public static class AvaScopeCapabilityCatalog
                 ["attach", "attach_to_app"],
                 requires: [AvaScopeCapabilityIds.SafetyLocalOnly]),
             Capability(
+                AvaScopeCapabilityIds.RuntimeEffectiveCapabilities,
+                "runtime",
+                "Negotiate the effective protocol, bridge methods, input actions, automation patterns, mutation support, and native picker mode of one attached session.",
+                ["attach", "attach_to_app", "session-capabilities", "session_capabilities"],
+                requires: [AvaScopeCapabilityIds.RuntimeAttach],
+                metadata: new Dictionary<string, string>
+                {
+                    ["revision"] = "sha256",
+                    ["fallback"] = "attach_effectiveCapabilities_null_for_older_bridge"
+                }),
+            Capability(
                 AvaScopeCapabilityIds.RuntimeSessionLifecycle,
                 "runtime",
                 "Launch local bridge-enabled apps and close active local bridge sessions through explicit local lifecycle commands.",
@@ -181,8 +192,8 @@ public static class AvaScopeCapabilityCatalog
                 metadata: new Dictionary<string, string>
                 {
                     ["platform"] = "windows",
-                    ["operations"] = "detect,select_path,confirm,cancel,predefine_result,consume_predefined_result",
-                    ["predefinedResults"] = "success,cancelled,unavailable_path,deleted_path",
+                    ["operations"] = string.Join(",", NativePickerOperations.All),
+                    ["predefinedResults"] = string.Join(",", NativePickerResultStates.Preparable),
                     ["processScope"] = "selected_session_process_only",
                     ["scenarioSemantics"] = "session_scoped_one_shot_ttl_request_correlated",
                     ["defaultPathRedaction"] = "true",
@@ -332,7 +343,7 @@ public static class AvaScopeCapabilityCatalog
                 "diagnostics",
                 "Report service, bridge, preview host, preview session, bounded diagnostic issue summaries, active-only views, and concise next-command guidance.",
                 ["diagnostics", "doctor"],
-                metadata: new Dictionary<string, string> { ["modes"] = "all,active-only,minimal,json-minimal" }),
+                metadata: new Dictionary<string, string> { ["modes"] = string.Join(",", DiagnosticsResponseModes.Values) }),
             Capability(
                 AvaScopeCapabilityIds.BaselineSingle,
                 "baseline",
@@ -413,6 +424,8 @@ public static class AvaScopeCapabilityCatalog
             Mcp("diagnostics", AvaScopeCapabilityIds.DiagnosticsSummary, AvaScopeCapabilityIds.SafetyLocalOnly),
             Cli("attach", AvaScopeCapabilityIds.RuntimeAttach),
             Mcp("attach_to_app", AvaScopeCapabilityIds.RuntimeAttach),
+            Cli("session-capabilities", AvaScopeCapabilityIds.RuntimeEffectiveCapabilities),
+            Mcp("session_capabilities", AvaScopeCapabilityIds.RuntimeEffectiveCapabilities),
             Cli("launch-app", AvaScopeCapabilityIds.RuntimeSessionLifecycle, AvaScopeCapabilityIds.SafetyLocalOnly),
             Mcp("launch_app", AvaScopeCapabilityIds.RuntimeSessionLifecycle, AvaScopeCapabilityIds.SafetyLocalOnly),
             Cli("list-top-levels", AvaScopeCapabilityIds.RuntimeAttach),

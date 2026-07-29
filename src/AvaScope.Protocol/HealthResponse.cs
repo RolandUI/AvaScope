@@ -8,7 +8,8 @@ public sealed record HealthResponse
     public HealthResponse(
         string serviceName,
         ProtocolVersion protocolVersion,
-        string? productVersion = null)
+        string? productVersion = null,
+        SessionCapabilitiesResponse? effectiveCapabilities = null)
     {
         if (string.IsNullOrWhiteSpace(serviceName))
         {
@@ -20,6 +21,7 @@ public sealed record HealthResponse
         ProductVersion = string.IsNullOrWhiteSpace(productVersion)
             ? AvaScopeProduct.Version
             : productVersion.Trim();
+        EffectiveCapabilities = effectiveCapabilities;
     }
 
     [JsonPropertyName("serviceName")]
@@ -31,5 +33,10 @@ public sealed record HealthResponse
     [JsonPropertyName("productVersion")]
     public string ProductVersion { get; }
 
-    public static HealthResponse Current() => new(AvaScopeProtocol.ServiceName, AvaScopeProtocol.CurrentVersion);
+    [JsonPropertyName("effectiveCapabilities")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public SessionCapabilitiesResponse? EffectiveCapabilities { get; }
+
+    public static HealthResponse Current(SessionCapabilitiesResponse? effectiveCapabilities = null) =>
+        new(AvaScopeProtocol.ServiceName, AvaScopeProtocol.CurrentVersion, effectiveCapabilities: effectiveCapabilities);
 }

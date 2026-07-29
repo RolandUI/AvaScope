@@ -22,6 +22,7 @@ public static class AvaScopeCapabilityIds
     public const string RuntimeSemanticWorkflow = "runtime.semantic_workflow";
     public const string RuntimeScenarioRunner = "runtime.scenario_runner";
     public const string RuntimeNativePicker = "runtime.native_picker";
+    public const string RuntimeEffectiveCapabilities = "runtime.effective_capabilities";
     public const string RuntimePointerDiagnostics = "runtime.pointer_diagnostics";
     public const string RuntimePseudoStateMatrix = "runtime.pseudo_state_matrix";
     public const string RuntimeInteractionAnimation = "runtime.interaction_animation";

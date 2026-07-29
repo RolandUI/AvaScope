@@ -75,6 +75,13 @@ public enum McpNativePickerResult
     [JsonStringEnumMemberName(NativePickerResultStates.DeletedPath)] DeletedPath
 }
 
+[JsonConverter(typeof(JsonStringEnumConverter<McpTreeKind>))]
+public enum McpTreeKind
+{
+    [JsonStringEnumMemberName(TreeKinds.Visual)] Visual,
+    [JsonStringEnumMemberName(TreeKinds.Logical)] Logical
+}
+
 internal static class McpClosedValueNames
 {
     public static string ToProtocolName(this McpInputAction value) => InputActions.All[(int)value];
@@ -119,6 +126,13 @@ internal static class McpClosedValueNames
         McpNativePickerResult.Cancelled => NativePickerResultStates.Cancelled,
         McpNativePickerResult.UnavailablePath => NativePickerResultStates.UnavailablePath,
         McpNativePickerResult.DeletedPath => NativePickerResultStates.DeletedPath,
+        _ => throw new ArgumentOutOfRangeException(nameof(value))
+    };
+
+    public static string ToProtocolName(this McpTreeKind value) => value switch
+    {
+        McpTreeKind.Visual => TreeKinds.Visual,
+        McpTreeKind.Logical => TreeKinds.Logical,
         _ => throw new ArgumentOutOfRangeException(nameof(value))
     };
 }

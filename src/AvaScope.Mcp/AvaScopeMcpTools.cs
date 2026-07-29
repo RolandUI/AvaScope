@@ -101,6 +101,31 @@ public sealed class AvaScopeMcpTools
     }
 
     [McpServerTool(
+        Name = "session_capabilities",
+        Title = "Session capabilities",
+        ReadOnly = true,
+        Idempotent = true,
+        Destructive = false,
+        OpenWorld = false,
+        UseStructuredContent = true)]
+    [Description("Returns the effective versioned capabilities negotiated with one active local bridge session.")]
+    public static async Task<ToolResult<SessionCapabilitiesResponse>> SessionCapabilities(
+        LocalBridgeClient bridgeClient,
+        string sessionId,
+        string? manifestDirectory = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(bridgeClient);
+        if (!TryParseRequiredSessionId(sessionId, out var parsedSessionId, out var error))
+        {
+            return ToolResult<SessionCapabilitiesResponse>.Fail(error!);
+        }
+
+        return ToToolResult(await CreateBridgeClient(bridgeClient, manifestDirectory)
+            .SessionCapabilitiesAsync(parsedSessionId!, cancellationToken));
+    }
+
+    [McpServerTool(
         Name = "list_top_levels",
         Title = "List top levels",
         ReadOnly = true,
@@ -277,7 +302,7 @@ public sealed class AvaScopeMcpTools
         string sessionId,
         string topLevelId,
         string nodeId,
-        string treeKind = TreeKinds.Visual,
+        McpTreeKind treeKind = McpTreeKind.Visual,
         string? manifestDirectory = null,
         CancellationToken cancellationToken = default)
     {
@@ -291,7 +316,7 @@ public sealed class AvaScopeMcpTools
         return ToToolResult(await CreateBridgeClient(bridgeClient, manifestDirectory).InspectNodeAsync(
             parsedSessionId!,
             topLevelId,
-            treeKind,
+            treeKind.ToProtocolName(),
             nodeId,
             cancellationToken));
     }
@@ -310,7 +335,7 @@ public sealed class AvaScopeMcpTools
         string sessionId,
         string topLevelId,
         string nodeId,
-        string treeKind = TreeKinds.Visual,
+        McpTreeKind treeKind = McpTreeKind.Visual,
         string? manifestDirectory = null,
         CancellationToken cancellationToken = default)
     {
@@ -324,7 +349,7 @@ public sealed class AvaScopeMcpTools
         return ToToolResult(await CreateBridgeClient(bridgeClient, manifestDirectory).ExplainLayoutAsync(
             parsedSessionId!,
             topLevelId,
-            treeKind,
+            treeKind.ToProtocolName(),
             nodeId,
             cancellationToken));
     }
@@ -342,7 +367,7 @@ public sealed class AvaScopeMcpTools
         LocalBridgeClient bridgeClient,
         string sessionId,
         string topLevelId,
-        string treeKind = TreeKinds.Visual,
+        McpTreeKind treeKind = McpTreeKind.Visual,
         string? nodeType = null,
         string? name = null,
         string? automationId = null,
@@ -367,7 +392,7 @@ public sealed class AvaScopeMcpTools
         return ToToolResult(await CreateBridgeClient(bridgeClient, manifestDirectory).FindNodesAsync(
             parsedSessionId!,
             topLevelId,
-            treeKind,
+            treeKind.ToProtocolName(),
             nodeType,
             name,
             automationId,
@@ -395,7 +420,7 @@ public sealed class AvaScopeMcpTools
         LocalBridgeClient bridgeClient,
         string sessionId,
         string topLevelId,
-        string treeKind = TreeKinds.Visual,
+        McpTreeKind treeKind = McpTreeKind.Visual,
         int? maxDepth = null,
         int? maxIssues = null,
         int? maxInventoryItems = null,
@@ -412,15 +437,9 @@ public sealed class AvaScopeMcpTools
         var client = CreateBridgeClient(bridgeClient, manifestDirectory);
         CoreResult<TreeResponse> tree = treeKind switch
         {
-            TreeKinds.Visual => await client.VisualTreeAsync(parsedSessionId!, topLevelId, maxDepth, cancellationToken),
-            TreeKinds.Logical => await client.LogicalTreeAsync(parsedSessionId!, topLevelId, maxDepth, cancellationToken),
-            _ => CoreResult<TreeResponse>.Fail(new CoreError(
-                CoreErrorCodes.InvalidBridgeRequest,
-                $"Tree kind '{treeKind}' is not supported.",
-                new Dictionary<string, string>
-                {
-                    ["supportedTreeKinds"] = $"{TreeKinds.Visual},{TreeKinds.Logical}"
-                }))
+            McpTreeKind.Visual => await client.VisualTreeAsync(parsedSessionId!, topLevelId, maxDepth, cancellationToken),
+            McpTreeKind.Logical => await client.LogicalTreeAsync(parsedSessionId!, topLevelId, maxDepth, cancellationToken),
+            _ => throw new ArgumentOutOfRangeException(nameof(treeKind))
         };
 
         if (!tree.Success)
@@ -661,7 +680,7 @@ public sealed class AvaScopeMcpTools
         string topLevelId,
         string nodeId,
         McpMutationOperation operation,
-        string treeKind = TreeKinds.Visual,
+        McpTreeKind treeKind = McpTreeKind.Visual,
         string? propertyName = null,
         string? value = null,
         string? valueType = null,
@@ -697,7 +716,7 @@ public sealed class AvaScopeMcpTools
         {
             request = new RuntimeMutationRequest(
                 string.IsNullOrWhiteSpace(requestId) ? Guid.NewGuid().ToString("n") : requestId,
-                new RuntimeTargetContext(parsedSessionId!, topLevelId, treeKind, nodeId),
+                new RuntimeTargetContext(parsedSessionId!, topLevelId, treeKind.ToProtocolName(), nodeId),
                 new RuntimeMutationOperation(operation.ToProtocolName(), propertyName, value, valueType, className, resourceKey, mutationId),
                 [
                     RuntimeMutationCapabilityCatalog.RuntimeMutationContract,
@@ -769,9 +788,9 @@ public sealed class AvaScopeMcpTools
         string sessionId,
         string topLevelId,
         string nodeId,
-        string operation,
+        McpMutationOperation operation,
         string artifactDirectory,
-        string treeKind = TreeKinds.Visual,
+        McpTreeKind treeKind = McpTreeKind.Visual,
         string? propertyName = null,
         string? value = null,
         string? valueType = null,
@@ -797,8 +816,8 @@ public sealed class AvaScopeMcpTools
         {
             request = new RuntimeMutationRequest(
                 string.IsNullOrWhiteSpace(requestId) ? Guid.NewGuid().ToString("n") : requestId,
-                new RuntimeTargetContext(parsedSessionId!, topLevelId, treeKind, nodeId),
-                new RuntimeMutationOperation(operation, propertyName, value, valueType, className, resourceKey, mutationId),
+                new RuntimeTargetContext(parsedSessionId!, topLevelId, treeKind.ToProtocolName(), nodeId),
+                new RuntimeMutationOperation(operation.ToProtocolName(), propertyName, value, valueType, className, resourceKey, mutationId),
                 [
                     RuntimeMutationCapabilityCatalog.RuntimeMutationContract,
                     RuntimeMutationCapabilityCatalog.StyleLayoutMutation

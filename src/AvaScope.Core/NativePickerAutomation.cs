@@ -173,13 +173,7 @@ internal static class NativePickerAutomation
         bool redactPath)
     {
         var state = predefinedResult ?? NativePickerResultStates.Success;
-        var allowed = new[]
-        {
-            NativePickerResultStates.Success,
-            NativePickerResultStates.Cancelled,
-            NativePickerResultStates.UnavailablePath,
-            NativePickerResultStates.DeletedPath
-        };
+        var allowed = NativePickerResultStates.Preparable;
         if (!allowed.Contains(state, StringComparer.Ordinal))
         {
             return FailPrepared("Picker result must be success, cancelled, unavailable_path, or deleted_path.");

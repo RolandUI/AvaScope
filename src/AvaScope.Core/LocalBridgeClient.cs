@@ -86,7 +86,8 @@ public sealed class LocalBridgeClient
             ToSessionSummary(manifest),
             manifest.ProcessId,
             GetProcessName(manifest.ProcessId) ?? manifest.ProcessName,
-            ResolveManifestPath(manifest, manifestPath)));
+            ResolveManifestPath(manifest, manifestPath),
+            healthResult.Value!.EffectiveCapabilities));
     }
 
     public async Task<CoreResult<AttachToAppResponse>> AttachLatestToAppAsync(
@@ -543,6 +544,23 @@ public sealed class LocalBridgeClient
         }
 
         return CoreResult<CloseSessionResponse>.Ok(TerminateOwnedProcess(ownership, closed.ClosedAt));
+    }
+
+    public async Task<CoreResult<SessionCapabilitiesResponse>> SessionCapabilitiesAsync(
+        SessionId sessionId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(sessionId);
+        var manifestResult = FindSingleManifest(null, sessionId);
+        if (!manifestResult.Success)
+        {
+            return CoreResult<SessionCapabilitiesResponse>.Fail(manifestResult.Error!);
+        }
+
+        return await SendAsync<SessionCapabilitiesResponse>(
+            manifestResult.Value!,
+            new BridgeIpcRequest(NewRequestId(), BridgeIpcMethods.Capabilities),
+            cancellationToken);
     }
 
     public CoreResult<NativePickerResponse> NativePicker(
