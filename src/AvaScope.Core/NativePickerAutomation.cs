@@ -368,8 +368,9 @@ internal static class NativePickerAutomation
             return path;
         }
 
-        var trimmed = path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-        var leaf = Path.GetFileName(trimmed);
+        var trimmed = path.TrimEnd('/', '\\');
+        var separatorIndex = Math.Max(trimmed.LastIndexOf('/'), trimmed.LastIndexOf('\\'));
+        var leaf = separatorIndex < 0 ? trimmed : trimmed[(separatorIndex + 1)..];
         return string.IsNullOrWhiteSpace(leaf) ? "<redacted>" : $"<redacted>{Path.DirectorySeparatorChar}{leaf}";
     }
 

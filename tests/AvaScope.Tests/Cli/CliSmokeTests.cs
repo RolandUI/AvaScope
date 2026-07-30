@@ -1510,9 +1510,9 @@ public sealed class CliSmokeTests
             var payload = JsonSerializer.Deserialize<ToolResult<PreviewResponse>>(result.StandardOutput, JsonOptions);
             Assert.NotNull(payload);
             Assert.True(payload.Success, payload.Error?.Message);
-            Assert.Equal(Path.GetFullPath(outputPath), payload.Value!.FilePath);
-            Assert.Equal(Path.GetFullPath(projectPath), payload.Value.ProjectPath);
-            Assert.Equal(Path.GetFullPath(viewPath), payload.Value.ViewPath);
+            AssertSamePath(outputPath, payload.Value!.FilePath);
+            AssertSamePath(projectPath, payload.Value.ProjectPath);
+            AssertSamePath(viewPath, payload.Value.ViewPath);
             Assert.True(File.Exists(payload.Value.FilePath));
             Assert.True(new FileInfo(payload.Value.FilePath).Length > 0);
         }
@@ -1734,7 +1734,7 @@ public sealed class CliSmokeTests
 
         var manifestDirectory = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));
         var sessionId = SessionId.New();
-        var pipeName = $"avascope-cli-test-{Guid.NewGuid():N}";
+        var pipeName = TestPipeNames.New();
         var processName = Process.GetCurrentProcess().ProcessName;
         var manifestPath = WriteBridgeManifest(
             sessionId,
@@ -1787,7 +1787,7 @@ public sealed class CliSmokeTests
             "AvaScope.Tests",
             $"cli-capabilities-{Guid.NewGuid():N}");
         var sessionId = SessionId.New();
-        var pipeName = $"avascope-cli-capabilities-{Guid.NewGuid():N}";
+        var pipeName = TestPipeNames.New();
         WriteBridgeManifest(sessionId, pipeName, manifestDirectory);
         var expected = SessionCapabilitiesResponse.Current(sessionId, Environment.ProcessId);
         var serverTask = RespondToBridgeRequestAsync(
@@ -1848,7 +1848,7 @@ public sealed class CliSmokeTests
         Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
 
         var sessionId = SessionId.New();
-        var pipeName = $"avascope-cli-test-{Guid.NewGuid():N}";
+        var pipeName = TestPipeNames.New();
         var manifestPath = WriteBridgeManifest(sessionId, pipeName);
         var expectedTopLevel = new TopLevelSummary(
             "topLevel:cli",
@@ -1899,7 +1899,7 @@ public sealed class CliSmokeTests
 
         var manifestDirectory = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));
         var sessionId = SessionId.New();
-        var pipeName = $"avascope-cli-test-{Guid.NewGuid():N}";
+        var pipeName = TestPipeNames.New();
         WriteBridgeManifest(sessionId, pipeName, manifestDirectory);
         var expectedTopLevel = new TopLevelSummary(
             "topLevel:custom",
@@ -1971,7 +1971,7 @@ public sealed class CliSmokeTests
         Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
 
         var sessionId = SessionId.New();
-        var pipeName = $"avascope-cli-test-{Guid.NewGuid():N}";
+        var pipeName = TestPipeNames.New();
         var manifestPath = WriteBridgeManifest(sessionId, pipeName);
         var root = new TreeNodeSummary(
             $"{expectedTreeKind}:root",
@@ -2138,7 +2138,7 @@ public sealed class CliSmokeTests
         Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
 
         var sessionId = SessionId.New();
-        var pipeName = $"avascope-cli-test-{Guid.NewGuid():N}";
+        var pipeName = TestPipeNames.New();
         var manifestDirectory = Path.Combine(
             Path.GetTempPath(),
             "AvaScope.Tests",
@@ -2216,7 +2216,7 @@ public sealed class CliSmokeTests
         Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
 
         var sessionId = SessionId.New();
-        var pipeName = $"avascope-cli-test-{Guid.NewGuid():N}";
+        var pipeName = TestPipeNames.New();
         var manifestPath = WriteBridgeManifest(sessionId, pipeName);
 
         var serverTask = RespondToBridgeRequestAsync(pipeName, request =>
@@ -2344,7 +2344,7 @@ public sealed class CliSmokeTests
         Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
 
         var sessionId = SessionId.New();
-        var pipeName = $"avascope-cli-test-{Guid.NewGuid():N}";
+        var pipeName = TestPipeNames.New();
         var manifestPath = WriteBridgeManifest(sessionId, pipeName);
         var matchNode = new TreeNodeSummary(
             "logical:match",
@@ -2462,7 +2462,7 @@ public sealed class CliSmokeTests
         Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
 
         var sessionId = SessionId.New();
-        var pipeName = $"avascope-cli-audit-{Guid.NewGuid():N}";
+        var pipeName = TestPipeNames.New();
         var manifestPath = WriteBridgeManifest(sessionId, pipeName);
         var buttonTarget = new RuntimeTargetContext(sessionId, "topLevel:cli", TreeKinds.Visual, "visual:button");
         var tree = new TreeResponse(
@@ -2564,7 +2564,7 @@ public sealed class CliSmokeTests
         Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
 
         var sessionId = SessionId.New();
-        var pipeName = $"avascope-cli-design-audit-{Guid.NewGuid():N}";
+        var pipeName = TestPipeNames.New();
         var manifestPath = WriteBridgeManifest(sessionId, pipeName);
         var requestPath = Path.Combine(Path.GetTempPath(), $"avascope-design-audit-{Guid.NewGuid():N}.json");
         var tree = new TreeResponse(
@@ -2708,7 +2708,7 @@ public sealed class CliSmokeTests
         Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
 
         var sessionId = SessionId.New();
-        var pipeName = $"avascope-cli-test-{Guid.NewGuid():N}";
+        var pipeName = TestPipeNames.New();
         var manifestPath = WriteBridgeManifest(sessionId, pipeName);
 
         var serverTask = RespondToBridgeRequestAsync(pipeName, request =>
@@ -2770,7 +2770,7 @@ public sealed class CliSmokeTests
         Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
 
         var sessionId = SessionId.New();
-        var pipeName = $"avascope-cli-test-{Guid.NewGuid():N}";
+        var pipeName = TestPipeNames.New();
         var manifestPath = WriteBridgeManifest(sessionId, pipeName);
 
         var serverTask = RespondToBridgeRequestAsync(pipeName, request =>
@@ -2833,7 +2833,7 @@ public sealed class CliSmokeTests
         Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
 
         var sessionId = SessionId.New();
-        var pipeName = $"avascope-cli-test-{Guid.NewGuid():N}";
+        var pipeName = TestPipeNames.New();
         var manifestPath = WriteBridgeManifest(sessionId, pipeName);
 
         var serverTask = RespondToBridgeRequestAsync(pipeName, request =>
@@ -2889,7 +2889,7 @@ public sealed class CliSmokeTests
         Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
 
         var sessionId = SessionId.New();
-        var pipeName = $"avascope-cli-test-{Guid.NewGuid():N}";
+        var pipeName = TestPipeNames.New();
         var manifestPath = WriteBridgeManifest(sessionId, pipeName);
 
         var serverTask = RespondToBridgeRequestAsync(pipeName, request =>
@@ -2943,7 +2943,7 @@ public sealed class CliSmokeTests
         Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
 
         var sessionId = SessionId.New();
-        var pipeName = $"avascope-cli-test-{Guid.NewGuid():N}";
+        var pipeName = TestPipeNames.New();
         var manifestPath = WriteBridgeManifest(sessionId, pipeName);
 
         var serverTask = RespondToBridgeRequestAsync(pipeName, request =>
@@ -3001,7 +3001,7 @@ public sealed class CliSmokeTests
         Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
 
         var sessionId = SessionId.New();
-        var pipeName = $"avascope-cli-test-{Guid.NewGuid():N}";
+        var pipeName = TestPipeNames.New();
         var manifestPath = WriteBridgeManifest(sessionId, pipeName);
 
         var serverTask = RespondToBridgeRequestAsync(pipeName, request =>
@@ -3064,7 +3064,7 @@ public sealed class CliSmokeTests
         Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
 
         var sessionId = SessionId.New();
-        var pipeName = $"avascope-cli-test-{Guid.NewGuid():N}";
+        var pipeName = TestPipeNames.New();
         var manifestPath = WriteBridgeManifest(sessionId, pipeName);
 
         var serverTask = RespondToBridgeRequestAsync(pipeName, request =>
@@ -3254,7 +3254,7 @@ public sealed class CliSmokeTests
         Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
 
         var sessionId = SessionId.New();
-        var pipeName = $"avascope-cli-scenario-{Guid.NewGuid():N}";
+        var pipeName = TestPipeNames.New();
         var manifestPath = WriteBridgeManifest(sessionId, pipeName);
         var artifactDirectory = Path.Combine(
             Path.GetTempPath(),
@@ -3345,7 +3345,7 @@ public sealed class CliSmokeTests
         Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
 
         var sessionId = SessionId.New();
-        var pipeName = $"avascope-cli-pointer-{Guid.NewGuid():N}";
+        var pipeName = TestPipeNames.New();
         var manifestPath = WriteBridgeManifest(sessionId, pipeName);
         var artifactDirectory = Path.Combine(
             Path.GetTempPath(),
@@ -3421,7 +3421,7 @@ public sealed class CliSmokeTests
         Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
 
         var sessionId = SessionId.New();
-        var pipeName = $"avascope-cli-state-{Guid.NewGuid():N}";
+        var pipeName = TestPipeNames.New();
         var manifestPath = WriteBridgeManifest(sessionId, pipeName);
         var artifactDirectory = Path.Combine(
             Path.GetTempPath(),
@@ -3494,7 +3494,7 @@ public sealed class CliSmokeTests
 
         var sessionId = SessionId.New();
         var topLevelId = "topLevel:interaction";
-        var pipeName = $"avascope-cli-interaction-{Guid.NewGuid():N}";
+        var pipeName = TestPipeNames.New();
         var manifestPath = WriteBridgeManifest(sessionId, pipeName);
         var artifactDirectory = Path.Combine(
             Path.GetTempPath(),
@@ -3590,7 +3590,7 @@ public sealed class CliSmokeTests
         Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
 
         var sessionId = SessionId.New();
-        var pipeName = $"avascope-cli-scenario-{Guid.NewGuid():N}";
+        var pipeName = TestPipeNames.New();
         var manifestPath = WriteBridgeManifest(sessionId, pipeName);
         var artifactDirectory = Path.Combine(
             Path.GetTempPath(),
@@ -3737,7 +3737,7 @@ public sealed class CliSmokeTests
         Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
 
         var sessionId = SessionId.New();
-        var pipeName = $"avascope-cli-test-{Guid.NewGuid():N}";
+        var pipeName = TestPipeNames.New();
         var manifestPath = WriteBridgeManifest(sessionId, pipeName);
 
         var serverTask = RespondToBridgeRequestAsync(pipeName, request =>
@@ -3811,7 +3811,7 @@ public sealed class CliSmokeTests
         Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
 
         var sessionId = SessionId.New();
-        var pipeName = $"avascope-cli-test-{Guid.NewGuid():N}";
+        var pipeName = TestPipeNames.New();
         var manifestPath = WriteBridgeManifest(sessionId, pipeName);
 
         var serverTask = RespondToBridgeRequestAsync(pipeName, request =>
@@ -3895,7 +3895,7 @@ public sealed class CliSmokeTests
         Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
 
         var sessionId = SessionId.New();
-        var pipeName = $"avascope-cli-test-{Guid.NewGuid():N}";
+        var pipeName = TestPipeNames.New();
         var manifestPath = WriteBridgeManifest(sessionId, pipeName);
 
         var serverTask = RespondToBridgeRequestAsync(pipeName, request =>
@@ -3972,7 +3972,7 @@ public sealed class CliSmokeTests
         Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
 
         var sessionId = SessionId.New();
-        var pipeName = $"avascope-cli-evidence-{Guid.NewGuid():N}";
+        var pipeName = TestPipeNames.New();
         var manifestPath = WriteBridgeManifest(sessionId, pipeName);
         var artifactDirectory = Path.Combine(
             Path.GetTempPath(),
@@ -4103,7 +4103,7 @@ public sealed class CliSmokeTests
         Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
 
         var sessionId = SessionId.New();
-        var pipeName = $"avascope-cli-review-{Guid.NewGuid():N}";
+        var pipeName = TestPipeNames.New();
         var manifestDirectory = Path.Combine(
             Path.GetTempPath(),
             "AvaScope.Tests",
@@ -4277,7 +4277,7 @@ public sealed class CliSmokeTests
         Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
 
         var sessionId = SessionId.New();
-        var pipeName = $"avascope-cli-test-{Guid.NewGuid():N}";
+        var pipeName = TestPipeNames.New();
         var manifestDirectory = Path.Combine(
             Path.GetTempPath(),
             "AvaScope.Tests",
@@ -4386,7 +4386,7 @@ public sealed class CliSmokeTests
     {
         var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
         var sessionId = SessionId.New();
-        var pipeName = $"avascope-cli-close-partial-{Guid.NewGuid():N}";
+        var pipeName = TestPipeNames.New();
         var manifestDirectory = Path.Combine(
             Path.GetTempPath(),
             "AvaScope.Tests",
@@ -4538,7 +4538,7 @@ public sealed class CliSmokeTests
         Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
 
         var sessionId = SessionId.New();
-        var pipeName = $"avascope-cli-test-{Guid.NewGuid():N}";
+        var pipeName = TestPipeNames.New();
         var manifestPath = WriteBridgeManifest(sessionId, pipeName);
         var environment = CreateIsolatedPreviewSessionEnvironment();
 
@@ -4669,7 +4669,7 @@ public sealed class CliSmokeTests
         Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
 
         var sessionId = SessionId.New();
-        var pipeName = $"avascope-cli-test-{Guid.NewGuid():N}";
+        var pipeName = TestPipeNames.New();
         var manifestPath = WriteBridgeManifest(sessionId, pipeName);
 
         var serverTask = RespondToBridgeRequestAsync(pipeName, request =>
@@ -4774,7 +4774,7 @@ public sealed class CliSmokeTests
         Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
 
         var sessionId = SessionId.New();
-        var pipeName = $"avascope-cli-test-{Guid.NewGuid():N}";
+        var pipeName = TestPipeNames.New();
         var manifestPath = WriteBridgeManifest(sessionId, pipeName);
         var outputDirectory = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));
         var outputPath = Path.Combine(outputDirectory, "cli-screenshot.png");
@@ -5896,6 +5896,20 @@ public sealed class CliSmokeTests
                 }
             }
         }
+    }
+
+    private static void AssertSamePath(string expected, string? actual)
+    {
+        Assert.NotNull(actual);
+        Assert.Equal(NormalizePath(expected), NormalizePath(actual));
+    }
+
+    private static string NormalizePath(string path)
+    {
+        var fullPath = Path.GetFullPath(path);
+        return OperatingSystem.IsMacOS() && fullPath.StartsWith("/var/", StringComparison.Ordinal)
+            ? "/private" + fullPath
+            : fullPath;
     }
 
     private sealed record CliResult(

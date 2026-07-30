@@ -24,7 +24,7 @@ public sealed class RuntimePointerDiagnosticsRunnerTests : IDisposable
     public async Task RunAsyncReportsPopupLayerParentHoverExitAndScreenshotOverlay()
     {
         var sessionId = SessionId.New();
-        var pipeName = $"avascope-pointer-core-{Guid.NewGuid():N}";
+        var pipeName = TestPipeNames.New();
         WriteManifest("pointer.json", new BridgeSessionManifest(
             sessionId,
             Environment.ProcessId,
@@ -96,7 +96,7 @@ public sealed class RuntimePointerDiagnosticsRunnerTests : IDisposable
     {
         var sessionId = SessionId.New();
         var topLevelId = "topLevel:main";
-        var pipeName = $"avascope-pointer-mismatch-{Guid.NewGuid():N}";
+        var pipeName = TestPipeNames.New();
         WriteManifest("pointer-mismatch.json", new BridgeSessionManifest(
             sessionId,
             Environment.ProcessId,

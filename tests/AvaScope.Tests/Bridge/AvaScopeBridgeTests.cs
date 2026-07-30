@@ -51,6 +51,7 @@ public sealed class AvaScopeBridgeTests : IDisposable
         var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Sample app"));
 
         Assert.False(string.IsNullOrWhiteSpace(runtime.LocalPipeName));
+        Assert.True(runtime.LocalPipeName!.Length <= 36);
         Assert.False(string.IsNullOrWhiteSpace(runtime.SessionManifestPath));
         Assert.True(File.Exists(runtime.SessionManifestPath));
 

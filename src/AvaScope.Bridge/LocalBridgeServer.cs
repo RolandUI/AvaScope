@@ -30,7 +30,10 @@ internal sealed class LocalBridgeServer : IDisposable
     {
         ArgumentNullException.ThrowIfNull(runtime);
 
-        var pipeName = $"avascope-{Environment.ProcessId}-{runtime.SessionId.Value}";
+        var sessionSuffix = runtime.SessionId.Value.Length <= 16
+            ? runtime.SessionId.Value
+            : runtime.SessionId.Value[^16..];
+        var pipeName = $"avs-{Environment.ProcessId}-{sessionSuffix}";
         var manifestPath = GetManifestPath(runtime.SessionId);
         var manifest = new BridgeSessionManifest(
             runtime.SessionId,

@@ -570,7 +570,7 @@ public sealed class ProtocolContractTests
 
         Assert.Equal("matrix-1", requestNode["requestId"]!.GetValue<string>());
         Assert.Equal("disabled", requestNode["states"]![1]!.GetValue<string>());
-        Assert.Equal("C:\\state\\matrix\\sheet.png", requestNode["contactSheetPath"]!.GetValue<string>());
+        Assert.Equal(Path.GetFullPath("C:\\state\\matrix\\sheet.png"), requestNode["contactSheetPath"]!.GetValue<string>());
         Assert.Equal("state-target", requestNode["automationId"]!.GetValue<string>());
         Assert.Equal("passed", responseNode["status"]!.GetValue<string>());
         Assert.Equal("visual:item", responseNode["entries"]![0]!["target"]!["nodeId"]!.GetValue<string>());
@@ -752,7 +752,7 @@ public sealed class ProtocolContractTests
         var responseNode = JsonNode.Parse(JsonSerializer.Serialize(response))!;
 
         Assert.Equal("semantic-1", requestNode["requestId"]!.GetValue<string>());
-        Assert.Equal("C:\\visual\\reference.png", requestNode["referencePath"]!.GetValue<string>());
+        Assert.Equal(Path.GetFullPath("C:\\visual\\reference.png"), requestNode["referencePath"]!.GetValue<string>());
         Assert.Equal(4, requestNode["maxRawRegions"]!.GetValue<int>());
         Assert.Equal("differences_found", responseNode["status"]!.GetValue<string>());
         Assert.Equal("raw-01", responseNode["rawRegions"]![0]!["regionId"]!.GetValue<string>());
@@ -838,7 +838,7 @@ public sealed class ProtocolContractTests
         Assert.Equal("avascope-1234-session-1", node["bridgeSessions"]![0]!["pipeName"]!.GetValue<string>());
         Assert.Equal("avascope", node["bridgeSessions"]![0]!["health"]!["serviceName"]!.GetValue<string>());
         Assert.Equal(DiagnosticStatuses.Available, node["previewHost"]!["status"]!.GetValue<string>());
-        Assert.Equal("C:\\avascope\\AvaScope.PreviewHost.dll", node["previewHost"]!["hostAssemblyPath"]!.GetValue<string>());
+        Assert.Equal(Path.GetFullPath("C:\\avascope\\AvaScope.PreviewHost.dll"), node["previewHost"]!["hostAssemblyPath"]!.GetValue<string>());
         Assert.Equal(DiagnosticProcessModes.IsolatedChildProcess, node["previewHost"]!["processMode"]!.GetValue<string>());
         Assert.Equal("avascope", node["previewHost"]!["service"]!["serviceName"]!.GetValue<string>());
         Assert.Equal("bridge_session_not_found", node["issues"]![0]!["code"]!.GetValue<string>());
@@ -852,8 +852,8 @@ public sealed class ProtocolContractTests
         Assert.Equal(1, node["summary"]!["diagnosticIssueCount"]!.GetValue<int>());
         Assert.Contains("avascope create-preview-session", node["summary"]!["nextCommands"]![0]!.GetValue<string>(), StringComparison.Ordinal);
         Assert.Equal("cli", node["componentOrigins"]![0]!["component"]!.GetValue<string>());
-        Assert.Equal("C:\\repo\\.codex\\tools\\avascope\\avascope.dll", node["componentOrigins"]![0]!["assemblyPath"]!.GetValue<string>());
-        Assert.Equal("C:\\repo", node["componentOrigins"]![0]!["rootDirectory"]!.GetValue<string>());
+        Assert.Equal(Path.GetFullPath("C:\\repo\\.codex\\tools\\avascope\\avascope.dll"), node["componentOrigins"]![0]!["assemblyPath"]!.GetValue<string>());
+        Assert.Equal(Path.GetFullPath("C:\\repo"), node["componentOrigins"]![0]!["rootDirectory"]!.GetValue<string>());
         Assert.Equal("repository", node["componentOrigins"]![0]!["originKind"]!.GetValue<string>());
         Assert.True(node["componentOrigins"]![0]!["exists"]!.GetValue<bool>());
         Assert.Equal("previewHost", node["componentOrigins"]![1]!["component"]!.GetValue<string>());
@@ -903,10 +903,10 @@ public sealed class ProtocolContractTests
 
         Assert.Equal("preview", node["command"]!.GetValue<string>());
         Assert.Equal("completed_with_warnings", node["status"]!.GetValue<string>());
-        Assert.Equal("C:\\apps\\Sample\\Sample.csproj", node["projectPath"]!.GetValue<string>());
+        Assert.Equal(Path.GetFullPath("C:\\apps\\Sample\\Sample.csproj"), node["projectPath"]!.GetValue<string>());
         Assert.Equal("Views/MainView.axaml", node["viewPath"]!.GetValue<string>());
         Assert.Equal("loading", node["stateVariant"]!.GetValue<string>());
-        Assert.Equal("C:\\runs\\preview.png", node["screenshotPaths"]![0]!.GetValue<string>());
+        Assert.Equal(Path.GetFullPath("C:\\runs\\preview.png"), node["screenshotPaths"]![0]!.GetValue<string>());
         Assert.Equal("preview_screenshot", node["artifacts"]![0]!["kind"]!.GetValue<string>());
         Assert.Equal("binding_missing_datacontext", node["diagnostics"]![0]!["code"]!.GetValue<string>());
         Assert.Equal("html", node["generatedReports"]![0]!["kind"]!.GetValue<string>());
@@ -947,13 +947,13 @@ public sealed class ProtocolContractTests
         Assert.Equal(generatedAt, DateTimeOffset.Parse(node["generatedAt"]!.GetValue<string>(), CultureInfo.InvariantCulture));
         Assert.Equal(DiagnosticStatuses.Available, node["status"]!.GetValue<string>());
         Assert.Equal(AvaScopeProduct.Version, node["productVersion"]!.GetValue<string>());
-        Assert.Equal("C:\\avascope\\avascope.dll", node["cliAssemblyPath"]!.GetValue<string>());
-        Assert.Equal("C:\\avascope", node["baseDirectory"]!.GetValue<string>());
-        Assert.Equal("C:\\avascope\\sessions", node["manifestDirectory"]!.GetValue<string>());
-        Assert.Equal("C:\\avascope\\preview-sessions", node["previewSessionStoreDirectory"]!.GetValue<string>());
+        Assert.Equal(Path.GetFullPath("C:\\avascope\\avascope.dll"), node["cliAssemblyPath"]!.GetValue<string>());
+        Assert.Equal(Path.GetFullPath("C:\\avascope"), node["baseDirectory"]!.GetValue<string>());
+        Assert.Equal(Path.GetFullPath("C:\\avascope\\sessions"), node["manifestDirectory"]!.GetValue<string>());
+        Assert.Equal(Path.GetFullPath("C:\\avascope\\preview-sessions"), node["previewSessionStoreDirectory"]!.GetValue<string>());
         Assert.Equal("mcp_assembly", node["checks"]![0]!["name"]!.GetValue<string>());
         Assert.Equal(DiagnosticStatuses.Available, node["checks"]![0]!["status"]!.GetValue<string>());
-        Assert.Equal("C:\\avascope\\AvaScope.Mcp.dll", node["checks"]![0]!["path"]!.GetValue<string>());
+        Assert.Equal(Path.GetFullPath("C:\\avascope\\AvaScope.Mcp.dll"), node["checks"]![0]!["path"]!.GetValue<string>());
         Assert.Equal(DiagnosticStatuses.Available, node["previewHost"]!["status"]!.GetValue<string>());
         Assert.Empty(node["issues"]!.AsArray());
     }
@@ -1064,7 +1064,7 @@ public sealed class ProtocolContractTests
 
         Assert.Equal("session-1", node["sessionId"]!.GetValue<string>());
         Assert.Equal("topLevel:abc", node["topLevelId"]!.GetValue<string>());
-        Assert.Equal("C:\\screenshots\\capture.png", node["filePath"]!.GetValue<string>());
+        Assert.Equal(Path.GetFullPath("C:\\screenshots\\capture.png"), node["filePath"]!.GetValue<string>());
         Assert.Equal(320, node["pixelWidth"]!.GetValue<int>());
         Assert.Equal(200, node["pixelHeight"]!.GetValue<int>());
         Assert.Equal(capturedAt, DateTimeOffset.Parse(node["capturedAt"]!.GetValue<string>(), CultureInfo.InvariantCulture));
@@ -1089,7 +1089,7 @@ public sealed class ProtocolContractTests
         Assert.Equal("request-1", node["requestId"]!.GetValue<string>());
         Assert.Equal("screenshot", node["method"]!.GetValue<string>());
         Assert.Equal("topLevel:abc", node["topLevelId"]!.GetValue<string>());
-        Assert.Equal("C:\\screenshots\\capture.png", node["outputPath"]!.GetValue<string>());
+        Assert.Equal(Path.GetFullPath("C:\\screenshots\\capture.png"), node["outputPath"]!.GetValue<string>());
     }
 
     [Fact]
@@ -1296,7 +1296,7 @@ public sealed class ProtocolContractTests
         Assert.Equal(4, node["summary"]!["beforeVisualTreeNodeCount"]!.GetValue<int>());
         Assert.Equal(42, node["summary"]!["changedPixels"]!.GetValue<long>());
         Assert.Equal(12.5, node["summary"]!["changedPixelPercentage"]!.GetValue<double>());
-        Assert.Equal("C:\\artifacts\\evidence", node["artifactDirectory"]!.GetValue<string>());
+        Assert.Equal(Path.GetFullPath("C:\\artifacts\\evidence"), node["artifactDirectory"]!.GetValue<string>());
         Assert.EndsWith("evidence-request-1-before.png", node["beforeScreenshotPath"]!.GetValue<string>());
         Assert.EndsWith("evidence-request-1-after.png", node["afterScreenshotPath"]!.GetValue<string>());
         Assert.EndsWith("evidence-request-1-before-visual-tree.json", node["beforeVisualTreePath"]!.GetValue<string>());
@@ -1495,7 +1495,7 @@ public sealed class ProtocolContractTests
         var node = JsonNode.Parse(json)!;
 
         Assert.Equal("preview-session-1", node["session"]!["session"]!["sessionId"]!.GetValue<string>());
-        Assert.Equal("C:\\preview\\main.avascope-preview.html", node["viewerPath"]!.GetValue<string>());
+        Assert.Equal(Path.GetFullPath("C:\\preview\\main.avascope-preview.html"), node["viewerPath"]!.GetValue<string>());
         Assert.Equal("file:///C:/preview/main.avascope-preview.html", node["previewUrl"]!.GetValue<string>());
         Assert.Equal("available", node["agentReview"]!["status"]!.GetValue<string>());
         Assert.Equal("file:///C:/preview/main.avascope-preview.html", node["agentReview"]!["previewUrls"]![0]!.GetValue<string>());
@@ -2191,11 +2191,11 @@ public sealed class ProtocolContractTests
         var json = JsonSerializer.Serialize(request);
         var node = JsonNode.Parse(json)!;
 
-        Assert.Equal("C:\\previews\\main.png", node["outputPath"]!.GetValue<string>());
+        Assert.Equal(Path.GetFullPath("C:\\previews\\main.png"), node["outputPath"]!.GetValue<string>());
         Assert.Equal(1440, node["width"]!.GetValue<double>());
         Assert.Equal(900, node["height"]!.GetValue<double>());
         Assert.Equal(120, node["dpi"]!.GetValue<double>());
-        Assert.Equal("C:\\apps\\Sample\\Sample.csproj", node["projectPath"]!.GetValue<string>());
+        Assert.Equal(Path.GetFullPath("C:\\apps\\Sample\\Sample.csproj"), node["projectPath"]!.GetValue<string>());
         Assert.Equal("Views\\MainView.axaml", node["viewPath"]!.GetValue<string>());
         Assert.Equal("dark", node["themeVariant"]!.GetValue<string>());
         Assert.Equal("ja-JP", node["culture"]!.GetValue<string>());
@@ -2239,8 +2239,8 @@ public sealed class ProtocolContractTests
         var json = JsonSerializer.Serialize(request);
         var node = JsonNode.Parse(json)!;
 
-        Assert.Equal("C:\\isolated\\bin", node["buildOutputRoot"]!.GetValue<string>());
-        Assert.Equal("C:\\isolated\\bin\\Debug\\net10.0\\Sample.dll", node["assemblyPath"]!.GetValue<string>());
+        Assert.Equal(Path.GetFullPath("C:\\isolated\\bin"), node["buildOutputRoot"]!.GetValue<string>());
+        Assert.Equal(Path.GetFullPath("C:\\isolated\\bin\\Debug\\net10.0\\Sample.dll"), node["assemblyPath"]!.GetValue<string>());
         Assert.True(node["noBuild"]!.GetValue<bool>());
         Assert.Equal("warning", node["diagnosticOptions"]!["minimumSeverity"]!.GetValue<string>());
         Assert.Equal(
@@ -2269,12 +2269,12 @@ public sealed class ProtocolContractTests
         var json = JsonSerializer.Serialize(response);
         var node = JsonNode.Parse(json)!;
 
-        Assert.Equal("C:\\previews\\main.png", node["filePath"]!.GetValue<string>());
+        Assert.Equal(Path.GetFullPath("C:\\previews\\main.png"), node["filePath"]!.GetValue<string>());
         Assert.Equal(1440, node["pixelWidth"]!.GetValue<int>());
         Assert.Equal(900, node["pixelHeight"]!.GetValue<int>());
         Assert.Equal(96, node["dpi"]!.GetValue<double>());
         Assert.Equal(renderedAt, DateTimeOffset.Parse(node["renderedAt"]!.GetValue<string>(), CultureInfo.InvariantCulture));
-        Assert.Equal("C:\\apps\\Sample\\Sample.csproj", node["projectPath"]!.GetValue<string>());
+        Assert.Equal(Path.GetFullPath("C:\\apps\\Sample\\Sample.csproj"), node["projectPath"]!.GetValue<string>());
         Assert.Equal("Views\\MainView.axaml", node["viewPath"]!.GetValue<string>());
         Assert.Equal("light", node["themeVariant"]!.GetValue<string>());
         Assert.Equal("ja-JP", node["culture"]!.GetValue<string>());
@@ -2309,14 +2309,14 @@ public sealed class ProtocolContractTests
         var json = JsonSerializer.Serialize(response);
         var node = JsonNode.Parse(json)!;
 
-        Assert.Equal("C:\\apps\\Sample\\Sample.csproj", node["projectInfo"]!["projectPath"]!.GetValue<string>());
+        Assert.Equal(Path.GetFullPath("C:\\apps\\Sample\\Sample.csproj"), node["projectInfo"]!["projectPath"]!.GetValue<string>());
         Assert.Equal("Sample.Designer", node["projectInfo"]!["assemblyName"]!.GetValue<string>());
         Assert.Equal("net10.0", node["projectInfo"]!["targetFrameworks"]![0]!.GetValue<string>());
         Assert.Equal("net10.0", node["projectInfo"]!["selectedTargetFramework"]!.GetValue<string>());
-        Assert.Equal("C:\\apps\\Sample\\bin\\Debug\\net10.0\\Sample.Designer.dll", node["projectInfo"]!["outputAssemblyPath"]!.GetValue<string>());
-        Assert.Equal("C:\\isolated\\bin", node["projectInfo"]!["buildOutputRoot"]!.GetValue<string>());
-        Assert.Equal("C:\\isolated\\obj", node["projectInfo"]!["buildIntermediateOutputRoot"]!.GetValue<string>());
-        Assert.Equal("C:\\previews\\.avascope\\logs\\main-build.log", node["projectInfo"]!["buildLogPath"]!.GetValue<string>());
+        Assert.Equal(Path.GetFullPath("C:\\apps\\Sample\\bin\\Debug\\net10.0\\Sample.Designer.dll"), node["projectInfo"]!["outputAssemblyPath"]!.GetValue<string>());
+        Assert.Equal(Path.GetFullPath("C:\\isolated\\bin"), node["projectInfo"]!["buildOutputRoot"]!.GetValue<string>());
+        Assert.Equal(Path.GetFullPath("C:\\isolated\\obj"), node["projectInfo"]!["buildIntermediateOutputRoot"]!.GetValue<string>());
+        Assert.Equal(Path.GetFullPath("C:\\previews\\.avascope\\logs\\main-build.log"), node["projectInfo"]!["buildLogPath"]!.GetValue<string>());
         Assert.Equal("isolated_default_build", node["projectInfo"]!["buildMode"]!.GetValue<string>());
     }
 
@@ -2393,7 +2393,7 @@ public sealed class ProtocolContractTests
         Assert.Equal(1440, node["entries"]![0]!["viewport"]!["width"]!.GetValue<double>());
         Assert.True(node["entries"]![0]!["render"]!["success"]!.GetValue<bool>());
         Assert.False(node["entries"]![1]!["render"]!["success"]!.GetValue<bool>());
-        Assert.Equal("C:\\previews\\sheet.png", node["contactSheetPath"]!.GetValue<string>());
+        Assert.Equal(Path.GetFullPath("C:\\previews\\sheet.png"), node["contactSheetPath"]!.GetValue<string>());
     }
 
     [Fact]
@@ -2454,12 +2454,12 @@ public sealed class ProtocolContractTests
         var requestNode = JsonNode.Parse(JsonSerializer.Serialize(request))!;
         var responseNode = JsonNode.Parse(JsonSerializer.Serialize(response))!;
 
-        Assert.Equal("C:\\previews\\animation.png", requestNode["outputPath"]!.GetValue<string>());
+        Assert.Equal(Path.GetFullPath("C:\\previews\\animation.png"), requestNode["outputPath"]!.GetValue<string>());
         Assert.Equal(150, requestNode["timeOffsetsMs"]![1]!.GetValue<int>());
         Assert.Equal(320, requestNode["width"]!.GetValue<double>());
         Assert.Equal("Views\\AnimatedView.axaml", requestNode["viewPath"]!.GetValue<string>());
-        Assert.Equal("C:\\previews\\animation-strip.png", requestNode["frameStripPath"]!.GetValue<string>());
-        Assert.Equal("C:\\previews\\animation.html", requestNode["viewerPath"]!.GetValue<string>());
+        Assert.Equal(Path.GetFullPath("C:\\previews\\animation-strip.png"), requestNode["frameStripPath"]!.GetValue<string>());
+        Assert.Equal(Path.GetFullPath("C:\\previews\\animation.html"), requestNode["viewerPath"]!.GetValue<string>());
         Assert.Equal(150, responseNode["frames"]![0]!["timeOffsetMs"]!.GetValue<int>());
         Assert.True(responseNode["frames"]![0]!["render"]!["success"]!.GetValue<bool>());
         Assert.Equal(150, responseNode["frames"]![0]!["render"]!["value"]!["animationTimeOffsetMs"]!.GetValue<int>());
@@ -2467,7 +2467,7 @@ public sealed class ProtocolContractTests
         Assert.Equal(42, responseNode["motion"]!["changedPixels"]!.GetValue<long>());
         Assert.Equal("animation", responseNode["diagnostics"]![0]!["category"]!.GetValue<string>());
         Assert.Equal(1, responseNode["diagnosticSummary"]!["totalCount"]!.GetValue<int>());
-        Assert.Equal("C:\\previews\\animation-strip.png", responseNode["frameStripPath"]!.GetValue<string>());
+        Assert.Equal(Path.GetFullPath("C:\\previews\\animation-strip.png"), responseNode["frameStripPath"]!.GetValue<string>());
         Assert.Equal("file:///C:/previews/animation.html", responseNode["viewer"]!["previewUrl"]!.GetValue<string>());
     }
 
@@ -2507,7 +2507,7 @@ public sealed class ProtocolContractTests
 
         Assert.False(diffNode["passed"]!.GetValue<bool>());
         Assert.Equal(1, diffNode["changedPixels"]!.GetValue<long>());
-        Assert.Equal("C:\\diff.png", diffNode["diffPath"]!.GetValue<string>());
+        Assert.Equal(Path.GetFullPath("C:\\diff.png"), diffNode["diffPath"]!.GetValue<string>());
         Assert.Equal(1, cleanupNode["deletedPreviewSessionRecords"]!.GetValue<int>());
         Assert.Equal(DiagnosticStatuses.Stale, cleanupNode["stalePreviewSessions"]![0]!["status"]!.GetValue<string>());
     }
@@ -2542,12 +2542,12 @@ public sealed class ProtocolContractTests
 
         var node = JsonNode.Parse(JsonSerializer.Serialize(response))!;
 
-        Assert.Equal("C:\\avascope\\sessions", node["manifestDirectory"]!.GetValue<string>());
+        Assert.Equal(Path.GetFullPath("C:\\avascope\\sessions"), node["manifestDirectory"]!.GetValue<string>());
         Assert.Equal(1, node["deletedBridgeManifestRecords"]!.GetValue<int>());
         Assert.Equal(DiagnosticStatuses.Stale, node["cleanupCandidates"]![0]!["status"]!.GetValue<string>());
         Assert.Equal("SampleApp", node["cleanupCandidates"]![0]!["processName"]!.GetValue<string>());
         Assert.True(node["cleanupCandidates"]![0]!["cleanupCandidate"]!.GetValue<bool>());
-        Assert.Equal("C:\\avascope\\sessions\\session.json", node["deletedPaths"]![0]!.GetValue<string>());
+        Assert.Equal(Path.GetFullPath("C:\\avascope\\sessions\\session.json"), node["deletedPaths"]![0]!.GetValue<string>());
         Assert.Equal(cleanedAt, DateTimeOffset.Parse(node["cleanedAt"]!.GetValue<string>(), CultureInfo.InvariantCulture));
     }
 
@@ -2713,15 +2713,15 @@ public sealed class ProtocolContractTests
         var createNode = JsonNode.Parse(JsonSerializer.Serialize(create))!;
         var checkNode = JsonNode.Parse(JsonSerializer.Serialize(check))!;
 
-        Assert.Equal("C:\\baselines\\baseline.json", createNode["manifestPath"]!.GetValue<string>());
+        Assert.Equal(Path.GetFullPath("C:\\baselines\\baseline.json"), createNode["manifestPath"]!.GetValue<string>());
         Assert.Equal(PreviewBaselineManifest.CurrentVersion, createNode["manifest"]!["version"]!.GetValue<int>());
-        Assert.Equal("C:\\baselines\\baseline-01-1440x900.png", createNode["manifest"]!["entries"]![0]!["imagePath"]!.GetValue<string>());
+        Assert.Equal(Path.GetFullPath("C:\\baselines\\baseline-01-1440x900.png"), createNode["manifest"]!["entries"]![0]!["imagePath"]!.GetValue<string>());
         Assert.False(checkNode["passed"]!.GetValue<bool>());
-        Assert.Equal("C:\\reports\\baseline-check.json", checkNode["reportPath"]!.GetValue<string>());
+        Assert.Equal(Path.GetFullPath("C:\\reports\\baseline-check.json"), checkNode["reportPath"]!.GetValue<string>());
         Assert.Equal("failed", checkNode["reportPack"]!["status"]!.GetValue<string>());
         Assert.Equal("html", checkNode["reportPack"]!["assets"]![0]!["kind"]!.GetValue<string>());
         Assert.Equal("preset_metadata_available", checkNode["reportPack"]!["metadata"]!["mutationHistoryStatus"]!.GetValue<string>());
-        Assert.Equal("C:\\diff\\diff-01-1440x900.png", checkNode["entries"]![0]!["diffPath"]!.GetValue<string>());
+        Assert.Equal(Path.GetFullPath("C:\\diff\\diff-01-1440x900.png"), checkNode["entries"]![0]!["diffPath"]!.GetValue<string>());
         Assert.False(checkNode["entries"]![0]!["diff"]!["value"]!["passed"]!.GetValue<bool>());
         Assert.Equal("failed", checkNode["agentReview"]!["status"]!.GetValue<string>());
         Assert.Equal("visual_diff_changed", checkNode["agentReview"]!["failures"]![0]!["code"]!.GetValue<string>());
@@ -2817,8 +2817,8 @@ public sealed class ProtocolContractTests
         Assert.Equal(320, suiteNode["defaults"]!["sizes"]![0]!["width"]!.GetValue<double>());
         Assert.Equal("wide", suiteNode["defaults"]!["mutationPresetIds"]![0]!.GetValue<string>());
         Assert.Equal("main", suiteNode["entries"]![0]!["id"]!.GetValue<string>());
-        Assert.Equal("C:\\apps\\Sample\\Sample.csproj", suiteNode["entries"]![0]!["projectPath"]!.GetValue<string>());
-        Assert.Equal("C:\\apps\\Sample\\avascope.preview.json", suiteNode["entries"]![0]!["profileFilePath"]!.GetValue<string>());
+        Assert.Equal(Path.GetFullPath("C:\\apps\\Sample\\Sample.csproj"), suiteNode["entries"]![0]!["projectPath"]!.GetValue<string>());
+        Assert.Equal(Path.GetFullPath("C:\\apps\\Sample\\avascope.preview.json"), suiteNode["entries"]![0]!["profileFilePath"]!.GetValue<string>());
         Assert.Equal("session-suite", suiteNode["entries"]![0]!["runtimeTarget"]!["sessionId"]!.GetValue<string>());
         Assert.Equal("dark-wide", suiteNode["entries"]![0]!["variants"]![0]!["name"]!.GetValue<string>());
         Assert.Equal(150, suiteNode["entries"]![0]!["variants"]![0]!["animationTimeOffsetMs"]!.GetValue<int>());
@@ -2830,7 +2830,7 @@ public sealed class ProtocolContractTests
         Assert.Equal("dark-wide", baselineNode["suiteVariantName"]!.GetValue<string>());
         Assert.Equal("main", baselineNode["profileName"]!.GetValue<string>());
         Assert.Equal("dark-wide", baselineNode["profileVariant"]!.GetValue<string>());
-        Assert.Equal("C:\\apps\\Sample\\avascope.preview.json", baselineNode["profileFilePath"]!.GetValue<string>());
+        Assert.Equal(Path.GetFullPath("C:\\apps\\Sample\\avascope.preview.json"), baselineNode["profileFilePath"]!.GetValue<string>());
         Assert.Equal("session-suite", baselineNode["runtimeTarget"]!["sessionId"]!.GetValue<string>());
         Assert.Equal("wide", baselineNode["mutationPresetIds"]![0]!.GetValue<string>());
         Assert.Equal(150, baselineNode["animationTimeOffsetMs"]!.GetValue<int>());
@@ -2924,7 +2924,7 @@ public sealed class ProtocolContractTests
         Assert.Equal(0, node["requiredRegionResults"]![0]!["ruleIndex"]!.GetValue<int>());
         Assert.Equal(ScreenshotRegionAssertionModes.Unchanged, node["requiredRegionResults"]![0]!["assertion"]!.GetValue<string>());
         Assert.True(node["requiredRegionResults"]![0]!["result"]!["success"]!.GetValue<bool>());
-        Assert.Equal("C:\\diff\\required-region-main.png", node["requiredRegionResults"]![0]!["result"]!["value"]!["cropPath"]!.GetValue<string>());
+        Assert.Equal(Path.GetFullPath("C:\\diff\\required-region-main.png"), node["requiredRegionResults"]![0]!["result"]!["value"]!["cropPath"]!.GetValue<string>());
     }
 
     [Fact]
@@ -2978,12 +2978,12 @@ public sealed class ProtocolContractTests
         Assert.Equal("preview-1", session["session"]!["sessionId"]!.GetValue<string>());
         Assert.Equal("preview", session["session"]!["kind"]!.GetValue<string>());
         Assert.Equal("active", session["session"]!["state"]!.GetValue<string>());
-        Assert.Equal("C:\\previews\\main.png", session["request"]!["outputPath"]!.GetValue<string>());
+        Assert.Equal(Path.GetFullPath("C:\\previews\\main.png"), session["request"]!["outputPath"]!.GetValue<string>());
         Assert.Equal("Views\\MainView.axaml", session["request"]!["viewPath"]!.GetValue<string>());
         Assert.Equal("ja-JP", session["request"]!["culture"]!.GetValue<string>());
         Assert.Equal("Sample.PreviewDesignData", session["request"]!["designDataType"]!.GetValue<string>());
         Assert.True(session["lastRender"]!["success"]!.GetValue<bool>());
-        Assert.Equal("C:\\previews\\main.png", session["lastRender"]!["value"]!["filePath"]!.GetValue<string>());
+        Assert.Equal(Path.GetFullPath("C:\\previews\\main.png"), session["lastRender"]!["value"]!["filePath"]!.GetValue<string>());
         Assert.Equal("ja-JP", session["lastRender"]!["value"]!["culture"]!.GetValue<string>());
         Assert.Equal("Sample.PreviewDesignData", session["lastRender"]!["value"]!["designDataType"]!.GetValue<string>());
         Assert.Equal(updatedAt, DateTimeOffset.Parse(session["updatedAt"]!.GetValue<string>(), CultureInfo.InvariantCulture));

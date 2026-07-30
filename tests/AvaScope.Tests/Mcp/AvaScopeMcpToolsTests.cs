@@ -144,7 +144,7 @@ public sealed class AvaScopeMcpToolsTests
             $"mcp-capabilities-{Guid.NewGuid():N}");
         Directory.CreateDirectory(manifestDirectory);
         var sessionId = SessionId.New();
-        var pipeName = $"avascope-mcp-capabilities-{Guid.NewGuid():N}";
+        var pipeName = TestPipeNames.New();
         File.WriteAllText(
             Path.Combine(manifestDirectory, $"{sessionId.Value}.json"),
             JsonSerializer.Serialize(new BridgeSessionManifest(
@@ -276,7 +276,7 @@ public sealed class AvaScopeMcpToolsTests
         Directory.CreateDirectory(manifestDirectory);
         var sessionId = SessionId.New();
         var topLevelId = "topLevel:mcp";
-        var pipeName = $"avascope-mcp-tree-{Guid.NewGuid():N}";
+        var pipeName = TestPipeNames.New();
         var manifestPath = Path.Combine(manifestDirectory, "runtime.json");
         await File.WriteAllTextAsync(
             manifestPath,
@@ -415,7 +415,7 @@ public sealed class AvaScopeMcpToolsTests
             $"mcp-close-partial-{Guid.NewGuid():N}");
         Directory.CreateDirectory(manifestDirectory);
         var sessionId = SessionId.New();
-        var pipeName = $"avascope-mcp-close-partial-{Guid.NewGuid():N}";
+        var pipeName = TestPipeNames.New();
         var manifestPath = Path.Combine(manifestDirectory, $"{sessionId.Value}.json");
         File.WriteAllText(
             manifestPath,

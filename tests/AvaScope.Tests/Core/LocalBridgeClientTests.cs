@@ -70,7 +70,7 @@ public sealed class LocalBridgeClientTests : IDisposable
     {
         Directory.CreateDirectory(_manifestDirectory);
         var sessionId = SessionId.New();
-        var pipeName = $"avascope-core-test-{Guid.NewGuid():N}";
+        var pipeName = TestPipeNames.New();
         var processName = Process.GetCurrentProcess().ProcessName;
         var manifestPath = WriteManifest(
             "selected.json",
@@ -110,7 +110,7 @@ public sealed class LocalBridgeClientTests : IDisposable
     {
         Directory.CreateDirectory(_manifestDirectory);
         var sessionId = SessionId.New();
-        var pipeName = $"avascope-capabilities-{Guid.NewGuid():N}";
+        var pipeName = TestPipeNames.New();
         WriteManifest(
             "capabilities.json",
             new BridgeSessionManifest(
@@ -151,11 +151,11 @@ public sealed class LocalBridgeClientTests : IDisposable
             new BridgeSessionManifest(
                 oldSessionId,
                 Environment.ProcessId,
-                $"avascope-core-old-{Guid.NewGuid():N}",
+                TestPipeNames.New(),
                 DateTimeOffset.UtcNow.AddMinutes(-5),
                 "Old app",
                 processName: processName));
-        var pipeName = $"avascope-core-new-{Guid.NewGuid():N}";
+        var pipeName = TestPipeNames.New();
         WriteManifest(
             "new.json",
             new BridgeSessionManifest(
@@ -289,7 +289,7 @@ public sealed class LocalBridgeClientTests : IDisposable
     {
         Directory.CreateDirectory(_manifestDirectory);
         var sessionId = SessionId.New();
-        var pipeName = $"avascope-core-test-{Guid.NewGuid():N}";
+        var pipeName = TestPipeNames.New();
         WriteManifest(
             "mutation.json",
             new BridgeSessionManifest(
@@ -361,7 +361,7 @@ public sealed class LocalBridgeClientTests : IDisposable
     {
         Directory.CreateDirectory(_manifestDirectory);
         var sessionId = SessionId.New();
-        var pipeName = $"avascope-core-review-{Guid.NewGuid():N}";
+        var pipeName = TestPipeNames.New();
         WriteManifest(
             "mutation-review.json",
             new BridgeSessionManifest(
@@ -434,7 +434,7 @@ public sealed class LocalBridgeClientTests : IDisposable
     {
         Directory.CreateDirectory(_manifestDirectory);
         var sessionId = SessionId.New();
-        var pipeName = $"avascope-core-evidence-{Guid.NewGuid():N}";
+        var pipeName = TestPipeNames.New();
         var artifactDirectory = Path.Combine(
             Path.GetTempPath(),
             "AvaScope.Tests",
@@ -840,7 +840,7 @@ public sealed class LocalBridgeClientTests : IDisposable
         Directory.CreateDirectory(_manifestDirectory);
         var duplicateSessionId = new SessionId("session-duplicate");
         var incompatibleSessionId = new SessionId("session-incompatible");
-        var pipeName = $"avascope-core-test-{Guid.NewGuid():N}";
+        var pipeName = TestPipeNames.New();
         var createdAt = new DateTimeOffset(2026, 6, 10, 8, 0, 0, TimeSpan.Zero);
         WriteManifest(
             "duplicate-a.json",

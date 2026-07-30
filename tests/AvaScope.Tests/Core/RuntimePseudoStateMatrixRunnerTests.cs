@@ -26,7 +26,7 @@ public sealed class RuntimePseudoStateMatrixRunnerTests : IDisposable
         var sessionId = SessionId.New();
         var topLevelId = "topLevel:matrix";
         var target = new RuntimeTargetContext(sessionId, topLevelId, TreeKinds.Visual, "visual:target");
-        var pipeName = $"avascope-state-core-{Guid.NewGuid():N}";
+        var pipeName = TestPipeNames.New();
         WriteManifest("matrix.json", new BridgeSessionManifest(
             sessionId,
             Environment.ProcessId,
@@ -86,7 +86,7 @@ public sealed class RuntimePseudoStateMatrixRunnerTests : IDisposable
         var sessionId = SessionId.New();
         var topLevelId = "topLevel:matrix";
         var staleTarget = new RuntimeTargetContext(sessionId, topLevelId, TreeKinds.Visual, "visual:stale");
-        var pipeName = $"avascope-state-reresolve-{Guid.NewGuid():N}";
+        var pipeName = TestPipeNames.New();
         WriteManifest("reresolve.json", new BridgeSessionManifest(
             sessionId,
             Environment.ProcessId,
@@ -140,7 +140,7 @@ public sealed class RuntimePseudoStateMatrixRunnerTests : IDisposable
         var sessionId = SessionId.New();
         var topLevelId = "topLevel:matrix";
         var target = new RuntimeTargetContext(sessionId, topLevelId, TreeKinds.Visual, "visual:missing");
-        var pipeName = $"avascope-state-missing-{Guid.NewGuid():N}";
+        var pipeName = TestPipeNames.New();
         WriteManifest("missing.json", new BridgeSessionManifest(
             sessionId,
             Environment.ProcessId,

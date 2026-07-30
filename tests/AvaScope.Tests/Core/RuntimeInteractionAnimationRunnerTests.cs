@@ -25,7 +25,7 @@ public sealed class RuntimeInteractionAnimationRunnerTests : IDisposable
     {
         var sessionId = SessionId.New();
         var topLevelId = "topLevel:animation";
-        var pipeName = $"avascope-animation-core-{Guid.NewGuid():N}";
+        var pipeName = TestPipeNames.New();
         WriteManifest("animation.json", new BridgeSessionManifest(
             sessionId,
             Environment.ProcessId,
