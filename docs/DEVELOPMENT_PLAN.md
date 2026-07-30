@@ -2,6 +2,7 @@
 
 GitHub Issues and Milestones are the primary project-management source for autonomous agents working on AvaScope. This document is the compact local handoff and validation log. Update it whenever meaningful implementation, validation, or planning changes the active GitHub issue or release state.
 
+- `2026-07-30`: Completed #94 in `adf6825`. Local packaging and verification produced both macOS framework-dependent ZIPs with RID/package-kind/size/SHA-256 manifest entries and release dry-run coverage. Hosted CI `30526304028` passed all `418` tests, Windows/Linux packaging and installers, the macOS runtime smoke, and native packaged macOS CLI version/doctor/MCP stdio execution. Started #95 for zero-cost per-user macOS terminal installers.
 - `2026-07-30`: Completed #93 in commits `d7941f4`, `5fda0c2`, `5963524`, `e30d2d6`, `77df496`, and `a20c42b`. Hosted CI `30524230893` passed Windows build/test/package/installer validation, Linux installer validation, and the macOS job: all `418` tests plus real CLI doctor, bridged runtime attach/top-level/tree/screenshot, isolated preview, PNG evidence, and the explicit Windows-only native-picker boundary. Started #94 for unsigned `osx-arm64` and `osx-x64` portable release artifacts.
 - `2026-07-30`: Started #93. Added a GitHub-hosted macOS build/test lane and a real macOS smoke that exercises CLI version/doctor, MCP through the full suite, a bridged Avalonia sample session over local named pipes, top-level discovery, visual-tree inspection, runtime screenshot capture, isolated preview rendering, and explicit rejection of Windows-only native picker automation.
 - `2026-07-30`: Local #93 validation passed: Release build completed with `0` warnings/errors; the focused macOS CI contract test passed; the full Release suite passed all `418` tests; `bash -n eng/test-macos-runtime.sh` and `git diff --check` passed. Hosted macOS execution remains pending the pushed CI run.
@@ -48,16 +49,16 @@ GitHub Issues and Milestones are the primary project-management source for auton
 
 ## Current Focus
 
-- `R1.3.0-M2 unsigned portable macOS release artifacts`
-- GitHub Issue: `#94`
+- `R1.3.0-M3 zero-cost macOS per-user terminal installer`
+- GitHub Issue: `#95`
 - GitHub Milestone: `v1.3.0`
 - Status: `In Progress`
 - Owner: autonomous agent
-- Goal: package and verify framework-dependent `osx-arm64` and `osx-x64` CLI/MCP/PreviewHost ZIPs without signing or notarization.
+- Goal: install, repair, verify, and safely uninstall the matching macOS payload under user-owned locations without signing, notarization, `sudo`, or shell-profile edits.
 
 ## Next Action
 
-Extend executable RID packaging, manifest verification, publication dry-runs, and hosted macOS packaged CLI/MCP smoke while keeping installer RID coverage separate until #95.
+Extend the managed installer and packaging flow to `osx-arm64` and `osx-x64`, then add artifact-backed hosted macOS install/repair/version/doctor/MCP/uninstall validation and unsafe-root tests.
 
 ## Latest Validation
 

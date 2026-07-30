@@ -74,8 +74,8 @@ The `v1.3.0` minor release adds cost-free, agent-operated macOS support without 
 ### v1.3.0 Milestone Map
 
 - #93 `R1.3.0-M1 Validate macOS runtime, bridge, and preview compatibility`; Status: `Done`.
-- #94 `R1.3.0-M2 Add unsigned portable macOS release artifacts`; Status: `In Progress`.
-- #95 `R1.3.0-M3 Add a zero-cost macOS per-user terminal installer`; Status: `Ready`.
+- #94 `R1.3.0-M2 Add unsigned portable macOS release artifacts`; Status: `Done`.
+- #95 `R1.3.0-M3 Add a zero-cost macOS per-user terminal installer`; Status: `In Progress`.
 - #96 `R1.3.0-M4 Validate and document packaged macOS agent workflows`; Status: `Ready`.
 - #97 `Release v1.3.0`; Status: `Ready`.
 
