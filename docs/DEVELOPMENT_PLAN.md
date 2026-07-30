@@ -2,6 +2,7 @@
 
 GitHub Issues and Milestones are the primary project-management source for autonomous agents working on AvaScope. This document is the compact local handoff and validation log. Update it whenever meaningful implementation, validation, or planning changes the active GitHub issue or release state.
 
+- `2026-07-30`: Completed #93 in commits `d7941f4`, `5fda0c2`, `5963524`, `e30d2d6`, `77df496`, and `a20c42b`. Hosted CI `30524230893` passed Windows build/test/package/installer validation, Linux installer validation, and the macOS job: all `418` tests plus real CLI doctor, bridged runtime attach/top-level/tree/screenshot, isolated preview, PNG evidence, and the explicit Windows-only native-picker boundary. Started #94 for unsigned `osx-arm64` and `osx-x64` portable release artifacts.
 - `2026-07-30`: Started #93. Added a GitHub-hosted macOS build/test lane and a real macOS smoke that exercises CLI version/doctor, MCP through the full suite, a bridged Avalonia sample session over local named pipes, top-level discovery, visual-tree inspection, runtime screenshot capture, isolated preview rendering, and explicit rejection of Windows-only native picker automation.
 - `2026-07-30`: Local #93 validation passed: Release build completed with `0` warnings/errors; the focused macOS CI contract test passed; the full Release suite passed all `418` tests; `bash -n eng/test-macos-runtime.sh` and `git diff --check` passed. Hosted macOS execution remains pending the pushed CI run.
 - `2026-07-30`: Hosted CI `30520746248` passed Windows and Linux but exposed macOS Unix-domain-socket path limits, `/var` versus `/private/var` canonical-path differences, Windows-only protocol-test expectations, and cross-platform picker redaction of backslash-separated paths. The correction shortens production and test pipe names, makes path assertions platform-normalized, and redacts either separator style; Release build and `74` focused protocol/bridge/CLI/Core tests pass locally.
@@ -47,16 +48,16 @@ GitHub Issues and Milestones are the primary project-management source for auton
 
 ## Current Focus
 
-- `R1.3.0-M1 macOS runtime, bridge, and preview compatibility`
-- GitHub Issue: `#93`
+- `R1.3.0-M2 unsigned portable macOS release artifacts`
+- GitHub Issue: `#94`
 - GitHub Milestone: `v1.3.0`
-- Status: `Ready`
+- Status: `In Progress`
 - Owner: autonomous agent
-- Goal: establish a validated macOS execution baseline before adding release artifacts and installers.
+- Goal: package and verify framework-dependent `osx-arm64` and `osx-x64` CLI/MCP/PreviewHost ZIPs without signing or notarization.
 
 ## Next Action
 
-Start #93 by moving it to `status:in-progress`, commenting the intended macOS validation, and adding the smallest macOS CI/runtime compatibility slice.
+Extend executable RID packaging, manifest verification, publication dry-runs, and hosted macOS packaged CLI/MCP smoke while keeping installer RID coverage separate until #95.
 
 ## Latest Validation
 
