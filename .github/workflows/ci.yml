@@ -256,3 +256,7 @@ jobs:
               -c Release \
               --no-build \
               --filter FullyQualifiedName~PackagedInstallerSupportsInstallRepairDoctorMcpAndUninstall
+          bash ./eng/test-macos-packaged-workflow.sh \
+            "artifacts/executables/avascope-$runtime_identifier-installer" \
+            artifacts/release-manifest.json \
+            Release

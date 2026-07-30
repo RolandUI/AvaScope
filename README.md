@@ -20,7 +20,7 @@ AvaScope targets Avalonia 12 and `net10.0`.
 - Screenshot capture, focused region assertions, image diffs, and baseline checks for local evidence and CI handoff.
 - Structured diagnostics for preview readiness, build failures, bindings, resources, layout, local bridge sessions, and agent triage.
 - Explicit capability discovery so agents can gate newer CLI/MCP workflows by feature id instead of package-version guessing.
-- A command-line tool, a Windows per-user install workflow, an MCP stdio server, and reusable protocol/core libraries.
+- A command-line tool, Windows/Linux/macOS per-user install workflows, an MCP stdio server, and reusable protocol/core libraries.
 
 ## Tools
 
@@ -42,6 +42,15 @@ chmod +x avascope-linux-x64-installer
 ./avascope-linux-x64-installer
 ```
 
+- macOS Apple Silicon: download `avascope-osx-arm64-installer`; Intel: download `avascope-osx-x64-installer`. Verify its SHA-256 against `release-manifest.json`, then run:
+
+```bash
+chmod +x avascope-osx-<architecture>-installer
+./avascope-osx-<architecture>-installer
+```
+
+The macOS artifacts are unsigned and unnotarized. If macOS reports quarantine after the checksum matches, remove quarantine only from the verified installer with `xattr -d com.apple.quarantine avascope-osx-<architecture>-installer`, or use Privacy & Security > Open Anyway. AvaScope does not bypass corporate MDM or administrator policy. The terminal installer is per-user, does not use `sudo`, and does not edit shell profiles; add `~/.local/bin` to `PATH` yourself if needed.
+
 The current Windows installer is not Authenticode-signed, so Windows SmartScreen may show an unknown-publisher warning. Verify the downloaded file against `release-manifest.json` on the release page. Trusted signing is tracked in [issue #72](https://github.com/RolandUI/AvaScope/issues/72).
 
 ## Quick Start From Source
@@ -60,7 +69,7 @@ dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll doctor
 
 For the first sample preview and runtime bridge workflow, see the [getting started sample guide](docs/USER_GUIDE.md#getting-started-sample).
 
-Per-user Windows and Linux installers, portable executable ZIPs, and package artifacts are published from GitHub Releases when a release is cut.
+Per-user Windows, Linux, and macOS installers, portable executable ZIPs, and package artifacts are published from GitHub Releases when a release is cut.
 
 ## Documentation
 
@@ -108,7 +117,7 @@ Development is tracked in GitHub Issues, Milestones, and the public [AvaScope Ro
 - `src/AvaScope.PreviewHost`: isolated preview renderer.
 - `src/AvaScope.Mcp`: MCP stdio adapter.
 - `src/AvaScope.Cli`: local command-line interface.
-- `src/AvaScope.Installer`: single-file Linux per-user installer host.
+- `src/AvaScope.Installer`: single-file Linux/macOS per-user installer host.
 - `eng/installer`: Windows Inno Setup wizard definition and command shim.
 - `samples/AvaScope.GettingStartedApp`: small Avalonia sample app.
 - `tests/AvaScope.Tests`: protocol, core, MCP, bridge, preview host, and CLI tests.

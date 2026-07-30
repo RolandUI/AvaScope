@@ -279,6 +279,7 @@ public sealed class StableSurfaceContractTests
         Assert.Contains("dotnet test AvaScope.slnx -c Release --no-build", workflow, StringComparison.Ordinal);
         Assert.Contains("bash ./eng/test-macos-runtime.sh Release", workflow, StringComparison.Ordinal);
         Assert.Contains("bash ./eng/test-macos-artifact.sh", workflow, StringComparison.Ordinal);
+        Assert.Contains("bash ./eng/test-macos-packaged-workflow.sh", workflow, StringComparison.Ordinal);
         Assert.Contains("avascope-$runtime_identifier-installer", workflow, StringComparison.Ordinal);
         Assert.Contains("PackagedInstallerSupportsInstallRepairDoctorMcpAndUninstall", workflow, StringComparison.Ordinal);
         Assert.Contains("osx-arm64", workflow, StringComparison.Ordinal);

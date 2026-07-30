@@ -38,7 +38,7 @@ The `v0.7.0` release line added the runtime control-plane layer: bounded reversi
 
 - `src/AvaScope.Protocol`: transport-neutral DTOs and stable JSON contracts.
 - `src/AvaScope.Core`: reusable session registry, local bridge client, and preview host client.
-- `src/AvaScope.Installer`: single-file, per-user Linux installer host.
+- `src/AvaScope.Installer`: single-file, per-user Linux/macOS installer host.
 - `eng/installer`: Windows Inno Setup wizard definition and command shim.
 - `src/AvaScope.Bridge`: opt-in package loaded by Avalonia apps for runtime inspection.
 - `src/AvaScope.PreviewHost`: child process that builds/loads views and renders previews.
@@ -76,7 +76,7 @@ One-command local Release build for external project testing:
 powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1
 ```
 
-The script runs Release restore/build/test, creates local NuGet packages, creates framework-dependent executable ZIPs plus a graphical Windows setup and single-file Linux installer, verifies `artifacts\release-manifest.json`, and smoke-tests the installed Windows CLI/MCP and packaged Windows CLI against the getting-started sample. Building the Windows setup requires Inno Setup 6 or 7; install it with `winget install --id JRSoftware.InnoSetup -e`. Use the printed `artifacts\executables\avascope-win-x64-framework-dependent\avascope.exe` path for testing other Avalonia projects.
+The script runs Release restore/build/test, creates local NuGet packages, creates framework-dependent executable ZIPs plus a graphical Windows setup and single-file Linux/macOS installers, verifies `artifacts\release-manifest.json`, and smoke-tests release-shaped workflows. Building the Windows setup requires Inno Setup 6 or 7; install it with `winget install --id JRSoftware.InnoSetup -e`. macOS provides separate `osx-arm64` (Apple Silicon) and `osx-x64` (Intel) ZIPs/installers. Those artifacts are unsigned and unnotarized: verify the manifest SHA-256 before execution, use the checksum-scoped Gatekeeper remediation documented in the README only when required, and never attempt to bypass MDM or administrator policy.
 
 Local package validation:
 

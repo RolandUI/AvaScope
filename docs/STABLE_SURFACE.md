@@ -190,8 +190,12 @@ Stable release artifact names:
 - `AvaScope.Bridge.<version>.nupkg`
 - `avascope-win-x64-framework-dependent.zip`
 - `avascope-linux-x64-framework-dependent.zip`
+- `avascope-osx-arm64-framework-dependent.zip`
+- `avascope-osx-x64-framework-dependent.zip`
 - `AvaScopeSetup.exe`
 - `avascope-linux-x64-installer`
+- `avascope-osx-arm64-installer`
+- `avascope-osx-x64-installer`
 - `release-manifest.json`
 
 Stable local executable artifact directory and ZIP pattern:
@@ -212,6 +216,13 @@ Stable Linux per-user install paths:
 - `~/.local/bin/avascope`
 - `$XDG_DATA_HOME/avascope/avascope.discovery.json` or `~/.local/share/avascope/avascope.discovery.json`
 - `$XDG_DATA_HOME/avascope/uninstall/avascope-uninstall` or `~/.local/share/avascope/uninstall/avascope-uninstall`
+
+Stable macOS per-user install paths:
+
+- `~/Library/Application Support/AvaScope/current/avascope`
+- `~/.local/bin/avascope`
+- `~/Library/Application Support/AvaScope/avascope.discovery.json`
+- `~/Library/Application Support/AvaScope/uninstall/avascope-uninstall`
 
 Stable discovery manifest fields:
 

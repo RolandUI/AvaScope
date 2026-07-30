@@ -26,6 +26,8 @@ $avascope = ".\artifacts\executables\avascope-win-x64-framework-dependent\avasco
 
 Agent discovery order is `PATH` command first, `%LOCALAPPDATA%\AvaScope\avascope.discovery.json` second, `%LOCALAPPDATA%\AvaScope\bin` and `%LOCALAPPDATA%\AvaScope\current` third, and repository or unpacked artifact paths last.
 
+On macOS, select `osx-arm64` for Apple Silicon or `osx-x64` for Intel. Before execution, match the installer's SHA-256 to its entry in `release-manifest.json`; then run `chmod +x avascope-osx-<architecture>-installer` and the installer. It installs under `~/Library/Application Support/AvaScope`, writes the managed shim to `~/.local/bin/avascope`, does not use `sudo`, and does not edit shell profiles. Agent discovery order is `PATH`, `~/Library/Application Support/AvaScope/avascope.discovery.json`, `~/.local/bin/avascope`, then the unpacked artifact. The artifacts are unsigned and unnotarized. If the verified installer is quarantined, use `xattr -d com.apple.quarantine <installer>` or macOS Privacy & Security > Open Anyway; stop and report the boundary if MDM or administrator policy still blocks execution.
+
 ## 2. Run Readiness Checks
 
 Use isolated paths when validating package health so old local sessions do not affect the result:

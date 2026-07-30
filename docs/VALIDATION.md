@@ -358,6 +358,8 @@ The release workflow publishes library packages to nuget.org and GitHub Packages
 
 The macOS ZIPs and `avascope-osx-arm64-installer` / `avascope-osx-x64-installer` terminal installers are framework-dependent, unsigned, and unnotarized. They are not App Store, `.app`, or DMG distributions and do not require paid Apple Developer Program membership. After extracting a ZIP, run `bash prepare-macos.sh` from the artifact directory to deterministically restore execute permission on the CLI, MCP server, and PreviewHost apphosts. Before running a downloaded installer, compare its SHA-256 with `release-manifest.json`, run `chmod +x avascope-osx-<architecture>-installer`, and only if Gatekeeper reports quarantine after checksum verification use `xattr -d com.apple.quarantine avascope-osx-<architecture>-installer`. The installer writes only below the user profile (by default `~/Library/Application Support/AvaScope` and `~/.local/bin`), never invokes `sudo`, and never edits shell profiles.
 
+The hosted macOS lane runs `eng/test-macos-packaged-workflow.sh` after manifest verification and installer lifecycle validation. On the native Apple Silicon runner it installs the release-shaped artifact, attaches to the bridged sample, captures visual-tree JSON plus runtime screenshot evidence, renders preview evidence through the installed PreviewHost, and uninstalls. The Intel artifact is cross-packaged and covered by the same payload, manifest, hash, and stable-surface checks; execution requires a compatible Intel macOS runner.
+
 Before publishing library packages manually, validate the exact publish set without pushing:
 
 ```powershell

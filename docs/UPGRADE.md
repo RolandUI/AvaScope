@@ -31,6 +31,7 @@ Runtime mutations are temporary local overrides. Upgrading AvaScope does not mig
 
 - Prefer reinstalling the packaged CLI with `eng\install-avascope.ps1 -SourcePath <publish-directory-or-zip>` so `%LOCALAPPDATA%\AvaScope\bin\avascope.cmd` and `%LOCALAPPDATA%\AvaScope\avascope.discovery.json` stay current.
 - If running without the installer, replace the entire extracted executable directory with the new release ZIP.
+- On macOS, rerun the matching `osx-arm64` or `osx-x64` installer to atomically replace the complete `current` payload. Verify the new installer against `release-manifest.json` first. The installer preserves no stale payload files, does not edit shell profiles, and keeps the command shim at `~/.local/bin/avascope`.
 - Run `avascope capabilities` and verify every workflow-required capability before issuing newer commands.
 - For MCP clients, reconnect the stdio server after replacing binaries; do not keep a long-running old MCP process alive during an upgrade.
 - If a workflow reads report packs, prefer stable filenames such as `baseline-report.json`, `baseline-report.html`, `baseline-junit.xml`, and `baseline.sarif.json`; do not rely on generated absolute paths or timestamps.

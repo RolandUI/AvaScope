@@ -101,6 +101,34 @@ public sealed class DocumentationCompletionTests
         Assert.Contains("avascope doctor", upgrade, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void PrimaryDocumentationCoversUnsignedMacOsAgentWorkflow()
+    {
+        var root = FindRepositoryRoot();
+        var readme = File.ReadAllText(Path.Combine(root, "README.md"));
+        var agentWorkflow = File.ReadAllText(Path.Combine(root, "docs", "AGENT_WORKFLOW.md"));
+        var stableSurface = File.ReadAllText(Path.Combine(root, "docs", "STABLE_SURFACE.md"));
+        var troubleshooting = File.ReadAllText(Path.Combine(root, "docs", "TROUBLESHOOTING.md"));
+        var validation = File.ReadAllText(Path.Combine(root, "docs", "VALIDATION.md"));
+
+        foreach (var document in new[] { readme, agentWorkflow, troubleshooting })
+        {
+            Assert.Contains("unsigned and unnotarized", document, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("release-manifest.json", document, StringComparison.Ordinal);
+            Assert.Contains("xattr -d com.apple.quarantine", document, StringComparison.Ordinal);
+        }
+
+        Assert.Contains("Open Anyway", readme, StringComparison.Ordinal);
+        Assert.Contains("MDM", readme, StringComparison.Ordinal);
+        Assert.Contains("does not use `sudo`", readme, StringComparison.Ordinal);
+        Assert.Contains("does not edit shell profiles", agentWorkflow, StringComparison.Ordinal);
+        Assert.Contains("avascope-osx-arm64-framework-dependent.zip", stableSurface, StringComparison.Ordinal);
+        Assert.Contains("avascope-osx-x64-framework-dependent.zip", stableSurface, StringComparison.Ordinal);
+        Assert.Contains("avascope-osx-arm64-installer", stableSurface, StringComparison.Ordinal);
+        Assert.Contains("avascope-osx-x64-installer", stableSurface, StringComparison.Ordinal);
+        Assert.Contains("test-macos-packaged-workflow.sh", validation, StringComparison.Ordinal);
+    }
+
     private static string FindRepositoryRoot()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);

@@ -40,4 +40,6 @@ Use this when an agent workflow fails and the next action is not obvious from th
 - Framework-dependent ZIPs require a compatible local .NET runtime. Run `avascope doctor` from the extracted ZIP before using preview or MCP commands.
 - Release ZIPs must include `avascope`, `AvaScope.Mcp`, and `AvaScope.PreviewHost` in one directory. Do not split those binaries across unrelated folders.
 - Validate local release artifacts with `eng\create-local-release.ps1`, `eng\verify-artifacts.ps1`, and `release-manifest.json`.
+- On macOS, use `osx-arm64` for Apple Silicon and `osx-x64` for Intel. The artifacts are unsigned and unnotarized. Verify SHA-256 first; if Gatekeeper reports quarantine, use `xattr -d com.apple.quarantine <verified-installer>` or Privacy & Security > Open Anyway. Do not remove quarantine broadly. If corporate MDM or administrator policy still blocks execution, report that external policy boundary instead of attempting a bypass.
+- The macOS installer never edits shell profiles. If `avascope` is not found after install, invoke `~/.local/bin/avascope` directly or add `~/.local/bin` to the user's `PATH`.
 - NuGet publishing and GitHub Release publication are handled only by the release workflow. Normal visual-regression or sample workflows must not require `NUGET_API_KEY`.
