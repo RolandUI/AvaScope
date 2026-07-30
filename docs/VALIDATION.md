@@ -354,7 +354,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release
 
 The repository `CI` workflow runs for pull requests targeting `master` and by manual dispatch. Pull-request code receives read-only repository permissions; the workflow does not use `pull_request_target` or publishing credentials. Development slices must still pass the relevant local commands above before push. NuGet publishing in CI requires a repository secret named `NUGET_API_KEY`. The separate `Release` workflow publishes from `master` or `main` when a push changes `Directory.Build.props` and the `<Version>` value has no matching remote `v<Version>` tag yet.
 
-The release workflow publishes library packages to nuget.org and GitHub Packages, creates the `v<Version>` tag, creates or updates the matching GitHub Release, and uploads the three `.nupkg` files, RID-specific framework-dependent executable ZIPs, Windows/Linux installer artifacts, and `artifacts\release-manifest.json`.
+The release workflow publishes library packages to nuget.org and GitHub Packages, creates the `v<Version>` tag, creates or updates the matching GitHub Release, and uploads the three `.nupkg` files, `avascope-win-x64-framework-dependent.zip`, `avascope-linux-x64-framework-dependent.zip`, `avascope-osx-arm64-framework-dependent.zip`, `avascope-osx-x64-framework-dependent.zip`, Windows/Linux installer artifacts, and `artifacts\release-manifest.json`.
+
+The macOS ZIPs are framework-dependent, unsigned, and unnotarized. They are not App Store, `.app`, or DMG distributions and do not require paid Apple Developer Program membership. After extraction, run `bash prepare-macos.sh` from the artifact directory to deterministically restore execute permission on the CLI, MCP server, and PreviewHost apphosts.
 
 Before publishing library packages manually, validate the exact publish set without pushing:
 

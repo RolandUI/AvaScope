@@ -10,7 +10,7 @@ public sealed class McpStdioSmokeTests
     [Fact]
     public async Task ServerStartsOverStdioAndListsInitialTools()
     {
-        var serverAssembly = Path.Combine(AppContext.BaseDirectory, "AvaScope.Mcp.dll");
+        var serverAssembly = ResolveServerAssembly();
         Assert.True(File.Exists(serverAssembly), $"Expected MCP server assembly at {serverAssembly}.");
 
         var stderr = new List<string>();
@@ -81,7 +81,7 @@ public sealed class McpStdioSmokeTests
     [Fact]
     public async Task AdvertisedRequiredOutputFieldsArePresentInSuccessAndFailureResponses()
     {
-        var serverAssembly = Path.Combine(AppContext.BaseDirectory, "AvaScope.Mcp.dll");
+        var serverAssembly = ResolveServerAssembly();
         Assert.True(File.Exists(serverAssembly), $"Expected MCP server assembly at {serverAssembly}.");
 
         var stderr = new List<string>();
@@ -191,6 +191,14 @@ public sealed class McpStdioSmokeTests
         {
             Assert.True(response.ContainsKey(field), $"Required output field '{field}' was omitted.");
         }
+    }
+
+    private static string ResolveServerAssembly()
+    {
+        var packagedAssembly = Environment.GetEnvironmentVariable("AVASCOPE_PACKAGED_MCP_ASSEMBLY");
+        return string.IsNullOrWhiteSpace(packagedAssembly)
+            ? Path.Combine(AppContext.BaseDirectory, "AvaScope.Mcp.dll")
+            : Path.GetFullPath(packagedAssembly);
     }
 
     private static void AssertSchemaEnum(

@@ -1,7 +1,7 @@
 param(
     [string]$Configuration = "Release",
     [string]$OutputRoot = "artifacts/executables",
-    [string[]]$RuntimeIdentifiers = @("win-x64", "linux-x64"),
+    [string[]]$RuntimeIdentifiers = @("win-x64", "linux-x64", "osx-arm64", "osx-x64"),
     [ValidateSet("framework-dependent", "self-contained")]
     [string]$PackageKind = "framework-dependent",
     [switch]$NoBuild
@@ -193,6 +193,13 @@ foreach ($runtimeIdentifier in $RuntimeIdentifiers) {
             -Force
     }
 
+    if ($runtimeIdentifier.StartsWith("osx-", [System.StringComparison]::OrdinalIgnoreCase)) {
+        Copy-Item `
+            -LiteralPath (Join-Path $repoRoot "eng/prepare-macos.sh") `
+            -Destination (Join-Path $publishDirectory "prepare-macos.sh") `
+            -Force
+    }
+
     $appHostExtension = if ($runtimeIdentifier.StartsWith("win-", [System.StringComparison]::OrdinalIgnoreCase)) {
         ".exe"
     } else {
@@ -216,6 +223,9 @@ foreach ($runtimeIdentifier in $RuntimeIdentifiers) {
         "AvaScope.Protocol.dll"
     )
     $requiredFiles += $legalFileNames
+    if ($runtimeIdentifier.StartsWith("osx-", [System.StringComparison]::OrdinalIgnoreCase)) {
+        $requiredFiles += "prepare-macos.sh"
+    }
 
     foreach ($file in $requiredFiles) {
         $path = Join-Path $publishDirectory $file

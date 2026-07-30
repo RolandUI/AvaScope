@@ -1,6 +1,8 @@
 param(
     [string]$Configuration = "Release",
-    [string[]]$RuntimeIdentifiers = @("win-x64", "linux-x64"),
+    [Alias("RuntimeIdentifiers")]
+    [string[]]$ExecutableRuntimeIdentifiers = @("win-x64", "linux-x64", "osx-arm64", "osx-x64"),
+    [string[]]$InstallerRuntimeIdentifiers,
     [ValidateSet("framework-dependent", "self-contained")]
     [string]$ExecutablePackageKind = "framework-dependent",
     [switch]$SkipTests,
@@ -67,11 +69,18 @@ function Invoke-DotNet {
     }
 }
 
-if ($RuntimeIdentifiers.Count -eq 0) {
-    throw "At least one runtime identifier is required."
+if ($ExecutableRuntimeIdentifiers.Count -eq 0) {
+    throw "At least one executable runtime identifier is required."
 }
 
-foreach ($runtimeIdentifier in $RuntimeIdentifiers) {
+if (-not $PSBoundParameters.ContainsKey("InstallerRuntimeIdentifiers")) {
+    $InstallerRuntimeIdentifiers = @($ExecutableRuntimeIdentifiers | Where-Object {
+        $_.StartsWith("win-", [System.StringComparison]::OrdinalIgnoreCase) -or
+        $_.StartsWith("linux-", [System.StringComparison]::OrdinalIgnoreCase)
+    })
+}
+
+foreach ($runtimeIdentifier in @($ExecutableRuntimeIdentifiers) + @($InstallerRuntimeIdentifiers)) {
     if ([string]::IsNullOrWhiteSpace($runtimeIdentifier)) {
         throw "Runtime identifier cannot be empty."
     }
@@ -91,7 +100,8 @@ Push-Location $repoRoot
 try {
     Write-Host "Creating AvaScope local release from: $repoRoot"
     Write-Host "Configuration: $Configuration"
-    Write-Host "Runtime identifiers: $($RuntimeIdentifiers -join ', ')"
+    Write-Host "Executable runtime identifiers: $($ExecutableRuntimeIdentifiers -join ', ')"
+    Write-Host "Installer runtime identifiers: $($InstallerRuntimeIdentifiers -join ', ')"
     Write-Host "Executable package kind: $ExecutablePackageKind"
 
     Invoke-DotNet -Arguments @("restore", $solutionPath)
@@ -125,7 +135,7 @@ try {
 
     & (Join-Path $repoRoot "eng/package-executables.ps1") `
         -Configuration $Configuration `
-        -RuntimeIdentifiers $RuntimeIdentifiers `
+        -RuntimeIdentifiers $ExecutableRuntimeIdentifiers `
         -PackageKind $ExecutablePackageKind
     if ($LASTEXITCODE -ne 0) {
         throw "eng/package-executables.ps1 failed with exit code $LASTEXITCODE."
@@ -133,20 +143,21 @@ try {
 
     & (Join-Path $repoRoot "eng/package-installers.ps1") `
         -Configuration $Configuration `
-        -RuntimeIdentifiers $RuntimeIdentifiers `
+        -RuntimeIdentifiers $InstallerRuntimeIdentifiers `
         -ExecutablePackageKind $ExecutablePackageKind
     if ($LASTEXITCODE -ne 0) {
         throw "eng/package-installers.ps1 failed with exit code $LASTEXITCODE."
     }
 
     & (Join-Path $repoRoot "eng/verify-artifacts.ps1") `
-        -ExecutableRuntimeIdentifiers $RuntimeIdentifiers `
+        -ExecutableRuntimeIdentifiers $ExecutableRuntimeIdentifiers `
+        -InstallerRuntimeIdentifiers $InstallerRuntimeIdentifiers `
         -ExecutablePackageKind $ExecutablePackageKind
     if ($LASTEXITCODE -ne 0) {
         throw "eng/verify-artifacts.ps1 failed with exit code $LASTEXITCODE."
     }
 
-    $winRuntimeIdentifier = $RuntimeIdentifiers |
+    $winRuntimeIdentifier = $InstallerRuntimeIdentifiers |
         Where-Object { $_.StartsWith("win-", [System.StringComparison]::OrdinalIgnoreCase) } |
         Select-Object -First 1
     if ($winRuntimeIdentifier) {

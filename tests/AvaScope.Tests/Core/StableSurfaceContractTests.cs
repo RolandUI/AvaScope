@@ -195,6 +195,11 @@ public sealed class StableSurfaceContractTests
         var verifyArtifactsScript = File.ReadAllText(Path.Combine(root, "eng", "verify-artifacts.ps1"));
         var readme = File.ReadAllText(Path.Combine(root, "README.md"));
         Assert.Contains("THIRD-PARTY-NOTICES.md", packageExecutables, StringComparison.Ordinal);
+        Assert.Contains("\"osx-arm64\"", packageExecutables, StringComparison.Ordinal);
+        Assert.Contains("\"osx-x64\"", packageExecutables, StringComparison.Ordinal);
+        Assert.Contains("prepare-macos.sh", packageExecutables, StringComparison.Ordinal);
+        Assert.Contains("InstallerRuntimeIdentifiers", verifyArtifactsScript, StringComparison.Ordinal);
+        Assert.Contains("packageKind = $artifact.PackageKind", verifyArtifactsScript, StringComparison.Ordinal);
         Assert.Contains("AvaScopeInstallerPayload", packageInstallers, StringComparison.Ordinal);
         Assert.Contains("AvaScope.iss", packageInstallers, StringComparison.Ordinal);
         Assert.Contains("Resolve-InnoSetupCompiler", packageInstallers, StringComparison.Ordinal);
@@ -270,6 +275,9 @@ public sealed class StableSurfaceContractTests
         Assert.Contains("runs-on: macos-latest", workflow, StringComparison.Ordinal);
         Assert.Contains("dotnet test AvaScope.slnx -c Release --no-build", workflow, StringComparison.Ordinal);
         Assert.Contains("bash ./eng/test-macos-runtime.sh Release", workflow, StringComparison.Ordinal);
+        Assert.Contains("bash ./eng/test-macos-artifact.sh", workflow, StringComparison.Ordinal);
+        Assert.Contains("osx-arm64", workflow, StringComparison.Ordinal);
+        Assert.Contains("osx-x64", workflow, StringComparison.Ordinal);
         Assert.Contains("AVASCOPE_SAMPLE_BRIDGE=1", smoke, StringComparison.Ordinal);
         Assert.Contains("list-top-levels", smoke, StringComparison.Ordinal);
         Assert.Contains("visual-tree", smoke, StringComparison.Ordinal);

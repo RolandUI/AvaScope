@@ -226,3 +226,19 @@ jobs:
 
       - name: Validate macOS runtime and preview workflows
         run: bash ./eng/test-macos-runtime.sh Release
+
+      - name: Package and validate native macOS artifact
+        shell: bash
+        run: |
+          case "$(uname -m)" in
+            arm64) runtime_identifier="osx-arm64" ;;
+            x86_64) runtime_identifier="osx-x64" ;;
+            *) echo "Unsupported macOS architecture: $(uname -m)" >&2; exit 1 ;;
+          esac
+
+          pwsh -NoProfile -File ./eng/package-executables.ps1 -RuntimeIdentifiers "$runtime_identifier"
+          expected_version="$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' Directory.Build.props)"
+          bash ./eng/test-macos-artifact.sh \
+            "artifacts/executables/avascope-$runtime_identifier-framework-dependent.zip" \
+            "$expected_version" \
+            Release

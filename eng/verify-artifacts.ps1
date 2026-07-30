@@ -1,7 +1,8 @@
 param(
     [string]$PackageRoot = "artifacts/packages",
     [string]$ExecutableRoot = "artifacts/executables",
-    [string[]]$ExecutableRuntimeIdentifiers = @("win-x64", "linux-x64"),
+    [string[]]$ExecutableRuntimeIdentifiers = @("win-x64", "linux-x64", "osx-arm64", "osx-x64"),
+    [string[]]$InstallerRuntimeIdentifiers = @("win-x64", "linux-x64"),
     [ValidateSet("framework-dependent", "self-contained")]
     [string]$ExecutablePackageKind = "framework-dependent",
     [string]$OutputPath = "artifacts/release-manifest.json"
@@ -203,6 +204,18 @@ foreach ($runtimeIdentifier in $ExecutableRuntimeIdentifiers) {
     $requiredArtifacts += [pscustomobject]@{
         Kind = "executable-zip"
         Path = Join-Path $executableRootPath "avascope-$runtimeIdentifier-$ExecutablePackageKind.zip"
+        RuntimeIdentifier = $runtimeIdentifier
+        PackageKind = $ExecutablePackageKind
+    }
+}
+
+foreach ($runtimeIdentifier in $InstallerRuntimeIdentifiers) {
+    if ([string]::IsNullOrWhiteSpace($runtimeIdentifier)) {
+        throw "Installer runtime identifier cannot be empty."
+    }
+
+    if ($runtimeIdentifier -notmatch "^[A-Za-z0-9_.-]+$") {
+        throw "Installer runtime identifier contains unsupported characters: $runtimeIdentifier"
     }
 
     $installerName = if ($runtimeIdentifier.StartsWith("win-", [System.StringComparison]::OrdinalIgnoreCase)) {
@@ -277,6 +290,7 @@ $artifacts = foreach ($artifact in $requiredArtifacts) {
         sizeBytes = $file.Length
         sha256 = $hash.Hash.ToLowerInvariant()
         runtimeIdentifier = $artifact.RuntimeIdentifier
+        packageKind = $artifact.PackageKind
         signatureStatus = if ($artifact.Kind -eq "installer" -and
             $artifact.RuntimeIdentifier.StartsWith("win-", [System.StringComparison]::OrdinalIgnoreCase)) {
             Get-WindowsSignatureStatus -Path $artifact.Path
