@@ -50,6 +50,51 @@ The roadmap below records the release-shaped plan through `v1.0.0`. It is intent
 - Every release must include targeted tests, full build/test validation, release dry-run validation, documentation updates, and explicit deferrals.
 - A release may be split into a patch release if a P0/P1 regression blocks users or CI, but patch scope must remain defect-focused.
 
+## Planned Target: v1.3.0
+
+- Release: `v1.3.0`
+- Target Version: `1.3.0`
+- Release State: `Planned`
+- Scope Lock: `2026-07-30`
+- GitHub Milestone: `v1.3.0`
+- GitHub Issues: #93, #94, #95, #96, #97
+- Previous Release: `v1.2.0`
+
+### v1.3.0 Release Goals
+
+The `v1.3.0` minor release adds cost-free, agent-operated macOS support without depending on the Mac App Store, Apple Developer Program membership, Developer ID signing, or Apple notarization.
+
+1. `RG-1.3.0-1 macOS Runtime Compatibility`: validate the existing CLI, MCP, PreviewHost, and opt-in runtime bridge workflows on macOS with the same local-only security boundary used on Windows and Linux.
+2. `RG-1.3.0-2 Portable macOS Artifacts`: publish framework-dependent `osx-arm64` and `osx-x64` ZIPs with complete manifest, hash, verification, and GitHub Release coverage.
+3. `RG-1.3.0-3 Zero-Cost Per-User Installation`: provide agent-operable terminal installers for both macOS architectures with non-admin install, repair, verification, and safe uninstall behavior.
+4. `RG-1.3.0-4 Packaged Agent Workflow`: validate installation, CLI, MCP, preview, runtime attach, evidence capture, upgrade/repair, and uninstall from release-shaped macOS artifacts.
+5. `RG-1.3.0-5 Explicit Trust Boundary`: document checksum verification and the supported macOS Gatekeeper override where required while making the unsigned and unnotarized artifact status unambiguous.
+6. `RG-1.3.0-6 Guarded Cross-Platform Release`: preserve passing Windows and Linux behavior and publish only after the complete multi-platform release gate succeeds.
+
+### v1.3.0 Milestone Map
+
+- #93 `R1.3.0-M1 Validate macOS runtime, bridge, and preview compatibility`; Status: `Ready`.
+- #94 `R1.3.0-M2 Add unsigned portable macOS release artifacts`; Status: `Ready`.
+- #95 `R1.3.0-M3 Add a zero-cost macOS per-user terminal installer`; Status: `Ready`.
+- #96 `R1.3.0-M4 Validate and document packaged macOS agent workflows`; Status: `Ready`.
+- #97 `Release v1.3.0`; Status: `Ready`.
+
+### Explicit Non-Goals
+
+- Mac App Store distribution.
+- `.app`, DMG, or graphical installer packaging.
+- Apple Developer Program enrollment, Developer ID signing, or Apple notarization.
+- Bypassing macOS administrator controls, corporate MDM policy, or other centrally enforced security policy.
+- Expanding Windows-only native picker automation to macOS unless a separate bounded design is approved.
+
+### Required Validation
+
+- GitHub-hosted macOS restore, build, and applicable full test execution.
+- Real macOS sample preview and bridged runtime attach/inspection smoke.
+- `osx-arm64` and `osx-x64` package, installer, manifest, hash, and release dry-run verification.
+- Artifact-backed macOS install, version, doctor, MCP, preview, runtime workflow, repair, and uninstall smoke.
+- Existing Windows and Linux build, test, package, installer, and release validation.
+
 ## Released Target: v1.2.0
 
 - Release: `v1.2.0`

@@ -2,6 +2,7 @@
 
 GitHub Issues and Milestones are the primary project-management source for autonomous agents working on AvaScope. This document is the compact local handoff and validation log. Update it whenever meaningful implementation, validation, or planning changes the active GitHub issue or release state.
 
+- `2026-07-30`: Defined `v1.3.0` as the next release target for cost-free, agent-operated macOS support. Created milestone `v1.3.0` and ready issues #93-#97 covering runtime/preview compatibility, unsigned `osx-arm64`/`osx-x64` artifacts, non-admin terminal installers, packaged agent-workflow validation, and the guarded release. App Store distribution, `.app`/DMG packaging, paid Apple membership, Developer ID signing, notarization, and policy bypasses are explicit non-goals.
 - `2026-07-29`: Published `v1.2.0` from exact release commit `1bcdb06550126b9ed328e160255d179f4b815eae` through successful Release workflow `30486987163`, after non-publishing workflow `30486445224` passed on the same commit. The tag resolves to the release commit; all eight GitHub Release assets are present; the downloaded seven-entry manifest matches every packaged asset size and SHA-256 digest; nuget.org exposes repository-signed Protocol/Core/Bridge `1.2.0` packages with matching unsigned entries; and GitHub Packages marks `1.2.0` Latest for all three packages. Release tracker #86 and the v1.2.0 milestone are complete.
 - `2026-07-29`: Reopened v1.2.0 from Release Candidate to In Progress for hardening issues #87–#92. Active issue #87 replaces the non-consumable picker placeholder with session-scoped, request-correlated, TTL-bounded one-shot result injection and hardens process-owned Windows picker automation.
 - `2026-07-29`: Completed #87 implementation validation: Debug build passed with `0` warnings/errors; focused Protocol/Core coverage passed `88` tests; CLI/MCP coverage passed `143` tests; and the full Debug suite passed all `388` tests. Prepared picker results are now session/request correlated, TTL-bounded, redacted by default, consumed exactly once by `picker_result`, and guarded live commands verify process ownership with bounded waits.
@@ -42,17 +43,16 @@ GitHub Issues and Milestones are the primary project-management source for auton
 
 ## Current Focus
 
-- `Post-v1.2.0 planning`
-- GitHub Issue: none
-- GitHub Milestone: none
-- Status: `Done`
+- `R1.3.0-M1 macOS runtime, bridge, and preview compatibility`
+- GitHub Issue: `#93`
+- GitHub Milestone: `v1.3.0`
+- Status: `Ready`
 - Owner: autonomous agent
-- Completed: `2026-07-29`
-- Goal: keep the released v1.2.0 state recorded while the next release scope is selected.
+- Goal: establish a validated macOS execution baseline before adding release artifacts and installers.
 
 ## Next Action
 
-Define the next release target and milestone before starting feature implementation.
+Start #93 by moving it to `status:in-progress`, commenting the intended macOS validation, and adding the smallest macOS CI/runtime compatibility slice.
 
 ## Latest Validation
 
