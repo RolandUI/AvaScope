@@ -2246,7 +2246,7 @@ public sealed class ProtocolContractTests
         Assert.True(node["noBuild"]!.GetValue<bool>());
         Assert.Equal("warning", node["diagnosticOptions"]!["minimumSeverity"]!.GetValue<string>());
         Assert.Equal(
-            "C:\\previews\\baseline.diagnostics.json",
+            Path.GetFullPath("C:\\previews\\baseline.diagnostics.json"),
             node["diagnosticOptions"]!["baselinePath"]!.GetValue<string>());
         Assert.Equal(new string('a', 64), node["diagnosticOptions"]!["baselineFingerprints"]![0]!.GetValue<string>());
     }
@@ -2469,8 +2469,8 @@ public sealed class ProtocolContractTests
         Assert.Equal(42, responseNode["motion"]!["changedPixels"]!.GetValue<long>());
         Assert.Equal("animation", responseNode["diagnostics"]![0]!["category"]!.GetValue<string>());
         Assert.Equal(1, responseNode["diagnosticSummary"]!["totalCount"]!.GetValue<int>());
-        Assert.Equal("C:\\previews\\animation-strip.png", responseNode["frameStripPath"]!.GetValue<string>());
-        Assert.Equal("file:///C:/previews/animation.html", responseNode["viewer"]!["previewUrl"]!.GetValue<string>());
+        Assert.Equal(Path.GetFullPath("C:\\previews\\animation-strip.png"), responseNode["frameStripPath"]!.GetValue<string>());
+        Assert.Equal(new Uri(Path.GetFullPath("C:\\previews\\animation.html")).AbsoluteUri, responseNode["viewer"]!["previewUrl"]!.GetValue<string>());
     }
 
     [Fact]
@@ -2834,7 +2834,7 @@ public sealed class ProtocolContractTests
         Assert.Equal("dark-wide", baselineNode["suiteVariantName"]!.GetValue<string>());
         Assert.Equal("main", baselineNode["profileName"]!.GetValue<string>());
         Assert.Equal("dark-wide", baselineNode["profileVariant"]!.GetValue<string>());
-        Assert.Equal("C:\\apps\\Sample\\avascope.preview.json", baselineNode["profileFilePath"]!.GetValue<string>());
+        Assert.Equal(Path.GetFullPath("C:\\apps\\Sample\\avascope.preview.json"), baselineNode["profileFilePath"]!.GetValue<string>());
         Assert.Equal("session-suite", baselineNode["runtimeTarget"]!["sessionId"]!.GetValue<string>());
         Assert.Equal("wide", baselineNode["mutationPresetIds"]![0]!.GetValue<string>());
         Assert.Equal(150, baselineNode["animationTimeOffsetMs"]!.GetValue<int>());
