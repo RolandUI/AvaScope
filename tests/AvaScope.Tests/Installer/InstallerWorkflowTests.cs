@@ -204,7 +204,7 @@ public sealed class InstallerWorkflowTests
                         Name = "AvaScope packaged installer",
                         Command = installedMcpPath,
                         WorkingDirectory = root,
-                        InheritEnvironmentVariables = false,
+                        InheritEnvironmentVariables = true,
                         EnvironmentVariables = environment,
                         ShutdownTimeout = TimeSpan.FromSeconds(5),
                         StandardErrorLines = stderr.Add
