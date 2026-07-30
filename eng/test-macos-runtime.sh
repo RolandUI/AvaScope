@@ -56,7 +56,7 @@ python3 - "$test_root/doctor.json" <<'PY'
 import json
 import sys
 
-with open(sys.argv[1], encoding="utf-8") as stream:
+with open(sys.argv[1], encoding="utf-8-sig") as stream:
     payload = json.load(stream)
 if not payload.get("success"):
     raise SystemExit(f"doctor failed: {payload}")
@@ -96,7 +96,7 @@ session_id="$(
 import json
 import sys
 
-with open(sys.argv[1], encoding="utf-8") as stream:
+with open(sys.argv[1], encoding="utf-8-sig") as stream:
     print(json.load(stream)["sessionId"])
 PY
 )"
@@ -116,12 +116,12 @@ top_level_id="$(
 import json
 import sys
 
-with open(sys.argv[1], encoding="utf-8") as stream:
+with open(sys.argv[1], encoding="utf-8-sig") as stream:
     attach = json.load(stream)
 if not attach.get("success"):
     raise SystemExit(f"attach failed: {attach}")
 
-with open(sys.argv[2], encoding="utf-8") as stream:
+with open(sys.argv[2], encoding="utf-8-sig") as stream:
     top_levels = json.load(stream)
 if not top_levels.get("success"):
     raise SystemExit(f"list-top-levels failed: {top_levels}")
@@ -184,12 +184,12 @@ import os
 import sys
 
 for path in sys.argv[1:4]:
-    with open(path, encoding="utf-8") as stream:
+    with open(path, encoding="utf-8-sig") as stream:
         payload = json.load(stream)
     if not payload.get("success"):
         raise SystemExit(f"command failed: {path}: {payload}")
 
-with open(sys.argv[4], encoding="utf-8") as stream:
+with open(sys.argv[4], encoding="utf-8-sig") as stream:
     picker = json.load(stream)
 if picker.get("success"):
     raise SystemExit(f"native picker unexpectedly succeeded: {picker}")
