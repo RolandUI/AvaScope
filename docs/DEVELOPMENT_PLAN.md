@@ -2,6 +2,7 @@
 
 GitHub Issues and Milestones are the primary project-management source for autonomous agents working on AvaScope. This document is the compact local handoff and validation log. Update it whenever meaningful implementation, validation, or planning changes the active GitHub issue or release state.
 
+- `2026-07-30`: Published `v1.3.0` from exact release commit `1e6e34d4e051334e569589f85178086694ea1f46` through successful Release workflow `30531802480`. The remote tag resolves to that commit; the GitHub Release exposes all 12 expected assets; the downloaded 11-entry manifest matches every packaged asset size and SHA-256 digest; and nuget.org exposes Protocol/Core/Bridge `1.3.0` as latest. The workflow also successfully pushed all three packages to GitHub Packages.
 - `2026-07-30`: The v1.3.0 release candidate gate passed from `5f60717`. Full Debug and Release builds completed with `0` warnings/errors and all `419` tests passed in each configuration. `eng/create-local-release.ps1` regenerated three `1.2.0` NuGet packages, four framework-dependent ZIPs, four installers, and the exact 11-entry manifest; packaged Windows install/repair/doctor/MCP/uninstall and real preview passed. NuGet and GitHub Release dry-runs passed with both macOS architectures. Hosted CI `30529601921` supplies the successful native macOS installed attach/preview/evidence/uninstall gate. No v1.3.0 version, tag, package, or release has been published yet.
 - `2026-07-30`: Completed #96 in `9a6188b`. Hosted CI `30529601921` passed the installed Apple Silicon attach/tree/runtime-screenshot/preview-evidence/uninstall workflow after manifest SHA-256 verification; Intel artifacts passed package/manifest/stable-surface coverage. Full local Debug and Release builds completed with `0` warnings/errors and all `419` tests passed in each configuration. Started release tracker #97.
 - `2026-07-30`: Completed #95 in `30778a5` and `c4aed28`. Hosted CI `30528387078` passed the 11-artifact cross-platform package/installer manifest plus native macOS checksum verification, unsafe-system-root rejection, embedded trust verification, non-admin install, installed version/doctor/MCP, full repair, and owned uninstall. Started #96 for the installed macOS attach/preview/evidence workflow and complete user/agent documentation.
@@ -55,13 +56,13 @@ GitHub Issues and Milestones are the primary project-management source for auton
 - `Release v1.3.0`
 - GitHub Issue: `#97`
 - GitHub Milestone: `v1.3.0`
-- Status: `In Progress`
+- Status: `Done`
 - Owner: autonomous agent
-- Goal: pass the complete cross-platform release gate, publish v1.3.0, and verify the remote tag, assets, hashes, and packages.
+- Goal: published and remotely verified.
 
 ## Next Action
 
-Run the complete local and hosted release gate, move the target to Release Candidate, create the exact `Release 1.3.0` commit, publish, and verify all remote outputs.
+Define the next release target and GitHub milestone before starting new release-scoped implementation.
 
 ## Latest Validation
 

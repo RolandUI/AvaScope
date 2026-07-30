@@ -50,12 +50,15 @@ The roadmap below records the release-shaped plan through `v1.0.0`. It is intent
 - Every release must include targeted tests, full build/test validation, release dry-run validation, documentation updates, and explicit deferrals.
 - A release may be split into a patch release if a P0/P1 regression blocks users or CI, but patch scope must remain defect-focused.
 
-## Current Release Target
+## Released Target: v1.3.0
 
 - Release: `v1.3.0`
 - Target Version: `1.3.0`
-- Release State: `Release Candidate`
+- Release State: `Released`
+- Release Commit: `1e6e34d4e051334e569589f85178086694ea1f46` (`Release 1.3.0`)
 - Scope Lock: `2026-07-30`
+- Published At: `2026-07-30T09:50:51Z`
+- GitHub Release: https://github.com/RolandUI/AvaScope/releases/tag/v1.3.0
 - GitHub Milestone: `v1.3.0`
 - GitHub Issues: #93, #94, #95, #96, #97
 - Previous Release: `v1.2.0`
@@ -77,7 +80,7 @@ The `v1.3.0` minor release adds cost-free, agent-operated macOS support without 
 - #94 `R1.3.0-M2 Add unsigned portable macOS release artifacts`; Status: `Done`.
 - #95 `R1.3.0-M3 Add a zero-cost macOS per-user terminal installer`; Status: `Done`.
 - #96 `R1.3.0-M4 Validate and document packaged macOS agent workflows`; Status: `Done`.
-- #97 `Release v1.3.0`; Status: `In Progress`.
+- #97 `Release v1.3.0`; Status: `Done`.
 
 ### Explicit Non-Goals
 
@@ -96,6 +99,8 @@ The `v1.3.0` minor release adds cost-free, agent-operated macOS support without 
 - Existing Windows and Linux build, test, package, installer, and release validation.
 
 ### v1.3.0 Implementation Validation
+
+- `2026-07-30`: Published v1.3.0 from exact release commit `1e6e34d4e051334e569589f85178086694ea1f46` through successful Release workflow `30531802480`. The remote `v1.3.0` tag resolves to the release commit and the non-draft, non-prerelease GitHub Release contains all 12 expected assets. A fresh download of the release manifest and all assets verified 11/11 recorded sizes and SHA-256 hashes. Nuget.org flat-container indexes expose Protocol, Core, and Bridge `1.3.0` as latest; the workflow logs confirm successful GitHub Packages publication for all three packages.
 
 - `2026-07-30`: The complete release candidate gate passed from `5f60717`. Debug and Release builds completed with `0` warnings/errors and all `419` tests passed in each configuration. The local release workflow produced and verified three NuGet packages, four framework-dependent executable ZIPs, four per-user installers, and an 11-entry SHA-256 manifest; Windows packaged install/repair/doctor/MCP/uninstall and real preview passed. NuGet and GitHub Release dry-runs passed with the complete macOS asset set. Hosted CI `30529601921` passed Windows/Linux gates and native Apple Silicon manifest verification, install, bridge attach, visual-tree/runtime screenshot evidence, PreviewHost evidence, and uninstall. The `1.3.0` version bump, tag, packages, and release remain unpublished.
 
