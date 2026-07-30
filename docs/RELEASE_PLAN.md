@@ -50,7 +50,7 @@ The roadmap below records the release-shaped plan through `v1.0.0`. It is intent
 - Every release must include targeted tests, full build/test validation, release dry-run validation, documentation updates, and explicit deferrals.
 - A release may be split into a patch release if a P0/P1 regression blocks users or CI, but patch scope must remain defect-focused.
 
-## Planned Target: v1.3.0
+## Current Release Target
 
 - Release: `v1.3.0`
 - Target Version: `1.3.0`
