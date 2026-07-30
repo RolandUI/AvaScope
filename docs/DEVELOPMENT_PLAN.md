@@ -2,6 +2,7 @@
 
 GitHub Issues and Milestones are the primary project-management source for autonomous agents working on AvaScope. This document is the compact local handoff and validation log. Update it whenever meaningful implementation, validation, or planning changes the active GitHub issue or release state.
 
+- `2026-07-30`: Completed #96 in `9a6188b`. Hosted CI `30529601921` passed the installed Apple Silicon attach/tree/runtime-screenshot/preview-evidence/uninstall workflow after manifest SHA-256 verification; Intel artifacts passed package/manifest/stable-surface coverage. Full local Debug and Release builds completed with `0` warnings/errors and all `419` tests passed in each configuration. Started release tracker #97.
 - `2026-07-30`: Completed #95 in `30778a5` and `c4aed28`. Hosted CI `30528387078` passed the 11-artifact cross-platform package/installer manifest plus native macOS checksum verification, unsafe-system-root rejection, embedded trust verification, non-admin install, installed version/doctor/MCP, full repair, and owned uninstall. Started #96 for the installed macOS attach/preview/evidence workflow and complete user/agent documentation.
 - `2026-07-30`: Completed #94 in `adf6825`. Local packaging and verification produced both macOS framework-dependent ZIPs with RID/package-kind/size/SHA-256 manifest entries and release dry-run coverage. Hosted CI `30526304028` passed all `418` tests, Windows/Linux packaging and installers, the macOS runtime smoke, and native packaged macOS CLI version/doctor/MCP stdio execution. Started #95 for zero-cost per-user macOS terminal installers.
 - `2026-07-30`: Completed #93 in commits `d7941f4`, `5fda0c2`, `5963524`, `e30d2d6`, `77df496`, and `a20c42b`. Hosted CI `30524230893` passed Windows build/test/package/installer validation, Linux installer validation, and the macOS job: all `418` tests plus real CLI doctor, bridged runtime attach/top-level/tree/screenshot, isolated preview, PNG evidence, and the explicit Windows-only native-picker boundary. Started #94 for unsigned `osx-arm64` and `osx-x64` portable release artifacts.
@@ -50,16 +51,16 @@ GitHub Issues and Milestones are the primary project-management source for auton
 
 ## Current Focus
 
-- `R1.3.0-M4 packaged macOS agent workflow and documentation`
-- GitHub Issue: `#96`
+- `Release v1.3.0`
+- GitHub Issue: `#97`
 - GitHub Milestone: `v1.3.0`
 - Status: `In Progress`
 - Owner: autonomous agent
-- Goal: validate installed macOS attach/inspection/preview/evidence workflows and document the checksum-first unsigned/unnotarized agent experience and policy boundaries.
+- Goal: pass the complete cross-platform release gate, publish v1.3.0, and verify the remote tag, assets, hashes, and packages.
 
 ## Next Action
 
-Exercise the installed CLI against the bridged sample and PreviewHost on hosted macOS, then align README, user guide, agent workflow, validation, troubleshooting, upgrade, and stable-surface documentation.
+Run the complete local and hosted release gate, move the target to Release Candidate, create the exact `Release 1.3.0` commit, publish, and verify all remote outputs.
 
 ## Latest Validation
 
