@@ -68,6 +68,26 @@ public sealed class InstallerWorkflowTests
                 var verifyResult = await RunProcessAsync(installerPath, ["--verify"], root);
                 Assert.Equal(0, verifyResult.ExitCode);
                 Assert.Contains("\"product\":\"AvaScope\"", verifyResult.StandardOutput, StringComparison.Ordinal);
+                Assert.Contains("\"signed\":false", verifyResult.StandardOutput, StringComparison.Ordinal);
+                Assert.Contains("\"notarized\":false", verifyResult.StandardOutput, StringComparison.Ordinal);
+                Assert.Contains("\"trustModel\":\"unsigned-unnotarized\"", verifyResult.StandardOutput, StringComparison.Ordinal);
+
+                if (OperatingSystem.IsMacOS())
+                {
+                    var unsafeSystemInstallResult = await RunProcessAsync(
+                        installerPath,
+                        [
+                            "--install-root",
+                            "/Applications/AvaScope",
+                            "--bin-dir",
+                            "/usr/local/bin",
+                            "--no-path-update",
+                            "--no-registration"
+                        ],
+                        root);
+                    Assert.NotEqual(0, unsafeSystemInstallResult.ExitCode);
+                    Assert.Contains("Unsafe install root", unsafeSystemInstallResult.StandardError, StringComparison.Ordinal);
+                }
 
                 Directory.CreateDirectory(unownedRoot);
                 var unownedMarker = Path.Combine(unownedRoot, "keep.txt");
@@ -91,6 +111,11 @@ public sealed class InstallerWorkflowTests
             var installResult = await RunProcessAsync(installerPath, installerArguments, root);
             Assert.Equal(0, installResult.ExitCode);
             Assert.True(string.IsNullOrWhiteSpace(installResult.StandardError), installResult.StandardError);
+            if (OperatingSystem.IsMacOS())
+            {
+                Assert.Contains("unsigned and unnotarized", installResult.StandardOutput, StringComparison.Ordinal);
+                Assert.Contains("xattr -dr com.apple.quarantine", installResult.StandardOutput, StringComparison.Ordinal);
+            }
 
             Assert.True(File.Exists(commandPath), $"Expected installed command at {commandPath}.");
             var discoveryPath = Path.Combine(installRoot, "avascope.discovery.json");

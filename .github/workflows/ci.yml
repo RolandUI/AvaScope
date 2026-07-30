@@ -134,6 +134,8 @@ jobs:
           powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\package-installers.ps1
           Get-Item artifacts\executables\AvaScopeSetup.exe
           Get-Item artifacts\executables\avascope-linux-x64-installer
+          Get-Item artifacts\executables\avascope-osx-arm64-installer
+          Get-Item artifacts\executables\avascope-osx-x64-installer
 
       - name: Test packaged Windows installer
         if: ${{ steps.changes.outputs.requires_validation == 'true' }}
@@ -237,8 +239,20 @@ jobs:
           esac
 
           pwsh -NoProfile -File ./eng/package-executables.ps1 -RuntimeIdentifiers "$runtime_identifier"
+          pwsh -NoProfile -File ./eng/package-installers.ps1 -RuntimeIdentifiers "$runtime_identifier"
+          dotnet pack src/AvaScope.Protocol/AvaScope.Protocol.csproj -c Release --no-build --output artifacts/packages
+          dotnet pack src/AvaScope.Core/AvaScope.Core.csproj -c Release --no-build --output artifacts/packages
+          dotnet pack src/AvaScope.Bridge/AvaScope.Bridge.csproj -c Release --no-build --output artifacts/packages
+          pwsh -NoProfile -File ./eng/verify-artifacts.ps1 \
+            -ExecutableRuntimeIdentifiers "$runtime_identifier" \
+            -InstallerRuntimeIdentifiers "$runtime_identifier"
           expected_version="$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' Directory.Build.props)"
           bash ./eng/test-macos-artifact.sh \
             "artifacts/executables/avascope-$runtime_identifier-framework-dependent.zip" \
             "$expected_version" \
             Release
+          AVASCOPE_INSTALLER_ARTIFACT="$GITHUB_WORKSPACE/artifacts/executables/avascope-$runtime_identifier-installer" \
+            dotnet test AvaScope.slnx \
+              -c Release \
+              --no-build \
+              --filter FullyQualifiedName~PackagedInstallerSupportsInstallRepairDoctorMcpAndUninstall

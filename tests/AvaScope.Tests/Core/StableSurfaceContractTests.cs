@@ -201,6 +201,9 @@ public sealed class StableSurfaceContractTests
         Assert.Contains("InstallerRuntimeIdentifiers", verifyArtifactsScript, StringComparison.Ordinal);
         Assert.Contains("packageKind = $artifact.PackageKind", verifyArtifactsScript, StringComparison.Ordinal);
         Assert.Contains("AvaScopeInstallerPayload", packageInstallers, StringComparison.Ordinal);
+        Assert.Contains("\"osx-arm64\"", packageInstallers, StringComparison.Ordinal);
+        Assert.Contains("\"osx-x64\"", packageInstallers, StringComparison.Ordinal);
+        Assert.Contains("unsigned and unnotarized", File.ReadAllText(Path.Combine(root, "src", "AvaScope.Installer", "Program.cs")), StringComparison.Ordinal);
         Assert.Contains("AvaScope.iss", packageInstallers, StringComparison.Ordinal);
         Assert.Contains("Resolve-InnoSetupCompiler", packageInstallers, StringComparison.Ordinal);
         Assert.Contains("WindowsSignToolPath", packageInstallers, StringComparison.Ordinal);
@@ -276,6 +279,8 @@ public sealed class StableSurfaceContractTests
         Assert.Contains("dotnet test AvaScope.slnx -c Release --no-build", workflow, StringComparison.Ordinal);
         Assert.Contains("bash ./eng/test-macos-runtime.sh Release", workflow, StringComparison.Ordinal);
         Assert.Contains("bash ./eng/test-macos-artifact.sh", workflow, StringComparison.Ordinal);
+        Assert.Contains("avascope-$runtime_identifier-installer", workflow, StringComparison.Ordinal);
+        Assert.Contains("PackagedInstallerSupportsInstallRepairDoctorMcpAndUninstall", workflow, StringComparison.Ordinal);
         Assert.Contains("osx-arm64", workflow, StringComparison.Ordinal);
         Assert.Contains("osx-x64", workflow, StringComparison.Ordinal);
         Assert.Contains("AVASCOPE_SAMPLE_BRIDGE=1", smoke, StringComparison.Ordinal);

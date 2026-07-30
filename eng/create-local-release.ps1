@@ -74,10 +74,7 @@ if ($ExecutableRuntimeIdentifiers.Count -eq 0) {
 }
 
 if (-not $PSBoundParameters.ContainsKey("InstallerRuntimeIdentifiers")) {
-    $InstallerRuntimeIdentifiers = @($ExecutableRuntimeIdentifiers | Where-Object {
-        $_.StartsWith("win-", [System.StringComparison]::OrdinalIgnoreCase) -or
-        $_.StartsWith("linux-", [System.StringComparison]::OrdinalIgnoreCase)
-    })
+    $InstallerRuntimeIdentifiers = @($ExecutableRuntimeIdentifiers)
 }
 
 foreach ($runtimeIdentifier in @($ExecutableRuntimeIdentifiers) + @($InstallerRuntimeIdentifiers)) {

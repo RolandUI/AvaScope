@@ -1,7 +1,7 @@
 param(
     [string]$Configuration = "Release",
     [string]$ExecutableRoot = "artifacts/executables",
-    [string[]]$RuntimeIdentifiers = @("win-x64", "linux-x64"),
+    [string[]]$RuntimeIdentifiers = @("win-x64", "linux-x64", "osx-arm64", "osx-x64"),
     [ValidateSet("framework-dependent", "self-contained")]
     [string]$ExecutablePackageKind = "framework-dependent",
     [string]$InnoSetupCompilerPath,
@@ -124,8 +124,8 @@ Remove-InstallerItem -Path (Join-Path $executableRootPath "AvaScopeSetup.exe") -
 $createdInstallers = @()
 try {
     foreach ($runtimeIdentifier in $RuntimeIdentifiers) {
-        if ($runtimeIdentifier -notmatch "^(win|linux)-[A-Za-z0-9_.-]+$") {
-            throw "Installer runtime identifier must target Windows or Linux: $runtimeIdentifier"
+        if ($runtimeIdentifier -notmatch "^(win|linux|osx)-[A-Za-z0-9_.-]+$") {
+            throw "Installer runtime identifier must target Windows, Linux, or macOS: $runtimeIdentifier"
         }
 
         $payloadPath = Join-Path $executableRootPath "avascope-$runtimeIdentifier-$ExecutablePackageKind.zip"

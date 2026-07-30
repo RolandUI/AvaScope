@@ -5,7 +5,7 @@ param(
     [string]$ExecutableRoot = "artifacts/executables",
     [string]$ManifestPath = "artifacts/release-manifest.json",
     [string[]]$ExecutableRuntimeIdentifiers = @("win-x64", "linux-x64", "osx-arm64", "osx-x64"),
-    [string[]]$InstallerRuntimeIdentifiers = @("win-x64", "linux-x64"),
+    [string[]]$InstallerRuntimeIdentifiers = @("win-x64", "linux-x64", "osx-arm64", "osx-x64"),
     [ValidateSet("framework-dependent", "self-contained")]
     [string]$ExecutablePackageKind = "framework-dependent",
     [switch]$DryRun

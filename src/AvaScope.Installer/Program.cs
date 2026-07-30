@@ -70,6 +70,7 @@ internal static class Program
     private static void Install(InstallerOptions options)
     {
         ValidateInstallRoot(options.InstallRoot);
+        ValidateUserOwnedPath(options.BinDirectory, "command shim directory");
         Directory.CreateDirectory(options.InstallRoot);
 
         var previousPathManaged = ReadPathManaged(options.InstallRoot);
@@ -133,13 +134,20 @@ internal static class Program
             Console.WriteLine($"Installed AvaScope {version}.");
             Console.WriteLine($"Command: {commandPath}");
             Console.WriteLine($"Install root: {options.InstallRoot}");
-            if (OperatingSystem.IsLinux() && !IsDirectoryOnPath(options.BinDirectory))
+            if (!OperatingSystem.IsWindows() && !IsDirectoryOnPath(options.BinDirectory))
             {
                 Console.WriteLine($"Add {options.BinDirectory} to PATH to run avascope from a new shell.");
             }
             else if (OperatingSystem.IsWindows() && !options.NoPathUpdate)
             {
                 Console.WriteLine("Open a new terminal before using the updated user PATH.");
+            }
+
+            if (OperatingSystem.IsMacOS())
+            {
+                Console.WriteLine("Trust: this zero-cost macOS installer and payload are unsigned and unnotarized.");
+                Console.WriteLine(
+                    $"If Gatekeeper reports quarantine after checksum verification, run: xattr -dr com.apple.quarantine \"{options.InstallRoot}\"");
             }
         }
         finally
@@ -255,6 +263,9 @@ internal static class Program
         {
             product = "AvaScope",
             runtimeIdentifier = RuntimeInformation.RuntimeIdentifier,
+            signed = false,
+            notarized = false,
+            trustModel = "unsigned-unnotarized",
             payloadEntries = entries.Count,
             legalFiles = RequiredLegalFiles
         }));
@@ -463,7 +474,7 @@ internal static class Program
 
     private static void MakePayloadExecutable(string payloadDirectory)
     {
-        if (!OperatingSystem.IsLinux())
+        if (OperatingSystem.IsWindows())
         {
             return;
         }
@@ -674,6 +685,23 @@ internal static class Program
         {
             throw new InvalidOperationException($"Unsafe install root: {fullPath}");
         }
+
+        ValidateUserOwnedPath(fullPath, "install root");
+    }
+
+    private static void ValidateUserOwnedPath(string path, string description)
+    {
+        var fullPath = Path.GetFullPath(path);
+        var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        var temporaryRoot = Path.GetFullPath(Path.GetTempPath());
+        var isUserProfileChild = !string.IsNullOrWhiteSpace(userProfile) &&
+            IsUnderDirectory(fullPath, userProfile);
+        var isTemporaryChild = IsUnderDirectory(fullPath, temporaryRoot);
+        if (!isUserProfileChild && !isTemporaryChild)
+        {
+            throw new InvalidOperationException(
+                $"Unsafe {description}; expected a path below the user profile or temporary directory: {fullPath}");
+        }
     }
 
     private static bool IsUnderDirectory(string path, string directory)
@@ -741,6 +769,9 @@ internal static class Program
 
             The default install is non-admin. Windows uses %LOCALAPPDATA%\AvaScope.
             Linux uses $XDG_DATA_HOME/avascope or ~/.local/share/avascope and ~/.local/bin.
+            macOS uses ~/Library/Application Support/AvaScope and ~/.local/bin.
+            macOS artifacts are unsigned and unnotarized; verify their SHA-256 before any
+            Gatekeeper quarantine remediation.
             """);
     }
 
@@ -840,6 +871,15 @@ internal static class Program
             {
                 return Path.Combine(
                     Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "AvaScope");
+            }
+
+            if (OperatingSystem.IsMacOS())
+            {
+                return Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                    "Library",
+                    "Application Support",
                     "AvaScope");
             }
 
