@@ -54,7 +54,7 @@ The roadmap below records the release-shaped plan through `v1.0.0`. It is intent
 
 - Release: `v1.3.0`
 - Target Version: `1.3.0`
-- Release State: `Planned`
+- Release State: `In Progress`
 - Scope Lock: `2026-07-30`
 - GitHub Milestone: `v1.3.0`
 - GitHub Issues: #93, #94, #95, #96, #97
@@ -73,7 +73,7 @@ The `v1.3.0` minor release adds cost-free, agent-operated macOS support without 
 
 ### v1.3.0 Milestone Map
 
-- #93 `R1.3.0-M1 Validate macOS runtime, bridge, and preview compatibility`; Status: `Ready`.
+- #93 `R1.3.0-M1 Validate macOS runtime, bridge, and preview compatibility`; Status: `In Progress`.
 - #94 `R1.3.0-M2 Add unsigned portable macOS release artifacts`; Status: `Ready`.
 - #95 `R1.3.0-M3 Add a zero-cost macOS per-user terminal installer`; Status: `Ready`.
 - #96 `R1.3.0-M4 Validate and document packaged macOS agent workflows`; Status: `Ready`.

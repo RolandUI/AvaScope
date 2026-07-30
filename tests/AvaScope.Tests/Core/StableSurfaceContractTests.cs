@@ -259,6 +259,25 @@ public sealed class StableSurfaceContractTests
         Assert.DoesNotContain("\n  pull_request:", releaseWorkflow, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void CiWorkflowRunsMacOsRuntimeAndPreviewValidation()
+    {
+        var root = FindRepositoryRoot();
+        var workflow = File.ReadAllText(Path.Combine(root, ".github", "workflows", "ci.yml"));
+        var smoke = File.ReadAllText(Path.Combine(root, "eng", "test-macos-runtime.sh"));
+
+        Assert.Contains("macos-runtime:", workflow, StringComparison.Ordinal);
+        Assert.Contains("runs-on: macos-latest", workflow, StringComparison.Ordinal);
+        Assert.Contains("dotnet test AvaScope.slnx -c Release --no-build", workflow, StringComparison.Ordinal);
+        Assert.Contains("bash ./eng/test-macos-runtime.sh Release", workflow, StringComparison.Ordinal);
+        Assert.Contains("AVASCOPE_SAMPLE_BRIDGE=1", smoke, StringComparison.Ordinal);
+        Assert.Contains("list-top-levels", smoke, StringComparison.Ordinal);
+        Assert.Contains("visual-tree", smoke, StringComparison.Ordinal);
+        Assert.Contains("screenshot", smoke, StringComparison.Ordinal);
+        Assert.Contains("native-picker", smoke, StringComparison.Ordinal);
+        Assert.Contains("preview", smoke, StringComparison.Ordinal);
+    }
+
     private static IReadOnlyList<string> ReadRegexGroupValues(string path, string pattern)
     {
         var source = File.ReadAllText(path);

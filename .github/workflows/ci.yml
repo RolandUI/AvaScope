@@ -194,3 +194,35 @@ jobs:
           expected_version="$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' Directory.Build.props)"
           bash ./eng/test-linux-installer.sh "$AVASCOPE_INSTALLER_ARTIFACT" "$expected_version"
           dotnet test AvaScope.slnx -c Release --no-build --filter FullyQualifiedName~PackagedInstallerSupportsInstallRepairDoctorMcpAndUninstall
+
+  macos-runtime:
+    name: macOS Runtime
+    needs: validate
+    if: ${{ needs.validate.outputs.requires_validation == 'true' }}
+    runs-on: macos-latest
+
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+      DOTNET_NOLOGO: "1"
+      DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "1"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore AvaScope.slnx
+
+      - name: Build
+        run: dotnet build AvaScope.slnx -c Release --no-restore
+
+      - name: Test
+        run: dotnet test AvaScope.slnx -c Release --no-build
+
+      - name: Validate macOS runtime and preview workflows
+        run: bash ./eng/test-macos-runtime.sh Release
