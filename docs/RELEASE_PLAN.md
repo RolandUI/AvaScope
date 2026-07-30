@@ -54,7 +54,7 @@ The roadmap below records the release-shaped plan through `v1.0.0`. It is intent
 
 - Release: `v1.3.0`
 - Target Version: `1.3.0`
-- Release State: `In Progress`
+- Release State: `Release Candidate`
 - Scope Lock: `2026-07-30`
 - GitHub Milestone: `v1.3.0`
 - GitHub Issues: #93, #94, #95, #96, #97
@@ -94,6 +94,10 @@ The `v1.3.0` minor release adds cost-free, agent-operated macOS support without 
 - `osx-arm64` and `osx-x64` package, installer, manifest, hash, and release dry-run verification.
 - Artifact-backed macOS install, version, doctor, MCP, preview, runtime workflow, repair, and uninstall smoke.
 - Existing Windows and Linux build, test, package, installer, and release validation.
+
+### v1.3.0 Implementation Validation
+
+- `2026-07-30`: The complete release candidate gate passed from `5f60717`. Debug and Release builds completed with `0` warnings/errors and all `419` tests passed in each configuration. The local release workflow produced and verified three NuGet packages, four framework-dependent executable ZIPs, four per-user installers, and an 11-entry SHA-256 manifest; Windows packaged install/repair/doctor/MCP/uninstall and real preview passed. NuGet and GitHub Release dry-runs passed with the complete macOS asset set. Hosted CI `30529601921` passed Windows/Linux gates and native Apple Silicon manifest verification, install, bridge attach, visual-tree/runtime screenshot evidence, PreviewHost evidence, and uninstall. The `1.3.0` version bump, tag, packages, and release remain unpublished.
 
 ## Released Target: v1.2.0
 
