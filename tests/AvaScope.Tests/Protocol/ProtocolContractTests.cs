@@ -2470,7 +2470,7 @@ public sealed class ProtocolContractTests
         Assert.Equal("animation", responseNode["diagnostics"]![0]!["category"]!.GetValue<string>());
         Assert.Equal(1, responseNode["diagnosticSummary"]!["totalCount"]!.GetValue<int>());
         Assert.Equal(Path.GetFullPath("C:\\previews\\animation-strip.png"), responseNode["frameStripPath"]!.GetValue<string>());
-        Assert.Equal(new Uri(Path.GetFullPath("C:\\previews\\animation.html")).AbsoluteUri, responseNode["viewer"]!["previewUrl"]!.GetValue<string>());
+        Assert.Equal("file:///C:/previews/animation.html", responseNode["viewer"]!["previewUrl"]!.GetValue<string>());
     }
 
     [Fact]
