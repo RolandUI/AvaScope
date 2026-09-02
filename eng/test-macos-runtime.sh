@@ -148,9 +148,41 @@ PY
 dotnet "$cli_dll" visual-tree \
   --session "$session_id" \
   --top-level "$top_level_id" \
-  --max-depth 32 \
+  --max-depth 12 \
   --manifest-dir "$manifest_dir" \
   > "$test_root/visual-tree.json"
+
+dotnet "$cli_dll" find-nodes \
+  --session "$session_id" \
+  --top-level "$top_level_id" \
+  --automation-id RuntimeStatusCard \
+  --max-depth 32 \
+  --max-results 1 \
+  --manifest-dir "$manifest_dir" \
+  > "$test_root/status-node.json"
+
+status_node_id="$(
+  python3 - "$test_root/status-node.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8-sig") as stream:
+    payload = json.load(stream)
+if not payload.get("success"):
+    raise SystemExit(f"find-nodes failed: {payload}")
+matches = payload["value"]["matches"]
+if len(matches) != 1:
+    raise SystemExit(f"expected one RuntimeStatusCard match, got: {matches}")
+print(matches[0]["node"]["nodeId"])
+PY
+)"
+
+dotnet "$cli_dll" inspect-node \
+  --session "$session_id" \
+  --top-level "$top_level_id" \
+  --node "$status_node_id" \
+  --manifest-dir "$manifest_dir" \
+  > "$test_root/status-inspect.json"
 
 dotnet "$cli_dll" screenshot \
   --session "$session_id" \
@@ -185,6 +217,8 @@ fi
 
 python3 - \
   "$test_root/visual-tree.json" \
+  "$test_root/status-node.json" \
+  "$test_root/status-inspect.json" \
   "$test_root/screenshot.json" \
   "$test_root/preview.json" \
   "$test_root/native-picker.json" \
@@ -194,13 +228,13 @@ import json
 import os
 import sys
 
-for path in sys.argv[1:4]:
+for path in sys.argv[1:6]:
     with open(path, encoding="utf-8-sig") as stream:
         payload = json.load(stream)
     if not payload.get("success"):
         raise SystemExit(f"command failed: {path}: {payload}")
 
-with open(sys.argv[4], encoding="utf-8-sig") as stream:
+with open(sys.argv[6], encoding="utf-8-sig") as stream:
     picker = json.load(stream)
 if picker.get("success"):
     raise SystemExit(f"native picker unexpectedly succeeded: {picker}")
@@ -210,30 +244,17 @@ if not details.get("platform"):
 if "only on Windows" not in picker["error"]["message"]:
     raise SystemExit(f"native picker did not report its Windows-only boundary: {picker}")
 
-for path in sys.argv[5:]:
+for path in sys.argv[7:]:
     if not os.path.isfile(path) or os.path.getsize(path) == 0:
         raise SystemExit(f"expected non-empty PNG artifact: {path}")
 PY
 
-python3 - "$test_root/visual-tree.json" "$test_root/top-levels.json" "$test_root/runtime.png" <<'PY'
+python3 - "$test_root/status-inspect.json" "$test_root/top-levels.json" "$test_root/runtime.png" <<'PY'
 import json
 import math
 import struct
 import sys
 import zlib
-
-
-def find_node(node, parent_x=0.0, parent_y=0.0):
-    bounds = node.get("bounds") or {}
-    x = parent_x + float(bounds.get("x", 0.0))
-    y = parent_y + float(bounds.get("y", 0.0))
-    if node.get("automationId") == "RuntimeStatusCard":
-        return x, y, float(bounds["width"]), float(bounds["height"])
-    for child in node.get("children") or []:
-        match = find_node(child, x, y)
-        if match is not None:
-            return match
-    return None
 
 
 def read_png_pixel(path, target_x, target_y):
@@ -300,13 +321,15 @@ def read_png_pixel(path, target_x, target_y):
 
 
 with open(sys.argv[1], encoding="utf-8-sig") as stream:
-    tree = json.load(stream)
+    inspection = json.load(stream)
 with open(sys.argv[2], encoding="utf-8-sig") as stream:
     top_levels = json.load(stream)
 
-status_bounds = find_node(tree["value"]["root"])
-if status_bounds is None:
-    raise SystemExit("RuntimeStatusCard was not found in the native macOS visual tree")
+node = inspection["value"]
+if node.get("automationId") != "RuntimeStatusCard" or node.get("bounds") is None:
+    raise SystemExit(f"RuntimeStatusCard inspection did not include global bounds: {inspection}")
+bounds = node["bounds"]
+status_bounds = (float(bounds["x"]), float(bounds["y"]), float(bounds["width"]), float(bounds["height"]))
 scaling = float(top_levels["value"]["topLevels"][0]["renderScaling"])
 sample_x = math.floor((status_bounds[0] + 10.0) * scaling)
 sample_y = math.floor((status_bounds[1] + 10.0) * scaling)
