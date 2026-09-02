@@ -256,6 +256,29 @@ public sealed class RuntimeEvidencePolicyEnforcerTests : IDisposable
     }
 
     [Fact]
+    public void UnixSymlinkInsideOwnedRootCannotRedirectEvidenceRun()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        var root = Path.Combine(_directory, "root");
+        var run = Path.Combine(root, "run");
+        var outside = Path.Combine(_directory, "outside");
+        Directory.CreateDirectory(root);
+        Directory.CreateDirectory(outside);
+        Directory.CreateSymbolicLink(run, outside);
+        var enforcer = new RuntimeEvidencePolicyEnforcer(CreatePolicy());
+
+        var prepared = enforcer.PrepareRun(run, [], "request");
+
+        Assert.False(prepared.Success);
+        Assert.Equal(CoreErrorCodes.RuntimeEvidencePolicyInvalid, prepared.Error!.Code);
+        Assert.Empty(Directory.EnumerateFileSystemEntries(outside));
+    }
+
+    [Fact]
     public void OwnedRunCannotBeReusedForDifferentRequest()
     {
         var run = Path.Combine(_directory, "root", "run");

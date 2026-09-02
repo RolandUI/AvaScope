@@ -83,16 +83,16 @@ public sealed class RuntimeEvidencePolicyEnforcer
                 }
             }
 
-            EnsureNoReparseTraversal(root);
-            EnsureNoReparseTraversal(run);
+            EnsureNoReparseTraversal(root, root);
+            EnsureNoReparseTraversal(run, root);
             Directory.CreateDirectory(root);
-            EnsureNoReparseTraversal(root);
+            EnsureNoReparseTraversal(root, root);
             var ownershipId = ReadOrCreateOwnershipId(root);
             var requestFingerprint = Convert.ToHexString(
                 SHA256.HashData(Encoding.UTF8.GetBytes(requestId))).ToLowerInvariant();
             if (Directory.Exists(run))
             {
-                EnsureNoReparseTraversal(run);
+                EnsureNoReparseTraversal(run, root);
                 if (HasReparsePoint(run))
                 {
                     return Invalid("Policy-owned workflow directories cannot contain reparse points.");
@@ -114,7 +114,7 @@ public sealed class RuntimeEvidencePolicyEnforcer
             else
             {
                 Directory.CreateDirectory(run);
-                EnsureNoReparseTraversal(run);
+                EnsureNoReparseTraversal(run, root);
             }
 
             EnsureMarkerIsNotReparsePoint(Path.Combine(run, RunMarkerName));
@@ -301,7 +301,7 @@ public sealed class RuntimeEvidencePolicyEnforcer
 
         try
         {
-            EnsureNoReparseTraversal(ActionAuditPath);
+            EnsureNoReparseTraversal(ActionAuditPath, _runDirectory!);
             EnsureMarkerIsNotReparsePoint(ActionAuditPath);
             var entry = new Dictionary<string, object?>
             {
@@ -344,7 +344,7 @@ public sealed class RuntimeEvidencePolicyEnforcer
                 return RedactionFailed<bool>();
             }
 
-            EnsureNoReparseTraversal(path);
+            EnsureNoReparseTraversal(path, _runDirectory);
             EnsureMarkerIsNotReparsePoint(path);
             ownedArtifact = true;
 
@@ -386,7 +386,7 @@ public sealed class RuntimeEvidencePolicyEnforcer
                 return MaskFailed("Screenshot masking refused an artifact outside the policy-owned workflow directory.");
             }
 
-            EnsureNoReparseTraversal(screenshot.FilePath);
+            EnsureNoReparseTraversal(screenshot.FilePath, _runDirectory);
             EnsureMarkerIsNotReparsePoint(screenshot.FilePath);
             ownedArtifact = true;
 
@@ -717,14 +717,20 @@ public sealed class RuntimeEvidencePolicyEnforcer
             Path.TrimEndingDirectorySeparator(Path.GetFullPath(right)),
             OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
 
-    private static void EnsureNoReparseTraversal(string path)
+    private static void EnsureNoReparseTraversal(string path, string boundary)
     {
+        var fullBoundary = Path.GetFullPath(boundary);
         var current = new DirectoryInfo(Path.GetFullPath(path));
-        while (current is not null)
+        while (current is not null && IsSameOrDescendant(fullBoundary, current.FullName))
         {
             if (current.Exists && current.Attributes.HasFlag(FileAttributes.ReparsePoint))
             {
                 throw new IOException("Reparse points are not allowed in evidence paths.");
+            }
+
+            if (PathsEqual(current.FullName, fullBoundary))
+            {
+                break;
             }
 
             current = current.Parent;
