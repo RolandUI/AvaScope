@@ -46,9 +46,64 @@ The roadmap below records the release-shaped plan through `v1.0.0`. It is intent
 - `v0.7.0` starts the agent-first product direction: AvaScope becomes an agent control plane for inspecting, changing, validating, and explaining Avalonia UI behavior through structured CLI/MCP workflows.
 - `v0.9.0` is released.
 - `v1.0.0` is released.
+- `v1.4.0` is planned as the next release.
 - Each release must preserve the current product boundaries: MCP and CLI stay adapters over Core, runtime bridge activation stays opt-in and local-only, PreviewHost stays isolated from the MCP server, and private Avalonia/runtime hooks remain out of the default path.
 - Every release must include targeted tests, full build/test validation, release dry-run validation, documentation updates, and explicit deferrals.
 - A release may be split into a patch release if a P0/P1 regression blocks users or CI, but patch scope must remain defect-focused.
+
+## Planned Target: v1.4.0
+
+- Release: `v1.4.0`
+- Target Version: `1.4.0`
+- Release State: `Planned`
+- Scope Lock: `2026-09-02`
+- GitHub Milestone: `v1.4.0`
+- GitHub Issues: #98 through #109
+- Previous Release: `v1.3.0`
+
+### v1.4.0 Release Goals
+
+The `v1.4.0` minor release makes complex local Avalonia automation deterministic, multi-window aware, evidence-rich, and safe while correcting the macOS Retina runtime screenshot regression reported against `1.3.0`.
+
+1. `RG-1.4.0-1 Trustworthy Retina Evidence`: runtime screenshots apply display scaling exactly once and preserve nested template and vector drawing positions on macOS Retina displays.
+2. `RG-1.4.0-2 Semantic Complex Interaction`: agents can use bounds-derived gestures and discoverable application-defined actions without caller-calculated coordinates.
+3. `RG-1.4.0-3 Durable Workflow Identity`: actionable semantic selectors and top-level aliases are re-resolved safely across tree and window recreation; runtime ids remain diagnostic only.
+4. `RG-1.4.0-4 Deterministic Orchestration`: typed waits, conditions, retries, fragments, variables, and observe-act-verify steps coordinate real application state without fixed sleeps.
+5. `RG-1.4.0-5 Owned Lifecycle And Evidence`: one bounded scenario can build or launch, attach, execute, verify, collect structured failure evidence, and terminate only its owned process.
+6. `RG-1.4.0-6 Local Privacy And Safety`: redaction, masking, retention, allowlists, authorization, and audit logs preserve the explicit opt-in and local-only boundary.
+7. `RG-1.4.0-7 Repeatable Guarded Release`: the complete multi-window custom-control scenario runs repeatedly through CLI and MCP across supported platforms before publication.
+
+### v1.4.0 Milestone Map
+
+- #98 `R1.4.0-M1 Fix nested runtime screenshot scaling on macOS Retina displays`; Status: `Ready`.
+- #99 `R1.4.0-M2 Add bounds-derived semantic drag, swipe, and hold gestures`; Status: `Ready`.
+- #100 `R1.4.0-M3 Add discoverable application-defined semantic actions`; Status: `Ready`.
+- #101 `R1.4.0-M4 Re-resolve actionable selectors and recover safely from stale runtime nodes`; Status: `Ready`.
+- #102 `R1.4.0-M5 Extend deterministic waits to rendered, command, binding, and selection state`; Status: `Ready`.
+- #103 `R1.4.0-M6 Add resilient multi-window workflows with top-level aliases`; Status: `Ready`.
+- #104 `R1.4.0-M7 Add conditional, retryable, and reusable workflow composition`; Status: `Ready`.
+- #105 `R1.4.0-M8 Add observe-act-verify and automatic runtime failure evidence packs`; Status: `Ready`.
+- #106 `R1.4.0-M9 Harden build-launch-attach lifecycle orchestration`; Status: `Ready`.
+- #107 `R1.4.0-M10 Add runtime evidence redaction, retention, and action safety policy`; Status: `Ready`.
+- #108 `R1.4.0-M11 Validate repeatable complex Avalonia workflows end to end`; Status: `Ready`.
+- #109 `Release v1.4.0`; Status: `Ready`.
+
+### Explicit Non-Goals
+
+- Remote inspection or unauthenticated network control.
+- Process injection, CLR profiling, or private Avalonia runtime hooks.
+- Production bridge activation by default.
+- Terminating processes AvaScope did not launch and verify as owned.
+- Automatic source editing or automatic network upload of evidence.
+
+### Required Validation
+
+- Native Apple Silicon Retina attach and nested runtime screenshot comparison at scale factors 1 and 2.
+- Focused Protocol, Bridge, Core, CLI, MCP, schema, capability, security, and artifact tests for every vertical slice.
+- Repeated multi-window custom-control scenarios without coordinates, fixed sleeps, or persisted runtime ids.
+- Success and intentional failure runs with redacted JSON, Markdown, JUnit, tree, and screenshot evidence.
+- Full Debug and Release build/test suites plus packaged Windows, Linux, and macOS workflow gates.
+- Package, installer, manifest, NuGet, and GitHub Release dry-runs before the exact `Release 1.4.0` commit.
 
 ## Released Target: v1.3.0
 
