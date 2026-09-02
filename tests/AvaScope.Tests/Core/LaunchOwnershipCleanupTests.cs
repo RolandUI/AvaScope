@@ -33,7 +33,7 @@ public sealed class LaunchOwnershipCleanupTests : IDisposable
         WriteManifest(sessionId, process.Id, process.ProcessName, pipeName);
         WriteOwnership(sessionId, process.Id, process.ProcessName, processStartedAt);
         var server = RespondToCloseAsync(pipeName, sessionId, process.Id);
-        var client = new LocalBridgeClient(_manifestDirectory);
+        var client = new LocalBridgeClient(_manifestDirectory, TimeSpan.FromSeconds(30));
 
         var first = await client.CloseSessionAsync(sessionId, terminateLaunchedProcess: true);
         await server;
@@ -63,7 +63,7 @@ public sealed class LaunchOwnershipCleanupTests : IDisposable
             current.ProcessName,
             current.StartTime.ToUniversalTime().AddDays(-1));
         var server = RespondToCloseAsync(pipeName, sessionId, current.Id);
-        var client = new LocalBridgeClient(_manifestDirectory);
+        var client = new LocalBridgeClient(_manifestDirectory, TimeSpan.FromSeconds(30));
 
         var result = await client.CloseSessionAsync(sessionId, terminateLaunchedProcess: true);
         await server;
