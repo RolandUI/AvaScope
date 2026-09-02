@@ -78,8 +78,8 @@ The `v1.4.0` minor release makes complex local Avalonia automation deterministic
 - #98 `R1.4.0-M1 Fix nested runtime screenshot scaling on macOS Retina displays`; Status: `Done`.
 - #99 `R1.4.0-M2 Add bounds-derived semantic drag, swipe, and hold gestures`; Status: `Done`.
 - #100 `R1.4.0-M3 Add discoverable application-defined semantic actions`; Status: `Done`.
-- #101 `R1.4.0-M4 Re-resolve actionable selectors and recover safely from stale runtime nodes`; Status: `In Progress`.
-- #102 `R1.4.0-M5 Extend deterministic waits to rendered, command, binding, and selection state`; Status: `Ready`.
+- #101 `R1.4.0-M4 Re-resolve actionable selectors and recover safely from stale runtime nodes`; Status: `Done`.
+- #102 `R1.4.0-M5 Extend deterministic waits to rendered, command, binding, and selection state`; Status: `In Progress`.
 - #103 `R1.4.0-M6 Add resilient multi-window workflows with top-level aliases`; Status: `Ready`.
 - #104 `R1.4.0-M7 Add conditional, retryable, and reusable workflow composition`; Status: `Ready`.
 - #105 `R1.4.0-M8 Add observe-act-verify and automatic runtime failure evidence packs`; Status: `Ready`.
@@ -107,7 +107,7 @@ The `v1.4.0` minor release makes complex local Avalonia automation deterministic
 
 ### v1.4.0 Implementation Validation
 
-- `2026-09-02`: Implemented #101 locally with shared interaction-state selectors, UI-thread generation validation, pre-dispatch-only stale recovery, bounded ambiguity candidates, and durable template-recreation/idempotency coverage across Protocol, Bridge, Core, CLI, MCP, capability metadata, and documentation. Debug and Release builds completed with `0` warnings/errors and all `442` tests passed in both configurations; hosted cross-platform CI remains pending the pushed commit.
+- `2026-09-02`: Completed #101 in `747117b` with shared interaction-state selectors, UI-thread generation validation, pre-dispatch-only stale recovery, bounded ambiguity candidates, and durable template-recreation/idempotency coverage across Protocol, Bridge, Core, CLI, MCP, capability metadata, and documentation. Debug and Release builds completed with `0` warnings/errors and all `442` tests passed in both configurations. Hosted CI `33653895062` passed Windows Build/Test/Pack, installers and artifacts, Linux installer validation, and macOS full tests plus native runtime/preview/artifact validation. Started #102.
 
 ## Released Target: v1.3.0
 
