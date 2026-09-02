@@ -5,6 +5,25 @@ namespace AvaScope.Tests.Core;
 
 public sealed class OperationResultMapperTests
 {
+    [Fact]
+    public void ValidatedWorkflowIsSuccessfulWithoutRuntimeDispatch()
+    {
+        var response = new SemanticWorkflowResponse(
+            "validate-only",
+            new SessionId("validate-only"),
+            "topLevel:diagnostic",
+            "validated",
+            DateTimeOffset.UtcNow,
+            DateTimeOffset.UtcNow,
+            [],
+            plan: new SemanticWorkflowPlan(true, 1, 1, 0, 0));
+
+        var result = OperationResultMapper.ToToolResult(CoreResult<SemanticWorkflowResponse>.Ok(response));
+
+        Assert.True(result.Success);
+        Assert.Equal("validated", result.Value!.Status);
+    }
+
     [Theory]
     [InlineData(CloseSessionOutcomes.NotOwned, "launched_process_not_owned")]
     [InlineData(CloseSessionOutcomes.TerminationFailed, "launched_process_termination_failed")]

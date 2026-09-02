@@ -152,7 +152,11 @@ internal sealed class WorkflowIdempotencyStore
                 original.CustomAction,
                 original.WaitObservation,
                 original.TopLevelAlias,
-                original.ResolvedTopLevelId));
+                original.ResolvedTopLevelId,
+                original.ExecutionPath,
+                original.ParentStepId,
+                original.Attempt,
+                original.SourceFragment));
         }
         catch (Exception exception) when (exception is IOException
             or UnauthorizedAccessException

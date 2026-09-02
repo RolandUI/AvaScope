@@ -29,6 +29,9 @@ public static class SemanticWorkflowActions
     public const string ValidateAction = "validate_action";
     public const string ValidateMutation = "validate_mutation";
     public const string PickerResult = "picker_result";
+    public const string If = "if";
+    public const string RetryUntil = "retry_until";
+    public const string UseFragment = "use_fragment";
 
     public static IReadOnlyList<string> All { get; } =
     [
@@ -37,6 +40,6 @@ public static class SemanticWorkflowActions
         CustomActions, CustomAction,
         AssertState, Screenshot, Inspect, Wait,
         WaitForNode, WaitForState, WaitForDialog, ValidateAction,
-        ValidateMutation, PickerResult
+        ValidateMutation, PickerResult, If, RetryUntil, UseFragment
     ];
 }

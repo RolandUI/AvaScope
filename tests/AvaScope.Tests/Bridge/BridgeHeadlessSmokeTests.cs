@@ -2673,6 +2673,338 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
     }
 
     [Fact]
+    public async Task SemanticWorkflowCompositionBranchesRetriesSkipsExpandsAndValidatesBeforeDispatch()
+    {
+        var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessTestApplication));
+
+        try
+        {
+            await session.Dispatch(async () =>
+            {
+                var status = new TextBlock { Text = "pending" };
+                AutomationProperties.SetAutomationId(status, "composition-status");
+                var transition = new Button { Content = "Start transition" };
+                AutomationProperties.SetAutomationId(transition, "composition-transition");
+                var transitionInvocations = 0;
+                transition.Click += async (_, _) =>
+                {
+                    transitionInvocations++;
+                    await Task.Delay(75);
+                    status.Text = "ready";
+                };
+                var window = new Window
+                {
+                    Width = 320,
+                    Height = 180,
+                    Content = new StackPanel { Children = { status, transition } }
+                };
+                var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Composition workflow"));
+                window.Show();
+                using var registration = runtime.RegisterTopLevel(window);
+                Dispatcher.UIThread.RunJobs();
+
+                try
+                {
+                    var topLevelId = Assert.Single(await runtime.ListTopLevelsAsync()).Id;
+                    var client = new LocalBridgeClient(Path.GetDirectoryName(runtime.SessionManifestPath)!);
+                    var fragment = new SemanticWorkflowFragment(
+                        "verify-status",
+                        [
+                            new SemanticWorkflowStep(
+                                SemanticWorkflowActions.AssertState,
+                                "fragment-assert",
+                                new SemanticWorkflowSelector(automationId: "${statusId}"),
+                                assertProperty: "Text",
+                                expected: "${expected}")
+                        ],
+                        ["expected"]);
+                    var request = new SemanticWorkflowRequest(
+                        runtime.SessionId,
+                        topLevelId,
+                        [
+                            new SemanticWorkflowStep(
+                                SemanticWorkflowActions.RetryUntil,
+                                "retry-transition",
+                                new SemanticWorkflowSelector(automationId: "${statusId}"),
+                                waitCondition: new SemanticWaitCondition(SemanticWaitConditionKinds.Text, "${expectedState}"),
+                                steps:
+                                [
+                                    new SemanticWorkflowStep(
+                                        SemanticWorkflowActions.Invoke,
+                                        "start-transition",
+                                        new SemanticWorkflowSelector(automationId: "composition-transition"),
+                                        idempotencyKey: "composition-transition-once")
+                                ],
+                                maxAttempts: 6,
+                                retryDelayMs: 25),
+                            new SemanticWorkflowStep(
+                                SemanticWorkflowActions.WaitForNode,
+                                "optional-dialog",
+                                new SemanticWorkflowSelector(automationId: "optional-dialog-button"),
+                                timeoutMs: 25,
+                                pollIntervalMs: 25,
+                                optional: true),
+                            new SemanticWorkflowStep(
+                                SemanticWorkflowActions.If,
+                                "ready-branch",
+                                new SemanticWorkflowSelector(automationId: "${statusId}"),
+                                waitCondition: new SemanticWaitCondition(SemanticWaitConditionKinds.Text, "${expectedState}"),
+                                then:
+                                [
+                                    new SemanticWorkflowStep(
+                                        SemanticWorkflowActions.UseFragment,
+                                        "verify-ready",
+                                        fragment: "verify-status",
+                                        arguments: new Dictionary<string, string> { ["expected"] = "${expectedState}" })
+                                ],
+                                @else:
+                                [
+                                    new SemanticWorkflowStep(
+                                        SemanticWorkflowActions.AssertState,
+                                        "unexpected-else",
+                                        new SemanticWorkflowSelector(automationId: "composition-status"),
+                                        assertProperty: "Text",
+                                        expected: "never")
+                                ])
+                        ],
+                        variables: new Dictionary<string, string>
+                        {
+                            ["statusId"] = "composition-status",
+                            ["expectedState"] = "ready"
+                        },
+                        fragments: [fragment],
+                        timeoutMs: 5000);
+
+                    var result = await new SemanticWorkflowRunner().RunAsync(client, request);
+
+                    Assert.True(result.Success, result.Error?.Message);
+                    Assert.Equal("passed", result.Value!.Status);
+                    Assert.True(result.Value.Plan!.Valid);
+                    Assert.Equal(1, transitionInvocations);
+                    Assert.Contains(result.Value.Steps, step => step.Status == "retried" && step.Attempt == 1);
+                    Assert.Contains(result.Value.Steps, step => step.StepId == "optional-dialog" && step.Status == "skipped");
+                    Assert.Contains(result.Value.Steps, step => step.StepId == "unexpected-else" && step.Status == "skipped");
+                    var fragmentAssert = Assert.Single(result.Value.Steps, step => step.StepId == "fragment-assert");
+                    Assert.Equal("passed", fragmentAssert.Status);
+                    Assert.Equal("verify-status", fragmentAssert.SourceFragment);
+                    Assert.NotNull(fragmentAssert.ExecutionPath);
+                    Assert.True(result.Value.Steps.Count(step => step.StepId == "start-transition") > 1);
+                    Assert.All(
+                        result.Value.Steps.Where(step => step.StepId == "start-transition").Skip(1),
+                        step => Assert.Equal("true", step.Metadata["idempotencyReplay"]));
+
+                    status.Text = "not-ready";
+                    var elseResult = await new SemanticWorkflowRunner().RunAsync(
+                        client,
+                        new SemanticWorkflowRequest(
+                            runtime.SessionId,
+                            topLevelId,
+                            [
+                                new SemanticWorkflowStep(
+                                    SemanticWorkflowActions.If,
+                                    "else-branch",
+                                    new SemanticWorkflowSelector(automationId: "composition-status"),
+                                    waitCondition: new SemanticWaitCondition(SemanticWaitConditionKinds.Text, "ready"),
+                                    then: [new SemanticWorkflowStep(SemanticWorkflowActions.Wait, "then-not-selected")],
+                                    @else:
+                                    [
+                                        new SemanticWorkflowStep(
+                                            SemanticWorkflowActions.AssertState,
+                                            "else-selected",
+                                            new SemanticWorkflowSelector(automationId: "composition-status"),
+                                            assertProperty: "Text",
+                                            expected: "not-ready")
+                                    ])
+                            ]));
+                    Assert.Equal("passed", elseResult.Value!.Status);
+                    Assert.Contains(elseResult.Value.Steps, step => step.StepId == "then-not-selected" && step.Status == "skipped");
+                    Assert.Contains(elseResult.Value.Steps, step => step.StepId == "else-selected" && step.Status == "passed");
+
+                    var exhausted = await new SemanticWorkflowRunner().RunAsync(
+                        client,
+                        new SemanticWorkflowRequest(
+                            runtime.SessionId,
+                            topLevelId,
+                            [
+                                new SemanticWorkflowStep(
+                                    SemanticWorkflowActions.RetryUntil,
+                                    "exhausted-retry",
+                                    new SemanticWorkflowSelector(automationId: "composition-status"),
+                                    waitCondition: new SemanticWaitCondition(SemanticWaitConditionKinds.Text, "never"),
+                                    steps:
+                                    [
+                                        new SemanticWorkflowStep(
+                                            SemanticWorkflowActions.Inspect,
+                                            "observe-status",
+                                            new SemanticWorkflowSelector(automationId: "composition-status"))
+                                    ],
+                                    maxAttempts: 2)
+                            ]));
+                    Assert.Equal("failed", exhausted.Value!.Status);
+                    Assert.Contains(exhausted.Value.Steps, step => step.StepId == "exhausted-retry" && step.Status == "retried");
+                    Assert.Contains(exhausted.Value.Diagnostics, diagnostic => diagnostic.Code == "semantic_workflow_retry_exhausted");
+
+                    var validateOnly = new SemanticWorkflowRequest(
+                        runtime.SessionId,
+                        topLevelId,
+                        request.Steps,
+                        variables: request.Variables,
+                        fragments: request.Fragments,
+                        validateOnly: true);
+                    var beforeValidation = transitionInvocations;
+                    var validation = await new SemanticWorkflowRunner().RunAsync(client, validateOnly);
+                    Assert.Equal("validated", validation.Value!.Status);
+                    Assert.Empty(validation.Value.Steps);
+                    Assert.True(validation.Value.Plan!.Valid);
+                    Assert.Equal(beforeValidation, transitionInvocations);
+
+                    var cyclicA = new SemanticWorkflowFragment(
+                        "a",
+                        [new SemanticWorkflowStep(SemanticWorkflowActions.UseFragment, "a-to-b", fragment: "b")]);
+                    var cyclicB = new SemanticWorkflowFragment(
+                        "b",
+                        [new SemanticWorkflowStep(SemanticWorkflowActions.UseFragment, "b-to-a", fragment: "a")]);
+                    var invalid = new SemanticWorkflowRequest(
+                        runtime.SessionId,
+                        topLevelId,
+                        [
+                            new SemanticWorkflowStep(
+                                SemanticWorkflowActions.RetryUntil,
+                                "unbounded-retry",
+                                new SemanticWorkflowSelector(automationId: "composition-status"),
+                                waitCondition: new SemanticWaitCondition(SemanticWaitConditionKinds.Text, "ready"),
+                                steps:
+                                [
+                                    new SemanticWorkflowStep(
+                                        SemanticWorkflowActions.Invoke,
+                                        "unsafe-retry-action",
+                                        new SemanticWorkflowSelector(automationId: "composition-transition"))
+                                ]),
+                            new SemanticWorkflowStep(
+                                SemanticWorkflowActions.AssertState,
+                                "unresolved-variable",
+                                new SemanticWorkflowSelector(automationId: "${missing}"),
+                                assertProperty: "Text",
+                                expected: "ready"),
+                            new SemanticWorkflowStep(SemanticWorkflowActions.UseFragment, "cycle", fragment: "a"),
+                            new SemanticWorkflowStep(SemanticWorkflowActions.UseFragment, "missing-fragment", fragment: "not-declared", optional: true),
+                            new SemanticWorkflowStep(
+                                SemanticWorkflowActions.If,
+                                "missing-condition",
+                                then: [new SemanticWorkflowStep(SemanticWorkflowActions.Wait, "never-run")]),
+                            new SemanticWorkflowStep(
+                                SemanticWorkflowActions.RetryUntil,
+                                "excessive-retry",
+                                new SemanticWorkflowSelector(automationId: "composition-status"),
+                                waitCondition: new SemanticWaitCondition(SemanticWaitConditionKinds.Text, "ready"),
+                                steps: [new SemanticWorkflowStep(SemanticWorkflowActions.Inspect, "bounded-observe", new SemanticWorkflowSelector(automationId: "composition-status"))],
+                                maxAttempts: SemanticWorkflowLimits.MaximumRetryAttempts + 1,
+                                retryDelayMs: -1)
+                        ],
+                        fragments: [cyclicA, cyclicB]);
+                    var invalidResult = await new SemanticWorkflowRunner().RunAsync(client, invalid);
+                    Assert.Equal("validation_failed", invalidResult.Value!.Status);
+                    Assert.Empty(invalidResult.Value.Steps);
+                    var codes = invalidResult.Value.Diagnostics.Select(static diagnostic => diagnostic.Code).ToArray();
+                    Assert.Contains("semantic_workflow_retry_bound_required", codes);
+                    Assert.Contains("semantic_workflow_retry_idempotency_required", codes);
+                    Assert.Contains("semantic_workflow_variable_unresolved", codes);
+                    Assert.Contains("semantic_workflow_fragment_cycle", codes);
+                    Assert.Contains("semantic_workflow_fragment_unresolved", codes);
+                    Assert.Contains("semantic_workflow_optional_control_not_supported", codes);
+                    Assert.Contains("semantic_workflow_condition_required", codes);
+                    Assert.Contains("semantic_workflow_retry_attempt_limit", codes);
+                    Assert.Contains("semantic_workflow_retry_delay_limit", codes);
+                    Assert.Equal(beforeValidation, transitionInvocations);
+
+                    var oversized = new SemanticWorkflowRequest(
+                        runtime.SessionId,
+                        topLevelId,
+                        Enumerable.Range(0, SemanticWorkflowLimits.MaximumExpandedSteps + 1)
+                            .Select(index => new SemanticWorkflowStep(SemanticWorkflowActions.Wait, $"step-{index}", waitMs: 0))
+                            .ToArray(),
+                        validateOnly: true);
+                    var oversizedResult = await new SemanticWorkflowRunner().RunAsync(client, oversized);
+                    Assert.Equal("validation_failed", oversizedResult.Value!.Status);
+                    Assert.Contains(
+                        oversizedResult.Value.Diagnostics,
+                        diagnostic => diagnostic.Code == "semantic_workflow_expanded_step_limit");
+
+                    var excessiveArtifacts = await new SemanticWorkflowRunner().RunAsync(
+                        client,
+                        new SemanticWorkflowRequest(
+                            runtime.SessionId,
+                            topLevelId,
+                            Enumerable.Range(0, SemanticWorkflowLimits.MaximumArtifacts + 1)
+                                .Select(index => new SemanticWorkflowStep(
+                                    SemanticWorkflowActions.Screenshot,
+                                    $"artifact-{index}",
+                                    screenshotPath: Path.Combine(Path.GetTempPath(), $"artifact-{index}.png")))
+                                .ToArray(),
+                            validateOnly: true));
+                    Assert.Equal("validation_failed", excessiveArtifacts.Value!.Status);
+                    Assert.Contains(
+                        excessiveArtifacts.Value.Diagnostics,
+                        diagnostic => diagnostic.Code == "semantic_workflow_artifact_limit");
+
+                    var nestedStep = new SemanticWorkflowStep(SemanticWorkflowActions.Wait, "nested-leaf");
+                    for (var depth = 0; depth <= SemanticWorkflowLimits.MaximumNestingDepth; depth++)
+                    {
+                        nestedStep = new SemanticWorkflowStep(
+                            SemanticWorkflowActions.If,
+                            $"nested-{depth}",
+                            new SemanticWorkflowSelector(automationId: "composition-status"),
+                            waitCondition: new SemanticWaitCondition(SemanticWaitConditionKinds.Exists),
+                            then: [nestedStep]);
+                    }
+
+                    var excessiveNesting = await new SemanticWorkflowRunner().RunAsync(
+                        client,
+                        new SemanticWorkflowRequest(
+                            runtime.SessionId,
+                            topLevelId,
+                            [nestedStep],
+                            validateOnly: true));
+                    Assert.Equal("validation_failed", excessiveNesting.Value!.Status);
+                    Assert.Contains(
+                        excessiveNesting.Value.Diagnostics,
+                        diagnostic => diagnostic.Code == "semantic_workflow_nesting_limit");
+
+                    var timeout = await new SemanticWorkflowRunner().RunAsync(
+                        client,
+                        new SemanticWorkflowRequest(
+                            runtime.SessionId,
+                            topLevelId,
+                            [new SemanticWorkflowStep(SemanticWorkflowActions.Wait, "bounded-wait", waitMs: 1000)],
+                            timeoutMs: 25));
+                    Assert.Equal("failed", timeout.Value!.Status);
+                    Assert.Contains(timeout.Value.Diagnostics, diagnostic => diagnostic.Code == "semantic_workflow_timeout");
+
+                    using var cancellation = new CancellationTokenSource(25);
+                    await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+                        new SemanticWorkflowRunner().RunAsync(
+                            client,
+                            new SemanticWorkflowRequest(
+                                runtime.SessionId,
+                                topLevelId,
+                                [new SemanticWorkflowStep(SemanticWorkflowActions.Wait, "cancelled", waitMs: 1000)]),
+                            cancellation.Token));
+                }
+                finally
+                {
+                    window.Close();
+                    AvaScopeBridge.Deactivate();
+                    Dispatcher.UIThread.RunJobs();
+                }
+            }, CancellationToken.None);
+        }
+        finally
+        {
+            DisposeHeadlessSessionAfterExplicitCleanup(session);
+        }
+    }
+
+    [Fact]
     public async Task SemanticSelectorsFilterActionabilityRecoverAcrossRecreationAndBoundAmbiguity()
     {
         var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessTestApplication));

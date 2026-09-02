@@ -223,6 +223,34 @@ public sealed class AvaScopeMcpToolsTests
     }
 
     [Fact]
+    public async Task RunWorkflowValidatesCompositionWithoutBridgeDispatch()
+    {
+        var client = new LocalBridgeClient(CreateMissingManifestDirectory());
+        var request = new SemanticWorkflowRequest(
+            new SessionId("mcp-composition"),
+            "topLevel:diagnostic",
+            [
+                new SemanticWorkflowStep(
+                    SemanticWorkflowActions.If,
+                    "branch",
+                    new SemanticWorkflowSelector(automationId: "${status}"),
+                    waitCondition: new SemanticWaitCondition(SemanticWaitConditionKinds.Exists),
+                    then: [new SemanticWorkflowStep(SemanticWorkflowActions.Wait, "then")],
+                    @else: [new SemanticWorkflowStep(SemanticWorkflowActions.Wait, "else")])
+            ],
+            variables: new Dictionary<string, string> { ["status"] = "status" },
+            validateOnly: true);
+
+        var result = await AvaScopeMcpTools.RunWorkflow(client, request);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal("validated", result.Value!.Status);
+        Assert.True(result.Value.Plan!.Valid);
+        Assert.Equal(3, result.Value.Plan.ExpandedStepCount);
+        Assert.Empty(result.Value.Steps);
+    }
+
+    [Fact]
     public async Task ListTopLevelsRejectsEmptySessionId()
     {
         var client = new LocalBridgeClient(CreateMissingManifestDirectory());

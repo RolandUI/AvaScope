@@ -701,7 +701,7 @@ public sealed class AvaScopeMcpTools
         Destructive = false,
         OpenWorld = false,
         UseStructuredContent = true)]
-    [Description("Runs a semantic local workflow with workflow-scoped top-level aliases, bounded waits for existence, disappearance, rendered, command, binding, selection, value, and top-level lifecycle state; optional step idempotency keys; and validate_action/validate_mutation dry runs. Top-level aliases are resolved semantically inside the request session on every use; node selectors may use AutomationId, text, role, binding path, command, or stable node id.")]
+    [Description("Runs or statically validates a bounded semantic local workflow with typed if/else branches, optional leaf steps, idempotent retry_until, variables, reusable acyclic fragments, workflow-scoped top-level aliases, rendered/command/binding/selection/value/lifecycle waits, and validate_action/validate_mutation dry runs. validateOnly returns the fully expanded plan and all bounded static diagnostics without bridge dispatch. Top-level aliases and node selectors are re-resolved inside the request session.")]
     public static async Task<ToolResult<SemanticWorkflowResponse>> RunWorkflow(
         LocalBridgeClient bridgeClient,
         SemanticWorkflowRequest request,
@@ -725,7 +725,7 @@ public sealed class AvaScopeMcpTools
         Destructive = false,
         OpenWorld = false,
         UseStructuredContent = true)]
-    [Description("Runs a safe local runtime scenario by launching or attaching to a bridge session, applying isolated app-state environment when launching, executing semantic workflow steps, and writing a human-readable timeline artifact.")]
+    [Description("Runs a safe local runtime scenario by validating the expanded conditional/retry/fragment workflow before launch, attach, or artifact creation; applying isolated app-state when launching; executing semantic steps; and writing a timeline with execution paths, attempts, fragments, and skipped/retried outcomes.")]
     public static async Task<ToolResult<RuntimeScenarioResponse>> RunScenario(
         LocalBridgeClient bridgeClient,
         RuntimeScenarioRequest request,

@@ -20,7 +20,10 @@ public sealed record RuntimeScenarioRequest
         string? timelinePath = null,
         int maxDepth = 16,
         RuntimeScenarioPickerResult? pickerResult = null,
-        IReadOnlyList<SemanticWorkflowTopLevelAlias>? topLevelAliases = null)
+        IReadOnlyList<SemanticWorkflowTopLevelAlias>? topLevelAliases = null,
+        IReadOnlyDictionary<string, string>? variables = null,
+        IReadOnlyList<SemanticWorkflowFragment>? fragments = null,
+        int workflowTimeoutMs = SemanticWorkflowLimits.DefaultWorkflowTimeoutMs)
     {
         if (steps is null || steps.Count == 0)
         {
@@ -42,6 +45,11 @@ public sealed record RuntimeScenarioRequest
             throw new ArgumentOutOfRangeException(nameof(maxDepth), maxDepth, "Max depth cannot be negative.");
         }
 
+        if (workflowTimeoutMs is < 1 or > SemanticWorkflowLimits.MaximumWorkflowTimeoutMs)
+        {
+            throw new ArgumentOutOfRangeException(nameof(workflowTimeoutMs), workflowTimeoutMs, $"Workflow timeout must be between 1 and {SemanticWorkflowLimits.MaximumWorkflowTimeoutMs} ms.");
+        }
+
         RequestId = string.IsNullOrWhiteSpace(requestId) ? Guid.NewGuid().ToString("n") : requestId.Trim();
         Launch = launch;
         Attach = attach;
@@ -57,6 +65,9 @@ public sealed record RuntimeScenarioRequest
         MaxDepth = maxDepth;
         PickerResult = pickerResult;
         TopLevelAliases = topLevelAliases ?? Array.Empty<SemanticWorkflowTopLevelAlias>();
+        Variables = variables ?? new Dictionary<string, string>();
+        Fragments = fragments ?? Array.Empty<SemanticWorkflowFragment>();
+        WorkflowTimeoutMs = workflowTimeoutMs;
     }
 
     [JsonPropertyName("requestId")]
@@ -111,6 +122,15 @@ public sealed record RuntimeScenarioRequest
 
     [JsonPropertyName("topLevelAliases")]
     public IReadOnlyList<SemanticWorkflowTopLevelAlias> TopLevelAliases { get; }
+
+    [JsonPropertyName("variables")]
+    public IReadOnlyDictionary<string, string> Variables { get; }
+
+    [JsonPropertyName("fragments")]
+    public IReadOnlyList<SemanticWorkflowFragment> Fragments { get; }
+
+    [JsonPropertyName("workflowTimeoutMs")]
+    public int WorkflowTimeoutMs { get; }
 }
 
 public sealed record RuntimeScenarioPickerResult

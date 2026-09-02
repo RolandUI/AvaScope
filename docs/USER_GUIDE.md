@@ -629,6 +629,78 @@ For a multi-window workflow, declare semantic `topLevelAliases` and set `topLeve
 }
 ```
 
+Compose bounded workflows with `if`, `retry_until`, `optional`, request-level `variables`, and reusable `fragments`. Both `if` and `retry_until` use the same `selector`, `topLevelAlias`, and typed `waitCondition` evaluator as runtime waits. An `if` step contains `then` and/or `else`; a `retry_until` step contains `steps`, requires `maxAttempts`, and may set `retryDelayMs`. Any side-effecting step inside a retry must have an `idempotencyKey`, so later attempts replay the recorded result instead of dispatching the input again. Set `optional: true` only on a leaf step; failure becomes an explicit `skipped` result with the original bounded diagnostics. A `use_fragment` step names a fragment and supplies its declared `arguments`. `${name}` references are resolved from request variables and fragment parameters before execution.
+
+```json
+{
+  "sessionId": "session-id",
+  "topLevelId": "topLevel:1234",
+  "timeoutMs": 60000,
+  "variables": {
+    "statusId": "save-status",
+    "readyText": "Saved"
+  },
+  "fragments": [
+    {
+      "name": "verify-status",
+      "parameters": ["expected"],
+      "steps": [
+        {
+          "id": "verify",
+          "action": "assert_state",
+          "selector": { "automationId": "${statusId}" },
+          "assertProperty": "Text",
+          "expected": "${expected}"
+        }
+      ]
+    }
+  ],
+  "steps": [
+    {
+      "id": "save-until-ready",
+      "action": "retry_until",
+      "selector": { "automationId": "${statusId}" },
+      "waitCondition": { "kind": "text", "expected": "${readyText}" },
+      "maxAttempts": 5,
+      "retryDelayMs": 100,
+      "steps": [
+        {
+          "id": "save-once",
+          "action": "invoke",
+          "selector": { "automationId": "save-button" },
+          "idempotencyKey": "save-once"
+        }
+      ]
+    },
+    {
+      "id": "verify-branch",
+      "action": "if",
+      "selector": { "automationId": "${statusId}" },
+      "waitCondition": { "kind": "text", "expected": "${readyText}" },
+      "then": [
+        {
+          "id": "verify-fragment",
+          "action": "use_fragment",
+          "fragment": "verify-status",
+          "arguments": { "expected": "${readyText}" }
+        }
+      ],
+      "else": [
+        {
+          "id": "optional-dialog",
+          "action": "wait_for_node",
+          "selector": { "automationId": "optional-dialog" },
+          "timeoutMs": 250,
+          "optional": true
+        }
+      ]
+    }
+  ]
+}
+```
+
+Compilation happens before output-directory creation or Bridge dispatch. Set `validateOnly: true` to return status `validated`, an empty runtime step list, and the fully expanded `plan`; static failures return `validation_failed` with every bounded diagnostic found. Execution results remain chronological and add `executionPath`, `parentStepId`, `attempt`, and `sourceFragment`; branch exclusions and optional failures are `skipped`, while a non-final failed retry condition is `retried`. Cycles, missing fragments/arguments/variables, invalid shapes, unbounded retries, retry side effects without idempotency, and limit violations prevent all execution. Fixed limits are: nesting `8`, expanded plan steps `256`, estimated results `512`, fragments `32`, variables `64`, fragment parameters/arguments `16`, retry attempts `10`, total retry iterations `64`, screenshots `64`, and workflow timeout `300000` ms maximum. Existing response budgeting still writes the complete oversized JSON to a hash-addressed local artifact.
+
 Deterministic workflows can use `wait_for_node`, `wait_for_state`, and `wait_for_dialog`. Each wait accepts `timeoutMs` (default `5000`, maximum `60000`) and `pollIntervalMs` (default `100`, range `25`–`5000`), uses cancellation-aware bounded polling, and resolves its selector again on every poll. `wait_for_node` accepts `exists` and `disappears`; `wait_for_state` accepts `visible`, `hidden`, `enabled`, `disabled`, `checked`, `unchecked`, `selected_value`, `text`, `value`, `rendered`, `command_executable`, `binding_value`, `top_level_opened`, `top_level_closed`, and `change_from_baseline`. Comparisons are typed and support `equals`, `not_equals`, numeric ordering, and `changed`. A successful step exposes `waitObservation`; a failure distinguishes unavailable state (`semantic_workflow_wait_state_unavailable`) from a false condition that timed out (`semantic_workflow_wait_timeout`). Timeout metadata contains the last typed observation, elapsed time, bounded ambiguity candidates when present, and a next action. The compatible `assertProperty`/`expected` form remains supported.
 
 ```json

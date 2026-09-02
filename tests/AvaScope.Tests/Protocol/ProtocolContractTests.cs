@@ -123,7 +123,12 @@ public sealed class ProtocolContractTests
         Assert.Equal("every_poll", semanticWorkflow.Metadata["waitSelectorResolution"]);
         Assert.Equal("validate_action,validate_mutation", semanticWorkflow.Metadata["dryRunActions"]);
         Assert.Contains("replay_detected", semanticWorkflow.Metadata["idempotency"], StringComparison.Ordinal);
-        Assert.Contains(response.Capabilities, capability => capability.Id == AvaScopeCapabilityIds.RuntimeScenarioRunner);
+        Assert.Equal("if_else,optional,retry_until,variables,use_fragment", semanticWorkflow.Metadata["composition"]);
+        Assert.Contains("expanded_plan", semanticWorkflow.Metadata["compositionValidation"], StringComparison.Ordinal);
+        Assert.Contains("retry_attempts=10", semanticWorkflow.Metadata["compositionLimits"], StringComparison.Ordinal);
+        var scenarioRunner = Assert.Single(response.Capabilities, capability =>
+            capability.Id == AvaScopeCapabilityIds.RuntimeScenarioRunner);
+        Assert.Equal("before_launch_attach_or_artifact_creation", scenarioRunner.Metadata["compositionValidation"]);
         Assert.Contains(response.Capabilities, capability => capability.Id == AvaScopeCapabilityIds.RuntimePointerDiagnostics);
         Assert.Contains(response.Capabilities, capability => capability.Id == AvaScopeCapabilityIds.RuntimePseudoStateMatrix);
         Assert.Contains(response.Capabilities, capability => capability.Id == AvaScopeCapabilityIds.RuntimeInteractionAnimation);
@@ -431,6 +436,94 @@ public sealed class ProtocolContractTests
                 new SemanticWorkflowTopLevelAlias("same", new SemanticTopLevelSelector(title: "One")),
                 new SemanticWorkflowTopLevelAlias("same", new SemanticTopLevelSelector(title: "Two"))
             ]));
+    }
+
+    [Fact]
+    public void SemanticWorkflowCompositionSerializesStableAdditiveShape()
+    {
+        var condition = new SemanticWaitCondition(SemanticWaitConditionKinds.Text, "${expected}");
+        var fragment = new SemanticWorkflowFragment(
+            "verify",
+            [
+                new SemanticWorkflowStep(
+                    SemanticWorkflowActions.AssertState,
+                    "verify-status",
+                    new SemanticWorkflowSelector(automationId: "${statusId}"),
+                    expected: "${expected}",
+                    assertProperty: "Text")
+            ],
+            ["expected"]);
+        var request = new SemanticWorkflowRequest(
+            new SessionId("composition-session"),
+            "topLevel:composition",
+            [
+                new SemanticWorkflowStep(
+                    SemanticWorkflowActions.If,
+                    "branch",
+                    new SemanticWorkflowSelector(automationId: "${statusId}"),
+                    waitCondition: condition,
+                    then:
+                    [
+                        new SemanticWorkflowStep(
+                            SemanticWorkflowActions.UseFragment,
+                            "use-verify",
+                            fragment: "verify",
+                            arguments: new Dictionary<string, string> { ["expected"] = "${expected}" })
+                    ],
+                    @else: [new SemanticWorkflowStep(SemanticWorkflowActions.Wait, "skip", waitMs: 1)])
+            ],
+            variables: new Dictionary<string, string>
+            {
+                ["statusId"] = "status",
+                ["expected"] = "ready"
+            },
+            fragments: [fragment],
+            validateOnly: true,
+            timeoutMs: 5000);
+        var plan = new SemanticWorkflowPlan(
+            true,
+            3,
+            4,
+            2,
+            0,
+            [new SemanticWorkflowPlanItem(1, "1:branch", "branch", SemanticWorkflowActions.If, 0, false)]);
+        var response = new SemanticWorkflowResponse(
+            request.RequestId,
+            request.SessionId,
+            request.TopLevelId,
+            "validated",
+            DateTimeOffset.UtcNow,
+            DateTimeOffset.UtcNow,
+            [],
+            plan: plan);
+        var result = new SemanticWorkflowStepResult(
+            "retry",
+            SemanticWorkflowActions.RetryUntil,
+            "retried",
+            "retrying",
+            DateTimeOffset.UtcNow,
+            executionPath: "1:retry/retry/1:invoke",
+            parentStepId: "retry",
+            attempt: 2,
+            sourceFragment: "verify");
+
+        var requestNode = JsonNode.Parse(JsonSerializer.Serialize(request))!;
+        var responseNode = JsonNode.Parse(JsonSerializer.Serialize(response))!;
+        var resultNode = JsonNode.Parse(JsonSerializer.Serialize(result))!;
+
+        Assert.True(requestNode["validateOnly"]!.GetValue<bool>());
+        Assert.Equal(5000, requestNode["timeoutMs"]!.GetValue<int>());
+        Assert.Equal("ready", requestNode["variables"]!["expected"]!.GetValue<string>());
+        Assert.Equal("verify", requestNode["fragments"]![0]!["name"]!.GetValue<string>());
+        Assert.Single(requestNode["steps"]![0]!["then"]!.AsArray());
+        Assert.Single(requestNode["steps"]![0]!["else"]!.AsArray());
+        Assert.Equal("validated", responseNode["status"]!.GetValue<string>());
+        Assert.True(responseNode["plan"]!["valid"]!.GetValue<bool>());
+        Assert.Equal("retried", resultNode["status"]!.GetValue<string>());
+        Assert.Equal(2, resultNode["attempt"]!.GetValue<int>());
+        Assert.Contains(SemanticWorkflowActions.If, SemanticWorkflowActions.All);
+        Assert.Contains(SemanticWorkflowActions.RetryUntil, SemanticWorkflowActions.All);
+        Assert.Contains(SemanticWorkflowActions.UseFragment, SemanticWorkflowActions.All);
     }
 
     [Fact]

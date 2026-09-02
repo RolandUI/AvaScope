@@ -16,7 +16,8 @@ public sealed record SemanticWorkflowResponse
         string isolatedStateStatus = "not_configured",
         IReadOnlyList<ProtocolError>? diagnostics = null,
         IReadOnlyDictionary<string, string>? metadata = null,
-        ResponseBudgetInfo? responseBudget = null)
+        ResponseBudgetInfo? responseBudget = null,
+        SemanticWorkflowPlan? plan = null)
     {
         if (string.IsNullOrWhiteSpace(requestId))
         {
@@ -40,6 +41,7 @@ public sealed record SemanticWorkflowResponse
         Diagnostics = diagnostics ?? Array.Empty<ProtocolError>();
         Metadata = metadata ?? new Dictionary<string, string>();
         ResponseBudget = responseBudget;
+        Plan = plan;
     }
 
     [JsonPropertyName("requestId")]
@@ -76,4 +78,8 @@ public sealed record SemanticWorkflowResponse
     [JsonPropertyName("responseBudget")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public ResponseBudgetInfo? ResponseBudget { get; }
+
+    [JsonPropertyName("plan")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public SemanticWorkflowPlan? Plan { get; }
 }

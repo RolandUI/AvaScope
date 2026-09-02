@@ -29,7 +29,15 @@ public sealed record SemanticWorkflowStep
         string? customActionName = null,
         IReadOnlyDictionary<string, string>? customActionParameters = null,
         SemanticWaitCondition? waitCondition = null,
-        string? topLevelAlias = null)
+        string? topLevelAlias = null,
+        bool optional = false,
+        IReadOnlyList<SemanticWorkflowStep>? then = null,
+        IReadOnlyList<SemanticWorkflowStep>? @else = null,
+        IReadOnlyList<SemanticWorkflowStep>? steps = null,
+        int? maxAttempts = null,
+        int? retryDelayMs = null,
+        string? fragment = null,
+        IReadOnlyDictionary<string, string>? arguments = null)
     {
         if (string.IsNullOrWhiteSpace(action))
         {
@@ -92,6 +100,16 @@ public sealed record SemanticWorkflowStep
             .ToDictionary(static pair => pair.Key, static pair => pair.Value, StringComparer.Ordinal);
         WaitCondition = waitCondition;
         TopLevelAlias = string.IsNullOrWhiteSpace(topLevelAlias) ? null : topLevelAlias.Trim();
+        Optional = optional;
+        Then = then ?? Array.Empty<SemanticWorkflowStep>();
+        Else = @else ?? Array.Empty<SemanticWorkflowStep>();
+        Steps = steps ?? Array.Empty<SemanticWorkflowStep>();
+        MaxAttempts = maxAttempts;
+        RetryDelayMs = retryDelayMs;
+        Fragment = string.IsNullOrWhiteSpace(fragment) ? null : fragment.Trim();
+        Arguments = new Dictionary<string, string>(
+            arguments ?? new Dictionary<string, string>(),
+            StringComparer.Ordinal);
     }
 
     [JsonPropertyName("id")]
@@ -186,4 +204,31 @@ public sealed record SemanticWorkflowStep
     [JsonPropertyName("topLevelAlias")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? TopLevelAlias { get; }
+
+    [JsonPropertyName("optional")]
+    public bool Optional { get; }
+
+    [JsonPropertyName("then")]
+    public IReadOnlyList<SemanticWorkflowStep> Then { get; }
+
+    [JsonPropertyName("else")]
+    public IReadOnlyList<SemanticWorkflowStep> Else { get; }
+
+    [JsonPropertyName("steps")]
+    public IReadOnlyList<SemanticWorkflowStep> Steps { get; }
+
+    [JsonPropertyName("maxAttempts")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? MaxAttempts { get; }
+
+    [JsonPropertyName("retryDelayMs")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? RetryDelayMs { get; }
+
+    [JsonPropertyName("fragment")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Fragment { get; }
+
+    [JsonPropertyName("arguments")]
+    public IReadOnlyDictionary<string, string> Arguments { get; }
 }

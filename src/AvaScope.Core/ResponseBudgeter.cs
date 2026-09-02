@@ -153,7 +153,10 @@ public static class ResponseBudgeter
         int maxDepth)
     {
         var payload = Serialize(response);
-        var totalItems = response.Steps.Count + response.Diagnostics.Count;
+        var totalItems = response.Steps.Count
+            + response.Diagnostics.Count
+            + (response.Plan?.Steps.Count ?? 0)
+            + (response.Plan?.Diagnostics.Count ?? 0);
         var reasons = GetReasons(payload.Length, totalItems, 1, maxInlineBytes, maxItems, maxDepth);
         if (reasons.Count == 0)
         {
@@ -164,15 +167,32 @@ public static class ResponseBudgeter
         var remaining = byteLimited ? 0 : maxItems;
         var steps = Take(response.Steps, ref remaining);
         var diagnostics = Take(response.Diagnostics, ref remaining);
+        SemanticWorkflowPlan? plan = null;
+        if (response.Plan is not null)
+        {
+            var planSteps = Take(response.Plan.Steps, ref remaining);
+            var planDiagnostics = Take(response.Plan.Diagnostics, ref remaining);
+            plan = new SemanticWorkflowPlan(
+                response.Plan.Valid,
+                response.Plan.ExpandedStepCount,
+                response.Plan.EstimatedMaximumExecutions,
+                response.Plan.MaximumNestingDepth,
+                response.Plan.MaximumArtifactCount,
+                planSteps,
+                planDiagnostics);
+        }
         var artifactPath = WriteArtifact("workflow", payload);
-        var returnedItems = steps.Count + diagnostics.Count;
+        var returnedItems = steps.Count
+            + diagnostics.Count
+            + (plan?.Steps.Count ?? 0)
+            + (plan?.Diagnostics.Count ?? 0);
         var budget = CreateInfo(
             maxInlineBytes, payload.Length, maxItems, totalItems, returnedItems, maxDepth,
             1, 1, artifactPath, reasons);
         return new SemanticWorkflowResponse(
             response.RequestId, response.SessionId, response.TopLevelId, response.Status,
             response.StartedAt, response.CompletedAt, steps, response.IsolatedStateStatus,
-            diagnostics, response.Metadata, budget);
+            diagnostics, response.Metadata, budget, plan);
     }
 
     private static RuntimeScenarioResponse ApplyScenario(
@@ -182,7 +202,11 @@ public static class ResponseBudgeter
         int maxDepth)
     {
         var payload = Serialize(response);
-        var totalItems = (response.Workflow?.Steps.Count ?? 0) + response.Diagnostics.Count;
+        var totalItems = (response.Workflow?.Steps.Count ?? 0)
+            + (response.Workflow?.Diagnostics.Count ?? 0)
+            + (response.Workflow?.Plan?.Steps.Count ?? 0)
+            + (response.Workflow?.Plan?.Diagnostics.Count ?? 0)
+            + response.Diagnostics.Count;
         var reasons = GetReasons(payload.Length, totalItems, 1, maxInlineBytes, maxItems, maxDepth);
         if (reasons.Count == 0)
         {
@@ -195,16 +219,36 @@ public static class ResponseBudgeter
         if (response.Workflow is not null)
         {
             var steps = Take(response.Workflow.Steps, ref remaining);
+            var workflowDiagnostics = Take(response.Workflow.Diagnostics, ref remaining);
+            SemanticWorkflowPlan? plan = null;
+            if (response.Workflow.Plan is not null)
+            {
+                var planSteps = Take(response.Workflow.Plan.Steps, ref remaining);
+                var planDiagnostics = Take(response.Workflow.Plan.Diagnostics, ref remaining);
+                plan = new SemanticWorkflowPlan(
+                    response.Workflow.Plan.Valid,
+                    response.Workflow.Plan.ExpandedStepCount,
+                    response.Workflow.Plan.EstimatedMaximumExecutions,
+                    response.Workflow.Plan.MaximumNestingDepth,
+                    response.Workflow.Plan.MaximumArtifactCount,
+                    planSteps,
+                    planDiagnostics);
+            }
+
             workflow = new SemanticWorkflowResponse(
                 response.Workflow.RequestId, response.Workflow.SessionId, response.Workflow.TopLevelId,
                 response.Workflow.Status, response.Workflow.StartedAt, response.Workflow.CompletedAt,
-                steps, response.Workflow.IsolatedStateStatus, response.Workflow.Diagnostics,
-                response.Workflow.Metadata);
+                steps, response.Workflow.IsolatedStateStatus, workflowDiagnostics,
+                response.Workflow.Metadata, plan: plan);
         }
 
         var diagnostics = Take(response.Diagnostics, ref remaining);
         var artifactPath = WriteArtifact("scenario", payload);
-        var returnedItems = (workflow?.Steps.Count ?? 0) + diagnostics.Count;
+        var returnedItems = (workflow?.Steps.Count ?? 0)
+            + (workflow?.Diagnostics.Count ?? 0)
+            + (workflow?.Plan?.Steps.Count ?? 0)
+            + (workflow?.Plan?.Diagnostics.Count ?? 0)
+            + diagnostics.Count;
         var budget = CreateInfo(
             maxInlineBytes, payload.Length, maxItems, totalItems, returnedItems, maxDepth,
             1, 1, artifactPath, reasons);

@@ -23,7 +23,11 @@ public sealed record SemanticWorkflowStepResult
         RuntimeCustomActionResponse? customAction = null,
         RuntimeWaitObservation? waitObservation = null,
         string? topLevelAlias = null,
-        string? resolvedTopLevelId = null)
+        string? resolvedTopLevelId = null,
+        string? executionPath = null,
+        string? parentStepId = null,
+        int? attempt = null,
+        string? sourceFragment = null)
     {
         if (string.IsNullOrWhiteSpace(stepId))
         {
@@ -63,6 +67,10 @@ public sealed record SemanticWorkflowStepResult
         WaitObservation = waitObservation;
         TopLevelAlias = string.IsNullOrWhiteSpace(topLevelAlias) ? null : topLevelAlias;
         ResolvedTopLevelId = string.IsNullOrWhiteSpace(resolvedTopLevelId) ? null : resolvedTopLevelId;
+        ExecutionPath = string.IsNullOrWhiteSpace(executionPath) ? null : executionPath;
+        ParentStepId = string.IsNullOrWhiteSpace(parentStepId) ? null : parentStepId;
+        Attempt = attempt;
+        SourceFragment = string.IsNullOrWhiteSpace(sourceFragment) ? null : sourceFragment;
     }
 
     [JsonPropertyName("stepId")]
@@ -129,4 +137,20 @@ public sealed record SemanticWorkflowStepResult
     [JsonPropertyName("resolvedTopLevelId")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? ResolvedTopLevelId { get; }
+
+    [JsonPropertyName("executionPath")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ExecutionPath { get; }
+
+    [JsonPropertyName("parentStepId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ParentStepId { get; }
+
+    [JsonPropertyName("attempt")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? Attempt { get; }
+
+    [JsonPropertyName("sourceFragment")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? SourceFragment { get; }
 }

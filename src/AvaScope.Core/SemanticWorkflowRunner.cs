@@ -26,55 +26,57 @@ public sealed class SemanticWorkflowRunner
         ArgumentNullException.ThrowIfNull(request);
 
         var startedAt = DateTimeOffset.UtcNow;
-        var results = new List<SemanticWorkflowStepResult>();
-        var diagnostics = new List<ProtocolError>();
-        var idempotencyStore = new WorkflowIdempotencyStore(bridgeClient.ManifestDirectory);
-        var replayCount = 0;
+        var compiled = SemanticWorkflowCompiler.Compile(request);
         var isolatedStateStatus = string.IsNullOrWhiteSpace(request.IsolatedStateDirectory)
             ? "not_configured"
             : "declared_by_request";
+        if (!compiled.Plan.Valid || request.ValidateOnly)
+        {
+            var validationStatus = compiled.Plan.Valid ? "validated" : "validation_failed";
+            return CoreResult<SemanticWorkflowResponse>.Ok(new SemanticWorkflowResponse(
+                request.RequestId,
+                request.SessionId,
+                request.TopLevelId,
+                validationStatus,
+                startedAt,
+                DateTimeOffset.UtcNow,
+                [],
+                isolatedStateStatus,
+                compiled.Plan.Diagnostics,
+                CreateWorkflowMetadata(request, compiled.Plan, replayCount: 0, executedSteps: 0),
+                plan: compiled.Plan));
+        }
 
         if (!string.IsNullOrWhiteSpace(request.OutputDirectory))
         {
             Directory.CreateDirectory(request.OutputDirectory);
         }
 
-        foreach (var step in request.Steps)
+        using var workflowCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        workflowCancellation.CancelAfter(request.TimeoutMs);
+        var context = new CompositionExecutionContext(
+            request,
+            bridgeClient,
+            new WorkflowIdempotencyStore(bridgeClient.ManifestDirectory));
+        try
         {
-            var result = await ExecuteStepWithIdempotencyAsync(
-                bridgeClient,
-                idempotencyStore,
-                request,
-                step,
-                results.Count,
-                cancellationToken);
-            results.Add(result);
-            var replayed = result.Metadata.TryGetValue("idempotencyReplay", out var replay)
-                && string.Equals(replay, "true", StringComparison.Ordinal);
-            if (replayed)
-            {
-                replayCount++;
-            }
-
-            if (request.CaptureAfterEachStep
-                && result.Status == "passed"
-                && !replayed
-                && result.Screenshot is null
-                && !string.IsNullOrWhiteSpace(request.OutputDirectory)
-                && step.Action != SemanticWorkflowActions.Wait)
-            {
-                var screenshot = await CaptureStepScreenshotAsync(bridgeClient, request, step, results.Count, cancellationToken);
-                results.Add(screenshot);
-            }
-
-            if (result.Status == "failed")
-            {
-                diagnostics.AddRange(result.Diagnostics);
-                break;
-            }
+            await ExecuteNodesAsync(context, compiled.Roots, attempt: null, workflowCancellation.Token);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            context.Diagnostics.Add(new ProtocolError(
+                "semantic_workflow_timeout",
+                $"Workflow exceeded its bounded {request.TimeoutMs.ToString(CultureInfo.InvariantCulture)} ms timeout.",
+                new Dictionary<string, string>
+                {
+                    ["timeoutMs"] = request.TimeoutMs.ToString(CultureInfo.InvariantCulture),
+                    ["executedSteps"] = context.Results.Count.ToString(CultureInfo.InvariantCulture),
+                    ["nextAction"] = "Inspect the execution timeline, then reduce work or increase timeoutMs within the advertised limit."
+                }));
         }
 
-        var status = results.All(static result => result.Status == "passed")
+        var status = context.Results.All(static result => result.Status is "passed" or "skipped" or "retried")
+            && context.Diagnostics.Count == 0
             ? "passed"
             : "failed";
 
@@ -85,19 +87,497 @@ public sealed class SemanticWorkflowRunner
             status,
             startedAt,
             DateTimeOffset.UtcNow,
-            results,
+            context.Results,
             isolatedStateStatus,
-            diagnostics,
+            context.Diagnostics,
+            CreateWorkflowMetadata(
+                request,
+                compiled.Plan,
+                context.ReplayCount,
+                context.Results.Count),
+            plan: compiled.Plan));
+    }
+
+    private static IReadOnlyDictionary<string, string> CreateWorkflowMetadata(
+        SemanticWorkflowRequest request,
+        SemanticWorkflowPlan plan,
+        int replayCount,
+        int executedSteps)
+    {
+        return new Dictionary<string, string>
+        {
+            ["requestedSteps"] = request.Steps.Count.ToString(CultureInfo.InvariantCulture),
+            ["expandedSteps"] = plan.ExpandedStepCount.ToString(CultureInfo.InvariantCulture),
+            ["executedSteps"] = executedSteps.ToString(CultureInfo.InvariantCulture),
+            ["idempotencyReplayCount"] = replayCount.ToString(CultureInfo.InvariantCulture),
+            ["selectorMode"] = "automation_text_name_type_binding_or_node_id",
+            ["topLevelAliasCount"] = request.TopLevelAliases.Count.ToString(CultureInfo.InvariantCulture),
+            ["topLevelResolution"] = request.TopLevelAliases.Count == 0 ? "root_runtime_id" : "semantic_alias_per_use",
+            ["composition"] = "bounded_if_else_optional_retry_variables_fragments",
+            ["validationOnly"] = request.ValidateOnly.ToString().ToLowerInvariant(),
+            ["workflowTimeoutMs"] = request.TimeoutMs.ToString(CultureInfo.InvariantCulture)
+        };
+    }
+
+    private static async Task<bool> ExecuteNodesAsync(
+        CompositionExecutionContext context,
+        IReadOnlyList<CompiledWorkflowNode> nodes,
+        int? attempt,
+        CancellationToken cancellationToken)
+    {
+        foreach (var node in nodes)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (context.Results.Count >= SemanticWorkflowLimits.MaximumEstimatedExecutions)
+            {
+                context.Diagnostics.Add(new ProtocolError(
+                    "semantic_workflow_runtime_result_limit",
+                    $"Workflow reached the runtime result limit of {SemanticWorkflowLimits.MaximumEstimatedExecutions}.",
+                    new Dictionary<string, string>
+                    {
+                        ["executionPath"] = node.ExecutionPath,
+                        ["nextAction"] = "Reduce branch, retry, fragment, or automatic evidence expansion."
+                    }));
+                return false;
+            }
+
+            var succeeded = node.Step.Action switch
+            {
+                SemanticWorkflowActions.If => await ExecuteIfAsync(context, node, attempt, cancellationToken),
+                SemanticWorkflowActions.RetryUntil => await ExecuteRetryUntilAsync(context, node, cancellationToken),
+                SemanticWorkflowActions.UseFragment => await ExecuteFragmentAsync(context, node, attempt, cancellationToken),
+                _ => await ExecuteLeafAsync(context, node, attempt, cancellationToken)
+            };
+            if (!succeeded)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static async Task<bool> ExecuteLeafAsync(
+        CompositionExecutionContext context,
+        CompiledWorkflowNode node,
+        int? attempt,
+        CancellationToken cancellationToken)
+    {
+        var result = await ExecuteStepWithIdempotencyAsync(
+            context.BridgeClient,
+            context.IdempotencyStore,
+            context.Request,
+            node.Step,
+            context.Results.Count,
+            cancellationToken,
+            node.ParentStepId is null ? null : node.ExecutionPath);
+        result = WithCompositionEvidence(result, node, attempt);
+        var replayed = result.Metadata.TryGetValue("idempotencyReplay", out var replay)
+            && string.Equals(replay, "true", StringComparison.Ordinal);
+        if (replayed)
+        {
+            context.ReplayCount++;
+        }
+
+        if (result.Status == "failed" && node.Step.Optional)
+        {
+            result = AsOptionalSkipped(result);
+        }
+
+        context.Results.Add(result);
+        if (result.Status == "failed")
+        {
+            context.Diagnostics.AddRange(result.Diagnostics);
+            return false;
+        }
+
+        if (context.Request.CaptureAfterEachStep
+            && result.Status == "passed"
+            && !replayed
+            && result.Screenshot is null
+            && !string.IsNullOrWhiteSpace(context.Request.OutputDirectory)
+            && node.Step.Action != SemanticWorkflowActions.Wait)
+        {
+            var screenshot = await CaptureStepScreenshotAsync(
+                context.BridgeClient,
+                context.Request,
+                node.Step,
+                context.Results.Count,
+                cancellationToken);
+            screenshot = WithCompositionEvidence(
+                screenshot,
+                node with
+                {
+                    ExecutionPath = $"{node.ExecutionPath}/evidence",
+                    ParentStepId = node.Step.Id
+                },
+                attempt);
+            context.Results.Add(screenshot);
+            if (screenshot.Status == "failed")
+            {
+                context.Diagnostics.AddRange(screenshot.Diagnostics);
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static async Task<bool> ExecuteIfAsync(
+        CompositionExecutionContext context,
+        CompiledWorkflowNode node,
+        int? attempt,
+        CancellationToken cancellationToken)
+    {
+        var evaluation = await EvaluateCompositionConditionAsync(
+            context.BridgeClient,
+            context.Request,
+            node.Step,
+            cancellationToken);
+        if (!evaluation.Success)
+        {
+            var failed = WithCompositionEvidence(evaluation.Result, node, attempt);
+            context.Results.Add(failed);
+            context.Diagnostics.AddRange(failed.Diagnostics);
+            return false;
+        }
+
+        var branch = evaluation.Matched ? "then" : "else";
+        var decision = CreateCompositionControlResult(
+            node.Step,
+            "passed",
+            $"Condition evaluated to {evaluation.Matched.ToString().ToLowerInvariant()}; selected '{branch}'.",
+            evaluation.Result,
             new Dictionary<string, string>
             {
-                ["requestedSteps"] = request.Steps.Count.ToString(CultureInfo.InvariantCulture),
-                ["executedSteps"] = results.Count.ToString(CultureInfo.InvariantCulture),
-                ["idempotencyReplayCount"] = replayCount.ToString(CultureInfo.InvariantCulture),
-                ["selectorMode"] = "automation_text_name_type_binding_or_node_id",
-                ["topLevelAliasCount"] = request.TopLevelAliases.Count.ToString(CultureInfo.InvariantCulture),
-                ["topLevelResolution"] = request.TopLevelAliases.Count == 0 ? "root_runtime_id" : "semantic_alias_per_use"
-            }));
+                ["branch"] = branch,
+                ["conditionMatched"] = evaluation.Matched.ToString().ToLowerInvariant()
+            });
+        context.Results.Add(WithCompositionEvidence(decision, node, attempt));
+
+        if (evaluation.Matched)
+        {
+            if (!await ExecuteNodesAsync(context, node.Primary, attempt, cancellationToken))
+            {
+                return false;
+            }
+
+            AppendSkipped(context, node.Alternate, "if_else_not_selected", attempt);
+        }
+        else
+        {
+            AppendSkipped(context, node.Primary, "if_then_not_selected", attempt);
+            if (!await ExecuteNodesAsync(context, node.Alternate, attempt, cancellationToken))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
+
+    private static async Task<bool> ExecuteRetryUntilAsync(
+        CompositionExecutionContext context,
+        CompiledWorkflowNode node,
+        CancellationToken cancellationToken)
+    {
+        var maximumAttempts = node.Step.MaxAttempts!.Value;
+        for (var attempt = 1; attempt <= maximumAttempts; attempt++)
+        {
+            if (!await ExecuteNodesAsync(context, node.Primary, attempt, cancellationToken))
+            {
+                return false;
+            }
+
+            var evaluation = await EvaluateCompositionConditionAsync(
+                context.BridgeClient,
+                context.Request,
+                node.Step,
+                cancellationToken);
+            if (!evaluation.Success)
+            {
+                var failed = WithCompositionEvidence(evaluation.Result, node, attempt);
+                context.Results.Add(failed);
+                context.Diagnostics.AddRange(failed.Diagnostics);
+                return false;
+            }
+
+            var finalAttempt = attempt == maximumAttempts;
+            var status = evaluation.Matched ? "passed" : finalAttempt ? "failed" : "retried";
+            var metadata = new Dictionary<string, string>
+            {
+                ["attempt"] = attempt.ToString(CultureInfo.InvariantCulture),
+                ["maxAttempts"] = maximumAttempts.ToString(CultureInfo.InvariantCulture),
+                ["conditionMatched"] = evaluation.Matched.ToString().ToLowerInvariant(),
+                ["retryDelayMs"] = (node.Step.RetryDelayMs ?? 0).ToString(CultureInfo.InvariantCulture)
+            };
+            var message = evaluation.Matched
+                ? $"Retry condition matched on attempt {attempt.ToString(CultureInfo.InvariantCulture)}."
+                : finalAttempt
+                    ? $"Retry condition did not match within {maximumAttempts.ToString(CultureInfo.InvariantCulture)} attempts."
+                    : $"Retry condition did not match on attempt {attempt.ToString(CultureInfo.InvariantCulture)}; retrying.";
+            IReadOnlyList<ProtocolError>? diagnostics = null;
+            if (status == "failed")
+            {
+                diagnostics =
+                [
+                    new ProtocolError(
+                        "semantic_workflow_retry_exhausted",
+                        message,
+                        new Dictionary<string, string>(metadata, StringComparer.Ordinal)
+                        {
+                            ["executionPath"] = node.ExecutionPath,
+                            ["nextAction"] = "Inspect the final typed observation and adjust the operation, condition, or maxAttempts."
+                        })
+                ];
+            }
+
+            var retryResult = CreateCompositionControlResult(
+                node.Step,
+                status,
+                message,
+                evaluation.Result,
+                metadata,
+                diagnostics);
+            retryResult = WithCompositionEvidence(retryResult, node, attempt);
+            context.Results.Add(retryResult);
+            if (evaluation.Matched)
+            {
+                return true;
+            }
+
+            if (finalAttempt)
+            {
+                context.Diagnostics.AddRange(retryResult.Diagnostics);
+                return false;
+            }
+
+            var retryDelayMs = node.Step.RetryDelayMs ?? 0;
+            if (retryDelayMs > 0)
+            {
+                await Task.Delay(retryDelayMs, cancellationToken);
+            }
+        }
+
+        return false;
+    }
+
+    private static async Task<bool> ExecuteFragmentAsync(
+        CompositionExecutionContext context,
+        CompiledWorkflowNode node,
+        int? attempt,
+        CancellationToken cancellationToken)
+    {
+        var result = new SemanticWorkflowStepResult(
+            node.Step.Id,
+            node.Step.Action,
+            "passed",
+            $"Expanded workflow fragment '{node.Step.Fragment}'.",
+            DateTimeOffset.UtcNow,
+            metadata: new Dictionary<string, string>
+            {
+                ["fragment"] = node.Step.Fragment!,
+                ["expandedSteps"] = node.Primary.Count.ToString(CultureInfo.InvariantCulture)
+            });
+        context.Results.Add(WithCompositionEvidence(result, node, attempt));
+        return await ExecuteNodesAsync(context, node.Primary, attempt, cancellationToken);
+    }
+
+    private static async Task<CompositionConditionEvaluation> EvaluateCompositionConditionAsync(
+        LocalBridgeClient bridgeClient,
+        SemanticWorkflowRequest request,
+        SemanticWorkflowStep step,
+        CancellationToken cancellationToken)
+    {
+        var probe = new SemanticWorkflowStep(
+            step.Action,
+            step.Id,
+            step.Selector,
+            timeoutMs: step.TimeoutMs ?? 1000,
+            pollIntervalMs: step.PollIntervalMs ?? 25,
+            waitCondition: step.WaitCondition,
+            topLevelAlias: step.TopLevelAlias);
+        var result = await WaitForConditionAsync(
+            bridgeClient,
+            request,
+            probe,
+            step.WaitCondition!,
+            cancellationToken,
+            singleObservation: true);
+        var observation = result.WaitObservation;
+        var lastErrorCode = result.Metadata.TryGetValue("lastErrorCode", out var errorCode)
+            ? errorCode
+            : null;
+        var benignMissing = lastErrorCode is null
+            || lastErrorCode is "node_not_found" or "top_level_not_found" or "semantic_workflow_top_level_alias_missing";
+        var success = observation is not null
+            && !string.Equals(observation.Availability, "unavailable", StringComparison.Ordinal)
+            && benignMissing;
+        if (success)
+        {
+            return new CompositionConditionEvaluation(true, observation!.Matched, result);
+        }
+
+        var diagnostic = result.Diagnostics.FirstOrDefault()
+            ?? new ProtocolError(
+                "semantic_workflow_condition_unavailable",
+                "Workflow composition condition could not be evaluated from typed runtime state.");
+        var failed = new SemanticWorkflowStepResult(
+            step.Id,
+            step.Action,
+            "failed",
+            "Workflow composition condition could not be evaluated.",
+            DateTimeOffset.UtcNow,
+            result.Target,
+            inspection: result.Inspection,
+            diagnostics: [diagnostic],
+            metadata: result.Metadata,
+            waitObservation: observation,
+            topLevelAlias: result.TopLevelAlias,
+            resolvedTopLevelId: result.ResolvedTopLevelId);
+        return new CompositionConditionEvaluation(false, false, failed);
+    }
+
+    private static SemanticWorkflowStepResult CreateCompositionControlResult(
+        SemanticWorkflowStep step,
+        string status,
+        string message,
+        SemanticWorkflowStepResult evaluation,
+        IReadOnlyDictionary<string, string> metadata,
+        IReadOnlyList<ProtocolError>? diagnostics = null)
+    {
+        var combinedMetadata = new Dictionary<string, string>(evaluation.Metadata, StringComparer.Ordinal);
+        foreach (var pair in metadata)
+        {
+            combinedMetadata[pair.Key] = pair.Value;
+        }
+
+        return new SemanticWorkflowStepResult(
+            step.Id,
+            step.Action,
+            status,
+            message,
+            DateTimeOffset.UtcNow,
+            evaluation.Target,
+            inspection: evaluation.Inspection,
+            diagnostics: diagnostics,
+            metadata: combinedMetadata,
+            waitObservation: evaluation.WaitObservation,
+            topLevelAlias: evaluation.TopLevelAlias,
+            resolvedTopLevelId: evaluation.ResolvedTopLevelId);
+    }
+
+    private static void AppendSkipped(
+        CompositionExecutionContext context,
+        IReadOnlyList<CompiledWorkflowNode> nodes,
+        string reason,
+        int? attempt)
+    {
+        foreach (var node in nodes)
+        {
+            var result = new SemanticWorkflowStepResult(
+                node.Step.Id,
+                node.Step.Action,
+                "skipped",
+                "Workflow branch was not selected.",
+                DateTimeOffset.UtcNow,
+                metadata: new Dictionary<string, string> { ["skipReason"] = reason });
+            context.Results.Add(WithCompositionEvidence(result, node, attempt));
+            AppendSkipped(context, node.Primary, reason, attempt);
+            AppendSkipped(context, node.Alternate, reason, attempt);
+        }
+    }
+
+    private static SemanticWorkflowStepResult AsOptionalSkipped(SemanticWorkflowStepResult result)
+    {
+        var metadata = new Dictionary<string, string>(result.Metadata, StringComparer.Ordinal)
+        {
+            ["optional"] = "true",
+            ["originalStatus"] = result.Status,
+            ["skipReason"] = "optional_step_failed"
+        };
+        return new SemanticWorkflowStepResult(
+            result.StepId,
+            result.Action,
+            "skipped",
+            $"Optional step skipped after failure: {result.Message}",
+            result.ExecutedAt,
+            result.Target,
+            result.Input,
+            result.Inspection,
+            result.Screenshot,
+            result.Diagnostics,
+            metadata,
+            result.Picker,
+            result.Mutation,
+            result.CustomActions,
+            result.CustomAction,
+            result.WaitObservation,
+            result.TopLevelAlias,
+            result.ResolvedTopLevelId,
+            result.ExecutionPath,
+            result.ParentStepId,
+            result.Attempt,
+            result.SourceFragment);
+    }
+
+    private static SemanticWorkflowStepResult WithCompositionEvidence(
+        SemanticWorkflowStepResult result,
+        CompiledWorkflowNode node,
+        int? attempt)
+    {
+        var metadata = new Dictionary<string, string>(result.Metadata, StringComparer.Ordinal)
+        {
+            ["executionPath"] = node.ExecutionPath,
+            ["nestingDepth"] = CountNestingDepth(node.ExecutionPath).ToString(CultureInfo.InvariantCulture)
+        };
+        if (node.ParentStepId is not null)
+        {
+            metadata["parentStepId"] = node.ParentStepId;
+        }
+
+        if (node.Branch is not null)
+        {
+            metadata["branch"] = node.Branch;
+        }
+
+        if (attempt.HasValue)
+        {
+            metadata["attempt"] = attempt.Value.ToString(CultureInfo.InvariantCulture);
+        }
+
+        if (node.SourceFragment is not null)
+        {
+            metadata["sourceFragment"] = node.SourceFragment;
+        }
+
+        return new SemanticWorkflowStepResult(
+            result.StepId,
+            result.Action,
+            result.Status,
+            result.Message,
+            result.ExecutedAt,
+            result.Target,
+            result.Input,
+            result.Inspection,
+            result.Screenshot,
+            result.Diagnostics,
+            metadata,
+            result.Picker,
+            result.Mutation,
+            result.CustomActions,
+            result.CustomAction,
+            result.WaitObservation,
+            result.TopLevelAlias,
+            result.ResolvedTopLevelId,
+            node.ExecutionPath,
+            node.ParentStepId,
+            attempt,
+            node.SourceFragment);
+    }
+
+    private static int CountNestingDepth(string executionPath) =>
+        executionPath.Count(static character => character == '/');
 
     private static async Task<SemanticWorkflowStepResult> ExecuteStepWithIdempotencyAsync(
         LocalBridgeClient bridgeClient,
@@ -105,7 +585,8 @@ public sealed class SemanticWorkflowRunner
         SemanticWorkflowRequest request,
         SemanticWorkflowStep step,
         int stepIndex,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? idempotencyScope = null)
     {
         if (string.IsNullOrWhiteSpace(step.IdempotencyKey))
         {
@@ -117,9 +598,12 @@ public sealed class SemanticWorkflowRunner
                 cancellationToken);
         }
 
+        var effectiveIdempotencyKey = string.IsNullOrWhiteSpace(idempotencyScope)
+            ? step.IdempotencyKey
+            : $"{step.IdempotencyKey}@{Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(idempotencyScope)))[..16].ToLowerInvariant()}";
         var lease = await store.AcquireAsync(
             request.SessionId,
-            step.IdempotencyKey,
+            effectiveIdempotencyKey,
             cancellationToken);
         if (!lease.Success)
         {
@@ -128,7 +612,7 @@ public sealed class SemanticWorkflowRunner
 
         using var idempotencyLease = lease.Value!;
         var signature = WorkflowIdempotencyStore.CreateSignature(request, step);
-        var replay = store.TryReplay(request.SessionId, step.IdempotencyKey, signature);
+        var replay = store.TryReplay(request.SessionId, effectiveIdempotencyKey, signature);
         if (!replay.Success)
         {
             return Fail(step, replay.Error!);
@@ -147,7 +631,7 @@ public sealed class SemanticWorkflowRunner
             cancellationToken);
         var save = store.Save(
             request.SessionId,
-            step.IdempotencyKey,
+            effectiveIdempotencyKey,
             signature,
             TimeSpan.FromMilliseconds(step.IdempotencyTtlMs ?? 300_000),
             result);
@@ -317,7 +801,8 @@ public sealed class SemanticWorkflowRunner
         SemanticWorkflowRequest request,
         SemanticWorkflowStep step,
         SemanticWaitCondition condition,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool singleObservation = false)
     {
         var timeoutMs = step.TimeoutMs ?? 5_000;
         var pollMs = step.PollIntervalMs ?? 100;
@@ -355,10 +840,6 @@ public sealed class SemanticWorkflowRunner
                     {
                         lastResolvedTopLevelId = aliasResolution.Value!.Summary.Id;
                         pollRequest = WithTopLevelId(request, lastResolvedTopLevelId);
-                    }
-                    else
-                    {
-                        lastResolvedTopLevelId = null;
                     }
                 }
 
@@ -555,6 +1036,22 @@ public sealed class SemanticWorkflowRunner
                     inspection: lastInspection,
                     metadata: metadata,
                     waitObservation: lastObservation), step.TopLevelAlias, lastResolvedTopLevelId);
+            }
+
+            if (singleObservation)
+            {
+                return WithTopLevelEvidence(WaitConditionFailure(
+                    step,
+                    condition,
+                    timeoutMs,
+                    pollMs,
+                    attempts,
+                    stopwatch.ElapsedMilliseconds,
+                    lastTarget,
+                    lastInspection,
+                    lastObservation,
+                    lastError,
+                    sawAvailable), step.TopLevelAlias, lastResolvedTopLevelId);
             }
 
             if (stopwatch.ElapsedMilliseconds >= timeoutMs)
@@ -1568,7 +2065,11 @@ public sealed class SemanticWorkflowRunner
             request.AllowDestructive,
             request.IsolatedStateDirectory,
             request.MaxDepth,
-            request.TopLevelAliases);
+            request.TopLevelAliases,
+            request.Variables,
+            request.Fragments,
+            request.ValidateOnly,
+            request.TimeoutMs);
     }
 
     private static async Task<CoreResult<ResolvedWorkflowTopLevel>> ResolveTopLevelAliasAsync(
@@ -2068,7 +2569,11 @@ public sealed class SemanticWorkflowRunner
             result.CustomAction,
             result.WaitObservation,
             topLevelAlias,
-            resolvedTopLevelId);
+            resolvedTopLevelId,
+            result.ExecutionPath,
+            result.ParentStepId,
+            result.Attempt,
+            result.SourceFragment);
     }
 
     private static SemanticWorkflowStepResult Fail(
@@ -2230,6 +2735,36 @@ public sealed class SemanticWorkflowRunner
         RuntimeNodeSourceMap? SourceMap);
 
     private sealed record ResolvedWorkflowTopLevel(string Alias, TopLevelSummary Summary);
+
+    private sealed record CompositionConditionEvaluation(
+        bool Success,
+        bool Matched,
+        SemanticWorkflowStepResult Result);
+
+    private sealed class CompositionExecutionContext
+    {
+        public CompositionExecutionContext(
+            SemanticWorkflowRequest request,
+            LocalBridgeClient bridgeClient,
+            WorkflowIdempotencyStore idempotencyStore)
+        {
+            Request = request;
+            BridgeClient = bridgeClient;
+            IdempotencyStore = idempotencyStore;
+        }
+
+        public SemanticWorkflowRequest Request { get; }
+
+        public LocalBridgeClient BridgeClient { get; }
+
+        public WorkflowIdempotencyStore IdempotencyStore { get; }
+
+        public List<SemanticWorkflowStepResult> Results { get; } = [];
+
+        public List<ProtocolError> Diagnostics { get; } = [];
+
+        public int ReplayCount { get; set; }
+    }
 
     private sealed record ObservedWaitValue(
         bool Available,

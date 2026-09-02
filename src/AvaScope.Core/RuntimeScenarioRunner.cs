@@ -18,6 +18,52 @@ public sealed class RuntimeScenarioRunner
         ArgumentNullException.ThrowIfNull(request);
 
         var startedAt = DateTimeOffset.UtcNow;
+        var validationSessionId = request.SessionId ?? new SessionId($"scenario-validation-{request.RequestId}");
+        var validationTopLevelId = request.TopLevelId
+            ?? (request.TopLevelAliases.Count == 0 ? "topLevel:scenario-validation" : null);
+        var validationRequest = new SemanticWorkflowRequest(
+            validationSessionId,
+            validationTopLevelId,
+            request.Steps,
+            request.RequestId,
+            outputDirectory: request.OutputDirectory ?? Path.Combine(Path.GetTempPath(), "AvaScope", "scenario-validation", request.RequestId),
+            captureAfterEachStep: request.CaptureAfterEachStep,
+            allowDestructive: request.AllowDestructive,
+            maxDepth: request.MaxDepth,
+            topLevelAliases: request.TopLevelAliases,
+            variables: request.Variables,
+            fragments: request.Fragments,
+            validateOnly: true,
+            timeoutMs: request.WorkflowTimeoutMs);
+        var validation = SemanticWorkflowCompiler.Compile(validationRequest);
+        if (!validation.Plan.Valid)
+        {
+            var completedAt = DateTimeOffset.UtcNow;
+            var validationWorkflow = new SemanticWorkflowResponse(
+                request.RequestId,
+                validationSessionId,
+                validationTopLevelId,
+                "validation_failed",
+                startedAt,
+                completedAt,
+                [],
+                diagnostics: validation.Plan.Diagnostics,
+                metadata: new Dictionary<string, string> { ["validationOnly"] = "true" },
+                plan: validation.Plan);
+            return CoreResult<RuntimeScenarioResponse>.Ok(new RuntimeScenarioResponse(
+                request.RequestId,
+                Failed,
+                startedAt,
+                completedAt,
+                workflow: validationWorkflow,
+                diagnostics: validation.Plan.Diagnostics,
+                metadata: new Dictionary<string, string>
+                {
+                    ["scenarioMode"] = "validation",
+                    ["dispatchPerformed"] = "false"
+                }));
+        }
+
         var diagnostics = new List<ProtocolError>();
         var outputDirectory = ResolveOutputDirectory(request);
         Directory.CreateDirectory(outputDirectory);
@@ -220,7 +266,10 @@ public sealed class RuntimeScenarioRunner
             allowDestructive: request.AllowDestructive,
             isolatedStateDirectory: isolation.Applied ? isolation.Directory : null,
             maxDepth: request.MaxDepth,
-            topLevelAliases: request.TopLevelAliases);
+            topLevelAliases: request.TopLevelAliases,
+            variables: request.Variables,
+            fragments: request.Fragments,
+            timeoutMs: request.WorkflowTimeoutMs);
         var workflow = await new SemanticWorkflowRunner().RunAsync(workflowClient, workflowRequest, cancellationToken);
         if (!workflow.Success)
         {
@@ -466,8 +515,8 @@ public sealed class RuntimeScenarioRunner
         builder.AppendLine();
         builder.AppendLine("## Steps");
         builder.AppendLine();
-        builder.AppendLine("| # | Step | Action | Status | Target | Evidence | Message |");
-        builder.AppendLine("| - | ---- | ------ | ------ | ------ | -------- | ------- |");
+        builder.AppendLine("| # | Execution path | Step | Action | Status | Attempt | Fragment | Target | Evidence | Message |");
+        builder.AppendLine("| - | -------------- | ---- | ------ | ------ | ------- | -------- | ------ | -------- | ------- |");
 
         var steps = response.Workflow?.Steps ?? [];
         for (var index = 0; index < steps.Count; index++)
@@ -487,7 +536,7 @@ public sealed class RuntimeScenarioRunner
                 ?? step.Metadata.FirstOrDefault(static item => item.Key.EndsWith("Path", StringComparison.OrdinalIgnoreCase)).Value
                 ?? string.Empty;
             builder.AppendLine(
-                $"| {(index + 1).ToString(CultureInfo.InvariantCulture)} | {EscapeTable(step.StepId)} | {EscapeTable(step.Action)} | {EscapeTable(step.Status)} | {EscapeTable(target)} | {EscapeTable(evidence)} | {EscapeTable(step.Message)} |");
+                $"| {(index + 1).ToString(CultureInfo.InvariantCulture)} | {EscapeTable(step.ExecutionPath ?? step.StepId)} | {EscapeTable(step.StepId)} | {EscapeTable(step.Action)} | {EscapeTable(step.Status)} | {EscapeTable(step.Attempt?.ToString(CultureInfo.InvariantCulture))} | {EscapeTable(step.SourceFragment)} | {EscapeTable(target)} | {EscapeTable(evidence)} | {EscapeTable(step.Message)} |");
         }
 
         File.WriteAllText(response.TimelinePath, builder.ToString());

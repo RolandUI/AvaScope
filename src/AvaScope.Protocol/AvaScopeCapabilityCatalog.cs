@@ -203,6 +203,10 @@ public static class AvaScopeCapabilityCatalog
                     ["topLevelAliases"] = "workflow_scoped,semantic,per_use_resolution,session_scoped",
                     ["topLevelAliasSelectors"] = "title,kind,isActive",
                     ["topLevelAliasEvidence"] = "alias,resolved_top_level_id,bounded_candidates",
+                    ["composition"] = "if_else,optional,retry_until,variables,use_fragment",
+                    ["compositionValidation"] = "pre_dispatch,expanded_plan,all_static_errors,validate_only",
+                    ["compositionTimeline"] = "execution_path,parent_step_id,attempt,source_fragment,skipped,retried",
+                    ["compositionLimits"] = $"nesting={SemanticWorkflowLimits.MaximumNestingDepth},expanded_steps={SemanticWorkflowLimits.MaximumExpandedSteps},executions={SemanticWorkflowLimits.MaximumEstimatedExecutions},retry_attempts={SemanticWorkflowLimits.MaximumRetryAttempts},retry_iterations={SemanticWorkflowLimits.MaximumTotalRetryIterations},artifacts={SemanticWorkflowLimits.MaximumArtifacts},timeout_ms={SemanticWorkflowLimits.MaximumWorkflowTimeoutMs}",
                     ["idempotency"] = "optional_step_key,file_backed,session_scoped,ttl_bounded,replay_detected",
                     ["idempotencyDefaultTtlMs"] = "300000",
                     ["dryRunActions"] = "validate_action,validate_mutation",
@@ -227,7 +231,13 @@ public static class AvaScopeCapabilityCatalog
                 "runtime",
                 "Run safe local runtime scenarios by launching or attaching to a bridge session, isolating launched app state, executing semantic workflow steps, and writing timeline artifacts.",
                 ["run-scenario", "run_scenario"],
-                requires: [AvaScopeCapabilityIds.RuntimeSemanticWorkflow, AvaScopeCapabilityIds.RuntimeSessionLifecycle]),
+                requires: [AvaScopeCapabilityIds.RuntimeSemanticWorkflow, AvaScopeCapabilityIds.RuntimeSessionLifecycle],
+                metadata: new Dictionary<string, string>
+                {
+                    ["workflowComposition"] = "variables,fragments,if_else,optional,retry_until",
+                    ["compositionValidation"] = "before_launch_attach_or_artifact_creation",
+                    ["timelineIdentity"] = "execution_path,parent_step_id,attempt,source_fragment"
+                }),
             Capability(
                 AvaScopeCapabilityIds.RuntimeNativePicker,
                 "runtime",

@@ -100,6 +100,44 @@ public sealed class ResponseBudgeterTests
     }
 
     [Fact]
+    public void WorkflowPlanUsesSharedItemBudgetAndPreservesCompleteArtifact()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var planSteps = Enumerable.Range(0, 8)
+            .Select(index => new SemanticWorkflowPlanItem(
+                index + 1,
+                $"{index + 1}:step-{index}",
+                $"step-{index}",
+                SemanticWorkflowActions.Wait,
+                0,
+                false))
+            .ToArray();
+        var response = new SemanticWorkflowResponse(
+            "budget-workflow-plan",
+            new SessionId("budget-session"),
+            "topLevel:main",
+            "validated",
+            now,
+            now,
+            [],
+            plan: new SemanticWorkflowPlan(true, 8, 8, 0, 0, planSteps));
+
+        var bounded = ResponseBudgeter.Apply(
+            response,
+            maxInlineBytes: int.MaxValue,
+            maxItems: 3,
+            maxDepth: 8);
+
+        Assert.Equal(3, bounded.Plan!.Steps.Count);
+        Assert.Equal(8, bounded.ResponseBudget!.TotalItems);
+        Assert.Equal(3, bounded.ResponseBudget.ReturnedItems);
+        Assert.True(File.Exists(bounded.ResponseBudget.ArtifactPath));
+        var artifact = JsonSerializer.Deserialize<SemanticWorkflowResponse>(
+            File.ReadAllText(bounded.ResponseBudget.ArtifactPath!));
+        Assert.Equal(8, artifact!.Plan!.Steps.Count);
+    }
+
+    [Fact]
     public void DiagnosticsBudgetUsesSharedItemPolicy()
     {
         var issues = Enumerable.Range(0, 4)

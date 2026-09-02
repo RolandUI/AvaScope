@@ -87,6 +87,9 @@ public sealed class McpStdioSmokeTests
         Assert.Contains("binding", workflow.ProtocolTool.Description, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("top-level", workflow.ProtocolTool.Description, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("aliases", workflow.ProtocolTool.Description, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("if/else", workflow.ProtocolTool.Description, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("retry_until", workflow.ProtocolTool.Description, StringComparison.Ordinal);
+        Assert.Contains("validateOnly", workflow.ProtocolTool.Description, StringComparison.Ordinal);
         Assert.Contains(
             "\"waitCondition\"",
             JsonSerializer.Serialize(workflow.ProtocolTool.InputSchema),
@@ -102,6 +105,37 @@ public sealed class McpStdioSmokeTests
         Assert.Contains(
             "\"resolvedTopLevelId\"",
             JsonSerializer.Serialize(workflow.ProtocolTool.OutputSchema),
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "\"fragments\"",
+            JsonSerializer.Serialize(workflow.ProtocolTool.InputSchema),
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "\"maxAttempts\"",
+            JsonSerializer.Serialize(workflow.ProtocolTool.InputSchema),
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "\"validateOnly\"",
+            JsonSerializer.Serialize(workflow.ProtocolTool.InputSchema),
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "\"executionPath\"",
+            JsonSerializer.Serialize(workflow.ProtocolTool.OutputSchema),
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "\"plan\"",
+            JsonSerializer.Serialize(workflow.ProtocolTool.OutputSchema),
+            StringComparison.Ordinal);
+        var scenario = Assert.Single(tools, static tool => tool.Name == "run_scenario");
+        Assert.Contains("before launch", scenario.ProtocolTool.Description, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("execution paths", scenario.ProtocolTool.Description, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(
+            "\"fragments\"",
+            JsonSerializer.Serialize(scenario.ProtocolTool.InputSchema),
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "\"workflowTimeoutMs\"",
+            JsonSerializer.Serialize(scenario.ProtocolTool.InputSchema),
             StringComparison.Ordinal);
     }
 

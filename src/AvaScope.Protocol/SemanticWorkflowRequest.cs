@@ -15,7 +15,11 @@ public sealed record SemanticWorkflowRequest
         bool allowDestructive = false,
         string? isolatedStateDirectory = null,
         int maxDepth = 16,
-        IReadOnlyList<SemanticWorkflowTopLevelAlias>? topLevelAliases = null)
+        IReadOnlyList<SemanticWorkflowTopLevelAlias>? topLevelAliases = null,
+        IReadOnlyDictionary<string, string>? variables = null,
+        IReadOnlyList<SemanticWorkflowFragment>? fragments = null,
+        bool validateOnly = false,
+        int timeoutMs = SemanticWorkflowLimits.DefaultWorkflowTimeoutMs)
     {
         SessionId = sessionId ?? throw new ArgumentNullException(nameof(sessionId));
 
@@ -44,6 +48,11 @@ public sealed record SemanticWorkflowRequest
             throw new ArgumentException($"Top-level alias '{duplicateAlias}' is declared more than once.", nameof(topLevelAliases));
         }
 
+        if (timeoutMs is < 1 or > SemanticWorkflowLimits.MaximumWorkflowTimeoutMs)
+        {
+            throw new ArgumentOutOfRangeException(nameof(timeoutMs), timeoutMs, $"Workflow timeout must be between 1 and {SemanticWorkflowLimits.MaximumWorkflowTimeoutMs} ms.");
+        }
+
         TopLevelId = string.IsNullOrWhiteSpace(topLevelId) ? null : topLevelId.Trim();
         Steps = steps;
         TopLevelAliases = aliases.ToArray();
@@ -52,6 +61,12 @@ public sealed record SemanticWorkflowRequest
         AllowDestructive = allowDestructive;
         IsolatedStateDirectory = string.IsNullOrWhiteSpace(isolatedStateDirectory) ? null : Path.GetFullPath(isolatedStateDirectory);
         MaxDepth = maxDepth;
+        Variables = new Dictionary<string, string>(
+            variables ?? new Dictionary<string, string>(),
+            StringComparer.Ordinal);
+        Fragments = fragments ?? Array.Empty<SemanticWorkflowFragment>();
+        ValidateOnly = validateOnly;
+        TimeoutMs = timeoutMs;
     }
 
     [JsonPropertyName("requestId")]
@@ -86,4 +101,16 @@ public sealed record SemanticWorkflowRequest
 
     [JsonPropertyName("maxDepth")]
     public int MaxDepth { get; }
+
+    [JsonPropertyName("variables")]
+    public IReadOnlyDictionary<string, string> Variables { get; }
+
+    [JsonPropertyName("fragments")]
+    public IReadOnlyList<SemanticWorkflowFragment> Fragments { get; }
+
+    [JsonPropertyName("validateOnly")]
+    public bool ValidateOnly { get; }
+
+    [JsonPropertyName("timeoutMs")]
+    public int TimeoutMs { get; }
 }

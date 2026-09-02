@@ -3473,6 +3473,7 @@ public sealed class CliSmokeTests
             Assert.Equal(Path.GetFullPath(timelinePath), payload.Value.TimelinePath);
             Assert.True(File.Exists(timelinePath), timelinePath);
             var timeline = await File.ReadAllTextAsync(timelinePath);
+            Assert.Contains("Execution path", timeline, StringComparison.Ordinal);
             Assert.Contains("click-save", timeline, StringComparison.Ordinal);
             Assert.Contains("passed", timeline, StringComparison.Ordinal);
             Assert.Equal(2, payload.Value.Workflow!.Steps.Count);
@@ -3484,6 +3485,43 @@ public sealed class CliSmokeTests
                 File.Delete(manifestPath);
             }
             await DeleteDirectoryWithRetryAsync(artifactDirectory);
+        }
+    }
+
+    [Fact]
+    public async Task RunScenarioCommandRejectsInvalidCompositionBeforeLaunchOrArtifactCreation()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        var requestDirectory = Path.Combine(
+            Path.GetTempPath(),
+            "AvaScope.Tests",
+            $"cli-scenario-validation-{Guid.NewGuid():N}");
+        var outputDirectory = Path.Combine(requestDirectory, "must-not-be-created");
+        var requestPath = Path.Combine(requestDirectory, "scenario.json");
+        Directory.CreateDirectory(requestDirectory);
+        var scenario = new RuntimeScenarioRequest(
+            [new SemanticWorkflowStep(SemanticWorkflowActions.UseFragment, "missing", fragment: "not-declared")],
+            requestId: "invalid-composition",
+            launch: new RuntimeScenarioLaunchOptions("definitely-not-a-real-command"),
+            outputDirectory: outputDirectory);
+        await File.WriteAllTextAsync(requestPath, JsonSerializer.Serialize(scenario, JsonOptions));
+
+        try
+        {
+            var result = await RunCliAsync(cliAssembly, "run-scenario", "--request", requestPath);
+
+            Assert.Equal(1, result.ExitCode);
+            var payload = JsonSerializer.Deserialize<ToolResult<RuntimeScenarioResponse>>(result.StandardOutput, JsonOptions);
+            Assert.False(payload!.Success);
+            Assert.Equal("semantic_workflow_fragment_unresolved", payload.Error!.Code);
+            Assert.Equal("false", payload.Value!.Metadata["dispatchPerformed"]);
+            Assert.Null(payload.Value.Launch);
+            Assert.Equal("validation_failed", payload.Value.Workflow!.Status);
+            Assert.False(Directory.Exists(outputDirectory));
+        }
+        finally
+        {
+            await DeleteDirectoryWithRetryAsync(requestDirectory);
         }
     }
 
@@ -4696,6 +4734,77 @@ public sealed class CliSmokeTests
             {
                 Directory.Delete(manifestDirectory, recursive: true);
             }
+        }
+    }
+
+    [Fact]
+    public async Task RunWorkflowCommandValidatesExpandedCompositionWithoutBridgeDispatch()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        var manifestDirectory = Path.Combine(
+            Path.GetTempPath(),
+            "AvaScope.Tests",
+            $"cli-composition-validation-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(manifestDirectory);
+        var requestPath = Path.Combine(manifestDirectory, "composition-workflow.json");
+        var request = new SemanticWorkflowRequest(
+            new SessionId("cli-composition"),
+            "topLevel:diagnostic-only",
+            [
+                new SemanticWorkflowStep(
+                    SemanticWorkflowActions.If,
+                    "branch",
+                    new SemanticWorkflowSelector(automationId: "${statusId}"),
+                    waitCondition: new SemanticWaitCondition(SemanticWaitConditionKinds.Text, "ready"),
+                    then:
+                    [
+                        new SemanticWorkflowStep(
+                            SemanticWorkflowActions.UseFragment,
+                            "verify",
+                            fragment: "assert-status",
+                            arguments: new Dictionary<string, string> { ["expected"] = "ready" })
+                    ])
+            ],
+            variables: new Dictionary<string, string> { ["statusId"] = "status" },
+            fragments:
+            [
+                new SemanticWorkflowFragment(
+                    "assert-status",
+                    [
+                        new SemanticWorkflowStep(
+                            SemanticWorkflowActions.AssertState,
+                            "assert",
+                            new SemanticWorkflowSelector(automationId: "${statusId}"),
+                            assertProperty: "Text",
+                            expected: "${expected}")
+                    ],
+                    ["expected"])
+            ],
+            validateOnly: true);
+        await File.WriteAllTextAsync(requestPath, JsonSerializer.Serialize(request, JsonOptions));
+
+        try
+        {
+            var result = await RunCliAsync(
+                cliAssembly,
+                "run-workflow",
+                "--request",
+                requestPath,
+                "--manifest-dir",
+                manifestDirectory);
+
+            Assert.Equal(0, result.ExitCode);
+            var payload = JsonSerializer.Deserialize<ToolResult<SemanticWorkflowResponse>>(result.StandardOutput, JsonOptions);
+            Assert.True(payload!.Success, payload.Error?.Message);
+            Assert.Equal("validated", payload.Value!.Status);
+            Assert.Empty(payload.Value.Steps);
+            Assert.True(payload.Value.Plan!.Valid);
+            Assert.Equal(3, payload.Value.Plan.ExpandedStepCount);
+            Assert.Contains(payload.Value.Plan.Steps, step => step.SourceFragment == "assert-status");
+        }
+        finally
+        {
+            Directory.Delete(manifestDirectory, recursive: true);
         }
     }
 
