@@ -2673,6 +2673,194 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
     }
 
     [Fact]
+    public async Task SemanticWorkflowObserveActVerifyExportsFailureEvidenceAndAlignedReports()
+    {
+        var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessTestApplication));
+        var artifactDirectory = Path.Combine(
+            Path.GetTempPath(),
+            "AvaScope.Tests",
+            $"workflow-verify-{Guid.NewGuid():N}");
+
+        try
+        {
+            await session.Dispatch(async () =>
+            {
+                var status = new TextBlock { Text = "pending" };
+                AutomationProperties.SetAutomationId(status, "verify-status");
+                var save = new Button { Content = "Save" };
+                AutomationProperties.SetAutomationId(save, "verify-save");
+                var invocations = 0;
+                save.Click += (_, _) =>
+                {
+                    invocations++;
+                    status.Text = "saved";
+                };
+                var window = new Window
+                {
+                    Width = 360,
+                    Height = 200,
+                    Content = new StackPanel { Children = { status, save } }
+                };
+                var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Verified workflow"));
+                window.Show();
+                using var registration = runtime.RegisterTopLevel(window);
+                Dispatcher.UIThread.RunJobs();
+
+                try
+                {
+                    var topLevelId = Assert.Single(await runtime.ListTopLevelsAsync()).Id;
+                    var client = new LocalBridgeClient(Path.GetDirectoryName(runtime.SessionManifestPath)!);
+                    var successDirectory = Path.Combine(artifactDirectory, "success");
+                    var success = await new SemanticWorkflowRunner().RunAsync(
+                        client,
+                        new SemanticWorkflowRequest(
+                            runtime.SessionId,
+                            topLevelId,
+                            [
+                                new SemanticWorkflowStep(
+                                    SemanticWorkflowActions.Invoke,
+                                    "save",
+                                    new SemanticWorkflowSelector(automationId: "verify-save"),
+                                    idempotencyKey: "verified-save-once",
+                                    verify: new SemanticWorkflowVerification(
+                                        new SemanticWaitCondition(SemanticWaitConditionKinds.Text, "saved"),
+                                        new SemanticWorkflowSelector(automationId: "verify-status"),
+                                        timeoutMs: 500,
+                                        pollIntervalMs: 25,
+                                        captureScreenshots: true))
+                            ],
+                            outputDirectory: successDirectory,
+                            evidence: new SemanticWorkflowEvidenceOptions(
+                                reportDirectory: Path.Combine(successDirectory, "reports"))));
+
+                    Assert.True(success.Success, success.Error?.Message);
+                    Assert.Equal("passed", success.Value!.Status);
+                    Assert.Equal(1, invocations);
+                    var successStep = Assert.Single(success.Value.Steps);
+                    Assert.Equal("passed", successStep.Verification!.Status);
+                    Assert.Equal("pending", successStep.Verification.BeforeInspection!.Text);
+                    Assert.Equal("saved", successStep.Verification.AfterInspection!.Text);
+                    Assert.True(File.Exists(successStep.Verification.BeforeScreenshot!.FilePath));
+                    Assert.True(File.Exists(successStep.Verification.AfterScreenshot!.FilePath));
+                    Assert.Equal("passed", success.Value.ReportPack!.Status);
+                    Assert.All(success.Value.ReportPack.Assets, asset => Assert.True(File.Exists(asset.Path), asset.Path));
+
+                    var replay = await new SemanticWorkflowRunner().RunAsync(client, new SemanticWorkflowRequest(
+                        runtime.SessionId,
+                        topLevelId,
+                        [
+                            new SemanticWorkflowStep(
+                                SemanticWorkflowActions.Invoke,
+                                "save",
+                                new SemanticWorkflowSelector(automationId: "verify-save"),
+                                idempotencyKey: "verified-save-once",
+                                verify: new SemanticWorkflowVerification(
+                                    new SemanticWaitCondition(SemanticWaitConditionKinds.Text, "saved"),
+                                    new SemanticWorkflowSelector(automationId: "verify-status"),
+                                    timeoutMs: 500,
+                                    pollIntervalMs: 25,
+                                    captureScreenshots: true))
+                        ],
+                        outputDirectory: successDirectory,
+                        evidence: new SemanticWorkflowEvidenceOptions(
+                            reportDirectory: Path.Combine(successDirectory, "reports"))));
+                    Assert.Equal(1, invocations);
+                    Assert.Equal("true", Assert.Single(replay.Value!.Steps).Metadata["idempotencyReplay"]);
+                    Assert.Equal("passed", Assert.Single(replay.Value.Steps).Verification!.Status);
+
+                    status.Text = "pending";
+                    var failureDirectory = Path.Combine(artifactDirectory, "failure");
+                    var forcedScreenshotFailure = Path.Combine(
+                        failureDirectory,
+                        "failures",
+                        "1-save-again",
+                        "failure-screenshot.png");
+                    Directory.CreateDirectory(forcedScreenshotFailure);
+                    var failure = await new SemanticWorkflowRunner().RunAsync(
+                        client,
+                        new SemanticWorkflowRequest(
+                            runtime.SessionId,
+                            topLevelId,
+                            [
+                                new SemanticWorkflowStep(
+                                    SemanticWorkflowActions.Invoke,
+                                    "save-again",
+                                    new SemanticWorkflowSelector(automationId: "verify-save"),
+                                    verify: new SemanticWorkflowVerification(
+                                        new SemanticWaitCondition(SemanticWaitConditionKinds.Text, "never"),
+                                        new SemanticWorkflowSelector(automationId: "verify-status"),
+                                        timeoutMs: 75,
+                                        pollIntervalMs: 25))
+                            ],
+                            outputDirectory: failureDirectory,
+                            evidence: new SemanticWorkflowEvidenceOptions(
+                                reportDirectory: Path.Combine(failureDirectory, "reports"),
+                                treeDepth: 4,
+                                maxSelectorCandidates: 4)));
+
+                    Assert.True(failure.Success, failure.Error?.Message);
+                    Assert.Equal("failed", failure.Value!.Status);
+                    Assert.Equal(2, invocations);
+                    var failedStep = Assert.Single(failure.Value.Steps);
+                    Assert.Equal("failed", failedStep.Verification!.Status);
+                    Assert.Contains(failedStep.Diagnostics, diagnostic => diagnostic.Code == "semantic_workflow_wait_timeout");
+                    Assert.Equal("partial", failedStep.FailureEvidence!.Status);
+                    Assert.Contains("screenshot", failedStep.FailureEvidence.UnavailableEvidence);
+                    Assert.True(File.Exists(failedStep.FailureEvidence.InspectionPath));
+                    Assert.True(File.Exists(failedStep.FailureEvidence.VisualTreePath));
+                    Assert.True(File.Exists(failedStep.FailureEvidence.SelectorCandidatesPath));
+                    Assert.True(File.Exists(failedStep.FailureEvidence.ActiveTopLevelsPath));
+                    Assert.True(File.Exists(failedStep.FailureEvidence.WorkflowContextPath));
+                    Assert.Equal("failed", failure.Value.ReportPack!.Status);
+                    Assert.Contains(failure.Value.AgentReview.Failures, item => item.Code == "semantic_workflow_wait_timeout");
+                    var reportJson = JsonDocument.Parse(File.ReadAllText(Path.Combine(failureDirectory, "reports", "workflow-report.json")));
+                    Assert.Equal("failed", reportJson.RootElement.GetProperty("workflow").GetProperty("status").GetString());
+                    Assert.Contains("- Status: `failed`", File.ReadAllText(Path.Combine(failureDirectory, "reports", "workflow-report.md")), StringComparison.Ordinal);
+                    Assert.Contains("failures=\"1\"", File.ReadAllText(Path.Combine(failureDirectory, "reports", "workflow-junit.xml")), StringComparison.Ordinal);
+
+                    var actionFailureDirectory = Path.Combine(artifactDirectory, "action-failure");
+                    var actionFailure = await new SemanticWorkflowRunner().RunAsync(
+                        client,
+                        new SemanticWorkflowRequest(
+                            runtime.SessionId,
+                            topLevelId,
+                            [
+                                new SemanticWorkflowStep(
+                                    SemanticWorkflowActions.Invoke,
+                                    "missing-action",
+                                    new SemanticWorkflowSelector(automationId: "missing-save"),
+                                    verify: new SemanticWorkflowVerification(
+                                        new SemanticWaitCondition(SemanticWaitConditionKinds.Text, "saved"),
+                                        new SemanticWorkflowSelector(automationId: "verify-status")))
+                            ],
+                            outputDirectory: actionFailureDirectory,
+                            evidence: new SemanticWorkflowEvidenceOptions(
+                                includeScreenshot: false,
+                                exportReports: false)));
+                    var actionFailureStep = Assert.Single(actionFailure.Value!.Steps);
+                    Assert.Equal("failed", actionFailureStep.Status);
+                    Assert.Equal("not_run", actionFailureStep.Verification!.Status);
+                    Assert.Equal("false", actionFailureStep.Verification.Metadata["postconditionDispatched"]);
+                    Assert.NotNull(actionFailureStep.FailureEvidence);
+                    Assert.True(File.Exists(actionFailureStep.FailureEvidence.WorkflowContextPath));
+                    Assert.Equal(2, invocations);
+                }
+                finally
+                {
+                    window.Close();
+                    AvaScopeBridge.Deactivate();
+                    Dispatcher.UIThread.RunJobs();
+                }
+            }, CancellationToken.None);
+        }
+        finally
+        {
+            DisposeHeadlessSessionAfterExplicitCleanup(session);
+            DeleteDirectoryIfExists(artifactDirectory);
+        }
+    }
+
+    [Fact]
     public async Task SemanticWorkflowCompositionBranchesRetriesSkipsExpandsAndValidatesBeforeDispatch()
     {
         var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessTestApplication));
@@ -2899,7 +3087,18 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                                 waitCondition: new SemanticWaitCondition(SemanticWaitConditionKinds.Text, "ready"),
                                 steps: [new SemanticWorkflowStep(SemanticWorkflowActions.Inspect, "bounded-observe", new SemanticWorkflowSelector(automationId: "composition-status"))],
                                 maxAttempts: SemanticWorkflowLimits.MaximumRetryAttempts + 1,
-                                retryDelayMs: -1)
+                                retryDelayMs: -1),
+                            new SemanticWorkflowStep(
+                                SemanticWorkflowActions.Wait,
+                                "verify-non-action",
+                                waitMs: 0,
+                                verify: new SemanticWorkflowVerification(
+                                    new SemanticWaitCondition(SemanticWaitConditionKinds.TopLevelOpened))),
+                            new SemanticWorkflowStep(
+                                SemanticWorkflowActions.PickerResult,
+                                "verify-missing-selector",
+                                verify: new SemanticWorkflowVerification(
+                                    new SemanticWaitCondition(SemanticWaitConditionKinds.Text, "ready")))
                         ],
                         fragments: [cyclicA, cyclicB]);
                     var invalidResult = await new SemanticWorkflowRunner().RunAsync(client, invalid);
@@ -2915,6 +3114,8 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                     Assert.Contains("semantic_workflow_condition_required", codes);
                     Assert.Contains("semantic_workflow_retry_attempt_limit", codes);
                     Assert.Contains("semantic_workflow_retry_delay_limit", codes);
+                    Assert.Contains("semantic_workflow_verify_action_not_supported", codes);
+                    Assert.Contains("semantic_workflow_verify_selector_required", codes);
                     Assert.Equal(beforeValidation, transitionInvocations);
 
                     var oversized = new SemanticWorkflowRequest(
@@ -2945,6 +3146,27 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                     Assert.Equal("validation_failed", excessiveArtifacts.Value!.Status);
                     Assert.Contains(
                         excessiveArtifacts.Value.Diagnostics,
+                        diagnostic => diagnostic.Code == "semantic_workflow_artifact_limit");
+
+                    var excessiveVerificationArtifacts = await new SemanticWorkflowRunner().RunAsync(
+                        client,
+                        new SemanticWorkflowRequest(
+                            runtime.SessionId,
+                            topLevelId,
+                            Enumerable.Range(0, (SemanticWorkflowLimits.MaximumArtifacts / 2) + 1)
+                                .Select(index => new SemanticWorkflowStep(
+                                    SemanticWorkflowActions.Invoke,
+                                    $"verified-artifact-{index}",
+                                    new SemanticWorkflowSelector(automationId: "composition-transition"),
+                                    verify: new SemanticWorkflowVerification(
+                                        new SemanticWaitCondition(SemanticWaitConditionKinds.Text, "ready"),
+                                        new SemanticWorkflowSelector(automationId: "composition-status"),
+                                        captureScreenshots: true)))
+                                .ToArray(),
+                            validateOnly: true));
+                    Assert.Equal("validation_failed", excessiveVerificationArtifacts.Value!.Status);
+                    Assert.Contains(
+                        excessiveVerificationArtifacts.Value.Diagnostics,
                         diagnostic => diagnostic.Code == "semantic_workflow_artifact_limit");
 
                     var nestedStep = new SemanticWorkflowStep(SemanticWorkflowActions.Wait, "nested-leaf");

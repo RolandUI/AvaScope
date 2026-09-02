@@ -41,6 +41,9 @@ public sealed class StableSurfaceDocumentationTests
         Assert.Contains("baseline-report.html", stableSurface, StringComparison.Ordinal);
         Assert.Contains("baseline-junit.xml", stableSurface, StringComparison.Ordinal);
         Assert.Contains("baseline.sarif.json", stableSurface, StringComparison.Ordinal);
+        Assert.Contains("workflow-report.json", stableSurface, StringComparison.Ordinal);
+        Assert.Contains("workflow-report.md", stableSurface, StringComparison.Ordinal);
+        Assert.Contains("workflow-junit.xml", stableSurface, StringComparison.Ordinal);
         Assert.Contains("-before.png", stableSurface, StringComparison.Ordinal);
         Assert.Contains("-after.png", stableSurface, StringComparison.Ordinal);
         Assert.Contains("-review.html", stableSurface, StringComparison.Ordinal);

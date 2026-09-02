@@ -19,7 +19,8 @@ public sealed record SemanticWorkflowRequest
         IReadOnlyDictionary<string, string>? variables = null,
         IReadOnlyList<SemanticWorkflowFragment>? fragments = null,
         bool validateOnly = false,
-        int timeoutMs = SemanticWorkflowLimits.DefaultWorkflowTimeoutMs)
+        int timeoutMs = SemanticWorkflowLimits.DefaultWorkflowTimeoutMs,
+        SemanticWorkflowEvidenceOptions? evidence = null)
     {
         SessionId = sessionId ?? throw new ArgumentNullException(nameof(sessionId));
 
@@ -67,6 +68,7 @@ public sealed record SemanticWorkflowRequest
         Fragments = fragments ?? Array.Empty<SemanticWorkflowFragment>();
         ValidateOnly = validateOnly;
         TimeoutMs = timeoutMs;
+        Evidence = evidence;
     }
 
     [JsonPropertyName("requestId")]
@@ -113,4 +115,8 @@ public sealed record SemanticWorkflowRequest
 
     [JsonPropertyName("timeoutMs")]
     public int TimeoutMs { get; }
+
+    [JsonPropertyName("evidence")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public SemanticWorkflowEvidenceOptions? Evidence { get; }
 }

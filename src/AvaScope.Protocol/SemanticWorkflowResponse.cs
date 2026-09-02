@@ -17,7 +17,8 @@ public sealed record SemanticWorkflowResponse
         IReadOnlyList<ProtocolError>? diagnostics = null,
         IReadOnlyDictionary<string, string>? metadata = null,
         ResponseBudgetInfo? responseBudget = null,
-        SemanticWorkflowPlan? plan = null)
+        SemanticWorkflowPlan? plan = null,
+        AgentEvidenceReportPackResponse? reportPack = null)
     {
         if (string.IsNullOrWhiteSpace(requestId))
         {
@@ -42,6 +43,7 @@ public sealed record SemanticWorkflowResponse
         Metadata = metadata ?? new Dictionary<string, string>();
         ResponseBudget = responseBudget;
         Plan = plan;
+        ReportPack = reportPack;
     }
 
     [JsonPropertyName("requestId")]
@@ -82,4 +84,107 @@ public sealed record SemanticWorkflowResponse
     [JsonPropertyName("plan")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public SemanticWorkflowPlan? Plan { get; }
+
+    [JsonPropertyName("reportPack")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public AgentEvidenceReportPackResponse? ReportPack { get; }
+
+    [JsonPropertyName("agentReview")]
+    public AgentReviewSurface AgentReview => CreateAgentReview();
+
+    private AgentReviewSurface CreateAgentReview()
+    {
+        var failedSteps = Steps
+            .Where(static step => string.Equals(step.Status, "failed", StringComparison.Ordinal))
+            .ToArray();
+        var allFailures = failedSteps
+            .Select(step => new AgentReviewFailure(
+                "semantic_workflow",
+                step.Message,
+                step.Diagnostics.FirstOrDefault()?.Code,
+                step.FailureEvidence?.WorkflowContextPath))
+            .Concat(Diagnostics.Select(static diagnostic => new AgentReviewFailure(
+                "semantic_workflow",
+                diagnostic.Message,
+                diagnostic.Code)))
+            .Concat(Steps.SelectMany(static step =>
+                (step.Verification?.Diagnostics ?? [])
+                    .Concat(step.FailureEvidence?.Diagnostics ?? [])
+                    .Select(diagnostic => new AgentReviewFailure(
+                        "semantic_workflow_evidence",
+                        diagnostic.Message,
+                        diagnostic.Code,
+                        step.FailureEvidence?.WorkflowContextPath))))
+            .DistinctBy(static failure => (failure.Scope, failure.Code, failure.Message, failure.Path))
+            .ToArray();
+        var failures = allFailures.Take(AgentReviewSurface.MaximumFailureSummaries).ToArray();
+        var reports = ReportPack?.Assets
+            .Select(static asset => new AgentReviewPath(asset.Kind, asset.Path, asset.Url, asset.Description))
+            .Take(AgentReviewSurface.MaximumPaths)
+            .ToArray() ?? [];
+        var allArtifacts = Steps
+            .SelectMany(static step => EvidencePaths(step))
+            .ToArray();
+        var artifacts = allArtifacts.Take(AgentReviewSurface.MaximumPaths).ToArray();
+        var reviewStatus = string.Equals(Status, "passed", StringComparison.Ordinal)
+            && allFailures.Length > 0
+                ? "partial"
+                : Status;
+        return new AgentReviewSurface(
+            reviewStatus,
+            string.Equals(reviewStatus, "passed", StringComparison.Ordinal)
+                ? "Semantic workflow passed."
+                : string.Equals(reviewStatus, "validated", StringComparison.Ordinal)
+                    ? "Semantic workflow definition is valid."
+                    : string.Equals(reviewStatus, "partial", StringComparison.Ordinal)
+                        ? "Semantic workflow passed with partial evidence."
+                    : "Semantic workflow requires review.",
+            [
+                $"steps: {Steps.Count}",
+                $"failedSteps: {failedSteps.Length}",
+                $"verificationSteps: {Steps.Count(static step => step.Verification is not null)}",
+                $"failureEvidencePacks: {Steps.Count(static step => step.FailureEvidence is not null)}"
+            ],
+            failures,
+            reportPaths: reports,
+            artifactPaths: artifacts,
+            reviewUrls: reports.Select(static report => report.Url).Where(static url => url is not null).Cast<string>().ToArray(),
+            truncated: allFailures.Length > AgentReviewSurface.MaximumFailureSummaries
+                || allArtifacts.Length > AgentReviewSurface.MaximumPaths);
+    }
+
+    private static IEnumerable<AgentReviewPath> EvidencePaths(SemanticWorkflowStepResult step)
+    {
+        if (step.Verification?.BeforeScreenshot is not null)
+        {
+            yield return new AgentReviewPath("verification_before_screenshot", step.Verification.BeforeScreenshot.FilePath);
+        }
+
+        if (step.Verification?.AfterScreenshot is not null)
+        {
+            yield return new AgentReviewPath("verification_after_screenshot", step.Verification.AfterScreenshot.FilePath);
+        }
+
+        if (step.FailureEvidence is not { } evidence)
+        {
+            yield break;
+        }
+
+        yield return new AgentReviewPath("failure_evidence_directory", evidence.ArtifactDirectory);
+        foreach (var path in new[]
+        {
+            ("failure_inspection", evidence.InspectionPath),
+            ("failure_screenshot", evidence.ScreenshotPath),
+            ("failure_visual_tree", evidence.VisualTreePath),
+            ("failure_selector_candidates", evidence.SelectorCandidatesPath),
+            ("failure_active_top_levels", evidence.ActiveTopLevelsPath),
+            ("failure_workflow_context", evidence.WorkflowContextPath)
+        })
+        {
+            if (path.Item2 is not null)
+            {
+                yield return new AgentReviewPath(path.Item1, path.Item2);
+            }
+        }
+    }
 }

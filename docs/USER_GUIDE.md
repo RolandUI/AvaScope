@@ -699,7 +699,44 @@ Compose bounded workflows with `if`, `retry_until`, `optional`, request-level `v
 }
 ```
 
-Compilation happens before output-directory creation or Bridge dispatch. Set `validateOnly: true` to return status `validated`, an empty runtime step list, and the fully expanded `plan`; static failures return `validation_failed` with every bounded diagnostic found. Execution results remain chronological and add `executionPath`, `parentStepId`, `attempt`, and `sourceFragment`; branch exclusions and optional failures are `skipped`, while a non-final failed retry condition is `retried`. Cycles, missing fragments/arguments/variables, invalid shapes, unbounded retries, retry side effects without idempotency, and limit violations prevent all execution. Fixed limits are: nesting `8`, expanded plan steps `256`, estimated results `512`, fragments `32`, variables `64`, fragment parameters/arguments `16`, retry attempts `10`, total retry iterations `64`, screenshots `64`, and workflow timeout `300000` ms maximum. Existing response budgeting still writes the complete oversized JSON to a hash-addressed local artifact.
+Compilation happens before output-directory creation or Bridge dispatch. Set `validateOnly: true` to return status `validated`, an empty runtime step list, and the fully expanded `plan`; static failures return `validation_failed` with every bounded diagnostic found. Execution results remain chronological and add `executionPath`, `parentStepId`, `attempt`, and `sourceFragment`; branch exclusions and optional failures are `skipped`, while a non-final failed retry condition is `retried`. Cycles, missing fragments/arguments/variables, invalid shapes, unbounded retries, retry side effects without idempotency, and limit violations prevent all execution. Fixed limits are: nesting `8`, expanded plan steps `256`, estimated results `512`, fragments `32`, variables `64`, fragment parameters/arguments `16`, retry attempts `10`, total retry iterations `64`, artifacts `64`, and workflow timeout `300000` ms maximum. Existing response budgeting still writes the complete oversized JSON to a hash-addressed local artifact.
+
+Side-effecting semantic actions may add `verify`. AvaScope optionally captures the selected pre-state, executes the action once, then uses the same typed selector/wait evaluator to bound the postcondition. The action step is `passed` only when the postcondition matches; timeout or unavailable state changes the step to `failed` while preserving the action result, last observation, and pre/post evidence. `verify.selector` and `verify.topLevelAlias` override the action target for observation; otherwise they inherit the action selector and alias. `captureBefore` and `captureAfter` default to `true`, while `captureScreenshots` is explicitly opt-in.
+
+```json
+{
+  "sessionId": "session-id",
+  "topLevelId": "topLevel:1234",
+  "outputDirectory": "artifacts/workflows/save",
+  "evidence": {
+    "captureOnFailure": true,
+    "includeScreenshot": true,
+    "includeVisualTree": true,
+    "includeActiveTopLevels": true,
+    "includeSelectorCandidates": true,
+    "exportReports": true,
+    "reportDirectory": "artifacts/workflows/save/reports",
+    "treeDepth": 4,
+    "maxSelectorCandidates": 8
+  },
+  "steps": [
+    {
+      "id": "save",
+      "action": "invoke",
+      "selector": { "automationId": "save-button" },
+      "verify": {
+        "selector": { "automationId": "save-status" },
+        "condition": { "kind": "text", "expected": "Saved" },
+        "timeoutMs": 5000,
+        "pollIntervalMs": 100,
+        "captureScreenshots": true
+      }
+    }
+  ]
+}
+```
+
+When `evidence.captureOnFailure` is enabled, the first terminal failed action receives `failureEvidence` with stable paths for every available inspection, screenshot, bounded visual tree, selector-candidate set, active top-level list, and adjacent authored/executed workflow context. Inspection data carries visible/enabled/bounds, available actions, binding state, and validation state; `unavailableEvidence` names every diagnostic class the runtime could not provide. Artifact errors do not erase the action or verification result and produce `partial` or `unavailable` evidence status. With `exportReports`, `reportPack` references `workflow-report.json`, `workflow-report.md`, and `workflow-junit.xml`; all three use the same workflow and step PASS/FAIL state. `agentReview` provides the bounded failure shortlist and report/artifact paths. The same fields are available through `run-workflow`, `run_workflow`, `run-scenario`, and `run_scenario`.
 
 Deterministic workflows can use `wait_for_node`, `wait_for_state`, and `wait_for_dialog`. Each wait accepts `timeoutMs` (default `5000`, maximum `60000`) and `pollIntervalMs` (default `100`, range `25`–`5000`), uses cancellation-aware bounded polling, and resolves its selector again on every poll. `wait_for_node` accepts `exists` and `disappears`; `wait_for_state` accepts `visible`, `hidden`, `enabled`, `disabled`, `checked`, `unchecked`, `selected_value`, `text`, `value`, `rendered`, `command_executable`, `binding_value`, `top_level_opened`, `top_level_closed`, and `change_from_baseline`. Comparisons are typed and support `equals`, `not_equals`, numeric ordering, and `changed`. A successful step exposes `waitObservation`; a failure distinguishes unavailable state (`semantic_workflow_wait_state_unavailable`) from a false condition that timed out (`semantic_workflow_wait_timeout`). Timeout metadata contains the last typed observation, elapsed time, bounded ambiguity candidates when present, and a next action. The compatible `assertProperty`/`expected` form remains supported.
 

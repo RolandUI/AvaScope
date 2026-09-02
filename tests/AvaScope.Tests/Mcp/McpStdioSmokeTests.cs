@@ -90,6 +90,8 @@ public sealed class McpStdioSmokeTests
         Assert.Contains("if/else", workflow.ProtocolTool.Description, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("retry_until", workflow.ProtocolTool.Description, StringComparison.Ordinal);
         Assert.Contains("validateOnly", workflow.ProtocolTool.Description, StringComparison.Ordinal);
+        Assert.Contains("postcondition", workflow.ProtocolTool.Description, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("JUnit", workflow.ProtocolTool.Description, StringComparison.Ordinal);
         Assert.Contains(
             "\"waitCondition\"",
             JsonSerializer.Serialize(workflow.ProtocolTool.InputSchema),
@@ -119,11 +121,31 @@ public sealed class McpStdioSmokeTests
             JsonSerializer.Serialize(workflow.ProtocolTool.InputSchema),
             StringComparison.Ordinal);
         Assert.Contains(
+            "\"verify\"",
+            JsonSerializer.Serialize(workflow.ProtocolTool.InputSchema),
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "\"evidence\"",
+            JsonSerializer.Serialize(workflow.ProtocolTool.InputSchema),
+            StringComparison.Ordinal);
+        Assert.Contains(
             "\"executionPath\"",
             JsonSerializer.Serialize(workflow.ProtocolTool.OutputSchema),
             StringComparison.Ordinal);
         Assert.Contains(
             "\"plan\"",
+            JsonSerializer.Serialize(workflow.ProtocolTool.OutputSchema),
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "\"verification\"",
+            JsonSerializer.Serialize(workflow.ProtocolTool.OutputSchema),
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "\"failureEvidence\"",
+            JsonSerializer.Serialize(workflow.ProtocolTool.OutputSchema),
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "\"reportPack\"",
             JsonSerializer.Serialize(workflow.ProtocolTool.OutputSchema),
             StringComparison.Ordinal);
         var scenario = Assert.Single(tools, static tool => tool.Name == "run_scenario");

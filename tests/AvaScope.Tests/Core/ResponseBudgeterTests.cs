@@ -138,6 +138,62 @@ public sealed class ResponseBudgeterTests
     }
 
     [Fact]
+    public void WorkflowEvidenceUsesSharedBudgetAndPreservesReportReferences()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var root = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", $"budget-evidence-{Guid.NewGuid():N}");
+        var evidence = new SemanticWorkflowFailureEvidence(
+            "partial",
+            Path.Combine(root, "failure"),
+            unavailableEvidence: ["screenshot", "binding_diagnostics"],
+            diagnostics: [new ProtocolError("artifact_unavailable", new string('x', 1024))]);
+        var reportPack = new AgentEvidenceReportPackResponse(
+            Path.Combine(root, "reports"),
+            "failed",
+            now,
+            1,
+            0,
+            1,
+            [
+                new AgentEvidenceReportPackAsset(
+                    "json",
+                    Path.Combine(root, "reports", "workflow-report.json"),
+                    "application/json")
+            ]);
+        var response = new SemanticWorkflowResponse(
+            "budget-workflow-evidence",
+            new SessionId("budget-session"),
+            "topLevel:main",
+            "failed",
+            now,
+            now,
+            [
+                new SemanticWorkflowStepResult(
+                    "save",
+                    SemanticWorkflowActions.Invoke,
+                    "failed",
+                    "Verification failed.",
+                    now,
+                    failureEvidence: evidence)
+            ],
+            reportPack: reportPack);
+
+        var bounded = ResponseBudgeter.Apply(
+            response,
+            maxInlineBytes: 256,
+            maxItems: 2,
+            maxDepth: 8);
+
+        Assert.Empty(bounded.Steps);
+        Assert.Same(reportPack, bounded.ReportPack);
+        Assert.True(File.Exists(bounded.ResponseBudget!.ArtifactPath));
+        var artifact = JsonSerializer.Deserialize<SemanticWorkflowResponse>(
+            File.ReadAllText(bounded.ResponseBudget.ArtifactPath!));
+        Assert.Equal("partial", Assert.Single(artifact!.Steps).FailureEvidence!.Status);
+        Assert.Equal("failed", artifact.ReportPack!.Status);
+    }
+
+    [Fact]
     public void DiagnosticsBudgetUsesSharedItemPolicy()
     {
         var issues = Enumerable.Range(0, 4)

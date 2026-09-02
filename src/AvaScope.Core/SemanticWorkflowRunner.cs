@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Diagnostics;
+using System.Text;
 using System.Text.Json;
 using AvaScope.Protocol;
 
@@ -7,6 +8,11 @@ namespace AvaScope.Core;
 
 public sealed class SemanticWorkflowRunner
 {
+    private static readonly JsonSerializerOptions EvidenceJsonOptions = new(JsonSerializerDefaults.Web)
+    {
+        WriteIndented = true
+    };
+
     private static readonly string[] DestructiveTokens =
     [
         "delete",
@@ -57,7 +63,8 @@ public sealed class SemanticWorkflowRunner
         var context = new CompositionExecutionContext(
             request,
             bridgeClient,
-            new WorkflowIdempotencyStore(bridgeClient.ManifestDirectory));
+            new WorkflowIdempotencyStore(bridgeClient.ManifestDirectory),
+            compiled.Plan);
         try
         {
             await ExecuteNodesAsync(context, compiled.Roots, attempt: null, workflowCancellation.Token);
@@ -80,7 +87,7 @@ public sealed class SemanticWorkflowRunner
             ? "passed"
             : "failed";
 
-        return CoreResult<SemanticWorkflowResponse>.Ok(new SemanticWorkflowResponse(
+        var response = new SemanticWorkflowResponse(
             request.RequestId,
             request.SessionId,
             request.TopLevelId,
@@ -95,7 +102,75 @@ public sealed class SemanticWorkflowRunner
                 compiled.Plan,
                 context.ReplayCount,
                 context.Results.Count),
-            plan: compiled.Plan));
+            plan: compiled.Plan);
+        if (request.Evidence is not { ExportReports: true })
+        {
+            return CoreResult<SemanticWorkflowResponse>.Ok(response);
+        }
+
+        var reportDirectory = request.Evidence.ReportDirectory
+            ?? Path.Combine(ResolveArtifactRoot(request), "reports");
+        var report = new SemanticWorkflowReportPackExporter().Export(response, reportDirectory);
+        if (!report.Success)
+        {
+            var diagnostics = response.Diagnostics
+                .Append(ToProtocolError(report.Error!))
+                .ToArray();
+            response = new SemanticWorkflowResponse(
+                response.RequestId,
+                response.SessionId,
+                response.TopLevelId,
+                response.Status,
+                response.StartedAt,
+                response.CompletedAt,
+                response.Steps,
+                response.IsolatedStateStatus,
+                diagnostics,
+                response.Metadata,
+                plan: response.Plan);
+            return CoreResult<SemanticWorkflowResponse>.Ok(response);
+        }
+
+        if (string.Equals(report.Value!.Status, "partial", StringComparison.Ordinal))
+        {
+            var diagnostics = response.Diagnostics
+                .Append(new ProtocolError(
+                    "semantic_workflow_report_partial",
+                    "One or more requested workflow report assets could not be written.",
+                    report.Value.Metadata))
+                .ToArray();
+            response = new SemanticWorkflowResponse(
+                response.RequestId,
+                response.SessionId,
+                response.TopLevelId,
+                response.Status,
+                response.StartedAt,
+                response.CompletedAt,
+                response.Steps,
+                response.IsolatedStateStatus,
+                diagnostics,
+                response.Metadata,
+                plan: response.Plan,
+                reportPack: report.Value);
+        }
+        else
+        {
+            response = new SemanticWorkflowResponse(
+                response.RequestId,
+                response.SessionId,
+                response.TopLevelId,
+                response.Status,
+                response.StartedAt,
+                response.CompletedAt,
+                response.Steps,
+                response.IsolatedStateStatus,
+                response.Diagnostics,
+                response.Metadata,
+                plan: response.Plan,
+                reportPack: report.Value);
+        }
+
+        return CoreResult<SemanticWorkflowResponse>.Ok(response);
     }
 
     private static IReadOnlyDictionary<string, string> CreateWorkflowMetadata(
@@ -115,7 +190,10 @@ public sealed class SemanticWorkflowRunner
             ["topLevelResolution"] = request.TopLevelAliases.Count == 0 ? "root_runtime_id" : "semantic_alias_per_use",
             ["composition"] = "bounded_if_else_optional_retry_variables_fragments",
             ["validationOnly"] = request.ValidateOnly.ToString().ToLowerInvariant(),
-            ["workflowTimeoutMs"] = request.TimeoutMs.ToString(CultureInfo.InvariantCulture)
+            ["workflowTimeoutMs"] = request.TimeoutMs.ToString(CultureInfo.InvariantCulture),
+            ["verification"] = "observe_act_typed_wait_verify",
+            ["failureEvidence"] = request.Evidence is null ? "not_requested" : "bounded_request_policy",
+            ["reportExport"] = request.Evidence?.ExportReports == true ? "json_markdown_junit" : "not_requested"
         };
     }
 
@@ -163,6 +241,15 @@ public sealed class SemanticWorkflowRunner
         int? attempt,
         CancellationToken cancellationToken)
     {
+        var verificationStartedAt = DateTimeOffset.UtcNow;
+        var before = node.Step.Verify is { CaptureBefore: true }
+            ? await CaptureVerificationSnapshotAsync(
+                context,
+                node,
+                "before",
+                node.Step.Verify.CaptureScreenshots,
+                cancellationToken)
+            : VerificationSnapshot.Empty;
         var result = await ExecuteStepWithIdempotencyAsync(
             context.BridgeClient,
             context.IdempotencyStore,
@@ -171,6 +258,33 @@ public sealed class SemanticWorkflowRunner
             context.Results.Count,
             cancellationToken,
             node.ParentStepId is null ? null : node.ExecutionPath);
+        if (node.Step.Verify is not null)
+        {
+            result = string.Equals(result.Status, "passed", StringComparison.Ordinal)
+                ? await VerifyActionAsync(
+                    context,
+                    node,
+                    result,
+                    before,
+                    verificationStartedAt,
+                    cancellationToken)
+                : WithVerification(
+                    result,
+                    new SemanticWorkflowVerificationResult(
+                        "not_run",
+                        node.Step.Verify.Condition,
+                        verificationStartedAt,
+                        DateTimeOffset.UtcNow,
+                        before.Inspection,
+                        beforeScreenshot: before.Screenshot,
+                        diagnostics: before.Diagnostics,
+                        metadata: new Dictionary<string, string>
+                        {
+                            ["reason"] = "action_failed",
+                            ["postconditionDispatched"] = "false"
+                        }));
+        }
+
         result = WithCompositionEvidence(result, node, attempt);
         var replayed = result.Metadata.TryGetValue("idempotencyReplay", out var replay)
             && string.Equals(replay, "true", StringComparison.Ordinal);
@@ -182,6 +296,16 @@ public sealed class SemanticWorkflowRunner
         if (result.Status == "failed" && node.Step.Optional)
         {
             result = AsOptionalSkipped(result);
+        }
+
+        if (result.Status == "failed" && context.Request.Evidence is { CaptureOnFailure: true })
+        {
+            var failureEvidence = await CaptureFailureEvidenceAsync(
+                context,
+                node,
+                result,
+                cancellationToken);
+            result = WithFailureEvidence(result, failureEvidence);
         }
 
         context.Results.Add(result);
@@ -221,6 +345,571 @@ public sealed class SemanticWorkflowRunner
         }
 
         return true;
+    }
+
+    private static async Task<SemanticWorkflowStepResult> VerifyActionAsync(
+        CompositionExecutionContext context,
+        CompiledWorkflowNode node,
+        SemanticWorkflowStepResult actionResult,
+        VerificationSnapshot before,
+        DateTimeOffset startedAt,
+        CancellationToken cancellationToken)
+    {
+        var verification = node.Step.Verify!;
+        var probe = new SemanticWorkflowStep(
+            SemanticWorkflowActions.WaitForState,
+            $"{node.Step.Id}:verify",
+            verification.Selector ?? node.Step.Selector,
+            timeoutMs: verification.TimeoutMs,
+            pollIntervalMs: verification.PollIntervalMs,
+            waitCondition: verification.Condition,
+            topLevelAlias: verification.TopLevelAlias ?? node.Step.TopLevelAlias);
+        var wait = await WaitForConditionAsync(
+            context.BridgeClient,
+            context.Request,
+            probe,
+            verification.Condition,
+            cancellationToken);
+        var after = verification.CaptureAfter
+            ? await CaptureVerificationSnapshotAsync(
+                context,
+                node,
+                "after",
+                verification.CaptureScreenshots,
+                cancellationToken)
+            : VerificationSnapshot.Empty;
+        var passed = string.Equals(wait.Status, "passed", StringComparison.Ordinal);
+        var diagnostics = before.Diagnostics
+            .Concat(wait.Diagnostics)
+            .Concat(after.Diagnostics)
+            .ToArray();
+        var metadata = new Dictionary<string, string>(wait.Metadata, StringComparer.Ordinal)
+        {
+            ["postconditionDispatched"] = "true",
+            ["condition"] = verification.Condition.Kind,
+            ["timeoutMs"] = verification.TimeoutMs.ToString(CultureInfo.InvariantCulture),
+            ["pollIntervalMs"] = verification.PollIntervalMs.ToString(CultureInfo.InvariantCulture),
+            ["captureBefore"] = verification.CaptureBefore.ToString().ToLowerInvariant(),
+            ["captureAfter"] = verification.CaptureAfter.ToString().ToLowerInvariant(),
+            ["captureScreenshots"] = verification.CaptureScreenshots.ToString().ToLowerInvariant(),
+            ["artifactStatus"] = before.Diagnostics.Count + after.Diagnostics.Count == 0 ? "complete" : "partial"
+        };
+        var result = new SemanticWorkflowVerificationResult(
+            passed ? "passed" : "failed",
+            verification.Condition,
+            startedAt,
+            DateTimeOffset.UtcNow,
+            before.Inspection,
+            verification.CaptureAfter ? after.Inspection ?? wait.Inspection : null,
+            before.Screenshot,
+            after.Screenshot,
+            wait.WaitObservation,
+            diagnostics,
+            metadata);
+        return WithVerification(actionResult, result);
+    }
+
+    private static async Task<VerificationSnapshot> CaptureVerificationSnapshotAsync(
+        CompositionExecutionContext context,
+        CompiledWorkflowNode node,
+        string phase,
+        bool captureScreenshot,
+        CancellationToken cancellationToken)
+    {
+        var verification = node.Step.Verify!;
+        var diagnostics = new List<ProtocolError>();
+        var request = context.Request;
+        var alias = verification.TopLevelAlias ?? node.Step.TopLevelAlias;
+        if (alias is not null)
+        {
+            var topLevel = await ResolveTopLevelAliasAsync(
+                context.BridgeClient,
+                request,
+                alias,
+                cancellationToken);
+            if (topLevel.Success)
+            {
+                request = WithTopLevelId(request, topLevel.Value!.Summary.Id);
+            }
+            else
+            {
+                diagnostics.Add(ToProtocolError(topLevel.Error!));
+            }
+        }
+
+        InspectNodeResponse? inspection = null;
+        var selector = verification.Selector ?? node.Step.Selector;
+        if (!string.IsNullOrWhiteSpace(request.TopLevelId) && selector is { HasSearchCriteria: true })
+        {
+            var target = await ResolveSelectorAsync(
+                context.BridgeClient,
+                request,
+                selector,
+                $"Verification {phase} snapshot",
+                cancellationToken);
+            if (target.Success)
+            {
+                var inspect = await context.BridgeClient.InspectNodeAsync(
+                    request.SessionId,
+                    request.TopLevelId!,
+                    target.Value!.Target.TreeKind ?? TreeKinds.Visual,
+                    target.Value.Target.NodeId!,
+                    cancellationToken);
+                if (inspect.Success)
+                {
+                    inspection = inspect.Value;
+                }
+                else
+                {
+                    diagnostics.Add(ToProtocolError(inspect.Error!));
+                }
+            }
+            else
+            {
+                diagnostics.Add(ToProtocolError(target.Error!));
+            }
+        }
+
+        ScreenshotResponse? screenshot = null;
+        if (captureScreenshot && !string.IsNullOrWhiteSpace(request.TopLevelId))
+        {
+            try
+            {
+                var directory = Path.Combine(
+                    ResolveArtifactRoot(context.Request),
+                    "verification",
+                    SafeArtifactName(node.ExecutionPath));
+                Directory.CreateDirectory(directory);
+                var capture = await context.BridgeClient.CaptureScreenshotAsync(
+                    request.SessionId,
+                    request.TopLevelId!,
+                    Path.Combine(directory, $"{phase}.png"),
+                    cancellationToken);
+                if (capture.Success)
+                {
+                    screenshot = capture.Value;
+                }
+                else
+                {
+                    diagnostics.Add(ToProtocolError(capture.Error!));
+                }
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+            {
+                diagnostics.Add(new ProtocolError(
+                    "semantic_workflow_verification_artifact_unavailable",
+                    $"Verification {phase} screenshot could not be created: {exception.Message}"));
+            }
+        }
+
+        return new VerificationSnapshot(inspection, screenshot, diagnostics);
+    }
+
+    private static async Task<SemanticWorkflowFailureEvidence> CaptureFailureEvidenceAsync(
+        CompositionExecutionContext context,
+        CompiledWorkflowNode node,
+        SemanticWorkflowStepResult failedResult,
+        CancellationToken cancellationToken)
+    {
+        var options = context.Request.Evidence!;
+        var directory = Path.Combine(
+            ResolveArtifactRoot(context.Request),
+            "failures",
+            SafeArtifactName(node.ExecutionPath));
+        var unavailable = new List<string>();
+        var diagnostics = new List<ProtocolError>();
+        try
+        {
+            Directory.CreateDirectory(directory);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+        {
+            var diagnostic = new ProtocolError(
+                "semantic_workflow_failure_evidence_unavailable",
+                $"Failure evidence directory could not be created: {exception.Message}");
+            return new SemanticWorkflowFailureEvidence(
+                "unavailable",
+                directory,
+                unavailableEvidence: ["artifact_directory"],
+                diagnostics: [diagnostic]);
+        }
+
+        var request = context.Request;
+        var alias = node.Step.Verify?.TopLevelAlias ?? node.Step.TopLevelAlias;
+        var verificationResolvedTopLevelId = failedResult.Verification?.Metadata.TryGetValue(
+            "resolvedTopLevelId",
+            out var verificationTopLevelId) == true
+                ? verificationTopLevelId
+                : null;
+        var resolvedTopLevelId = verificationResolvedTopLevelId
+            ?? failedResult.Verification?.AfterInspection?.TopLevelId
+            ?? failedResult.Target?.TopLevelId
+            ?? failedResult.ResolvedTopLevelId;
+        if (resolvedTopLevelId is null && alias is not null)
+        {
+            var topLevel = await ResolveTopLevelAliasAsync(
+                context.BridgeClient,
+                request,
+                alias,
+                cancellationToken);
+            if (topLevel.Success)
+            {
+                resolvedTopLevelId = topLevel.Value!.Summary.Id;
+            }
+            else
+            {
+                AddUnavailable("resolved_top_level", topLevel.Error!);
+            }
+        }
+
+        resolvedTopLevelId ??= request.TopLevelId;
+        if (resolvedTopLevelId is not null)
+        {
+            request = WithTopLevelId(request, resolvedTopLevelId);
+        }
+
+        var selector = node.Step.Verify?.Selector ?? node.Step.Selector;
+        var inspection = failedResult.Verification?.AfterInspection
+            ?? failedResult.Inspection;
+        if (inspection is null
+            && resolvedTopLevelId is not null
+            && selector is { HasSearchCriteria: true })
+        {
+            var target = await ResolveSelectorAsync(
+                context.BridgeClient,
+                request,
+                selector,
+                "Failure evidence",
+                cancellationToken);
+            if (target.Success)
+            {
+                var inspect = await context.BridgeClient.InspectNodeAsync(
+                    request.SessionId,
+                    resolvedTopLevelId,
+                    target.Value!.Target.TreeKind ?? TreeKinds.Visual,
+                    target.Value.Target.NodeId!,
+                    cancellationToken);
+                if (inspect.Success)
+                {
+                    inspection = inspect.Value;
+                }
+                else
+                {
+                    AddUnavailable("inspection", inspect.Error!);
+                }
+            }
+            else
+            {
+                AddUnavailable("inspection", target.Error!);
+            }
+        }
+
+        string? inspectionPath = null;
+        if (inspection is not null)
+        {
+            inspectionPath = WriteJson("inspection", "inspection.json", inspection);
+            if (inspection.InteractionState is null)
+            {
+                MarkUnavailable("interaction_state");
+            }
+
+            if (inspection.BindingState is null)
+            {
+                MarkUnavailable("binding_diagnostics");
+            }
+
+            if (inspection.ValidationState is null)
+            {
+                MarkUnavailable("validation_diagnostics");
+            }
+        }
+        else
+        {
+            MarkUnavailable("inspection");
+        }
+
+        string? screenshotPath = null;
+        if (options.IncludeScreenshot)
+        {
+            if (resolvedTopLevelId is null)
+            {
+                MarkUnavailable("screenshot");
+            }
+            else
+            {
+                var path = Path.Combine(directory, "failure-screenshot.png");
+                var capture = await context.BridgeClient.CaptureScreenshotAsync(
+                    request.SessionId,
+                    resolvedTopLevelId,
+                    path,
+                    cancellationToken);
+                if (capture.Success)
+                {
+                    screenshotPath = capture.Value!.FilePath;
+                }
+                else
+                {
+                    AddUnavailable("screenshot", capture.Error!);
+                }
+            }
+        }
+
+        TreeResponse? visualTree = null;
+        string? visualTreePath = null;
+        if (options.IncludeVisualTree && resolvedTopLevelId is not null)
+        {
+            var tree = await context.BridgeClient.VisualTreeAsync(
+                request.SessionId,
+                resolvedTopLevelId,
+                options.TreeDepth,
+                cancellationToken);
+            if (tree.Success)
+            {
+                visualTree = tree.Value;
+                visualTreePath = WriteJson("visual_tree", "visual-tree.json", tree.Value!);
+            }
+            else
+            {
+                AddUnavailable("visual_tree", tree.Error!);
+            }
+        }
+        else if (options.IncludeVisualTree)
+        {
+            MarkUnavailable("visual_tree");
+        }
+
+        string? candidatesPath = null;
+        if (options.IncludeSelectorCandidates)
+        {
+            if (resolvedTopLevelId is null || selector is not { HasSearchCriteria: true })
+            {
+                MarkUnavailable("selector_candidates");
+            }
+            else if (!string.IsNullOrWhiteSpace(selector.BindingPath) || !string.IsNullOrWhiteSpace(selector.CommandName))
+            {
+                if (visualTree is null)
+                {
+                    var tree = await context.BridgeClient.VisualTreeAsync(
+                        request.SessionId,
+                        resolvedTopLevelId,
+                        options.TreeDepth,
+                        cancellationToken);
+                    if (tree.Success)
+                    {
+                        visualTree = tree.Value;
+                    }
+                    else
+                    {
+                        AddUnavailable("selector_candidates", tree.Error!);
+                    }
+                }
+
+                if (visualTree is not null)
+                {
+                    var candidates = EnumerateNodes(visualTree.Root)
+                        .Where(candidate => MatchesSourceMappedSelector(candidate, selector))
+                        .Take(options.MaxSelectorCandidates)
+                        .ToArray();
+                    candidatesPath = WriteJson("selector_candidates", "selector-candidates.json", new
+                    {
+                        selector,
+                        candidates,
+                        truncated = candidates.Length == options.MaxSelectorCandidates
+                    });
+                }
+            }
+            else if (!string.IsNullOrWhiteSpace(selector.NodeId))
+            {
+                candidatesPath = WriteJson("selector_candidates", "selector-candidates.json", new
+                {
+                    selector,
+                    candidates = inspection is null ? [] : new[] { inspection },
+                    truncated = false
+                });
+            }
+            else
+            {
+                var candidates = await context.BridgeClient.FindNodesAsync(
+                    request.SessionId,
+                    resolvedTopLevelId,
+                    selector.TreeKind,
+                    selector.NodeType ?? selector.Role,
+                    selector.Name,
+                    selector.AutomationId,
+                    selector.Text,
+                    selector.MaxDepth ?? options.TreeDepth,
+                    options.MaxSelectorCandidates,
+                    cancellationToken,
+                    visible: selector.Visible,
+                    enabled: selector.Enabled,
+                    rendered: selector.Rendered,
+                    actionable: selector.Actionable);
+                if (candidates.Success)
+                {
+                    candidatesPath = WriteJson("selector_candidates", "selector-candidates.json", candidates.Value!);
+                }
+                else
+                {
+                    AddUnavailable("selector_candidates", candidates.Error!);
+                }
+            }
+        }
+
+        string? topLevelsPath = null;
+        if (options.IncludeActiveTopLevels)
+        {
+            var topLevels = await context.BridgeClient.ListTopLevelsAsync(request.SessionId, cancellationToken);
+            if (topLevels.Success)
+            {
+                topLevelsPath = WriteJson("active_top_levels", "active-top-levels.json", topLevels.Value!);
+            }
+            else
+            {
+                AddUnavailable("active_top_levels", topLevels.Error!);
+            }
+        }
+
+        var planIndex = context.Plan.Steps
+            .Select((item, index) => (item, index))
+            .FirstOrDefault(item => string.Equals(item.item.ExecutionPath, node.ExecutionPath, StringComparison.Ordinal))
+            .index;
+        var adjacentPlan = context.Plan.Steps
+            .Skip(Math.Max(0, planIndex - 2))
+            .Take(5)
+            .ToArray();
+        var contextPath = WriteJson("workflow_context", "workflow-context.json", new
+        {
+            requestId = request.RequestId,
+            failedStep = failedResult,
+            previousSteps = context.Results.TakeLast(2).ToArray(),
+            adjacentPlan,
+            diagnostics = failedResult.Diagnostics
+        });
+
+        var status = unavailable.Count == 0
+            ? "captured"
+            : unavailable.Count >= 5
+                ? "unavailable"
+                : "partial";
+        return new SemanticWorkflowFailureEvidence(
+            status,
+            directory,
+            inspectionPath,
+            screenshotPath,
+            visualTreePath,
+            candidatesPath,
+            topLevelsPath,
+            contextPath,
+            unavailable.Distinct(StringComparer.Ordinal).ToArray(),
+            diagnostics);
+
+        string? WriteJson<T>(string evidenceKind, string fileName, T value)
+        {
+            try
+            {
+                var path = Path.Combine(directory, fileName);
+                File.WriteAllText(path, JsonSerializer.Serialize(value, EvidenceJsonOptions), Encoding.UTF8);
+                return path;
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException or NotSupportedException)
+            {
+                diagnostics.Add(new ProtocolError(
+                    "semantic_workflow_failure_evidence_artifact_unavailable",
+                    $"Failure evidence '{evidenceKind}' could not be written: {exception.Message}"));
+                MarkUnavailable(evidenceKind);
+                return null;
+            }
+        }
+
+        void AddUnavailable(string evidenceKind, CoreError error)
+        {
+            diagnostics.Add(ToProtocolError(error));
+            MarkUnavailable(evidenceKind);
+        }
+
+        void MarkUnavailable(string evidenceKind)
+        {
+            unavailable.Add(evidenceKind);
+        }
+    }
+
+    private static SemanticWorkflowStepResult WithVerification(
+        SemanticWorkflowStepResult result,
+        SemanticWorkflowVerificationResult verification)
+    {
+        var failed = string.Equals(verification.Status, "failed", StringComparison.Ordinal);
+        return new SemanticWorkflowStepResult(
+            result.StepId,
+            result.Action,
+            failed ? "failed" : result.Status,
+            failed ? $"Action completed but verification failed: {verification.Diagnostics.FirstOrDefault()?.Message ?? "postcondition did not match"}" : result.Message,
+            result.ExecutedAt,
+            result.Target,
+            result.Input,
+            result.Inspection,
+            result.Screenshot,
+            failed ? result.Diagnostics.Concat(verification.Diagnostics).ToArray() : result.Diagnostics,
+            result.Metadata,
+            result.Picker,
+            result.Mutation,
+            result.CustomActions,
+            result.CustomAction,
+            result.WaitObservation,
+            result.TopLevelAlias,
+            result.ResolvedTopLevelId,
+            result.ExecutionPath,
+            result.ParentStepId,
+            result.Attempt,
+            result.SourceFragment,
+            verification,
+            result.FailureEvidence);
+    }
+
+    private static SemanticWorkflowStepResult WithFailureEvidence(
+        SemanticWorkflowStepResult result,
+        SemanticWorkflowFailureEvidence failureEvidence)
+    {
+        return new SemanticWorkflowStepResult(
+            result.StepId,
+            result.Action,
+            result.Status,
+            result.Message,
+            result.ExecutedAt,
+            result.Target,
+            result.Input,
+            result.Inspection,
+            result.Screenshot,
+            result.Diagnostics.Concat(failureEvidence.Diagnostics).ToArray(),
+            result.Metadata,
+            result.Picker,
+            result.Mutation,
+            result.CustomActions,
+            result.CustomAction,
+            result.WaitObservation,
+            result.TopLevelAlias,
+            result.ResolvedTopLevelId,
+            result.ExecutionPath,
+            result.ParentStepId,
+            result.Attempt,
+            result.SourceFragment,
+            result.Verification,
+            failureEvidence);
+    }
+
+    private static string ResolveArtifactRoot(SemanticWorkflowRequest request) =>
+        request.OutputDirectory
+        ?? request.Evidence?.ReportDirectory
+        ?? Path.Combine(Path.GetTempPath(), "AvaScope", "workflows", request.RequestId);
+
+    private static string SafeArtifactName(string value)
+    {
+        var safe = new string(value
+            .Select(static character => char.IsLetterOrDigit(character) || character is '.' or '_' or '-'
+                ? character
+                : '-')
+            .ToArray())
+            .Trim('-', '.');
+        return string.IsNullOrWhiteSpace(safe) ? "workflow-step" : safe;
     }
 
     private static async Task<bool> ExecuteIfAsync(
@@ -518,7 +1207,9 @@ public sealed class SemanticWorkflowRunner
             result.ExecutionPath,
             result.ParentStepId,
             result.Attempt,
-            result.SourceFragment);
+            result.SourceFragment,
+            result.Verification,
+            result.FailureEvidence);
     }
 
     private static SemanticWorkflowStepResult WithCompositionEvidence(
@@ -573,7 +1264,9 @@ public sealed class SemanticWorkflowRunner
             node.ExecutionPath,
             node.ParentStepId,
             attempt,
-            node.SourceFragment);
+            node.SourceFragment,
+            result.Verification,
+            result.FailureEvidence);
     }
 
     private static int CountNestingDepth(string executionPath) =>
@@ -2069,7 +2762,8 @@ public sealed class SemanticWorkflowRunner
             request.Variables,
             request.Fragments,
             request.ValidateOnly,
-            request.TimeoutMs);
+            request.TimeoutMs,
+            request.Evidence);
     }
 
     private static async Task<CoreResult<ResolvedWorkflowTopLevel>> ResolveTopLevelAliasAsync(
@@ -2573,7 +3267,9 @@ public sealed class SemanticWorkflowRunner
             result.ExecutionPath,
             result.ParentStepId,
             result.Attempt,
-            result.SourceFragment);
+            result.SourceFragment,
+            result.Verification,
+            result.FailureEvidence);
     }
 
     private static SemanticWorkflowStepResult Fail(
@@ -2746,11 +3442,13 @@ public sealed class SemanticWorkflowRunner
         public CompositionExecutionContext(
             SemanticWorkflowRequest request,
             LocalBridgeClient bridgeClient,
-            WorkflowIdempotencyStore idempotencyStore)
+            WorkflowIdempotencyStore idempotencyStore,
+            SemanticWorkflowPlan plan)
         {
             Request = request;
             BridgeClient = bridgeClient;
             IdempotencyStore = idempotencyStore;
+            Plan = plan;
         }
 
         public SemanticWorkflowRequest Request { get; }
@@ -2759,11 +3457,21 @@ public sealed class SemanticWorkflowRunner
 
         public WorkflowIdempotencyStore IdempotencyStore { get; }
 
+        public SemanticWorkflowPlan Plan { get; }
+
         public List<SemanticWorkflowStepResult> Results { get; } = [];
 
         public List<ProtocolError> Diagnostics { get; } = [];
 
         public int ReplayCount { get; set; }
+    }
+
+    private sealed record VerificationSnapshot(
+        InspectNodeResponse? Inspection,
+        ScreenshotResponse? Screenshot,
+        IReadOnlyList<ProtocolError> Diagnostics)
+    {
+        public static VerificationSnapshot Empty { get; } = new(null, null, []);
     }
 
     private sealed record ObservedWaitValue(

@@ -70,6 +70,10 @@ public sealed class CliSmokeTests
             capability.Id == AvaScopeCapabilityIds.RuntimeSemanticWorkflow
             && capability.Status == AvaScopeCapabilityStatuses.Available);
         Assert.Contains(payload.Value.Capabilities, capability =>
+            capability.Id == AvaScopeCapabilityIds.RuntimeWorkflowEvidence
+            && capability.Status == AvaScopeCapabilityStatuses.Available
+            && capability.Metadata["reports"] == "json,markdown,junit");
+        Assert.Contains(payload.Value.Capabilities, capability =>
             capability.Id == AvaScopeCapabilityIds.RuntimeScenarioRunner
             && capability.Status == AvaScopeCapabilityStatuses.Available);
         Assert.Contains(payload.Value.Capabilities, capability =>
@@ -88,7 +92,8 @@ public sealed class CliSmokeTests
         Assert.Contains(payload.Value.Tools, tool =>
             tool.Adapter == "cli"
             && tool.Name == "run-workflow"
-            && tool.CapabilityIds.Contains(AvaScopeCapabilityIds.RuntimeSemanticWorkflow));
+            && tool.CapabilityIds.Contains(AvaScopeCapabilityIds.RuntimeSemanticWorkflow)
+            && tool.CapabilityIds.Contains(AvaScopeCapabilityIds.RuntimeWorkflowEvidence));
         Assert.Contains(payload.Value.Tools, tool =>
             tool.Adapter == "cli"
             && tool.Name == "run-scenario"
@@ -3445,7 +3450,9 @@ public sealed class CliSmokeTests
             topLevelId: "topLevel:scenario",
             outputDirectory: artifactDirectory,
             captureAfterEachStep: true,
-            timelinePath: timelinePath);
+            timelinePath: timelinePath,
+            evidence: new SemanticWorkflowEvidenceOptions(
+                reportDirectory: Path.Combine(artifactDirectory, "reports")));
         await File.WriteAllTextAsync(requestPath, JsonSerializer.Serialize(scenario, JsonOptions));
 
         try
@@ -3477,6 +3484,8 @@ public sealed class CliSmokeTests
             Assert.Contains("click-save", timeline, StringComparison.Ordinal);
             Assert.Contains("passed", timeline, StringComparison.Ordinal);
             Assert.Equal(2, payload.Value.Workflow!.Steps.Count);
+            Assert.Equal("passed", payload.Value.Workflow.ReportPack!.Status);
+            Assert.All(payload.Value.Workflow.ReportPack.Assets, asset => Assert.True(File.Exists(asset.Path), asset.Path));
         }
         finally
         {
@@ -4763,7 +4772,14 @@ public sealed class CliSmokeTests
                             "verify",
                             fragment: "assert-status",
                             arguments: new Dictionary<string, string> { ["expected"] = "ready" })
-                    ])
+                    ]),
+                new SemanticWorkflowStep(
+                    SemanticWorkflowActions.Invoke,
+                    "verified-save",
+                    new SemanticWorkflowSelector(automationId: "save"),
+                    verify: new SemanticWorkflowVerification(
+                        new SemanticWaitCondition(SemanticWaitConditionKinds.Text, "ready"),
+                        new SemanticWorkflowSelector(automationId: "status")))
             ],
             variables: new Dictionary<string, string> { ["statusId"] = "status" },
             fragments:
@@ -4780,7 +4796,9 @@ public sealed class CliSmokeTests
                     ],
                     ["expected"])
             ],
-            validateOnly: true);
+            validateOnly: true,
+            evidence: new SemanticWorkflowEvidenceOptions(
+                reportDirectory: Path.Combine(manifestDirectory, "reports")));
         await File.WriteAllTextAsync(requestPath, JsonSerializer.Serialize(request, JsonOptions));
 
         try
@@ -4799,12 +4817,74 @@ public sealed class CliSmokeTests
             Assert.Equal("validated", payload.Value!.Status);
             Assert.Empty(payload.Value.Steps);
             Assert.True(payload.Value.Plan!.Valid);
-            Assert.Equal(3, payload.Value.Plan.ExpandedStepCount);
+            Assert.Equal(4, payload.Value.Plan.ExpandedStepCount);
             Assert.Contains(payload.Value.Plan.Steps, step => step.SourceFragment == "assert-status");
+            Assert.False(Directory.Exists(Path.Combine(manifestDirectory, "reports")));
         }
         finally
         {
             Directory.Delete(manifestDirectory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task RunWorkflowCommandPreservesActionFailureEvidenceAndReports()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        var directory = Path.Combine(
+            Path.GetTempPath(),
+            "AvaScope.Tests",
+            $"cli-workflow-evidence-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        var requestPath = Path.Combine(directory, "workflow.json");
+        var outputDirectory = Path.Combine(directory, "output");
+        var request = new SemanticWorkflowRequest(
+            new SessionId("missing-evidence-session"),
+            "topLevel:main",
+            [
+                new SemanticWorkflowStep(
+                    SemanticWorkflowActions.Invoke,
+                    "save",
+                    new SemanticWorkflowSelector(automationId: "save"),
+                    verify: new SemanticWorkflowVerification(
+                        new SemanticWaitCondition(SemanticWaitConditionKinds.Text, "saved"),
+                        new SemanticWorkflowSelector(automationId: "status"),
+                        captureBefore: false,
+                        captureAfter: false))
+            ],
+            outputDirectory: outputDirectory,
+            evidence: new SemanticWorkflowEvidenceOptions(
+                includeScreenshot: false,
+                includeVisualTree: false,
+                includeActiveTopLevels: false,
+                includeSelectorCandidates: false,
+                reportDirectory: Path.Combine(outputDirectory, "reports")));
+        await File.WriteAllTextAsync(requestPath, JsonSerializer.Serialize(request, JsonOptions));
+
+        try
+        {
+            var result = await RunCliAsync(
+                cliAssembly,
+                "run-workflow",
+                "--request",
+                requestPath,
+                "--manifest-dir",
+                directory);
+
+            Assert.Equal(1, result.ExitCode);
+            var payload = JsonSerializer.Deserialize<ToolResult<SemanticWorkflowResponse>>(result.StandardOutput, JsonOptions);
+            Assert.False(payload!.Success);
+            Assert.Equal(CoreErrorCodes.BridgeSessionNotFound, payload.Error!.Code);
+            var step = Assert.Single(payload.Value!.Steps);
+            Assert.Equal("not_run", step.Verification!.Status);
+            Assert.NotNull(step.FailureEvidence);
+            Assert.True(File.Exists(step.FailureEvidence.WorkflowContextPath));
+            Assert.Equal("failed", payload.Value.ReportPack!.Status);
+            Assert.All(payload.Value.ReportPack.Assets, asset => Assert.True(File.Exists(asset.Path), asset.Path));
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
         }
     }
 

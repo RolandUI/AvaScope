@@ -34,7 +34,8 @@ public sealed class RuntimeScenarioRunner
             variables: request.Variables,
             fragments: request.Fragments,
             validateOnly: true,
-            timeoutMs: request.WorkflowTimeoutMs);
+            timeoutMs: request.WorkflowTimeoutMs,
+            evidence: request.Evidence);
         var validation = SemanticWorkflowCompiler.Compile(validationRequest);
         if (!validation.Plan.Valid)
         {
@@ -269,7 +270,8 @@ public sealed class RuntimeScenarioRunner
             topLevelAliases: request.TopLevelAliases,
             variables: request.Variables,
             fragments: request.Fragments,
-            timeoutMs: request.WorkflowTimeoutMs);
+            timeoutMs: request.WorkflowTimeoutMs,
+            evidence: request.Evidence);
         var workflow = await new SemanticWorkflowRunner().RunAsync(workflowClient, workflowRequest, cancellationToken);
         if (!workflow.Success)
         {
@@ -515,8 +517,8 @@ public sealed class RuntimeScenarioRunner
         builder.AppendLine();
         builder.AppendLine("## Steps");
         builder.AppendLine();
-        builder.AppendLine("| # | Execution path | Step | Action | Status | Attempt | Fragment | Target | Evidence | Message |");
-        builder.AppendLine("| - | -------------- | ---- | ------ | ------ | ------- | -------- | ------ | -------- | ------- |");
+        builder.AppendLine("| # | Execution path | Step | Action | Status | Verify | Attempt | Fragment | Target | Evidence | Message |");
+        builder.AppendLine("| - | -------------- | ---- | ------ | ------ | ------ | ------- | -------- | ------ | -------- | ------- |");
 
         var steps = response.Workflow?.Steps ?? [];
         for (var index = 0; index < steps.Count; index++)
@@ -528,6 +530,8 @@ public sealed class RuntimeScenarioRunner
                     ? string.Empty
                     : $"{step.Target.TopLevelId}/{step.Target.NodeId ?? step.Target.TargetKind}";
             var evidence = step.Screenshot?.FilePath
+                ?? step.Verification?.AfterScreenshot?.FilePath
+                ?? step.FailureEvidence?.ArtifactDirectory
                 ?? (step.Mutation is null ? null : $"mutation:{step.Mutation.Status}")
                 ?? (step.Metadata.TryGetValue("idempotencyReplay", out var replay)
                     && string.Equals(replay, "true", StringComparison.Ordinal)
@@ -536,7 +540,7 @@ public sealed class RuntimeScenarioRunner
                 ?? step.Metadata.FirstOrDefault(static item => item.Key.EndsWith("Path", StringComparison.OrdinalIgnoreCase)).Value
                 ?? string.Empty;
             builder.AppendLine(
-                $"| {(index + 1).ToString(CultureInfo.InvariantCulture)} | {EscapeTable(step.ExecutionPath ?? step.StepId)} | {EscapeTable(step.StepId)} | {EscapeTable(step.Action)} | {EscapeTable(step.Status)} | {EscapeTable(step.Attempt?.ToString(CultureInfo.InvariantCulture))} | {EscapeTable(step.SourceFragment)} | {EscapeTable(target)} | {EscapeTable(evidence)} | {EscapeTable(step.Message)} |");
+                $"| {(index + 1).ToString(CultureInfo.InvariantCulture)} | {EscapeTable(step.ExecutionPath ?? step.StepId)} | {EscapeTable(step.StepId)} | {EscapeTable(step.Action)} | {EscapeTable(step.Status)} | {EscapeTable(step.Verification?.Status)} | {EscapeTable(step.Attempt?.ToString(CultureInfo.InvariantCulture))} | {EscapeTable(step.SourceFragment)} | {EscapeTable(target)} | {EscapeTable(evidence)} | {EscapeTable(step.Message)} |");
         }
 
         File.WriteAllText(response.TimelinePath, builder.ToString());

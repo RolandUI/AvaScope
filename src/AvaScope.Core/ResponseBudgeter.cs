@@ -156,7 +156,12 @@ public static class ResponseBudgeter
         var totalItems = response.Steps.Count
             + response.Diagnostics.Count
             + (response.Plan?.Steps.Count ?? 0)
-            + (response.Plan?.Diagnostics.Count ?? 0);
+            + (response.Plan?.Diagnostics.Count ?? 0)
+            + response.Steps.Sum(static step =>
+                (step.Verification?.Diagnostics.Count ?? 0)
+                + (step.FailureEvidence?.Diagnostics.Count ?? 0)
+                + (step.FailureEvidence?.UnavailableEvidence.Count ?? 0))
+            + (response.ReportPack?.Assets.Count ?? 0);
         var reasons = GetReasons(payload.Length, totalItems, 1, maxInlineBytes, maxItems, maxDepth);
         if (reasons.Count == 0)
         {
@@ -192,7 +197,7 @@ public static class ResponseBudgeter
         return new SemanticWorkflowResponse(
             response.RequestId, response.SessionId, response.TopLevelId, response.Status,
             response.StartedAt, response.CompletedAt, steps, response.IsolatedStateStatus,
-            diagnostics, response.Metadata, budget, plan);
+            diagnostics, response.Metadata, budget, plan, response.ReportPack);
     }
 
     private static RuntimeScenarioResponse ApplyScenario(
@@ -206,6 +211,11 @@ public static class ResponseBudgeter
             + (response.Workflow?.Diagnostics.Count ?? 0)
             + (response.Workflow?.Plan?.Steps.Count ?? 0)
             + (response.Workflow?.Plan?.Diagnostics.Count ?? 0)
+            + (response.Workflow?.Steps.Sum(static step =>
+                (step.Verification?.Diagnostics.Count ?? 0)
+                + (step.FailureEvidence?.Diagnostics.Count ?? 0)
+                + (step.FailureEvidence?.UnavailableEvidence.Count ?? 0)) ?? 0)
+            + (response.Workflow?.ReportPack?.Assets.Count ?? 0)
             + response.Diagnostics.Count;
         var reasons = GetReasons(payload.Length, totalItems, 1, maxInlineBytes, maxItems, maxDepth);
         if (reasons.Count == 0)
@@ -239,7 +249,7 @@ public static class ResponseBudgeter
                 response.Workflow.RequestId, response.Workflow.SessionId, response.Workflow.TopLevelId,
                 response.Workflow.Status, response.Workflow.StartedAt, response.Workflow.CompletedAt,
                 steps, response.Workflow.IsolatedStateStatus, workflowDiagnostics,
-                response.Workflow.Metadata, plan: plan);
+                response.Workflow.Metadata, plan: plan, reportPack: response.Workflow.ReportPack);
         }
 
         var diagnostics = Take(response.Diagnostics, ref remaining);

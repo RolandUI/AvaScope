@@ -701,7 +701,7 @@ public sealed class AvaScopeMcpTools
         Destructive = false,
         OpenWorld = false,
         UseStructuredContent = true)]
-    [Description("Runs or statically validates a bounded semantic local workflow with typed if/else branches, optional leaf steps, idempotent retry_until, variables, reusable acyclic fragments, workflow-scoped top-level aliases, rendered/command/binding/selection/value/lifecycle waits, and validate_action/validate_mutation dry runs. validateOnly returns the fully expanded plan and all bounded static diagnostics without bridge dispatch. Top-level aliases and node selectors are re-resolved inside the request session.")]
+    [Description("Runs or statically validates a bounded semantic local workflow with typed if/else branches, optional leaf steps, idempotent retry_until, variables, reusable acyclic fragments, workflow-scoped top-level aliases, rendered/command/binding/selection/value/lifecycle waits, and validate_action/validate_mutation dry runs. Semantic actions may declare verify to capture pre-state, execute once, and wait for a typed postcondition. The evidence policy can collect bounded runtime failure context and export aligned JSON, Markdown, and JUnit reports. validateOnly returns the fully expanded plan and all bounded static diagnostics without bridge dispatch.")]
     public static async Task<ToolResult<SemanticWorkflowResponse>> RunWorkflow(
         LocalBridgeClient bridgeClient,
         SemanticWorkflowRequest request,
@@ -725,7 +725,7 @@ public sealed class AvaScopeMcpTools
         Destructive = false,
         OpenWorld = false,
         UseStructuredContent = true)]
-    [Description("Runs a safe local runtime scenario by validating the expanded conditional/retry/fragment workflow before launch, attach, or artifact creation; applying isolated app-state when launching; executing semantic steps; and writing a timeline with execution paths, attempts, fragments, and skipped/retried outcomes.")]
+    [Description("Runs a safe local runtime scenario by validating the expanded conditional/retry/fragment and observe-act-verify workflow before launch, attach, or artifact creation; applying isolated app-state when launching; executing semantic steps; and writing a timeline with execution paths plus optional bounded runtime failure evidence and JSON, Markdown, and JUnit reports.")]
     public static async Task<ToolResult<RuntimeScenarioResponse>> RunScenario(
         LocalBridgeClient bridgeClient,
         RuntimeScenarioRequest request,

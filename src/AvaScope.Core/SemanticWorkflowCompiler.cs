@@ -25,7 +25,9 @@ internal static partial class SemanticWorkflowCompiler
             insideRetry: false);
 
         var estimatedExecutions = roots.Sum(node => EstimateMaximumExecutions(node, request.CaptureAfterEachStep));
-        var maximumArtifacts = roots.Sum(node => EstimateMaximumArtifacts(node, request.CaptureAfterEachStep));
+        var maximumArtifacts = roots.Sum(node => EstimateMaximumArtifacts(node, request.CaptureAfterEachStep))
+            + EstimateFailureEvidenceArtifacts(request.Evidence)
+            + (request.Evidence?.ExportReports == true ? 3 : 0);
         if (context.TotalSteps > SemanticWorkflowLimits.MaximumExpandedSteps)
         {
             context.AddDiagnostic(
@@ -57,7 +59,7 @@ internal static partial class SemanticWorkflowCompiler
         {
             context.AddDiagnostic(
                 "semantic_workflow_artifact_limit",
-                $"Workflow may create {maximumArtifacts} screenshot artifacts; the limit is {SemanticWorkflowLimits.MaximumArtifacts}.",
+                $"Workflow may create {maximumArtifacts} evidence artifacts; the limit is {SemanticWorkflowLimits.MaximumArtifacts}.",
                 "workflow",
                 SemanticWorkflowLimits.MaximumArtifacts);
         }
@@ -99,6 +101,10 @@ internal static partial class SemanticWorkflowCompiler
                 && node.Step.Action != SemanticWorkflowActions.Wait
                 ? 1
                 : 0;
+        if (node.Step.Verify is { CaptureScreenshots: true } verification)
+        {
+            self += (verification.CaptureBefore ? 1 : 0) + (verification.CaptureAfter ? 1 : 0);
+        }
         var primary = node.Primary.Sum(child => EstimateMaximumArtifacts(child, captureAfterEachStep));
         var alternate = node.Alternate.Sum(child => EstimateMaximumArtifacts(child, captureAfterEachStep));
         var nested = node.Step.Action == SemanticWorkflowActions.If
@@ -110,6 +116,21 @@ internal static partial class SemanticWorkflowCompiler
                 1,
                 SemanticWorkflowLimits.MaximumRetryAttempts) * (self + nested))
             : checked(self + nested);
+    }
+
+    private static int EstimateFailureEvidenceArtifacts(SemanticWorkflowEvidenceOptions? evidence)
+    {
+        if (evidence is not { CaptureOnFailure: true })
+        {
+            return 0;
+        }
+
+        return 1
+            + (evidence.IncludeScreenshot ? 1 : 0)
+            + (evidence.IncludeVisualTree ? 1 : 0)
+            + (evidence.IncludeSelectorCandidates ? 1 : 0)
+            + (evidence.IncludeActiveTopLevels ? 1 : 0)
+            + 1;
     }
 
     private static bool IsExecutableLeaf(string action) => action is not (
@@ -460,6 +481,15 @@ internal static partial class SemanticWorkflowCompiler
                     path);
             }
 
+            if (step.Verify?.TopLevelAlias is not null
+                && !_request.TopLevelAliases.Any(alias => string.Equals(alias.Alias, step.Verify.TopLevelAlias, StringComparison.Ordinal)))
+            {
+                AddDiagnostic(
+                    "semantic_workflow_top_level_alias_unknown",
+                    $"Verification top-level alias '{step.Verify.TopLevelAlias}' is not declared by the workflow.",
+                    path);
+            }
+
             if (string.IsNullOrWhiteSpace(_request.TopLevelId)
                 && step.TopLevelAlias is null
                 && step.Action != SemanticWorkflowActions.UseFragment)
@@ -504,6 +534,28 @@ internal static partial class SemanticWorkflowCompiler
                     "semantic_workflow_retry_idempotency_required",
                     $"Retry body side-effect action '{step.Action}' requires idempotencyKey to prevent duplicate dispatch.",
                     path);
+            }
+
+            if (step.Verify is not null)
+            {
+                if (!IsSideEffecting(step.Action))
+                {
+                    AddDiagnostic(
+                        "semantic_workflow_verify_action_not_supported",
+                        $"Workflow action '{step.Action}' cannot declare verify because it does not execute a runtime action.",
+                        path);
+                }
+
+                var topLevelCondition = step.Verify.Condition.Kind is SemanticWaitConditionKinds.TopLevelOpened
+                    or SemanticWaitConditionKinds.TopLevelClosed;
+                var verificationSelector = step.Verify.Selector ?? step.Selector;
+                if (!topLevelCondition && (verificationSelector is null || !verificationSelector.HasSearchCriteria))
+                {
+                    AddDiagnostic(
+                        "semantic_workflow_verify_selector_required",
+                        $"Verification condition '{step.Verify.Condition.Kind}' requires verify.selector or the action selector.",
+                        path);
+                }
             }
 
             if (RequiresSelector(step.Action)
@@ -739,7 +791,26 @@ internal static partial class SemanticWorkflowCompiler
                 step.Arguments.ToDictionary(
                     static pair => pair.Key,
                     pair => ResolveText(pair.Value, variables, $"{path}.arguments.{pair.Key}") ?? pair.Value,
-                    StringComparer.Ordinal));
+                    StringComparer.Ordinal),
+                ResolveVerification(step.Verify, variables, path));
+        }
+
+        private SemanticWorkflowVerification? ResolveVerification(
+            SemanticWorkflowVerification? verification,
+            IReadOnlyDictionary<string, string> variables,
+            string path)
+        {
+            return verification is null
+                ? null
+                : new SemanticWorkflowVerification(
+                    ResolveCondition(verification.Condition, variables, $"{path}.verify")!,
+                    ResolveSelector(verification.Selector, variables, $"{path}.verify"),
+                    ResolveText(verification.TopLevelAlias, variables, $"{path}.verify.topLevelAlias"),
+                    verification.TimeoutMs,
+                    verification.PollIntervalMs,
+                    verification.CaptureBefore,
+                    verification.CaptureAfter,
+                    verification.CaptureScreenshots);
         }
 
         private SemanticWorkflowSelector? ResolveSelector(
@@ -954,6 +1025,14 @@ internal static partial class SemanticWorkflowCompiler
                 step.WaitCondition?.Expected, step.WaitCondition?.PropertyName,
                 step.WaitCondition?.BindingPath, step.WaitCondition?.Baseline,
                 step.WaitCondition?.TopLevelId, step.WaitCondition?.TopLevelTitle,
+                step.Verify?.TopLevelAlias,
+                step.Verify?.Selector?.NodeId, step.Verify?.Selector?.AutomationId,
+                step.Verify?.Selector?.Text, step.Verify?.Selector?.Name,
+                step.Verify?.Selector?.NodeType, step.Verify?.Selector?.Role,
+                step.Verify?.Selector?.BindingPath, step.Verify?.Selector?.CommandName,
+                step.Verify?.Condition.Expected, step.Verify?.Condition.PropertyName,
+                step.Verify?.Condition.BindingPath, step.Verify?.Condition.Baseline,
+                step.Verify?.Condition.TopLevelId, step.Verify?.Condition.TopLevelTitle,
                 step.Mutation?.PropertyName, step.Mutation?.Value, step.Mutation?.ClassName,
                 step.Mutation?.ResourceKey, step.Mutation?.MutationId
             };

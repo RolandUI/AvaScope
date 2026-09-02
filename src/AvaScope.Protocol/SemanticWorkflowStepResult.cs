@@ -27,7 +27,9 @@ public sealed record SemanticWorkflowStepResult
         string? executionPath = null,
         string? parentStepId = null,
         int? attempt = null,
-        string? sourceFragment = null)
+        string? sourceFragment = null,
+        SemanticWorkflowVerificationResult? verification = null,
+        SemanticWorkflowFailureEvidence? failureEvidence = null)
     {
         if (string.IsNullOrWhiteSpace(stepId))
         {
@@ -71,6 +73,8 @@ public sealed record SemanticWorkflowStepResult
         ParentStepId = string.IsNullOrWhiteSpace(parentStepId) ? null : parentStepId;
         Attempt = attempt;
         SourceFragment = string.IsNullOrWhiteSpace(sourceFragment) ? null : sourceFragment;
+        Verification = verification;
+        FailureEvidence = failureEvidence;
     }
 
     [JsonPropertyName("stepId")]
@@ -153,4 +157,12 @@ public sealed record SemanticWorkflowStepResult
     [JsonPropertyName("sourceFragment")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? SourceFragment { get; }
+
+    [JsonPropertyName("verification")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public SemanticWorkflowVerificationResult? Verification { get; }
+
+    [JsonPropertyName("failureEvidence")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public SemanticWorkflowFailureEvidence? FailureEvidence { get; }
 }

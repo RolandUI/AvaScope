@@ -126,6 +126,13 @@ public sealed class ProtocolContractTests
         Assert.Equal("if_else,optional,retry_until,variables,use_fragment", semanticWorkflow.Metadata["composition"]);
         Assert.Contains("expanded_plan", semanticWorkflow.Metadata["compositionValidation"], StringComparison.Ordinal);
         Assert.Contains("retry_attempts=10", semanticWorkflow.Metadata["compositionLimits"], StringComparison.Ordinal);
+        var workflowEvidence = Assert.Single(response.Capabilities, capability =>
+            capability.Id == AvaScopeCapabilityIds.RuntimeWorkflowEvidence);
+        Assert.Equal("json,markdown,junit", workflowEvidence.Metadata["reports"]);
+        Assert.Contains("binding_validation", workflowEvidence.Metadata["failureEvidence"], StringComparison.Ordinal);
+        Assert.Contains(response.Tools, tool =>
+            tool.Name == "run-workflow"
+            && tool.CapabilityIds.Contains(AvaScopeCapabilityIds.RuntimeWorkflowEvidence));
         var scenarioRunner = Assert.Single(response.Capabilities, capability =>
             capability.Id == AvaScopeCapabilityIds.RuntimeScenarioRunner);
         Assert.Equal("before_launch_attach_or_artifact_creation", scenarioRunner.Metadata["compositionValidation"]);
@@ -524,6 +531,75 @@ public sealed class ProtocolContractTests
         Assert.Contains(SemanticWorkflowActions.If, SemanticWorkflowActions.All);
         Assert.Contains(SemanticWorkflowActions.RetryUntil, SemanticWorkflowActions.All);
         Assert.Contains(SemanticWorkflowActions.UseFragment, SemanticWorkflowActions.All);
+    }
+
+    [Fact]
+    public void SemanticWorkflowVerificationAndEvidenceSerializeStableAdditiveShape()
+    {
+        var at = new DateTimeOffset(2026, 9, 2, 12, 0, 0, TimeSpan.Zero);
+        var condition = new SemanticWaitCondition(
+            SemanticWaitConditionKinds.Text,
+            "saved",
+            propertyName: "Text");
+        var verification = new SemanticWorkflowVerification(
+            condition,
+            new SemanticWorkflowSelector(automationId: "status"),
+            timeoutMs: 2500,
+            pollIntervalMs: 50,
+            captureScreenshots: true);
+        var request = new SemanticWorkflowRequest(
+            new SessionId("verified-session"),
+            "topLevel:main",
+            [
+                new SemanticWorkflowStep(
+                    SemanticWorkflowActions.Invoke,
+                    "save",
+                    new SemanticWorkflowSelector(automationId: "save"),
+                    verify: verification)
+            ],
+            evidence: new SemanticWorkflowEvidenceOptions(
+                reportDirectory: "C:\\state\\workflow-report",
+                treeDepth: 3,
+                maxSelectorCandidates: 4));
+        var verificationResult = new SemanticWorkflowVerificationResult(
+            "failed",
+            condition,
+            at,
+            at.AddSeconds(2),
+            observation: new RuntimeWaitObservation(
+                SemanticWaitConditionKinds.Text,
+                "available",
+                false,
+                at,
+                "pending",
+                typeof(string).FullName!,
+                expected: "saved"),
+            diagnostics: [new ProtocolError("semantic_workflow_wait_timeout", "Timed out.")]);
+        var failureEvidence = new SemanticWorkflowFailureEvidence(
+            "partial",
+            "C:\\state\\workflow-report\\failures\\save",
+            inspectionPath: "C:\\state\\workflow-report\\failures\\save\\inspection.json",
+            unavailableEvidence: ["screenshot"]);
+        var result = new SemanticWorkflowStepResult(
+            "save",
+            SemanticWorkflowActions.Invoke,
+            "failed",
+            "Verification failed.",
+            at,
+            verification: verificationResult,
+            failureEvidence: failureEvidence);
+
+        var requestNode = JsonNode.Parse(JsonSerializer.Serialize(request))!;
+        var resultNode = JsonNode.Parse(JsonSerializer.Serialize(result))!;
+
+        Assert.Equal("text", requestNode["steps"]![0]!["verify"]!["condition"]!["kind"]!.GetValue<string>());
+        Assert.Equal(2500, requestNode["steps"]![0]!["verify"]!["timeoutMs"]!.GetValue<int>());
+        Assert.True(requestNode["steps"]![0]!["verify"]!["captureScreenshots"]!.GetValue<bool>());
+        Assert.Equal(3, requestNode["evidence"]!["treeDepth"]!.GetValue<int>());
+        Assert.Equal(4, requestNode["evidence"]!["maxSelectorCandidates"]!.GetValue<int>());
+        Assert.Equal("failed", resultNode["verification"]!["status"]!.GetValue<string>());
+        Assert.Equal("partial", resultNode["failureEvidence"]!["status"]!.GetValue<string>());
+        Assert.Equal("screenshot", resultNode["failureEvidence"]!["unavailableEvidence"]![0]!.GetValue<string>());
     }
 
     [Fact]

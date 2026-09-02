@@ -213,6 +213,22 @@ public static class AvaScopeCapabilityCatalog
                     ["dryRunSideEffects"] = "none"
                 }),
             Capability(
+                AvaScopeCapabilityIds.RuntimeWorkflowEvidence,
+                "runtime",
+                "Observe action pre-state, execute once, verify a bounded typed postcondition, and write deterministic runtime failure evidence and JSON, Markdown, and JUnit reports.",
+                ["run-workflow", "run-scenario", "run_workflow", "run_scenario"],
+                requires: [AvaScopeCapabilityIds.RuntimeSemanticWorkflow, AvaScopeCapabilityIds.ReportsJson],
+                metadata: new Dictionary<string, string>
+                {
+                    ["verification"] = "optional_per_action,typed_wait_model,bounded_timeout",
+                    ["verificationCapture"] = "pre_inspection,post_inspection,optional_pre_post_screenshots",
+                    ["failureEvidence"] = "inspection,visual_tree,selector_candidates,interaction_state,actions,binding_validation,top_levels,adjacent_steps,timeline",
+                    ["unavailableEvidence"] = "explicit",
+                    ["reports"] = "json,markdown,junit",
+                    ["treeDepthMaximum"] = SemanticWorkflowEvidenceOptions.MaximumTreeDepth.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    ["selectorCandidatesMaximum"] = SemanticWorkflowEvidenceOptions.MaximumSelectorCandidates.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                }),
+            Capability(
                 AvaScopeCapabilityIds.RuntimeCustomActions,
                 "runtime",
                 "Discover and invoke app-registered, target-scoped runtime actions through an explicit local-only opt-in, activation allowlist, parameter schema, executability check, safety classification, and audit result.",
@@ -431,8 +447,8 @@ public static class AvaScopeCapabilityCatalog
             Capability(
                 AvaScopeCapabilityIds.ReportsJson,
                 "reports",
-                "Write bounded JSON reports for baseline and agent-facing workflows.",
-                ["baseline-check", "baseline_check"]),
+                "Write bounded JSON reports for baseline and runtime workflow evidence.",
+                ["baseline-check", "run-workflow", "run-scenario", "baseline_check", "run_workflow", "run_scenario"]),
             Capability(
                 AvaScopeCapabilityIds.ReportsAgentReview,
                 "reports",
@@ -441,8 +457,8 @@ public static class AvaScopeCapabilityCatalog
             Capability(
                 AvaScopeCapabilityIds.ReportsEvidencePack,
                 "reports",
-                "Write uploadable JSON, HTML, JUnit, SARIF, and artifact index report packs for baseline checks.",
-                ["baseline-check", "baseline_check"],
+                "Write uploadable baseline JSON/HTML/JUnit/SARIF packs and runtime workflow JSON/Markdown/JUnit evidence packs.",
+                ["baseline-check", "run-workflow", "run-scenario", "baseline_check", "run_workflow", "run_scenario"],
                 requires: [AvaScopeCapabilityIds.ReportsJson, AvaScopeCapabilityIds.ArtifactsJunitSarif]),
             Capability(
                 AvaScopeCapabilityIds.ArtifactsScreenshot,
@@ -473,7 +489,7 @@ public static class AvaScopeCapabilityCatalog
                 AvaScopeCapabilityIds.ArtifactsJunitSarif,
                 "artifacts",
                 "Write JUnit and SARIF-style report assets for CI and agent evidence review.",
-                ["baseline-check", "baseline_check"])
+                ["baseline-check", "run-workflow", "run-scenario", "baseline_check", "run_workflow", "run_scenario"])
         ];
     }
 
@@ -516,10 +532,10 @@ public static class AvaScopeCapabilityCatalog
             Mcp("custom_actions", AvaScopeCapabilityIds.RuntimeCustomActions),
             Cli("invoke-custom-action", AvaScopeCapabilityIds.RuntimeCustomActions),
             Mcp("invoke_custom_action", AvaScopeCapabilityIds.RuntimeCustomActions),
-            Cli("run-workflow", AvaScopeCapabilityIds.RuntimeSemanticWorkflow, AvaScopeCapabilityIds.RuntimeSemanticAutomation),
-            Mcp("run_workflow", AvaScopeCapabilityIds.RuntimeSemanticWorkflow, AvaScopeCapabilityIds.RuntimeSemanticAutomation),
-            Cli("run-scenario", AvaScopeCapabilityIds.RuntimeScenarioRunner, AvaScopeCapabilityIds.SafetyLocalOnly),
-            Mcp("run_scenario", AvaScopeCapabilityIds.RuntimeScenarioRunner, AvaScopeCapabilityIds.SafetyLocalOnly),
+            Cli("run-workflow", AvaScopeCapabilityIds.RuntimeSemanticWorkflow, AvaScopeCapabilityIds.RuntimeSemanticAutomation, AvaScopeCapabilityIds.RuntimeWorkflowEvidence, AvaScopeCapabilityIds.ReportsJson, AvaScopeCapabilityIds.ReportsEvidencePack, AvaScopeCapabilityIds.ArtifactsJunitSarif),
+            Mcp("run_workflow", AvaScopeCapabilityIds.RuntimeSemanticWorkflow, AvaScopeCapabilityIds.RuntimeSemanticAutomation, AvaScopeCapabilityIds.RuntimeWorkflowEvidence, AvaScopeCapabilityIds.ReportsJson, AvaScopeCapabilityIds.ReportsEvidencePack, AvaScopeCapabilityIds.ArtifactsJunitSarif),
+            Cli("run-scenario", AvaScopeCapabilityIds.RuntimeScenarioRunner, AvaScopeCapabilityIds.RuntimeWorkflowEvidence, AvaScopeCapabilityIds.SafetyLocalOnly),
+            Mcp("run_scenario", AvaScopeCapabilityIds.RuntimeScenarioRunner, AvaScopeCapabilityIds.RuntimeWorkflowEvidence, AvaScopeCapabilityIds.SafetyLocalOnly),
             Mcp("native_picker", AvaScopeCapabilityIds.RuntimeNativePicker, AvaScopeCapabilityIds.SafetyLocalOnly),
             Cli("native-picker", AvaScopeCapabilityIds.RuntimeNativePicker, AvaScopeCapabilityIds.SafetyLocalOnly),
             Cli("pointer-diagnostics", AvaScopeCapabilityIds.RuntimePointerDiagnostics, AvaScopeCapabilityIds.ArtifactsScreenshot),

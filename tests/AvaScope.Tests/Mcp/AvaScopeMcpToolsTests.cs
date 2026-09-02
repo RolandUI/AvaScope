@@ -236,18 +236,74 @@ public sealed class AvaScopeMcpToolsTests
                     new SemanticWorkflowSelector(automationId: "${status}"),
                     waitCondition: new SemanticWaitCondition(SemanticWaitConditionKinds.Exists),
                     then: [new SemanticWorkflowStep(SemanticWorkflowActions.Wait, "then")],
-                    @else: [new SemanticWorkflowStep(SemanticWorkflowActions.Wait, "else")])
+                    @else: [new SemanticWorkflowStep(SemanticWorkflowActions.Wait, "else")]),
+                new SemanticWorkflowStep(
+                    SemanticWorkflowActions.Invoke,
+                    "verified-action",
+                    new SemanticWorkflowSelector(automationId: "save"),
+                    verify: new SemanticWorkflowVerification(
+                        new SemanticWaitCondition(SemanticWaitConditionKinds.Visible),
+                        new SemanticWorkflowSelector(automationId: "status")))
             ],
             variables: new Dictionary<string, string> { ["status"] = "status" },
-            validateOnly: true);
+            validateOnly: true,
+            evidence: new SemanticWorkflowEvidenceOptions());
 
         var result = await AvaScopeMcpTools.RunWorkflow(client, request);
 
         Assert.True(result.Success, result.Error?.Message);
         Assert.Equal("validated", result.Value!.Status);
         Assert.True(result.Value.Plan!.Valid);
-        Assert.Equal(3, result.Value.Plan.ExpandedStepCount);
+        Assert.Equal(4, result.Value.Plan.ExpandedStepCount);
         Assert.Empty(result.Value.Steps);
+    }
+
+    [Fact]
+    public async Task RunWorkflowReturnsPartialValueWithActionFailureEvidence()
+    {
+        var directory = Path.Combine(
+            Path.GetTempPath(),
+            "AvaScope.Tests",
+            $"mcp-workflow-evidence-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        try
+        {
+            var request = new SemanticWorkflowRequest(
+                new SessionId("missing-evidence-session"),
+                "topLevel:main",
+                [
+                    new SemanticWorkflowStep(
+                        SemanticWorkflowActions.Invoke,
+                        "save",
+                        new SemanticWorkflowSelector(automationId: "save"),
+                        verify: new SemanticWorkflowVerification(
+                            new SemanticWaitCondition(SemanticWaitConditionKinds.Visible),
+                            captureBefore: false,
+                            captureAfter: false))
+                ],
+                outputDirectory: directory,
+                evidence: new SemanticWorkflowEvidenceOptions(
+                    includeScreenshot: false,
+                    includeVisualTree: false,
+                    includeActiveTopLevels: false,
+                    includeSelectorCandidates: false,
+                    reportDirectory: Path.Combine(directory, "reports")));
+
+            var result = await AvaScopeMcpTools.RunWorkflow(
+                new LocalBridgeClient(Path.Combine(directory, "manifests")),
+                request);
+
+            Assert.False(result.Success);
+            Assert.Equal(CoreErrorCodes.BridgeSessionNotFound, result.Error!.Code);
+            var step = Assert.Single(result.Value!.Steps);
+            Assert.Equal("not_run", step.Verification!.Status);
+            Assert.True(File.Exists(step.FailureEvidence!.WorkflowContextPath));
+            Assert.Equal("failed", result.Value.ReportPack!.Status);
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
     }
 
     [Fact]

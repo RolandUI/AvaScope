@@ -23,7 +23,8 @@ public sealed record RuntimeScenarioRequest
         IReadOnlyList<SemanticWorkflowTopLevelAlias>? topLevelAliases = null,
         IReadOnlyDictionary<string, string>? variables = null,
         IReadOnlyList<SemanticWorkflowFragment>? fragments = null,
-        int workflowTimeoutMs = SemanticWorkflowLimits.DefaultWorkflowTimeoutMs)
+        int workflowTimeoutMs = SemanticWorkflowLimits.DefaultWorkflowTimeoutMs,
+        SemanticWorkflowEvidenceOptions? evidence = null)
     {
         if (steps is null || steps.Count == 0)
         {
@@ -68,6 +69,7 @@ public sealed record RuntimeScenarioRequest
         Variables = variables ?? new Dictionary<string, string>();
         Fragments = fragments ?? Array.Empty<SemanticWorkflowFragment>();
         WorkflowTimeoutMs = workflowTimeoutMs;
+        Evidence = evidence;
     }
 
     [JsonPropertyName("requestId")]
@@ -131,6 +133,10 @@ public sealed record RuntimeScenarioRequest
 
     [JsonPropertyName("workflowTimeoutMs")]
     public int WorkflowTimeoutMs { get; }
+
+    [JsonPropertyName("evidence")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public SemanticWorkflowEvidenceOptions? Evidence { get; }
 }
 
 public sealed record RuntimeScenarioPickerResult

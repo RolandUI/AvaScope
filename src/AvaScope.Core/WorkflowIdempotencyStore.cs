@@ -156,7 +156,9 @@ internal sealed class WorkflowIdempotencyStore
                 original.ExecutionPath,
                 original.ParentStepId,
                 original.Attempt,
-                original.SourceFragment));
+                original.SourceFragment,
+                original.Verification,
+                original.FailureEvidence));
         }
         catch (Exception exception) when (exception is IOException
             or UnauthorizedAccessException
