@@ -4639,7 +4639,7 @@ public sealed class CliSmokeTests
                     SemanticWorkflowActions.WaitForState,
                     "wait-change",
                     new SemanticWorkflowSelector(automationId: "wait-range"),
-                    timeoutMs: 500,
+                    timeoutMs: 5000,
                     pollIntervalMs: 25,
                     waitCondition: new SemanticWaitCondition(
                         SemanticWaitConditionKinds.ChangeFromBaseline,

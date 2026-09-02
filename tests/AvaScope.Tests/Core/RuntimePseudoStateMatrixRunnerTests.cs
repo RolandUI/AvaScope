@@ -184,9 +184,16 @@ public sealed class RuntimePseudoStateMatrixRunnerTests : IDisposable
 
     public void Dispose()
     {
-        if (Directory.Exists(_testRoot))
+        for (var attempt = 1; attempt <= 5 && Directory.Exists(_testRoot); attempt++)
         {
-            Directory.Delete(_testRoot, recursive: true);
+            try
+            {
+                Directory.Delete(_testRoot, recursive: true);
+            }
+            catch (IOException) when (attempt < 5)
+            {
+                Thread.Sleep(TimeSpan.FromMilliseconds(attempt * 100));
+            }
         }
     }
 
