@@ -25,7 +25,8 @@
 
   <Application.DataTemplates>
     <DataTemplate DataType="local:SampleStatus" x:DataType="local:SampleStatus">
-      <Border Background="{DynamicResource SampleAccentBrush}"
+      <Border AutomationProperties.AutomationId="RuntimeStatusCard"
+              Background="{DynamicResource SampleAccentBrush}"
               CornerRadius="6"
               Padding="18">
         <StackPanel Spacing="8">

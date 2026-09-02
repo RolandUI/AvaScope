@@ -148,7 +148,7 @@ PY
 dotnet "$cli_dll" visual-tree \
   --session "$session_id" \
   --top-level "$top_level_id" \
-  --max-depth 4 \
+  --max-depth 12 \
   --manifest-dir "$manifest_dir" \
   > "$test_root/visual-tree.json"
 
@@ -213,6 +213,113 @@ if "only on Windows" not in picker["error"]["message"]:
 for path in sys.argv[5:]:
     if not os.path.isfile(path) or os.path.getsize(path) == 0:
         raise SystemExit(f"expected non-empty PNG artifact: {path}")
+PY
+
+python3 - "$test_root/visual-tree.json" "$test_root/top-levels.json" "$test_root/runtime.png" <<'PY'
+import json
+import math
+import struct
+import sys
+import zlib
+
+
+def find_node(node, parent_x=0.0, parent_y=0.0):
+    bounds = node.get("bounds") or {}
+    x = parent_x + float(bounds.get("x", 0.0))
+    y = parent_y + float(bounds.get("y", 0.0))
+    if node.get("automationId") == "RuntimeStatusCard":
+        return x, y, float(bounds["width"]), float(bounds["height"])
+    for child in node.get("children") or []:
+        match = find_node(child, x, y)
+        if match is not None:
+            return match
+    return None
+
+
+def read_png_pixel(path, target_x, target_y):
+    with open(path, "rb") as stream:
+        data = stream.read()
+    if data[:8] != b"\x89PNG\r\n\x1a\n":
+        raise SystemExit(f"runtime screenshot is not a PNG: {path}")
+
+    offset = 8
+    compressed = bytearray()
+    width = height = color_type = bit_depth = None
+    while offset < len(data):
+        length = struct.unpack(">I", data[offset:offset + 4])[0]
+        chunk_type = data[offset + 4:offset + 8]
+        chunk = data[offset + 8:offset + 8 + length]
+        offset += 12 + length
+        if chunk_type == b"IHDR":
+            width, height, bit_depth, color_type = struct.unpack(">IIBB", chunk[:10])
+        elif chunk_type == b"IDAT":
+            compressed.extend(chunk)
+        elif chunk_type == b"IEND":
+            break
+
+    channels = {2: 3, 6: 4}.get(color_type)
+    if bit_depth != 8 or channels is None:
+        raise SystemExit(f"unsupported runtime PNG format: bitDepth={bit_depth}, colorType={color_type}")
+    if not 0 <= target_x < width or not 0 <= target_y < height:
+        raise SystemExit(f"expected status-card pixel is outside screenshot: ({target_x},{target_y}) in {width}x{height}")
+
+    raw = zlib.decompress(bytes(compressed))
+    stride = width * channels
+    previous = bytearray(stride)
+    cursor = 0
+    for y in range(height):
+        filter_type = raw[cursor]
+        cursor += 1
+        scanline = bytearray(raw[cursor:cursor + stride])
+        cursor += stride
+        for index in range(stride):
+            left = scanline[index - channels] if index >= channels else 0
+            up = previous[index]
+            upper_left = previous[index - channels] if index >= channels else 0
+            if filter_type == 1:
+                scanline[index] = (scanline[index] + left) & 0xFF
+            elif filter_type == 2:
+                scanline[index] = (scanline[index] + up) & 0xFF
+            elif filter_type == 3:
+                scanline[index] = (scanline[index] + ((left + up) // 2)) & 0xFF
+            elif filter_type == 4:
+                predictor = left + up - upper_left
+                pa = abs(predictor - left)
+                pb = abs(predictor - up)
+                pc = abs(predictor - upper_left)
+                nearest = left if pa <= pb and pa <= pc else up if pb <= pc else upper_left
+                scanline[index] = (scanline[index] + nearest) & 0xFF
+            elif filter_type != 0:
+                raise SystemExit(f"unsupported PNG filter: {filter_type}")
+        if y == target_y:
+            start = target_x * channels
+            rgb = tuple(scanline[start:start + 3])
+            return width, height, rgb
+        previous = scanline
+    raise SystemExit("expected PNG row was not decoded")
+
+
+with open(sys.argv[1], encoding="utf-8-sig") as stream:
+    tree = json.load(stream)
+with open(sys.argv[2], encoding="utf-8-sig") as stream:
+    top_levels = json.load(stream)
+
+status_bounds = find_node(tree["value"]["root"])
+if status_bounds is None:
+    raise SystemExit("RuntimeStatusCard was not found in the native macOS visual tree")
+scaling = float(top_levels["value"]["topLevels"][0]["renderScaling"])
+sample_x = math.floor((status_bounds[0] + 10.0) * scaling)
+sample_y = math.floor((status_bounds[1] + 10.0) * scaling)
+width, height, rgb = read_png_pixel(sys.argv[3], sample_x, sample_y)
+expected_accents = {(37, 99, 235), (56, 189, 248)}
+if rgb not in expected_accents:
+    raise SystemExit(
+        f"nested status card is displaced in native macOS screenshot: "
+        f"RenderScaling={scaling}, logicalBounds={status_bounds}, sample=({sample_x},{sample_y}), "
+        f"pixel={rgb}, screenshot={width}x{height}")
+print(
+    f"macOS nested screenshot coordinate validated: RenderScaling={scaling}, "
+    f"logicalBounds={status_bounds}, sample=({sample_x},{sample_y}), pixel={rgb}")
 PY
 
 echo "macOS runtime, bridge, screenshot, preview, and platform-boundary smoke passed."
