@@ -21,7 +21,7 @@ if (!string.IsNullOrWhiteSpace(markerPath))
 }
 
 var sessionId = new SessionId($"lifecycle-{Guid.NewGuid():N}");
-var pipeName = $"avascope-lifecycle-{Guid.NewGuid():N}";
+var pipeName = $"avl-{Guid.NewGuid():N}"[..20];
 var process = Process.GetCurrentProcess();
 var manifest = new BridgeSessionManifest(
     sessionId,
