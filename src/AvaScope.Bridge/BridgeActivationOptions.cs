@@ -10,7 +10,10 @@ public sealed record BridgeActivationOptions
     public BridgeActivationOptions(
         string? displayName = null,
         string sessionKind = SessionKinds.Runtime,
-        SessionRegistry? sessionRegistry = null)
+        SessionRegistry? sessionRegistry = null,
+        bool enableCustomActions = false,
+        IReadOnlyList<string>? allowedCustomActions = null,
+        bool allowDestructiveCustomActions = false)
     {
         if (string.IsNullOrWhiteSpace(sessionKind))
         {
@@ -20,6 +23,13 @@ public sealed record BridgeActivationOptions
         DisplayName = displayName;
         SessionKind = sessionKind;
         SessionRegistry = sessionRegistry;
+        EnableCustomActions = enableCustomActions;
+        AllowedCustomActions = (allowedCustomActions ?? [])
+            .Where(static action => !string.IsNullOrWhiteSpace(action))
+            .Select(static action => action.Trim())
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        AllowDestructiveCustomActions = allowDestructiveCustomActions;
     }
 
     public string? DisplayName { get; }
@@ -27,4 +37,10 @@ public sealed record BridgeActivationOptions
     public string SessionKind { get; }
 
     public SessionRegistry? SessionRegistry { get; }
+
+    public bool EnableCustomActions { get; }
+
+    public IReadOnlyList<string> AllowedCustomActions { get; }
+
+    public bool AllowDestructiveCustomActions { get; }
 }

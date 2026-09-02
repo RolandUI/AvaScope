@@ -33,7 +33,9 @@ public sealed record BridgeIpcRequest
         bool includeAccessibility = false,
         bool includeBindings = false,
         int? maxResponseDepth = null,
-        InputGestureOptions? gesture = null)
+        InputGestureOptions? gesture = null,
+        RuntimeTargetContext? customActionTarget = null,
+        RuntimeCustomActionRequest? customAction = null)
     {
         if (string.IsNullOrWhiteSpace(requestId))
         {
@@ -73,6 +75,8 @@ public sealed record BridgeIpcRequest
         IncludeBindings = includeBindings;
         MaxResponseDepth = maxResponseDepth;
         Gesture = gesture;
+        CustomActionTarget = customActionTarget;
+        CustomAction = customAction;
     }
 
     [JsonPropertyName("requestId")]
@@ -180,4 +184,12 @@ public sealed record BridgeIpcRequest
     [JsonPropertyName("gesture")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public InputGestureOptions? Gesture { get; }
+
+    [JsonPropertyName("customActionTarget")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public RuntimeTargetContext? CustomActionTarget { get; }
+
+    [JsonPropertyName("customAction")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public RuntimeCustomActionRequest? CustomAction { get; }
 }

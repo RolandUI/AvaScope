@@ -25,7 +25,9 @@ public sealed record SemanticWorkflowStep
         SemanticWorkflowSelector? destinationSelector = null,
         string? direction = null,
         double? distancePercentage = null,
-        int? durationMs = null)
+        int? durationMs = null,
+        string? customActionName = null,
+        IReadOnlyDictionary<string, string>? customActionParameters = null)
     {
         if (string.IsNullOrWhiteSpace(action))
         {
@@ -82,6 +84,10 @@ public sealed record SemanticWorkflowStep
         Direction = string.IsNullOrWhiteSpace(direction) ? null : direction.Trim();
         DistancePercentage = distancePercentage;
         DurationMs = durationMs;
+        CustomActionName = string.IsNullOrWhiteSpace(customActionName) ? null : customActionName.Trim();
+        CustomActionParameters = (customActionParameters ?? new Dictionary<string, string>())
+            .Take(32)
+            .ToDictionary(static pair => pair.Key, static pair => pair.Value, StringComparer.Ordinal);
     }
 
     [JsonPropertyName("id")]
@@ -161,4 +167,11 @@ public sealed record SemanticWorkflowStep
     [JsonPropertyName("durationMs")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public int? DurationMs { get; }
+
+    [JsonPropertyName("customActionName")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? CustomActionName { get; }
+
+    [JsonPropertyName("customActionParameters")]
+    public IReadOnlyDictionary<string, string> CustomActionParameters { get; }
 }

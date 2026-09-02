@@ -528,6 +528,30 @@ Targeted `click` derives top-level DIP coordinates from the center of the select
 
 `drag`, `swipe`, `long_press`, and `press_and_hold` always resolve the source node's current arranged bounds immediately before dispatch; callers do not persist or calculate coordinates. Drag and swipe accept exactly one of a direction (`left`, `right`, `up`, `down`, `start`, or `end`) or a destination node. `--distance-percent` applies to directional gestures, and `--duration-ms` is bounded to 50–5000 ms. Writable range controls prefer Avalonia's public `IRangeValueProvider`; other valid targets use a bounded routed-pointer path. Results include the effective path, source/destination bounds, provider or pointer provenance, requested/effective duration, and clipping metadata. Hidden, disabled, zero-sized, clipped, obscured, missing, or stale targets fail before dispatch with structured diagnostics; cancellation releases any pressed pointer.
 
+Apps can explicitly expose target-scoped actions for custom controls without private Avalonia APIs. Custom actions are disabled by default; activation must enable them and provide an exact allowlist, then the app registers each action on a visual instance:
+
+```csharp
+var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions(
+    "My app",
+    enableCustomActions: true,
+    allowedCustomActions: ["confirm", "reset"],
+    allowDestructiveCustomActions: true));
+
+runtime.RegisterCustomAction(
+    customControl,
+    new CustomActionRegistration(
+        "confirm",
+        context => CustomActionOutcome.Succeeded($"Confirmed {context.Parameters["mode"]}."),
+        parameters: [new RuntimeCustomActionParameterDescriptor("mode", required: true)]));
+```
+
+Discover the current action descriptors before invoking one. Descriptors include the target, required state, current executability, parameter schema, safety classification, and unavailability reason. Results include bounded audit evidence. A destructive action runs only when activation set `allowDestructiveCustomActions: true` and the invocation sets `--allow-destructive true`; an action name cannot bypass this classification.
+
+```powershell
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll custom-actions --session session-id --top-level topLevel:1234 --node visual:customControl
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll invoke-custom-action --session session-id --top-level topLevel:1234 --node visual:customControl --action confirm --parameters "mode=accept"
+```
+
 Input responses include `pointerButton` for supported pointer/click actions, `inputKey`/`keyModifiers` for routed key actions, wheel/scroll deltas for scroll actions, and bounded metadata such as the automation peer/pattern, previous/current automation state, selected index/item, or before/after scroll offsets.
 
 Run semantic workflow steps by stable runtime selectors instead of coordinates:
@@ -575,7 +599,7 @@ Run semantic workflow steps by stable runtime selectors instead of coordinates:
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll run-workflow --request .\workflow.json
 ```
 
-Workflow selectors can target `nodeId`, `automationId`, `text`, `name`, `nodeType`, `role`, `bindingPath`, or `commandName`. The semantic action set includes `invoke`, `select`, `toggle`, `expand`, `collapse`, `drag`, `swipe`, `long_press`, and `press_and_hold`. Gesture steps use `direction`, `distancePercentage`, and `durationMs`; source-to-target gestures add a `destinationSelector`, which is resolved independently and must match exactly one current visual node. Destructive-looking click/invoke/select/toggle/expand/collapse targets are rejected unless the request declares `allowDestructive` or an `isolatedStateDirectory`.
+Workflow selectors can target `nodeId`, `automationId`, `text`, `name`, `nodeType`, `role`, `bindingPath`, or `commandName`. The semantic action set includes `invoke`, `select`, `toggle`, `expand`, `collapse`, `drag`, `swipe`, `long_press`, `press_and_hold`, `custom_actions`, and `custom_action`. A `custom_action` step supplies `customActionName` and optional `customActionParameters`; AvaScope re-resolves the selector, discovers the descriptor, and enforces its executability and safety classification before dispatch. Gesture steps use `direction`, `distancePercentage`, and `durationMs`; source-to-target gestures add a `destinationSelector`, which is resolved independently and must match exactly one current visual node. Destructive-looking built-in targets and destructive registered actions are rejected unless the request declares `allowDestructive` or an `isolatedStateDirectory`.
 
 Deterministic workflows can use `wait_for_node`, `wait_for_state`, and `wait_for_dialog`. Each wait accepts `timeoutMs` (default `5000`, maximum `60000`) and `pollIntervalMs` (default `100`, range `25`–`5000`), uses cancellation-aware bounded polling, and returns `semantic_workflow_wait_timeout` with attempt/elapsed/last-state evidence instead of requiring client polling loops.
 

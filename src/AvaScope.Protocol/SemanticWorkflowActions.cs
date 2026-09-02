@@ -17,6 +17,8 @@ public static class SemanticWorkflowActions
     public const string Swipe = "swipe";
     public const string LongPress = "long_press";
     public const string PressAndHold = "press_and_hold";
+    public const string CustomActions = "custom_actions";
+    public const string CustomAction = "custom_action";
     public const string AssertState = "assert_state";
     public const string Screenshot = "screenshot";
     public const string Inspect = "inspect";
@@ -32,6 +34,7 @@ public static class SemanticWorkflowActions
     [
         Click, TypeText, ClearText, Focus, Invoke, Select, Toggle, Expand,
         Collapse, KeyDown, KeyUp, Drag, Swipe, LongPress, PressAndHold,
+        CustomActions, CustomAction,
         AssertState, Screenshot, Inspect, Wait,
         WaitForNode, WaitForState, WaitForDialog, ValidateAction,
         ValidateMutation, PickerResult

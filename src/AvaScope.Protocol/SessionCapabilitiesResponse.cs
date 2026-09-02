@@ -19,7 +19,9 @@ public sealed record SessionCapabilitiesResponse
         bool nativePickerSupported,
         string nativePickerMode,
         IReadOnlyList<string> nativePickerOperations,
-        string revision)
+        string revision,
+        bool customActionsEnabled = false,
+        IReadOnlyList<string>? allowedCustomActions = null)
     {
         SessionId = sessionId ?? throw new ArgumentNullException(nameof(sessionId));
         if (processId < 1)
@@ -45,6 +47,8 @@ public sealed record SessionCapabilitiesResponse
         NativePickerMode = nativePickerMode;
         NativePickerOperations = nativePickerOperations ?? [];
         Revision = revision;
+        CustomActionsEnabled = customActionsEnabled;
+        AllowedCustomActions = allowedCustomActions ?? [];
     }
 
     [JsonPropertyName("sessionId")] public SessionId SessionId { get; }
@@ -59,8 +63,14 @@ public sealed record SessionCapabilitiesResponse
     [JsonPropertyName("nativePickerMode")] public string NativePickerMode { get; }
     [JsonPropertyName("nativePickerOperations")] public IReadOnlyList<string> NativePickerOperations { get; }
     [JsonPropertyName("revision")] public string Revision { get; }
+    [JsonPropertyName("customActionsEnabled")] public bool CustomActionsEnabled { get; }
+    [JsonPropertyName("allowedCustomActions")] public IReadOnlyList<string> AllowedCustomActions { get; }
 
-    public static SessionCapabilitiesResponse Current(SessionId sessionId, int processId)
+    public static SessionCapabilitiesResponse Current(
+        SessionId sessionId,
+        int processId,
+        bool customActionsEnabled = false,
+        IReadOnlyList<string>? allowedCustomActions = null)
     {
         var methods = BridgeIpcMethods.All;
         var actions = global::AvaScope.Protocol.InputActions.All;
@@ -79,6 +89,8 @@ public sealed record SessionCapabilitiesResponse
                 string.Join(",", patterns),
                 string.Join(",", mutations.SelectMany(static item => item.SupportedOperations)),
                 string.Join(",", RuntimeMutationPropertyNames.All),
+                customActionsEnabled.ToString(),
+                string.Join(",", allowedCustomActions ?? []),
                 pickerMode,
                 string.Join(",", global::AvaScope.Protocol.NativePickerOperations.All)
             ]);
@@ -97,7 +109,9 @@ public sealed record SessionCapabilitiesResponse
             OperatingSystem.IsWindows(),
             pickerMode,
             global::AvaScope.Protocol.NativePickerOperations.All,
-            revision);
+            revision,
+            customActionsEnabled,
+            allowedCustomActions);
     }
 }
 

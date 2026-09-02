@@ -41,6 +41,8 @@ internal static class Program
             "audit-ui" => await AuditUi(args[1..]),
             "design-audit" => await DesignAudit(args[1..]),
             "input" => await Input(args[1..]),
+            "custom-actions" => await CustomActions(args[1..]),
+            "invoke-custom-action" => await InvokeCustomAction(args[1..]),
             "run-workflow" => await RunWorkflow(args[1..]),
             "run-scenario" => await RunScenario(args[1..]),
             "pointer-diagnostics" => await PointerDiagnostics(args[1..]),
@@ -2052,6 +2054,78 @@ internal static class Program
         return result.Success ? 0 : 1;
     }
 
+    private static async Task<int> CustomActions(string[] args)
+    {
+        var options = ParseOptions(args, GetCustomActionsUsage());
+        if (!options.Success)
+        {
+            WriteFailure<RuntimeCustomActionsResponse>(InvalidCliArguments, options.Error!);
+            return 2;
+        }
+
+        if (!ValidateOptions(options.Values, GetCustomActionsUsage(), "session", "top-level", "node", "tree-kind", "manifest-dir")
+            || !TryReadRequiredSessionId(options.Values, GetCustomActionsUsage(), out var sessionId)
+            || !TryReadRequiredOption(options.Values, "top-level", GetCustomActionsUsage(), out var topLevelId)
+            || !TryReadRequiredOption(options.Values, "node", GetCustomActionsUsage(), out var nodeId)
+            || !TryReadOptionalTreeKind(options.Values, out var treeKind))
+        {
+            return 2;
+        }
+
+        var target = new RuntimeTargetContext(sessionId!, topLevelId!, treeKind, nodeId);
+        var result = await CreateBridgeClient(options.Values).CustomActionsAsync(sessionId!, target);
+        WriteResult(result);
+        return result.Success ? 0 : 1;
+    }
+
+    private static async Task<int> InvokeCustomAction(string[] args)
+    {
+        var options = ParseOptions(args, GetInvokeCustomActionUsage());
+        if (!options.Success)
+        {
+            WriteFailure<RuntimeCustomActionResponse>(InvalidCliArguments, options.Error!);
+            return 2;
+        }
+
+        if (!ValidateOptions(
+                options.Values,
+                GetInvokeCustomActionUsage(),
+                "session",
+                "top-level",
+                "node",
+                "tree-kind",
+                "action",
+                "parameters",
+                "allow-destructive",
+                "request-id",
+                "manifest-dir")
+            || !TryReadRequiredSessionId(options.Values, GetInvokeCustomActionUsage(), out var sessionId)
+            || !TryReadRequiredOption(options.Values, "top-level", GetInvokeCustomActionUsage(), out var topLevelId)
+            || !TryReadRequiredOption(options.Values, "node", GetInvokeCustomActionUsage(), out var nodeId)
+            || !TryReadRequiredOption(options.Values, "action", GetInvokeCustomActionUsage(), out var actionName)
+            || !TryReadOptionalTreeKind(options.Values, out var treeKind)
+            || !TryReadOptionalBoolean(options.Values, "allow-destructive", out var allowDestructive)
+            || !TryReadOptionalAssignments(options.Values, "parameters", out var parameters))
+        {
+            return 2;
+        }
+
+        var target = new RuntimeTargetContext(sessionId!, topLevelId!, treeKind, nodeId);
+        var request = new RuntimeCustomActionRequest(
+            options.Values.GetValueOrDefault("request-id") ?? Guid.NewGuid().ToString("n"),
+            target,
+            actionName!,
+            parameters,
+            allowDestructive);
+        var result = await CreateBridgeClient(options.Values).InvokeCustomActionAsync(sessionId!, request);
+        WriteResult(result);
+        return result.Success
+            && result.Value!.Executed
+            && string.Equals(result.Value.Status, RuntimeCustomActionStatuses.Executed, StringComparison.Ordinal)
+            ? 0
+            : 1;
+    }
+
     private static async Task<int> MutateNode(string[] args)
     {
         var options = ParseOptions(args, GetMutateNodeUsage());
@@ -3268,6 +3342,32 @@ internal static class Program
         return true;
     }
 
+    private static bool TryReadOptionalAssignments(
+        IReadOnlyDictionary<string, string> options,
+        string optionName,
+        out IReadOnlyDictionary<string, string> assignments)
+    {
+        assignments = new Dictionary<string, string>(StringComparer.Ordinal);
+        if (!options.TryGetValue(optionName, out var text) || string.IsNullOrWhiteSpace(text))
+        {
+            return true;
+        }
+
+        var values = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var token in text.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            var separator = token.IndexOf('=');
+            if (separator <= 0 || !values.TryAdd(token[..separator], token[(separator + 1)..]))
+            {
+                WriteFailure(InvalidCliArguments, $"{optionName} must contain unique semicolon-separated NAME=VALUE entries.");
+                return false;
+            }
+        }
+
+        assignments = values;
+        return true;
+    }
+
     private static bool TryReadOptionalTreeKind(
         IReadOnlyDictionary<string, string> options,
         out string treeKind)
@@ -4088,9 +4188,13 @@ internal static class Program
     private static string GetUsage()
     {
         const string legacyInputUsage = "avascope input --session <session-id> --top-level <top-level-id> --action <action> [--x <x>] [--y <y>] [--text <text>] [--target-node <node-id>] [--key <key>] [--modifiers <modifiers>] [--manifest-dir <dir>]";
-        return GetLegacyUsage().Replace(
+        var usage = GetLegacyUsage().Replace(
             legacyInputUsage,
             GetInputUsage()["Usage: ".Length..],
+            StringComparison.Ordinal);
+        return usage.Replace(
+            " | avascope mutate-node",
+            $" | {GetCustomActionsUsage()["Usage: ".Length..]} | {GetInvokeCustomActionUsage()["Usage: ".Length..]} | avascope mutate-node",
             StringComparison.Ordinal);
     }
 
@@ -4227,6 +4331,16 @@ internal static class Program
     private static string GetInputUsage()
     {
         return "Usage: avascope input --session <session-id> --top-level <top-level-id> --action <action> [--x <x>] [--y <y>] [--text <text>] [--target-node <node-id>] [--key <key>] [--modifiers <modifiers>] [--direction left|right|up|down|start|end] [--distance-percent <0-100>] [--duration-ms <50-5000>] [--destination-target-node <node-id>] [--manifest-dir <dir>]";
+    }
+
+    private static string GetCustomActionsUsage()
+    {
+        return "Usage: avascope custom-actions --session <session-id> --top-level <top-level-id> --node <node-id> [--tree-kind visual|logical] [--manifest-dir <dir>]";
+    }
+
+    private static string GetInvokeCustomActionUsage()
+    {
+        return "Usage: avascope invoke-custom-action --session <session-id> --top-level <top-level-id> --node <node-id> --action <name> [--tree-kind visual|logical] [--parameters NAME=VALUE[;NAME=VALUE...]] [--allow-destructive true|false] [--request-id <id>] [--manifest-dir <dir>]";
     }
 
     private static string GetMutateNodeUsage()

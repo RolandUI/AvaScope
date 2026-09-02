@@ -37,6 +37,10 @@ Runtime mutations are local-only, temporary, bounded, and reversible. Mutation r
 
 The safe mutation set is limited to selected public Avalonia style, layout, class, resource, text, and content overrides. Destructive actions, arbitrary process termination, persistent source edits, broad arbitrary-property editing, and private runtime hooks remain out of scope.
 
+## Runtime Custom Action Permissions
+
+Application-defined actions are disabled by default. A host must set `enableCustomActions: true`, provide an exact activation allowlist, and register each action against a live visual instance. Discovery reports required state, current executability, parameter schema, and safety classification. Invocation validates the current generation-scoped target and schema on the UI thread and returns bounded audit evidence. Destructive classifications require two independent gates: `allowDestructiveCustomActions` at activation and `allowDestructive` on the request (or an isolated workflow state directory). The registered name never overrides the safety classification.
+
 ## Preview Execution
 
 Preview rendering can build and load user project code. That code runs inside `AvaScope.PreviewHost`, not inside the CLI or MCP server process. Preview workflows use explicit project/view/profile inputs and write explicit local outputs. Dependency-injection startup, remote design-data loading, JSON object injection, and long-lived design-data services are deferred until they have a separate security model.
@@ -61,6 +65,7 @@ Clients should call `capabilities` and gate workflows by capability id rather th
 | Non-local bridge transport | `BridgeSessionManifest` rejects non-`local_only` transport scopes; diagnostics mark unsupported manifests invalid. |
 | Mutation targets another session | `LocalBridgeClient.MutateNodeAsync` rejects mismatched target sessions before IPC. |
 | Runtime mutations become permanent source edits | Mutation review source suggestions are advisory; no automatic source editing is implemented. |
+| App-defined action becomes implicitly callable | Custom actions default off and require activation, exact allowlisting, per-target registration, current-state validation, and dual authorization for destructive classifications. |
 | Preview user code loads inside MCP/CLI | Core launches the isolated PreviewHost process for preview rendering. |
 | CI example publishes packages or releases | Visual regression example uses `permissions: contents: read` and no publish scripts or secrets. |
 

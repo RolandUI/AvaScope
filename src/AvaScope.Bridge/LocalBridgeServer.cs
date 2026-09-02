@@ -218,10 +218,18 @@ internal sealed class LocalBridgeServer : IDisposable
         {
             BridgeIpcMethods.Health => Respond(BridgeIpcResponse.Ok(
                 request.RequestId,
-                HealthResponse.Current(SessionCapabilitiesResponse.Current(_runtime.SessionId, Environment.ProcessId)))),
+                HealthResponse.Current(SessionCapabilitiesResponse.Current(
+                    _runtime.SessionId,
+                    Environment.ProcessId,
+                    _runtime.CustomActionsEnabled,
+                    _runtime.AllowedCustomActions)))),
             BridgeIpcMethods.Capabilities => Respond(BridgeIpcResponse.Ok(
                 request.RequestId,
-                SessionCapabilitiesResponse.Current(_runtime.SessionId, Environment.ProcessId))),
+                SessionCapabilitiesResponse.Current(
+                    _runtime.SessionId,
+                    Environment.ProcessId,
+                    _runtime.CustomActionsEnabled,
+                    _runtime.AllowedCustomActions))),
             BridgeIpcMethods.ListTopLevels => Respond(BridgeIpcResponse.Ok(
                 request.RequestId,
                 await _runtime.ListTopLevelsAsync(cancellationToken))),
@@ -236,6 +244,8 @@ internal sealed class LocalBridgeServer : IDisposable
             BridgeIpcMethods.MutateNode => Respond(await MutateNodeAsync(request, cancellationToken)),
             BridgeIpcMethods.ValidateMutation => Respond(await MutateNodeAsync(request, cancellationToken, validateOnly: true)),
             BridgeIpcMethods.MutationReview => Respond(await MutationReviewAsync(request, cancellationToken)),
+            BridgeIpcMethods.CustomActions => Respond(await CustomActionsAsync(request, cancellationToken)),
+            BridgeIpcMethods.InvokeCustomAction => Respond(await InvokeCustomActionAsync(request, cancellationToken)),
             BridgeIpcMethods.CloseSession => CloseSession(request),
             _ => Respond(BridgeIpcResponse.Fail(
                 request.RequestId,
@@ -536,6 +546,53 @@ internal sealed class LocalBridgeServer : IDisposable
             : BridgeIpcResponse.Fail(
                 request.RequestId,
                 ToProtocolError(result.Error!));
+    }
+
+    private async Task<BridgeIpcResponse> CustomActionsAsync(
+        BridgeIpcRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (request.CustomActionTarget is null)
+        {
+            return BridgeIpcResponse.Fail(
+                request.RequestId,
+                new ProtocolError(
+                    RuntimeCustomActionErrorCodes.InvalidRequest,
+                    "Custom action discovery requires a structured target."));
+        }
+
+        var result = await _runtime.ListCustomActionsAsync(request.CustomActionTarget, cancellationToken);
+        return result.Success
+            ? BridgeIpcResponse.Ok(request.RequestId, result.Value)
+            : BridgeIpcResponse.Fail(request.RequestId, ToProtocolError(result.Error!));
+    }
+
+    private async Task<BridgeIpcResponse> InvokeCustomActionAsync(
+        BridgeIpcRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (request.CustomAction is null)
+        {
+            return BridgeIpcResponse.Fail(
+                request.RequestId,
+                new ProtocolError(
+                    RuntimeCustomActionErrorCodes.InvalidRequest,
+                    "Custom action invocation requires a structured request."));
+        }
+
+        if (!string.Equals(request.RequestId, request.CustomAction.RequestId, StringComparison.Ordinal))
+        {
+            return BridgeIpcResponse.Fail(
+                request.RequestId,
+                new ProtocolError(
+                    RuntimeCustomActionErrorCodes.InvalidRequest,
+                    "Custom action payload requestId must match the IPC requestId."));
+        }
+
+        var result = await _runtime.InvokeCustomActionAsync(request.CustomAction, cancellationToken);
+        return result.Success
+            ? BridgeIpcResponse.Ok(request.RequestId, result.Value)
+            : BridgeIpcResponse.Fail(request.RequestId, ToProtocolError(result.Error!));
     }
 
     private static BridgeRequestResult Respond(

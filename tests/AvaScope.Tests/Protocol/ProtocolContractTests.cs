@@ -324,6 +324,53 @@ public sealed class ProtocolContractTests
     }
 
     [Fact]
+    public void RuntimeCustomActionContractsSerializeStableAdditiveShapes()
+    {
+        var target = new RuntimeTargetContext(
+            new SessionId("session-custom"),
+            "topLevel:main",
+            TreeKinds.Visual,
+            "visual:target",
+            new DateTimeOffset(2026, 9, 2, 10, 0, 0, TimeSpan.Zero),
+            topLevelGeneration: "top-generation",
+            nodeGeneration: "node-generation");
+        var request = new RuntimeCustomActionRequest(
+            "custom-request",
+            target,
+            "confirm",
+            new Dictionary<string, string> { ["mode"] = "accept" });
+        var descriptor = new RuntimeCustomActionDescriptor(
+            "confirm",
+            target,
+            executable: true,
+            RuntimeCustomActionSafetyClassifications.NonDestructive,
+            [new RuntimeCustomActionParameterDescriptor("mode", required: true, allowedValues: ["accept", "review"])],
+            new Dictionary<string, string> { ["isEnabled"] = "true" },
+            "Confirms the control.");
+        var ipc = new BridgeIpcRequest(
+            request.RequestId,
+            BridgeIpcMethods.InvokeCustomAction,
+            customAction: request);
+
+        var requestNode = JsonNode.Parse(JsonSerializer.Serialize(request))!;
+        var descriptorNode = JsonNode.Parse(JsonSerializer.Serialize(descriptor))!;
+        var ipcNode = JsonNode.Parse(JsonSerializer.Serialize(ipc))!;
+
+        Assert.Equal("confirm", requestNode["actionName"]!.GetValue<string>());
+        Assert.Equal("accept", requestNode["parameters"]!["mode"]!.GetValue<string>());
+        Assert.Equal("node-generation", requestNode["target"]!["nodeGeneration"]!.GetValue<string>());
+        Assert.Equal("non_destructive", descriptorNode["safetyClassification"]!.GetValue<string>());
+        Assert.True(descriptorNode["executable"]!.GetValue<bool>());
+        Assert.Equal("string", descriptorNode["parameters"]![0]!["type"]!.GetValue<string>());
+        Assert.Equal(BridgeIpcMethods.InvokeCustomAction, ipcNode["method"]!.GetValue<string>());
+        Assert.Equal("confirm", ipcNode["customAction"]!["actionName"]!.GetValue<string>());
+        Assert.Contains(BridgeIpcMethods.CustomActions, BridgeIpcMethods.All);
+        Assert.Contains(BridgeIpcMethods.InvokeCustomAction, BridgeIpcMethods.All);
+        Assert.Contains(SemanticWorkflowActions.CustomActions, SemanticWorkflowActions.All);
+        Assert.Contains(SemanticWorkflowActions.CustomAction, SemanticWorkflowActions.All);
+    }
+
+    [Fact]
     public void GestureWorkflowStepSerializesStableShape()
     {
         var step = new SemanticWorkflowStep(

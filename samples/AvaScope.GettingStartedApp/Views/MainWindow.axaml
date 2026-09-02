@@ -5,5 +5,5 @@
         Title="AvaScope Getting Started"
         Width="720"
         Height="420">
-  <views:MainView />
+  <views:MainView x:Name="MainContent" />
 </Window>

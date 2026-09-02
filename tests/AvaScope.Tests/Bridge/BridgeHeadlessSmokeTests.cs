@@ -3106,6 +3106,254 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
     }
 
     [Fact]
+    public async Task RuntimeCustomActionsAreDiscoverableSafeAndExecutableAcrossMcpWorkflowAndCli()
+    {
+        var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessTestApplication));
+        try
+        {
+            await session.Dispatch(async () =>
+            {
+                var status = new TextBlock { Text = "ready" };
+                var target = new Border
+                {
+                    Name = "CustomActionTarget",
+                    Width = 180,
+                    Height = 80,
+                    Child = status
+                };
+                AutomationProperties.SetAutomationId(target, "custom-action-target");
+                var duplicate = new Border { Width = 20, Height = 20 };
+                var root = new StackPanel { Children = { target, duplicate } };
+                var window = new Window
+                {
+                    Title = "AvaScope custom action sample",
+                    Width = 320,
+                    Height = 200,
+                    Content = root
+                };
+                var handlerOnUiThread = false;
+                var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions(
+                    "Headless custom action sample",
+                    enableCustomActions: true,
+                    allowedCustomActions: ["confirm", "reset"],
+                    allowDestructiveCustomActions: true));
+                var disallowedRegistration = Assert.Throws<InvalidOperationException>(() => runtime.RegisterCustomAction(
+                    target,
+                    new CustomActionRegistration(
+                        "not-allowlisted",
+                        _ => CustomActionOutcome.Succeeded("Unexpected."))));
+                Assert.Contains("allowlist", disallowedRegistration.Message, StringComparison.OrdinalIgnoreCase);
+
+                try
+                {
+                    window.Show();
+                    using var topLevelRegistration = runtime.RegisterTopLevel(window);
+                    using var confirmRegistration = runtime.RegisterCustomAction(
+                        target,
+                        new CustomActionRegistration(
+                            "confirm",
+                            context =>
+                            {
+                                handlerOnUiThread = Dispatcher.UIThread.CheckAccess();
+                                status.Text = $"confirmed:{context.Parameters["mode"]}";
+                                return CustomActionOutcome.Succeeded(
+                                    "Confirmed.",
+                                    new Dictionary<string, string> { ["result"] = status.Text });
+                            },
+                            "Confirms the test control.",
+                            parameters:
+                            [
+                                new RuntimeCustomActionParameterDescriptor(
+                                    "mode",
+                                    required: true,
+                                    allowedValues: ["accept", "review"])
+                            ],
+                            requiredState: new Dictionary<string, string>
+                            {
+                                ["isVisible"] = "true",
+                                ["isEnabled"] = "true"
+                            },
+                            availability: visual => visual is Border { IsVisible: true, IsEffectivelyEnabled: true }
+                                ? CustomActionAvailability.Available
+                                : new CustomActionAvailability(false, "Target must be visible and enabled.")));
+                    using var resetRegistration = runtime.RegisterCustomAction(
+                        target,
+                        new CustomActionRegistration(
+                            "reset",
+                            _ =>
+                            {
+                                status.Text = "ready";
+                                return CustomActionOutcome.Succeeded("Reset.");
+                            },
+                            safetyClassification: RuntimeCustomActionSafetyClassifications.Destructive));
+                    Dispatcher.UIThread.RunJobs();
+
+                    var client = new LocalBridgeClient(Path.GetDirectoryName(runtime.SessionManifestPath)!);
+                    var topLevel = Assert.Single(await runtime.ListTopLevelsAsync());
+                    var capabilities = await client.SessionCapabilitiesAsync(runtime.SessionId);
+                    Assert.True(capabilities.Success, capabilities.Error?.Message);
+                    Assert.True(capabilities.Value!.CustomActionsEnabled);
+                    Assert.Equal(["confirm", "reset"], capabilities.Value.AllowedCustomActions);
+
+                    var tree = await client.VisualTreeAsync(runtime.SessionId, topLevel.Id, 8);
+                    Assert.True(tree.Success, tree.Error?.Message);
+                    var targetNode = Assert.IsType<TreeNodeSummary>(FindNode(
+                        tree.Value!.Root,
+                        node => node.AutomationId == "custom-action-target"));
+                    var statusNode = Assert.IsType<TreeNodeSummary>(FindNode(
+                        tree.Value.Root,
+                        node => node.Text == "ready"));
+                    var currentTarget = targetNode.Target!;
+
+                    var discovery = await AvaScopeMcpTools.CustomActions(
+                        client,
+                        runtime.SessionId.Value,
+                        topLevel.Id,
+                        targetNode.NodeId);
+                    Assert.True(discovery.Success, discovery.Error?.Message);
+                    Assert.Equal(2, discovery.Value!.Actions.Count);
+                    var confirm = Assert.Single(discovery.Value.Actions, action => action.Name == "confirm");
+                    Assert.True(confirm.Executable);
+                    Assert.Equal("true", confirm.RequiredState["isEnabled"]);
+                    Assert.Equal("mode", Assert.Single(confirm.Parameters).Name);
+                    Assert.Equal(RuntimeCustomActionSafetyClassifications.NonDestructive, confirm.SafetyClassification);
+
+                    var wrongTarget = await client.InvokeCustomActionAsync(
+                        runtime.SessionId,
+                        new RuntimeCustomActionRequest(
+                            "wrong-target",
+                            statusNode.Target!,
+                            "confirm",
+                            new Dictionary<string, string> { ["mode"] = "accept" }));
+                    var wrongTargetDiagnostic = Assert.Single(wrongTarget.Value!.Diagnostics);
+                    Assert.Equal(RuntimeCustomActionErrorCodes.Unavailable, wrongTargetDiagnostic.Code);
+                    Assert.Contains(targetNode.NodeId, wrongTargetDiagnostic.Details!["candidateNodeIds"], StringComparison.Ordinal);
+
+                    var invalidParameters = await client.InvokeCustomActionAsync(
+                        runtime.SessionId,
+                        new RuntimeCustomActionRequest("invalid-params", currentTarget, "confirm"));
+                    Assert.True(invalidParameters.Success, invalidParameters.Error?.Message);
+                    Assert.False(invalidParameters.Value!.Executed);
+                    Assert.Equal(RuntimeCustomActionErrorCodes.InvalidParameters, Assert.Single(invalidParameters.Value.Diagnostics).Code);
+
+                    target.IsEnabled = false;
+                    var unavailable = await client.InvokeCustomActionAsync(
+                        runtime.SessionId,
+                        new RuntimeCustomActionRequest(
+                            "not-executable",
+                            currentTarget,
+                            "confirm",
+                            new Dictionary<string, string> { ["mode"] = "accept" }));
+                    Assert.Equal(RuntimeCustomActionErrorCodes.NonExecutable, Assert.Single(unavailable.Value!.Diagnostics).Code);
+                    target.IsEnabled = true;
+
+                    var workflow = await AvaScopeMcpTools.RunWorkflow(
+                        client,
+                        new SemanticWorkflowRequest(
+                            runtime.SessionId,
+                            topLevel.Id,
+                            [
+                                new SemanticWorkflowStep(
+                                    SemanticWorkflowActions.CustomActions,
+                                    "discover",
+                                    new SemanticWorkflowSelector(automationId: "custom-action-target")),
+                                new SemanticWorkflowStep(
+                                    SemanticWorkflowActions.CustomAction,
+                                    "confirm",
+                                    new SemanticWorkflowSelector(automationId: "custom-action-target"),
+                                    customActionName: "confirm",
+                                    customActionParameters: new Dictionary<string, string> { ["mode"] = "review" })
+                            ],
+                            requestId: "custom-action-workflow",
+                            maxDepth: 8));
+                    Assert.True(workflow.Success, workflow.Error?.Message);
+                    Assert.Equal("passed", workflow.Value!.Status);
+                    Assert.NotNull(workflow.Value.Steps[0].CustomActions);
+                    Assert.True(workflow.Value.Steps[1].CustomAction!.Executed);
+                    Assert.Equal("confirmed:review", status.Text);
+                    Assert.True(handlerOnUiThread);
+
+                    var unknown = await client.InvokeCustomActionAsync(
+                        runtime.SessionId,
+                        new RuntimeCustomActionRequest("unknown", currentTarget, "missing"));
+                    Assert.Equal(RuntimeCustomActionErrorCodes.UnknownAction, Assert.Single(unknown.Value!.Diagnostics).Code);
+                    Assert.True(unknown.Value.Audit.Sequence > 0);
+
+                    var deniedReset = await AvaScopeMcpTools.InvokeCustomAction(
+                        client,
+                        runtime.SessionId.Value,
+                        topLevel.Id,
+                        targetNode.NodeId,
+                        "reset");
+                    Assert.True(deniedReset.Success, deniedReset.Error?.Message);
+                    Assert.False(deniedReset.Value!.Executed);
+                    Assert.Equal(RuntimeCustomActionErrorCodes.Disallowed, Assert.Single(deniedReset.Value.Diagnostics).Code);
+
+                    var cliDiscovery = await RunCliInputAsync(
+                        "custom-actions",
+                        "--session", runtime.SessionId.Value,
+                        "--top-level", topLevel.Id,
+                        "--node", targetNode.NodeId,
+                        "--manifest-dir", Path.GetDirectoryName(runtime.SessionManifestPath)!);
+                    Assert.Equal(0, cliDiscovery.ExitCode);
+                    var cliActions = JsonSerializer.Deserialize<ToolResult<RuntimeCustomActionsResponse>>(
+                        cliDiscovery.StandardOutput,
+                        new JsonSerializerOptions(JsonSerializerDefaults.Web));
+                    Assert.True(cliActions!.Success, cliActions.Error?.Message);
+                    Assert.Equal(2, cliActions.Value!.Actions.Count);
+
+                    var cliInvoke = await RunCliInputAsync(
+                        "invoke-custom-action",
+                        "--session", runtime.SessionId.Value,
+                        "--top-level", topLevel.Id,
+                        "--node", targetNode.NodeId,
+                        "--action", "confirm",
+                        "--parameters", "mode=accept",
+                        "--manifest-dir", Path.GetDirectoryName(runtime.SessionManifestPath)!);
+                    Assert.Equal(0, cliInvoke.ExitCode);
+                    Assert.Equal("confirmed:accept", status.Text);
+
+                    var stale = await client.InvokeCustomActionAsync(
+                        runtime.SessionId,
+                        new RuntimeCustomActionRequest(
+                            "stale",
+                            new RuntimeTargetContext(runtime.SessionId, topLevel.Id, TreeKinds.Visual, "visual:stale"),
+                            "confirm",
+                            new Dictionary<string, string> { ["mode"] = "accept" }));
+                    Assert.Equal(RuntimeCustomActionErrorCodes.TargetStale, Assert.Single(stale.Value!.Diagnostics).Code);
+
+                    AutomationProperties.SetAutomationId(duplicate, "custom-action-target");
+                    var ambiguous = await new SemanticWorkflowRunner().RunAsync(
+                        client,
+                        new SemanticWorkflowRequest(
+                            runtime.SessionId,
+                            topLevel.Id,
+                            [
+                                new SemanticWorkflowStep(
+                                    SemanticWorkflowActions.CustomAction,
+                                    selector: new SemanticWorkflowSelector(automationId: "custom-action-target"),
+                                    customActionName: "confirm",
+                                    customActionParameters: new Dictionary<string, string> { ["mode"] = "accept" })
+                            ],
+                            maxDepth: 8));
+                    Assert.Equal("failed", ambiguous.Value!.Status);
+                    Assert.Contains("multiple", Assert.Single(Assert.Single(ambiguous.Value.Steps).Diagnostics).Message, StringComparison.OrdinalIgnoreCase);
+                }
+                finally
+                {
+                    window.Close();
+                    AvaScopeBridge.Deactivate();
+                    Dispatcher.UIThread.RunJobs();
+                }
+            }, CancellationToken.None);
+        }
+        finally
+        {
+            DisposeHeadlessSessionAfterExplicitCleanup(session);
+        }
+    }
+
+    [Fact]
     public async Task McpReloadRejectsActiveRuntimeBridgeSessionWithExplicitUnsupportedError()
     {
         using var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessTestApplication));

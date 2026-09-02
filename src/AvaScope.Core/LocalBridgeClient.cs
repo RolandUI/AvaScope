@@ -583,6 +583,80 @@ public sealed class LocalBridgeClient
             cancellationToken);
     }
 
+    public async Task<CoreResult<RuntimeCustomActionsResponse>> CustomActionsAsync(
+        SessionId sessionId,
+        RuntimeTargetContext target,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(sessionId);
+        ArgumentNullException.ThrowIfNull(target);
+        if (target.SessionId != sessionId)
+        {
+            return CoreResult<RuntimeCustomActionsResponse>.Fail(new CoreError(
+                RuntimeCustomActionErrorCodes.TargetStale,
+                "Custom action target belongs to a different session."));
+        }
+
+        var manifestResult = FindSingleManifest(null, sessionId);
+        if (!manifestResult.Success)
+        {
+            return CoreResult<RuntimeCustomActionsResponse>.Fail(manifestResult.Error!);
+        }
+
+        var manifest = manifestResult.Value!;
+        if (!string.Equals(manifest.TransportScope, BridgeTransportScopes.LocalOnly, StringComparison.Ordinal))
+        {
+            return CoreResult<RuntimeCustomActionsResponse>.Fail(new CoreError(
+                RuntimeCustomActionErrorCodes.Disallowed,
+                "Runtime custom actions are available only for local bridge sessions."));
+        }
+
+        return await SendAsync<RuntimeCustomActionsResponse>(
+            manifest,
+            new BridgeIpcRequest(
+                NewRequestId(),
+                BridgeIpcMethods.CustomActions,
+                customActionTarget: target),
+            cancellationToken);
+    }
+
+    public async Task<CoreResult<RuntimeCustomActionResponse>> InvokeCustomActionAsync(
+        SessionId sessionId,
+        RuntimeCustomActionRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(sessionId);
+        ArgumentNullException.ThrowIfNull(request);
+        if (request.Target.SessionId != sessionId)
+        {
+            return CoreResult<RuntimeCustomActionResponse>.Fail(new CoreError(
+                RuntimeCustomActionErrorCodes.TargetStale,
+                "Custom action target belongs to a different session."));
+        }
+
+        var manifestResult = FindSingleManifest(null, sessionId);
+        if (!manifestResult.Success)
+        {
+            return CoreResult<RuntimeCustomActionResponse>.Fail(manifestResult.Error!);
+        }
+
+        var manifest = manifestResult.Value!;
+        if (!string.Equals(manifest.TransportScope, BridgeTransportScopes.LocalOnly, StringComparison.Ordinal))
+        {
+            return CoreResult<RuntimeCustomActionResponse>.Fail(new CoreError(
+                RuntimeCustomActionErrorCodes.Disallowed,
+                "Runtime custom actions are available only for local bridge sessions."));
+        }
+
+        return await SendAsync<RuntimeCustomActionResponse>(
+            manifest,
+            new BridgeIpcRequest(
+                request.RequestId,
+                BridgeIpcMethods.InvokeCustomAction,
+                customAction: request),
+            cancellationToken);
+    }
+
     public async Task<CoreResult<CloseSessionResponse>> CloseSessionAsync(
         SessionId sessionId,
         CancellationToken cancellationToken = default,

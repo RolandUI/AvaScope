@@ -51,19 +51,25 @@ public sealed class AvaScopeBridgeRuntime
     private readonly ConcurrentDictionary<string, Pointer> _activePointers = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, AppliedRuntimeMutation> _activeMutations = new(StringComparer.Ordinal);
     private readonly ConcurrentQueue<RuntimeMutationReviewEntry> _mutationHistory = new();
+    private readonly ConcurrentDictionary<long, RegisteredCustomAction> _customActions = new();
     private readonly SessionRegistry _sessionRegistry;
+    private readonly BridgeActivationOptions _activationOptions;
     private long _mutationSequence;
     private long _mutationHistorySequence;
+    private long _customActionRegistrationSequence;
+    private long _customActionAuditSequence;
     private LocalBridgeServer? _localServer;
 
     internal AvaScopeBridgeRuntime(
         SessionRegistry sessionRegistry,
         SessionSnapshot session,
-        BridgeTransportScope transportScope)
+        BridgeTransportScope transportScope,
+        BridgeActivationOptions activationOptions)
     {
         _sessionRegistry = sessionRegistry ?? throw new ArgumentNullException(nameof(sessionRegistry));
         Session = session ?? throw new ArgumentNullException(nameof(session));
         TransportScope = transportScope;
+        _activationOptions = activationOptions ?? throw new ArgumentNullException(nameof(activationOptions));
     }
 
     public SessionSnapshot Session { get; }
@@ -76,6 +82,10 @@ public sealed class AvaScopeBridgeRuntime
 
     public string? SessionManifestPath => _localServer?.ManifestPath;
 
+    public bool CustomActionsEnabled => _activationOptions.EnableCustomActions;
+
+    public IReadOnlyList<string> AllowedCustomActions => _activationOptions.AllowedCustomActions;
+
     public IDisposable RegisterTopLevel(TopLevel topLevel)
     {
         ArgumentNullException.ThrowIfNull(topLevel);
@@ -86,6 +96,73 @@ public sealed class AvaScopeBridgeRuntime
         _registeredTopLevels[key] = new WeakReference<TopLevel>(topLevel);
 
         return new TopLevelRegistration(() => UnregisterTopLevel(key, topLevelId));
+    }
+
+    public IDisposable RegisterCustomAction(Visual target, CustomActionRegistration registration)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        ArgumentNullException.ThrowIfNull(registration);
+        Dispatcher.UIThread.VerifyAccess();
+
+        var session = _sessionRegistry.Get(SessionId);
+        if (!session.Success || session.Value!.State is not SessionLifecycleState.Active)
+        {
+            throw new InvalidOperationException("Runtime custom actions cannot be registered on a closed bridge session.");
+        }
+
+        if (!_activationOptions.EnableCustomActions)
+        {
+            throw new InvalidOperationException(
+                "Runtime custom actions are disabled. Activate the bridge with enableCustomActions: true.");
+        }
+
+        if (!_activationOptions.AllowedCustomActions.Contains(registration.Name, StringComparer.Ordinal))
+        {
+            throw new InvalidOperationException(
+                $"Runtime custom action '{registration.Name}' is not present in the activation allowlist.");
+        }
+
+        if (registration.Parameters.Select(static parameter => parameter.Name).Distinct(StringComparer.Ordinal).Count()
+            != registration.Parameters.Count)
+        {
+            throw new ArgumentException("Custom action parameter names must be unique.", nameof(registration));
+        }
+
+        var sequence = Interlocked.Increment(ref _customActionRegistrationSequence);
+        _customActions[sequence] = new RegisteredCustomAction(
+            new WeakReference<Visual>(target),
+            registration);
+        return new TopLevelRegistration(() => _customActions.TryRemove(sequence, out _));
+    }
+
+    public Task<CoreResult<RuntimeCustomActionsResponse>> ListCustomActionsAsync(
+        RuntimeTargetContext target,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        if (Dispatcher.UIThread.CheckAccess())
+        {
+            return Task.FromResult(ListCustomActions(target));
+        }
+
+        return Dispatcher.UIThread
+            .InvokeAsync(() => ListCustomActions(target), DispatcherPriority.Background, cancellationToken)
+            .GetTask();
+    }
+
+    public Task<CoreResult<RuntimeCustomActionResponse>> InvokeCustomActionAsync(
+        RuntimeCustomActionRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        if (Dispatcher.UIThread.CheckAccess())
+        {
+            return Task.FromResult(InvokeCustomAction(request));
+        }
+
+        return Dispatcher.UIThread
+            .InvokeAsync(() => InvokeCustomAction(request), DispatcherPriority.Background, cancellationToken)
+            .GetTask();
     }
 
     public Task<IReadOnlyList<TopLevelSummary>> ListTopLevelsAsync(CancellationToken cancellationToken = default)
@@ -443,6 +520,7 @@ public sealed class AvaScopeBridgeRuntime
     internal CoreResult<SessionSnapshot> CloseSession()
     {
         ResetActiveMutationsOnUiThread(static _ => true);
+        _customActions.Clear();
         return _sessionRegistry.Close(SessionId);
     }
 
@@ -455,6 +533,376 @@ public sealed class AvaScopeBridgeRuntime
     internal void StartLocalServer()
     {
         _localServer ??= LocalBridgeServer.Start(this);
+    }
+
+    private CoreResult<RuntimeCustomActionsResponse> ListCustomActions(RuntimeTargetContext target)
+    {
+        Dispatcher.UIThread.VerifyAccess();
+        var resolved = ResolveCustomActionTarget(target);
+        if (!resolved.Success)
+        {
+            return CoreResult<RuntimeCustomActionsResponse>.Fail(resolved.Error!);
+        }
+
+        var (visual, currentTarget) = resolved.Value!;
+        var actions = EnumerateCustomActions()
+            .Where(entry => ReferenceEquals(entry.Target, visual))
+            .Select(entry => CreateCustomActionDescriptor(entry.Registration, visual, currentTarget))
+            .OrderBy(static descriptor => descriptor.Name, StringComparer.Ordinal)
+            .ToArray();
+
+        return CoreResult<RuntimeCustomActionsResponse>.Ok(new RuntimeCustomActionsResponse(
+            SessionId,
+            target.TopLevelId,
+            currentTarget,
+            enabled: true,
+            actions,
+            DateTimeOffset.UtcNow));
+    }
+
+    private CoreResult<RuntimeCustomActionResponse> InvokeCustomAction(RuntimeCustomActionRequest request)
+    {
+        Dispatcher.UIThread.VerifyAccess();
+        var resolved = ResolveCustomActionTarget(request.Target);
+        if (!resolved.Success)
+        {
+            return CoreResult<RuntimeCustomActionResponse>.Ok(CreateCustomActionResponse(
+                request,
+                request.Target,
+                "not_available",
+                RuntimeCustomActionStatuses.Rejected,
+                executed: false,
+                resolved.Error!.Message,
+                new ProtocolError(resolved.Error.Code, resolved.Error.Message, resolved.Error.Details)));
+        }
+
+        var (visual, currentTarget) = resolved.Value!;
+        var liveActions = EnumerateCustomActions().ToArray();
+        var registered = liveActions.FirstOrDefault(entry =>
+            ReferenceEquals(entry.Target, visual)
+            && string.Equals(entry.Registration.Name, request.ActionName, StringComparison.Ordinal));
+        if (registered is null)
+        {
+            var candidates = liveActions
+                .Where(entry => string.Equals(entry.Registration.Name, request.ActionName, StringComparison.Ordinal))
+                .Select(entry => CreateNodeId(entry.Target, TreeKinds.Visual))
+                .Distinct(StringComparer.Ordinal)
+                .Take(16)
+                .ToArray();
+            var known = candidates.Length > 0;
+            var diagnostic = new ProtocolError(
+                known ? RuntimeCustomActionErrorCodes.Unavailable : RuntimeCustomActionErrorCodes.UnknownAction,
+                known
+                    ? $"Custom action '{request.ActionName}' is registered, but not for the selected target."
+                    : $"Custom action '{request.ActionName}' is not registered in this bridge session.",
+                new Dictionary<string, string>
+                {
+                    ["actionName"] = request.ActionName,
+                    ["candidateNodeIds"] = string.Join(",", candidates),
+                    ["availableActionNames"] = string.Join(",", liveActions.Select(static entry => entry.Registration.Name).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)),
+                    ["nextAction"] = "Discover actions for a current selector target before invoking one."
+                });
+            return CoreResult<RuntimeCustomActionResponse>.Ok(CreateCustomActionResponse(
+                request,
+                currentTarget,
+                "not_available",
+                RuntimeCustomActionStatuses.Rejected,
+                executed: false,
+                diagnostic.Message,
+                diagnostic));
+        }
+
+        var registration = registered.Registration;
+        if (string.Equals(registration.SafetyClassification, RuntimeCustomActionSafetyClassifications.Destructive, StringComparison.Ordinal)
+            && (!_activationOptions.AllowDestructiveCustomActions || !request.AllowDestructive))
+        {
+            var diagnostic = new ProtocolError(
+                RuntimeCustomActionErrorCodes.Disallowed,
+                $"Destructive custom action '{request.ActionName}' requires both app activation and request authorization.",
+                new Dictionary<string, string>
+                {
+                    ["appAllowsDestructive"] = _activationOptions.AllowDestructiveCustomActions.ToString().ToLowerInvariant(),
+                    ["requestAllowsDestructive"] = request.AllowDestructive.ToString().ToLowerInvariant(),
+                    ["safetyClassification"] = registration.SafetyClassification,
+                    ["nextAction"] = "Enable destructive custom actions in the app and set allowDestructive explicitly only in an isolated or approved workflow."
+                });
+            return CoreResult<RuntimeCustomActionResponse>.Ok(CreateCustomActionResponse(
+                request,
+                currentTarget,
+                registration.SafetyClassification,
+                RuntimeCustomActionStatuses.Rejected,
+                executed: false,
+                diagnostic.Message,
+                diagnostic));
+        }
+
+        var availability = EvaluateCustomActionAvailability(registration, visual);
+        if (!availability.Executable)
+        {
+            var diagnostic = new ProtocolError(
+                RuntimeCustomActionErrorCodes.NonExecutable,
+                availability.Reason ?? $"Custom action '{request.ActionName}' is not executable in the current state.",
+                (availability.State ?? new Dictionary<string, string>())
+                    .Take(32)
+                    .ToDictionary(static pair => pair.Key, static pair => pair.Value, StringComparer.Ordinal));
+            return CoreResult<RuntimeCustomActionResponse>.Ok(CreateCustomActionResponse(
+                request,
+                currentTarget,
+                registration.SafetyClassification,
+                RuntimeCustomActionStatuses.Rejected,
+                executed: false,
+                diagnostic.Message,
+                diagnostic));
+        }
+
+        var parameterDiagnostic = ValidateCustomActionParameters(registration.Parameters, request.Parameters);
+        if (parameterDiagnostic is not null)
+        {
+            return CoreResult<RuntimeCustomActionResponse>.Ok(CreateCustomActionResponse(
+                request,
+                currentTarget,
+                registration.SafetyClassification,
+                RuntimeCustomActionStatuses.Rejected,
+                executed: false,
+                parameterDiagnostic.Message,
+                parameterDiagnostic));
+        }
+
+        try
+        {
+            var outcome = registration.Handler(new CustomActionContext(request.RequestId, visual, request.Parameters));
+            var message = string.IsNullOrWhiteSpace(outcome.Message)
+                ? $"Custom action '{request.ActionName}' completed."
+                : outcome.Message;
+            var diagnostic = outcome.Success
+                ? null
+                : new ProtocolError(RuntimeCustomActionErrorCodes.ExecutionFailed, message);
+            return CoreResult<RuntimeCustomActionResponse>.Ok(CreateCustomActionResponse(
+                request,
+                currentTarget,
+                registration.SafetyClassification,
+                outcome.Success ? RuntimeCustomActionStatuses.Executed : RuntimeCustomActionStatuses.Failed,
+                executed: true,
+                message,
+                diagnostic,
+                outcome.Metadata));
+        }
+        catch (Exception exception)
+        {
+            var diagnostic = new ProtocolError(
+                RuntimeCustomActionErrorCodes.ExecutionFailed,
+                $"Custom action '{request.ActionName}' failed: {exception.Message}",
+                new Dictionary<string, string>
+                {
+                    ["exceptionType"] = exception.GetType().FullName ?? exception.GetType().Name
+                });
+            return CoreResult<RuntimeCustomActionResponse>.Ok(CreateCustomActionResponse(
+                request,
+                currentTarget,
+                registration.SafetyClassification,
+                RuntimeCustomActionStatuses.Failed,
+                executed: true,
+                diagnostic.Message,
+                diagnostic));
+        }
+    }
+
+    private CoreResult<ResolvedCustomActionTarget> ResolveCustomActionTarget(RuntimeTargetContext target)
+    {
+        var session = _sessionRegistry.Get(SessionId);
+        if (!session.Success || session.Value!.State is not SessionLifecycleState.Active)
+        {
+            return CoreResult<ResolvedCustomActionTarget>.Fail(new CoreError(
+                CoreErrorCodes.SessionClosed,
+                "Runtime custom action session is closed."));
+        }
+
+        if (!_activationOptions.EnableCustomActions)
+        {
+            return CoreResult<ResolvedCustomActionTarget>.Fail(new CoreError(
+                RuntimeCustomActionErrorCodes.Disabled,
+                "Runtime custom actions are disabled for this bridge session.",
+                new Dictionary<string, string>
+                {
+                    ["customActionsEnabled"] = "false",
+                    ["nextAction"] = "The app must explicitly activate the bridge with custom actions enabled and an action allowlist."
+                }));
+        }
+
+        if (target.SessionId != SessionId)
+        {
+            return CoreResult<ResolvedCustomActionTarget>.Fail(new CoreError(
+                RuntimeCustomActionErrorCodes.TargetStale,
+                "Custom action target belongs to a different bridge session."));
+        }
+
+        var topLevel = FindTopLevel(target.TopLevelId);
+        if (topLevel is null)
+        {
+            return CoreResult<ResolvedCustomActionTarget>.Fail(new CoreError(
+                RuntimeCustomActionErrorCodes.TargetStale,
+                "Custom action top-level is no longer available.",
+                new Dictionary<string, string>
+                {
+                    ["topLevelId"] = target.TopLevelId,
+                    ["nextAction"] = "Refresh top-levels and resolve the selector again."
+                }));
+        }
+
+        var resolved = ResolveMutationTarget(topLevel, target);
+        if (!resolved.Success || resolved.Value!.Node is not Visual visual)
+        {
+            return CoreResult<ResolvedCustomActionTarget>.Fail(new CoreError(
+                RuntimeCustomActionErrorCodes.TargetStale,
+                resolved.Error?.Message ?? "Custom actions require a current visual node target.",
+                resolved.Error?.Details));
+        }
+
+        return CoreResult<ResolvedCustomActionTarget>.Ok(new ResolvedCustomActionTarget(visual, resolved.Value.Target));
+    }
+
+    private IEnumerable<LiveCustomAction> EnumerateCustomActions()
+    {
+        foreach (var (sequence, entry) in _customActions.OrderBy(static pair => pair.Key))
+        {
+            if (entry.Target.TryGetTarget(out var target))
+            {
+                yield return new LiveCustomAction(target, entry.Registration);
+                continue;
+            }
+
+            _customActions.TryRemove(sequence, out _);
+        }
+    }
+
+    private RuntimeCustomActionDescriptor CreateCustomActionDescriptor(
+        CustomActionRegistration registration,
+        Visual target,
+        RuntimeTargetContext currentTarget)
+    {
+        var availability = EvaluateCustomActionAvailability(registration, target);
+        var executable = availability.Executable
+            && (!string.Equals(registration.SafetyClassification, RuntimeCustomActionSafetyClassifications.Destructive, StringComparison.Ordinal)
+                || _activationOptions.AllowDestructiveCustomActions);
+        var reason = availability.Reason;
+        if (availability.Executable && !executable)
+        {
+            reason = "The app did not authorize destructive custom actions for this bridge session.";
+        }
+
+        return new RuntimeCustomActionDescriptor(
+            registration.Name,
+            currentTarget,
+            executable,
+            registration.SafetyClassification,
+            registration.Parameters,
+            registration.RequiredState,
+            registration.Description,
+            reason);
+    }
+
+    private static CustomActionAvailability EvaluateCustomActionAvailability(
+        CustomActionRegistration registration,
+        Visual target)
+    {
+        if (registration.Availability is null)
+        {
+            return CustomActionAvailability.Available;
+        }
+
+        try
+        {
+            return registration.Availability(target) ?? new CustomActionAvailability(false, "Availability callback returned no result.");
+        }
+        catch (Exception exception)
+        {
+            return new CustomActionAvailability(
+                false,
+                $"Availability evaluation failed: {exception.Message}",
+                new Dictionary<string, string>
+                {
+                    ["exceptionType"] = exception.GetType().FullName ?? exception.GetType().Name
+                });
+        }
+    }
+
+    private static ProtocolError? ValidateCustomActionParameters(
+        IReadOnlyList<RuntimeCustomActionParameterDescriptor> schema,
+        IReadOnlyDictionary<string, string> parameters)
+    {
+        var known = schema.Select(static item => item.Name).ToHashSet(StringComparer.Ordinal);
+        var unknown = parameters.Keys.Where(key => !known.Contains(key)).Order(StringComparer.Ordinal).ToArray();
+        var missing = schema.Where(item => item.Required && !parameters.ContainsKey(item.Name)).Select(static item => item.Name).ToArray();
+        var invalid = new List<string>();
+        foreach (var descriptor in schema)
+        {
+            if (!parameters.TryGetValue(descriptor.Name, out var value))
+            {
+                continue;
+            }
+
+            var validType = descriptor.Type switch
+            {
+                RuntimeCustomActionParameterTypes.Boolean => bool.TryParse(value, out _),
+                RuntimeCustomActionParameterTypes.Integer => long.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out _),
+                RuntimeCustomActionParameterTypes.Number => double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var number) && double.IsFinite(number),
+                _ => true
+            };
+            if (!validType || (descriptor.AllowedValues.Count > 0 && !descriptor.AllowedValues.Contains(value, StringComparer.Ordinal)))
+            {
+                invalid.Add(descriptor.Name);
+            }
+        }
+
+        if (unknown.Length == 0 && missing.Length == 0 && invalid.Count == 0)
+        {
+            return null;
+        }
+
+        return new ProtocolError(
+            RuntimeCustomActionErrorCodes.InvalidParameters,
+            "Custom action parameters do not match the registered schema.",
+            new Dictionary<string, string>
+            {
+                ["unknownParameters"] = string.Join(",", unknown),
+                ["missingParameters"] = string.Join(",", missing),
+                ["invalidParameters"] = string.Join(",", invalid),
+                ["expectedParameters"] = string.Join(",", schema.Select(static item => $"{item.Name}:{item.Type}"))
+            });
+    }
+
+    private RuntimeCustomActionResponse CreateCustomActionResponse(
+        RuntimeCustomActionRequest request,
+        RuntimeTargetContext target,
+        string safetyClassification,
+        string status,
+        bool executed,
+        string message,
+        ProtocolError? diagnostic = null,
+        IReadOnlyDictionary<string, string>? metadata = null)
+    {
+        var evaluatedAt = DateTimeOffset.UtcNow;
+        var audit = new RuntimeCustomActionAuditEntry(
+            Interlocked.Increment(ref _customActionAuditSequence),
+            request.RequestId,
+            request.ActionName,
+            target,
+            safetyClassification,
+            status,
+            executed,
+            evaluatedAt);
+        return new RuntimeCustomActionResponse(
+            request.RequestId,
+            request.ActionName,
+            target,
+            safetyClassification,
+            status,
+            executed,
+            message,
+            evaluatedAt,
+            audit,
+            metadata,
+            diagnostic is null ? [] : [diagnostic]);
     }
 
     private IReadOnlyList<TopLevelSummary> DiscoverTopLevels()
@@ -6220,6 +6668,14 @@ public sealed class AvaScopeBridgeRuntime
         Action Reset);
 
     private sealed record ResolvedMutationTarget(object Node, RuntimeTargetContext Target);
+
+    private sealed record ResolvedCustomActionTarget(Visual Target, RuntimeTargetContext CurrentTarget);
+
+    private sealed record RegisteredCustomAction(
+        WeakReference<Visual> Target,
+        CustomActionRegistration Registration);
+
+    private sealed record LiveCustomAction(Visual Target, CustomActionRegistration Registration);
 
     private sealed record SourceElementInfo(
         string ElementType,

@@ -593,6 +593,99 @@ public sealed class AvaScopeMcpTools
     }
 
     [McpServerTool(
+        Name = "custom_actions",
+        Title = "Custom actions",
+        ReadOnly = true,
+        Idempotent = true,
+        Destructive = false,
+        OpenWorld = false,
+        UseStructuredContent = true)]
+    [Description("Discovers app-registered, allowlisted runtime actions and their current executability, required state, parameter schema, and safety classification for one current node target.")]
+    public static async Task<ToolResult<RuntimeCustomActionsResponse>> CustomActions(
+        LocalBridgeClient bridgeClient,
+        string sessionId,
+        string topLevelId,
+        string nodeId,
+        string treeKind = TreeKinds.Visual,
+        string? manifestDirectory = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(bridgeClient);
+        if (!TryParseRequiredSessionId(sessionId, out var parsedSessionId, out var error))
+        {
+            return ToolResult<RuntimeCustomActionsResponse>.Fail(error!);
+        }
+
+        RuntimeTargetContext target;
+        try
+        {
+            target = new RuntimeTargetContext(parsedSessionId!, topLevelId, treeKind, nodeId);
+        }
+        catch (ArgumentException exception)
+        {
+            return ToolResult<RuntimeCustomActionsResponse>.Fail(new ProtocolError(
+                CoreErrorCodes.InvalidBridgeRequest,
+                exception.Message));
+        }
+
+        return ToToolResult(await CreateBridgeClient(bridgeClient, manifestDirectory).CustomActionsAsync(
+            parsedSessionId!,
+            target,
+            cancellationToken));
+    }
+
+    [McpServerTool(
+        Name = "invoke_custom_action",
+        Title = "Invoke custom action",
+        ReadOnly = false,
+        Idempotent = false,
+        Destructive = true,
+        OpenWorld = false,
+        UseStructuredContent = true)]
+    [Description("Invokes one app-registered, allowlisted runtime action on a current node target. Destructive actions require explicit authorization from both the app and this request.")]
+    public static async Task<ToolResult<RuntimeCustomActionResponse>> InvokeCustomAction(
+        LocalBridgeClient bridgeClient,
+        string sessionId,
+        string topLevelId,
+        string nodeId,
+        string actionName,
+        IReadOnlyDictionary<string, string>? parameters = null,
+        string treeKind = TreeKinds.Visual,
+        bool allowDestructive = false,
+        string? requestId = null,
+        string? manifestDirectory = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(bridgeClient);
+        if (!TryParseRequiredSessionId(sessionId, out var parsedSessionId, out var error))
+        {
+            return ToolResult<RuntimeCustomActionResponse>.Fail(error!);
+        }
+
+        RuntimeCustomActionRequest request;
+        try
+        {
+            request = new RuntimeCustomActionRequest(
+                string.IsNullOrWhiteSpace(requestId) ? Guid.NewGuid().ToString("n") : requestId,
+                new RuntimeTargetContext(parsedSessionId!, topLevelId, treeKind, nodeId),
+                actionName,
+                parameters,
+                allowDestructive);
+        }
+        catch (ArgumentException exception)
+        {
+            return ToolResult<RuntimeCustomActionResponse>.Fail(new ProtocolError(
+                CoreErrorCodes.InvalidBridgeRequest,
+                exception.Message));
+        }
+
+        return ToToolResult(await CreateBridgeClient(bridgeClient, manifestDirectory).InvokeCustomActionAsync(
+            parsedSessionId!,
+            request,
+            cancellationToken));
+    }
+
+    [McpServerTool(
         Name = "run_workflow",
         Title = "Run workflow",
         ReadOnly = false,

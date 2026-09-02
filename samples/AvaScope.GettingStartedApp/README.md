@@ -35,7 +35,7 @@ $env:AVASCOPE_SAMPLE_BRIDGE = "1"
 dotnet run --project .\samples\AvaScope.GettingStartedApp\AvaScope.GettingStartedApp.csproj
 ```
 
-The sample bridge is disabled by default. When enabled, it writes a local-only session manifest and serves AvaScope requests through a current-user local named pipe; it does not open a network listener.
+The sample bridge is disabled by default. When enabled, it writes a local-only session manifest and serves AvaScope requests through a current-user local named pipe; it does not open a network listener. The sample also explicitly enables and allowlists `confirm` and `reset` actions on its `MainView` custom control. `confirm` accepts an optional `note` parameter; `reset` is classified as destructive and requires explicit request authorization.
 
 In another terminal, inspect active local bridge sessions:
 
@@ -44,5 +44,13 @@ dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll diagnostics --max-sessi
 ```
 
 Use the reported session id with `list-top-levels`, `visual-tree`, `screenshot`, and the other runtime CLI commands documented in the root README.
+
+Use the visual-tree node id for `MainContent` to discover and invoke the sample actions:
+
+```powershell
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll custom-actions --session <session-id> --top-level <top-level-id> --node <main-content-node-id>
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll invoke-custom-action --session <session-id> --top-level <top-level-id> --node <main-content-node-id> --action confirm --parameters "note=from-agent"
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll invoke-custom-action --session <session-id> --top-level <top-level-id> --node <main-content-node-id> --action reset --allow-destructive true
+```
 
 If diagnostics show stale sample bridge manifests after stopping the app, run `cleanup-bridge-sessions` from the repository root to remove stale local manifest JSON records without terminating processes.

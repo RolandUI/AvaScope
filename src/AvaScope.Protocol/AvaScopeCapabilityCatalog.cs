@@ -196,6 +196,20 @@ public static class AvaScopeCapabilityCatalog
                     ["dryRunSideEffects"] = "none"
                 }),
             Capability(
+                AvaScopeCapabilityIds.RuntimeCustomActions,
+                "runtime",
+                "Discover and invoke app-registered, target-scoped runtime actions through an explicit local-only opt-in, activation allowlist, parameter schema, executability check, safety classification, and audit result.",
+                ["custom-actions", "invoke-custom-action", "custom_actions", "invoke_custom_action", "run-workflow", "run_workflow"],
+                requires: [AvaScopeCapabilityIds.RuntimeSemanticWorkflow, AvaScopeCapabilityIds.SafetyLocalOnly],
+                metadata: new Dictionary<string, string>
+                {
+                    ["defaultState"] = "disabled",
+                    ["targetScope"] = "visual_node",
+                    ["safetyClassifications"] = string.Join(",", RuntimeCustomActionSafetyClassifications.All),
+                    ["destructiveAuthorization"] = "app_and_request",
+                    ["registrationApi"] = "AvaScopeBridgeRuntime.RegisterCustomAction"
+                }),
+            Capability(
                 AvaScopeCapabilityIds.RuntimeScenarioRunner,
                 "runtime",
                 "Run safe local runtime scenarios by launching or attaching to a bridge session, isolating launched app state, executing semantic workflow steps, and writing timeline artifacts.",
@@ -475,6 +489,10 @@ public static class AvaScopeCapabilityCatalog
             Mcp("design_quality_audit", AvaScopeCapabilityIds.RuntimeDesignQualityAudit),
             Cli("input", AvaScopeCapabilityIds.RuntimeInput, AvaScopeCapabilityIds.RuntimeSemanticAutomation),
             Mcp("input", AvaScopeCapabilityIds.RuntimeInput, AvaScopeCapabilityIds.RuntimeSemanticAutomation),
+            Cli("custom-actions", AvaScopeCapabilityIds.RuntimeCustomActions),
+            Mcp("custom_actions", AvaScopeCapabilityIds.RuntimeCustomActions),
+            Cli("invoke-custom-action", AvaScopeCapabilityIds.RuntimeCustomActions),
+            Mcp("invoke_custom_action", AvaScopeCapabilityIds.RuntimeCustomActions),
             Cli("run-workflow", AvaScopeCapabilityIds.RuntimeSemanticWorkflow, AvaScopeCapabilityIds.RuntimeSemanticAutomation),
             Mcp("run_workflow", AvaScopeCapabilityIds.RuntimeSemanticWorkflow, AvaScopeCapabilityIds.RuntimeSemanticAutomation),
             Cli("run-scenario", AvaScopeCapabilityIds.RuntimeScenarioRunner, AvaScopeCapabilityIds.SafetyLocalOnly),

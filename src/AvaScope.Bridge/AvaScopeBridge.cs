@@ -46,7 +46,8 @@ public static class AvaScopeBridge
             _current = new AvaScopeBridgeRuntime(
                 sessionRegistry,
                 session,
-                BridgeTransportScope.LocalOnly);
+                BridgeTransportScope.LocalOnly,
+                options);
             _current.StartLocalServer();
 
             return _current;

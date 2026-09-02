@@ -73,6 +73,8 @@ The stable CLI command name set is:
 - `audit-ui`
 - `design-audit`
 - `input`
+- `custom-actions`
+- `invoke-custom-action`
 - `run-workflow`
 - `run-scenario`
 - `pointer-diagnostics`
@@ -132,6 +134,8 @@ The stable MCP tool name set is:
 - `audit_ui`
 - `design_quality_audit`
 - `input`
+- `custom_actions`
+- `invoke_custom_action`
 - `run_workflow`
 - `run_scenario`
 - `native_picker`
@@ -156,7 +160,7 @@ The stable MCP tool name set is:
 - `close_preview_session`
 - `reload`
 
-The additive v1.2 workflow contract includes bounded `wait_for_node`, `wait_for_state`, and `wait_for_dialog` actions; non-mutating `validate_action` and `validate_mutation`; and optional session-scoped `idempotencyKey` / `idempotencyTtlMs` step fields. Replay evidence is exposed through step metadata and mutation dry-run evidence through `SemanticWorkflowStepResult.mutation`.
+The additive v1.2 workflow contract includes bounded `wait_for_node`, `wait_for_state`, and `wait_for_dialog` actions; non-mutating `validate_action` and `validate_mutation`; and optional session-scoped `idempotencyKey` / `idempotencyTtlMs` step fields. Replay evidence is exposed through step metadata and mutation dry-run evidence through `SemanticWorkflowStepResult.mutation`. The additive v1.4 contract adds opt-in, node-scoped runtime custom-action discovery and invocation. Apps publish parameter schemas, required state, current executability, safety classification, and bounded audit evidence; custom actions are disabled by default and destructive invocation requires authorization from both the app and request.
 
 Large tree, `find_nodes`, diagnostics, workflow, and scenario results may carry
 an additive `responseBudget` object. When `truncated` is true, the inline

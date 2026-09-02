@@ -187,6 +187,8 @@ public sealed class SemanticWorkflowRunner
                 SemanticWorkflowActions.Swipe => await InputAsync(bridgeClient, request, step, InputActions.Swipe, cancellationToken),
                 SemanticWorkflowActions.LongPress => await InputAsync(bridgeClient, request, step, InputActions.LongPress, cancellationToken),
                 SemanticWorkflowActions.PressAndHold => await InputAsync(bridgeClient, request, step, InputActions.PressAndHold, cancellationToken),
+                SemanticWorkflowActions.CustomActions => await CustomActionsAsync(bridgeClient, request, step, cancellationToken),
+                SemanticWorkflowActions.CustomAction => await CustomActionAsync(bridgeClient, request, step, cancellationToken),
                 _ => Fail(step, "semantic_workflow_action_not_supported", $"Workflow action '{step.Action}' is not supported.")
             };
         }
@@ -704,6 +706,132 @@ public sealed class SemanticWorkflowRunner
             picker: picker);
     }
 
+    private static async Task<SemanticWorkflowStepResult> CustomActionsAsync(
+        LocalBridgeClient bridgeClient,
+        SemanticWorkflowRequest request,
+        SemanticWorkflowStep step,
+        CancellationToken cancellationToken)
+    {
+        var target = await ResolveTargetAsync(bridgeClient, request, step, cancellationToken);
+        if (!target.Success)
+        {
+            return Fail(step, target.Error!);
+        }
+
+        var result = await bridgeClient.CustomActionsAsync(
+            request.SessionId,
+            target.Value!.Target,
+            cancellationToken);
+        return result.Success
+            ? Pass(
+                step,
+                $"Discovered {result.Value!.Actions.Count.ToString(CultureInfo.InvariantCulture)} custom action(s).",
+                target.Value.Target,
+                customActions: result.Value)
+            : Fail(step, result.Error!, target.Value.Target);
+    }
+
+    private static async Task<SemanticWorkflowStepResult> CustomActionAsync(
+        LocalBridgeClient bridgeClient,
+        SemanticWorkflowRequest request,
+        SemanticWorkflowStep step,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(step.CustomActionName))
+        {
+            return Fail(step, RuntimeCustomActionErrorCodes.InvalidRequest, "custom_action requires customActionName.");
+        }
+
+        var target = await ResolveTargetAsync(bridgeClient, request, step, cancellationToken);
+        if (!target.Success)
+        {
+            return Fail(step, target.Error!);
+        }
+
+        var discovery = await bridgeClient.CustomActionsAsync(
+            request.SessionId,
+            target.Value!.Target,
+            cancellationToken);
+        if (!discovery.Success)
+        {
+            return Fail(step, discovery.Error!, target.Value.Target);
+        }
+
+        var descriptor = discovery.Value!.Actions.FirstOrDefault(action =>
+            string.Equals(action.Name, step.CustomActionName, StringComparison.Ordinal));
+        if (descriptor is null)
+        {
+            return Fail(
+                step,
+                RuntimeCustomActionErrorCodes.UnknownAction,
+                $"Custom action '{step.CustomActionName}' is not available for the resolved selector target.",
+                target.Value.Target,
+                metadata: new Dictionary<string, string>
+                {
+                    ["availableActionNames"] = string.Join(",", discovery.Value.Actions.Select(static action => action.Name))
+                });
+        }
+
+        var authorizedDestructive = request.AllowDestructive || !string.IsNullOrWhiteSpace(request.IsolatedStateDirectory);
+        if (string.Equals(descriptor.SafetyClassification, RuntimeCustomActionSafetyClassifications.Destructive, StringComparison.Ordinal)
+            && !authorizedDestructive)
+        {
+            return Fail(
+                step,
+                RuntimeCustomActionErrorCodes.Disallowed,
+                "The selected custom action is destructive; provide isolatedStateDirectory or set allowDestructive explicitly.",
+                target.Value.Target,
+                metadata: new Dictionary<string, string>
+                {
+                    ["actionName"] = descriptor.Name,
+                    ["safetyClassification"] = descriptor.SafetyClassification
+                });
+        }
+
+        if (!descriptor.Executable)
+        {
+            return Fail(
+                step,
+                RuntimeCustomActionErrorCodes.NonExecutable,
+                descriptor.UnavailableReason ?? $"Custom action '{descriptor.Name}' is not executable in the current state.",
+                target.Value.Target);
+        }
+
+        var customRequest = new RuntimeCustomActionRequest(
+            $"{request.RequestId}:{step.Id}",
+            target.Value.Target,
+            descriptor.Name,
+            step.CustomActionParameters,
+            authorizedDestructive);
+        var invocation = await bridgeClient.InvokeCustomActionAsync(
+            request.SessionId,
+            customRequest,
+            cancellationToken);
+        if (!invocation.Success)
+        {
+            return Fail(step, invocation.Error!, target.Value.Target);
+        }
+
+        var response = invocation.Value!;
+        return string.Equals(response.Status, RuntimeCustomActionStatuses.Executed, StringComparison.Ordinal)
+            ? Pass(
+                step,
+                response.Message,
+                target.Value.Target,
+                metadata: response.Metadata,
+                customAction: response)
+            : new SemanticWorkflowStepResult(
+                step.Id,
+                step.Action,
+                "failed",
+                response.Message,
+                DateTimeOffset.UtcNow,
+                target.Value.Target,
+                diagnostics: response.Diagnostics,
+                metadata: response.Metadata,
+                customAction: response);
+    }
+
     private static async Task<SemanticWorkflowStepResult> InputAsync(
         LocalBridgeClient bridgeClient,
         SemanticWorkflowRequest request,
@@ -1171,7 +1299,9 @@ public sealed class SemanticWorkflowRunner
         ScreenshotResponse? screenshot = null,
         IReadOnlyDictionary<string, string>? metadata = null,
         NativePickerResponse? picker = null,
-        RuntimeMutationResponse? mutation = null)
+        RuntimeMutationResponse? mutation = null,
+        RuntimeCustomActionsResponse? customActions = null,
+        RuntimeCustomActionResponse? customAction = null)
     {
         return new SemanticWorkflowStepResult(
             step.Id,
@@ -1185,7 +1315,9 @@ public sealed class SemanticWorkflowRunner
             screenshot,
             metadata: metadata,
             picker: picker,
-            mutation: mutation);
+            mutation: mutation,
+            customActions: customActions,
+            customAction: customAction);
     }
 
     private static SemanticWorkflowStepResult Fail(

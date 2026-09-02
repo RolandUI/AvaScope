@@ -32,6 +32,10 @@
         <TextBlock Text="Runtime bridge commands can list this window and capture screenshots after explicit activation."
                    TextWrapping="Wrap"
                    Opacity="0.72" />
+        <TextBlock x:Name="ActionStatusText"
+                   AutomationProperties.AutomationId="sample-custom-action-status"
+                   Text="Custom action status: ready"
+                   TextWrapping="Wrap" />
       </StackPanel>
     </Border>
   </Grid>

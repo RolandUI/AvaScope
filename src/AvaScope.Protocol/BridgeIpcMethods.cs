@@ -16,6 +16,8 @@ public static class BridgeIpcMethods
     public const string MutateNode = "mutate_node";
     public const string ValidateMutation = "validate_mutation";
     public const string MutationReview = "mutation_review";
+    public const string CustomActions = "custom_actions";
+    public const string InvokeCustomAction = "invoke_custom_action";
     public const string CloseSession = "close_session";
 
     public static IReadOnlyList<string> All { get; } =
@@ -34,6 +36,8 @@ public static class BridgeIpcMethods
         MutateNode,
         ValidateMutation,
         MutationReview,
+        CustomActions,
+        InvokeCustomAction,
         CloseSession
     ];
 }
