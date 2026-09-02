@@ -384,6 +384,56 @@ public sealed class ProtocolContractTests
     }
 
     [Fact]
+    public void SemanticWorkflowTopLevelAliasesSerializeStableAdditiveShape()
+    {
+        var sessionId = new SessionId("alias-session");
+        var request = new SemanticWorkflowRequest(
+            sessionId,
+            topLevelId: null,
+            steps:
+            [
+                new SemanticWorkflowStep(
+                    SemanticWorkflowActions.Inspect,
+                    "inspect-controls",
+                    new SemanticWorkflowSelector(automationId: "save"),
+                    topLevelAlias: "controls")
+            ],
+            topLevelAliases:
+            [
+                new SemanticWorkflowTopLevelAlias(
+                    "controls",
+                    new SemanticTopLevelSelector("Controls", "Window", isActive: true, sessionId))
+            ]);
+        var result = new SemanticWorkflowStepResult(
+            "inspect-controls",
+            SemanticWorkflowActions.Inspect,
+            "passed",
+            "resolved",
+            DateTimeOffset.UtcNow,
+            topLevelAlias: "controls",
+            resolvedTopLevelId: "topLevel:current");
+
+        var requestNode = JsonNode.Parse(JsonSerializer.Serialize(request))!;
+        var resultNode = JsonNode.Parse(JsonSerializer.Serialize(result))!;
+
+        Assert.Null(requestNode["topLevelId"]);
+        Assert.Equal("controls", requestNode["topLevelAliases"]![0]!["alias"]!.GetValue<string>());
+        Assert.Equal("Controls", requestNode["topLevelAliases"]![0]!["selector"]!["title"]!.GetValue<string>());
+        Assert.Equal("controls", requestNode["steps"]![0]!["topLevelAlias"]!.GetValue<string>());
+        Assert.Equal("controls", resultNode["topLevelAlias"]!.GetValue<string>());
+        Assert.Equal("topLevel:current", resultNode["resolvedTopLevelId"]!.GetValue<string>());
+        Assert.Throws<ArgumentException>(() => new SemanticWorkflowRequest(
+            sessionId,
+            topLevelId: null,
+            steps: [new SemanticWorkflowStep(SemanticWorkflowActions.Wait, waitMs: 1)],
+            topLevelAliases:
+            [
+                new SemanticWorkflowTopLevelAlias("same", new SemanticTopLevelSelector(title: "One")),
+                new SemanticWorkflowTopLevelAlias("same", new SemanticTopLevelSelector(title: "Two"))
+            ]));
+    }
+
+    [Fact]
     public void RuntimeCustomActionContractsSerializeStableAdditiveShapes()
     {
         var target = new RuntimeTargetContext(

@@ -21,7 +21,9 @@ public sealed record SemanticWorkflowStepResult
         RuntimeMutationResponse? mutation = null,
         RuntimeCustomActionsResponse? customActions = null,
         RuntimeCustomActionResponse? customAction = null,
-        RuntimeWaitObservation? waitObservation = null)
+        RuntimeWaitObservation? waitObservation = null,
+        string? topLevelAlias = null,
+        string? resolvedTopLevelId = null)
     {
         if (string.IsNullOrWhiteSpace(stepId))
         {
@@ -59,6 +61,8 @@ public sealed record SemanticWorkflowStepResult
         CustomActions = customActions;
         CustomAction = customAction;
         WaitObservation = waitObservation;
+        TopLevelAlias = string.IsNullOrWhiteSpace(topLevelAlias) ? null : topLevelAlias;
+        ResolvedTopLevelId = string.IsNullOrWhiteSpace(resolvedTopLevelId) ? null : resolvedTopLevelId;
     }
 
     [JsonPropertyName("stepId")]
@@ -117,4 +121,12 @@ public sealed record SemanticWorkflowStepResult
     [JsonPropertyName("waitObservation")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public RuntimeWaitObservation? WaitObservation { get; }
+
+    [JsonPropertyName("topLevelAlias")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? TopLevelAlias { get; }
+
+    [JsonPropertyName("resolvedTopLevelId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ResolvedTopLevelId { get; }
 }

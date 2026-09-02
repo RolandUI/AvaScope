@@ -4592,6 +4592,114 @@ public sealed class CliSmokeTests
     }
 
     [Fact]
+    public async Task RunWorkflowCommandResolvesTopLevelAliasWithoutRootRuntimeId()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        var sessionId = SessionId.New();
+        var pipeName = TestPipeNames.New();
+        var manifestDirectory = Path.Combine(
+            Path.GetTempPath(),
+            "AvaScope.Tests",
+            $"cli-alias-manifests-{Guid.NewGuid():N}");
+        var manifestPath = WriteBridgeManifest(sessionId, pipeName, manifestDirectory);
+        var requestPath = Path.Combine(manifestDirectory, "alias-workflow.json");
+        var target = new RuntimeTargetContext(
+            sessionId,
+            "topLevel:controls-current",
+            TreeKinds.Visual,
+            "visual:status");
+        var serverTask = RespondToBridgeRequestsAsync(
+            pipeName,
+            expectedCount: 3,
+            (index, request) => index switch
+            {
+                0 => BridgeIpcResponse.Ok(
+                    request.RequestId,
+                    new[]
+                    {
+                        new TopLevelSummary(
+                            target.TopLevelId,
+                            "Window",
+                            "Controls",
+                            320,
+                            200,
+                            1,
+                            isActive: true)
+                    }),
+                1 => CreateScenarioFindNodesResponse(
+                    request,
+                    sessionId,
+                    target,
+                    automationId: "alias-status",
+                    text: "Ready"),
+                2 => BridgeIpcResponse.Ok(
+                    request.RequestId,
+                    new InspectNodeResponse(
+                        sessionId,
+                        target.TopLevelId,
+                        TreeKinds.Visual,
+                        target.NodeId!,
+                        "Avalonia.Controls.TextBlock",
+                        childCount: 0,
+                        text: "Ready",
+                        target: target)),
+                _ => throw new InvalidOperationException("Unexpected alias workflow bridge request index.")
+            });
+        var workflow = new SemanticWorkflowRequest(
+            sessionId,
+            topLevelId: null,
+            steps:
+            [
+                new SemanticWorkflowStep(
+                    SemanticWorkflowActions.Inspect,
+                    "inspect-controls",
+                    new SemanticWorkflowSelector(automationId: "alias-status"),
+                    topLevelAlias: "controls")
+            ],
+            topLevelAliases:
+            [
+                new SemanticWorkflowTopLevelAlias("controls", new SemanticTopLevelSelector(title: "Controls"))
+            ]);
+        await File.WriteAllTextAsync(requestPath, JsonSerializer.Serialize(workflow, JsonOptions));
+
+        try
+        {
+            var result = await RunCliAsync(
+                cliAssembly,
+                "run-workflow",
+                "--request",
+                requestPath,
+                "--manifest-dir",
+                manifestDirectory);
+            var requests = await serverTask;
+
+            Assert.Equal(0, result.ExitCode);
+            Assert.Equal(
+                [BridgeIpcMethods.ListTopLevels, BridgeIpcMethods.FindNodes, BridgeIpcMethods.InspectNode],
+                requests.Select(static request => request.Method));
+            var payload = JsonSerializer.Deserialize<ToolResult<SemanticWorkflowResponse>>(result.StandardOutput, JsonOptions);
+            Assert.True(payload!.Success, payload.Error?.Message);
+            Assert.Null(payload.Value!.TopLevelId);
+            var step = Assert.Single(payload.Value.Steps);
+            Assert.Equal("controls", step.TopLevelAlias);
+            Assert.Equal(target.TopLevelId, step.ResolvedTopLevelId);
+            Assert.Equal("Ready", step.Inspection!.Text);
+        }
+        finally
+        {
+            if (File.Exists(manifestPath))
+            {
+                File.Delete(manifestPath);
+            }
+
+            if (Directory.Exists(manifestDirectory))
+            {
+                Directory.Delete(manifestDirectory, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
     public async Task MutateNodeCommandRejectsNonCanonicalOperationBeforeDispatch()
     {
         var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");

@@ -602,6 +602,33 @@ dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll run-workflow --request 
 
 Workflow selectors can target `nodeId`, `automationId`, `text`, `name`, `nodeType`, `role`, `bindingPath`, or `commandName`, and can filter `visible`, `enabled`, `rendered`, or `actionable` state. Prefer `"actionable": true` for semantic input targets. Every selector is resolved again immediately before validation or execution, so template recreation and navigation do not make a persisted runtime id authoritative. Generation context is checked atomically on the Bridge UI thread; one retry is allowed only for a stale response that proves `dispatched=false`, while any post-dispatch failure is never repeated. Ambiguous selectors fail with a bounded candidate list containing identity, state, bounds, top-level, and available actions. The semantic action set includes `invoke`, `select`, `toggle`, `expand`, `collapse`, `drag`, `swipe`, `long_press`, `press_and_hold`, `custom_actions`, and `custom_action`. A `custom_action` step supplies `customActionName` and optional `customActionParameters`; AvaScope re-resolves the selector, discovers the descriptor, and enforces its executability and safety classification before dispatch. Gesture steps use `direction`, `distancePercentage`, and `durationMs`; source-to-target gestures add a `destinationSelector`, which is resolved independently and must match exactly one current visual node. Destructive-looking built-in targets and destructive registered actions are rejected unless the request declares `allowDestructive` or an `isolatedStateDirectory`.
 
+For a multi-window workflow, declare semantic `topLevelAliases` and set `topLevelAlias` on each step. An alias selector accepts exact `title`, `kind`, and optional `isActive`; it is resolved only against `sessionId` and can optionally repeat that session id as a cross-session guard. AvaScope resolves an alias on every step and every wait poll, so a window can close and reopen with a different diagnostic runtime id. `topLevelId` may be omitted when all steps use aliases. Each result reports both `topLevelAlias` and the current `resolvedTopLevelId`; missing or ambiguous aliases include at most eight active top-level candidates and a next action. Screenshot steps and automatic `captureAfterEachStep` evidence preserve the originating step's alias.
+
+```json
+{
+  "sessionId": "session-id",
+  "topLevelAliases": [
+    { "alias": "main", "selector": { "title": "My App" } },
+    { "alias": "controls", "selector": { "title": "Controls" } }
+  ],
+  "steps": [
+    {
+      "id": "apply",
+      "action": "invoke",
+      "topLevelAlias": "controls",
+      "selector": { "automationId": "apply-button" }
+    },
+    {
+      "id": "wait-main",
+      "action": "wait_for_state",
+      "topLevelAlias": "main",
+      "selector": { "automationId": "status" },
+      "waitCondition": { "kind": "text", "expected": "Applied" }
+    }
+  ]
+}
+```
+
 Deterministic workflows can use `wait_for_node`, `wait_for_state`, and `wait_for_dialog`. Each wait accepts `timeoutMs` (default `5000`, maximum `60000`) and `pollIntervalMs` (default `100`, range `25`–`5000`), uses cancellation-aware bounded polling, and resolves its selector again on every poll. `wait_for_node` accepts `exists` and `disappears`; `wait_for_state` accepts `visible`, `hidden`, `enabled`, `disabled`, `checked`, `unchecked`, `selected_value`, `text`, `value`, `rendered`, `command_executable`, `binding_value`, `top_level_opened`, `top_level_closed`, and `change_from_baseline`. Comparisons are typed and support `equals`, `not_equals`, numeric ordering, and `changed`. A successful step exposes `waitObservation`; a failure distinguishes unavailable state (`semantic_workflow_wait_state_unavailable`) from a false condition that timed out (`semantic_workflow_wait_timeout`). Timeout metadata contains the last typed observation, elapsed time, bounded ambiguity candidates when present, and a next action. The compatible `assertProperty`/`expected` form remains supported.
 
 ```json

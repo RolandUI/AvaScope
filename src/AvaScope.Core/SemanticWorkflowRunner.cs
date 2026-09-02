@@ -93,7 +93,9 @@ public sealed class SemanticWorkflowRunner
                 ["requestedSteps"] = request.Steps.Count.ToString(CultureInfo.InvariantCulture),
                 ["executedSteps"] = results.Count.ToString(CultureInfo.InvariantCulture),
                 ["idempotencyReplayCount"] = replayCount.ToString(CultureInfo.InvariantCulture),
-                ["selectorMode"] = "automation_text_name_type_binding_or_node_id"
+                ["selectorMode"] = "automation_text_name_type_binding_or_node_id",
+                ["topLevelAliasCount"] = request.TopLevelAliases.Count.ToString(CultureInfo.InvariantCulture),
+                ["topLevelResolution"] = request.TopLevelAliases.Count == 0 ? "root_runtime_id" : "semantic_alias_per_use"
             }));
     }
 
@@ -161,37 +163,73 @@ public sealed class SemanticWorkflowRunner
     {
         try
         {
-            return step.Action switch
+            var effectiveRequest = request;
+            string? resolvedTopLevelId = null;
+            var deferredAliasResolution = step.TopLevelAlias is not null
+                && step.Action is SemanticWorkflowActions.WaitForNode or SemanticWorkflowActions.WaitForState;
+            if (step.TopLevelAlias is not null && !deferredAliasResolution)
+            {
+                var topLevel = await ResolveTopLevelAliasAsync(
+                    bridgeClient,
+                    request,
+                    step.TopLevelAlias,
+                    cancellationToken);
+                if (!topLevel.Success)
+                {
+                    return WithTopLevelEvidence(
+                        Fail(step, topLevel.Error!),
+                        step.TopLevelAlias,
+                        resolvedTopLevelId);
+                }
+
+                resolvedTopLevelId = topLevel.Value!.Summary.Id;
+                effectiveRequest = WithTopLevelId(request, resolvedTopLevelId);
+            }
+            else if (step.TopLevelAlias is null && string.IsNullOrWhiteSpace(request.TopLevelId))
+            {
+                return Fail(
+                    step,
+                    "semantic_workflow_top_level_required",
+                    "Workflow steps without topLevelAlias require the request topLevelId.");
+            }
+
+            var result = step.Action switch
             {
                 SemanticWorkflowActions.Wait => await WaitAsync(step, cancellationToken),
-                SemanticWorkflowActions.WaitForNode => await WaitForNodeAsync(bridgeClient, request, step, cancellationToken),
-                SemanticWorkflowActions.WaitForState => await WaitForStateAsync(bridgeClient, request, step, cancellationToken),
-                SemanticWorkflowActions.WaitForDialog => await WaitForDialogAsync(bridgeClient, request, step, cancellationToken),
-                SemanticWorkflowActions.ValidateAction => await ValidateActionAsync(bridgeClient, request, step, cancellationToken),
-                SemanticWorkflowActions.ValidateMutation => await ValidateMutationAsync(bridgeClient, request, step, cancellationToken),
-                SemanticWorkflowActions.Screenshot => await ScreenshotAsync(bridgeClient, request, step, stepIndex, cancellationToken),
-                SemanticWorkflowActions.Inspect => await InspectAsync(bridgeClient, request, step, cancellationToken),
-                SemanticWorkflowActions.AssertState => await AssertStateAsync(bridgeClient, request, step, cancellationToken),
-                SemanticWorkflowActions.PickerResult => ConsumePickerResult(bridgeClient, request, step),
-                SemanticWorkflowActions.Click => await InputAsync(bridgeClient, request, step, InputActions.Click, cancellationToken),
-                SemanticWorkflowActions.TypeText => await InputAsync(bridgeClient, request, step, InputActions.KeyText, cancellationToken),
-                SemanticWorkflowActions.ClearText => await InputAsync(bridgeClient, request, step, InputActions.ClearText, cancellationToken),
-                SemanticWorkflowActions.Focus => await InputAsync(bridgeClient, request, step, InputActions.Focus, cancellationToken),
-                SemanticWorkflowActions.Invoke => await InputAsync(bridgeClient, request, step, InputActions.Invoke, cancellationToken),
-                SemanticWorkflowActions.Select => await InputAsync(bridgeClient, request, step, InputActions.Select, cancellationToken),
-                SemanticWorkflowActions.Toggle => await InputAsync(bridgeClient, request, step, InputActions.Toggle, cancellationToken),
-                SemanticWorkflowActions.Expand => await InputAsync(bridgeClient, request, step, InputActions.Expand, cancellationToken),
-                SemanticWorkflowActions.Collapse => await InputAsync(bridgeClient, request, step, InputActions.Collapse, cancellationToken),
-                SemanticWorkflowActions.KeyDown => await InputAsync(bridgeClient, request, step, InputActions.KeyDown, cancellationToken),
-                SemanticWorkflowActions.KeyUp => await InputAsync(bridgeClient, request, step, InputActions.KeyUp, cancellationToken),
-                SemanticWorkflowActions.Drag => await InputAsync(bridgeClient, request, step, InputActions.Drag, cancellationToken),
-                SemanticWorkflowActions.Swipe => await InputAsync(bridgeClient, request, step, InputActions.Swipe, cancellationToken),
-                SemanticWorkflowActions.LongPress => await InputAsync(bridgeClient, request, step, InputActions.LongPress, cancellationToken),
-                SemanticWorkflowActions.PressAndHold => await InputAsync(bridgeClient, request, step, InputActions.PressAndHold, cancellationToken),
-                SemanticWorkflowActions.CustomActions => await CustomActionsAsync(bridgeClient, request, step, cancellationToken),
-                SemanticWorkflowActions.CustomAction => await CustomActionAsync(bridgeClient, request, step, cancellationToken),
+                SemanticWorkflowActions.WaitForNode => await WaitForNodeAsync(bridgeClient, effectiveRequest, step, cancellationToken),
+                SemanticWorkflowActions.WaitForState => await WaitForStateAsync(bridgeClient, effectiveRequest, step, cancellationToken),
+                SemanticWorkflowActions.WaitForDialog => await WaitForDialogAsync(bridgeClient, effectiveRequest, step, cancellationToken),
+                SemanticWorkflowActions.ValidateAction => await ValidateActionAsync(bridgeClient, effectiveRequest, step, cancellationToken),
+                SemanticWorkflowActions.ValidateMutation => await ValidateMutationAsync(bridgeClient, effectiveRequest, step, cancellationToken),
+                SemanticWorkflowActions.Screenshot => await ScreenshotAsync(bridgeClient, effectiveRequest, step, stepIndex, cancellationToken),
+                SemanticWorkflowActions.Inspect => await InspectAsync(bridgeClient, effectiveRequest, step, cancellationToken),
+                SemanticWorkflowActions.AssertState => await AssertStateAsync(bridgeClient, effectiveRequest, step, cancellationToken),
+                SemanticWorkflowActions.PickerResult => ConsumePickerResult(bridgeClient, effectiveRequest, step),
+                SemanticWorkflowActions.Click => await InputAsync(bridgeClient, effectiveRequest, step, InputActions.Click, cancellationToken),
+                SemanticWorkflowActions.TypeText => await InputAsync(bridgeClient, effectiveRequest, step, InputActions.KeyText, cancellationToken),
+                SemanticWorkflowActions.ClearText => await InputAsync(bridgeClient, effectiveRequest, step, InputActions.ClearText, cancellationToken),
+                SemanticWorkflowActions.Focus => await InputAsync(bridgeClient, effectiveRequest, step, InputActions.Focus, cancellationToken),
+                SemanticWorkflowActions.Invoke => await InputAsync(bridgeClient, effectiveRequest, step, InputActions.Invoke, cancellationToken),
+                SemanticWorkflowActions.Select => await InputAsync(bridgeClient, effectiveRequest, step, InputActions.Select, cancellationToken),
+                SemanticWorkflowActions.Toggle => await InputAsync(bridgeClient, effectiveRequest, step, InputActions.Toggle, cancellationToken),
+                SemanticWorkflowActions.Expand => await InputAsync(bridgeClient, effectiveRequest, step, InputActions.Expand, cancellationToken),
+                SemanticWorkflowActions.Collapse => await InputAsync(bridgeClient, effectiveRequest, step, InputActions.Collapse, cancellationToken),
+                SemanticWorkflowActions.KeyDown => await InputAsync(bridgeClient, effectiveRequest, step, InputActions.KeyDown, cancellationToken),
+                SemanticWorkflowActions.KeyUp => await InputAsync(bridgeClient, effectiveRequest, step, InputActions.KeyUp, cancellationToken),
+                SemanticWorkflowActions.Drag => await InputAsync(bridgeClient, effectiveRequest, step, InputActions.Drag, cancellationToken),
+                SemanticWorkflowActions.Swipe => await InputAsync(bridgeClient, effectiveRequest, step, InputActions.Swipe, cancellationToken),
+                SemanticWorkflowActions.LongPress => await InputAsync(bridgeClient, effectiveRequest, step, InputActions.LongPress, cancellationToken),
+                SemanticWorkflowActions.PressAndHold => await InputAsync(bridgeClient, effectiveRequest, step, InputActions.PressAndHold, cancellationToken),
+                SemanticWorkflowActions.CustomActions => await CustomActionsAsync(bridgeClient, effectiveRequest, step, cancellationToken),
+                SemanticWorkflowActions.CustomAction => await CustomActionAsync(bridgeClient, effectiveRequest, step, cancellationToken),
                 _ => Fail(step, "semantic_workflow_action_not_supported", $"Workflow action '{step.Action}' is not supported.")
             };
+            return step.TopLevelAlias is null
+                ? result
+                : WithTopLevelEvidence(
+                    result,
+                    step.TopLevelAlias,
+                    result.ResolvedTopLevelId ?? resolvedTopLevelId);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -292,6 +330,7 @@ public sealed class SemanticWorkflowRunner
         var baseline = condition.Baseline;
         var baselineCaptured = condition.Baseline is not null;
         var sawAvailable = false;
+        string? lastResolvedTopLevelId = null;
 
         while (true)
         {
@@ -303,49 +342,112 @@ public sealed class SemanticWorkflowRunner
                 cancellationToken);
             try
             {
+                var pollRequest = request;
+                CoreResult<ResolvedWorkflowTopLevel>? aliasResolution = null;
+                if (step.TopLevelAlias is not null)
+                {
+                    aliasResolution = await ResolveTopLevelAliasAsync(
+                        bridgeClient,
+                        request,
+                        step.TopLevelAlias,
+                        attemptCancellation.Token);
+                    if (aliasResolution.Success)
+                    {
+                        lastResolvedTopLevelId = aliasResolution.Value!.Summary.Id;
+                        pollRequest = WithTopLevelId(request, lastResolvedTopLevelId);
+                    }
+                    else
+                    {
+                        lastResolvedTopLevelId = null;
+                    }
+                }
+
                 if (condition.Kind is SemanticWaitConditionKinds.TopLevelOpened
                     or SemanticWaitConditionKinds.TopLevelClosed)
                 {
-                    var topLevels = await bridgeClient.ListTopLevelsAsync(
-                        request.SessionId,
-                        attemptCancellation.Token);
-                    if (topLevels.Success)
+                    if (aliasResolution is not null)
                     {
-                        var topLevelId = condition.TopLevelId
-                            ?? (string.IsNullOrWhiteSpace(condition.TopLevelTitle) ? request.TopLevelId : null);
-                        var match = topLevels.Value!.TopLevels.FirstOrDefault(topLevel =>
-                            (string.IsNullOrWhiteSpace(topLevelId)
-                                || string.Equals(topLevel.Id, topLevelId, StringComparison.Ordinal))
-                            && (string.IsNullOrWhiteSpace(condition.TopLevelTitle)
-                                || string.Equals(topLevel.Title, condition.TopLevelTitle, StringComparison.Ordinal)));
-                        var opened = match is not null;
+                        var opened = aliasResolution.Success;
+                        var missing = !opened && IsMissingTopLevelAlias(aliasResolution.Error);
                         var shouldBeOpen = condition.Kind == SemanticWaitConditionKinds.TopLevelOpened;
-                        lastTarget = match is null
+                        lastTarget = !opened
                             ? null
-                            : new RuntimeTargetContext(request.SessionId, match.Id, capturedAt: DateTimeOffset.UtcNow);
+                            : new RuntimeTargetContext(
+                                request.SessionId,
+                                aliasResolution.Value!.Summary.Id,
+                                capturedAt: DateTimeOffset.UtcNow);
+                        lastError = aliasResolution.Error;
                         lastObservation = new RuntimeWaitObservation(
                             condition.Kind,
-                            "available",
-                            opened == shouldBeOpen,
+                            opened ? "available" : missing ? "missing" : "unavailable",
+                            opened == shouldBeOpen && (opened || missing),
                             DateTimeOffset.UtcNow,
                             opened.ToString().ToLowerInvariant(),
                             typeof(bool).FullName!,
                             condition.Comparison,
                             shouldBeOpen.ToString().ToLowerInvariant(),
-                            source: "list_top_levels");
-                        sawAvailable = true;
-                        lastError = null;
+                            source: "top_level_alias",
+                            message: aliasResolution.Error?.Message);
+                        sawAvailable |= opened || missing;
                     }
                     else
                     {
-                        lastError = topLevels.Error;
+                        var topLevels = await bridgeClient.ListTopLevelsAsync(
+                            request.SessionId,
+                            attemptCancellation.Token);
+                        if (topLevels.Success)
+                        {
+                            var topLevelId = condition.TopLevelId
+                                ?? (string.IsNullOrWhiteSpace(condition.TopLevelTitle) ? request.TopLevelId : null);
+                            var match = topLevels.Value!.TopLevels.FirstOrDefault(topLevel =>
+                                (string.IsNullOrWhiteSpace(topLevelId)
+                                    || string.Equals(topLevel.Id, topLevelId, StringComparison.Ordinal))
+                                && (string.IsNullOrWhiteSpace(condition.TopLevelTitle)
+                                    || string.Equals(topLevel.Title, condition.TopLevelTitle, StringComparison.Ordinal)));
+                            var opened = match is not null;
+                            var shouldBeOpen = condition.Kind == SemanticWaitConditionKinds.TopLevelOpened;
+                            lastTarget = match is null
+                                ? null
+                                : new RuntimeTargetContext(request.SessionId, match.Id, capturedAt: DateTimeOffset.UtcNow);
+                            lastObservation = new RuntimeWaitObservation(
+                                condition.Kind,
+                                "available",
+                                opened == shouldBeOpen,
+                                DateTimeOffset.UtcNow,
+                                opened.ToString().ToLowerInvariant(),
+                                typeof(bool).FullName!,
+                                condition.Comparison,
+                                shouldBeOpen.ToString().ToLowerInvariant(),
+                                source: "list_top_levels");
+                            sawAvailable = true;
+                            lastError = null;
+                        }
+                        else
+                        {
+                            lastError = topLevels.Error;
+                        }
                     }
+                }
+                else if (aliasResolution is { Success: false })
+                {
+                    lastError = aliasResolution.Error;
+                    lastTarget = null;
+                    lastObservation = new RuntimeWaitObservation(
+                        condition.Kind,
+                        IsMissingTopLevelAlias(aliasResolution.Error) ? "missing" : "unavailable",
+                        matched: false,
+                        DateTimeOffset.UtcNow,
+                        comparison: condition.Comparison,
+                        expected: GetExpectedValue(condition),
+                        baseline: baseline,
+                        source: "top_level_alias",
+                        message: aliasResolution.Error?.Message);
                 }
                 else
                 {
                     var target = await ResolveTargetAsync(
                         bridgeClient,
-                        request,
+                        pollRequest,
                         step,
                         attemptCancellation.Token);
                     if (condition.Kind is SemanticWaitConditionKinds.Exists
@@ -376,8 +478,8 @@ public sealed class SemanticWorkflowRunner
                         lastError = null;
                         lastTarget = target.Value!.Target;
                         var inspect = await bridgeClient.InspectNodeAsync(
-                            request.SessionId,
-                            request.TopLevelId,
+                            pollRequest.SessionId,
+                            pollRequest.TopLevelId!,
                             lastTarget.TreeKind ?? TreeKinds.Visual,
                             lastTarget.NodeId!,
                             attemptCancellation.Token);
@@ -424,7 +526,7 @@ public sealed class SemanticWorkflowRunner
             }
             catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
             {
-                return WaitConditionFailure(
+                return WithTopLevelEvidence(WaitConditionFailure(
                     step,
                     condition,
                     timeoutMs,
@@ -435,7 +537,7 @@ public sealed class SemanticWorkflowRunner
                     lastInspection,
                     lastObservation,
                     lastError,
-                    sawAvailable);
+                    sawAvailable), step.TopLevelAlias, lastResolvedTopLevelId);
             }
 
             if (lastObservation?.Matched == true)
@@ -446,18 +548,18 @@ public sealed class SemanticWorkflowRunner
                     attempts,
                     stopwatch.ElapsedMilliseconds);
                 CopyObservation(metadata, lastObservation);
-                return Pass(
+                return WithTopLevelEvidence(Pass(
                     step,
                     $"Wait condition '{condition.Kind}' matched after {attempts.ToString(CultureInfo.InvariantCulture)} attempt(s).",
                     lastTarget,
                     inspection: lastInspection,
                     metadata: metadata,
-                    waitObservation: lastObservation);
+                    waitObservation: lastObservation), step.TopLevelAlias, lastResolvedTopLevelId);
             }
 
             if (stopwatch.ElapsedMilliseconds >= timeoutMs)
             {
-                return WaitConditionFailure(
+                return WithTopLevelEvidence(WaitConditionFailure(
                     step,
                     condition,
                     timeoutMs,
@@ -468,7 +570,7 @@ public sealed class SemanticWorkflowRunner
                     lastInspection,
                     lastObservation,
                     lastError,
-                    sawAvailable);
+                    sawAvailable), step.TopLevelAlias, lastResolvedTopLevelId);
             }
 
             await DelayUntilNextPollAsync(stopwatch, timeoutMs, pollMs, cancellationToken);
@@ -572,7 +674,7 @@ public sealed class SemanticWorkflowRunner
 
         var validation = await bridgeClient.ValidateInputAsync(
             request.SessionId,
-            request.TopLevelId,
+            request.TopLevelId!,
             step.InputAction,
             inputText: step.Text,
             targetNodeId: target.Value!.Target.NodeId,
@@ -598,7 +700,7 @@ public sealed class SemanticWorkflowRunner
 
             validation = await bridgeClient.ValidateInputAsync(
                 request.SessionId,
-                request.TopLevelId,
+                request.TopLevelId!,
                 step.InputAction,
                 inputText: step.Text,
                 targetNodeId: target.Value!.Target.NodeId,
@@ -1274,7 +1376,7 @@ public sealed class SemanticWorkflowRunner
 
         var result = await bridgeClient.InputAsync(
             request.SessionId,
-            request.TopLevelId,
+            request.TopLevelId!,
             inputAction,
             inputText: step.Text,
             targetNodeId: resolvedTarget.Target.NodeId,
@@ -1313,7 +1415,7 @@ public sealed class SemanticWorkflowRunner
 
             result = await bridgeClient.InputAsync(
                 request.SessionId,
-                request.TopLevelId,
+                request.TopLevelId!,
                 inputAction,
                 inputText: step.Text,
                 targetNodeId: resolvedTarget.Target.NodeId,
@@ -1344,7 +1446,7 @@ public sealed class SemanticWorkflowRunner
 
         var result = await bridgeClient.InspectNodeAsync(
             request.SessionId,
-            request.TopLevelId,
+            request.TopLevelId!,
             target.Value!.Target.TreeKind ?? TreeKinds.Visual,
             target.Value.Target.NodeId!,
             cancellationToken);
@@ -1373,7 +1475,7 @@ public sealed class SemanticWorkflowRunner
 
         var inspect = await bridgeClient.InspectNodeAsync(
             request.SessionId,
-            request.TopLevelId,
+            request.TopLevelId!,
             target.Value!.Target.TreeKind ?? TreeKinds.Visual,
             target.Value.Target.NodeId!,
             cancellationToken);
@@ -1428,7 +1530,7 @@ public sealed class SemanticWorkflowRunner
 
         var result = await bridgeClient.CaptureScreenshotAsync(
             request.SessionId,
-            request.TopLevelId,
+            request.TopLevelId!,
             path,
             cancellationToken);
 
@@ -1447,9 +1549,140 @@ public sealed class SemanticWorkflowRunner
         var screenshotStep = new SemanticWorkflowStep(
             SemanticWorkflowActions.Screenshot,
             $"{step.Id}:screenshot",
-            screenshotPath: ResolveScreenshotPath(request, step, stepIndex));
-        return ScreenshotAsync(bridgeClient, request, screenshotStep, stepIndex, cancellationToken);
+            screenshotPath: ResolveScreenshotPath(request, step, stepIndex),
+            topLevelAlias: step.TopLevelAlias);
+        return ExecuteStepAsync(bridgeClient, request, screenshotStep, stepIndex, cancellationToken);
     }
+
+    private static SemanticWorkflowRequest WithTopLevelId(
+        SemanticWorkflowRequest request,
+        string topLevelId)
+    {
+        return new SemanticWorkflowRequest(
+            request.SessionId,
+            topLevelId,
+            request.Steps,
+            request.RequestId,
+            request.OutputDirectory,
+            request.CaptureAfterEachStep,
+            request.AllowDestructive,
+            request.IsolatedStateDirectory,
+            request.MaxDepth,
+            request.TopLevelAliases);
+    }
+
+    private static async Task<CoreResult<ResolvedWorkflowTopLevel>> ResolveTopLevelAliasAsync(
+        LocalBridgeClient bridgeClient,
+        SemanticWorkflowRequest request,
+        string alias,
+        CancellationToken cancellationToken)
+    {
+        var definition = request.TopLevelAliases.FirstOrDefault(item =>
+            string.Equals(item.Alias, alias, StringComparison.Ordinal));
+        if (definition is null)
+        {
+            return CoreResult<ResolvedWorkflowTopLevel>.Fail(new CoreError(
+                "semantic_workflow_top_level_alias_unknown",
+                $"Top-level alias '{alias}' is not declared by the workflow.",
+                new Dictionary<string, string>
+                {
+                    ["topLevelAlias"] = alias,
+                    ["declaredAliases"] = string.Join(",", request.TopLevelAliases.Select(static item => item.Alias)),
+                    ["nextAction"] = "Declare the alias in topLevelAliases or select an existing workflow alias."
+                }));
+        }
+
+        if (definition.Selector.SessionId is { } selectorSession
+            && !string.Equals(selectorSession.Value, request.SessionId.Value, StringComparison.Ordinal))
+        {
+            return CoreResult<ResolvedWorkflowTopLevel>.Fail(new CoreError(
+                "semantic_workflow_top_level_alias_session_mismatch",
+                $"Top-level alias '{alias}' is scoped to another session.",
+                new Dictionary<string, string>
+                {
+                    ["topLevelAlias"] = alias,
+                    ["workflowSessionId"] = request.SessionId.Value,
+                    ["selectorSessionId"] = selectorSession.Value,
+                    ["nextAction"] = "Use a selector scoped to the workflow session; aliases never cross session boundaries."
+                }));
+        }
+
+        var topLevels = await bridgeClient.ListTopLevelsAsync(request.SessionId, cancellationToken);
+        if (!topLevels.Success)
+        {
+            return CoreResult<ResolvedWorkflowTopLevel>.Fail(topLevels.Error!);
+        }
+
+        var matches = topLevels.Value!.TopLevels
+            .Where(topLevel => MatchesTopLevelSelector(topLevel, definition.Selector))
+            .Take(9)
+            .ToArray();
+        if (matches.Length == 0)
+        {
+            return CoreResult<ResolvedWorkflowTopLevel>.Fail(new CoreError(
+                "semantic_workflow_top_level_alias_missing",
+                $"Top-level alias '{alias}' did not match an active top-level.",
+                CreateTopLevelAliasDetails(alias, definition.Selector, topLevels.Value.TopLevels)));
+        }
+
+        if (matches.Length > 1)
+        {
+            return CoreResult<ResolvedWorkflowTopLevel>.Fail(new CoreError(
+                "semantic_workflow_top_level_alias_ambiguous",
+                $"Top-level alias '{alias}' matched multiple active top-levels.",
+                CreateTopLevelAliasDetails(alias, definition.Selector, matches)));
+        }
+
+        return CoreResult<ResolvedWorkflowTopLevel>.Ok(new ResolvedWorkflowTopLevel(
+            alias,
+            matches[0]));
+    }
+
+    private static bool MatchesTopLevelSelector(
+        TopLevelSummary topLevel,
+        SemanticTopLevelSelector selector)
+    {
+        return (string.IsNullOrWhiteSpace(selector.Title)
+                || string.Equals(topLevel.Title, selector.Title, StringComparison.Ordinal))
+            && (string.IsNullOrWhiteSpace(selector.Kind)
+                || string.Equals(topLevel.Kind, selector.Kind, StringComparison.OrdinalIgnoreCase))
+            && (!selector.IsActive.HasValue || topLevel.IsActive == selector.IsActive.Value);
+    }
+
+    private static IReadOnlyDictionary<string, string> CreateTopLevelAliasDetails(
+        string alias,
+        SemanticTopLevelSelector selector,
+        IEnumerable<TopLevelSummary> candidates)
+    {
+        var values = candidates.Take(9).ToArray();
+        var details = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["topLevelAlias"] = alias,
+            ["candidateCount"] = values.Length.ToString(CultureInfo.InvariantCulture),
+            ["candidatesTruncated"] = (values.Length > 8).ToString().ToLowerInvariant(),
+            ["candidates"] = JsonSerializer.Serialize(values.Take(8).Select(static topLevel => new
+            {
+                topLevel.Id,
+                topLevel.Kind,
+                topLevel.Title,
+                topLevel.Width,
+                topLevel.Height,
+                topLevel.RenderScaling,
+                topLevel.IsActive
+            })),
+            ["nextAction"] = "Refine the top-level alias selector so it matches exactly one active top-level."
+        };
+        CopyDetail(details, "title", selector.Title);
+        CopyDetail(details, "kind", selector.Kind);
+        CopyDetail(details, "isActive", selector.IsActive);
+        return details;
+    }
+
+    private static bool IsMissingTopLevelAlias(CoreError? error) =>
+        string.Equals(
+            error?.Code,
+            "semantic_workflow_top_level_alias_missing",
+            StringComparison.Ordinal);
 
     private static async Task<CoreResult<ResolvedWorkflowTarget>> ResolveTargetAsync(
         LocalBridgeClient bridgeClient,
@@ -1506,7 +1739,7 @@ public sealed class SemanticWorkflowRunner
             var treeKind = selector.TreeKind;
             var inspect = await bridgeClient.InspectNodeAsync(
                 request.SessionId,
-                request.TopLevelId,
+                request.TopLevelId!,
                 treeKind,
                 selector.NodeId,
                 cancellationToken);
@@ -1532,7 +1765,7 @@ public sealed class SemanticWorkflowRunner
         var nodeType = selector.NodeType ?? selector.Role;
         var result = await bridgeClient.FindNodesAsync(
             request.SessionId,
-            request.TopLevelId,
+            request.TopLevelId!,
             selector.TreeKind,
             nodeType: nodeType,
             name: selector.Name,
@@ -1567,7 +1800,7 @@ public sealed class SemanticWorkflowRunner
                 CreateAmbiguityDetails(
                     selector,
                     result.Value.Matches.Select(static match => match.Node),
-                    request.TopLevelId)));
+                    request.TopLevelId!)));
         }
 
         var match = result.Value.Matches[0];
@@ -1601,7 +1834,7 @@ public sealed class SemanticWorkflowRunner
     {
         var tree = await bridgeClient.VisualTreeAsync(
             request.SessionId,
-            request.TopLevelId,
+            request.TopLevelId!,
             selector.MaxDepth ?? request.MaxDepth,
             cancellationToken);
         if (!tree.Success)
@@ -1627,7 +1860,7 @@ public sealed class SemanticWorkflowRunner
             return CoreResult<ResolvedWorkflowTarget>.Fail(new CoreError(
                 CoreErrorCodes.InvalidBridgeRequest,
                 "Workflow source-mapped selector matched multiple nodes; add automationId, name, or text.",
-                CreateAmbiguityDetails(selector, matches, request.TopLevelId)));
+                CreateAmbiguityDetails(selector, matches, request.TopLevelId!)));
         }
 
         return CoreResult<ResolvedWorkflowTarget>.Ok(CreateResolvedTarget(matches[0]));
@@ -1798,6 +2031,46 @@ public sealed class SemanticWorkflowRunner
             waitObservation: waitObservation);
     }
 
+    private static SemanticWorkflowStepResult WithTopLevelEvidence(
+        SemanticWorkflowStepResult result,
+        string? topLevelAlias,
+        string? resolvedTopLevelId)
+    {
+        if (string.IsNullOrWhiteSpace(topLevelAlias))
+        {
+            return result;
+        }
+
+        var metadata = new Dictionary<string, string>(result.Metadata, StringComparer.Ordinal)
+        {
+            ["topLevelAlias"] = topLevelAlias
+        };
+        if (!string.IsNullOrWhiteSpace(resolvedTopLevelId))
+        {
+            metadata["resolvedTopLevelId"] = resolvedTopLevelId;
+        }
+
+        return new SemanticWorkflowStepResult(
+            result.StepId,
+            result.Action,
+            result.Status,
+            result.Message,
+            result.ExecutedAt,
+            result.Target,
+            result.Input,
+            result.Inspection,
+            result.Screenshot,
+            result.Diagnostics,
+            metadata,
+            result.Picker,
+            result.Mutation,
+            result.CustomActions,
+            result.CustomAction,
+            result.WaitObservation,
+            topLevelAlias,
+            resolvedTopLevelId);
+    }
+
     private static SemanticWorkflowStepResult Fail(
         SemanticWorkflowStep step,
         CoreError error,
@@ -1955,6 +2228,8 @@ public sealed class SemanticWorkflowRunner
         string? AutomationId,
         string? Text,
         RuntimeNodeSourceMap? SourceMap);
+
+    private sealed record ResolvedWorkflowTopLevel(string Alias, TopLevelSummary Summary);
 
     private sealed record ObservedWaitValue(
         bool Available,

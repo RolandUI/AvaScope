@@ -86,12 +86,21 @@ public sealed class McpStdioSmokeTests
         Assert.Contains("rendered", workflow.ProtocolTool.Description, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("binding", workflow.ProtocolTool.Description, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("top-level", workflow.ProtocolTool.Description, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("aliases", workflow.ProtocolTool.Description, StringComparison.OrdinalIgnoreCase);
         Assert.Contains(
             "\"waitCondition\"",
             JsonSerializer.Serialize(workflow.ProtocolTool.InputSchema),
             StringComparison.Ordinal);
         Assert.Contains(
             "\"waitObservation\"",
+            JsonSerializer.Serialize(workflow.ProtocolTool.OutputSchema),
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "\"topLevelAliases\"",
+            JsonSerializer.Serialize(workflow.ProtocolTool.InputSchema),
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "\"resolvedTopLevelId\"",
             JsonSerializer.Serialize(workflow.ProtocolTool.OutputSchema),
             StringComparison.Ordinal);
     }

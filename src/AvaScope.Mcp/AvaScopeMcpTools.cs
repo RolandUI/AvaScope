@@ -701,7 +701,7 @@ public sealed class AvaScopeMcpTools
         Destructive = false,
         OpenWorld = false,
         UseStructuredContent = true)]
-    [Description("Runs a semantic local workflow with bounded waits for existence, disappearance, rendered, command, binding, selection, value, and top-level lifecycle state; optional step idempotency keys; and validate_action/validate_mutation dry runs. Selectors may use AutomationId, text, role, binding path, command, or stable node id.")]
+    [Description("Runs a semantic local workflow with workflow-scoped top-level aliases, bounded waits for existence, disappearance, rendered, command, binding, selection, value, and top-level lifecycle state; optional step idempotency keys; and validate_action/validate_mutation dry runs. Top-level aliases are resolved semantically inside the request session on every use; node selectors may use AutomationId, text, role, binding path, command, or stable node id.")]
     public static async Task<ToolResult<SemanticWorkflowResponse>> RunWorkflow(
         LocalBridgeClient bridgeClient,
         SemanticWorkflowRequest request,

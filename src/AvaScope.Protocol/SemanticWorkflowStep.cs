@@ -28,7 +28,8 @@ public sealed record SemanticWorkflowStep
         int? durationMs = null,
         string? customActionName = null,
         IReadOnlyDictionary<string, string>? customActionParameters = null,
-        SemanticWaitCondition? waitCondition = null)
+        SemanticWaitCondition? waitCondition = null,
+        string? topLevelAlias = null)
     {
         if (string.IsNullOrWhiteSpace(action))
         {
@@ -90,6 +91,7 @@ public sealed record SemanticWorkflowStep
             .Take(32)
             .ToDictionary(static pair => pair.Key, static pair => pair.Value, StringComparer.Ordinal);
         WaitCondition = waitCondition;
+        TopLevelAlias = string.IsNullOrWhiteSpace(topLevelAlias) ? null : topLevelAlias.Trim();
     }
 
     [JsonPropertyName("id")]
@@ -180,4 +182,8 @@ public sealed record SemanticWorkflowStep
     [JsonPropertyName("waitCondition")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public SemanticWaitCondition? WaitCondition { get; }
+
+    [JsonPropertyName("topLevelAlias")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? TopLevelAlias { get; }
 }

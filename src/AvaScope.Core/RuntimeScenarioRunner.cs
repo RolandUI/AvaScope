@@ -219,7 +219,8 @@ public sealed class RuntimeScenarioRunner
             captureAfterEachStep: request.CaptureAfterEachStep,
             allowDestructive: request.AllowDestructive,
             isolatedStateDirectory: isolation.Applied ? isolation.Directory : null,
-            maxDepth: request.MaxDepth);
+            maxDepth: request.MaxDepth,
+            topLevelAliases: request.TopLevelAliases);
         var workflow = await new SemanticWorkflowRunner().RunAsync(workflowClient, workflowRequest, cancellationToken);
         if (!workflow.Success)
         {
@@ -472,9 +473,11 @@ public sealed class RuntimeScenarioRunner
         for (var index = 0; index < steps.Count; index++)
         {
             var step = steps[index];
-            var target = step.Target is null
-                ? string.Empty
-                : $"{step.Target.TopLevelId}/{step.Target.NodeId ?? step.Target.TargetKind}";
+            var target = step.TopLevelAlias is not null
+                ? $"{step.TopLevelAlias}->{step.ResolvedTopLevelId ?? "missing"}/{step.Target?.NodeId ?? step.Target?.TargetKind ?? "top-level"}"
+                : step.Target is null
+                    ? string.Empty
+                    : $"{step.Target.TopLevelId}/{step.Target.NodeId ?? step.Target.TargetKind}";
             var evidence = step.Screenshot?.FilePath
                 ?? (step.Mutation is null ? null : $"mutation:{step.Mutation.Status}")
                 ?? (step.Metadata.TryGetValue("idempotencyReplay", out var replay)

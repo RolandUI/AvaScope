@@ -2432,6 +2432,247 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
     }
 
     [Fact]
+    public async Task SemanticWorkflowTopLevelAliasesRouteAcrossWindowsAndReopen()
+    {
+        var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessTestApplication));
+
+        try
+        {
+            await session.Dispatch(async () =>
+            {
+                var artifactDirectory = Path.Combine(
+                    Path.GetTempPath(),
+                    "AvaScope.Tests",
+                    $"alias-workflow-{Guid.NewGuid():N}");
+                var screenshotPath = Path.Combine(artifactDirectory, "main.png");
+                var status = new TextBlock { Text = "idle" };
+                AutomationProperties.SetAutomationId(status, "alias-main-status");
+                var reopen = new Button { Content = "Reopen controls" };
+                AutomationProperties.SetAutomationId(reopen, "alias-reopen-controls");
+                var main = new Window
+                {
+                    Title = "Alias main window",
+                    Width = 320,
+                    Height = 180,
+                    Content = new StackPanel { Children = { status, reopen } }
+                };
+                var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Alias workflow"));
+                Window? controls = null;
+                IDisposable? controlsRegistration = null;
+
+                Window CreateControls(string buttonAutomationId)
+                {
+                    var action = new Button { Content = "Update main" };
+                    AutomationProperties.SetAutomationId(action, buttonAutomationId);
+                    action.Click += (_, _) => status.Text = "updated";
+                    return new Window
+                    {
+                        Title = "Alias controls window",
+                        Width = 240,
+                        Height = 140,
+                        Content = action
+                    };
+                }
+
+                try
+                {
+                    controls = CreateControls("alias-update-main");
+                    main.Show();
+                    controls.Show();
+                    using var mainRegistration = runtime.RegisterTopLevel(main);
+                    controlsRegistration = runtime.RegisterTopLevel(controls);
+                    reopen.Click += (_, _) =>
+                    {
+                        controlsRegistration?.Dispose();
+                        controls?.Close();
+                        controls = CreateControls("alias-reopened-action");
+                        controls.Show();
+                        controlsRegistration = runtime.RegisterTopLevel(controls);
+                    };
+                    Dispatcher.UIThread.RunJobs();
+
+                    var initialControlsId = Assert.Single(
+                        await runtime.ListTopLevelsAsync(),
+                        topLevel => topLevel.Title == "Alias controls window").Id;
+                    var aliases = new[]
+                    {
+                        new SemanticWorkflowTopLevelAlias("main", new SemanticTopLevelSelector(title: "Alias main window")),
+                        new SemanticWorkflowTopLevelAlias("controls", new SemanticTopLevelSelector(title: "Alias controls window"))
+                    };
+                    var client = new LocalBridgeClient(Path.GetDirectoryName(runtime.SessionManifestPath)!);
+                    var request = new SemanticWorkflowRequest(
+                        runtime.SessionId,
+                        topLevelId: null,
+                        steps:
+                        [
+                            new SemanticWorkflowStep(
+                                SemanticWorkflowActions.Invoke,
+                                "update-main",
+                                new SemanticWorkflowSelector(automationId: "alias-update-main"),
+                                topLevelAlias: "controls"),
+                            new SemanticWorkflowStep(
+                                SemanticWorkflowActions.WaitForState,
+                                "wait-main",
+                                new SemanticWorkflowSelector(automationId: "alias-main-status"),
+                                waitCondition: new SemanticWaitCondition(SemanticWaitConditionKinds.Text, "updated"),
+                                topLevelAlias: "main"),
+                            new SemanticWorkflowStep(
+                                SemanticWorkflowActions.AssertState,
+                                "assert-main",
+                                new SemanticWorkflowSelector(automationId: "alias-main-status"),
+                                assertProperty: "Text",
+                                expected: "updated",
+                                topLevelAlias: "main"),
+                            new SemanticWorkflowStep(
+                                SemanticWorkflowActions.Screenshot,
+                                "main-evidence",
+                                screenshotPath: screenshotPath,
+                                topLevelAlias: "main"),
+                            new SemanticWorkflowStep(
+                                SemanticWorkflowActions.Invoke,
+                                "reopen-controls",
+                                new SemanticWorkflowSelector(automationId: "alias-reopen-controls"),
+                                topLevelAlias: "main"),
+                            new SemanticWorkflowStep(
+                                SemanticWorkflowActions.WaitForNode,
+                                "wait-reopened-controls",
+                                new SemanticWorkflowSelector(automationId: "alias-reopened-action"),
+                                timeoutMs: 500,
+                                pollIntervalMs: 25,
+                                topLevelAlias: "controls"),
+                            new SemanticWorkflowStep(
+                                SemanticWorkflowActions.Inspect,
+                                "inspect-reopened-controls",
+                                new SemanticWorkflowSelector(automationId: "alias-reopened-action"),
+                                topLevelAlias: "controls")
+                        ],
+                        outputDirectory: artifactDirectory,
+                        captureAfterEachStep: true,
+                        topLevelAliases: aliases);
+
+                    var result = await new SemanticWorkflowRunner().RunAsync(client, request);
+
+                    Assert.True(result.Success, result.Error?.Message);
+                    Assert.Equal("passed", result.Value!.Status);
+                    Assert.Null(result.Value.TopLevelId);
+                    Assert.True(File.Exists(screenshotPath), screenshotPath);
+                    Assert.All(result.Value.Steps, step =>
+                    {
+                        Assert.NotNull(step.TopLevelAlias);
+                        Assert.NotNull(step.ResolvedTopLevelId);
+                        Assert.Equal(step.TopLevelAlias, step.Metadata["topLevelAlias"]);
+                        Assert.Equal(step.ResolvedTopLevelId, step.Metadata["resolvedTopLevelId"]);
+                    });
+                    var oldControls = Assert.Single(result.Value.Steps, step => step.StepId == "update-main");
+                    var newControls = Assert.Single(result.Value.Steps, step => step.StepId == "inspect-reopened-controls");
+                    Assert.Equal(initialControlsId, oldControls.ResolvedTopLevelId);
+                    Assert.NotEqual(oldControls.ResolvedTopLevelId, newControls.ResolvedTopLevelId);
+                    Assert.Equal("main", Assert.Single(result.Value.Steps, step => step.StepId == "main-evidence").TopLevelAlias);
+                    Assert.All(
+                        result.Value.Steps.Where(step => step.StepId.EndsWith(":screenshot", StringComparison.Ordinal)),
+                        step =>
+                        {
+                            Assert.NotNull(step.TopLevelAlias);
+                            Assert.NotNull(step.ResolvedTopLevelId);
+                            Assert.True(File.Exists(step.Screenshot!.FilePath), step.Screenshot.FilePath);
+                        });
+
+                    var missingRequest = new SemanticWorkflowRequest(
+                        runtime.SessionId,
+                        topLevelId: null,
+                        steps:
+                        [
+                            new SemanticWorkflowStep(
+                                SemanticWorkflowActions.Inspect,
+                                "missing-alias-target",
+                                new SemanticWorkflowSelector(automationId: "anything"),
+                                topLevelAlias: "missing")
+                        ],
+                        topLevelAliases:
+                        [
+                            new SemanticWorkflowTopLevelAlias("missing", new SemanticTopLevelSelector(title: "Not open"))
+                        ]);
+                    var missing = await new SemanticWorkflowRunner().RunAsync(client, missingRequest);
+                    var missingDiagnostic = Assert.Single(Assert.Single(missing.Value!.Steps).Diagnostics);
+                    Assert.Equal("semantic_workflow_top_level_alias_missing", missingDiagnostic.Code);
+                    Assert.Contains("Alias main window", missingDiagnostic.Details!["candidates"], StringComparison.Ordinal);
+
+                    var otherSessionRequest = new SemanticWorkflowRequest(
+                        runtime.SessionId,
+                        topLevelId: null,
+                        steps:
+                        [
+                            new SemanticWorkflowStep(
+                                SemanticWorkflowActions.Inspect,
+                                "cross-session",
+                                new SemanticWorkflowSelector(automationId: "alias-main-status"),
+                                topLevelAlias: "main")
+                        ],
+                        topLevelAliases:
+                        [
+                            new SemanticWorkflowTopLevelAlias(
+                                "main",
+                                new SemanticTopLevelSelector(
+                                    title: "Alias main window",
+                                    sessionId: SessionId.New()))
+                        ]);
+                    var crossSession = await new SemanticWorkflowRunner().RunAsync(client, otherSessionRequest);
+                    Assert.Equal(
+                        "semantic_workflow_top_level_alias_session_mismatch",
+                        Assert.Single(Assert.Single(crossSession.Value!.Steps).Diagnostics).Code);
+
+                    var duplicateOne = new Window { Title = "Alias duplicate", Width = 100, Height = 80 };
+                    var duplicateTwo = new Window { Title = "Alias duplicate", Width = 100, Height = 80 };
+                    duplicateOne.Show();
+                    duplicateTwo.Show();
+                    using var duplicateOneRegistration = runtime.RegisterTopLevel(duplicateOne);
+                    using var duplicateTwoRegistration = runtime.RegisterTopLevel(duplicateTwo);
+                    try
+                    {
+                        var ambiguousRequest = new SemanticWorkflowRequest(
+                            runtime.SessionId,
+                            topLevelId: null,
+                            steps:
+                            [
+                                new SemanticWorkflowStep(
+                                    SemanticWorkflowActions.Screenshot,
+                                    "ambiguous-alias",
+                                    screenshotPath: screenshotPath,
+                                    topLevelAlias: "duplicate")
+                            ],
+                            topLevelAliases:
+                            [
+                                new SemanticWorkflowTopLevelAlias("duplicate", new SemanticTopLevelSelector(title: "Alias duplicate"))
+                            ]);
+                        var ambiguous = await new SemanticWorkflowRunner().RunAsync(client, ambiguousRequest);
+                        var diagnostic = Assert.Single(Assert.Single(ambiguous.Value!.Steps).Diagnostics);
+                        Assert.Equal("semantic_workflow_top_level_alias_ambiguous", diagnostic.Code);
+                        Assert.Equal("2", diagnostic.Details!["candidateCount"]);
+                    }
+                    finally
+                    {
+                        duplicateTwo.Close();
+                        duplicateOne.Close();
+                    }
+                }
+                finally
+                {
+                    controlsRegistration?.Dispose();
+                    controls?.Close();
+                    main.Close();
+                    AvaScopeBridge.Deactivate();
+                    Dispatcher.UIThread.RunJobs();
+                    DeleteDirectoryIfExists(artifactDirectory);
+                }
+            }, CancellationToken.None);
+        }
+        finally
+        {
+            DisposeHeadlessSessionAfterExplicitCleanup(session);
+        }
+    }
+
+    [Fact]
     public async Task SemanticSelectorsFilterActionabilityRecoverAcrossRecreationAndBoundAmbiguity()
     {
         var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessTestApplication));

@@ -19,7 +19,8 @@ public sealed record RuntimeScenarioRequest
         string? isolatedStateDirectory = null,
         string? timelinePath = null,
         int maxDepth = 16,
-        RuntimeScenarioPickerResult? pickerResult = null)
+        RuntimeScenarioPickerResult? pickerResult = null,
+        IReadOnlyList<SemanticWorkflowTopLevelAlias>? topLevelAliases = null)
     {
         if (steps is null || steps.Count == 0)
         {
@@ -55,6 +56,7 @@ public sealed record RuntimeScenarioRequest
         TimelinePath = string.IsNullOrWhiteSpace(timelinePath) ? null : Path.GetFullPath(timelinePath);
         MaxDepth = maxDepth;
         PickerResult = pickerResult;
+        TopLevelAliases = topLevelAliases ?? Array.Empty<SemanticWorkflowTopLevelAlias>();
     }
 
     [JsonPropertyName("requestId")]
@@ -106,6 +108,9 @@ public sealed record RuntimeScenarioRequest
     [JsonPropertyName("pickerResult")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public RuntimeScenarioPickerResult? PickerResult { get; }
+
+    [JsonPropertyName("topLevelAliases")]
+    public IReadOnlyList<SemanticWorkflowTopLevelAlias> TopLevelAliases { get; }
 }
 
 public sealed record RuntimeScenarioPickerResult

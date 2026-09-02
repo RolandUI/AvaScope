@@ -147,7 +147,12 @@ internal sealed class WorkflowIdempotencyStore
                 original.Diagnostics,
                 metadata,
                 original.Picker,
-                original.Mutation));
+                original.Mutation,
+                original.CustomActions,
+                original.CustomAction,
+                original.WaitObservation,
+                original.TopLevelAlias,
+                original.ResolvedTopLevelId));
         }
         catch (Exception exception) when (exception is IOException
             or UnauthorizedAccessException
@@ -204,6 +209,7 @@ internal sealed class WorkflowIdempotencyStore
             {
                 sessionId = request.SessionId.Value,
                 request.TopLevelId,
+                request.TopLevelAliases,
                 Step = step
             },
             JsonOptions);

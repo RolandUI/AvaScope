@@ -8,7 +8,7 @@ public sealed record SemanticWorkflowResponse
     public SemanticWorkflowResponse(
         string requestId,
         SessionId sessionId,
-        string topLevelId,
+        string? topLevelId,
         string status,
         DateTimeOffset startedAt,
         DateTimeOffset completedAt,
@@ -25,18 +25,13 @@ public sealed record SemanticWorkflowResponse
 
         SessionId = sessionId ?? throw new ArgumentNullException(nameof(sessionId));
 
-        if (string.IsNullOrWhiteSpace(topLevelId))
-        {
-            throw new ArgumentException("Top-level id cannot be empty.", nameof(topLevelId));
-        }
-
         if (string.IsNullOrWhiteSpace(status))
         {
             throw new ArgumentException("Workflow status cannot be empty.", nameof(status));
         }
 
         RequestId = requestId;
-        TopLevelId = topLevelId;
+        TopLevelId = string.IsNullOrWhiteSpace(topLevelId) ? null : topLevelId;
         Status = status;
         StartedAt = startedAt;
         CompletedAt = completedAt;
@@ -54,7 +49,8 @@ public sealed record SemanticWorkflowResponse
     public SessionId SessionId { get; }
 
     [JsonPropertyName("topLevelId")]
-    public string TopLevelId { get; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? TopLevelId { get; }
 
     [JsonPropertyName("status")]
     public string Status { get; }

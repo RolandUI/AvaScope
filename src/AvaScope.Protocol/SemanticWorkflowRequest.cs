@@ -7,20 +7,21 @@ public sealed record SemanticWorkflowRequest
     [JsonConstructor]
     public SemanticWorkflowRequest(
         SessionId sessionId,
-        string topLevelId,
+        string? topLevelId,
         IReadOnlyList<SemanticWorkflowStep> steps,
         string? requestId = null,
         string? outputDirectory = null,
         bool captureAfterEachStep = false,
         bool allowDestructive = false,
         string? isolatedStateDirectory = null,
-        int maxDepth = 16)
+        int maxDepth = 16,
+        IReadOnlyList<SemanticWorkflowTopLevelAlias>? topLevelAliases = null)
     {
         SessionId = sessionId ?? throw new ArgumentNullException(nameof(sessionId));
 
-        if (string.IsNullOrWhiteSpace(topLevelId))
+        if (string.IsNullOrWhiteSpace(topLevelId) && (topLevelAliases is null || topLevelAliases.Count == 0))
         {
-            throw new ArgumentException("Top-level id cannot be empty.", nameof(topLevelId));
+            throw new ArgumentException("Workflow requires topLevelId or at least one top-level alias.", nameof(topLevelId));
         }
 
         if (steps is null || steps.Count == 0)
@@ -34,8 +35,18 @@ public sealed record SemanticWorkflowRequest
         }
 
         RequestId = string.IsNullOrWhiteSpace(requestId) ? Guid.NewGuid().ToString("n") : requestId.Trim();
-        TopLevelId = topLevelId;
+        var aliases = topLevelAliases ?? Array.Empty<SemanticWorkflowTopLevelAlias>();
+        var duplicateAlias = aliases
+            .GroupBy(static alias => alias.Alias, StringComparer.Ordinal)
+            .FirstOrDefault(static group => group.Count() > 1)?.Key;
+        if (duplicateAlias is not null)
+        {
+            throw new ArgumentException($"Top-level alias '{duplicateAlias}' is declared more than once.", nameof(topLevelAliases));
+        }
+
+        TopLevelId = string.IsNullOrWhiteSpace(topLevelId) ? null : topLevelId.Trim();
         Steps = steps;
+        TopLevelAliases = aliases.ToArray();
         OutputDirectory = string.IsNullOrWhiteSpace(outputDirectory) ? null : Path.GetFullPath(outputDirectory);
         CaptureAfterEachStep = captureAfterEachStep;
         AllowDestructive = allowDestructive;
@@ -50,10 +61,14 @@ public sealed record SemanticWorkflowRequest
     public SessionId SessionId { get; }
 
     [JsonPropertyName("topLevelId")]
-    public string TopLevelId { get; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? TopLevelId { get; }
 
     [JsonPropertyName("steps")]
     public IReadOnlyList<SemanticWorkflowStep> Steps { get; }
+
+    [JsonPropertyName("topLevelAliases")]
+    public IReadOnlyList<SemanticWorkflowTopLevelAlias> TopLevelAliases { get; }
 
     [JsonPropertyName("outputDirectory")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
