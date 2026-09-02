@@ -148,7 +148,7 @@ PY
 dotnet "$cli_dll" visual-tree \
   --session "$session_id" \
   --top-level "$top_level_id" \
-  --max-depth 12 \
+  --max-depth 32 \
   --manifest-dir "$manifest_dir" \
   > "$test_root/visual-tree.json"
 
