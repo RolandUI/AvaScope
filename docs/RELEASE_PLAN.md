@@ -79,8 +79,8 @@ The `v1.4.0` minor release makes complex local Avalonia automation deterministic
 - #99 `R1.4.0-M2 Add bounds-derived semantic drag, swipe, and hold gestures`; Status: `Done`.
 - #100 `R1.4.0-M3 Add discoverable application-defined semantic actions`; Status: `Done`.
 - #101 `R1.4.0-M4 Re-resolve actionable selectors and recover safely from stale runtime nodes`; Status: `Done`.
-- #102 `R1.4.0-M5 Extend deterministic waits to rendered, command, binding, and selection state`; Status: `In Progress`.
-- #103 `R1.4.0-M6 Add resilient multi-window workflows with top-level aliases`; Status: `Ready`.
+- #102 `R1.4.0-M5 Extend deterministic waits to rendered, command, binding, and selection state`; Status: `Done`.
+- #103 `R1.4.0-M6 Add resilient multi-window workflows with top-level aliases`; Status: `In Progress`.
 - #104 `R1.4.0-M7 Add conditional, retryable, and reusable workflow composition`; Status: `Ready`.
 - #105 `R1.4.0-M8 Add observe-act-verify and automatic runtime failure evidence packs`; Status: `Ready`.
 - #106 `R1.4.0-M9 Harden build-launch-attach lifecycle orchestration`; Status: `Ready`.
@@ -107,7 +107,7 @@ The `v1.4.0` minor release makes complex local Avalonia automation deterministic
 
 ### v1.4.0 Implementation Validation
 
-- `2026-09-02`: Completed local #102 implementation with additive typed wait conditions/observations, public Avalonia state inspection, per-poll selector re-resolution, lifecycle/disappearance semantics, invariant comparisons, and bounded distinct unavailable/timeout evidence across Protocol, Bridge, Core, CLI, MCP, capability metadata, tests, and docs. Debug and Release builds completed with `0` warnings/errors and all `445` tests passed in both configurations. Hosted CI is pending before closure.
+- `2026-09-02`: Completed #102 in `35d1b20` with additive typed wait conditions/observations, public Avalonia state inspection, per-poll selector re-resolution, lifecycle/disappearance semantics, invariant comparisons, and bounded distinct unavailable/timeout evidence across Protocol, Bridge, Core, CLI, MCP, capability metadata, tests, and docs. Debug and Release builds completed with `0` warnings/errors and all `445` tests passed in both configurations. Hosted CI `33658851376` passed Windows Build/Test/Pack and installer/artifact verification, Linux installer validation, and macOS full tests plus native runtime/preview/artifact validation. Started #103.
 - `2026-09-02`: Completed #101 in `747117b` with shared interaction-state selectors, UI-thread generation validation, pre-dispatch-only stale recovery, bounded ambiguity candidates, and durable template-recreation/idempotency coverage across Protocol, Bridge, Core, CLI, MCP, capability metadata, and documentation. Debug and Release builds completed with `0` warnings/errors and all `442` tests passed in both configurations. Hosted CI `33653895062` passed Windows Build/Test/Pack, installers and artifacts, Linux installer validation, and macOS full tests plus native runtime/preview/artifact validation. Started #102.
 
 ## Released Target: v1.3.0
