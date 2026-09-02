@@ -49,6 +49,8 @@ Preview rendering can build and load user project code. That code runs inside `A
 
 AvaScope writes screenshots, diffs, JSON reports, HTML viewers, JUnit/SARIF-style report assets, launch stdout/stderr, and release artifacts only to explicit local paths or AvaScope-owned local temp directories. Generated files can contain UI text, paths, diagnostics, and screenshots from the user's app; agents should treat them as local sensitive artifacts and upload them only when the user or CI workflow explicitly chooses to.
 
+Runtime scenario build and launch requests may contain sensitive environment values or application arguments. Normal lifecycle responses expose only environment-variable names and argument counts; raw values are passed directly to the owned child process and are not copied into metadata, diagnostics, or timelines. Captured stdout/stderr remain local artifacts and may still contain values printed by the application itself. Scenario cleanup records the launched session, PID, and process start time and terminates the process tree only when all identity checks still match; foreign, manually launched, already-replaced, or PID-reused processes are not killed.
+
 The visual-regression GitHub Actions example uses read-only repository permissions and artifact upload only. Publishing workflows require separate release gates and credentials.
 
 ## Package, API, CLI, And MCP Compatibility

@@ -18,7 +18,11 @@ public sealed class BridgeAppLauncher
         string? outputDirectory = null,
         IReadOnlyDictionary<string, string>? environment = null,
         TimeSpan? timeout = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        IReadOnlyList<string>? argumentList = null,
+        bool directProcess = false,
+        bool terminateOnFailure = false,
+        bool captureOutputUntilExit = false)
     {
         if (string.IsNullOrWhiteSpace(command))
         {
@@ -50,10 +54,10 @@ public sealed class BridgeAppLauncher
         var fullWorkingDirectory = string.IsNullOrWhiteSpace(workingDirectory)
             ? Environment.CurrentDirectory
             : Path.GetFullPath(workingDirectory);
-        var detachedLauncher = OperatingSystem.IsWindows();
+        var detachedLauncher = OperatingSystem.IsWindows() && !directProcess;
         var process = new Process
         {
-            StartInfo = CreateStartInfo(command, arguments, fullWorkingDirectory, detachedLauncher),
+            StartInfo = CreateStartInfo(command, arguments, argumentList, fullWorkingDirectory, detachedLauncher),
             EnableRaisingEvents = true
         };
 
@@ -76,29 +80,74 @@ public sealed class BridgeAppLauncher
             if (!process.Start())
             {
                 process.Dispose();
-                return Fail("The configured app process could not be started.");
+                return Fail(
+                    "The configured app process could not be started.",
+                    new Dictionary<string, string>
+                    {
+                        ["stdoutPath"] = Path.GetFullPath(stdoutPath),
+                        ["stderrPath"] = Path.GetFullPath(stderrPath),
+                        ["manifestDirectory"] = Path.GetFullPath(fullManifestDirectory),
+                        ["failureStage"] = RuntimeScenarioFailureStages.Launch
+                    });
             }
         }
         catch (Exception exception) when (exception is System.ComponentModel.Win32Exception or InvalidOperationException)
         {
             process.Dispose();
-            return Fail($"The configured app process could not be started: {exception.Message}");
+            return Fail(
+                $"The configured app process could not be started: {exception.Message}",
+                new Dictionary<string, string>
+                {
+                    ["stdoutPath"] = Path.GetFullPath(stdoutPath),
+                    ["stderrPath"] = Path.GetFullPath(stderrPath),
+                    ["manifestDirectory"] = Path.GetFullPath(fullManifestDirectory),
+                    ["failureStage"] = RuntimeScenarioFailureStages.Launch
+                });
         }
 
         var outputCancellation = new CancellationTokenSource();
-        _ = CopyToFileUntilExitAsync(process.StandardOutput, stdoutPath, outputCancellation.Token);
-        _ = CopyToFileUntilExitAsync(process.StandardError, stderrPath, outputCancellation.Token);
+        var stdoutTask = CopyToFileUntilExitAsync(process.StandardOutput, stdoutPath, outputCancellation.Token);
+        var stderrTask = CopyToFileUntilExitAsync(process.StandardError, stderrPath, outputCancellation.Token);
 
         var client = new LocalBridgeClient(fullManifestDirectory);
         var stopAt = DateTimeOffset.UtcNow + effectiveTimeout;
+        var readinessChecks = 0;
         while (DateTimeOffset.UtcNow < stopAt)
         {
-            cancellationToken.ThrowIfCancellationRequested();
+            if (cancellationToken.IsCancellationRequested)
+            {
+                if (!terminateOnFailure)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                }
+
+                var details = CreateLaunchDetails(
+                    process,
+                    stdoutPath,
+                    stderrPath,
+                    fullManifestDirectory,
+                    displayName,
+                    failureStage: RuntimeScenarioFailureStages.BridgeReadiness,
+                    readinessChecks: readinessChecks);
+                details["cancelled"] = "true";
+                TerminateAndDetachLaunchProcess(process, outputCancellation, stdoutTask, stderrTask);
+                return Fail("The app launch was cancelled while waiting for bridge readiness.", details);
+            }
+
+            readinessChecks++;
 
             if (!detachedLauncher && process.HasExited)
             {
-                var details = CreateLaunchDetails(process, stdoutPath, stderrPath, fullManifestDirectory, displayName, process.ExitCode);
-                DetachLaunchProcess(process, outputCancellation);
+                var details = CreateLaunchDetails(
+                    process,
+                    stdoutPath,
+                    stderrPath,
+                    fullManifestDirectory,
+                    displayName,
+                    process.ExitCode,
+                    RuntimeScenarioFailureStages.Launch,
+                    readinessChecks);
+                DetachLaunchProcess(process, outputCancellation, stdoutTask, stderrTask);
 
                 return Fail(
                     "The launched app process exited before an AvaScope bridge session appeared.",
@@ -107,8 +156,16 @@ public sealed class BridgeAppLauncher
 
             if (detachedLauncher && process.HasExited && process.ExitCode != 0)
             {
-                var details = CreateLaunchDetails(process, stdoutPath, stderrPath, fullManifestDirectory, displayName, process.ExitCode);
-                DetachLaunchProcess(process, outputCancellation);
+                var details = CreateLaunchDetails(
+                    process,
+                    stdoutPath,
+                    stderrPath,
+                    fullManifestDirectory,
+                    displayName,
+                    process.ExitCode,
+                    RuntimeScenarioFailureStages.Launch,
+                    readinessChecks);
+                DetachLaunchProcess(process, outputCancellation, stdoutTask, stderrTask);
 
                 return Fail(
                     "The launch helper exited before an AvaScope bridge session appeared.",
@@ -122,18 +179,80 @@ public sealed class BridgeAppLauncher
                 detachedLauncher);
             if (manifest is not null)
             {
-                var attach = await client.AttachToAppAsync(
-                    manifest.ProcessId,
-                    manifest.SessionId,
-                    processName: null,
-                    cancellationToken: cancellationToken);
-                if (!attach.Success)
+                CoreResult<AttachToAppResponse> attach;
+                try
                 {
-                    DetachLaunchProcess(process, outputCancellation);
-                    return CoreResult<LaunchAppResponse>.Fail(attach.Error!);
+                    attach = await client.AttachToAppAsync(
+                        manifest.ProcessId,
+                        manifest.SessionId,
+                        processName: null,
+                        cancellationToken: cancellationToken);
+                }
+                catch (OperationCanceledException) when (terminateOnFailure && cancellationToken.IsCancellationRequested)
+                {
+                    var details = CreateLaunchDetails(
+                        process,
+                        stdoutPath,
+                        stderrPath,
+                        fullManifestDirectory,
+                        displayName,
+                        failureStage: RuntimeScenarioFailureStages.Attach,
+                        readinessChecks: readinessChecks);
+                    details["cancelled"] = "true";
+                    TerminateAndDetachLaunchProcess(process, outputCancellation, stdoutTask, stderrTask);
+                    return Fail("The app launch was cancelled while attaching to its bridge session.", details);
                 }
 
-                var topLevels = await client.ListTopLevelsAsync(manifest.SessionId, cancellationToken);
+                if (!attach.Success)
+                {
+                    var details = CreateLaunchDetails(
+                        process,
+                        stdoutPath,
+                        stderrPath,
+                        fullManifestDirectory,
+                        displayName,
+                        failureStage: RuntimeScenarioFailureStages.Attach,
+                        readinessChecks: readinessChecks);
+                    foreach (var pair in attach.Error!.Details ?? new Dictionary<string, string>())
+                    {
+                        details.TryAdd(pair.Key, pair.Value);
+                    }
+
+                    if (terminateOnFailure)
+                    {
+                        TerminateAndDetachLaunchProcess(process, outputCancellation, stdoutTask, stderrTask);
+                    }
+                    else
+                    {
+                        DetachLaunchProcess(process, outputCancellation, stdoutTask, stderrTask);
+                    }
+
+                    return CoreResult<LaunchAppResponse>.Fail(new CoreError(
+                        attach.Error.Code,
+                        attach.Error.Message,
+                        details));
+                }
+
+                CoreResult<ListTopLevelsResponse> topLevels;
+                try
+                {
+                    topLevels = await client.ListTopLevelsAsync(manifest.SessionId, cancellationToken);
+                }
+                catch (OperationCanceledException) when (terminateOnFailure && cancellationToken.IsCancellationRequested)
+                {
+                    var details = CreateLaunchDetails(
+                        process,
+                        stdoutPath,
+                        stderrPath,
+                        fullManifestDirectory,
+                        displayName,
+                        failureStage: RuntimeScenarioFailureStages.TopLevels,
+                        readinessChecks: readinessChecks);
+                    details["cancelled"] = "true";
+                    TerminateAndDetachLaunchProcess(process, outputCancellation, stdoutTask, stderrTask);
+                    return Fail("The app launch was cancelled while reading registered top levels.", details);
+                }
+
                 var topLevelId = topLevels.Success
                     ? topLevels.Value!.TopLevels.FirstOrDefault()?.Id
                     : null;
@@ -151,8 +270,16 @@ public sealed class BridgeAppLauncher
 
                 if (!LaunchOwnershipStore.TryGetProcessIdentity(manifest.ProcessId, out var launchedProcess, out var processStartedAt))
                 {
-                    DetachLaunchProcess(process, outputCancellation);
-                    return Fail("The launched app process exited before launch ownership could be recorded.");
+                    var details = CreateLaunchDetails(
+                        process,
+                        stdoutPath,
+                        stderrPath,
+                        fullManifestDirectory,
+                        displayName,
+                        failureStage: RuntimeScenarioFailureStages.Launch,
+                        readinessChecks: readinessChecks);
+                    DetachLaunchProcess(process, outputCancellation, stdoutTask, stderrTask);
+                    return Fail("The launched app process exited before launch ownership could be recorded.", details);
                 }
 
                 launchedProcess.Dispose();
@@ -167,19 +294,75 @@ public sealed class BridgeAppLauncher
                 }
                 catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
                 {
-                    DetachLaunchProcess(process, outputCancellation);
-                    return Fail($"The launched app was attached, but launch ownership could not be recorded: {exception.Message}");
+                    var details = CreateLaunchDetails(
+                        process,
+                        stdoutPath,
+                        stderrPath,
+                        fullManifestDirectory,
+                        displayName,
+                        failureStage: RuntimeScenarioFailureStages.Launch,
+                        readinessChecks: readinessChecks);
+                    if (terminateOnFailure)
+                    {
+                        TerminateAndDetachLaunchProcess(process, outputCancellation, stdoutTask, stderrTask);
+                    }
+                    else
+                    {
+                        DetachLaunchProcess(process, outputCancellation, stdoutTask, stderrTask);
+                    }
+
+                    return Fail($"The launched app was attached, but launch ownership could not be recorded: {exception.Message}", details);
                 }
 
-                DetachLaunchProcess(process, outputCancellation);
+                if (captureOutputUntilExit && !detachedLauncher)
+                {
+                    _ = CompleteOutputCaptureAsync(process, outputCancellation, stdoutTask, stderrTask);
+                }
+                else
+                {
+                    DetachLaunchProcess(process, outputCancellation, stdoutTask, stderrTask);
+                }
+
                 return CoreResult<LaunchAppResponse>.Ok(response);
             }
 
-            await Task.Delay(TimeSpan.FromMilliseconds(100), cancellationToken);
+            try
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(100), cancellationToken);
+            }
+            catch (OperationCanceledException) when (terminateOnFailure && cancellationToken.IsCancellationRequested)
+            {
+                var details = CreateLaunchDetails(
+                    process,
+                    stdoutPath,
+                    stderrPath,
+                    fullManifestDirectory,
+                    displayName,
+                    failureStage: RuntimeScenarioFailureStages.BridgeReadiness,
+                    readinessChecks: readinessChecks);
+                details["cancelled"] = "true";
+                TerminateAndDetachLaunchProcess(process, outputCancellation, stdoutTask, stderrTask);
+                return Fail("The app launch was cancelled while waiting for bridge readiness.", details);
+            }
         }
 
-        var timeoutDetails = CreateLaunchDetails(process, stdoutPath, stderrPath, fullManifestDirectory, displayName);
-        DetachLaunchProcess(process, outputCancellation);
+        var timeoutDetails = CreateLaunchDetails(
+            process,
+            stdoutPath,
+            stderrPath,
+            fullManifestDirectory,
+            displayName,
+            failureStage: RuntimeScenarioFailureStages.BridgeReadiness,
+            readinessChecks: readinessChecks);
+        timeoutDetails["timedOut"] = "true";
+        if (terminateOnFailure)
+        {
+            TerminateAndDetachLaunchProcess(process, outputCancellation, stdoutTask, stderrTask);
+        }
+        else
+        {
+            DetachLaunchProcess(process, outputCancellation, stdoutTask, stderrTask);
+        }
 
         return Fail(
             "Timed out waiting for an AvaScope bridge session from the launched app.",
@@ -218,6 +401,7 @@ public sealed class BridgeAppLauncher
     private static ProcessStartInfo CreateStartInfo(
         string command,
         string? arguments,
+        IReadOnlyList<string>? argumentList,
         string workingDirectory,
         bool detachedLauncher)
     {
@@ -235,15 +419,28 @@ public sealed class BridgeAppLauncher
             };
         }
 
-        return new ProcessStartInfo
+        var startInfo = new ProcessStartInfo
         {
             FileName = command,
-            Arguments = arguments ?? string.Empty,
             WorkingDirectory = workingDirectory,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
-            UseShellExecute = false
+            UseShellExecute = false,
+            CreateNoWindow = true
         };
+        if (argumentList is { Count: > 0 })
+        {
+            foreach (var argument in argumentList)
+            {
+                startInfo.ArgumentList.Add(argument);
+            }
+        }
+        else
+        {
+            startInfo.Arguments = arguments ?? string.Empty;
+        }
+
+        return startInfo;
     }
 
     private static string CreateWindowsLaunchScript(string command, string? arguments, string workingDirectory)
@@ -286,30 +483,89 @@ public sealed class BridgeAppLauncher
 
         if (!detachedLauncher)
         {
-            var processMatch = orderedManifests.FirstOrDefault(session => session.ProcessId == launcherProcessId);
-            if (processMatch is not null)
-            {
-                return processMatch;
-            }
+            return orderedManifests.FirstOrDefault(session => session.ProcessId == launcherProcessId);
         }
 
         var earliestManifestTime = startedAt.AddSeconds(-1);
         return orderedManifests.FirstOrDefault(session => session.CreatedAt >= earliestManifestTime);
     }
 
-    private static void DetachLaunchProcess(Process process, CancellationTokenSource outputCancellation)
+    private static void DetachLaunchProcess(
+        Process process,
+        CancellationTokenSource outputCancellation,
+        Task stdoutTask,
+        Task stderrTask)
     {
         outputCancellation.Cancel();
+        _ = ObserveOutputTasksAsync(stdoutTask, stderrTask, outputCancellation);
         process.Dispose();
     }
 
-    private static IReadOnlyDictionary<string, string> CreateLaunchDetails(
+    private static void TerminateAndDetachLaunchProcess(
+        Process process,
+        CancellationTokenSource outputCancellation,
+        Task stdoutTask,
+        Task stderrTask)
+    {
+        try
+        {
+            if (!process.HasExited)
+            {
+                process.Kill(entireProcessTree: true);
+                process.WaitForExit(5000);
+            }
+        }
+        catch (Exception exception) when (exception is InvalidOperationException or System.ComponentModel.Win32Exception or NotSupportedException)
+        {
+        }
+
+        DetachLaunchProcess(process, outputCancellation, stdoutTask, stderrTask);
+    }
+
+    private static async Task CompleteOutputCaptureAsync(
+        Process process,
+        CancellationTokenSource outputCancellation,
+        Task stdoutTask,
+        Task stderrTask)
+    {
+        try
+        {
+            await Task.WhenAll(stdoutTask, stderrTask);
+        }
+        finally
+        {
+            outputCancellation.Dispose();
+            process.Dispose();
+        }
+    }
+
+    private static async Task ObserveOutputTasksAsync(
+        Task stdoutTask,
+        Task stderrTask,
+        CancellationTokenSource outputCancellation)
+    {
+        try
+        {
+            await Task.WhenAll(stdoutTask, stderrTask);
+        }
+        catch (Exception exception) when (exception is OperationCanceledException or ObjectDisposedException or IOException)
+        {
+        }
+        finally
+        {
+            outputCancellation.Dispose();
+        }
+    }
+
+    private static Dictionary<string, string> CreateLaunchDetails(
         Process process,
         string stdoutPath,
         string stderrPath,
         string manifestDirectory,
         string? displayName,
-        int? exitCode = null)
+        int? exitCode = null,
+        string? failureStage = null,
+        int? readinessChecks = null)
     {
         var details = new Dictionary<string, string>
         {
@@ -320,6 +576,16 @@ public sealed class BridgeAppLauncher
             ["bridgeActivation"] = "explicit_app_opt_in_required",
             ["nextAction"] = $"Ensure the launched app enables AvaScopeBridge.Activate and writes a local manifest under {BridgeSessionManifest.DirectoryEnvironmentVariable}."
         };
+
+        if (!string.IsNullOrWhiteSpace(failureStage))
+        {
+            details["failureStage"] = failureStage;
+        }
+
+        if (readinessChecks is not null)
+        {
+            details["readinessChecks"] = readinessChecks.Value.ToString(CultureInfo.InvariantCulture);
+        }
 
         if (!string.IsNullOrWhiteSpace(displayName))
         {

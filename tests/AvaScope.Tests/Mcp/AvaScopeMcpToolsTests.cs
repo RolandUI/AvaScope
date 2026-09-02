@@ -41,7 +41,8 @@ public sealed class AvaScopeMcpToolsTests
             && capability.Status == AvaScopeCapabilityStatuses.Available);
         Assert.Contains(result.Value.Capabilities, capability =>
             capability.Id == AvaScopeCapabilityIds.RuntimeScenarioRunner
-            && capability.Status == AvaScopeCapabilityStatuses.Available);
+            && capability.Status == AvaScopeCapabilityStatuses.Available
+            && capability.Metadata["launchTargets"] == "command,project");
         Assert.Contains(result.Value.Capabilities, capability =>
             capability.Id == AvaScopeCapabilityIds.RuntimeInteractionAnimation
             && capability.Status == AvaScopeCapabilityStatuses.Available);
@@ -218,6 +219,51 @@ public sealed class AvaScopeMcpToolsTests
             if (Directory.Exists(outputDirectory))
             {
                 Directory.Delete(outputDirectory, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task RunScenarioReturnsStructuredBuildFailureBeforeLaunch()
+    {
+        var manifestDirectory = CreateMissingManifestDirectory();
+        var client = new LocalBridgeClient(manifestDirectory);
+        var outputDirectory = Path.Combine(
+            Path.GetTempPath(),
+            "AvaScope.Tests",
+            $"mcp-scenario-build-{Guid.NewGuid():N}");
+        var missingProject = Path.Combine(outputDirectory, "missing.csproj");
+        var request = new RuntimeScenarioRequest(
+            [new SemanticWorkflowStep(SemanticWorkflowActions.Wait, "wait", waitMs: 1)],
+            requestId: "mcp-scenario-build",
+            launch: new RuntimeScenarioLaunchOptions($"missing-command-{Guid.NewGuid():N}"),
+            topLevelId: "topLevel:missing",
+            outputDirectory: outputDirectory,
+            build: new RuntimeScenarioBuildOptions(missingProject),
+            terminateLaunchedProcess: true);
+
+        try
+        {
+            var result = await AvaScopeMcpTools.RunScenario(client, request);
+
+            Assert.False(result.Success);
+            Assert.Equal("runtime_scenario_build_project_not_found", result.Error!.Code);
+            Assert.Equal(RuntimeScenarioFailureStages.Build, result.Value!.FailureStage);
+            Assert.Equal(RuntimeScenarioLifecycleStatuses.Failed, result.Value.Build!.Status);
+            Assert.True(File.Exists(result.Value.Build.StdoutPath));
+            Assert.True(File.Exists(result.Value.Build.StderrPath));
+            Assert.Null(result.Value.Launch);
+        }
+        finally
+        {
+            if (Directory.Exists(outputDirectory))
+            {
+                Directory.Delete(outputDirectory, recursive: true);
+            }
+
+            if (Directory.Exists(manifestDirectory))
+            {
+                Directory.Delete(manifestDirectory, recursive: true);
             }
         }
     }

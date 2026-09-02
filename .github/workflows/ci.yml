@@ -122,6 +122,11 @@ jobs:
           powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\package-executables.ps1
           Get-ChildItem artifacts\executables
 
+      - name: Test packaged Windows lifecycle scenario
+        if: ${{ steps.changes.outputs.requires_validation == 'true' }}
+        shell: pwsh
+        run: pwsh -NoProfile -File ./eng/test-packaged-lifecycle.ps1 -CliAssembly ./artifacts/executables/avascope-win-x64-framework-dependent/avascope.dll -Configuration Release
+
       - name: Install Inno Setup
         if: ${{ steps.changes.outputs.requires_validation == 'true' }}
         shell: pwsh
@@ -187,6 +192,10 @@ jobs:
         shell: pwsh
         run: pwsh -NoProfile -File ./eng/package-executables.ps1 -RuntimeIdentifiers linux-x64
 
+      - name: Test packaged Linux lifecycle scenario
+        shell: pwsh
+        run: pwsh -NoProfile -File ./eng/test-packaged-lifecycle.ps1 -CliAssembly ./artifacts/executables/avascope-linux-x64-framework-dependent/avascope.dll -Configuration Release
+
       - name: Package Linux installer
         shell: pwsh
         run: pwsh -NoProfile -File ./eng/package-installers.ps1 -RuntimeIdentifiers linux-x64
@@ -239,6 +248,9 @@ jobs:
           esac
 
           pwsh -NoProfile -File ./eng/package-executables.ps1 -RuntimeIdentifiers "$runtime_identifier"
+          pwsh -NoProfile -File ./eng/test-packaged-lifecycle.ps1 \
+            -CliAssembly "./artifacts/executables/avascope-$runtime_identifier-framework-dependent/avascope.dll" \
+            -Configuration Release
           pwsh -NoProfile -File ./eng/package-installers.ps1 -RuntimeIdentifiers "$runtime_identifier"
           dotnet pack src/AvaScope.Protocol/AvaScope.Protocol.csproj -c Release --no-build --output artifacts/packages
           dotnet pack src/AvaScope.Core/AvaScope.Core.csproj -c Release --no-build --output artifacts/packages

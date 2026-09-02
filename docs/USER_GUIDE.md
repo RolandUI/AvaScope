@@ -799,9 +799,19 @@ Use `run-scenario` when the workflow should launch or attach before running step
 ```json
 {
   "requestId": "settings-scenario",
+  "build": {
+    "projectPath": "path/to/App.csproj",
+    "configuration": "Debug",
+    "framework": "net10.0",
+    "noRestore": true,
+    "timeoutMs": 120000
+  },
   "launch": {
-    "command": "dotnet",
-    "arguments": "run --project path/to/App.csproj",
+    "projectPath": "path/to/App.csproj",
+    "configuration": "Debug",
+    "framework": "net10.0",
+    "noBuild": true,
+    "argumentList": ["--automation-mode"],
     "environment": {
       "AVASCOPE_SAMPLE_BRIDGE": "1"
     },
@@ -809,6 +819,7 @@ Use `run-scenario` when the workflow should launch or attach before running step
   },
   "outputDirectory": "artifacts/scenarios/settings",
   "captureAfterEachStep": true,
+  "terminateLaunchedProcess": true,
   "timelinePath": "artifacts/scenarios/settings/timeline.md",
   "steps": [
     {
@@ -831,7 +842,11 @@ Use `run-scenario` when the workflow should launch or attach before running step
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll run-scenario --request .\scenario.json
 ```
 
-`run-scenario` returns `ToolResult<RuntimeScenarioResponse>` with `status`, launch/attach metadata, the nested workflow result, `timelinePath`, diagnostics, and isolated-state metadata. Launch scenarios isolate app data by default by setting app-data, user-profile, XDG, temp, and `AVASCOPE_SCENARIO_STATE_DIR` environment variables under an AvaScope-owned directory. Attached existing sessions cannot be retroactively isolated; destructive-looking click/select targets still fail unless the scenario launches with isolation or explicitly sets `allowDestructive`.
+`run-scenario` returns `ToolResult<RuntimeScenarioResponse>` with `status`, optional `build`, launch and `attach` metadata, bridge `readiness`, all registered `topLevels`, the nested workflow result, optional `cleanup`, `failureStage`, `timelinePath`, diagnostics, and isolated-state metadata. `failureStage` distinguishes `validation`, `build`, `launch`, `bridge_readiness`, `attach`, `top_levels`, `workflow`, and `cleanup`; build and launch stdout/stderr remain in referenced local files even when a later stage fails. Build and launch environment values and tokenized arguments are never echoed in normal response metadata: only environment-variable names and argument counts are reported.
+
+Project launch uses the conventional built `bin/<configuration>/<framework>/<project>.dll` target and launches it directly so manifest process identity can be matched exactly. Set `noBuild: false` to request an automatic build, provide an explicit top-level `build` object for structured build control, or set `noBuild: true` only when the target is already built. Command launch remains compatible through `command`, legacy `arguments`, or the safer tokenized `argumentList`. Launch scenarios isolate app data by default by setting app-data, user-profile, XDG, temp, and `AVASCOPE_SCENARIO_STATE_DIR` environment variables under an AvaScope-owned directory. Attached existing sessions cannot be retroactively isolated; destructive-looking click/select targets still fail unless the scenario launches with isolation or explicitly sets `allowDestructive`.
+
+Set `terminateLaunchedProcess: true` when the scenario owns the app lifecycle. Cleanup closes the bridge and terminates the process tree only when the saved session, process id, and process start time still match; foreign processes, manually attached apps, and PID-reused processes are never terminated. Cancellation and readiness timeout terminate only the directly started process tree before returning their partial logs and readiness evidence. The default remains `false` for compatibility with scenarios that intentionally leave an app running.
 
 Diagnose hover, popup, tooltip, and pointer transition behavior with a pointer-path request:
 

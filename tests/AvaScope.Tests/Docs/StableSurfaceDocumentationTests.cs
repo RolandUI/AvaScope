@@ -44,6 +44,9 @@ public sealed class StableSurfaceDocumentationTests
         Assert.Contains("workflow-report.json", stableSurface, StringComparison.Ordinal);
         Assert.Contains("workflow-report.md", stableSurface, StringComparison.Ordinal);
         Assert.Contains("workflow-junit.xml", stableSurface, StringComparison.Ordinal);
+        Assert.Contains("terminateLaunchedProcess", stableSurface, StringComparison.Ordinal);
+        Assert.Contains("failureStage", stableSurface, StringComparison.Ordinal);
+        Assert.Contains("process start time", stableSurface, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("-before.png", stableSurface, StringComparison.Ordinal);
         Assert.Contains("-after.png", stableSurface, StringComparison.Ordinal);
         Assert.Contains("-review.html", stableSurface, StringComparison.Ordinal);

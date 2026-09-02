@@ -75,7 +75,8 @@ public sealed class CliSmokeTests
             && capability.Metadata["reports"] == "json,markdown,junit");
         Assert.Contains(payload.Value.Capabilities, capability =>
             capability.Id == AvaScopeCapabilityIds.RuntimeScenarioRunner
-            && capability.Status == AvaScopeCapabilityStatuses.Available);
+            && capability.Status == AvaScopeCapabilityStatuses.Available
+            && capability.Metadata["launchTargets"] == "command,project");
         Assert.Contains(payload.Value.Capabilities, capability =>
             capability.Id == AvaScopeCapabilityIds.RuntimeInteractionAnimation
             && capability.Status == AvaScopeCapabilityStatuses.Available);
@@ -3919,6 +3920,52 @@ public sealed class CliSmokeTests
             var timeline = await File.ReadAllTextAsync(timelinePath);
             Assert.Contains("applied_environment", timeline, StringComparison.Ordinal);
             Assert.Contains(CoreErrorCodes.BridgeSessionNotFound, timeline, StringComparison.Ordinal);
+        }
+        finally
+        {
+            await DeleteDirectoryWithRetryAsync(artifactDirectory);
+        }
+    }
+
+    [Fact]
+    public async Task RunScenarioCommandReturnsStructuredBuildFailureBeforeLaunch()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        var artifactDirectory = Path.Combine(
+            Path.GetTempPath(),
+            "AvaScope.Tests",
+            $"cli-scenario-build-{Guid.NewGuid():N}");
+        var projectDirectory = Path.Combine(artifactDirectory, "project");
+        var projectPath = Path.Combine(projectDirectory, "BuildFailure.csproj");
+        var requestPath = Path.Combine(artifactDirectory, "scenario.json");
+        Directory.CreateDirectory(projectDirectory);
+        await File.WriteAllTextAsync(
+            projectPath,
+            "<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup><Target Name=\"FailExpectedly\" BeforeTargets=\"Build\"><Error Text=\"Expected CLI lifecycle failure\" /></Target></Project>");
+        var scenario = new RuntimeScenarioRequest(
+            [new SemanticWorkflowStep(SemanticWorkflowActions.Wait, "wait", waitMs: 1)],
+            requestId: "cli-scenario-build-failure",
+            launch: new RuntimeScenarioLaunchOptions($"missing-command-{Guid.NewGuid():N}"),
+            topLevelId: "topLevel:missing",
+            outputDirectory: artifactDirectory,
+            build: new RuntimeScenarioBuildOptions(projectPath, arguments: ["--nologo"]),
+            terminateLaunchedProcess: true);
+        await File.WriteAllTextAsync(requestPath, JsonSerializer.Serialize(scenario, JsonOptions));
+
+        try
+        {
+            var result = await RunCliAsync(cliAssembly, "run-scenario", "--request", requestPath);
+
+            Assert.Equal(1, result.ExitCode);
+            Assert.True(string.IsNullOrWhiteSpace(result.StandardError), result.StandardError);
+            var payload = JsonSerializer.Deserialize<ToolResult<RuntimeScenarioResponse>>(result.StandardOutput, JsonOptions);
+            Assert.False(payload!.Success);
+            Assert.Equal("runtime_scenario_build_failed", payload.Error!.Code);
+            Assert.Equal(RuntimeScenarioFailureStages.Build, payload.Value!.FailureStage);
+            Assert.Equal(RuntimeScenarioLifecycleStatuses.Failed, payload.Value.Build!.Status);
+            Assert.True(File.Exists(payload.Value.Build.StdoutPath));
+            Assert.Contains("Expected CLI lifecycle failure", await File.ReadAllTextAsync(payload.Value.Build.StdoutPath), StringComparison.Ordinal);
+            Assert.Null(payload.Value.Launch);
         }
         finally
         {

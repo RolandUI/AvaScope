@@ -136,6 +136,9 @@ public sealed class ProtocolContractTests
         var scenarioRunner = Assert.Single(response.Capabilities, capability =>
             capability.Id == AvaScopeCapabilityIds.RuntimeScenarioRunner);
         Assert.Equal("before_launch_attach_or_artifact_creation", scenarioRunner.Metadata["compositionValidation"]);
+        Assert.Equal("command,project", scenarioRunner.Metadata["launchTargets"]);
+        Assert.Contains(RuntimeScenarioFailureStages.BridgeReadiness, scenarioRunner.Metadata["lifecycleStages"], StringComparison.Ordinal);
+        Assert.Contains("start_time", scenarioRunner.Metadata["ownedCleanup"], StringComparison.Ordinal);
         Assert.Contains(response.Capabilities, capability => capability.Id == AvaScopeCapabilityIds.RuntimePointerDiagnostics);
         Assert.Contains(response.Capabilities, capability => capability.Id == AvaScopeCapabilityIds.RuntimePseudoStateMatrix);
         Assert.Contains(response.Capabilities, capability => capability.Id == AvaScopeCapabilityIds.RuntimeInteractionAnimation);
@@ -697,6 +700,15 @@ public sealed class ProtocolContractTests
             captureAfterEachStep: true,
             isolatedStateDirectory: "C:\\state\\isolated",
             timelinePath: "C:\\state\\timeline.md",
+            build: new RuntimeScenarioBuildOptions(
+                "C:\\apps\\Sample\\Sample.csproj",
+                "Release",
+                "net10.0",
+                noRestore: true,
+                arguments: ["--nologo"],
+                environment: new Dictionary<string, string> { ["BUILD_ENV"] = "test" },
+                timeoutMs: 60000),
+            terminateLaunchedProcess: true,
             pickerResult: new RuntimeScenarioPickerResult(
                 NativePickerResultStates.DeletedPath,
                 "C:\\state\\deleted",
@@ -740,7 +752,36 @@ public sealed class ProtocolContractTests
                 "<redacted>\\deleted",
                 correlationId: "picker-1",
                 expiresAt: at.AddSeconds(5),
-                pathRedacted: true));
+                pathRedacted: true),
+            build: new RuntimeScenarioBuildResult(
+                RuntimeScenarioLifecycleStatuses.Passed,
+                "C:\\apps\\Sample\\Sample.csproj",
+                "Release",
+                at,
+                at.AddSeconds(1),
+                "C:\\state\\build\\stdout.log",
+                "C:\\state\\build\\stderr.log",
+                0),
+            readiness: new RuntimeScenarioReadinessEvidence(
+                RuntimeScenarioLifecycleStatuses.Ready,
+                at,
+                at.AddSeconds(2),
+                3,
+                42,
+                sessionId,
+                "C:\\state\\manifests\\session-scenario.json",
+                "C:\\state\\launch\\stdout.log",
+                "C:\\state\\launch\\stderr.log",
+                [new TopLevelSummary("topLevel:main", "window", "Main", 800, 600, 2, true)]),
+            topLevels: [new TopLevelSummary("topLevel:main", "window", "Main", 800, 600, 2, true)],
+            cleanup: new CloseSessionResponse(
+                new SessionSummary(sessionId, SessionKinds.Runtime, SessionStates.Closed, at, "Sample"),
+                42,
+                at.AddSeconds(3),
+                terminateLaunchedProcessRequested: true,
+                outcome: CloseSessionOutcomes.Terminated,
+                launchedProcessOwned: true,
+                processTerminated: true));
 
         var requestNode = JsonNode.Parse(JsonSerializer.Serialize(request))!;
         var responseNode = JsonNode.Parse(JsonSerializer.Serialize(response))!;
@@ -749,6 +790,9 @@ public sealed class ProtocolContractTests
         Assert.Equal("dotnet", requestNode["launch"]!["command"]!.GetValue<string>());
         Assert.Equal("Sample.dll", requestNode["launch"]!["arguments"]!.GetValue<string>());
         Assert.Equal("test", requestNode["launch"]!["environment"]!["APP_ENV"]!.GetValue<string>());
+        Assert.Equal("Release", requestNode["build"]!["configuration"]!.GetValue<string>());
+        Assert.True(requestNode["build"]!["noRestore"]!.GetValue<bool>());
+        Assert.True(requestNode["terminateLaunchedProcess"]!.GetValue<bool>());
         Assert.Equal("delete-button", requestNode["steps"]![0]!["selector"]!["automationId"]!.GetValue<string>());
         Assert.True(requestNode["captureAfterEachStep"]!.GetValue<bool>());
         Assert.Equal(NativePickerResultStates.DeletedPath, requestNode["pickerResult"]!["result"]!.GetValue<string>());
@@ -760,6 +804,11 @@ public sealed class ProtocolContractTests
         Assert.Equal("click-delete", responseNode["workflow"]!["steps"]![0]!["stepId"]!.GetValue<string>());
         Assert.Equal("picker-1", responseNode["preparedPickerResult"]!["correlationId"]!.GetValue<string>());
         Assert.True(responseNode["preparedPickerResult"]!["pathRedacted"]!.GetValue<bool>());
+        Assert.Equal("passed", responseNode["build"]!["status"]!.GetValue<string>());
+        Assert.Equal("ready", responseNode["readiness"]!["status"]!.GetValue<string>());
+        Assert.Equal(3, responseNode["readiness"]!["checkCount"]!.GetValue<int>());
+        Assert.Equal("topLevel:main", responseNode["topLevels"]![0]!["id"]!.GetValue<string>());
+        Assert.Equal(CloseSessionOutcomes.Terminated, responseNode["cleanup"]!["outcome"]!.GetValue<string>());
     }
 
     [Fact]

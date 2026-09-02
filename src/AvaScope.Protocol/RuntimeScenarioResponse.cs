@@ -21,7 +21,12 @@ public sealed record RuntimeScenarioResponse
         IReadOnlyList<ProtocolError>? diagnostics = null,
         IReadOnlyDictionary<string, string>? metadata = null,
         NativePickerResponse? preparedPickerResult = null,
-        ResponseBudgetInfo? responseBudget = null)
+        ResponseBudgetInfo? responseBudget = null,
+        RuntimeScenarioBuildResult? build = null,
+        RuntimeScenarioReadinessEvidence? readiness = null,
+        IReadOnlyList<TopLevelSummary>? topLevels = null,
+        CloseSessionResponse? cleanup = null,
+        string? failureStage = null)
     {
         if (string.IsNullOrWhiteSpace(requestId))
         {
@@ -49,6 +54,11 @@ public sealed record RuntimeScenarioResponse
         Metadata = metadata ?? new Dictionary<string, string>();
         PreparedPickerResult = preparedPickerResult;
         ResponseBudget = responseBudget;
+        Build = build;
+        Readiness = readiness;
+        TopLevels = topLevels ?? [];
+        Cleanup = cleanup;
+        FailureStage = string.IsNullOrWhiteSpace(failureStage) ? null : failureStage.Trim();
     }
 
     [JsonPropertyName("requestId")]
@@ -107,4 +117,23 @@ public sealed record RuntimeScenarioResponse
     [JsonPropertyName("responseBudget")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public ResponseBudgetInfo? ResponseBudget { get; }
+
+    [JsonPropertyName("build")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public RuntimeScenarioBuildResult? Build { get; }
+
+    [JsonPropertyName("readiness")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public RuntimeScenarioReadinessEvidence? Readiness { get; }
+
+    [JsonPropertyName("topLevels")]
+    public IReadOnlyList<TopLevelSummary> TopLevels { get; }
+
+    [JsonPropertyName("cleanup")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public CloseSessionResponse? Cleanup { get; }
+
+    [JsonPropertyName("failureStage")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? FailureStage { get; }
 }

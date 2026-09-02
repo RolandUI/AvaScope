@@ -216,6 +216,7 @@ public static class ResponseBudgeter
                 + (step.FailureEvidence?.Diagnostics.Count ?? 0)
                 + (step.FailureEvidence?.UnavailableEvidence.Count ?? 0)) ?? 0)
             + (response.Workflow?.ReportPack?.Assets.Count ?? 0)
+            + response.TopLevels.Count
             + response.Diagnostics.Count;
         var reasons = GetReasons(payload.Length, totalItems, 1, maxInlineBytes, maxItems, maxDepth);
         if (reasons.Count == 0)
@@ -253,11 +254,13 @@ public static class ResponseBudgeter
         }
 
         var diagnostics = Take(response.Diagnostics, ref remaining);
+        var topLevels = Take(response.TopLevels, ref remaining);
         var artifactPath = WriteArtifact("scenario", payload);
         var returnedItems = (workflow?.Steps.Count ?? 0)
             + (workflow?.Diagnostics.Count ?? 0)
             + (workflow?.Plan?.Steps.Count ?? 0)
             + (workflow?.Plan?.Diagnostics.Count ?? 0)
+            + topLevels.Count
             + diagnostics.Count;
         var budget = CreateInfo(
             maxInlineBytes, payload.Length, maxItems, totalItems, returnedItems, maxDepth,
@@ -266,7 +269,8 @@ public static class ResponseBudgeter
             response.RequestId, response.Status, response.StartedAt, response.CompletedAt,
             response.SessionId, response.TopLevelId, response.Launch, response.Attach, workflow,
             response.IsolatedStateStatus, response.IsolatedStateDirectory, response.TimelinePath,
-            diagnostics, response.Metadata, response.PreparedPickerResult, budget);
+            diagnostics, response.Metadata, response.PreparedPickerResult, budget,
+            response.Build, response.Readiness, topLevels, response.Cleanup, response.FailureStage);
     }
 
     private static TreeNodeSummary ProjectNode(

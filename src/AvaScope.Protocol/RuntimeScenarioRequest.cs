@@ -24,7 +24,9 @@ public sealed record RuntimeScenarioRequest
         IReadOnlyDictionary<string, string>? variables = null,
         IReadOnlyList<SemanticWorkflowFragment>? fragments = null,
         int workflowTimeoutMs = SemanticWorkflowLimits.DefaultWorkflowTimeoutMs,
-        SemanticWorkflowEvidenceOptions? evidence = null)
+        SemanticWorkflowEvidenceOptions? evidence = null,
+        RuntimeScenarioBuildOptions? build = null,
+        bool terminateLaunchedProcess = false)
     {
         if (steps is null || steps.Count == 0)
         {
@@ -70,6 +72,8 @@ public sealed record RuntimeScenarioRequest
         Fragments = fragments ?? Array.Empty<SemanticWorkflowFragment>();
         WorkflowTimeoutMs = workflowTimeoutMs;
         Evidence = evidence;
+        Build = build;
+        TerminateLaunchedProcess = terminateLaunchedProcess;
     }
 
     [JsonPropertyName("requestId")]
@@ -137,6 +141,13 @@ public sealed record RuntimeScenarioRequest
     [JsonPropertyName("evidence")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public SemanticWorkflowEvidenceOptions? Evidence { get; }
+
+    [JsonPropertyName("build")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public RuntimeScenarioBuildOptions? Build { get; }
+
+    [JsonPropertyName("terminateLaunchedProcess")]
+    public bool TerminateLaunchedProcess { get; }
 }
 
 public sealed record RuntimeScenarioPickerResult
@@ -183,18 +194,38 @@ public sealed record RuntimeScenarioLaunchOptions
 {
     [JsonConstructor]
     public RuntimeScenarioLaunchOptions(
-        string command,
+        string? command = null,
         string? arguments = null,
         string? workingDirectory = null,
         string? displayName = null,
         string? manifestDirectory = null,
         string? outputDirectory = null,
         IReadOnlyDictionary<string, string>? environment = null,
-        int timeoutMs = 15000)
+        int timeoutMs = 15000,
+        string? projectPath = null,
+        IReadOnlyList<string>? argumentList = null,
+        string configuration = "Debug",
+        string? framework = null,
+        bool noBuild = false)
     {
-        if (string.IsNullOrWhiteSpace(command))
+        if (string.IsNullOrWhiteSpace(command) == string.IsNullOrWhiteSpace(projectPath))
         {
-            throw new ArgumentException("Scenario launch command cannot be empty.", nameof(command));
+            throw new ArgumentException("Scenario launch requires exactly one command or projectPath.", nameof(command));
+        }
+
+        if (!string.IsNullOrWhiteSpace(arguments) && argumentList is { Count: > 0 })
+        {
+            throw new ArgumentException("Scenario launch cannot specify both arguments and argumentList.", nameof(argumentList));
+        }
+
+        if (!string.IsNullOrWhiteSpace(projectPath) && !string.IsNullOrWhiteSpace(arguments))
+        {
+            throw new ArgumentException("Project launch arguments must use argumentList so values remain tokenized and redacted.", nameof(arguments));
+        }
+
+        if (string.IsNullOrWhiteSpace(configuration))
+        {
+            throw new ArgumentException("Scenario launch configuration cannot be empty.", nameof(configuration));
         }
 
         if (timeoutMs <= 0)
@@ -202,22 +233,35 @@ public sealed record RuntimeScenarioLaunchOptions
             throw new ArgumentOutOfRangeException(nameof(timeoutMs), timeoutMs, "Launch timeout must be positive.");
         }
 
-        Command = command.Trim();
+        Command = string.IsNullOrWhiteSpace(command) ? null : command.Trim();
+        ProjectPath = string.IsNullOrWhiteSpace(projectPath) ? null : Path.GetFullPath(projectPath);
         Arguments = string.IsNullOrWhiteSpace(arguments) ? null : arguments;
+        ArgumentList = argumentList ?? [];
         WorkingDirectory = string.IsNullOrWhiteSpace(workingDirectory) ? null : Path.GetFullPath(workingDirectory);
         DisplayName = string.IsNullOrWhiteSpace(displayName) ? null : displayName.Trim();
         ManifestDirectory = string.IsNullOrWhiteSpace(manifestDirectory) ? null : Path.GetFullPath(manifestDirectory);
         OutputDirectory = string.IsNullOrWhiteSpace(outputDirectory) ? null : Path.GetFullPath(outputDirectory);
         Environment = environment ?? new Dictionary<string, string>();
         TimeoutMs = timeoutMs;
+        Configuration = configuration.Trim();
+        Framework = string.IsNullOrWhiteSpace(framework) ? null : framework.Trim();
+        NoBuild = noBuild;
     }
 
     [JsonPropertyName("command")]
-    public string Command { get; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Command { get; }
+
+    [JsonPropertyName("projectPath")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ProjectPath { get; }
 
     [JsonPropertyName("arguments")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Arguments { get; }
+
+    [JsonPropertyName("argumentList")]
+    public IReadOnlyList<string> ArgumentList { get; }
 
     [JsonPropertyName("workingDirectory")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -240,6 +284,16 @@ public sealed record RuntimeScenarioLaunchOptions
 
     [JsonPropertyName("timeoutMs")]
     public int TimeoutMs { get; }
+
+    [JsonPropertyName("configuration")]
+    public string Configuration { get; }
+
+    [JsonPropertyName("framework")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Framework { get; }
+
+    [JsonPropertyName("noBuild")]
+    public bool NoBuild { get; }
 }
 
 public sealed record RuntimeScenarioAttachOptions

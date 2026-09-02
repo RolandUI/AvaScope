@@ -194,6 +194,68 @@ public sealed class ResponseBudgeterTests
     }
 
     [Fact]
+    public void ScenarioLifecycleEvidenceUsesSharedBudgetAndPreservesStageReferences()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var sessionId = new SessionId("budget-lifecycle");
+        var root = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", "budget-lifecycle");
+        var topLevels = Enumerable.Range(0, 3)
+            .Select(index => new TopLevelSummary($"topLevel:{index}", "window", $"Window {index}", 800, 600, 1, index == 0))
+            .ToArray();
+        var build = new RuntimeScenarioBuildResult(
+            RuntimeScenarioLifecycleStatuses.Passed,
+            Path.Combine(root, "App.csproj"),
+            "Release",
+            now,
+            now,
+            Path.Combine(root, "build", "stdout.log"),
+            Path.Combine(root, "build", "stderr.log"),
+            0);
+        var readiness = new RuntimeScenarioReadinessEvidence(
+            RuntimeScenarioLifecycleStatuses.Ready,
+            now,
+            now,
+            2,
+            Environment.ProcessId,
+            sessionId,
+            topLevels: topLevels);
+        var cleanup = new CloseSessionResponse(
+            new SessionSummary(sessionId, SessionKinds.Runtime, SessionStates.Closed, now),
+            Environment.ProcessId,
+            now,
+            terminateLaunchedProcessRequested: true,
+            outcome: CloseSessionOutcomes.AlreadyExited,
+            launchedProcessOwned: true);
+        var response = new RuntimeScenarioResponse(
+            "budget-lifecycle",
+            "failed",
+            now,
+            now,
+            sessionId,
+            build: build,
+            readiness: readiness,
+            topLevels: topLevels,
+            cleanup: cleanup,
+            failureStage: RuntimeScenarioFailureStages.Workflow);
+
+        var bounded = ResponseBudgeter.Apply(
+            response,
+            maxInlineBytes: int.MaxValue,
+            maxItems: 1,
+            maxDepth: 8);
+
+        Assert.Single(bounded.TopLevels);
+        Assert.Same(build, bounded.Build);
+        Assert.Same(readiness, bounded.Readiness);
+        Assert.Same(cleanup, bounded.Cleanup);
+        Assert.Equal(RuntimeScenarioFailureStages.Workflow, bounded.FailureStage);
+        Assert.True(File.Exists(bounded.ResponseBudget!.ArtifactPath));
+        var artifact = JsonSerializer.Deserialize<RuntimeScenarioResponse>(
+            File.ReadAllText(bounded.ResponseBudget.ArtifactPath!));
+        Assert.Equal(3, artifact!.TopLevels.Count);
+    }
+
+    [Fact]
     public void DiagnosticsBudgetUsesSharedItemPolicy()
     {
         var issues = Enumerable.Range(0, 4)

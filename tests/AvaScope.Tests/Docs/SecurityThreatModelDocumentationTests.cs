@@ -23,6 +23,8 @@ public sealed class SecurityThreatModelDocumentationTests
         Assert.Contains("AVASCOPE_SAMPLE_BRIDGE", document, StringComparison.Ordinal);
         Assert.Contains("runtime_mutation_non_local_session", document, StringComparison.Ordinal);
         Assert.Contains("capability_not_supported", document, StringComparison.Ordinal);
+        Assert.Contains("environment values", document, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("PID-reused", document, StringComparison.Ordinal);
         Assert.DoesNotContain("TODO", document, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("TBD", document, StringComparison.OrdinalIgnoreCase);
     }

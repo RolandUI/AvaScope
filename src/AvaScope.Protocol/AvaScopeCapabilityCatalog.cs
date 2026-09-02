@@ -245,14 +245,18 @@ public static class AvaScopeCapabilityCatalog
             Capability(
                 AvaScopeCapabilityIds.RuntimeScenarioRunner,
                 "runtime",
-                "Run safe local runtime scenarios by launching or attaching to a bridge session, isolating launched app state, executing semantic workflow steps, and writing timeline artifacts.",
+                "Run safe local runtime scenarios with optional project builds, executable or project launch, bounded bridge readiness and attach, semantic workflows, durable logs and top-level evidence, and exact owned-process cleanup.",
                 ["run-scenario", "run_scenario"],
                 requires: [AvaScopeCapabilityIds.RuntimeSemanticWorkflow, AvaScopeCapabilityIds.RuntimeSessionLifecycle],
                 metadata: new Dictionary<string, string>
                 {
                     ["workflowComposition"] = "variables,fragments,if_else,optional,retry_until",
                     ["compositionValidation"] = "before_launch_attach_or_artifact_creation",
-                    ["timelineIdentity"] = "execution_path,parent_step_id,attempt,source_fragment"
+                    ["timelineIdentity"] = "execution_path,parent_step_id,attempt,source_fragment",
+                    ["lifecycleStages"] = "build,launch,bridge_readiness,attach,top_levels,workflow,cleanup",
+                    ["launchTargets"] = "command,project",
+                    ["launchInputDisclosure"] = "environment_names_and_argument_count_only",
+                    ["ownedCleanup"] = "session_process_id_and_start_time_verified_process_tree"
                 }),
             Capability(
                 AvaScopeCapabilityIds.RuntimeNativePicker,

@@ -287,6 +287,8 @@ dotnet test AvaScope.slnx --filter FullyQualifiedName~McpStdioSmokeTests.ServerS
 
 For CI report validation, run a sample baseline check with `--report <report.json> --report-pack <dir>`, verify the JSON report exists and contains the same `passed` and `entries` shape as stdout, then verify the report pack contains `baseline-report.json`, `baseline-report.html`, `baseline-junit.xml`, and `baseline.sarif.json`. The CLI response should include `agentReview` bounded failure/report/artifact handoff plus `reportPack.status`, pass/fail counts, metadata, and asset paths without inlining image payloads.
 
+For the packaged lifecycle gate, run `pwsh -NoProfile -File ./eng/test-packaged-lifecycle.ps1 -CliAssembly <framework-dependent-package>/avascope.dll -Configuration Release` on Windows, Linux, and macOS. The gate must complete explicit build, direct project launch, bridge readiness and attach, top-level discovery, workflow execution, local evidence, and exact owned-process cleanup while proving launch environment values are absent from normal JSON output.
+
 For visual-regression GitHub Actions example work, include:
 
 ```powershell
