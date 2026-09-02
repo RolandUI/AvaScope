@@ -35,7 +35,7 @@ public sealed class AvaScopeMcpToolsTests
             && capability.Status == AvaScopeCapabilityStatuses.Available);
         Assert.Contains(result.Value.Capabilities, capability =>
             capability.Id == AvaScopeCapabilityIds.RuntimeSemanticAutomation
-            && capability.Metadata["actions"] == "invoke,select,toggle,expand,collapse");
+            && capability.Metadata["actions"] == "invoke,select,toggle,expand,collapse,drag,swipe");
         Assert.Contains(result.Value.Capabilities, capability =>
             capability.Id == AvaScopeCapabilityIds.RuntimeDesignQualityAudit
             && capability.Status == AvaScopeCapabilityStatuses.Available);
@@ -404,6 +404,26 @@ public sealed class AvaScopeMcpToolsTests
         Assert.False(result.Success);
         Assert.Null(result.Value);
         Assert.Equal(CoreErrorCodes.InvalidBridgeRequest, result.Error!.Code);
+    }
+
+    [Fact]
+    public async Task InputRejectsOutOfRangeGestureOptionsAsStructuredFailure()
+    {
+        var client = new LocalBridgeClient(CreateMissingManifestDirectory());
+
+        var result = await AvaScopeMcpTools.Input(
+            client,
+            "session-1",
+            "topLevel:abc",
+            InputActions.Swipe,
+            targetNodeId: "visual:card",
+            gestureDirection: GestureDirections.Left,
+            gestureDistancePercentage: 101);
+
+        Assert.False(result.Success);
+        Assert.Null(result.Value);
+        Assert.Equal(CoreErrorCodes.InvalidBridgeRequest, result.Error!.Code);
+        Assert.Contains("at most 100", result.Error.Message, StringComparison.Ordinal);
     }
 
     [Fact]

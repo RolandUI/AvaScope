@@ -516,11 +516,17 @@ dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll input --session session
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll input --session session-id --top-level topLevel:1234 --action collapse --target-node visual:expander
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll input --session session-id --top-level topLevel:1234 --action select --target-node visual:tabControl --text 1
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll input --session session-id --top-level topLevel:1234 --action scroll --target-node visual:scrollViewer --y 120
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll input --session session-id --top-level topLevel:1234 --action drag --target-node visual:slider --direction end --duration-ms 300
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll input --session session-id --top-level topLevel:1234 --action swipe --target-node visual:card --direction left --distance-percent 75 --duration-ms 200
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll input --session session-id --top-level topLevel:1234 --action drag --target-node visual:card --destination-target-node visual:column --duration-ms 350
+dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll input --session session-id --top-level topLevel:1234 --action long_press --target-node visual:menuItem --duration-ms 800
 ```
 
 Targeted `click` derives top-level DIP coordinates from the center of the selected node's current bounds. If both `x` and `y` are supplied they take precedence; coordinate-only clicks still require both. Stale, invisible, zero-sized, fully clipped, or non-Button targets fail before click dispatch with bounded target/hit-test diagnostics.
 
 `invoke`, target-only `select`, `toggle`, `expand`, and `collapse` use the target control's public Avalonia automation provider. Unsupported target/pattern combinations fail without dispatch and identify the required pattern plus the target's supported semantic actions. The existing `select --text <index-or-item>` form remains available for selecting an item on a `SelectingItemsControl`.
+
+`drag`, `swipe`, `long_press`, and `press_and_hold` always resolve the source node's current arranged bounds immediately before dispatch; callers do not persist or calculate coordinates. Drag and swipe accept exactly one of a direction (`left`, `right`, `up`, `down`, `start`, or `end`) or a destination node. `--distance-percent` applies to directional gestures, and `--duration-ms` is bounded to 50–5000 ms. Writable range controls prefer Avalonia's public `IRangeValueProvider`; other valid targets use a bounded routed-pointer path. Results include the effective path, source/destination bounds, provider or pointer provenance, requested/effective duration, and clipping metadata. Hidden, disabled, zero-sized, clipped, obscured, missing, or stale targets fail before dispatch with structured diagnostics; cancellation releases any pressed pointer.
 
 Input responses include `pointerButton` for supported pointer/click actions, `inputKey`/`keyModifiers` for routed key actions, wheel/scroll deltas for scroll actions, and bounded metadata such as the automation peer/pattern, previous/current automation state, selected index/item, or before/after scroll offsets.
 
@@ -569,7 +575,7 @@ Run semantic workflow steps by stable runtime selectors instead of coordinates:
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll run-workflow --request .\workflow.json
 ```
 
-Workflow selectors can target `nodeId`, `automationId`, `text`, `name`, `nodeType`, `role`, `bindingPath`, or `commandName`. The semantic action set is `invoke`, `select`, `toggle`, `expand`, and `collapse`; each action resolves the selector first and then uses the target control's corresponding Avalonia automation provider. Destructive-looking click/invoke/select/toggle/expand/collapse targets are rejected unless the request declares `allowDestructive` or an `isolatedStateDirectory`.
+Workflow selectors can target `nodeId`, `automationId`, `text`, `name`, `nodeType`, `role`, `bindingPath`, or `commandName`. The semantic action set includes `invoke`, `select`, `toggle`, `expand`, `collapse`, `drag`, `swipe`, `long_press`, and `press_and_hold`. Gesture steps use `direction`, `distancePercentage`, and `durationMs`; source-to-target gestures add a `destinationSelector`, which is resolved independently and must match exactly one current visual node. Destructive-looking click/invoke/select/toggle/expand/collapse targets are rejected unless the request declares `allowDestructive` or an `isolatedStateDirectory`.
 
 Deterministic workflows can use `wait_for_node`, `wait_for_state`, and `wait_for_dialog`. Each wait accepts `timeoutMs` (default `5000`, maximum `60000`) and `pollIntervalMs` (default `100`, range `25`–`5000`), uses cancellation-aware bounded polling, and returns `semantic_workflow_wait_timeout` with attempt/elapsed/last-state evidence instead of requiring client polling loops.
 
@@ -941,7 +947,7 @@ Implemented tools:
 - `close_preview_session`
 - `reload`
 
-Post-1.0 deferrals: runtime hot reload, drag/drop, full preview startup orchestration, macOS release policy, native signed installers, and broader hosted review integrations. These are not required for the stable v1 local control-plane workflow.
+Post-1.0 deferrals: runtime hot reload, native Avalonia drag-and-drop data transfer, full preview startup orchestration, native signed installers, and broader hosted review integrations. Bounds-derived routed-pointer gestures and public range-provider adjustment are supported; arbitrary drag payload exchange remains deferred.
 
 Runtime input capability metadata is the canonical action reference. It lists
 all pointer, keyboard, text, focus, scroll, and automation-pattern actions
@@ -1073,6 +1079,9 @@ Runtime input support is intentionally narrow:
 - `clear_text` clears a focused or targeted writable `TextBox`, resets caret/selection to 0, and rejects read-only targets.
 - `select` sets `SelectedIndex` on targeted `SelectingItemsControl` instances such as `TabControl`, `ListBox`, and `ComboBox` using either an item index or exact item text.
 - `scroll` adjusts a targeted `ScrollViewer` offset through public Avalonia state and reports before/after offsets.
+- `invoke`, target-only `select`, `toggle`, `expand`, and `collapse` use public Avalonia automation providers.
+- `drag` and `swipe` derive a bounded path from the current source/destination bounds or a direction and percentage; writable range controls prefer `IRangeValueProvider` before routed-pointer fallback.
+- `long_press` and `press_and_hold` hold a routed pointer at the current target center for a bounded duration and always release it on completion or cancellation.
 
 ## Preview Host
 

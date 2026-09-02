@@ -485,12 +485,12 @@ public sealed class AvaScopeMcpTools
         Destructive = false,
         OpenWorld = false,
         UseStructuredContent = true)]
-    [Description("Sends a local-only input command to an attached AvaScope bridge session. Click accepts explicit x/y coordinates or derives the center of targetNodeId bounds; explicit coordinates take precedence.")]
+    [Description("Sends local-only input to an attached AvaScope bridge session. Click accepts explicit coordinates or the current target center; gestures derive coordinates from current target bounds and accept a direction or destination target.")]
     public static async Task<ToolResult<InputResponse>> Input(
         LocalBridgeClient bridgeClient,
         string sessionId,
         string topLevelId,
-        [Description("Input action name. Supported semantic automation actions are invoke, select, toggle, expand, and collapse.")]
+        [Description("Input action name, including invoke, select, toggle, expand, collapse, scroll, drag, swipe, long_press, and press_and_hold.")]
         McpInputAction action,
         double? x = null,
         double? y = null,
@@ -498,6 +498,14 @@ public sealed class AvaScopeMcpTools
         string? targetNodeId = null,
         string? inputKey = null,
         string? keyModifiers = null,
+        [Description("Gesture direction: left, right, up, down, start, or end.")]
+        string? gestureDirection = null,
+        [Description("Gesture distance percentage, greater than 0 and at most 100.")]
+        double? gestureDistancePercentage = null,
+        [Description("Bounded gesture duration in milliseconds (50-5000).")]
+        int? gestureDurationMs = null,
+        [Description("Current visual node id used as a destination for a source-to-target drag or swipe.")]
+        string? destinationTargetNodeId = null,
         string? manifestDirectory = null,
         CancellationToken cancellationToken = default)
     {
@@ -506,6 +514,16 @@ public sealed class AvaScopeMcpTools
         if (!TryParseRequiredSessionId(sessionId, out var parsedSessionId, out var error))
         {
             return ToolResult<InputResponse>.Fail(error!);
+        }
+
+        InputGestureOptions? gesture;
+        try
+        {
+            gesture = CreateGestureOptions(gestureDirection, gestureDistancePercentage, gestureDurationMs, destinationTargetNodeId);
+        }
+        catch (ArgumentOutOfRangeException exception)
+        {
+            return ToolResult<InputResponse>.Fail(new ProtocolError(CoreErrorCodes.InvalidBridgeRequest, exception.Message));
         }
 
         return ToToolResult(await CreateBridgeClient(bridgeClient, manifestDirectory).InputAsync(
@@ -518,6 +536,7 @@ public sealed class AvaScopeMcpTools
             targetNodeId,
             inputKey,
             keyModifiers,
+            gesture,
             cancellationToken));
     }
 
@@ -532,6 +551,14 @@ public sealed class AvaScopeMcpTools
         string? targetNodeId = null,
         string? inputKey = null,
         string? keyModifiers = null,
+        [Description("Gesture direction: left, right, up, down, start, or end.")]
+        string? gestureDirection = null,
+        [Description("Gesture distance percentage, greater than 0 and at most 100.")]
+        double? gestureDistancePercentage = null,
+        [Description("Bounded gesture duration in milliseconds (50-5000).")]
+        int? gestureDurationMs = null,
+        [Description("Current visual node id used as a destination for a source-to-target drag or swipe.")]
+        string? destinationTargetNodeId = null,
         string? manifestDirectory = null,
         CancellationToken cancellationToken = default)
     {
@@ -541,8 +568,28 @@ public sealed class AvaScopeMcpTools
             return ToolResult<InputResponse>.Fail(error!);
         }
 
+        InputGestureOptions? gesture;
+        try
+        {
+            gesture = CreateGestureOptions(gestureDirection, gestureDistancePercentage, gestureDurationMs, destinationTargetNodeId);
+        }
+        catch (ArgumentOutOfRangeException exception)
+        {
+            return ToolResult<InputResponse>.Fail(new ProtocolError(CoreErrorCodes.InvalidBridgeRequest, exception.Message));
+        }
+
         return ToToolResult(await CreateBridgeClient(bridgeClient, manifestDirectory).InputAsync(
-            parsedSessionId!, topLevelId, action, x, y, inputText, targetNodeId, inputKey, keyModifiers, cancellationToken));
+            parsedSessionId!,
+            topLevelId,
+            action,
+            x,
+            y,
+            inputText,
+            targetNodeId,
+            inputKey,
+            keyModifiers,
+            gesture,
+            cancellationToken));
     }
 
     [McpServerTool(
@@ -1675,6 +1722,20 @@ public sealed class AvaScopeMcpTools
             sourceProfile,
             source);
         return context.HasAnyPath ? context : null;
+    }
+
+    private static InputGestureOptions? CreateGestureOptions(
+        string? direction,
+        double? distancePercentage,
+        int? durationMs,
+        string? destinationTargetNodeId)
+    {
+        return direction is null
+            && distancePercentage is null
+            && durationMs is null
+            && destinationTargetNodeId is null
+            ? null
+            : new InputGestureOptions(direction, distancePercentage, durationMs, destinationTargetNodeId);
     }
 
     private static LocalBridgeClient CreateBridgeClient(LocalBridgeClient bridgeClient, string? manifestDirectory)

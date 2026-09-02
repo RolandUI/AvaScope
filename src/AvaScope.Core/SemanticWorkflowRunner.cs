@@ -183,6 +183,10 @@ public sealed class SemanticWorkflowRunner
                 SemanticWorkflowActions.Collapse => await InputAsync(bridgeClient, request, step, InputActions.Collapse, cancellationToken),
                 SemanticWorkflowActions.KeyDown => await InputAsync(bridgeClient, request, step, InputActions.KeyDown, cancellationToken),
                 SemanticWorkflowActions.KeyUp => await InputAsync(bridgeClient, request, step, InputActions.KeyUp, cancellationToken),
+                SemanticWorkflowActions.Drag => await InputAsync(bridgeClient, request, step, InputActions.Drag, cancellationToken),
+                SemanticWorkflowActions.Swipe => await InputAsync(bridgeClient, request, step, InputActions.Swipe, cancellationToken),
+                SemanticWorkflowActions.LongPress => await InputAsync(bridgeClient, request, step, InputActions.LongPress, cancellationToken),
+                SemanticWorkflowActions.PressAndHold => await InputAsync(bridgeClient, request, step, InputActions.PressAndHold, cancellationToken),
                 _ => Fail(step, "semantic_workflow_action_not_supported", $"Workflow action '{step.Action}' is not supported.")
             };
         }
@@ -500,6 +504,12 @@ public sealed class SemanticWorkflowRunner
             return Fail(step, target.Error!);
         }
 
+        var destination = await ResolveDestinationAsync(bridgeClient, request, step, cancellationToken);
+        if (!destination.Success)
+        {
+            return Fail(step, destination.Error!, target.Value!.Target);
+        }
+
         if (LooksDestructive(step, target.Value!)
             && !request.AllowDestructive
             && string.IsNullOrWhiteSpace(request.IsolatedStateDirectory))
@@ -519,6 +529,7 @@ public sealed class SemanticWorkflowRunner
             targetNodeId: target.Value!.Target.NodeId,
             inputKey: step.Key,
             keyModifiers: step.Modifiers,
+            gesture: CreateGestureOptions(step, destination.Value),
             cancellationToken: cancellationToken);
         return validation.Success
             ? Pass(
@@ -707,6 +718,12 @@ public sealed class SemanticWorkflowRunner
         }
 
         var resolvedTarget = target.Value!;
+        var destination = await ResolveDestinationAsync(bridgeClient, request, step, cancellationToken);
+        if (!destination.Success)
+        {
+            return Fail(step, destination.Error!, resolvedTarget.Target);
+        }
+
         if (LooksDestructive(step, resolvedTarget)
             && !request.AllowDestructive
             && string.IsNullOrWhiteSpace(request.IsolatedStateDirectory))
@@ -726,6 +743,7 @@ public sealed class SemanticWorkflowRunner
             targetNodeId: resolvedTarget.Target.NodeId,
             inputKey: step.Key,
             keyModifiers: step.Modifiers,
+            gesture: CreateGestureOptions(step, destination.Value),
             cancellationToken: cancellationToken);
 
         return result.Success
@@ -860,12 +878,48 @@ public sealed class SemanticWorkflowRunner
         SemanticWorkflowStep step,
         CancellationToken cancellationToken)
     {
-        var selector = step.Selector;
+        return await ResolveSelectorAsync(
+            bridgeClient,
+            request,
+            step.Selector,
+            "Workflow step",
+            cancellationToken);
+    }
+
+    private static async Task<CoreResult<ResolvedWorkflowTarget?>> ResolveDestinationAsync(
+        LocalBridgeClient bridgeClient,
+        SemanticWorkflowRequest request,
+        SemanticWorkflowStep step,
+        CancellationToken cancellationToken)
+    {
+        if (step.DestinationSelector is null)
+        {
+            return CoreResult<ResolvedWorkflowTarget?>.Ok(null);
+        }
+
+        var resolved = await ResolveSelectorAsync(
+            bridgeClient,
+            request,
+            step.DestinationSelector,
+            "Workflow destination",
+            cancellationToken);
+        return resolved.Success
+            ? CoreResult<ResolvedWorkflowTarget?>.Ok(resolved.Value)
+            : CoreResult<ResolvedWorkflowTarget?>.Fail(resolved.Error!);
+    }
+
+    private static async Task<CoreResult<ResolvedWorkflowTarget>> ResolveSelectorAsync(
+        LocalBridgeClient bridgeClient,
+        SemanticWorkflowRequest request,
+        SemanticWorkflowSelector? selector,
+        string selectorRole,
+        CancellationToken cancellationToken)
+    {
         if (selector is null || !selector.HasSearchCriteria)
         {
             return CoreResult<ResolvedWorkflowTarget>.Fail(new CoreError(
                 CoreErrorCodes.InvalidBridgeRequest,
-                "Workflow step requires a selector."));
+                $"{selectorRole} requires a selector."));
         }
 
         if (!string.IsNullOrWhiteSpace(selector.NodeId))
@@ -910,7 +964,7 @@ public sealed class SemanticWorkflowRunner
         {
             return CoreResult<ResolvedWorkflowTarget>.Fail(new CoreError(
                 CoreErrorCodes.InvalidBridgeRequest,
-                "Workflow selector did not match any node.",
+                $"{selectorRole} selector did not match any node.",
                 CreateSelectorDetails(selector)));
         }
 
@@ -918,12 +972,31 @@ public sealed class SemanticWorkflowRunner
         {
             return CoreResult<ResolvedWorkflowTarget>.Fail(new CoreError(
                 CoreErrorCodes.InvalidBridgeRequest,
-                "Workflow selector matched multiple nodes; make the selector more specific.",
+                $"{selectorRole} selector matched multiple nodes; make the selector more specific.",
                 CreateSelectorDetails(selector)));
         }
 
         var match = result.Value.Matches[0];
         return CoreResult<ResolvedWorkflowTarget>.Ok(CreateResolvedTarget(match.Node));
+    }
+
+    private static InputGestureOptions? CreateGestureOptions(
+        SemanticWorkflowStep step,
+        ResolvedWorkflowTarget? destination)
+    {
+        if (step.Direction is null
+            && step.DistancePercentage is null
+            && step.DurationMs is null
+            && destination is null)
+        {
+            return null;
+        }
+
+        return new InputGestureOptions(
+            step.Direction,
+            step.DistancePercentage,
+            step.DurationMs,
+            destination?.Target.NodeId);
     }
 
     private static async Task<CoreResult<ResolvedWorkflowTarget>> ResolveSourceMappedTargetAsync(

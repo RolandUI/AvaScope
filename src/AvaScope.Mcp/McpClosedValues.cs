@@ -20,7 +20,11 @@ public enum McpInputAction
     [JsonStringEnumMemberName(InputActions.Toggle)] Toggle,
     [JsonStringEnumMemberName(InputActions.Expand)] Expand,
     [JsonStringEnumMemberName(InputActions.Collapse)] Collapse,
-    [JsonStringEnumMemberName(InputActions.Scroll)] Scroll
+    [JsonStringEnumMemberName(InputActions.Scroll)] Scroll,
+    [JsonStringEnumMemberName(InputActions.Drag)] Drag,
+    [JsonStringEnumMemberName(InputActions.Swipe)] Swipe,
+    [JsonStringEnumMemberName(InputActions.LongPress)] LongPress,
+    [JsonStringEnumMemberName(InputActions.PressAndHold)] PressAndHold
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter<McpDiagnosticsMode>))]

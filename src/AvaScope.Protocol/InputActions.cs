@@ -17,10 +17,18 @@ public static class InputActions
     public const string Expand = "expand";
     public const string Collapse = "collapse";
     public const string Scroll = "scroll";
+    public const string Drag = "drag";
+    public const string Swipe = "swipe";
+    public const string LongPress = "long_press";
+    public const string PressAndHold = "press_and_hold";
 
     public static IReadOnlyList<string> All { get; } =
     [
         PointerMove, PointerDown, PointerUp, Click, KeyText, ClearText, Focus,
-        KeyDown, KeyUp, Invoke, Select, Toggle, Expand, Collapse, Scroll
+        KeyDown, KeyUp, Invoke, Select, Toggle, Expand, Collapse, Scroll,
+        Drag, Swipe, LongPress, PressAndHold
     ];
+
+    public static bool IsGesture(string action) =>
+        action is Drag or Swipe or LongPress or PressAndHold;
 }

@@ -15,7 +15,9 @@ using AvaScope.Core;
 using AvaScope.Mcp;
 using AvaScope.Protocol;
 using SkiaSharp;
+using System.Diagnostics;
 using System.Globalization;
+using System.Text.Json;
 
 namespace AvaScope.Tests.Bridge;
 
@@ -1773,14 +1775,14 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                 Assert.Equal("Enter", keyUpResult.Value.InputKey);
                 Assert.Equal(1, keyUp);
 
-                var unsupported = await AvaScopeMcpTools.Input(
+                var invalidGesture = await AvaScopeMcpTools.Input(
                     client,
                     runtime.SessionId.Value,
                     topLevel.Id,
                     "drag");
 
-                Assert.False(unsupported.Success);
-                Assert.Equal(BridgeErrorCodes.UnsupportedInputAction, unsupported.Error!.Code);
+                Assert.False(invalidGesture.Success);
+                Assert.Equal(BridgeErrorCodes.InvalidInputRequest, invalidGesture.Error!.Code);
 
                 window.Close();
             }, CancellationToken.None);
@@ -2759,6 +2761,351 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
     }
 
     [Fact]
+    public async Task SemanticGesturesUseRangeProviderAndBoundsDerivedPointerFallback()
+    {
+        var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessTestApplication));
+
+        try
+        {
+            await session.Dispatch(async () =>
+            {
+                var pressed = 0;
+                var moved = 0;
+                var released = 0;
+                var slider = new Slider
+                {
+                    Minimum = 0,
+                    Maximum = 100,
+                    Value = 25,
+                    Width = 200,
+                    Height = 40
+                };
+                AutomationProperties.SetAutomationId(slider, "gesture-slider");
+                Canvas.SetLeft(slider, 20);
+                Canvas.SetTop(slider, 20);
+
+                var source = new Border
+                {
+                    Width = 80,
+                    Height = 40,
+                    Background = Brushes.CornflowerBlue,
+                    RenderTransform = new ScaleTransform(1.25, 1)
+                };
+                AutomationProperties.SetAutomationId(source, "gesture-source");
+                Canvas.SetLeft(source, 20);
+                Canvas.SetTop(source, 100);
+                source.AddHandler(InputElement.PointerPressedEvent, (_, eventArgs) =>
+                {
+                    pressed++;
+                    eventArgs.Pointer.Capture(source);
+                }, RoutingStrategies.Bubble, handledEventsToo: true);
+                source.AddHandler(InputElement.PointerMovedEvent, (_, _) => moved++, RoutingStrategies.Bubble, handledEventsToo: true);
+                source.AddHandler(InputElement.PointerReleasedEvent, (_, _) => released++, RoutingStrategies.Bubble, handledEventsToo: true);
+
+                var destination = new Border
+                {
+                    Width = 100,
+                    Height = 60,
+                    Background = Brushes.MediumSeaGreen
+                };
+                AutomationProperties.SetAutomationId(destination, "gesture-destination");
+                Canvas.SetLeft(destination, 300);
+                Canvas.SetTop(destination, 100);
+
+                var disabled = new Border
+                {
+                    Width = 80,
+                    Height = 30,
+                    Background = Brushes.Gray,
+                    IsEnabled = false
+                };
+                AutomationProperties.SetAutomationId(disabled, "gesture-disabled");
+                Canvas.SetLeft(disabled, 20);
+                Canvas.SetTop(disabled, 180);
+
+                var zeroSized = new Border
+                {
+                    Width = 0,
+                    Height = 30,
+                    Background = Brushes.Gray
+                };
+                AutomationProperties.SetAutomationId(zeroSized, "gesture-zero");
+                Canvas.SetLeft(zeroSized, 120);
+                Canvas.SetTop(zeroSized, 180);
+
+                var clipped = new Border
+                {
+                    Width = 40,
+                    Height = 30,
+                    Background = Brushes.Gray
+                };
+                AutomationProperties.SetAutomationId(clipped, "gesture-clipped");
+                Canvas.SetLeft(clipped, -20);
+                Canvas.SetTop(clipped, 230);
+
+                var hidden = new Border
+                {
+                    Width = 80,
+                    Height = 30,
+                    Background = Brushes.Gray,
+                    IsVisible = false
+                };
+                AutomationProperties.SetAutomationId(hidden, "gesture-hidden");
+                Canvas.SetLeft(hidden, 200);
+                Canvas.SetTop(hidden, 180);
+
+                var edgeSource = new Border
+                {
+                    Width = 20,
+                    Height = 30,
+                    Background = Brushes.Orange
+                };
+                AutomationProperties.SetAutomationId(edgeSource, "gesture-edge");
+                Canvas.SetLeft(edgeSource, 470);
+                Canvas.SetTop(edgeSource, 20);
+
+                var window = new Window
+                {
+                    Title = "AvaScope Semantic Gesture Sample",
+                    Width = 500,
+                    Height = 300,
+                    Content = new Canvas
+                    {
+                        Children =
+                        {
+                            slider,
+                            source,
+                            destination,
+                            disabled,
+                            zeroSized,
+                            clipped,
+                            hidden,
+                            edgeSource
+                        }
+                    }
+                };
+
+                var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Headless semantic gesture sample"));
+                try
+                {
+                    window.Show();
+                    using var registration = runtime.RegisterTopLevel(window);
+                    Dispatcher.UIThread.RunJobs();
+
+                    var client = new LocalBridgeClient(Path.GetDirectoryName(runtime.SessionManifestPath)!);
+                    var topLevel = Assert.Single(await runtime.ListTopLevelsAsync());
+                    var tree = await AvaScopeMcpTools.VisualTree(
+                        client,
+                        runtime.SessionId.Value,
+                        topLevel.Id,
+                        maxDepth: 8);
+                    Assert.True(tree.Success, tree.Error?.Message);
+
+                    TreeNodeSummary RequireNode(string automationId) =>
+                        Assert.IsType<TreeNodeSummary>(FindNode(
+                            tree.Value!.Root,
+                            node => node.AutomationId == automationId));
+
+                    var sliderNode = RequireNode("gesture-slider");
+                    var sourceNode = RequireNode("gesture-source");
+                    var destinationNode = RequireNode("gesture-destination");
+
+                    var providerDrag = await AvaScopeMcpTools.Input(
+                        client,
+                        runtime.SessionId.Value,
+                        topLevel.Id,
+                        InputActions.Drag,
+                        targetNodeId: sliderNode.NodeId,
+                        gestureDirection: GestureDirections.End,
+                        gestureDurationMs: 50);
+                    Assert.True(providerDrag.Success, providerDrag.Error?.Message);
+                    Assert.Equal(100, slider.Value);
+                    Assert.NotNull(providerDrag.Value!.Gesture);
+                    Assert.Equal("automation_provider", providerDrag.Value.Gesture!.ExecutionMode);
+                    Assert.Equal(nameof(Avalonia.Automation.Provider.IRangeValueProvider), providerDrag.Value.Gesture.Provenance);
+                    Assert.Equal(25, double.Parse(providerDrag.Value.Metadata["previousRangeValue"], CultureInfo.InvariantCulture));
+                    Assert.Equal(0, providerDrag.Value.Gesture.EffectiveDurationMs);
+
+                    var workflow = await AvaScopeMcpTools.RunWorkflow(
+                        client,
+                        new SemanticWorkflowRequest(
+                            runtime.SessionId,
+                            topLevel.Id,
+                            [
+                                new SemanticWorkflowStep(
+                                    SemanticWorkflowActions.Drag,
+                                    "drag-to-target",
+                                    new SemanticWorkflowSelector(automationId: "gesture-source"),
+                                    destinationSelector: new SemanticWorkflowSelector(automationId: "gesture-destination"),
+                                    durationMs: 50)
+                            ],
+                            requestId: "gesture-workflow",
+                            maxDepth: 8));
+                    Assert.True(workflow.Success, workflow.Error?.Message);
+                    Assert.Equal("passed", workflow.Value!.Status);
+                    var drag = Assert.Single(workflow.Value.Steps).Input!;
+                    Assert.Equal("pointer_fallback", drag.Gesture!.ExecutionMode);
+                    Assert.Equal(destinationNode.NodeId, drag.Gesture.DestinationTargetNodeId);
+                    Assert.Equal(drag.Gesture.Path.SourceBounds.X + drag.Gesture.Path.SourceBounds.Width / 2, drag.Gesture.Path.Points[0].X, 3);
+                    Assert.Equal(drag.Gesture.Path.DestinationBounds!.X + drag.Gesture.Path.DestinationBounds.Width / 2, drag.Gesture.Path.Points[^1].X, 3);
+                    Assert.True(drag.Gesture.Path.SourceBounds.Width > sourceNode.Bounds!.Width);
+                    Assert.Equal(1, pressed);
+                    Assert.True(moved > 0);
+                    Assert.Equal(1, released);
+
+                    AutomationProperties.SetAutomationId(source, "gesture-ambiguous");
+                    AutomationProperties.SetAutomationId(destination, "gesture-ambiguous");
+                    var ambiguous = await new SemanticWorkflowRunner().RunAsync(
+                        client,
+                        new SemanticWorkflowRequest(
+                            runtime.SessionId,
+                            topLevel.Id,
+                            [
+                                new SemanticWorkflowStep(
+                                    SemanticWorkflowActions.Swipe,
+                                    "ambiguous-source",
+                                    new SemanticWorkflowSelector(automationId: "gesture-ambiguous"),
+                                    direction: GestureDirections.Right)
+                            ],
+                            maxDepth: 8));
+                    Assert.Equal("failed", ambiguous.Value!.Status);
+                    var ambiguousDiagnostic = Assert.Single(Assert.Single(ambiguous.Value.Steps).Diagnostics);
+                    Assert.Equal(CoreErrorCodes.InvalidBridgeRequest, ambiguousDiagnostic.Code);
+                    Assert.Contains("multiple", ambiguousDiagnostic.Message, StringComparison.OrdinalIgnoreCase);
+                    AutomationProperties.SetAutomationId(source, "gesture-source");
+                    AutomationProperties.SetAutomationId(destination, "gesture-destination");
+
+                    var swipe = await AvaScopeMcpTools.Input(
+                        client,
+                        runtime.SessionId.Value,
+                        topLevel.Id,
+                        InputActions.Swipe,
+                        targetNodeId: sourceNode.NodeId,
+                        gestureDirection: GestureDirections.Right,
+                        gestureDistancePercentage: 50,
+                        gestureDurationMs: 50);
+                    Assert.True(swipe.Success, swipe.Error?.Message);
+                    Assert.Equal(swipe.Value!.Gesture!.Path.SourceBounds.Width * 0.5, swipe.Value.Gesture.Path.Points[^1].X - swipe.Value.Gesture.Path.Points[0].X, 3);
+                    Assert.Equal(50, swipe.Value.Gesture.Path.DistancePercentage);
+
+                    var edgeNode = RequireNode("gesture-edge");
+                    var clippedSwipe = await AvaScopeMcpTools.Input(
+                        client,
+                        runtime.SessionId.Value,
+                        topLevel.Id,
+                        InputActions.Swipe,
+                        targetNodeId: edgeNode.NodeId,
+                        gestureDirection: GestureDirections.Right,
+                        gestureDistancePercentage: 100,
+                        gestureDurationMs: 50);
+                    Assert.True(clippedSwipe.Success, clippedSwipe.Error?.Message);
+                    Assert.True(clippedSwipe.Value!.Gesture!.Path.Clipped);
+                    Assert.True(
+                        clippedSwipe.Value.Gesture.Path.Points[^1].X
+                        < clippedSwipe.Value.Gesture.Path.Points[0].X + clippedSwipe.Value.Gesture.Path.SourceBounds.Width);
+
+                    var holdStopwatch = Stopwatch.StartNew();
+                    var hold = await AvaScopeMcpTools.Input(
+                        client,
+                        runtime.SessionId.Value,
+                        topLevel.Id,
+                        InputActions.LongPress,
+                        targetNodeId: sourceNode.NodeId,
+                        gestureDurationMs: 50);
+                    holdStopwatch.Stop();
+                    Assert.True(hold.Success, hold.Error?.Message);
+                    Assert.InRange(holdStopwatch.ElapsedMilliseconds, 40, 2000);
+                    Assert.Single(hold.Value!.Gesture!.Path.Points);
+                    Assert.InRange(hold.Value.Gesture.EffectiveDurationMs, 40, 2000);
+
+                    var cli = await RunCliInputAsync(
+                        "input",
+                        "--session",
+                        runtime.SessionId.Value,
+                        "--top-level",
+                        topLevel.Id,
+                        "--action",
+                        InputActions.LongPress,
+                        "--target-node",
+                        sourceNode.NodeId,
+                        "--duration-ms",
+                        "50",
+                        "--manifest-dir",
+                        Path.GetDirectoryName(runtime.SessionManifestPath)!);
+                    Assert.Equal(0, cli.ExitCode);
+                    Assert.True(string.IsNullOrWhiteSpace(cli.StandardError), cli.StandardError);
+                    var cliGesture = JsonSerializer.Deserialize<ToolResult<InputResponse>>(
+                        cli.StandardOutput,
+                        new JsonSerializerOptions(JsonSerializerDefaults.Web));
+                    Assert.True(cliGesture!.Success, cliGesture.Error?.Message);
+                    Assert.Equal(InputActions.LongPress, cliGesture.Value!.Action);
+                    Assert.Single(cliGesture.Value.Gesture!.Path.Points);
+
+                    foreach (var invalidNode in new[]
+                    {
+                        RequireNode("gesture-disabled"),
+                        RequireNode("gesture-zero"),
+                        RequireNode("gesture-clipped"),
+                        RequireNode("gesture-hidden")
+                    })
+                    {
+                        var invalid = await client.ValidateInputAsync(
+                            runtime.SessionId,
+                            topLevel.Id,
+                            InputActions.LongPress,
+                            targetNodeId: invalidNode.NodeId,
+                            gesture: new InputGestureOptions(durationMs: 50));
+                        Assert.False(invalid.Success);
+                        Assert.Equal(BridgeErrorCodes.InvalidInputRequest, invalid.Error!.Code);
+                    }
+
+                    var stale = await client.ValidateInputAsync(
+                        runtime.SessionId,
+                        topLevel.Id,
+                        InputActions.Drag,
+                        targetNodeId: "visual:stale-gesture-target",
+                        gesture: new InputGestureOptions(direction: GestureDirections.End));
+                    Assert.False(stale.Success);
+                    Assert.Equal(BridgeErrorCodes.NodeNotFound, stale.Error!.Code);
+
+                    var conflictingPath = await client.ValidateInputAsync(
+                        runtime.SessionId,
+                        topLevel.Id,
+                        InputActions.Drag,
+                        targetNodeId: sourceNode.NodeId,
+                        gesture: new InputGestureOptions(
+                            distancePercentage: 50,
+                            destinationTargetNodeId: destinationNode.NodeId));
+                    Assert.False(conflictingPath.Success);
+                    Assert.Equal(BridgeErrorCodes.InvalidInputRequest, conflictingPath.Error!.Code);
+
+                    var releasesBeforeCancellation = released;
+                    using var cancellation = new CancellationTokenSource(80);
+                    await Assert.ThrowsAnyAsync<OperationCanceledException>(() => client.InputAsync(
+                        runtime.SessionId,
+                        topLevel.Id,
+                        InputActions.PressAndHold,
+                        targetNodeId: sourceNode.NodeId,
+                        gesture: new InputGestureOptions(durationMs: 1000),
+                        cancellationToken: cancellation.Token));
+                    Dispatcher.UIThread.RunJobs();
+                    Assert.Equal(releasesBeforeCancellation + 1, released);
+                }
+                finally
+                {
+                    window.Close();
+                    AvaScopeBridge.Deactivate();
+                    Dispatcher.UIThread.RunJobs();
+                }
+            }, CancellationToken.None);
+        }
+        finally
+        {
+            DisposeHeadlessSessionAfterExplicitCleanup(session);
+        }
+    }
+
+    [Fact]
     public async Task McpReloadRejectsActiveRuntimeBridgeSessionWithExplicitUnsupportedError()
     {
         using var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessTestApplication));
@@ -2861,6 +3208,36 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
             // Avalonia headless session disposal can throw after the test already disposed windows on hosted runners.
             // Keep assertion failures from the dispatch body visible while ignoring this cleanup-only failure.
         }
+    }
+
+    private static async Task<(int ExitCode, string StandardOutput, string StandardError)> RunCliInputAsync(
+        params string[] arguments)
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        using var process = new Process
+        {
+            StartInfo = new ProcessStartInfo
+            {
+                FileName = "dotnet",
+                WorkingDirectory = AppContext.BaseDirectory,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            }
+        };
+        process.StartInfo.ArgumentList.Add(cliAssembly);
+        foreach (var argument in arguments)
+        {
+            process.StartInfo.ArgumentList.Add(argument);
+        }
+
+        Assert.True(process.Start());
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+        var stdout = process.StandardOutput.ReadToEndAsync(cancellation.Token);
+        var stderr = process.StandardError.ReadToEndAsync(cancellation.Token);
+        await process.WaitForExitAsync(cancellation.Token);
+        return (process.ExitCode, await stdout, await stderr);
     }
 
     private static PreviewSessionRegistry CreatePreviewSessionRegistryWithMissingHost()

@@ -134,7 +134,7 @@ public static class AvaScopeCapabilityCatalog
             Capability(
                 AvaScopeCapabilityIds.RuntimeInput,
                 "runtime",
-                "Send local runtime pointer, keyboard, text, focus, clear, selection, scroll, and semantic automation input to attached sessions.",
+                "Send local runtime pointer, keyboard, text, focus, clear, selection, scroll, bounds-derived gesture, and semantic automation input to attached sessions.",
                 ["input"],
                 requires: [AvaScopeCapabilityIds.RuntimeAttach],
                 metadata: new Dictionary<string, string>
@@ -155,6 +155,12 @@ public static class AvaScopeCapabilityCatalog
                     ["expand"] = """{"required":["targetNodeId"],"patterns":["ExpandCollapse"],"example":{"action":"expand","targetNodeId":"visual:1"}}""",
                     ["collapse"] = """{"required":["targetNodeId"],"patterns":["ExpandCollapse"],"example":{"action":"collapse","targetNodeId":"visual:1"}}""",
                     ["scroll"] = """{"required":["targetNodeId"],"optional":["x","y"],"targets":["ScrollViewer"],"example":{"action":"scroll","targetNodeId":"visual:1","y":120}}""",
+                    ["drag"] = """{"required":["targetNodeId"],"requiredAny":[["gesture.direction"],["gesture.destinationTargetNodeId"]],"optional":["gesture.distancePercentage","gesture.durationMs"],"providers":["RangeValue","pointer_fallback"],"example":{"action":"drag","targetNodeId":"visual:1","gesture":{"direction":"end","durationMs":300}}}""",
+                    ["swipe"] = """{"required":["targetNodeId"],"requiredAny":[["gesture.direction"],["gesture.destinationTargetNodeId"]],"optional":["gesture.distancePercentage","gesture.durationMs"],"providers":["RangeValue","pointer_fallback"],"example":{"action":"swipe","targetNodeId":"visual:1","gesture":{"direction":"left","distancePercentage":75}}}""",
+                    ["long_press"] = """{"required":["targetNodeId"],"optional":["gesture.durationMs"],"provider":"pointer_fallback","example":{"action":"long_press","targetNodeId":"visual:1","gesture":{"durationMs":800}}}""",
+                    ["press_and_hold"] = """{"required":["targetNodeId"],"optional":["gesture.durationMs"],"provider":"pointer_fallback","example":{"action":"press_and_hold","targetNodeId":"visual:1","gesture":{"durationMs":1000}}}""",
+                    ["gestureDirections"] = string.Join(",", GestureDirections.All),
+                    ["gestureDurationMs"] = $"{InputGestureOptions.MinimumDurationMs}-{InputGestureOptions.MaximumDurationMs}",
                     ["clickCoordinates"] = "explicit_or_target_center",
                     ["explicitCoordinatePrecedence"] = "true",
                     ["coordinateSpace"] = "top_level_dip"
@@ -162,12 +168,12 @@ public static class AvaScopeCapabilityCatalog
             Capability(
                 AvaScopeCapabilityIds.RuntimeSemanticAutomation,
                 "runtime",
-                "Invoke, select, toggle, expand, or collapse a selected local runtime control through its public Avalonia automation provider.",
+                "Invoke, select, toggle, expand, collapse, or adjust a range gesture on a selected local runtime control through its public Avalonia automation provider.",
                 ["input", "run-workflow", "run_workflow"],
                 requires: [AvaScopeCapabilityIds.RuntimeInput],
                 metadata: new Dictionary<string, string>
                 {
-                    ["actions"] = "invoke,select,toggle,expand,collapse",
+                    ["actions"] = "invoke,select,toggle,expand,collapse,drag,swipe",
                     ["providerApi"] = "Avalonia.Automation.Provider",
                     ["unsupportedBehavior"] = "structured_error"
                 }),

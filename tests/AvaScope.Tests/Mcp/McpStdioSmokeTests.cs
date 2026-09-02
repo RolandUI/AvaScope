@@ -67,8 +67,8 @@ public sealed class McpStdioSmokeTests
         Assert.Contains("cleanup_bridge_sessions", toolNames);
 
         var input = Assert.Single(tools, static tool => tool.Name == "input");
-        Assert.Contains("derives the center", input.ProtocolTool.Description, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("explicit coordinates take precedence", input.ProtocolTool.Description, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("derive coordinates", input.ProtocolTool.Description, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("destination target", input.ProtocolTool.Description, StringComparison.OrdinalIgnoreCase);
         var inputSchema = JsonSerializer.SerializeToNode(input.ProtocolTool.InputSchema)!.AsObject();
         var actionDescription = inputSchema["properties"]!["action"]!["description"]!.GetValue<string>();
         Assert.Contains("invoke", actionDescription, StringComparison.Ordinal);
@@ -76,6 +76,12 @@ public sealed class McpStdioSmokeTests
         Assert.Contains("toggle", actionDescription, StringComparison.Ordinal);
         Assert.Contains("expand", actionDescription, StringComparison.Ordinal);
         Assert.Contains("collapse", actionDescription, StringComparison.Ordinal);
+        Assert.Contains("drag", actionDescription, StringComparison.Ordinal);
+        Assert.Contains("swipe", actionDescription, StringComparison.Ordinal);
+        Assert.NotNull(inputSchema["properties"]!["gestureDirection"]);
+        Assert.NotNull(inputSchema["properties"]!["gestureDistancePercentage"]);
+        Assert.NotNull(inputSchema["properties"]!["gestureDurationMs"]);
+        Assert.NotNull(inputSchema["properties"]!["destinationTargetNodeId"]);
     }
 
     [Fact]

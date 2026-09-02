@@ -32,7 +32,8 @@ public sealed record BridgeIpcRequest
         bool includeBounds = true,
         bool includeAccessibility = false,
         bool includeBindings = false,
-        int? maxResponseDepth = null)
+        int? maxResponseDepth = null,
+        InputGestureOptions? gesture = null)
     {
         if (string.IsNullOrWhiteSpace(requestId))
         {
@@ -71,6 +72,7 @@ public sealed record BridgeIpcRequest
         IncludeAccessibility = includeAccessibility;
         IncludeBindings = includeBindings;
         MaxResponseDepth = maxResponseDepth;
+        Gesture = gesture;
     }
 
     [JsonPropertyName("requestId")]
@@ -174,4 +176,8 @@ public sealed record BridgeIpcRequest
     [JsonPropertyName("maxResponseDepth")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public int? MaxResponseDepth { get; }
+
+    [JsonPropertyName("gesture")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public InputGestureOptions? Gesture { get; }
 }

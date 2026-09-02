@@ -355,6 +355,7 @@ public sealed class LocalBridgeClient
         string? targetNodeId = null,
         string? inputKey = null,
         string? keyModifiers = null,
+        InputGestureOptions? gesture = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(sessionId);
@@ -389,7 +390,8 @@ public sealed class LocalBridgeClient
                 inputText: inputText,
                 targetNodeId: targetNodeId,
                 inputKey: inputKey,
-                keyModifiers: keyModifiers),
+                keyModifiers: keyModifiers,
+                gesture: gesture),
             cancellationToken);
     }
 
@@ -459,6 +461,7 @@ public sealed class LocalBridgeClient
         string? targetNodeId = null,
         string? inputKey = null,
         string? keyModifiers = null,
+        InputGestureOptions? gesture = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(sessionId);
@@ -488,7 +491,8 @@ public sealed class LocalBridgeClient
                 inputText: inputText,
                 targetNodeId: targetNodeId,
                 inputKey: inputKey,
-                keyModifiers: keyModifiers),
+                keyModifiers: keyModifiers,
+                gesture: gesture),
             cancellationToken);
     }
 

@@ -32,6 +32,18 @@ public sealed class CliSmokeTests
     }
 
     [Fact]
+    public async Task GeneralUsageIncludesSemanticGestureOptions()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        var result = await RunCliAsync(cliAssembly);
+
+        Assert.Equal(2, result.ExitCode);
+        Assert.Contains("--direction left|right|up|down|start|end", result.StandardOutput, StringComparison.Ordinal);
+        Assert.Contains("--destination-target-node", result.StandardOutput, StringComparison.Ordinal);
+        Assert.Contains("--duration-ms", result.StandardOutput, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task CapabilitiesCommandReportsProtocolAndToolCapabilities()
     {
         var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
@@ -3150,6 +3162,96 @@ public sealed class CliSmokeTests
         }
     }
 
+    [Theory]
+    [InlineData("drag", "right", "75", "320", null)]
+    [InlineData("drag", null, null, "300", "visual:destination")]
+    [InlineData("swipe", "left", "50", "180", null)]
+    [InlineData("long_press", null, null, "600", null)]
+    [InlineData("press_and_hold", null, null, "700", null)]
+    public async Task InputCommandSendsSemanticGestureThroughBridgePipe(
+        string action,
+        string? direction,
+        string? distancePercentage,
+        string durationMs,
+        string? destinationTargetNodeId)
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var sessionId = SessionId.New();
+        var pipeName = TestPipeNames.New();
+        var manifestPath = WriteBridgeManifest(sessionId, pipeName);
+        var serverTask = RespondToBridgeRequestAsync(pipeName, request =>
+        {
+            Assert.Equal(BridgeIpcMethods.Input, request.Method);
+            Assert.Equal(action, request.Action);
+            Assert.Equal("visual:source", request.TargetNodeId);
+            Assert.NotNull(request.Gesture);
+            Assert.Equal(direction, request.Gesture.Direction);
+            Assert.Equal(
+                distancePercentage is null ? null : double.Parse(distancePercentage, CultureInfo.InvariantCulture),
+                request.Gesture.DistancePercentage);
+            Assert.Equal(int.Parse(durationMs, CultureInfo.InvariantCulture), request.Gesture.DurationMs);
+            Assert.Equal(destinationTargetNodeId, request.Gesture.DestinationTargetNodeId);
+            return BridgeIpcResponse.Ok(
+                request.RequestId,
+                new InputResponse(
+                    sessionId,
+                    request.TopLevelId!,
+                    action,
+                    handled: true,
+                    DateTimeOffset.UtcNow,
+                    request.TargetNodeId));
+        });
+
+        try
+        {
+            var arguments = new List<string>
+            {
+                "input",
+                "--session",
+                sessionId.Value,
+                "--top-level",
+                "topLevel:cli",
+                "--action",
+                action,
+                "--target-node",
+                "visual:source",
+                "--duration-ms",
+                durationMs
+            };
+            if (direction is not null)
+            {
+                arguments.AddRange(["--direction", direction]);
+            }
+
+            if (distancePercentage is not null)
+            {
+                arguments.AddRange(["--distance-percent", distancePercentage]);
+            }
+
+            if (destinationTargetNodeId is not null)
+            {
+                arguments.AddRange(["--destination-target-node", destinationTargetNodeId]);
+            }
+
+            var result = await RunCliAsync(cliAssembly, arguments.ToArray());
+            await serverTask;
+
+            Assert.Equal(0, result.ExitCode);
+            var payload = JsonSerializer.Deserialize<ToolResult<InputResponse>>(result.StandardOutput, JsonOptions);
+            Assert.True(payload!.Success, payload.Error?.Message);
+            Assert.Equal(action, payload.Value!.Action);
+        }
+        finally
+        {
+            if (File.Exists(manifestPath))
+            {
+                File.Delete(manifestPath);
+            }
+        }
+    }
+
     [Fact]
     public async Task InputCommandReturnsStructuredErrorWhenNoBridgeSessionMatches()
     {
@@ -3215,7 +3317,7 @@ public sealed class CliSmokeTests
     }
 
     [Theory]
-    [InlineData("--action", "drag")]
+    [InlineData("--action", "unknown")]
     [InlineData("--x", "NaN")]
     public async Task InputCommandRejectsInvalidOptions(string optionName, string optionValue)
     {
@@ -3244,6 +3346,40 @@ public sealed class CliSmokeTests
         var payload = JsonSerializer.Deserialize<ToolResult<InputResponse>>(result.StandardOutput, JsonOptions);
         Assert.NotNull(payload);
         Assert.False(payload.Success);
+        Assert.Equal("invalid_cli_arguments", payload.Error!.Code);
+    }
+
+    [Theory]
+    [InlineData("drag", "--direction", "diagonal")]
+    [InlineData("swipe", "--distance-percent", "50")]
+    [InlineData("long_press", "--direction", "right")]
+    [InlineData("press_and_hold", "--destination-target-node", "visual:destination")]
+    public async Task InputCommandRejectsInvalidGestureOptions(
+        string action,
+        string optionName,
+        string optionValue)
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var result = await RunCliAsync(
+            cliAssembly,
+            "input",
+            "--session",
+            "missing",
+            "--top-level",
+            "topLevel:missing",
+            "--action",
+            action,
+            "--target-node",
+            "visual:source",
+            optionName,
+            optionValue);
+
+        Assert.Equal(2, result.ExitCode);
+        Assert.True(string.IsNullOrWhiteSpace(result.StandardError), result.StandardError);
+        var payload = JsonSerializer.Deserialize<ToolResult<InputResponse>>(result.StandardOutput, JsonOptions);
+        Assert.False(payload!.Success);
         Assert.Equal("invalid_cli_arguments", payload.Error!.Code);
     }
 

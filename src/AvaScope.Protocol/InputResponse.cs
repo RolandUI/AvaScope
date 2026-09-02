@@ -18,7 +18,8 @@ public sealed record InputResponse
         string? pointerButton = null,
         double? wheelDeltaX = null,
         double? wheelDeltaY = null,
-        IReadOnlyDictionary<string, string>? metadata = null)
+        IReadOnlyDictionary<string, string>? metadata = null,
+        RuntimeGestureResult? gesture = null)
     {
         SessionId = sessionId ?? throw new ArgumentNullException(nameof(sessionId));
 
@@ -44,6 +45,7 @@ public sealed record InputResponse
         WheelDeltaX = wheelDeltaX;
         WheelDeltaY = wheelDeltaY;
         Metadata = metadata ?? new Dictionary<string, string>();
+        Gesture = gesture;
     }
 
     [JsonPropertyName("sessionId")]
@@ -90,6 +92,10 @@ public sealed record InputResponse
 
     [JsonPropertyName("metadata")]
     public IReadOnlyDictionary<string, string> Metadata { get; }
+
+    [JsonPropertyName("gesture")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public RuntimeGestureResult? Gesture { get; }
 
     private static RuntimeTargetContext CreateTarget(
         SessionId sessionId,

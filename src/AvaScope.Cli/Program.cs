@@ -1984,13 +1984,19 @@ internal static class Program
                 "target-node",
                 "key",
                 "modifiers",
+                "direction",
+                "distance-percent",
+                "duration-ms",
+                "destination-target-node",
                 "manifest-dir")
             || !TryReadRequiredSessionId(options.Values, GetInputUsage(), out var sessionId)
             || !TryReadRequiredOption(options.Values, "top-level", GetInputUsage(), out var topLevelId)
             || !TryReadRequiredOption(options.Values, "action", GetInputUsage(), out var action)
             || !TryNormalizeInputAction(action!, out action)
             || !TryReadOptionalDouble(options.Values, "x", out var x)
-            || !TryReadOptionalDouble(options.Values, "y", out var y))
+            || !TryReadOptionalDouble(options.Values, "y", out var y)
+            || !TryReadOptionalDouble(options.Values, "distance-percent", out var distancePercentage)
+            || !TryReadOptionalPositiveInt(options.Values, "duration-ms", out var durationMs))
         {
             return 2;
         }
@@ -1999,9 +2005,35 @@ internal static class Program
         var targetNodeId = options.Values.GetValueOrDefault("target-node");
         var inputKey = options.Values.GetValueOrDefault("key");
         var keyModifiers = options.Values.GetValueOrDefault("modifiers");
-        if (!ValidateInputActionArguments(action!, x, y, inputText, targetNodeId, inputKey))
+        var direction = options.Values.GetValueOrDefault("direction");
+        var destinationTargetNodeId = options.Values.GetValueOrDefault("destination-target-node");
+        if (!ValidateInputActionArguments(
+            action!,
+            x,
+            y,
+            inputText,
+            targetNodeId,
+            inputKey,
+            direction,
+            distancePercentage,
+            durationMs,
+            destinationTargetNodeId))
         {
             return 2;
+        }
+
+        InputGestureOptions? gesture = null;
+        if (InputActions.IsGesture(action!))
+        {
+            try
+            {
+                gesture = new InputGestureOptions(direction, distancePercentage, durationMs, destinationTargetNodeId);
+            }
+            catch (ArgumentOutOfRangeException exception)
+            {
+                WriteFailure(InvalidCliArguments, exception.Message);
+                return 2;
+            }
         }
 
         var result = await CreateBridgeClient(options.Values).InputAsync(
@@ -2013,7 +2045,8 @@ internal static class Program
             inputText,
             targetNodeId,
             inputKey,
-            keyModifiers);
+            keyModifiers,
+            gesture);
         WriteResult(result);
 
         return result.Success ? 0 : 1;
@@ -3283,8 +3316,31 @@ internal static class Program
         double? y,
         string? inputText,
         string? targetNodeId,
-        string? inputKey)
+        string? inputKey,
+        string? gestureDirection,
+        double? gestureDistancePercentage,
+        int? gestureDurationMs,
+        string? destinationTargetNodeId)
     {
+        var hasGestureOptions = gestureDirection is not null
+            || gestureDistancePercentage is not null
+            || gestureDurationMs is not null
+            || destinationTargetNodeId is not null;
+        if (!InputActions.IsGesture(action) && hasGestureOptions)
+        {
+            WriteFailure(InvalidCliArguments, $"Input action '{action}' does not accept gesture options.");
+            return false;
+        }
+
+        if (gestureDirection is not null
+            && !GestureDirections.All.Contains(gestureDirection, StringComparer.OrdinalIgnoreCase))
+        {
+            WriteFailure(
+                InvalidCliArguments,
+                $"Unsupported gesture direction '{gestureDirection}'. Expected one of: {string.Join(", ", GestureDirections.All)}.");
+            return false;
+        }
+
         return action switch
         {
             InputActions.PointerMove or InputActions.PointerDown or InputActions.PointerUp
@@ -3301,8 +3357,75 @@ internal static class Program
                 or InputActions.Collapse
                 => RequireTargetNode(action, targetNodeId),
             InputActions.Scroll => RequireTargetNode(action, targetNodeId) && RequireAnyCoordinate(action, x, y),
+            InputActions.Drag or InputActions.Swipe
+                => RequireTargetNode(action, targetNodeId)
+                    && RejectCoordinates(action, x, y)
+                    && RequireGestureDestination(action, gestureDirection, destinationTargetNodeId)
+                    && RejectDestinationDistance(action, gestureDistancePercentage, destinationTargetNodeId),
+            InputActions.LongPress or InputActions.PressAndHold
+                => RequireTargetNode(action, targetNodeId)
+                    && RejectCoordinates(action, x, y)
+                    && RejectHoldPathOptions(action, gestureDirection, gestureDistancePercentage, destinationTargetNodeId),
             _ => false
         };
+    }
+
+    private static bool RejectCoordinates(string action, double? x, double? y)
+    {
+        if (x is null && y is null)
+        {
+            return true;
+        }
+
+        WriteFailure(InvalidCliArguments, $"Input action '{action}' derives coordinates from current target bounds and does not accept --x or --y.");
+        return false;
+    }
+
+    private static bool RequireGestureDestination(
+        string action,
+        string? direction,
+        string? destinationTargetNodeId)
+    {
+        if (!string.IsNullOrWhiteSpace(direction) ^ !string.IsNullOrWhiteSpace(destinationTargetNodeId))
+        {
+            return true;
+        }
+
+        WriteFailure(
+            InvalidCliArguments,
+            $"Input action '{action}' requires exactly one of --direction or --destination-target-node.");
+        return false;
+    }
+
+    private static bool RejectDestinationDistance(
+        string action,
+        double? distancePercentage,
+        string? destinationTargetNodeId)
+    {
+        if (distancePercentage is null || string.IsNullOrWhiteSpace(destinationTargetNodeId))
+        {
+            return true;
+        }
+
+        WriteFailure(
+            InvalidCliArguments,
+            $"Input action '{action}' accepts --distance-percent only with a directional gesture.");
+        return false;
+    }
+
+    private static bool RejectHoldPathOptions(
+        string action,
+        string? direction,
+        double? distancePercentage,
+        string? destinationTargetNodeId)
+    {
+        if (direction is null && distancePercentage is null && destinationTargetNodeId is null)
+        {
+            return true;
+        }
+
+        WriteFailure(InvalidCliArguments, $"Input action '{action}' accepts --duration-ms only.");
+        return false;
     }
 
     private static bool IsMutationCliSuccess(RuntimeMutationResponse response)
@@ -3964,6 +4087,15 @@ internal static class Program
 
     private static string GetUsage()
     {
+        const string legacyInputUsage = "avascope input --session <session-id> --top-level <top-level-id> --action <action> [--x <x>] [--y <y>] [--text <text>] [--target-node <node-id>] [--key <key>] [--modifiers <modifiers>] [--manifest-dir <dir>]";
+        return GetLegacyUsage().Replace(
+            legacyInputUsage,
+            GetInputUsage()["Usage: ".Length..],
+            StringComparison.Ordinal);
+    }
+
+    private static string GetLegacyUsage()
+    {
         return "Usage: avascope capabilities [--require <capability-id>[,<capability-id>...]] | avascope mcp | avascope doctor [--manifest-dir <dir>] [--preview-session-store <dir>] | avascope attach [--latest true|false] [--process <pid>] [--process-name <name>] [--session <session-id>] [--manifest <path>] [--manifest-dir <dir>] | avascope list-top-levels --session <session-id> [--manifest-dir <dir>] | avascope visual-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] [--manifest-dir <dir>] | avascope logical-tree --session <session-id> --top-level <top-level-id> [--max-depth <n>] [--manifest-dir <dir>] | avascope inspect-node --session <session-id> --top-level <top-level-id> --node <node-id> [--tree-kind visual|logical] [--manifest-dir <dir>] | avascope explain-layout --session <session-id> --top-level <top-level-id> --node <node-id> [--tree-kind visual|logical] [--manifest-dir <dir>] | avascope find-nodes --session <session-id> --top-level <top-level-id> [--tree-kind visual|logical] [--type <type>] [--name <name>] [--automation-id <id>] [--text <text>] [--max-depth <n>] [--max-results <n>] [--manifest-dir <dir>] | avascope audit-ui --session <session-id> --top-level <top-level-id> [--tree-kind visual|logical] [--max-depth <n>] [--max-issues <n>] [--max-inventory <n>] [--manifest-dir <dir>] [--run-index <dir>] [--task <name>] [--run-group <name>] | avascope design-audit --request <design-audit.json> [--manifest-dir <dir>] | avascope run-workflow --request <workflow.json> [--manifest-dir <dir>] | avascope run-scenario --request <scenario.json> [--manifest-dir <dir>] | avascope pointer-diagnostics --request <pointer-diagnostics.json> [--manifest-dir <dir>] | avascope pseudo-state-matrix --request <pseudo-state-matrix.json> [--manifest-dir <dir>] | avascope record-interaction-animation --request <interaction-animation.json> [--manifest-dir <dir>] | avascope input --session <session-id> --top-level <top-level-id> --action <action> [--x <x>] [--y <y>] [--text <text>] [--target-node <node-id>] [--key <key>] [--modifiers <modifiers>] [--manifest-dir <dir>] | avascope mutate-node --session <session-id> --top-level <top-level-id> --node <node-id> --operation <operation> [--tree-kind visual|logical] [--property <name>] [--value <value>] [--value-type <type>] [--class <class>] [--resource-key <key>] [--mutation-id <id>] [--request-id <id>] [--manifest-dir <dir>] | avascope mutate-node-evidence --session <session-id> --top-level <top-level-id> --node <node-id> --operation <operation> --out-dir <dir> [--tree-kind visual|logical] [--property <name>] [--value <value>] [--value-type <type>] [--class <class>] [--resource-key <key>] [--mutation-id <id>] [--request-id <id>] [--max-depth <n>] [--diff true|false] [--tolerance <0-255>] [--manifest-dir <dir>] | avascope mutation-review --session <session-id> [--max-results <n>] [--out <review.html>] [--manifest-dir <dir>] [--source-project <csproj>] [--source-view <view.axaml>] [--source-app <app.axaml>] [--source-profile <profile.json>] | avascope close-session --session <session-id> [--manifest-dir <dir>] | avascope diagnostics [--process <pid>] [--process-name <name>] [--session <session-id>] [--manifest <path>] [--manifest-dir <dir>] [--max-sessions <n>] [--mode all|active-only|minimal|json-minimal] | avascope launch-app --command <path> [--args <args>] [--env KEY=VALUE[;KEY=VALUE...]] [--timeout-ms <ms>] | avascope reload --session <session-id> [--manifest-dir <dir>] | avascope create-preview-session <project.csproj> [--profile <name>] [--profile-file <path>] [--variant <name>] --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] [--state-variant <state>] [--build-output-root <dir>] [--assembly-path <dll>] [--no-build true|false] [--display-name <name>] | avascope list-preview-sessions | avascope reload-preview-session --session <session-id> | avascope close-preview-session --session <session-id> | avascope watch-preview-session --session <session-id> --timeout-ms <ms> [--settle-ms <ms>] [--max-reloads <n>] [--watch <path>[,<path>...]] | avascope preview-viewer --session <session-id> [--out <viewer.html>] | avascope baseline-create <project.csproj> --view <view.axaml> --manifest <baseline.json> --sizes <w>x<h>[,<w>x<h>...] [--out-dir <dir>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] [--state-variant <state>] [--build-output-root <dir>] [--assembly-path <dll>] [--no-build true|false] | avascope baseline-create --suite <suite.json> --manifest <baseline.json> [--out-dir <dir>] | avascope baseline-check --manifest <baseline.json> [--out-dir <dir>] [--diff-dir <dir>] [--tolerance <0-255>] [--report <report.json>] [--report-pack <dir>] [--run-index <dir>] [--task <name>] [--run-group <name>] | avascope latest-run --run-index <dir> [--task <name>] [--project <csproj>] [--view <view.axaml>] [--profile <name>] [--variant <name>] [--state-variant <state>] [--command <command>] | avascope cleanup | avascope cleanup-bridge-sessions [--manifest-dir <dir>] | avascope diff --baseline <baseline.png> --current <current.png> --out <diff.png> [--tolerance <0-255>] | avascope semantic-diff --reference <reference.png> --current <current.png> --out-dir <dir> [--diff <raw-diff.png>] [--annotated <annotated.png>] [--tolerance <0-255>] [--request-id <id>] [--max-findings <n>] [--max-raw-regions <n>] [--min-changed-pixels <n>] | avascope assert-region --image <image.png> --assert non_empty|mostly_blank|changed|unchanged --x <x> --y <y> --width <w> --height <h> [--baseline <baseline.png>] [--crop-out <crop.png>] [--tolerance <0-255>] [--min-changed-pixels <n>] | avascope screenshot --session <session-id> --top-level <top-level-id> --out <screenshot.png> [--manifest-dir <dir>] | avascope preview-animation <project.csproj> [--profile <name>] [--profile-file <path>] [--variant <name>] --view <view.axaml> --out <frame.png> --time-offsets <ms>[,<ms>...] [--frame-strip <strip.png>] [--viewer <viewer.html>] [--width <width>] [--height <height>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] [--state-variant <state>] [--build-output-root <dir>] [--assembly-path <dll>] [--no-build true|false] | avascope preview <project.csproj> [--profile <name>] [--profile-file <path>] [--variant <name>] --view <view.axaml> --out <preview.png> [--width <width>] [--height <height>] [--sizes <w>x<h>[,<w>x<h>...]] [--contact-sheet <sheet.png>] [--dpi <dpi>] [--theme light|dark] [--culture <culture>] [--design-data-type <type>] [--state-variant <state>] [--build-output-root <dir>] [--assembly-path <dll>] [--no-build true|false] [--run-index <dir>] [--task <name>] [--run-group <name>]";
     }
 
@@ -4094,7 +4226,7 @@ internal static class Program
 
     private static string GetInputUsage()
     {
-        return "Usage: avascope input --session <session-id> --top-level <top-level-id> --action <action> [--x <x>] [--y <y>] [--text <text>] [--target-node <node-id>] [--key <key>] [--modifiers <modifiers>] [--manifest-dir <dir>]";
+        return "Usage: avascope input --session <session-id> --top-level <top-level-id> --action <action> [--x <x>] [--y <y>] [--text <text>] [--target-node <node-id>] [--key <key>] [--modifiers <modifiers>] [--direction left|right|up|down|start|end] [--distance-percent <0-100>] [--duration-ms <50-5000>] [--destination-target-node <node-id>] [--manifest-dir <dir>]";
     }
 
     private static string GetMutateNodeUsage()

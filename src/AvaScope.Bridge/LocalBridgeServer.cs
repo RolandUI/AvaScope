@@ -465,6 +465,7 @@ internal sealed class LocalBridgeServer : IDisposable
                 request.TargetNodeId,
                 request.InputKey,
                 request.KeyModifiers,
+                request.Gesture,
                 cancellationToken)
             : await _runtime.InputAsync(
                 request.TopLevelId,
@@ -475,6 +476,7 @@ internal sealed class LocalBridgeServer : IDisposable
                 request.TargetNodeId,
                 request.InputKey,
                 request.KeyModifiers,
+                request.Gesture,
                 cancellationToken);
 
         return result.Success

@@ -112,11 +112,11 @@ Next slice: refresh Release build/test/pack validation after the sample and CLI 
 
 ### Input Coverage
 
-Status: focus targeting, basic key down/up, target-aware TextBox text editing, targeted TextBox clearing, and runtime input response metadata slices complete; drag/drop and richer pointer/key behavior remain open.
+Status: focus targeting, basic key down/up, target-aware TextBox editing/clearing, runtime input metadata, and bounds-derived semantic drag/swipe/hold gestures are complete; native drag-and-drop payload exchange and richer pointer/key behavior remain open.
 
-Input support is intentionally narrow: routed pointer move, routed pointer press/release, Button click, focus by node id or coordinates, routed key down/up for focused or explicitly targeted input elements, TextBox text input for focused or explicitly targeted TextBox controls, `clear_text` for focused or explicitly targeted writable TextBox controls, and public-provider-backed semantic `invoke`, `select`, `toggle`, `expand`, and `collapse` for explicit targets or selector-resolved workflow nodes. TextBox text input respects read-only targets and replaces a current selection when one exists; `clear_text` also rejects read-only targets and resets caret/selection to 0. Supported input responses report pointer button, key/modifier, and automation pattern/state metadata where available. Drag/drop, richer pointer button variants, hardware-like key repeat, and full IME/text editing behavior are not implemented.
+Input support is intentionally narrow: routed pointer move/press/release, Button click, focus by node id or coordinates, routed key down/up, targeted writable TextBox input/clear, public-provider-backed semantic `invoke`, `select`, `toggle`, `expand`, and `collapse`, plus bounds-derived `drag`, `swipe`, `long_press`, and `press_and_hold`. Gestures prefer public range automation where applicable and otherwise use bounded routed-pointer paths with provenance, timing, clipping, structured target errors, and cancellation-safe release. Native drag-and-drop payload exchange, richer pointer button variants, hardware-like key repeat, and full IME/text editing behavior are not implemented.
 
-Next slice: defer broader input until a drag/drop, pointer-button, or hardware-like keyboard path can be covered by deterministic public Avalonia APIs.
+Next slice: keep native drag-and-drop payload exchange, richer pointer buttons, and hardware-like keyboard behavior deferred until deterministic public Avalonia APIs can cover them.
 
 ## P2 Gaps
 

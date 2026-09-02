@@ -107,12 +107,14 @@ public static class AutomationPatterns
     public const string SelectionItem = "SelectionItem";
     public const string Toggle = "Toggle";
     public const string ExpandCollapse = "ExpandCollapse";
+    public const string RangeValue = "RangeValue";
 
     public static IReadOnlyList<string> All { get; } =
     [
         Invoke,
         SelectionItem,
         Toggle,
-        ExpandCollapse
+        ExpandCollapse,
+        RangeValue
     ];
 }

@@ -20,6 +20,7 @@ using Avalonia.VisualTree;
 using AvaScope.Core;
 using AvaScope.Protocol;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
@@ -298,7 +299,7 @@ public sealed class AvaScopeBridgeRuntime
             .GetTask();
     }
 
-    public Task<CoreResult<InputResponse>> InputAsync(
+    public async Task<CoreResult<InputResponse>> InputAsync(
         string topLevelId,
         string action,
         double? x = null,
@@ -307,6 +308,7 @@ public sealed class AvaScopeBridgeRuntime
         string? targetNodeId = null,
         string? inputKey = null,
         string? keyModifiers = null,
+        InputGestureOptions? gesture = null,
         CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(topLevelId))
@@ -319,12 +321,24 @@ public sealed class AvaScopeBridgeRuntime
             throw new ArgumentException("Input action cannot be empty.", nameof(action));
         }
 
-        if (Dispatcher.UIThread.CheckAccess())
+        if (gesture is not null && !InputActions.IsGesture(action))
         {
-            return Task.FromResult(Input(topLevelId, action, x, y, inputText, targetNodeId, inputKey, keyModifiers));
+            return CoreResult<InputResponse>.Fail(new CoreError(
+                BridgeErrorCodes.InvalidInputRequest,
+                $"Input action '{action}' does not accept gesture options."));
         }
 
-        return Dispatcher.UIThread
+        if (InputActions.IsGesture(action))
+        {
+            return await GestureInputAsync(topLevelId, action, targetNodeId, gesture, cancellationToken);
+        }
+
+        if (Dispatcher.UIThread.CheckAccess())
+        {
+            return Input(topLevelId, action, x, y, inputText, targetNodeId, inputKey, keyModifiers);
+        }
+
+        return await Dispatcher.UIThread
             .InvokeAsync(
                 () => Input(topLevelId, action, x, y, inputText, targetNodeId, inputKey, keyModifiers),
                 DispatcherPriority.Background,
@@ -341,6 +355,7 @@ public sealed class AvaScopeBridgeRuntime
         string? targetNodeId = null,
         string? inputKey = null,
         string? keyModifiers = null,
+        InputGestureOptions? gesture = null,
         CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(topLevelId))
@@ -356,13 +371,13 @@ public sealed class AvaScopeBridgeRuntime
         if (Dispatcher.UIThread.CheckAccess())
         {
             return Task.FromResult(ValidateInput(
-                topLevelId, action, x, y, inputText, targetNodeId, inputKey, keyModifiers));
+                topLevelId, action, x, y, inputText, targetNodeId, inputKey, keyModifiers, gesture));
         }
 
         return Dispatcher.UIThread
             .InvokeAsync(
                 () => ValidateInput(
-                    topLevelId, action, x, y, inputText, targetNodeId, inputKey, keyModifiers),
+                    topLevelId, action, x, y, inputText, targetNodeId, inputKey, keyModifiers, gesture),
                 DispatcherPriority.Background,
                 cancellationToken)
             .GetTask();
@@ -873,7 +888,8 @@ public sealed class AvaScopeBridgeRuntime
         string? inputText,
         string? targetNodeId,
         string? inputKey,
-        string? keyModifiers)
+        string? keyModifiers,
+        InputGestureOptions? gesture)
     {
         Dispatcher.UIThread.VerifyAccess();
 
@@ -892,6 +908,21 @@ public sealed class AvaScopeBridgeRuntime
                 {
                     ["supportedActions"] = string.Join(",", InputActions.All)
                 }));
+        }
+
+        if (InputActions.IsGesture(action))
+        {
+            var prepared = PrepareGesture(topLevel, topLevelId, action, targetNodeId, gesture);
+            return prepared.Success
+                ? CoreResult<InputResponse>.Ok(CreateGestureResponse(prepared.Value!, handled: false, validateOnly: true, effectiveDurationMs: 0))
+                : CoreResult<InputResponse>.Fail(prepared.Error!);
+        }
+
+        if (gesture is not null)
+        {
+            return CoreResult<InputResponse>.Fail(new CoreError(
+                BridgeErrorCodes.InvalidInputRequest,
+                $"Input action '{action}' does not accept gesture options."));
         }
 
         if (action == InputActions.Click)
@@ -2743,6 +2774,639 @@ public sealed class AvaScopeBridgeRuntime
     private static ProtocolError ToProtocolError(CoreError error)
     {
         return new ProtocolError(error.Code, error.Message, error.Details);
+    }
+
+    private async Task<CoreResult<InputResponse>> GestureInputAsync(
+        string topLevelId,
+        string action,
+        string? targetNodeId,
+        InputGestureOptions? options,
+        CancellationToken cancellationToken)
+    {
+        CoreResult<GesturePlan> prepared;
+        if (Dispatcher.UIThread.CheckAccess())
+        {
+            prepared = PrepareGesture(FindTopLevel(topLevelId), topLevelId, action, targetNodeId, options);
+        }
+        else
+        {
+            prepared = await Dispatcher.UIThread.InvokeAsync(
+                () => PrepareGesture(FindTopLevel(topLevelId), topLevelId, action, targetNodeId, options),
+                DispatcherPriority.Background,
+                cancellationToken);
+        }
+
+        if (!prepared.Success)
+        {
+            return CoreResult<InputResponse>.Fail(prepared.Error!);
+        }
+
+        var plan = prepared.Value!;
+        cancellationToken.ThrowIfCancellationRequested();
+        if (plan.RangeProvider is not null)
+        {
+            return Dispatcher.UIThread.CheckAccess()
+                ? ExecuteRangeGesture(plan)
+                : await Dispatcher.UIThread.InvokeAsync(
+                    () => ExecuteRangeGesture(plan),
+                    DispatcherPriority.Background,
+                    cancellationToken);
+        }
+
+        var pointer = new Pointer(Pointer.GetNextFreeId(), PointerType.Mouse, isPrimary: true);
+        var stopwatch = Stopwatch.StartNew();
+        var pressed = false;
+        var lastPoint = plan.Path.Points[0];
+        try
+        {
+            await DispatchGesturePointerAsync(plan, pointer, plan.Path.Points[0], GesturePointerEvent.Pressed, cancellationToken);
+            pressed = true;
+
+            if (plan.Path.Points.Count == 1)
+            {
+                await Task.Delay(plan.RequestedDurationMs, cancellationToken);
+            }
+            else
+            {
+                for (var index = 1; index < plan.Path.Points.Count; index++)
+                {
+                    var targetElapsed = plan.RequestedDurationMs * index / (plan.Path.Points.Count - 1);
+                    var remaining = targetElapsed - (int)stopwatch.ElapsedMilliseconds;
+                    if (remaining > 0)
+                    {
+                        await Task.Delay(remaining, cancellationToken);
+                    }
+
+                    await DispatchGesturePointerAsync(
+                        plan,
+                        pointer,
+                        plan.Path.Points[index],
+                        GesturePointerEvent.Moved,
+                        cancellationToken);
+                    lastPoint = plan.Path.Points[index];
+                }
+            }
+
+            await DispatchGesturePointerAsync(
+                plan,
+                pointer,
+                plan.Path.Points[^1],
+                GesturePointerEvent.Released,
+                cancellationToken);
+            pressed = false;
+            stopwatch.Stop();
+            return CoreResult<InputResponse>.Ok(CreateGestureResponse(
+                plan,
+                handled: true,
+                validateOnly: false,
+                effectiveDurationMs: (int)stopwatch.ElapsedMilliseconds));
+        }
+        finally
+        {
+            if (pressed)
+            {
+                await DispatchGesturePointerAsync(
+                    plan,
+                    pointer,
+                    lastPoint,
+                    GesturePointerEvent.Released,
+                    CancellationToken.None);
+            }
+        }
+    }
+
+    private CoreResult<GesturePlan> PrepareGesture(
+        TopLevel? topLevel,
+        string topLevelId,
+        string action,
+        string? targetNodeId,
+        InputGestureOptions? options)
+    {
+        Dispatcher.UIThread.VerifyAccess();
+
+        if (topLevel is null)
+        {
+            var missing = TopLevelNotFound<InputResponse>(topLevelId);
+            return CoreResult<GesturePlan>.Fail(missing.Error!);
+        }
+
+        if (string.IsNullOrWhiteSpace(targetNodeId))
+        {
+            return InvalidGesture<GesturePlan>(action, targetNodeId, "Gesture input requires a source target node id.");
+        }
+
+        options ??= new InputGestureOptions();
+        var direction = string.IsNullOrWhiteSpace(options.Direction)
+            ? null
+            : options.Direction.Trim().ToLowerInvariant();
+        if (direction is not null && !GestureDirections.All.Contains(direction, StringComparer.Ordinal))
+        {
+            return InvalidGesture<GesturePlan>(
+                action,
+                targetNodeId,
+                $"Gesture direction '{options.Direction}' is not supported.",
+                new Dictionary<string, string>
+                {
+                    ["supportedDirections"] = string.Join(",", GestureDirections.All)
+                });
+        }
+
+        var isHold = action is InputActions.LongPress or InputActions.PressAndHold;
+        if (isHold && (direction is not null
+            || options.DistancePercentage is not null
+            || options.DestinationTargetNodeId is not null))
+        {
+            return InvalidGesture<GesturePlan>(
+                action,
+                targetNodeId,
+                "Long-press and press-and-hold accept duration only.");
+        }
+
+        if (!isHold && options.DestinationTargetNodeId is not null && direction is not null)
+        {
+            return InvalidGesture<GesturePlan>(
+                action,
+                targetNodeId,
+                "Drag and swipe accept either a destination target or a direction, not both.");
+        }
+
+        if (!isHold
+            && options.DestinationTargetNodeId is not null
+            && options.DistancePercentage is not null)
+        {
+            return InvalidGesture<GesturePlan>(
+                action,
+                targetNodeId,
+                "Gesture distance percentage applies only to directional drag and swipe input.");
+        }
+
+        if (!isHold && options.DestinationTargetNodeId is null && direction is null)
+        {
+            return InvalidGesture<GesturePlan>(
+                action,
+                targetNodeId,
+                "Drag and swipe require a destination target node id or direction.");
+        }
+
+        var source = ResolveGestureTarget(topLevel, action, targetNodeId.Trim(), "source");
+        if (!source.Success)
+        {
+            return CoreResult<GesturePlan>.Fail(source.Error!);
+        }
+
+        GestureTarget? destination = null;
+        if (options.DestinationTargetNodeId is not null)
+        {
+            var destinationResult = ResolveGestureTarget(
+                topLevel,
+                action,
+                options.DestinationTargetNodeId,
+                "destination");
+            if (!destinationResult.Success)
+            {
+                return CoreResult<GesturePlan>.Fail(destinationResult.Error!);
+            }
+
+            destination = destinationResult.Value!;
+        }
+
+        var sourceTarget = source.Value!;
+        var start = sourceTarget.Bounds.Center;
+        var end = start;
+        var clipped = false;
+        var distancePercentage = options.DistancePercentage ?? 100d;
+        if (destination is not null)
+        {
+            end = destination.Bounds.Center;
+        }
+        else if (!isHold)
+        {
+            end = ResolveDirectionalGestureEnd(
+                start,
+                sourceTarget.Bounds,
+                new Rect(topLevel.Bounds.Size),
+                direction!,
+                distancePercentage,
+                out clipped);
+        }
+
+        var requestedDurationMs = options.DurationMs ?? action switch
+        {
+            InputActions.Drag => 300,
+            InputActions.Swipe => 200,
+            InputActions.LongPress => 800,
+            _ => 1000
+        };
+        var pointCount = isHold ? 1 : Math.Clamp(requestedDurationMs / 16 + 1, 2, 33);
+        var points = new RuntimeVector[pointCount];
+        for (var index = 0; index < pointCount; index++)
+        {
+            var progress = pointCount == 1 ? 0d : index / (double)(pointCount - 1);
+            points[index] = new RuntimeVector(
+                start.X + ((end.X - start.X) * progress),
+                start.Y + ((end.Y - start.Y) * progress));
+        }
+
+        IRangeValueProvider? rangeProvider = null;
+        double? previousRangeValue = null;
+        double? nextRangeValue = null;
+        if (!isHold
+            && destination is null
+            && sourceTarget.Visual is Control control)
+        {
+            var peer = ControlAutomationPeer.CreatePeerForElement(control);
+            var provider = peer?.GetProvider<IRangeValueProvider>();
+            if (provider is { IsReadOnly: false }
+                && double.IsFinite(provider.Minimum)
+                && double.IsFinite(provider.Maximum)
+                && double.IsFinite(provider.Value)
+                && provider.Maximum >= provider.Minimum)
+            {
+                rangeProvider = provider;
+                previousRangeValue = provider.Value;
+                var range = provider.Maximum - provider.Minimum;
+                nextRangeValue = direction switch
+                {
+                    GestureDirections.Start => provider.Minimum,
+                    GestureDirections.End => provider.Maximum,
+                    GestureDirections.Left or GestureDirections.Down
+                        => Math.Max(provider.Minimum, provider.Value - (range * distancePercentage / 100d)),
+                    _ => Math.Min(provider.Maximum, provider.Value + (range * distancePercentage / 100d))
+                };
+            }
+        }
+
+        var executionMode = rangeProvider is null ? "pointer_fallback" : "automation_provider";
+        var provenance = rangeProvider is null ? "synthetic_pointer_events" : nameof(IRangeValueProvider);
+        var path = new RuntimeGesturePath(
+            ToNodeBounds(sourceTarget.Bounds),
+            points,
+            "top_level_dip",
+            destination is null ? null : ToNodeBounds(destination.Bounds),
+            direction,
+            isHold || destination is not null ? null : distancePercentage,
+            clipped);
+        return CoreResult<GesturePlan>.Ok(new GesturePlan(
+            topLevel,
+            topLevelId,
+            action,
+            sourceTarget,
+            destination,
+            path,
+            requestedDurationMs,
+            executionMode,
+            provenance,
+            rangeProvider,
+            previousRangeValue,
+            nextRangeValue));
+    }
+
+    private CoreResult<GestureTarget> ResolveGestureTarget(
+        TopLevel topLevel,
+        string action,
+        string targetNodeId,
+        string targetRole)
+    {
+        var node = FindNodeById(topLevel, targetNodeId);
+        if (node is null)
+        {
+            return CoreResult<GestureTarget>.Fail(new CoreError(
+                BridgeErrorCodes.NodeNotFound,
+                $"Gesture {targetRole} node '{targetNodeId}' was not found.",
+                CreateTargetErrorDetails(null, TreeKinds.Visual, targetNodeId)));
+        }
+
+        if (node is not Visual visual || node is not InputElement inputElement)
+        {
+            return InvalidGesture<GestureTarget>(
+                action,
+                targetNodeId,
+                $"Gesture {targetRole} must be a visual input element.",
+                new Dictionary<string, string>
+                {
+                    ["targetRole"] = targetRole,
+                    ["targetType"] = node.GetType().FullName ?? node.GetType().Name
+                });
+        }
+
+        if (!visual.IsEffectivelyVisible || !inputElement.IsEnabled)
+        {
+            return InvalidGesture<GestureTarget>(
+                action,
+                targetNodeId,
+                $"Gesture {targetRole} is hidden or disabled.",
+                new Dictionary<string, string>
+                {
+                    ["targetRole"] = targetRole,
+                    ["visible"] = visual.IsEffectivelyVisible.ToString(),
+                    ["enabled"] = inputElement.IsEnabled.ToString()
+                });
+        }
+
+        var bounds = GetGestureBounds(visual, topLevel);
+        if (bounds is null
+            || !IsFinitePositive(bounds.Value))
+        {
+            return InvalidGesture<GestureTarget>(
+                action,
+                targetNodeId,
+                $"Gesture {targetRole} does not have finite, positive arranged bounds.",
+                bounds is null ? null : new Dictionary<string, string> { ["targetBounds"] = FormatRect(bounds.Value) });
+        }
+
+        var topLevelBounds = new Rect(topLevel.Bounds.Size);
+        if (!Contains(topLevelBounds, bounds.Value))
+        {
+            return InvalidGesture<GestureTarget>(
+                action,
+                targetNodeId,
+                $"Gesture {targetRole} is clipped by the top-level bounds.",
+                new Dictionary<string, string> { ["targetBounds"] = FormatRect(bounds.Value) });
+        }
+
+        foreach (var ancestor in visual.GetVisualAncestors())
+        {
+            if (!ancestor.ClipToBounds)
+            {
+                continue;
+            }
+
+            var ancestorBounds = GetGestureBounds(ancestor, topLevel);
+            if (ancestorBounds is not null && !Contains(ancestorBounds.Value, bounds.Value))
+            {
+                return InvalidGesture<GestureTarget>(
+                    action,
+                    targetNodeId,
+                    $"Gesture {targetRole} is clipped by an ancestor.",
+                    new Dictionary<string, string>
+                    {
+                        ["targetBounds"] = FormatRect(bounds.Value),
+                        ["clippingAncestorBounds"] = FormatRect(ancestorBounds.Value),
+                        ["clippingAncestorType"] = ancestor.GetType().FullName ?? ancestor.GetType().Name
+                    });
+            }
+        }
+
+        var hitVisual = topLevel.GetVisualAt(bounds.Value.Center);
+        if (hitVisual is null
+            || !ReferenceEquals(hitVisual, visual)
+                && !hitVisual.GetVisualAncestors().Contains(visual))
+        {
+            return InvalidGesture<GestureTarget>(
+                action,
+                targetNodeId,
+                $"Gesture {targetRole} center is obscured or not hit-testable.",
+                new Dictionary<string, string>
+                {
+                    ["targetBounds"] = FormatRect(bounds.Value),
+                    ["hitNodeType"] = hitVisual?.GetType().FullName ?? "not_available"
+                });
+        }
+
+        return CoreResult<GestureTarget>.Ok(new GestureTarget(targetNodeId, visual, inputElement, bounds.Value));
+    }
+
+    private static Point ResolveDirectionalGestureEnd(
+        Point start,
+        Rect sourceBounds,
+        Rect topLevelBounds,
+        string direction,
+        double distancePercentage,
+        out bool clipped)
+    {
+        const double edgeInset = 1d;
+        var distanceX = sourceBounds.Width * distancePercentage / 100d;
+        var distanceY = sourceBounds.Height * distancePercentage / 100d;
+        var requested = direction switch
+        {
+            GestureDirections.Left => new Point(start.X - distanceX, start.Y),
+            GestureDirections.Right => new Point(start.X + distanceX, start.Y),
+            GestureDirections.Up => new Point(start.X, start.Y - distanceY),
+            GestureDirections.Down => new Point(start.X, start.Y + distanceY),
+            GestureDirections.Start => new Point(sourceBounds.Left + edgeInset, start.Y),
+            _ => new Point(sourceBounds.Right - edgeInset, start.Y)
+        };
+        var effective = new Point(
+            Math.Clamp(requested.X, topLevelBounds.Left + edgeInset, topLevelBounds.Right - edgeInset),
+            Math.Clamp(requested.Y, topLevelBounds.Top + edgeInset, topLevelBounds.Bottom - edgeInset));
+        clipped = effective != requested;
+        return effective;
+    }
+
+    private CoreResult<InputResponse> ExecuteRangeGesture(GesturePlan plan)
+    {
+        Dispatcher.UIThread.VerifyAccess();
+        try
+        {
+            plan.RangeProvider!.SetValue(plan.NextRangeValue!.Value);
+        }
+        catch (InvalidOperationException exception)
+        {
+            return CoreResult<InputResponse>.Fail(new CoreError(
+                BridgeErrorCodes.UnsupportedInputAction,
+                "Range-value automation provider rejected the gesture.",
+                new Dictionary<string, string>
+                {
+                    ["action"] = plan.Action,
+                    ["targetNodeId"] = plan.Source.NodeId,
+                    ["provider"] = nameof(IRangeValueProvider),
+                    ["reason"] = exception.Message
+                }));
+        }
+
+        return CoreResult<InputResponse>.Ok(CreateGestureResponse(
+            plan,
+            handled: true,
+            validateOnly: false,
+            effectiveDurationMs: 0));
+    }
+
+    private async Task DispatchGesturePointerAsync(
+        GesturePlan plan,
+        Pointer pointer,
+        RuntimeVector vector,
+        GesturePointerEvent pointerEvent,
+        CancellationToken cancellationToken)
+    {
+        void Dispatch()
+        {
+            var point = new Point(vector.X, vector.Y);
+            var hitVisual = plan.TopLevel.GetVisualAt(point);
+            var target = pointer.Captured as InputElement
+                ?? hitVisual as InputElement
+                ?? hitVisual?.FindAncestorOfType<InputElement>()
+                ?? plan.Source.InputElement;
+            switch (pointerEvent)
+            {
+                case GesturePointerEvent.Pressed:
+                    _activePointers[plan.TopLevelId] = pointer;
+                    target.RaiseEvent(new PointerPressedEventArgs(
+                        target,
+                        pointer,
+                        plan.TopLevel,
+                        point,
+                        (ulong)Environment.TickCount64,
+                        new PointerPointProperties(RawInputModifiers.LeftMouseButton, PointerUpdateKind.LeftButtonPressed),
+                        KeyModifiers.None));
+                    break;
+                case GesturePointerEvent.Moved:
+                    target.RaiseEvent(new PointerEventArgs(
+                        InputElement.PointerMovedEvent,
+                        target,
+                        pointer,
+                        plan.TopLevel,
+                        point,
+                        (ulong)Environment.TickCount64,
+                        new PointerPointProperties(RawInputModifiers.LeftMouseButton, PointerUpdateKind.Other),
+                        KeyModifiers.None));
+                    break;
+                case GesturePointerEvent.Released:
+                    target.RaiseEvent(new PointerReleasedEventArgs(
+                        target,
+                        pointer,
+                        plan.TopLevel,
+                        point,
+                        (ulong)Environment.TickCount64,
+                        new PointerPointProperties(RawInputModifiers.None, PointerUpdateKind.LeftButtonReleased),
+                        KeyModifiers.None,
+                        MouseButton.Left));
+                    _activePointers.TryRemove(plan.TopLevelId, out _);
+                    break;
+            }
+        }
+
+        if (Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatch();
+            return;
+        }
+
+        await Dispatcher.UIThread.InvokeAsync(
+            Dispatch,
+            DispatcherPriority.Background,
+            cancellationToken);
+    }
+
+    private InputResponse CreateGestureResponse(
+        GesturePlan plan,
+        bool handled,
+        bool validateOnly,
+        int effectiveDurationMs)
+    {
+        var metadata = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["coordinateSource"] = "current_target_bounds",
+            ["coordinateSpace"] = plan.Path.CoordinateSpace,
+            ["executionMode"] = plan.ExecutionMode,
+            ["provenance"] = plan.Provenance,
+            ["requestedDurationMs"] = plan.RequestedDurationMs.ToString(CultureInfo.InvariantCulture),
+            ["effectiveDurationMs"] = effectiveDurationMs.ToString(CultureInfo.InvariantCulture),
+            ["pathPointCount"] = plan.Path.Points.Count.ToString(CultureInfo.InvariantCulture),
+            ["sourceBounds"] = FormatRect(plan.Source.Bounds),
+            ["dryRun"] = validateOnly.ToString().ToLowerInvariant(),
+            ["validationStatus"] = validateOnly ? "validated" : "executed"
+        };
+        if (plan.Destination is not null)
+        {
+            metadata["destinationBounds"] = FormatRect(plan.Destination.Bounds);
+        }
+
+        if (plan.PreviousRangeValue is not null)
+        {
+            metadata["previousRangeValue"] = plan.PreviousRangeValue.Value.ToString("0.###", CultureInfo.InvariantCulture);
+            metadata["requestedRangeValue"] = plan.NextRangeValue!.Value.ToString("0.###", CultureInfo.InvariantCulture);
+            metadata["currentRangeValue"] = validateOnly
+                ? plan.PreviousRangeValue.Value.ToString("0.###", CultureInfo.InvariantCulture)
+                : plan.RangeProvider!.Value.ToString("0.###", CultureInfo.InvariantCulture);
+        }
+
+        return new InputResponse(
+            SessionId,
+            plan.TopLevelId,
+            plan.Action,
+            handled,
+            DateTimeOffset.UtcNow,
+            plan.Source.NodeId,
+            CreateNodeTarget(plan.TopLevelId, TreeKinds.Visual, plan.TopLevel, plan.Source.Visual),
+            pointerButton: plan.RangeProvider is null ? "left" : null,
+            metadata: metadata,
+            gesture: new RuntimeGestureResult(
+                plan.Path,
+                plan.ExecutionMode,
+                plan.Provenance,
+                plan.RequestedDurationMs,
+                effectiveDurationMs,
+                plan.Source.NodeId,
+                plan.Destination?.NodeId));
+    }
+
+    private static CoreResult<T> InvalidGesture<T>(
+        string action,
+        string? targetNodeId,
+        string message,
+        IReadOnlyDictionary<string, string>? extraDetails = null)
+    {
+        var details = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["action"] = action,
+            ["targetNodeId"] = string.IsNullOrWhiteSpace(targetNodeId) ? "not_provided" : targetNodeId,
+            ["nextAction"] = "Refresh the visual tree, use a visible enabled target with positive bounds, and provide one supported gesture form."
+        };
+        if (extraDetails is not null)
+        {
+            foreach (var pair in extraDetails)
+            {
+                details[pair.Key] = pair.Value;
+            }
+        }
+
+        return CoreResult<T>.Fail(new CoreError(BridgeErrorCodes.InvalidInputRequest, message, details));
+    }
+
+    private static bool IsFinitePositive(Rect bounds) =>
+        double.IsFinite(bounds.X)
+        && double.IsFinite(bounds.Y)
+        && double.IsFinite(bounds.Width)
+        && double.IsFinite(bounds.Height)
+        && bounds.Width > 0
+        && bounds.Height > 0;
+
+    private static Rect? GetGestureBounds(Visual visual, Visual topLevel)
+    {
+        var transform = visual.TransformToVisual(topLevel);
+        return transform is null
+            ? null
+            : new Rect(visual.Bounds.Size).TransformToAABB(transform.Value);
+    }
+
+    private static NodeBounds ToNodeBounds(Rect bounds) =>
+        new(bounds.X, bounds.Y, bounds.Width, bounds.Height);
+
+    private sealed record GestureTarget(
+        string NodeId,
+        Visual Visual,
+        InputElement InputElement,
+        Rect Bounds);
+
+    private sealed record GesturePlan(
+        TopLevel TopLevel,
+        string TopLevelId,
+        string Action,
+        GestureTarget Source,
+        GestureTarget? Destination,
+        RuntimeGesturePath Path,
+        int RequestedDurationMs,
+        string ExecutionMode,
+        string Provenance,
+        IRangeValueProvider? RangeProvider,
+        double? PreviousRangeValue,
+        double? NextRangeValue);
+
+    private enum GesturePointerEvent
+    {
+        Pressed,
+        Moved,
+        Released
     }
 
     private CoreResult<InputResponse> PointerMove(TopLevel topLevel, string topLevelId, double? x, double? y)

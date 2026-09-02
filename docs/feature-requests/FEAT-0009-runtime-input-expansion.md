@@ -31,4 +31,4 @@ This is the highest-priority new runtime validation gap because tab/workspace sw
 
 ## Implementation Notes
 
-`v0.6.0` adds targeted `select` input for `SelectingItemsControl` instances and deterministic `scroll` input for `ScrollViewer` offsets through bridge, CLI, MCP, and protocol contracts. Drag/pan/thumb gestures remain limited to future public-API-safe slices.
+`v0.6.0` added targeted `select` input for `SelectingItemsControl` instances and deterministic `scroll` input for `ScrollViewer` offsets. The `v1.4.0` #99 slice adds bounds-derived `drag`, `swipe`, `long_press`, and `press_and_hold` across protocol, Bridge, Core workflows, CLI, and MCP. Writable range controls use the public `IRangeValueProvider`; custom controls use a bounded routed-pointer fallback with structured path/provenance/timing results and cancellation-safe release. Native Avalonia drag-and-drop payload exchange and full IME behavior remain deferred.

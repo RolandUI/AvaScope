@@ -105,7 +105,7 @@ public sealed class ProtocolContractTests
         Assert.Contains(response.Capabilities, capability => capability.Id == AvaScopeCapabilityIds.RuntimeLayoutExplain);
         var semanticAutomation = Assert.Single(response.Capabilities, capability =>
             capability.Id == AvaScopeCapabilityIds.RuntimeSemanticAutomation);
-        Assert.Equal("invoke,select,toggle,expand,collapse", semanticAutomation.Metadata["actions"]);
+        Assert.Equal("invoke,select,toggle,expand,collapse,drag,swipe", semanticAutomation.Metadata["actions"]);
         var runtimeInput = Assert.Single(response.Capabilities, capability =>
             capability.Id == AvaScopeCapabilityIds.RuntimeInput);
         Assert.Equal("explicit_or_target_center", runtimeInput.Metadata["clickCoordinates"]);
@@ -321,6 +321,28 @@ public sealed class ProtocolContractTests
         Assert.Contains(SemanticWorkflowActions.WaitForDialog, SemanticWorkflowActions.All);
         Assert.Contains(BridgeIpcMethods.ValidateInput, BridgeIpcMethods.All);
         Assert.Contains(BridgeIpcMethods.ValidateMutation, BridgeIpcMethods.All);
+    }
+
+    [Fact]
+    public void GestureWorkflowStepSerializesStableShape()
+    {
+        var step = new SemanticWorkflowStep(
+            SemanticWorkflowActions.Drag,
+            "drag-card",
+            new SemanticWorkflowSelector(automationId: "source-card"),
+            destinationSelector: new SemanticWorkflowSelector(automationId: "destination-column"),
+            durationMs: 450);
+
+        var node = JsonNode.Parse(JsonSerializer.Serialize(step))!;
+
+        Assert.Equal("drag", node["action"]!.GetValue<string>());
+        Assert.Equal("source-card", node["selector"]!["automationId"]!.GetValue<string>());
+        Assert.Equal("destination-column", node["destinationSelector"]!["automationId"]!.GetValue<string>());
+        Assert.Equal(450, node["durationMs"]!.GetValue<int>());
+        Assert.Contains(SemanticWorkflowActions.Drag, SemanticWorkflowActions.All);
+        Assert.Contains(SemanticWorkflowActions.Swipe, SemanticWorkflowActions.All);
+        Assert.Contains(SemanticWorkflowActions.LongPress, SemanticWorkflowActions.All);
+        Assert.Contains(SemanticWorkflowActions.PressAndHold, SemanticWorkflowActions.All);
     }
 
     [Fact]
@@ -1841,6 +1863,42 @@ public sealed class ProtocolContractTests
     }
 
     [Fact]
+    public void InputResponseSerializesGestureProvenanceAndDerivedPath()
+    {
+        var path = new RuntimeGesturePath(
+            new NodeBounds(10, 20, 80, 40),
+            [new RuntimeVector(50, 40), new RuntimeVector(90, 40)],
+            "top_level_dip",
+            direction: GestureDirections.Right,
+            distancePercentage: 50);
+        var response = new InputResponse(
+            new SessionId("session-1"),
+            "topLevel:abc",
+            InputActions.Swipe,
+            handled: true,
+            DateTimeOffset.UnixEpoch,
+            "visual:card",
+            gesture: new RuntimeGestureResult(
+                path,
+                "pointer_fallback",
+                "synthetic_pointer_events",
+                requestedDurationMs: 200,
+                effectiveDurationMs: 205,
+                sourceTargetNodeId: "visual:card"));
+
+        var node = JsonNode.Parse(JsonSerializer.Serialize(response))!;
+
+        Assert.Equal("pointer_fallback", node["gesture"]!["executionMode"]!.GetValue<string>());
+        Assert.Equal("synthetic_pointer_events", node["gesture"]!["provenance"]!.GetValue<string>());
+        Assert.Equal(200, node["gesture"]!["requestedDurationMs"]!.GetValue<int>());
+        Assert.Equal(205, node["gesture"]!["effectiveDurationMs"]!.GetValue<int>());
+        Assert.Equal("top_level_dip", node["gesture"]!["path"]!["coordinateSpace"]!.GetValue<string>());
+        Assert.Equal("right", node["gesture"]!["path"]!["direction"]!.GetValue<string>());
+        Assert.Equal(50, node["gesture"]!["path"]!["distancePercentage"]!.GetValue<double>());
+        Assert.Equal(90, node["gesture"]!["path"]!["points"]![1]!["x"]!.GetValue<double>());
+    }
+
+    [Fact]
     public void InputActionConstantsRemainStable()
     {
         Assert.Equal("pointer_move", InputActions.PointerMove);
@@ -1857,6 +1915,13 @@ public sealed class ProtocolContractTests
         Assert.Equal("expand", InputActions.Expand);
         Assert.Equal("collapse", InputActions.Collapse);
         Assert.Equal("scroll", InputActions.Scroll);
+        Assert.Equal("drag", InputActions.Drag);
+        Assert.Equal("swipe", InputActions.Swipe);
+        Assert.Equal("long_press", InputActions.LongPress);
+        Assert.Equal("press_and_hold", InputActions.PressAndHold);
+        Assert.Equal(
+            ["left", "right", "up", "down", "start", "end"],
+            GestureDirections.All);
     }
 
     [Fact]
@@ -2154,6 +2219,27 @@ public sealed class ProtocolContractTests
         Assert.Equal("visual:button", node["targetNodeId"]!.GetValue<string>());
         Assert.Equal("Enter", node["inputKey"]!.GetValue<string>());
         Assert.Equal("Control+Shift", node["keyModifiers"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public void BridgeIpcRequestSerializesGestureOptions()
+    {
+        var request = new BridgeIpcRequest(
+            "request-gesture",
+            BridgeIpcMethods.Input,
+            "topLevel:abc",
+            action: InputActions.Drag,
+            targetNodeId: "visual:source",
+            gesture: new InputGestureOptions(
+                durationMs: 350,
+                destinationTargetNodeId: "visual:destination"));
+
+        var node = JsonNode.Parse(JsonSerializer.Serialize(request))!;
+
+        Assert.Equal("drag", node["action"]!.GetValue<string>());
+        Assert.Equal("visual:source", node["targetNodeId"]!.GetValue<string>());
+        Assert.Equal(350, node["gesture"]!["durationMs"]!.GetValue<int>());
+        Assert.Equal("visual:destination", node["gesture"]!["destinationTargetNodeId"]!.GetValue<string>());
     }
 
     [Fact]

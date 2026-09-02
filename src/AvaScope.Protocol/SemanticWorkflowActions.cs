@@ -13,6 +13,10 @@ public static class SemanticWorkflowActions
     public const string Collapse = "collapse";
     public const string KeyDown = "key_down";
     public const string KeyUp = "key_up";
+    public const string Drag = "drag";
+    public const string Swipe = "swipe";
+    public const string LongPress = "long_press";
+    public const string PressAndHold = "press_and_hold";
     public const string AssertState = "assert_state";
     public const string Screenshot = "screenshot";
     public const string Inspect = "inspect";
@@ -27,7 +31,8 @@ public static class SemanticWorkflowActions
     public static IReadOnlyList<string> All { get; } =
     [
         Click, TypeText, ClearText, Focus, Invoke, Select, Toggle, Expand,
-        Collapse, KeyDown, KeyUp, AssertState, Screenshot, Inspect, Wait,
+        Collapse, KeyDown, KeyUp, Drag, Swipe, LongPress, PressAndHold,
+        AssertState, Screenshot, Inspect, Wait,
         WaitForNode, WaitForState, WaitForDialog, ValidateAction,
         ValidateMutation, PickerResult
     ];

@@ -21,7 +21,11 @@ public sealed record SemanticWorkflowStep
         string? inputAction = null,
         RuntimeMutationOperation? mutation = null,
         string? idempotencyKey = null,
-        int? idempotencyTtlMs = null)
+        int? idempotencyTtlMs = null,
+        SemanticWorkflowSelector? destinationSelector = null,
+        string? direction = null,
+        double? distancePercentage = null,
+        int? durationMs = null)
     {
         if (string.IsNullOrWhiteSpace(action))
         {
@@ -48,6 +52,16 @@ public sealed record SemanticWorkflowStep
             throw new ArgumentOutOfRangeException(nameof(idempotencyTtlMs), idempotencyTtlMs, "Idempotency TTL must be between 100 and 86400000 ms.");
         }
 
+        if (distancePercentage is <= 0 or > 100)
+        {
+            throw new ArgumentOutOfRangeException(nameof(distancePercentage), distancePercentage, "Gesture distance percentage must be greater than 0 and at most 100.");
+        }
+
+        if (durationMs is < InputGestureOptions.MinimumDurationMs or > InputGestureOptions.MaximumDurationMs)
+        {
+            throw new ArgumentOutOfRangeException(nameof(durationMs), durationMs, $"Gesture duration must be between {InputGestureOptions.MinimumDurationMs} and {InputGestureOptions.MaximumDurationMs} ms.");
+        }
+
         Action = action.Trim();
         Id = string.IsNullOrWhiteSpace(id) ? Action : id.Trim();
         Selector = selector;
@@ -64,6 +78,10 @@ public sealed record SemanticWorkflowStep
         Mutation = mutation;
         IdempotencyKey = string.IsNullOrWhiteSpace(idempotencyKey) ? null : idempotencyKey.Trim();
         IdempotencyTtlMs = idempotencyTtlMs;
+        DestinationSelector = destinationSelector;
+        Direction = string.IsNullOrWhiteSpace(direction) ? null : direction.Trim();
+        DistancePercentage = distancePercentage;
+        DurationMs = durationMs;
     }
 
     [JsonPropertyName("id")]
@@ -127,4 +145,20 @@ public sealed record SemanticWorkflowStep
     [JsonPropertyName("idempotencyTtlMs")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public int? IdempotencyTtlMs { get; }
+
+    [JsonPropertyName("destinationSelector")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public SemanticWorkflowSelector? DestinationSelector { get; }
+
+    [JsonPropertyName("direction")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Direction { get; }
+
+    [JsonPropertyName("distancePercentage")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public double? DistancePercentage { get; }
+
+    [JsonPropertyName("durationMs")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? DurationMs { get; }
 }

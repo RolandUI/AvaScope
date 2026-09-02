@@ -149,7 +149,7 @@ public sealed class RuntimeInteractionAnimationRunner
                     step.TargetNodeId,
                     step.InputKey,
                     step.KeyModifiers,
-                    cancellationToken);
+                    cancellationToken: cancellationToken);
                 if (!inputResult.Success)
                 {
                     var error = ToProtocolError(inputResult.Error!);
