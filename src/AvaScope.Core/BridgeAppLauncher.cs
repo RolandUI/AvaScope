@@ -9,7 +9,7 @@ public sealed class BridgeAppLauncher
 {
     private static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(15);
 
-    public async Task<CoreResult<LaunchAppResponse>> LaunchAsync(
+    public Task<CoreResult<LaunchAppResponse>> LaunchAsync(
         string command,
         string? arguments = null,
         string? workingDirectory = null,
@@ -22,7 +22,38 @@ public sealed class BridgeAppLauncher
         IReadOnlyList<string>? argumentList = null,
         bool directProcess = false,
         bool terminateOnFailure = false,
-        bool captureOutputUntilExit = false)
+        bool captureOutputUntilExit = false) =>
+        LaunchAsync(
+            command,
+            arguments,
+            workingDirectory,
+            displayName,
+            manifestDirectory,
+            outputDirectory,
+            environment,
+            timeout,
+            cancellationToken,
+            argumentList,
+            directProcess,
+            terminateOnFailure,
+            captureOutputUntilExit,
+            outputSanitizer: null);
+
+    internal async Task<CoreResult<LaunchAppResponse>> LaunchAsync(
+        string command,
+        string? arguments,
+        string? workingDirectory,
+        string? displayName,
+        string? manifestDirectory,
+        string? outputDirectory,
+        IReadOnlyDictionary<string, string>? environment,
+        TimeSpan? timeout,
+        CancellationToken cancellationToken,
+        IReadOnlyList<string>? argumentList,
+        bool directProcess,
+        bool terminateOnFailure,
+        bool captureOutputUntilExit,
+        Func<string, string>? outputSanitizer)
     {
         if (string.IsNullOrWhiteSpace(command))
         {
@@ -106,8 +137,16 @@ public sealed class BridgeAppLauncher
         }
 
         var outputCancellation = new CancellationTokenSource();
-        var stdoutTask = CopyToFileUntilExitAsync(process.StandardOutput, stdoutPath, outputCancellation.Token);
-        var stderrTask = CopyToFileUntilExitAsync(process.StandardError, stderrPath, outputCancellation.Token);
+        var stdoutTask = CopyToFileUntilExitAsync(
+            process.StandardOutput,
+            stdoutPath,
+            outputCancellation.Token,
+            outputSanitizer);
+        var stderrTask = CopyToFileUntilExitAsync(
+            process.StandardError,
+            stderrPath,
+            outputCancellation.Token,
+            outputSanitizer);
 
         var client = new LocalBridgeClient(
             fullManifestDirectory,
@@ -393,7 +432,11 @@ public sealed class BridgeAppLauncher
             timeoutDetails);
     }
 
-    private static async Task CopyToFileUntilExitAsync(StreamReader reader, string path, CancellationToken cancellationToken)
+    private static async Task CopyToFileUntilExitAsync(
+        StreamReader reader,
+        string path,
+        CancellationToken cancellationToken,
+        Func<string, string>? outputSanitizer)
     {
         try
         {
@@ -407,7 +450,7 @@ public sealed class BridgeAppLauncher
                     break;
                 }
 
-                await writer.WriteLineAsync(line);
+                await writer.WriteLineAsync(outputSanitizer?.Invoke(line) ?? line);
                 await writer.FlushAsync(cancellationToken);
             }
         }

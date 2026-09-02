@@ -328,6 +328,40 @@ public sealed class RuntimeScenarioLifecycleTests : IDisposable
         AssertProcessExited(result.Value.Launch.ProcessId);
     }
 
+    [Fact]
+    public async Task EvidencePolicyRedactsBuildOutputBeforePersistence()
+    {
+        const string secret = "policy-build-secret";
+        var projectPath = WriteProject("policy-redacted-build", failBuild: false, buildMessage: secret);
+        var evidenceRoot = Path.Combine(_testRoot, "policy-build-evidence");
+        var outputDirectory = Path.Combine(evidenceRoot, "run");
+        var request = new RuntimeScenarioRequest(
+            [new SemanticWorkflowStep(SemanticWorkflowActions.Wait, "wait", waitMs: 1)],
+            requestId: "policy-redacted-build",
+            sessionId: new SessionId("missing-policy-build-session"),
+            topLevelId: "topLevel:missing",
+            outputDirectory: outputDirectory,
+            build: new RuntimeScenarioBuildOptions(projectPath, arguments: ["--nologo"]),
+            evidence: new SemanticWorkflowEvidenceOptions(
+                exportReports: false,
+                policy: new RuntimeEvidencePolicy(
+                    evidenceRoot,
+                    redactedText: [secret],
+                    allowedActions: [SemanticWorkflowActions.Wait])));
+
+        var result = await new RuntimeScenarioRunner().RunAsync(
+            new LocalBridgeClient(Path.Combine(outputDirectory, "missing-manifests")),
+            request);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(RuntimeScenarioFailureStages.Attach, result.Value!.FailureStage);
+        Assert.Equal(RuntimeScenarioLifecycleStatuses.Passed, result.Value.Build!.Status);
+        var stdout = await File.ReadAllTextAsync(result.Value.Build.StdoutPath);
+        Assert.DoesNotContain(secret, stdout, StringComparison.Ordinal);
+        Assert.Contains("[REDACTED]", stdout, StringComparison.Ordinal);
+        Assert.DoesNotContain(secret, JsonSerializer.Serialize(result.Value), StringComparison.Ordinal);
+    }
+
     private RuntimeScenarioRequest CreateRequest(
         string requestId,
         RuntimeScenarioBuildOptions? build = null,
@@ -361,7 +395,7 @@ public sealed class RuntimeScenarioLifecycleTests : IDisposable
                 timeoutMs: timeoutMs);
     }
 
-    private string WriteProject(string name, bool failBuild)
+    private string WriteProject(string name, bool failBuild, string? buildMessage = null)
     {
         var projectDirectory = Path.Combine(_testRoot, name, "project");
         Directory.CreateDirectory(projectDirectory);
@@ -369,9 +403,12 @@ public sealed class RuntimeScenarioLifecycleTests : IDisposable
         var failureTarget = failBuild
             ? "<Target Name=\"FailExpectedly\" BeforeTargets=\"Build\"><Error Text=\"Expected lifecycle build failure\" /></Target>"
             : string.Empty;
+        var messageTarget = buildMessage is null
+            ? string.Empty
+            : $"<Target Name=\"EmitPolicyTestOutput\" AfterTargets=\"Build\"><Message Importance=\"high\" Text=\"{buildMessage}\" /></Target>";
         File.WriteAllText(
             projectPath,
-            $"<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup>{failureTarget}</Project>");
+            $"<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup>{failureTarget}{messageTarget}</Project>");
         return projectPath;
     }
 

@@ -9,7 +9,8 @@ internal sealed class RuntimeScenarioBuilder
     public async Task<RuntimeScenarioBuildResult> BuildAsync(
         RuntimeScenarioBuildOptions options,
         string outputDirectory,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Func<string, string>? outputSanitizer = null)
     {
         ArgumentNullException.ThrowIfNull(options);
 
@@ -144,7 +145,8 @@ internal sealed class RuntimeScenarioBuilder
                 stderrPath,
                 stdoutTask,
                 stderrTask,
-                TimeSpan.FromSeconds(1));
+                TimeSpan.FromSeconds(1),
+                outputSanitizer);
             metadata["ownedProcessKillRequested"] = killRequested.ToString().ToLowerInvariant();
             metadata["ownedProcessExited"] = exitedAfterTermination.ToString().ToLowerInvariant();
             var status = cancelled
@@ -167,7 +169,7 @@ internal sealed class RuntimeScenarioBuilder
                 metadata);
         }
 
-        await WriteLogsAsync(stdoutPath, stderrPath, stdoutTask, stderrTask);
+        await WriteLogsAsync(stdoutPath, stderrPath, stdoutTask, stderrTask, outputSanitizer);
         if (process.ExitCode == 0)
         {
             return CreateResult(
@@ -201,10 +203,11 @@ internal sealed class RuntimeScenarioBuilder
         string stdoutPath,
         string stderrPath,
         Task<string> stdoutTask,
-        Task<string> stderrTask)
+        Task<string> stderrTask,
+        Func<string, string>? outputSanitizer)
     {
-        await File.WriteAllTextAsync(stdoutPath, await stdoutTask);
-        await File.WriteAllTextAsync(stderrPath, await stderrTask);
+        await File.WriteAllTextAsync(stdoutPath, Sanitize(await stdoutTask, outputSanitizer));
+        await File.WriteAllTextAsync(stderrPath, Sanitize(await stderrTask, outputSanitizer));
     }
 
     private static async Task WriteLogsBoundedAsync(
@@ -212,21 +215,25 @@ internal sealed class RuntimeScenarioBuilder
         string stderrPath,
         Task<string> stdoutTask,
         Task<string> stderrTask,
-        TimeSpan timeout)
+        TimeSpan timeout,
+        Func<string, string>? outputSanitizer)
     {
         var captureTask = Task.WhenAll(stdoutTask, stderrTask);
         await Task.WhenAny(captureTask, Task.Delay(timeout));
         await File.WriteAllTextAsync(
             stdoutPath,
-            stdoutTask.IsCompletedSuccessfully
+            Sanitize(stdoutTask.IsCompletedSuccessfully
                 ? stdoutTask.Result
-                : "Output capture did not complete before the bounded termination deadline.");
+                : "Output capture did not complete before the bounded termination deadline.", outputSanitizer));
         await File.WriteAllTextAsync(
             stderrPath,
-            stderrTask.IsCompletedSuccessfully
+            Sanitize(stderrTask.IsCompletedSuccessfully
                 ? stderrTask.Result
-                : "Error output capture did not complete before the bounded termination deadline.");
+                : "Error output capture did not complete before the bounded termination deadline.", outputSanitizer));
     }
+
+    private static string Sanitize(string value, Func<string, string>? outputSanitizer) =>
+        outputSanitizer?.Invoke(value) ?? value;
 
     private static async Task<bool> WaitForExitBoundedAsync(Process process, TimeSpan timeout)
     {

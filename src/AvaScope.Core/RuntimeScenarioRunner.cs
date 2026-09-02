@@ -200,31 +200,6 @@ public sealed class RuntimeScenarioRunner
                 }
             }
 
-            if (evidencePolicy is not null)
-            {
-                CoreError? redactionFailure = null;
-                foreach (var path in new[]
-                {
-                    build?.StdoutPath,
-                    build?.StderrPath,
-                    launch?.StdoutPath,
-                    launch?.StderrPath
-                }.Where(static path => !string.IsNullOrWhiteSpace(path)))
-                {
-                    var redacted = evidencePolicy.SanitizeTextFile(path!);
-                    if (!redacted.Success)
-                    {
-                        redactionFailure = redacted.Error;
-                        break;
-                    }
-                }
-
-                if (redactionFailure is not null)
-                {
-                    return CoreResult<RuntimeScenarioResponse>.Ok(CreateRedactionFailure(startedAt, redactionFailure));
-                }
-            }
-
             var response = CreateResponse(
                 request,
                 status,
@@ -263,7 +238,8 @@ public sealed class RuntimeScenarioRunner
             build = await new RuntimeScenarioBuilder().BuildAsync(
                 effectiveBuild,
                 outputDirectory,
-                cancellationToken);
+                cancellationToken,
+                evidencePolicy is null ? null : value => evidencePolicy.SanitizeScalar(value));
             if (build.Diagnostic is not null)
             {
                 diagnostics.Add(build.Diagnostic);
@@ -291,6 +267,7 @@ public sealed class RuntimeScenarioRunner
                     request,
                     outputDirectory,
                     isolation,
+                    evidencePolicy,
                     cancellationToken);
                 if (!launchResult.Success)
                 {
@@ -492,6 +469,7 @@ public sealed class RuntimeScenarioRunner
         RuntimeScenarioRequest request,
         string outputDirectory,
         ScenarioIsolation isolation,
+        RuntimeEvidencePolicyEnforcer? evidencePolicy,
         CancellationToken cancellationToken)
     {
         var launch = request.Launch!;
@@ -554,7 +532,8 @@ public sealed class RuntimeScenarioRunner
             argumentList,
             directProcess: true,
             terminateOnFailure: true,
-            captureOutputUntilExit: true);
+            captureOutputUntilExit: true,
+            outputSanitizer: evidencePolicy is null ? null : value => evidencePolicy.SanitizeScalar(value));
     }
 
     private static async Task<(CoreResult<ListTopLevelsResponse> Result, int CheckCount)> ResolveTopLevelsAsync(
