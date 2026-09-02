@@ -18,6 +18,7 @@ using SkiaSharp;
 using System.Diagnostics;
 using System.Globalization;
 using System.Text.Json;
+using System.Windows.Input;
 
 namespace AvaScope.Tests.Bridge;
 
@@ -2214,6 +2215,223 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
     }
 
     [Fact]
+    public async Task SemanticWorkflowWaitsForRuntimeStatesAndAsyncCommandWithoutFixedDelays()
+    {
+        var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessTestApplication));
+
+        try
+        {
+            await session.Dispatch(async () =>
+            {
+                var panel = new StackPanel();
+                var status = new TextBox { Text = "ready", Width = 140 };
+                AutomationProperties.SetAutomationId(status, "wait-status");
+                var hidden = new Border { IsVisible = false, Width = 20, Height = 20 };
+                AutomationProperties.SetAutomationId(hidden, "wait-hidden");
+                var disabled = new Button { IsEnabled = false, Content = "Disabled" };
+                AutomationProperties.SetAutomationId(disabled, "wait-disabled");
+                var checkedToggle = new CheckBox { IsChecked = true, Content = "Checked" };
+                AutomationProperties.SetAutomationId(checkedToggle, "wait-checked");
+                var uncheckedToggle = new CheckBox { IsChecked = false, Content = "Unchecked" };
+                AutomationProperties.SetAutomationId(uncheckedToggle, "wait-unchecked");
+                var selection = new ComboBox { ItemsSource = new[] { "alpha", "beta" }, SelectedIndex = 1 };
+                AutomationProperties.SetAutomationId(selection, "wait-selection");
+                var emptySelection = new ComboBox { ItemsSource = new[] { "alpha" }, SelectedIndex = -1 };
+                AutomationProperties.SetAutomationId(emptySelection, "wait-null-selection");
+                var range = new Slider { Minimum = 0, Maximum = 100, Value = 42, Width = 160 };
+                AutomationProperties.SetAutomationId(range, "wait-range");
+                var command = new ObservableTestCommand(true);
+                var commandButton = new Button { Content = "Command", Command = command };
+                AutomationProperties.SetAutomationId(commandButton, "wait-command");
+                var bound = new TextBox { Width = 140, DataContext = new WaitStateViewModel("bound") };
+                bound.Bind(TextBox.TextProperty, new Avalonia.Data.Binding(nameof(WaitStateViewModel.Label)));
+                AutomationProperties.SetAutomationId(bound, "wait-binding");
+                var vanishing = new TextBlock { Text = "temporary" };
+                AutomationProperties.SetAutomationId(vanishing, "wait-vanishing");
+                var ambiguousOne = new TextBlock { Text = "ambiguous" };
+                var ambiguousTwo = new TextBlock { Text = "ambiguous" };
+                AutomationProperties.SetAutomationId(ambiguousOne, "wait-ambiguous");
+                AutomationProperties.SetAutomationId(ambiguousTwo, "wait-ambiguous");
+                var remove = new Button { Content = "Remove" };
+                AutomationProperties.SetAutomationId(remove, "wait-remove");
+                remove.Click += (_, _) => panel.Children.Remove(vanishing);
+                var recreate = new Button { Content = "Recreate" };
+                AutomationProperties.SetAutomationId(recreate, "wait-recreate");
+                recreate.Click += (_, _) =>
+                {
+                    var replacement = new TextBlock { Text = "replacement" };
+                    AutomationProperties.SetAutomationId(replacement, "wait-vanishing");
+                    panel.Children.Add(replacement);
+                };
+                var change = new Button { Content = "Change" };
+                AutomationProperties.SetAutomationId(change, "wait-change");
+                change.Click += (_, _) => range.Value = 75;
+                panel.Children.AddRange([
+                    status, hidden, disabled, checkedToggle, uncheckedToggle, selection,
+                    emptySelection, range, commandButton, bound, vanishing, ambiguousOne, ambiguousTwo,
+                    remove, recreate, change
+                ]);
+
+                var closeDialog = new Button { Content = "Close dialog" };
+                AutomationProperties.SetAutomationId(closeDialog, "wait-close-dialog");
+                panel.Children.Add(closeDialog);
+                var window = new Window { Title = "Wait state host", Width = 420, Height = 720, Content = panel };
+                var dialog = new Window { Title = "Wait state dialog", Width = 180, Height = 100 };
+                var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Wait state workflow"));
+                IDisposable? dialogRegistration = null;
+                try
+                {
+                    window.Show();
+                    dialog.Show();
+                    using var registration = runtime.RegisterTopLevel(window);
+                    dialogRegistration = runtime.RegisterTopLevel(dialog);
+                    closeDialog.Click += (_, _) =>
+                    {
+                        dialog.Close();
+                        dialogRegistration?.Dispose();
+                        dialogRegistration = null;
+                    };
+                    Dispatcher.UIThread.RunJobs();
+
+                    var topLevels = await runtime.ListTopLevelsAsync();
+                    var host = Assert.Single(topLevels, topLevel => topLevel.Title == window.Title);
+                    var dialogSummary = Assert.Single(topLevels, topLevel => topLevel.Title == dialog.Title);
+                    var client = new LocalBridgeClient(Path.GetDirectoryName(runtime.SessionManifestPath)!);
+                    var request = new SemanticWorkflowRequest(
+                        runtime.SessionId,
+                        host.Id,
+                        [
+                            WaitState("visible", "wait-status", SemanticWaitConditionKinds.Visible),
+                            WaitState("hidden", "wait-hidden", SemanticWaitConditionKinds.Hidden),
+                            WaitState("enabled", "wait-status", SemanticWaitConditionKinds.Enabled),
+                            WaitState("disabled", "wait-disabled", SemanticWaitConditionKinds.Disabled),
+                            WaitState("checked", "wait-checked", SemanticWaitConditionKinds.Checked),
+                            WaitState("unchecked", "wait-unchecked", SemanticWaitConditionKinds.Unchecked),
+                            WaitState("selected", "wait-selection", SemanticWaitConditionKinds.SelectedValue, "beta"),
+                            WaitState("selected-null", "wait-null-selection", SemanticWaitConditionKinds.SelectedValue, valueType: "null"),
+                            WaitState("text", "wait-status", SemanticWaitConditionKinds.Text, "ready"),
+                            WaitState("value", "wait-range", SemanticWaitConditionKinds.Value, "40", "number", SemanticWaitComparisons.GreaterThan),
+                            WaitState("rendered", "wait-status", SemanticWaitConditionKinds.Rendered),
+                            WaitState("binding", "wait-binding", SemanticWaitConditionKinds.BindingValue, "bound", bindingPath: nameof(WaitStateViewModel.Label)),
+                            new SemanticWorkflowStep(
+                                SemanticWorkflowActions.WaitForState,
+                                "top-level-opened",
+                                waitCondition: new SemanticWaitCondition(
+                                    SemanticWaitConditionKinds.TopLevelOpened,
+                                    topLevelId: dialogSummary.Id)),
+                            new SemanticWorkflowStep(SemanticWorkflowActions.Invoke, "remove", new SemanticWorkflowSelector(automationId: "wait-remove")),
+                            new SemanticWorkflowStep(
+                                SemanticWorkflowActions.WaitForNode,
+                                "disappeared",
+                                new SemanticWorkflowSelector(automationId: "wait-vanishing"),
+                                waitCondition: new SemanticWaitCondition(SemanticWaitConditionKinds.Disappears)),
+                            new SemanticWorkflowStep(SemanticWorkflowActions.Invoke, "recreate", new SemanticWorkflowSelector(automationId: "wait-recreate")),
+                            new SemanticWorkflowStep(
+                                SemanticWorkflowActions.WaitForNode,
+                                "recreated",
+                                new SemanticWorkflowSelector(automationId: "wait-vanishing")),
+                            new SemanticWorkflowStep(SemanticWorkflowActions.Invoke, "change", new SemanticWorkflowSelector(automationId: "wait-change")),
+                            new SemanticWorkflowStep(
+                                SemanticWorkflowActions.WaitForState,
+                                "changed",
+                                new SemanticWorkflowSelector(automationId: "wait-range"),
+                                waitCondition: new SemanticWaitCondition(
+                                    SemanticWaitConditionKinds.ChangeFromBaseline,
+                                    valueType: "number",
+                                    propertyName: "Value",
+                                    baseline: "42")),
+                            new SemanticWorkflowStep(SemanticWorkflowActions.Invoke, "close-dialog", new SemanticWorkflowSelector(automationId: "wait-close-dialog")),
+                            new SemanticWorkflowStep(
+                                SemanticWorkflowActions.WaitForState,
+                                "top-level-closed",
+                                waitCondition: new SemanticWaitCondition(
+                                    SemanticWaitConditionKinds.TopLevelClosed,
+                                    topLevelId: dialogSummary.Id))
+                        ],
+                        maxDepth: 8);
+
+                    var result = await new SemanticWorkflowRunner().RunAsync(client, request);
+
+                    Assert.True(result.Success, result.Error?.Message);
+                    Assert.Equal("passed", result.Value!.Status);
+                    Assert.All(result.Value.Steps, step => Assert.Equal("passed", step.Status));
+                    Assert.Equal("missing", Assert.Single(result.Value.Steps, step => step.StepId == "disappeared").WaitObservation!.Availability);
+                    Assert.Null(Assert.Single(result.Value.Steps, step => step.StepId == "top-level-closed").Target);
+
+                    var unavailableRequest = new SemanticWorkflowRequest(
+                        runtime.SessionId,
+                        host.Id,
+                        [WaitState("unsupported", "wait-status", SemanticWaitConditionKinds.Value, propertyName: "NoSuchProperty", timeoutMs: 50)],
+                        maxDepth: 8);
+                    var unavailable = await new SemanticWorkflowRunner().RunAsync(client, unavailableRequest);
+                    Assert.Equal(
+                        "semantic_workflow_wait_state_unavailable",
+                        Assert.Single(Assert.Single(unavailable.Value!.Steps).Diagnostics).Code);
+
+                    var falseConditionRequest = new SemanticWorkflowRequest(
+                        runtime.SessionId,
+                        host.Id,
+                        [WaitState("false-condition", "wait-status", SemanticWaitConditionKinds.Hidden, timeoutMs: 50)],
+                        maxDepth: 8);
+                    var falseCondition = await new SemanticWorkflowRunner().RunAsync(client, falseConditionRequest);
+                    var falseStep = Assert.Single(falseCondition.Value!.Steps);
+                    Assert.Equal("semantic_workflow_wait_timeout", Assert.Single(falseStep.Diagnostics).Code);
+                    Assert.Equal("available", falseStep.WaitObservation!.Availability);
+                    Assert.Equal("true", falseStep.Metadata["actual"]);
+                    Assert.Equal("false", falseStep.Metadata["expected"]);
+
+                    var ambiguityRequest = new SemanticWorkflowRequest(
+                        runtime.SessionId,
+                        host.Id,
+                        [
+                            new SemanticWorkflowStep(
+                                SemanticWorkflowActions.WaitForNode,
+                                "ambiguous",
+                                new SemanticWorkflowSelector(automationId: "wait-ambiguous"),
+                                timeoutMs: 50,
+                                pollIntervalMs: 25)
+                        ],
+                        maxDepth: 8);
+                    var ambiguity = await new SemanticWorkflowRunner().RunAsync(client, ambiguityRequest);
+                    var ambiguityStep = Assert.Single(ambiguity.Value!.Steps);
+                    Assert.Equal("semantic_workflow_wait_timeout", Assert.Single(ambiguityStep.Diagnostics).Code);
+                    Assert.Contains("wait-ambiguous", ambiguityStep.Metadata["lastErrorCandidates"], StringComparison.Ordinal);
+                    Assert.True(long.Parse(ambiguityStep.Metadata["elapsedMs"], CultureInfo.InvariantCulture) >= 0);
+                    Assert.False(string.IsNullOrWhiteSpace(ambiguityStep.Metadata["nextAction"]));
+
+                    command.Executable = false;
+                    var commandObserved = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+                    command.CanExecuteObserved = () => commandObserved.TrySetResult(true);
+                    var commandRequest = new SemanticWorkflowRequest(
+                        runtime.SessionId,
+                        host.Id,
+                        [WaitState("async-command", "wait-command", SemanticWaitConditionKinds.CommandExecutable, timeoutMs: 2000)],
+                        maxDepth: 8);
+                    var commandRun = Task.Run(() => new SemanticWorkflowRunner().RunAsync(client, commandRequest));
+                    await commandObserved.Task.WaitAsync(TimeSpan.FromSeconds(2));
+                    command.Executable = true;
+                    command.RaiseCanExecuteChanged();
+                    var commandResult = await commandRun;
+                    Assert.Equal("passed", commandResult.Value!.Status);
+                    Assert.True(Assert.Single(commandResult.Value.Steps).WaitObservation!.Matched);
+                }
+                finally
+                {
+                    dialogRegistration?.Dispose();
+                    dialog.Close();
+                    window.Close();
+                    AvaScopeBridge.Deactivate();
+                    Dispatcher.UIThread.RunJobs();
+                }
+            }, CancellationToken.None);
+        }
+        finally
+        {
+            DisposeHeadlessSessionAfterExplicitCleanup(session);
+        }
+    }
+
+    [Fact]
     public async Task SemanticSelectorsFilterActionabilityRecoverAcrossRecreationAndBoundAmbiguity()
     {
         var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessTestApplication));
@@ -3617,6 +3835,32 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
         return null;
     }
 
+    private static SemanticWorkflowStep WaitState(
+        string id,
+        string automationId,
+        string kind,
+        string? expected = null,
+        string? valueType = null,
+        string? comparison = null,
+        string? propertyName = null,
+        string? bindingPath = null,
+        int timeoutMs = 500)
+    {
+        return new SemanticWorkflowStep(
+            SemanticWorkflowActions.WaitForState,
+            id,
+            new SemanticWorkflowSelector(automationId: automationId),
+            timeoutMs: timeoutMs,
+            pollIntervalMs: 25,
+            waitCondition: new SemanticWaitCondition(
+                kind,
+                expected,
+                comparison,
+                valueType,
+                propertyName,
+                bindingPath));
+    }
+
     private static void AssertPixelColor(
         SKBitmap bitmap,
         Point logicalPoint,
@@ -3717,6 +3961,32 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
     }
 
     private sealed class RuntimeStateViewModel;
+
+    private sealed record WaitStateViewModel(string Label);
+
+    private sealed class ObservableTestCommand(bool executable) : ICommand
+    {
+        public bool Executable { get; set; } = executable;
+
+        public Action? CanExecuteObserved { get; set; }
+
+        public event EventHandler? CanExecuteChanged;
+
+        public bool CanExecute(object? parameter)
+        {
+            CanExecuteObserved?.Invoke();
+            return Executable;
+        }
+
+        public void Execute(object? parameter)
+        {
+        }
+
+        public void RaiseCanExecuteChanged()
+        {
+            CanExecuteChanged?.Invoke(this, EventArgs.Empty);
+        }
+    }
 
     private sealed class BridgeHeadlessTestApplication : Application
     {

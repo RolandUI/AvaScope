@@ -20,7 +20,8 @@ public sealed record SemanticWorkflowStepResult
         NativePickerResponse? picker = null,
         RuntimeMutationResponse? mutation = null,
         RuntimeCustomActionsResponse? customActions = null,
-        RuntimeCustomActionResponse? customAction = null)
+        RuntimeCustomActionResponse? customAction = null,
+        RuntimeWaitObservation? waitObservation = null)
     {
         if (string.IsNullOrWhiteSpace(stepId))
         {
@@ -57,6 +58,7 @@ public sealed record SemanticWorkflowStepResult
         Mutation = mutation;
         CustomActions = customActions;
         CustomAction = customAction;
+        WaitObservation = waitObservation;
     }
 
     [JsonPropertyName("stepId")]
@@ -111,4 +113,8 @@ public sealed record SemanticWorkflowStepResult
     [JsonPropertyName("customAction")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public RuntimeCustomActionResponse? CustomAction { get; }
+
+    [JsonPropertyName("waitObservation")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public RuntimeWaitObservation? WaitObservation { get; }
 }

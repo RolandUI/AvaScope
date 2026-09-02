@@ -4504,6 +4504,94 @@ public sealed class CliSmokeTests
     }
 
     [Fact]
+    public async Task RunWorkflowCommandWaitsForTypedChangeFromFirstObservedBaseline()
+    {
+        var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
+        Assert.True(File.Exists(cliAssembly), $"Expected CLI assembly at {cliAssembly}.");
+
+        var sessionId = SessionId.New();
+        var pipeName = TestPipeNames.New();
+        var manifestDirectory = Path.Combine(
+            Path.GetTempPath(),
+            "AvaScope.Tests",
+            $"cli-wait-manifests-{Guid.NewGuid():N}");
+        var manifestPath = WriteBridgeManifest(sessionId, pipeName, manifestDirectory);
+        var requestPath = Path.Combine(manifestDirectory, "wait-workflow.json");
+        var target = new RuntimeTargetContext(
+            sessionId,
+            "topLevel:wait",
+            TreeKinds.Visual,
+            "visual:range");
+        var serverTask = RespondToBridgeRequestsAsync(
+            pipeName,
+            expectedCount: 4,
+            (index, request) => index switch
+            {
+                0 or 2 => CreateScenarioFindNodesResponse(
+                    request,
+                    sessionId,
+                    target,
+                    automationId: "wait-range",
+                    text: "Range"),
+                1 => CreateWaitInspectResponse(request, sessionId, target, "42"),
+                3 => CreateWaitInspectResponse(request, sessionId, target, "75"),
+                _ => throw new InvalidOperationException("Unexpected wait workflow bridge request index.")
+            });
+        var workflow = new SemanticWorkflowRequest(
+            sessionId,
+            target.TopLevelId,
+            [
+                new SemanticWorkflowStep(
+                    SemanticWorkflowActions.WaitForState,
+                    "wait-change",
+                    new SemanticWorkflowSelector(automationId: "wait-range"),
+                    timeoutMs: 500,
+                    pollIntervalMs: 25,
+                    waitCondition: new SemanticWaitCondition(
+                        SemanticWaitConditionKinds.ChangeFromBaseline,
+                        valueType: "number",
+                        propertyName: "Value"))
+            ]);
+        await File.WriteAllTextAsync(requestPath, JsonSerializer.Serialize(workflow, JsonOptions));
+
+        try
+        {
+            var result = await RunCliAsync(
+                cliAssembly,
+                "run-workflow",
+                "--request",
+                requestPath,
+                "--manifest-dir",
+                manifestDirectory);
+            var requests = await serverTask;
+
+            Assert.Equal(0, result.ExitCode);
+            Assert.Equal(
+                [BridgeIpcMethods.FindNodes, BridgeIpcMethods.InspectNode, BridgeIpcMethods.FindNodes, BridgeIpcMethods.InspectNode],
+                requests.Select(static request => request.Method));
+            var payload = JsonSerializer.Deserialize<ToolResult<SemanticWorkflowResponse>>(result.StandardOutput, JsonOptions);
+            Assert.True(payload!.Success, payload.Error?.Message);
+            var step = Assert.Single(payload.Value!.Steps);
+            Assert.Equal("passed", step.Status);
+            Assert.Equal("42", step.WaitObservation!.Baseline);
+            Assert.Equal("75", step.WaitObservation.Value);
+            Assert.Equal(typeof(double).FullName, step.WaitObservation.ValueType);
+        }
+        finally
+        {
+            if (File.Exists(manifestPath))
+            {
+                File.Delete(manifestPath);
+            }
+
+            if (Directory.Exists(manifestDirectory))
+            {
+                Directory.Delete(manifestDirectory, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
     public async Task MutateNodeCommandRejectsNonCanonicalOperationBeforeDispatch()
     {
         var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");
@@ -5732,6 +5820,35 @@ public sealed class CliSmokeTests
                 target.TreeKind ?? TreeKinds.Visual,
                 request.MaxDepth ?? 16,
                 [new FindNodeMatch(node)]));
+    }
+
+    private static BridgeIpcResponse CreateWaitInspectResponse(
+        BridgeIpcRequest request,
+        SessionId sessionId,
+        RuntimeTargetContext target,
+        string value)
+    {
+        Assert.Equal(BridgeIpcMethods.InspectNode, request.Method);
+        Assert.Equal(target.TopLevelId, request.TopLevelId);
+        Assert.Equal(target.NodeId, request.NodeId);
+        return BridgeIpcResponse.Ok(
+            request.RequestId,
+            new InspectNodeResponse(
+                sessionId,
+                target.TopLevelId,
+                target.TreeKind ?? TreeKinds.Visual,
+                target.NodeId!,
+                "Avalonia.Controls.Slider",
+                childCount: 0,
+                computedProperties:
+                [
+                    new ComputedPropertyValue(
+                        "Value",
+                        value,
+                        typeof(double).FullName!,
+                        source: "test")
+                ],
+                target: target));
     }
 
     private static BridgeIpcResponse CreateScenarioInputResponse(

@@ -27,7 +27,8 @@ public sealed record SemanticWorkflowStep
         double? distancePercentage = null,
         int? durationMs = null,
         string? customActionName = null,
-        IReadOnlyDictionary<string, string>? customActionParameters = null)
+        IReadOnlyDictionary<string, string>? customActionParameters = null,
+        SemanticWaitCondition? waitCondition = null)
     {
         if (string.IsNullOrWhiteSpace(action))
         {
@@ -88,6 +89,7 @@ public sealed record SemanticWorkflowStep
         CustomActionParameters = (customActionParameters ?? new Dictionary<string, string>())
             .Take(32)
             .ToDictionary(static pair => pair.Key, static pair => pair.Value, StringComparer.Ordinal);
+        WaitCondition = waitCondition;
     }
 
     [JsonPropertyName("id")]
@@ -174,4 +176,8 @@ public sealed record SemanticWorkflowStep
 
     [JsonPropertyName("customActionParameters")]
     public IReadOnlyDictionary<string, string> CustomActionParameters { get; }
+
+    [JsonPropertyName("waitCondition")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public SemanticWaitCondition? WaitCondition { get; }
 }

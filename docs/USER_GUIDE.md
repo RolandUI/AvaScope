@@ -602,7 +602,22 @@ dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll run-workflow --request 
 
 Workflow selectors can target `nodeId`, `automationId`, `text`, `name`, `nodeType`, `role`, `bindingPath`, or `commandName`, and can filter `visible`, `enabled`, `rendered`, or `actionable` state. Prefer `"actionable": true` for semantic input targets. Every selector is resolved again immediately before validation or execution, so template recreation and navigation do not make a persisted runtime id authoritative. Generation context is checked atomically on the Bridge UI thread; one retry is allowed only for a stale response that proves `dispatched=false`, while any post-dispatch failure is never repeated. Ambiguous selectors fail with a bounded candidate list containing identity, state, bounds, top-level, and available actions. The semantic action set includes `invoke`, `select`, `toggle`, `expand`, `collapse`, `drag`, `swipe`, `long_press`, `press_and_hold`, `custom_actions`, and `custom_action`. A `custom_action` step supplies `customActionName` and optional `customActionParameters`; AvaScope re-resolves the selector, discovers the descriptor, and enforces its executability and safety classification before dispatch. Gesture steps use `direction`, `distancePercentage`, and `durationMs`; source-to-target gestures add a `destinationSelector`, which is resolved independently and must match exactly one current visual node. Destructive-looking built-in targets and destructive registered actions are rejected unless the request declares `allowDestructive` or an `isolatedStateDirectory`.
 
-Deterministic workflows can use `wait_for_node`, `wait_for_state`, and `wait_for_dialog`. Each wait accepts `timeoutMs` (default `5000`, maximum `60000`) and `pollIntervalMs` (default `100`, range `25`–`5000`), uses cancellation-aware bounded polling, and returns `semantic_workflow_wait_timeout` with attempt/elapsed/last-state evidence instead of requiring client polling loops.
+Deterministic workflows can use `wait_for_node`, `wait_for_state`, and `wait_for_dialog`. Each wait accepts `timeoutMs` (default `5000`, maximum `60000`) and `pollIntervalMs` (default `100`, range `25`–`5000`), uses cancellation-aware bounded polling, and resolves its selector again on every poll. `wait_for_node` accepts `exists` and `disappears`; `wait_for_state` accepts `visible`, `hidden`, `enabled`, `disabled`, `checked`, `unchecked`, `selected_value`, `text`, `value`, `rendered`, `command_executable`, `binding_value`, `top_level_opened`, `top_level_closed`, and `change_from_baseline`. Comparisons are typed and support `equals`, `not_equals`, numeric ordering, and `changed`. A successful step exposes `waitObservation`; a failure distinguishes unavailable state (`semantic_workflow_wait_state_unavailable`) from a false condition that timed out (`semantic_workflow_wait_timeout`). Timeout metadata contains the last typed observation, elapsed time, bounded ambiguity candidates when present, and a next action. The compatible `assertProperty`/`expected` form remains supported.
+
+```json
+{
+  "id": "wait-until-save-is-ready",
+  "action": "wait_for_state",
+  "selector": { "automationId": "save-button" },
+  "timeoutMs": 10000,
+  "pollIntervalMs": 100,
+  "waitCondition": {
+    "kind": "command_executable"
+  }
+}
+```
+
+For a binding, set `kind` to `binding_value`, identify it with `bindingPath` and optionally `propertyName`, then provide `expected` and `valueType`. For disappearance or `top_level_closed`, success deliberately has no surviving target id. Top-level waits use `topLevelId` and/or `topLevelTitle` in `waitCondition`. To wait for any inspected property to change, use `change_from_baseline` with `propertyName`; omit `baseline` to capture the first available observation or provide it explicitly for a known starting state.
 
 Add `idempotencyKey` to a side-effecting step to prevent duplicate dispatch after a client retry. Results are persisted under the selected local session manifest directory, scoped by session and request signature, and replayed with `idempotencyReplay: true`. `idempotencyTtlMs` defaults to `300000` and accepts `100`–`86400000`; reusing a live key with different step content fails with `semantic_workflow_idempotency_conflict`.
 

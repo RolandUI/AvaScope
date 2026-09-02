@@ -118,6 +118,9 @@ public sealed class ProtocolContractTests
             capability.Id == AvaScopeCapabilityIds.RuntimeSemanticWorkflow);
         Assert.Contains(SemanticWorkflowActions.WaitForNode, semanticWorkflow.Metadata["actions"], StringComparison.Ordinal);
         Assert.Equal("wait_for_node,wait_for_state,wait_for_dialog", semanticWorkflow.Metadata["waitActions"]);
+        Assert.Contains(SemanticWaitConditionKinds.CommandExecutable, semanticWorkflow.Metadata["waitConditions"], StringComparison.Ordinal);
+        Assert.Contains(SemanticWaitConditionKinds.BindingValue, semanticWorkflow.Metadata["waitConditions"], StringComparison.Ordinal);
+        Assert.Equal("every_poll", semanticWorkflow.Metadata["waitSelectorResolution"]);
         Assert.Equal("validate_action,validate_mutation", semanticWorkflow.Metadata["dryRunActions"]);
         Assert.Contains("replay_detected", semanticWorkflow.Metadata["idempotency"], StringComparison.Ordinal);
         Assert.Contains(response.Capabilities, capability => capability.Id == AvaScopeCapabilityIds.RuntimeScenarioRunner);
@@ -330,6 +333,54 @@ public sealed class ProtocolContractTests
         Assert.Contains(SemanticWorkflowActions.WaitForDialog, SemanticWorkflowActions.All);
         Assert.Contains(BridgeIpcMethods.ValidateInput, BridgeIpcMethods.All);
         Assert.Contains(BridgeIpcMethods.ValidateMutation, BridgeIpcMethods.All);
+    }
+
+    [Fact]
+    public void SemanticWaitConditionAndObservationSerializeStableAdditiveShape()
+    {
+        var condition = new SemanticWaitCondition(
+            SemanticWaitConditionKinds.BindingValue,
+            expected: "ready",
+            comparison: SemanticWaitComparisons.NotEquals,
+            valueType: "string",
+            propertyName: "Text",
+            bindingPath: "Status",
+            baseline: "loading");
+        var step = new SemanticWorkflowStep(
+            SemanticWorkflowActions.WaitForState,
+            "wait-status",
+            new SemanticWorkflowSelector(automationId: "status"),
+            timeoutMs: 2500,
+            pollIntervalMs: 50,
+            waitCondition: condition);
+        var result = new SemanticWorkflowStepResult(
+            step.Id,
+            step.Action,
+            "passed",
+            "matched",
+            DateTimeOffset.UtcNow,
+            waitObservation: new RuntimeWaitObservation(
+                condition.Kind,
+                "available",
+                matched: true,
+                DateTimeOffset.UtcNow,
+                "ready",
+                typeof(string).FullName!,
+                condition.Comparison,
+                condition.Expected,
+                condition.Baseline,
+                "binding:Status"));
+
+        var stepNode = JsonNode.Parse(JsonSerializer.Serialize(step))!;
+        var resultNode = JsonNode.Parse(JsonSerializer.Serialize(result))!;
+
+        Assert.Equal("binding_value", stepNode["waitCondition"]!["kind"]!.GetValue<string>());
+        Assert.Equal("not_equals", stepNode["waitCondition"]!["comparison"]!.GetValue<string>());
+        Assert.Equal("Status", stepNode["waitCondition"]!["bindingPath"]!.GetValue<string>());
+        Assert.Equal("available", resultNode["waitObservation"]!["availability"]!.GetValue<string>());
+        Assert.True(resultNode["waitObservation"]!["matched"]!.GetValue<bool>());
+        Assert.Contains(SemanticWaitConditionKinds.TopLevelClosed, SemanticWaitConditionKinds.All);
+        Assert.Contains(SemanticWaitComparisons.Changed, SemanticWaitComparisons.All);
     }
 
     [Fact]

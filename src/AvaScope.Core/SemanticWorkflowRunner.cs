@@ -226,60 +226,23 @@ public sealed class SemanticWorkflowRunner
         SemanticWorkflowStep step,
         CancellationToken cancellationToken)
     {
+        var condition = step.WaitCondition
+            ?? new SemanticWaitCondition(SemanticWaitConditionKinds.Exists);
+        if (condition.Kind is not SemanticWaitConditionKinds.Exists
+            and not SemanticWaitConditionKinds.Disappears)
+        {
+            return Fail(
+                step,
+                "semantic_workflow_wait_condition_not_supported",
+                "wait_for_node supports only exists or disappears conditions.");
+        }
+
         if (step.Selector is null || !step.Selector.HasSearchCriteria)
         {
             return Fail(step, "semantic_workflow_selector_required", "wait_for_node requires a selector.");
         }
 
-        var timeoutMs = step.TimeoutMs ?? 5_000;
-        var pollMs = step.PollIntervalMs ?? 100;
-        var stopwatch = Stopwatch.StartNew();
-        var attempts = 0;
-        CoreError? lastError = null;
-        while (true)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            attempts++;
-            using var attemptCancellation = CreateWaitAttemptCancellation(
-                stopwatch,
-                timeoutMs,
-                cancellationToken);
-            CoreResult<ResolvedWorkflowTarget> target;
-            try
-            {
-                target = await ResolveTargetAsync(
-                    bridgeClient,
-                    request,
-                    step,
-                    attemptCancellation.Token);
-            }
-            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
-            {
-                return WaitTimeout(
-                    step,
-                    timeoutMs,
-                    pollMs,
-                    attempts,
-                    stopwatch.ElapsedMilliseconds,
-                    lastError);
-            }
-            if (target.Success)
-            {
-                return Pass(
-                    step,
-                    $"Node became available after {attempts.ToString(CultureInfo.InvariantCulture)} attempt(s).",
-                    target.Value!.Target,
-                    metadata: CreateWaitMetadata(timeoutMs, pollMs, attempts, stopwatch.ElapsedMilliseconds));
-            }
-
-            lastError = target.Error;
-            if (stopwatch.ElapsedMilliseconds >= timeoutMs)
-            {
-                return WaitTimeout(step, timeoutMs, pollMs, attempts, stopwatch.ElapsedMilliseconds, lastError);
-            }
-
-            await DelayUntilNextPollAsync(stopwatch, timeoutMs, pollMs, cancellationToken);
-        }
+        return await WaitForConditionAsync(bridgeClient, request, step, condition, cancellationToken);
     }
 
     private static async Task<SemanticWorkflowStepResult> WaitForStateAsync(
@@ -288,16 +251,36 @@ public sealed class SemanticWorkflowRunner
         SemanticWorkflowStep step,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(step.AssertProperty))
+        var condition = step.WaitCondition;
+        if (condition is null && string.IsNullOrWhiteSpace(step.AssertProperty))
         {
-            return Fail(step, "semantic_workflow_assert_property_required", "wait_for_state requires assertProperty.");
+            return Fail(
+                step,
+                "semantic_workflow_wait_condition_required",
+                "wait_for_state requires waitCondition or the compatible assertProperty field.");
         }
 
-        if (step.Selector is null || !step.Selector.HasSearchCriteria)
+        condition ??= new SemanticWaitCondition(
+            SemanticWaitConditionKinds.Value,
+            step.Expected,
+            propertyName: step.AssertProperty);
+        var topLevelCondition = condition.Kind is SemanticWaitConditionKinds.TopLevelOpened
+            or SemanticWaitConditionKinds.TopLevelClosed;
+        if (!topLevelCondition && (step.Selector is null || !step.Selector.HasSearchCriteria))
         {
             return Fail(step, "semantic_workflow_selector_required", "wait_for_state requires a selector.");
         }
 
+        return await WaitForConditionAsync(bridgeClient, request, step, condition, cancellationToken);
+    }
+
+    private static async Task<SemanticWorkflowStepResult> WaitForConditionAsync(
+        LocalBridgeClient bridgeClient,
+        SemanticWorkflowRequest request,
+        SemanticWorkflowStep step,
+        SemanticWaitCondition condition,
+        CancellationToken cancellationToken)
+    {
         var timeoutMs = step.TimeoutMs ?? 5_000;
         var pollMs = step.PollIntervalMs ?? 100;
         var stopwatch = Stopwatch.StartNew();
@@ -305,7 +288,10 @@ public sealed class SemanticWorkflowRunner
         CoreError? lastError = null;
         InspectNodeResponse? lastInspection = null;
         RuntimeTargetContext? lastTarget = null;
-        string? lastActual = null;
+        RuntimeWaitObservation? lastObservation = null;
+        var baseline = condition.Baseline;
+        var baselineCaptured = condition.Baseline is not null;
+        var sawAvailable = false;
 
         while (true)
         {
@@ -315,114 +301,174 @@ public sealed class SemanticWorkflowRunner
                 stopwatch,
                 timeoutMs,
                 cancellationToken);
-            CoreResult<ResolvedWorkflowTarget> target;
             try
             {
-                target = await ResolveTargetAsync(
-                    bridgeClient,
-                    request,
-                    step,
-                    attemptCancellation.Token);
-            }
-            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
-            {
-                var timeoutMetadata = CreateWaitMetadata(
-                    timeoutMs,
-                    pollMs,
-                    attempts,
-                    stopwatch.ElapsedMilliseconds);
-                timeoutMetadata["assertProperty"] = step.AssertProperty;
-                timeoutMetadata["actual"] = lastActual ?? "unavailable";
-                timeoutMetadata["expected"] = step.Expected ?? "null";
-                return Fail(
-                    step,
-                    "semantic_workflow_wait_timeout",
-                    $"Timed out waiting for '{step.AssertProperty}'.",
-                    lastTarget,
-                    lastInspection,
-                    timeoutMetadata);
-            }
-            if (target.Success)
-            {
-                lastTarget = target.Value!.Target;
-                CoreResult<InspectNodeResponse> inspect;
-                try
+                if (condition.Kind is SemanticWaitConditionKinds.TopLevelOpened
+                    or SemanticWaitConditionKinds.TopLevelClosed)
                 {
-                    inspect = await bridgeClient.InspectNodeAsync(
+                    var topLevels = await bridgeClient.ListTopLevelsAsync(
                         request.SessionId,
-                        request.TopLevelId,
-                        lastTarget.TreeKind ?? TreeKinds.Visual,
-                        lastTarget.NodeId!,
                         attemptCancellation.Token);
-                }
-                catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
-                {
-                    var timeoutMetadata = CreateWaitMetadata(
-                        timeoutMs,
-                        pollMs,
-                        attempts,
-                        stopwatch.ElapsedMilliseconds);
-                    timeoutMetadata["assertProperty"] = step.AssertProperty;
-                    timeoutMetadata["actual"] = lastActual ?? "unavailable";
-                    timeoutMetadata["expected"] = step.Expected ?? "null";
-                    return Fail(
-                        step,
-                        "semantic_workflow_wait_timeout",
-                        $"Timed out waiting for '{step.AssertProperty}'.",
-                        lastTarget,
-                        lastInspection,
-                        timeoutMetadata);
-                }
-                if (inspect.Success)
-                {
-                    lastInspection = inspect.Value;
-                    lastActual = ReadInspectableValue(inspect.Value!, step.AssertProperty);
-                    if (string.Equals(lastActual, step.Expected, StringComparison.Ordinal))
+                    if (topLevels.Success)
                     {
-                        var metadata = CreateWaitMetadata(
-                            timeoutMs,
-                            pollMs,
-                            attempts,
-                            stopwatch.ElapsedMilliseconds);
-                        metadata["assertProperty"] = step.AssertProperty;
-                        metadata["actual"] = lastActual ?? "null";
-                        metadata["expected"] = step.Expected ?? "null";
-                        return Pass(
-                            step,
-                            $"State '{step.AssertProperty}' reached the expected value.",
-                            lastTarget,
-                            inspection: lastInspection,
-                            metadata: metadata);
+                        var topLevelId = condition.TopLevelId
+                            ?? (string.IsNullOrWhiteSpace(condition.TopLevelTitle) ? request.TopLevelId : null);
+                        var match = topLevels.Value!.TopLevels.FirstOrDefault(topLevel =>
+                            (string.IsNullOrWhiteSpace(topLevelId)
+                                || string.Equals(topLevel.Id, topLevelId, StringComparison.Ordinal))
+                            && (string.IsNullOrWhiteSpace(condition.TopLevelTitle)
+                                || string.Equals(topLevel.Title, condition.TopLevelTitle, StringComparison.Ordinal)));
+                        var opened = match is not null;
+                        var shouldBeOpen = condition.Kind == SemanticWaitConditionKinds.TopLevelOpened;
+                        lastTarget = match is null
+                            ? null
+                            : new RuntimeTargetContext(request.SessionId, match.Id, capturedAt: DateTimeOffset.UtcNow);
+                        lastObservation = new RuntimeWaitObservation(
+                            condition.Kind,
+                            "available",
+                            opened == shouldBeOpen,
+                            DateTimeOffset.UtcNow,
+                            opened.ToString().ToLowerInvariant(),
+                            typeof(bool).FullName!,
+                            condition.Comparison,
+                            shouldBeOpen.ToString().ToLowerInvariant(),
+                            source: "list_top_levels");
+                        sawAvailable = true;
+                        lastError = null;
+                    }
+                    else
+                    {
+                        lastError = topLevels.Error;
                     }
                 }
                 else
                 {
-                    lastError = inspect.Error;
+                    var target = await ResolveTargetAsync(
+                        bridgeClient,
+                        request,
+                        step,
+                        attemptCancellation.Token);
+                    if (condition.Kind is SemanticWaitConditionKinds.Exists
+                        or SemanticWaitConditionKinds.Disappears)
+                    {
+                        var missing = !target.Success && IsMissingTarget(target.Error);
+                        var exists = target.Success;
+                        var matched = condition.Kind == SemanticWaitConditionKinds.Exists
+                            ? exists
+                            : missing;
+                        lastTarget = target.Value?.Target;
+                        lastError = target.Error;
+                        lastObservation = new RuntimeWaitObservation(
+                            condition.Kind,
+                            exists ? "available" : missing ? "missing" : "unavailable",
+                            matched,
+                            DateTimeOffset.UtcNow,
+                            exists.ToString().ToLowerInvariant(),
+                            typeof(bool).FullName!,
+                            condition.Comparison,
+                            (condition.Kind == SemanticWaitConditionKinds.Exists).ToString().ToLowerInvariant(),
+                            source: "selector_resolution",
+                            message: target.Error?.Message);
+                        sawAvailable |= exists || missing;
+                    }
+                    else if (target.Success)
+                    {
+                        lastError = null;
+                        lastTarget = target.Value!.Target;
+                        var inspect = await bridgeClient.InspectNodeAsync(
+                            request.SessionId,
+                            request.TopLevelId,
+                            lastTarget.TreeKind ?? TreeKinds.Visual,
+                            lastTarget.NodeId!,
+                            attemptCancellation.Token);
+                        if (inspect.Success)
+                        {
+                            lastError = null;
+                            lastInspection = inspect.Value;
+                            var observed = ObserveNodeCondition(inspect.Value!, condition);
+                            if (observed.Available
+                                && condition.Comparison == SemanticWaitComparisons.Changed
+                                && !baselineCaptured)
+                            {
+                                baseline = observed.Value;
+                                baselineCaptured = true;
+                            }
+
+                            var compared = CompareObservation(observed, condition, baseline, baselineCaptured);
+                            lastObservation = new RuntimeWaitObservation(
+                                condition.Kind,
+                                compared.Available ? "available" : "unavailable",
+                                compared.Matched,
+                                DateTimeOffset.UtcNow,
+                                observed.Value,
+                                observed.ValueType,
+                                condition.Comparison,
+                                GetExpectedValue(condition),
+                                baseline,
+                                observed.Source,
+                                compared.Message ?? observed.Message);
+                            sawAvailable |= compared.Available;
+                        }
+                        else
+                        {
+                            lastError = inspect.Error;
+                            lastObservation = MissingObservation(condition, inspect.Error?.Message);
+                        }
+                    }
+                    else
+                    {
+                        lastError = target.Error;
+                        lastObservation = MissingObservation(condition, target.Error?.Message);
+                    }
                 }
             }
-            else
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
             {
-                lastError = target.Error;
+                return WaitConditionFailure(
+                    step,
+                    condition,
+                    timeoutMs,
+                    pollMs,
+                    attempts,
+                    stopwatch.ElapsedMilliseconds,
+                    lastTarget,
+                    lastInspection,
+                    lastObservation,
+                    lastError,
+                    sawAvailable);
             }
 
-            if (stopwatch.ElapsedMilliseconds >= timeoutMs)
+            if (lastObservation?.Matched == true)
             {
                 var metadata = CreateWaitMetadata(
                     timeoutMs,
                     pollMs,
                     attempts,
                     stopwatch.ElapsedMilliseconds);
-                metadata["assertProperty"] = step.AssertProperty;
-                metadata["actual"] = lastActual ?? "unavailable";
-                metadata["expected"] = step.Expected ?? "null";
-                CopyLastError(metadata, lastError);
-                return Fail(
+                CopyObservation(metadata, lastObservation);
+                return Pass(
                     step,
-                    "semantic_workflow_wait_timeout",
-                    $"Timed out waiting for '{step.AssertProperty}'.",
+                    $"Wait condition '{condition.Kind}' matched after {attempts.ToString(CultureInfo.InvariantCulture)} attempt(s).",
+                    lastTarget,
+                    inspection: lastInspection,
+                    metadata: metadata,
+                    waitObservation: lastObservation);
+            }
+
+            if (stopwatch.ElapsedMilliseconds >= timeoutMs)
+            {
+                return WaitConditionFailure(
+                    step,
+                    condition,
+                    timeoutMs,
+                    pollMs,
+                    attempts,
+                    stopwatch.ElapsedMilliseconds,
                     lastTarget,
                     lastInspection,
-                    metadata);
+                    lastObservation,
+                    lastError,
+                    sawAvailable);
             }
 
             await DelayUntilNextPollAsync(stopwatch, timeoutMs, pollMs, cancellationToken);
@@ -670,21 +716,292 @@ public sealed class SemanticWorkflowRunner
         return source;
     }
 
-    private static SemanticWorkflowStepResult WaitTimeout(
+    private static SemanticWorkflowStepResult WaitConditionFailure(
         SemanticWorkflowStep step,
+        SemanticWaitCondition condition,
         int timeoutMs,
         int pollMs,
         int attempts,
         long elapsedMs,
-        CoreError? lastError)
+        RuntimeTargetContext? target,
+        InspectNodeResponse? inspection,
+        RuntimeWaitObservation? observation,
+        CoreError? lastError,
+        bool sawAvailable)
     {
+        var unavailable = !sawAvailable
+            && string.Equals(observation?.Availability, "unavailable", StringComparison.Ordinal)
+            && !string.Equals(observation?.Source, "selector_resolution", StringComparison.Ordinal);
+        var code = unavailable
+            ? "semantic_workflow_wait_state_unavailable"
+            : "semantic_workflow_wait_timeout";
+        var message = unavailable
+            ? $"Wait condition '{condition.Kind}' is unavailable for the selected runtime target."
+            : $"Timed out waiting for condition '{condition.Kind}'.";
         var metadata = CreateWaitMetadata(timeoutMs, pollMs, attempts, elapsedMs);
+        metadata["condition"] = condition.Kind;
+        metadata["nextAction"] = unavailable
+            ? "Choose a state exposed by this control or inspect its computed and binding properties."
+            : "Inspect the last observation and candidate evidence, then adjust the selector, expected value, or timeout.";
+        if (observation is not null)
+        {
+            CopyObservation(metadata, observation);
+        }
+
         CopyLastError(metadata, lastError);
-        return Fail(
-            step,
-            "semantic_workflow_wait_timeout",
-            "Timed out waiting for a matching node.",
-            metadata: metadata);
+        return Fail(step, code, message, target, inspection, metadata, observation);
+    }
+
+    private static RuntimeWaitObservation MissingObservation(
+        SemanticWaitCondition condition,
+        string? message)
+    {
+        return new RuntimeWaitObservation(
+            condition.Kind,
+            "missing",
+            matched: false,
+            DateTimeOffset.UtcNow,
+            comparison: condition.Comparison,
+            expected: GetExpectedValue(condition),
+            baseline: condition.Baseline,
+            source: "selector_resolution",
+            message: message);
+    }
+
+    private static bool IsMissingTarget(CoreError? error)
+    {
+        return error is not null
+            && (string.Equals(error.Code, "node_not_found", StringComparison.Ordinal)
+                || string.Equals(error.Code, "top_level_not_found", StringComparison.Ordinal)
+                || error.Message.Contains("did not match any node", StringComparison.Ordinal));
+    }
+
+    private static ObservedWaitValue ObserveNodeCondition(
+        InspectNodeResponse response,
+        SemanticWaitCondition condition)
+    {
+        if (condition.Kind == SemanticWaitConditionKinds.BindingValue)
+        {
+            var bound = response.BindingState?.BoundProperties.FirstOrDefault(property =>
+                (string.IsNullOrWhiteSpace(condition.BindingPath)
+                    || string.Equals(property.BindingPath, condition.BindingPath, StringComparison.Ordinal))
+                && (string.IsNullOrWhiteSpace(condition.PropertyName)
+                    || string.Equals(property.PropertyName, condition.PropertyName, StringComparison.OrdinalIgnoreCase)));
+            return bound is null || string.Equals(bound.ResolvedValueStatus, "not_available", StringComparison.Ordinal)
+                ? ObservedWaitValue.Unavailable(
+                    "binding",
+                    "The requested binding value is not available on the selected node.")
+                : ObservedWaitValue.FromProtocolValue(
+                    bound.Value,
+                    bound.ValueType,
+                    $"binding:{bound.BindingPath}");
+        }
+
+        if (condition.Kind is SemanticWaitConditionKinds.Visible or SemanticWaitConditionKinds.Hidden)
+        {
+            return ObservedWaitValue.FromBoolean(response.InteractionState?.Visible, "interaction_state.visible");
+        }
+
+        if (condition.Kind is SemanticWaitConditionKinds.Enabled or SemanticWaitConditionKinds.Disabled)
+        {
+            return ObservedWaitValue.FromBoolean(response.InteractionState?.Enabled, "interaction_state.enabled");
+        }
+
+        if (condition.Kind == SemanticWaitConditionKinds.Rendered)
+        {
+            return ObservedWaitValue.FromBoolean(response.InteractionState?.Rendered, "interaction_state.rendered");
+        }
+
+        var propertyName = condition.PropertyName ?? condition.Kind switch
+        {
+            SemanticWaitConditionKinds.Checked or SemanticWaitConditionKinds.Unchecked => "IsChecked",
+            SemanticWaitConditionKinds.SelectedValue => "SelectedValue",
+            SemanticWaitConditionKinds.Text => "Text",
+            SemanticWaitConditionKinds.Value => "Value",
+            SemanticWaitConditionKinds.CommandExecutable => "CommandExecutable",
+            _ => null
+        };
+        if (string.IsNullOrWhiteSpace(propertyName))
+        {
+            return ObservedWaitValue.Unavailable(
+                "inspect_node",
+                "The wait condition requires propertyName.");
+        }
+
+        if (string.Equals(propertyName, "text", StringComparison.OrdinalIgnoreCase)
+            && !response.ComputedProperties.Any(property =>
+                string.Equals(property.Name, propertyName, StringComparison.OrdinalIgnoreCase)))
+        {
+            return new ObservedWaitValue(
+                true,
+                response.Text,
+                typeof(string).FullName!,
+                "inspect_node.text");
+        }
+
+        var computed = response.ComputedProperties.FirstOrDefault(property =>
+            string.Equals(property.Name, propertyName, StringComparison.OrdinalIgnoreCase));
+        return computed is null
+            ? ObservedWaitValue.Unavailable(
+                "computed_property",
+                $"Property '{propertyName}' is not exposed for the selected node.")
+            : ObservedWaitValue.FromProtocolValue(
+                computed.Value,
+                computed.ValueType,
+                computed.Source,
+                computed.Diagnostic);
+    }
+
+    private static ComparedWaitValue CompareObservation(
+        ObservedWaitValue observed,
+        SemanticWaitCondition condition,
+        string? baseline,
+        bool baselineCaptured)
+    {
+        if (!observed.Available)
+        {
+            return new ComparedWaitValue(false, false, observed.Message);
+        }
+
+        var expected = condition.Comparison == SemanticWaitComparisons.Changed
+            ? baseline
+            : GetExpectedValue(condition);
+        if (condition.Comparison == SemanticWaitComparisons.Changed && !baselineCaptured)
+        {
+            return new ComparedWaitValue(true, false, "Waiting for a baseline observation.");
+        }
+
+        var valueType = string.Equals(condition.ValueType, "auto", StringComparison.OrdinalIgnoreCase)
+            ? observed.ValueType
+            : condition.ValueType;
+        var equality = TryCompareEqual(observed.Value, expected, valueType, out var equal, out var error);
+        if (!equality)
+        {
+            return new ComparedWaitValue(false, false, error);
+        }
+
+        if (condition.Comparison == SemanticWaitComparisons.Equal)
+        {
+            return new ComparedWaitValue(true, equal);
+        }
+
+        if (condition.Comparison is SemanticWaitComparisons.NotEquals or SemanticWaitComparisons.Changed)
+        {
+            return new ComparedWaitValue(true, !equal);
+        }
+
+        if (!decimal.TryParse(observed.Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var actualNumber)
+            || !decimal.TryParse(expected, NumberStyles.Float, CultureInfo.InvariantCulture, out var expectedNumber))
+        {
+            return new ComparedWaitValue(
+                false,
+                false,
+                "Ordered comparisons require invariant numeric observed and expected values.");
+        }
+
+        var matched = condition.Comparison switch
+        {
+            SemanticWaitComparisons.GreaterThan => actualNumber > expectedNumber,
+            SemanticWaitComparisons.GreaterThanOrEqual => actualNumber >= expectedNumber,
+            SemanticWaitComparisons.LessThan => actualNumber < expectedNumber,
+            SemanticWaitComparisons.LessThanOrEqual => actualNumber <= expectedNumber,
+            _ => false
+        };
+        return new ComparedWaitValue(true, matched);
+    }
+
+    private static string? GetExpectedValue(SemanticWaitCondition condition)
+    {
+        return condition.Kind switch
+        {
+            SemanticWaitConditionKinds.Visible
+                or SemanticWaitConditionKinds.Enabled
+                or SemanticWaitConditionKinds.Checked
+                or SemanticWaitConditionKinds.Rendered
+                or SemanticWaitConditionKinds.CommandExecutable => "true",
+            SemanticWaitConditionKinds.Hidden
+                or SemanticWaitConditionKinds.Disabled
+                or SemanticWaitConditionKinds.Unchecked => "false",
+            _ => condition.Expected
+        };
+    }
+
+    private static bool TryCompareEqual(
+        string? actual,
+        string? expected,
+        string valueType,
+        out bool equal,
+        out string? error)
+    {
+        error = null;
+        if (string.Equals(valueType, "null", StringComparison.OrdinalIgnoreCase))
+        {
+            equal = actual is null && (expected is null || string.Equals(expected, "null", StringComparison.OrdinalIgnoreCase));
+            return true;
+        }
+
+        if (valueType.Contains("Boolean", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(valueType, "bool", StringComparison.OrdinalIgnoreCase))
+        {
+            if (bool.TryParse(actual, out var actualBoolean)
+                && bool.TryParse(expected, out var expectedBoolean))
+            {
+                equal = actualBoolean == expectedBoolean;
+                return true;
+            }
+
+            equal = false;
+            error = "Boolean comparison requires true or false observed and expected values.";
+            return false;
+        }
+
+        if (IsNumericValueType(valueType))
+        {
+            if (decimal.TryParse(actual, NumberStyles.Float, CultureInfo.InvariantCulture, out var actualNumber)
+                && decimal.TryParse(expected, NumberStyles.Float, CultureInfo.InvariantCulture, out var expectedNumber))
+            {
+                equal = actualNumber == expectedNumber;
+                return true;
+            }
+
+            equal = false;
+            error = "Numeric comparison requires invariant numeric observed and expected values.";
+            return false;
+        }
+
+        equal = string.Equals(actual, expected, StringComparison.Ordinal);
+        return true;
+    }
+
+    private static bool IsNumericValueType(string valueType)
+    {
+        return valueType.Contains("Byte", StringComparison.OrdinalIgnoreCase)
+            || valueType.Contains("Int", StringComparison.OrdinalIgnoreCase)
+            || valueType.Contains("Single", StringComparison.OrdinalIgnoreCase)
+            || valueType.Contains("Double", StringComparison.OrdinalIgnoreCase)
+            || valueType.Contains("Decimal", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(valueType, "number", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static void CopyObservation(
+        IDictionary<string, string> metadata,
+        RuntimeWaitObservation observation)
+    {
+        metadata["condition"] = observation.Condition;
+        metadata["availability"] = observation.Availability;
+        metadata["actual"] = observation.Value ?? "null";
+        metadata["valueType"] = observation.ValueType;
+        metadata["comparison"] = observation.Comparison;
+        metadata["expected"] = observation.Expected ?? "null";
+        if (observation.Baseline is not null)
+        {
+            metadata["baseline"] = observation.Baseline;
+        }
+
+        if (observation.Message is not null)
+        {
+            metadata["observationMessage"] = observation.Message;
+        }
     }
 
     private static Dictionary<string, string> CreateWaitMetadata(
@@ -708,6 +1025,16 @@ public sealed class SemanticWorkflowRunner
         {
             metadata["lastErrorCode"] = error.Code;
             metadata["lastErrorMessage"] = error.Message;
+            if (error.Details is not null)
+            {
+                foreach (var key in new[] { "candidateCount", "candidatesTruncated", "candidates", "nextAction" })
+                {
+                    if (error.Details.TryGetValue(key, out var value))
+                    {
+                        metadata[$"lastError{char.ToUpperInvariant(key[0])}{key[1..]}"] = value;
+                    }
+                }
+            }
         }
     }
 
@@ -1450,7 +1777,8 @@ public sealed class SemanticWorkflowRunner
         NativePickerResponse? picker = null,
         RuntimeMutationResponse? mutation = null,
         RuntimeCustomActionsResponse? customActions = null,
-        RuntimeCustomActionResponse? customAction = null)
+        RuntimeCustomActionResponse? customAction = null,
+        RuntimeWaitObservation? waitObservation = null)
     {
         return new SemanticWorkflowStepResult(
             step.Id,
@@ -1466,7 +1794,8 @@ public sealed class SemanticWorkflowRunner
             picker: picker,
             mutation: mutation,
             customActions: customActions,
-            customAction: customAction);
+            customAction: customAction,
+            waitObservation: waitObservation);
     }
 
     private static SemanticWorkflowStepResult Fail(
@@ -1500,7 +1829,8 @@ public sealed class SemanticWorkflowRunner
         string message,
         RuntimeTargetContext? target = null,
         InspectNodeResponse? inspection = null,
-        IReadOnlyDictionary<string, string>? metadata = null)
+        IReadOnlyDictionary<string, string>? metadata = null,
+        RuntimeWaitObservation? waitObservation = null)
     {
         return new SemanticWorkflowStepResult(
             step.Id,
@@ -1511,7 +1841,8 @@ public sealed class SemanticWorkflowRunner
             target,
             inspection: inspection,
             diagnostics: [new ProtocolError(code, message, metadata)],
-            metadata: metadata);
+            metadata: metadata,
+            waitObservation: waitObservation);
     }
 
     private static ProtocolError ToProtocolError(CoreError error)
@@ -1624,4 +1955,45 @@ public sealed class SemanticWorkflowRunner
         string? AutomationId,
         string? Text,
         RuntimeNodeSourceMap? SourceMap);
+
+    private sealed record ObservedWaitValue(
+        bool Available,
+        string? Value,
+        string ValueType,
+        string Source,
+        string? Message = null)
+    {
+        public static ObservedWaitValue Unavailable(string source, string message) =>
+            new(false, null, "not_available", source, message);
+
+        public static ObservedWaitValue FromBoolean(bool? value, string source) =>
+            value.HasValue
+                ? new(true, value.Value.ToString().ToLowerInvariant(), typeof(bool).FullName!, source)
+                : Unavailable(source, "The requested interaction state is not available for the selected node.");
+
+        public static ObservedWaitValue FromProtocolValue(
+            string value,
+            string valueType,
+            string source,
+            string? message = null)
+        {
+            if (string.Equals(value, "not_available", StringComparison.Ordinal)
+                && string.Equals(valueType, "not_available", StringComparison.Ordinal))
+            {
+                return Unavailable(source, message ?? "The requested runtime value is not available.");
+            }
+
+            return new(
+                true,
+                string.Equals(valueType, "null", StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(value, "null", StringComparison.Ordinal)
+                        ? null
+                        : value,
+                valueType,
+                source,
+                message);
+        }
+    }
+
+    private sealed record ComparedWaitValue(bool Available, bool Matched, string? Message = null);
 }

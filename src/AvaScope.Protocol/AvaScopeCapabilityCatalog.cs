@@ -186,7 +186,7 @@ public static class AvaScopeCapabilityCatalog
             Capability(
                 AvaScopeCapabilityIds.RuntimeSemanticWorkflow,
                 "runtime",
-                "Run coordinate-free workflow steps with bounded waits, durable idempotency replay protection, and non-mutating action or mutation validation against a local bridge session.",
+                "Run coordinate-free workflow steps with typed, bounded runtime-state waits, durable idempotency replay protection, and non-mutating action or mutation validation against a local bridge session.",
                 ["run-workflow", "run_workflow"],
                 requires: [AvaScopeCapabilityIds.RuntimeFind, AvaScopeCapabilityIds.RuntimeInput],
                 metadata: new Dictionary<string, string>
@@ -196,6 +196,10 @@ public static class AvaScopeCapabilityCatalog
                     ["waitDefaultTimeoutMs"] = "5000",
                     ["waitMaximumTimeoutMs"] = "60000",
                     ["waitDefaultPollIntervalMs"] = "100",
+                    ["waitConditions"] = string.Join(",", SemanticWaitConditionKinds.All),
+                    ["waitComparisons"] = string.Join(",", SemanticWaitComparisons.All),
+                    ["waitSelectorResolution"] = "every_poll",
+                    ["waitEvidence"] = "typed_observation,last_candidates,elapsed,next_action",
                     ["idempotency"] = "optional_step_key,file_backed,session_scoped,ttl_bounded,replay_detected",
                     ["idempotencyDefaultTtlMs"] = "300000",
                     ["dryRunActions"] = "validate_action,validate_mutation",

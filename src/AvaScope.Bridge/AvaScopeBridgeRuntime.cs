@@ -5823,7 +5823,7 @@ public sealed class AvaScopeBridgeRuntime
         }
 
         var properties = GetInspectableProperties(node).ToArray();
-        var values = new List<ComputedPropertyValue>(properties.Length);
+        var values = new List<ComputedPropertyValue>(properties.Length + 1);
         foreach (var property in properties)
         {
             try
@@ -5847,7 +5847,56 @@ public sealed class AvaScopeBridgeRuntime
             }
         }
 
+        var commandState = GetCommandState(node);
+        if (commandState is not null)
+        {
+            values.Add(commandState);
+        }
+
         return values;
+    }
+
+    private static ComputedPropertyValue? GetCommandState(object node)
+    {
+        (System.Windows.Input.ICommand? Command, object? Parameter)? command = node switch
+        {
+            Button button => (button.Command, button.CommandParameter),
+            MenuItem menuItem => (menuItem.Command, menuItem.CommandParameter),
+            SplitButton splitButton => (splitButton.Command, splitButton.CommandParameter),
+            _ => null
+        };
+
+        if (command is null)
+        {
+            return null;
+        }
+
+        if (command.Value.Command is null)
+        {
+            return new ComputedPropertyValue(
+                "CommandExecutable",
+                "not_available",
+                "not_available",
+                source: "avalonia_public_command");
+        }
+
+        try
+        {
+            return new ComputedPropertyValue(
+                "CommandExecutable",
+                command.Value.Command.CanExecute(command.Value.Parameter).ToString().ToLowerInvariant(),
+                typeof(bool).FullName!,
+                source: "avalonia_public_command");
+        }
+        catch (Exception exception) when (exception is InvalidOperationException or ArgumentException)
+        {
+            return new ComputedPropertyValue(
+                "CommandExecutable",
+                "not_available",
+                "not_available",
+                source: "avalonia_public_command",
+                diagnostic: exception.Message);
+        }
     }
 
     private RuntimeScrollState? GetScrollState(TopLevel topLevel, string topLevelId, object node)
@@ -6811,11 +6860,62 @@ public sealed class AvaScopeBridgeRuntime
 
         if (node is TextBlock)
         {
+            yield return TextBlock.TextProperty;
             yield return TextBlock.ForegroundProperty;
             yield return TextBlock.FontFamilyProperty;
             yield return TextBlock.FontSizeProperty;
             yield return TextBlock.FontStyleProperty;
             yield return TextBlock.FontWeightProperty;
+        }
+
+        if (node is TextBox)
+        {
+            yield return TextBox.TextProperty;
+        }
+
+        if (node is ContentControl)
+        {
+            yield return ContentControl.ContentProperty;
+        }
+
+        if (node is ToggleButton)
+        {
+            yield return ToggleButton.IsCheckedProperty;
+        }
+
+        if (node is SelectingItemsControl)
+        {
+            yield return SelectingItemsControl.SelectedIndexProperty;
+            yield return SelectingItemsControl.SelectedItemProperty;
+            yield return SelectingItemsControl.SelectedValueProperty;
+        }
+
+        if (node is ListBoxItem or TabItem or TreeViewItem)
+        {
+            yield return SelectingItemsControl.IsSelectedProperty;
+        }
+
+        if (node is RangeBase)
+        {
+            yield return RangeBase.ValueProperty;
+        }
+
+        if (node is Button)
+        {
+            yield return Button.CommandProperty;
+            yield return Button.CommandParameterProperty;
+        }
+
+        if (node is MenuItem)
+        {
+            yield return MenuItem.CommandProperty;
+            yield return MenuItem.CommandParameterProperty;
+        }
+
+        if (node is SplitButton)
+        {
+            yield return SplitButton.CommandProperty;
+            yield return SplitButton.CommandParameterProperty;
         }
     }
 

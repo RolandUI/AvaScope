@@ -107,6 +107,7 @@ The `v1.4.0` minor release makes complex local Avalonia automation deterministic
 
 ### v1.4.0 Implementation Validation
 
+- `2026-09-02`: Completed local #102 implementation with additive typed wait conditions/observations, public Avalonia state inspection, per-poll selector re-resolution, lifecycle/disappearance semantics, invariant comparisons, and bounded distinct unavailable/timeout evidence across Protocol, Bridge, Core, CLI, MCP, capability metadata, tests, and docs. Debug and Release builds completed with `0` warnings/errors and all `445` tests passed in both configurations. Hosted CI is pending before closure.
 - `2026-09-02`: Completed #101 in `747117b` with shared interaction-state selectors, UI-thread generation validation, pre-dispatch-only stale recovery, bounded ambiguity candidates, and durable template-recreation/idempotency coverage across Protocol, Bridge, Core, CLI, MCP, capability metadata, and documentation. Debug and Release builds completed with `0` warnings/errors and all `442` tests passed in both configurations. Hosted CI `33653895062` passed Windows Build/Test/Pack, installers and artifacts, Linux installer validation, and macOS full tests plus native runtime/preview/artifact validation. Started #102.
 
 ## Released Target: v1.3.0

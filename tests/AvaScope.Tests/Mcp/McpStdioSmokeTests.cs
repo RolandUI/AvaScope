@@ -82,6 +82,18 @@ public sealed class McpStdioSmokeTests
         Assert.NotNull(inputSchema["properties"]!["gestureDistancePercentage"]);
         Assert.NotNull(inputSchema["properties"]!["gestureDurationMs"]);
         Assert.NotNull(inputSchema["properties"]!["destinationTargetNodeId"]);
+        var workflow = Assert.Single(tools, static tool => tool.Name == "run_workflow");
+        Assert.Contains("rendered", workflow.ProtocolTool.Description, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("binding", workflow.ProtocolTool.Description, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("top-level", workflow.ProtocolTool.Description, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(
+            "\"waitCondition\"",
+            JsonSerializer.Serialize(workflow.ProtocolTool.InputSchema),
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "\"waitObservation\"",
+            JsonSerializer.Serialize(workflow.ProtocolTool.OutputSchema),
+            StringComparison.Ordinal);
     }
 
     [Fact]
