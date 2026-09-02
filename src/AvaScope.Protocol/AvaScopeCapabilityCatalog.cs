@@ -128,9 +128,15 @@ public static class AvaScopeCapabilityCatalog
             Capability(
                 AvaScopeCapabilityIds.RuntimeFind,
                 "runtime",
-                "Find runtime nodes by type, name, automation id, text, and bounded depth/result limits.",
+                "Find runtime nodes by identity plus visible, enabled, rendered, and actionable state with bounded depth/result limits.",
                 ["find-nodes", "find_nodes"],
-                requires: [AvaScopeCapabilityIds.RuntimeTrees]),
+                requires: [AvaScopeCapabilityIds.RuntimeTrees],
+                metadata: new Dictionary<string, string>
+                {
+                    ["identityFilters"] = "nodeType,name,automationId,text",
+                    ["stateFilters"] = "visible,enabled,rendered,actionable",
+                    ["interactionState"] = "visible,enabled,rendered,actionable,availableActions"
+                }),
             Capability(
                 AvaScopeCapabilityIds.RuntimeInput,
                 "runtime",

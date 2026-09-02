@@ -23,6 +23,7 @@ Use this when an agent workflow fails and the next action is not obvious from th
 
 ## Runtime Mutation
 
+- `runtime_input_target_stale`: the resolved input node or top-level changed before Bridge dispatch. Semantic workflows re-resolve once only when the diagnostic reports `dispatched=false`; if it reports `true` or is absent, treat the action as possibly executed and do not retry it. Persist a semantic selector rather than the raw node id.
 - `runtime_mutation_target_stale`: the node or top-level target no longer matches the current runtime tree. Refresh `visual-tree`, `logical-tree`, or `find-nodes`, then retry with the returned target context.
 - `runtime_mutation_non_local_session`: the mutation target came from a different session or non-local manifest. Attach to the intended local bridge session and use its current tree result.
 - Unsupported property/value errors mean the current safe mutation set rejected the request. Use `capabilities`, `mutate-node --operation no_op`, or `mutation-review` to inspect supported operations.

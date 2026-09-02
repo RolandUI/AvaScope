@@ -105,6 +105,10 @@ The `v1.4.0` minor release makes complex local Avalonia automation deterministic
 - Full Debug and Release build/test suites plus packaged Windows, Linux, and macOS workflow gates.
 - Package, installer, manifest, NuGet, and GitHub Release dry-runs before the exact `Release 1.4.0` commit.
 
+### v1.4.0 Implementation Validation
+
+- `2026-09-02`: Implemented #101 locally with shared interaction-state selectors, UI-thread generation validation, pre-dispatch-only stale recovery, bounded ambiguity candidates, and durable template-recreation/idempotency coverage across Protocol, Bridge, Core, CLI, MCP, capability metadata, and documentation. Debug and Release builds completed with `0` warnings/errors and all `442` tests passed in both configurations; hosted cross-platform CI remains pending the pushed commit.
+
 ## Released Target: v1.3.0
 
 - Release: `v1.3.0`

@@ -407,6 +407,21 @@ public sealed class AvaScopeMcpToolsTests
     }
 
     [Fact]
+    public async Task FindNodesAcceptsActionableAsTheOnlyFilter()
+    {
+        var client = new LocalBridgeClient(CreateMissingManifestDirectory());
+
+        var result = await AvaScopeMcpTools.FindNodes(
+            client,
+            "session-1",
+            "topLevel:abc",
+            actionable: true);
+
+        Assert.False(result.Success);
+        Assert.Equal(CoreErrorCodes.BridgeSessionNotFound, result.Error!.Code);
+    }
+
+    [Fact]
     public async Task InputRejectsOutOfRangeGestureOptionsAsStructuredFailure()
     {
         var client = new LocalBridgeClient(CreateMissingManifestDirectory());

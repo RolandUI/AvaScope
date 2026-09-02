@@ -361,7 +361,11 @@ internal sealed class LocalBridgeServer : IDisposable
             request.IncludeBounds,
             request.IncludeAccessibility,
             request.IncludeBindings,
-            request.MaxResponseDepth);
+            request.MaxResponseDepth,
+            request.Visible,
+            request.Enabled,
+            request.Rendered,
+            request.Actionable);
 
         return result.Success
             ? BridgeIpcResponse.Ok(request.RequestId, result.Value)
@@ -476,7 +480,9 @@ internal sealed class LocalBridgeServer : IDisposable
                 request.InputKey,
                 request.KeyModifiers,
                 request.Gesture,
-                cancellationToken)
+                cancellationToken,
+                request.InputTarget,
+                request.GestureDestinationTarget)
             : await _runtime.InputAsync(
                 request.TopLevelId,
                 request.Action,
@@ -487,7 +493,9 @@ internal sealed class LocalBridgeServer : IDisposable
                 request.InputKey,
                 request.KeyModifiers,
                 request.Gesture,
-                cancellationToken);
+                cancellationToken,
+                request.InputTarget,
+                request.GestureDestinationTarget);
 
         return result.Success
             ? BridgeIpcResponse.Ok(request.RequestId, result.Value)

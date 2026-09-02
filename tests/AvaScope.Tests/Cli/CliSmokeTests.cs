@@ -2375,6 +2375,10 @@ public sealed class CliSmokeTests
             Assert.Equal("SearchTarget", request.Name);
             Assert.Equal("search-target", request.AutomationId);
             Assert.Equal("Find me", request.Text);
+            Assert.True(request.Visible);
+            Assert.True(request.Enabled);
+            Assert.True(request.Rendered);
+            Assert.True(request.Actionable);
             Assert.Equal(3, request.MaxDepth);
             Assert.Equal(5, request.MaxResults);
             return BridgeIpcResponse.Ok(
@@ -2406,6 +2410,14 @@ public sealed class CliSmokeTests
                 "search-target",
                 "--text",
                 "Find me",
+                "--visible",
+                "true",
+                "--enabled",
+                "true",
+                "--rendered",
+                "true",
+                "--actionable",
+                "true",
                 "--max-depth",
                 "3",
                 "--max-results",
@@ -2687,6 +2699,7 @@ public sealed class CliSmokeTests
     [InlineData("--max-depth", "-1")]
     [InlineData("--max-results", "0")]
     [InlineData("--tree-kind", "layout")]
+    [InlineData("--actionable", "sometimes")]
     public async Task FindNodesCommandRejectsInvalidOptions(string optionName, string optionValue)
     {
         var cliAssembly = Path.Combine(AppContext.BaseDirectory, "avascope.dll");

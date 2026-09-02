@@ -1547,6 +1547,10 @@ internal static class Program
                 "name",
                 "automation-id",
                 "text",
+                "visible",
+                "enabled",
+                "rendered",
+                "actionable",
                 "max-depth",
                 "max-results",
                 "include-children",
@@ -1568,12 +1572,19 @@ internal static class Program
         if (!TryReadOptionalBoolean(options.Values, "include-children", out var includeChildren)
             || !TryReadOptionalBoolean(options.Values, "include-bounds", out var parsedIncludeBounds)
             || !TryReadOptionalBoolean(options.Values, "include-accessibility", out var includeAccessibility)
-            || !TryReadOptionalBoolean(options.Values, "include-bindings", out var includeBindings))
+            || !TryReadOptionalBoolean(options.Values, "include-bindings", out var includeBindings)
+            || !TryReadOptionalBoolean(options.Values, "visible", out var parsedVisible)
+            || !TryReadOptionalBoolean(options.Values, "enabled", out var parsedEnabled)
+            || !TryReadOptionalBoolean(options.Values, "rendered", out var parsedRendered)
+            || !TryReadOptionalBoolean(options.Values, "actionable", out var parsedActionable))
         {
-            WriteFailure(InvalidCliArguments, "Find include options must be true or false.");
             return 2;
         }
         var includeBounds = !options.Values.ContainsKey("include-bounds") || parsedIncludeBounds;
+        bool? visible = options.Values.ContainsKey("visible") ? parsedVisible : null;
+        bool? enabled = options.Values.ContainsKey("enabled") ? parsedEnabled : null;
+        bool? rendered = options.Values.ContainsKey("rendered") ? parsedRendered : null;
+        bool? actionable = options.Values.ContainsKey("actionable") ? parsedActionable : null;
 
         var nodeType = options.Values.GetValueOrDefault("type");
         var name = options.Values.GetValueOrDefault("name");
@@ -1582,7 +1593,11 @@ internal static class Program
         if (string.IsNullOrWhiteSpace(nodeType)
             && string.IsNullOrWhiteSpace(name)
             && string.IsNullOrWhiteSpace(automationId)
-            && string.IsNullOrWhiteSpace(text))
+            && string.IsNullOrWhiteSpace(text)
+            && !visible.HasValue
+            && !enabled.HasValue
+            && !rendered.HasValue
+            && !actionable.HasValue)
         {
             WriteFailure(InvalidCliArguments, "At least one find filter is required.");
             return 2;
@@ -1602,7 +1617,11 @@ internal static class Program
             includeBounds: includeBounds,
             includeAccessibility: includeAccessibility,
             includeBindings: includeBindings,
-            maxResponseDepth: maxResponseDepth);
+            maxResponseDepth: maxResponseDepth,
+            visible: visible,
+            enabled: enabled,
+            rendered: rendered,
+            actionable: actionable);
         WriteResult(result);
 
         return result.Success ? 0 : 1;
@@ -4290,7 +4309,7 @@ internal static class Program
 
     private static string GetFindNodesUsage()
     {
-        return "Usage: avascope find-nodes --session <session-id> --top-level <top-level-id> [--tree-kind visual|logical] [--type <type>] [--name <name>] [--automation-id <id>] [--text <text>] [--max-depth <n>] [--max-results <n>] [--include-children true|false] [--include-bounds true|false] [--include-accessibility true|false] [--include-bindings true|false] [--max-response-depth <n>] [--manifest-dir <dir>]";
+        return "Usage: avascope find-nodes --session <session-id> --top-level <top-level-id> [--tree-kind visual|logical] [--type <type>] [--name <name>] [--automation-id <id>] [--text <text>] [--visible true|false] [--enabled true|false] [--rendered true|false] [--actionable true|false] [--max-depth <n>] [--max-results <n>] [--include-children true|false] [--include-bounds true|false] [--include-accessibility true|false] [--include-bindings true|false] [--max-response-depth <n>] [--manifest-dir <dir>]";
     }
 
     private static string GetAuditUiUsage()

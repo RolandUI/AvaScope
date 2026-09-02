@@ -15,7 +15,11 @@ public sealed record SemanticWorkflowSelector
         string? role = null,
         string? bindingPath = null,
         string? commandName = null,
-        int? maxDepth = null)
+        int? maxDepth = null,
+        bool? visible = null,
+        bool? enabled = null,
+        bool? rendered = null,
+        bool? actionable = null)
     {
         if (maxDepth is < 0)
         {
@@ -32,6 +36,10 @@ public sealed record SemanticWorkflowSelector
         BindingPath = string.IsNullOrWhiteSpace(bindingPath) ? null : bindingPath;
         CommandName = string.IsNullOrWhiteSpace(commandName) ? null : commandName;
         MaxDepth = maxDepth;
+        Visible = visible;
+        Enabled = enabled;
+        Rendered = rendered;
+        Actionable = actionable;
     }
 
     [JsonPropertyName("nodeId")]
@@ -73,6 +81,22 @@ public sealed record SemanticWorkflowSelector
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public int? MaxDepth { get; }
 
+    [JsonPropertyName("visible")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Visible { get; }
+
+    [JsonPropertyName("enabled")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Enabled { get; }
+
+    [JsonPropertyName("rendered")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Rendered { get; }
+
+    [JsonPropertyName("actionable")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Actionable { get; }
+
     public bool HasSearchCriteria =>
         !string.IsNullOrWhiteSpace(NodeId)
         || !string.IsNullOrWhiteSpace(AutomationId)
@@ -81,5 +105,9 @@ public sealed record SemanticWorkflowSelector
         || !string.IsNullOrWhiteSpace(NodeType)
         || !string.IsNullOrWhiteSpace(Role)
         || !string.IsNullOrWhiteSpace(BindingPath)
-        || !string.IsNullOrWhiteSpace(CommandName);
+        || !string.IsNullOrWhiteSpace(CommandName)
+        || Visible.HasValue
+        || Enabled.HasValue
+        || Rendered.HasValue
+        || Actionable.HasValue;
 }

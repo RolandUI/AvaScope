@@ -257,7 +257,11 @@ public sealed class AvaScopeBridgeRuntime
         bool includeBounds = true,
         bool includeAccessibility = false,
         bool includeBindings = false,
-        int? maxResponseDepth = null)
+        int? maxResponseDepth = null,
+        bool? visible = null,
+        bool? enabled = null,
+        bool? rendered = null,
+        bool? actionable = null)
     {
         if (string.IsNullOrWhiteSpace(topLevelId))
         {
@@ -284,7 +288,11 @@ public sealed class AvaScopeBridgeRuntime
                 includeBounds,
                 includeAccessibility,
                 includeBindings,
-                maxResponseDepth));
+                maxResponseDepth,
+                visible,
+                enabled,
+                rendered,
+                actionable));
         }
 
         return Dispatcher.UIThread
@@ -302,7 +310,11 @@ public sealed class AvaScopeBridgeRuntime
                     includeBounds,
                     includeAccessibility,
                     includeBindings,
-                    maxResponseDepth),
+                    maxResponseDepth,
+                    visible,
+                    enabled,
+                    rendered,
+                    actionable),
                 DispatcherPriority.Background,
                 cancellationToken)
             .GetTask();
@@ -386,7 +398,9 @@ public sealed class AvaScopeBridgeRuntime
         string? inputKey = null,
         string? keyModifiers = null,
         InputGestureOptions? gesture = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        RuntimeTargetContext? inputTarget = null,
+        RuntimeTargetContext? gestureDestinationTarget = null)
     {
         if (string.IsNullOrWhiteSpace(topLevelId))
         {
@@ -407,17 +421,18 @@ public sealed class AvaScopeBridgeRuntime
 
         if (InputActions.IsGesture(action))
         {
-            return await GestureInputAsync(topLevelId, action, targetNodeId, gesture, cancellationToken);
+            return await GestureInputAsync(
+                topLevelId, action, targetNodeId, gesture, cancellationToken, inputTarget, gestureDestinationTarget);
         }
 
         if (Dispatcher.UIThread.CheckAccess())
         {
-            return Input(topLevelId, action, x, y, inputText, targetNodeId, inputKey, keyModifiers);
+            return Input(topLevelId, action, x, y, inputText, targetNodeId, inputKey, keyModifiers, inputTarget);
         }
 
         return await Dispatcher.UIThread
             .InvokeAsync(
-                () => Input(topLevelId, action, x, y, inputText, targetNodeId, inputKey, keyModifiers),
+                () => Input(topLevelId, action, x, y, inputText, targetNodeId, inputKey, keyModifiers, inputTarget),
                 DispatcherPriority.Background,
                 cancellationToken)
             .GetTask();
@@ -433,7 +448,9 @@ public sealed class AvaScopeBridgeRuntime
         string? inputKey = null,
         string? keyModifiers = null,
         InputGestureOptions? gesture = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        RuntimeTargetContext? inputTarget = null,
+        RuntimeTargetContext? gestureDestinationTarget = null)
     {
         if (string.IsNullOrWhiteSpace(topLevelId))
         {
@@ -448,13 +465,15 @@ public sealed class AvaScopeBridgeRuntime
         if (Dispatcher.UIThread.CheckAccess())
         {
             return Task.FromResult(ValidateInput(
-                topLevelId, action, x, y, inputText, targetNodeId, inputKey, keyModifiers, gesture));
+                topLevelId, action, x, y, inputText, targetNodeId, inputKey, keyModifiers, gesture,
+                inputTarget, gestureDestinationTarget));
         }
 
         return Dispatcher.UIThread
             .InvokeAsync(
                 () => ValidateInput(
-                    topLevelId, action, x, y, inputText, targetNodeId, inputKey, keyModifiers, gesture),
+                    topLevelId, action, x, y, inputText, targetNodeId, inputKey, keyModifiers, gesture,
+                    inputTarget, gestureDestinationTarget),
                 DispatcherPriority.Background,
                 cancellationToken)
             .GetTask();
@@ -1093,14 +1112,22 @@ public sealed class AvaScopeBridgeRuntime
         bool includeBounds,
         bool includeAccessibility,
         bool includeBindings,
-        int? maxResponseDepth)
+        int? maxResponseDepth,
+        bool? visible,
+        bool? enabled,
+        bool? rendered,
+        bool? actionable)
     {
         Dispatcher.UIThread.VerifyAccess();
 
         if (string.IsNullOrWhiteSpace(nodeType)
             && string.IsNullOrWhiteSpace(name)
             && string.IsNullOrWhiteSpace(automationId)
-            && string.IsNullOrWhiteSpace(text))
+            && string.IsNullOrWhiteSpace(text)
+            && !visible.HasValue
+            && !enabled.HasValue
+            && !rendered.HasValue
+            && !actionable.HasValue)
         {
             return InvalidFindRequest("At least one find filter is required.");
         }
@@ -1130,6 +1157,10 @@ public sealed class AvaScopeBridgeRuntime
             name,
             automationId,
             text,
+            visible,
+            enabled,
+            rendered,
+            actionable,
             new List<string>(),
             matches,
             resultLimit.Value,
@@ -1204,7 +1235,8 @@ public sealed class AvaScopeBridgeRuntime
             GetAccessibilityState(node),
             GetValidationState(node),
             sourceMap,
-            CreateLayoutExplanation(topLevel, topLevelId, node, target)));
+            CreateLayoutExplanation(topLevel, topLevelId, node, target),
+            CreateInteractionState(topLevel, node)));
     }
 
     private CoreResult<InspectNodeResponse> InspectLogicalNode(ILogical root, TopLevel topLevel, string topLevelId, string nodeId)
@@ -1238,7 +1270,8 @@ public sealed class AvaScopeBridgeRuntime
             GetAccessibilityState(node),
             GetValidationState(node),
             sourceMap,
-            CreateLayoutExplanation(topLevel, topLevelId, node, target)));
+            CreateLayoutExplanation(topLevel, topLevelId, node, target),
+            CreateInteractionState(topLevel, node)));
     }
 
     private CoreResult<LayoutExplainResponse> ExplainLayout(string topLevelId, string treeKind, string nodeId)
@@ -1288,7 +1321,8 @@ public sealed class AvaScopeBridgeRuntime
         string? inputText,
         string? targetNodeId,
         string? inputKey,
-        string? keyModifiers)
+        string? keyModifiers,
+        RuntimeTargetContext? inputTarget)
     {
         Dispatcher.UIThread.VerifyAccess();
 
@@ -1297,6 +1331,14 @@ public sealed class AvaScopeBridgeRuntime
         {
             return TopLevelNotFound<InputResponse>(topLevelId);
         }
+
+        var currentTarget = ResolveInputGenerationTarget(topLevel, topLevelId, targetNodeId, inputTarget);
+        if (!currentTarget.Success)
+        {
+            return CoreResult<InputResponse>.Fail(currentTarget.Error!);
+        }
+
+        targetNodeId = currentTarget.Value!.NodeId;
 
         return action switch
         {
@@ -1337,7 +1379,9 @@ public sealed class AvaScopeBridgeRuntime
         string? targetNodeId,
         string? inputKey,
         string? keyModifiers,
-        InputGestureOptions? gesture)
+        InputGestureOptions? gesture,
+        RuntimeTargetContext? generationTarget,
+        RuntimeTargetContext? gestureDestinationTarget)
     {
         Dispatcher.UIThread.VerifyAccess();
 
@@ -1345,6 +1389,30 @@ public sealed class AvaScopeBridgeRuntime
         if (topLevel is null)
         {
             return TopLevelNotFound<InputResponse>(topLevelId);
+        }
+
+        var currentTarget = ResolveInputGenerationTarget(topLevel, topLevelId, targetNodeId, generationTarget);
+        if (!currentTarget.Success)
+        {
+            return CoreResult<InputResponse>.Fail(currentTarget.Error!);
+        }
+
+        targetNodeId = currentTarget.Value!.NodeId;
+        var destinationNodeId = gesture?.DestinationTargetNodeId;
+        var currentDestination = ResolveInputGenerationTarget(
+            topLevel, topLevelId, destinationNodeId, gestureDestinationTarget, "gestureDestinationTarget");
+        if (!currentDestination.Success)
+        {
+            return CoreResult<InputResponse>.Fail(currentDestination.Error!);
+        }
+
+        if (gesture is not null && gestureDestinationTarget is not null)
+        {
+            gesture = new InputGestureOptions(
+                gesture.Direction,
+                gesture.DistancePercentage,
+                gesture.DurationMs,
+                currentDestination.Value!.NodeId);
         }
 
         if (!InputActions.All.Contains(action, StringComparer.Ordinal))
@@ -2386,6 +2454,62 @@ public sealed class AvaScopeBridgeRuntime
         return CoreResult<ResolvedMutationTarget>.Ok(new ResolvedMutationTarget(node, currentTarget));
     }
 
+    private CoreResult<InputTargetResolution> ResolveInputGenerationTarget(
+        TopLevel topLevel,
+        string topLevelId,
+        string? targetNodeId,
+        RuntimeTargetContext? target,
+        string targetRole = "inputTarget")
+    {
+        if (target is null)
+        {
+            return CoreResult<InputTargetResolution>.Ok(new InputTargetResolution(targetNodeId));
+        }
+
+        CoreError? error = null;
+        if (target.SessionId != SessionId)
+        {
+            error = new CoreError(RuntimeInputErrorCodes.TargetStale, "Input target belongs to a different bridge session.");
+        }
+        else if (!string.Equals(target.TopLevelId, topLevelId, StringComparison.Ordinal))
+        {
+            error = new CoreError(RuntimeInputErrorCodes.TargetStale, "Input target belongs to a different top-level.");
+        }
+        else if (!string.IsNullOrWhiteSpace(targetNodeId)
+            && !string.Equals(target.NodeId, targetNodeId, StringComparison.Ordinal))
+        {
+            error = new CoreError(RuntimeInputErrorCodes.TargetStale, "Input target context does not match the requested node id.");
+        }
+        else
+        {
+            var resolved = ResolveMutationTarget(topLevel, target);
+            if (resolved.Success)
+            {
+                return CoreResult<InputTargetResolution>.Ok(
+                    new InputTargetResolution(resolved.Value!.Target.NodeId));
+            }
+
+            error = resolved.Error;
+        }
+
+        var details = error?.Details is null
+            ? new Dictionary<string, string>(StringComparer.Ordinal)
+            : new Dictionary<string, string>(error.Details, StringComparer.Ordinal);
+        details["topLevelId"] = topLevelId;
+        details["targetRole"] = targetRole;
+        details["dispatched"] = bool.FalseString.ToLowerInvariant();
+        details["nextAction"] = "Re-resolve the semantic selector and retry only because no input was dispatched.";
+        if (!string.IsNullOrWhiteSpace(target.NodeId))
+        {
+            details["nodeId"] = target.NodeId;
+        }
+
+        return CoreResult<InputTargetResolution>.Fail(new CoreError(
+            RuntimeInputErrorCodes.TargetStale,
+            error?.Message ?? "Input target is stale.",
+            details));
+    }
+
     private static ProtocolError? ValidateMutationOperation(RuntimeMutationOperation operation)
     {
         return operation.Kind switch
@@ -3229,17 +3353,23 @@ public sealed class AvaScopeBridgeRuntime
         string action,
         string? targetNodeId,
         InputGestureOptions? options,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        RuntimeTargetContext? inputTarget,
+        RuntimeTargetContext? gestureDestinationTarget)
     {
         CoreResult<GesturePlan> prepared;
         if (Dispatcher.UIThread.CheckAccess())
         {
-            prepared = PrepareGesture(FindTopLevel(topLevelId), topLevelId, action, targetNodeId, options);
+            prepared = PrepareGesture(
+                FindTopLevel(topLevelId), topLevelId, action, targetNodeId, options,
+                inputTarget, gestureDestinationTarget);
         }
         else
         {
             prepared = await Dispatcher.UIThread.InvokeAsync(
-                () => PrepareGesture(FindTopLevel(topLevelId), topLevelId, action, targetNodeId, options),
+                () => PrepareGesture(
+                    FindTopLevel(topLevelId), topLevelId, action, targetNodeId, options,
+                    inputTarget, gestureDestinationTarget),
                 DispatcherPriority.Background,
                 cancellationToken);
         }
@@ -3328,7 +3458,9 @@ public sealed class AvaScopeBridgeRuntime
         string topLevelId,
         string action,
         string? targetNodeId,
-        InputGestureOptions? options)
+        InputGestureOptions? options,
+        RuntimeTargetContext? inputTarget = null,
+        RuntimeTargetContext? gestureDestinationTarget = null)
     {
         Dispatcher.UIThread.VerifyAccess();
 
@@ -3343,7 +3475,34 @@ public sealed class AvaScopeBridgeRuntime
             return InvalidGesture<GesturePlan>(action, targetNodeId, "Gesture input requires a source target node id.");
         }
 
+        var currentTarget = ResolveInputGenerationTarget(topLevel, topLevelId, targetNodeId, inputTarget);
+        if (!currentTarget.Success)
+        {
+            return CoreResult<GesturePlan>.Fail(currentTarget.Error!);
+        }
+
+        targetNodeId = currentTarget.Value!.NodeId;
+
         options ??= new InputGestureOptions();
+        var currentDestination = ResolveInputGenerationTarget(
+            topLevel,
+            topLevelId,
+            options.DestinationTargetNodeId,
+            gestureDestinationTarget,
+            "gestureDestinationTarget");
+        if (!currentDestination.Success)
+        {
+            return CoreResult<GesturePlan>.Fail(currentDestination.Error!);
+        }
+
+        if (gestureDestinationTarget is not null)
+        {
+            options = new InputGestureOptions(
+                options.Direction,
+                options.DistancePercentage,
+                options.DurationMs,
+                currentDestination.Value!.NodeId);
+        }
         var direction = string.IsNullOrWhiteSpace(options.Direction)
             ? null
             : options.Direction.Trim().ToLowerInvariant();
@@ -3396,7 +3555,7 @@ public sealed class AvaScopeBridgeRuntime
                 "Drag and swipe require a destination target node id or direction.");
         }
 
-        var source = ResolveGestureTarget(topLevel, action, targetNodeId.Trim(), "source");
+        var source = ResolveGestureTarget(topLevel, action, targetNodeId!.Trim(), "source");
         if (!source.Success)
         {
             return CoreResult<GesturePlan>.Fail(source.Error!);
@@ -5170,6 +5329,10 @@ public sealed class AvaScopeBridgeRuntime
         string? name,
         string? automationId,
         string? text,
+        bool? visible,
+        bool? enabled,
+        bool? rendered,
+        bool? actionable,
         List<string> path,
         List<FindNodeMatch> matches,
         int maxResults,
@@ -5186,7 +5349,7 @@ public sealed class AvaScopeBridgeRuntime
 
         path.Add(node.NodeId);
 
-        if (Matches(node, nodeType, name, automationId, text))
+        if (Matches(node, nodeType, name, automationId, text, visible, enabled, rendered, actionable))
         {
             matches.Add(new FindNodeMatch(
                 ProjectFindNode(node, includeChildren, includeBounds, includeAccessibility, includeBindings, maxResponseDepth),
@@ -5196,7 +5359,7 @@ public sealed class AvaScopeBridgeRuntime
         foreach (var child in node.Children)
         {
             CollectMatches(
-                child, nodeType, name, automationId, text, path, matches, maxResults,
+                child, nodeType, name, automationId, text, visible, enabled, rendered, actionable, path, matches, maxResults,
                 includeChildren, includeBounds, includeAccessibility, includeBindings, maxResponseDepth);
             if (matches.Count >= maxResults)
             {
@@ -5238,7 +5401,8 @@ public sealed class AvaScopeBridgeRuntime
             includeAccessibility ? node.AccessibilityState : null,
             node.ValidationState,
             sourceMap: null,
-            bindingSummary: includeBindings ? CreateBindingSummary(node) : null);
+            bindingSummary: includeBindings ? CreateBindingSummary(node) : null,
+            interactionState: node.InteractionState);
     }
 
     private RuntimeBindingSummary CreateBindingSummary(TreeNodeSummary summary)
@@ -5286,13 +5450,24 @@ public sealed class AvaScopeBridgeRuntime
         string? nodeType,
         string? name,
         string? automationId,
-        string? text)
+        string? text,
+        bool? visible,
+        bool? enabled,
+        bool? rendered,
+        bool? actionable)
     {
         return MatchesContains(node.NodeType, nodeType)
             && MatchesEquals(node.Name, name)
             && MatchesEquals(node.AutomationId, automationId)
-            && MatchesContains(node.Text, text);
+            && MatchesContains(node.Text, text)
+            && MatchesState(node.InteractionState?.Visible, visible)
+            && MatchesState(node.InteractionState?.Enabled, enabled)
+            && MatchesState(node.InteractionState?.Rendered, rendered)
+            && MatchesState(node.InteractionState?.Actionable, actionable);
     }
+
+    private static bool MatchesState(bool? value, bool? filter) =>
+        !filter.HasValue || value == filter;
 
     private static bool MatchesContains(string? value, string? filter)
     {
@@ -5362,7 +5537,8 @@ public sealed class AvaScopeBridgeRuntime
             CreateNodeTarget(topLevelId, treeKind, topLevel, node),
             GetAccessibilityState(node),
             GetValidationState(node),
-            CreateRuntimeSourceMap(node, computedProperties));
+            CreateRuntimeSourceMap(node, computedProperties),
+            interactionState: CreateInteractionState(topLevel, node));
     }
 
     private RuntimeTargetContext CreateTopLevelTarget(string topLevelId, TopLevel topLevel)
@@ -5483,6 +5659,111 @@ public sealed class AvaScopeBridgeRuntime
             origin.Y,
             visual.Bounds.Width,
             visual.Bounds.Height);
+    }
+
+    private RuntimeNodeInteractionState? CreateInteractionState(TopLevel topLevel, object node)
+    {
+        if (node is not Visual visual)
+        {
+            return null;
+        }
+
+        var visible = visual.IsEffectivelyVisible;
+        var enabled = node is InputElement inputElement && inputElement.IsEffectivelyEnabled;
+        var bounds = GetGestureBounds(visual, topLevel);
+        var rendered = visible && bounds is { } renderedBounds && IsFinitePositive(renderedBounds);
+        var unclipped = rendered;
+        if (rendered)
+        {
+            var topLevelBounds = new Rect(topLevel.Bounds.Size);
+            rendered = IntersectsPositive(topLevelBounds, bounds!.Value);
+            unclipped = Contains(topLevelBounds, bounds.Value);
+            foreach (var ancestor in visual.GetVisualAncestors())
+            {
+                if (!ancestor.ClipToBounds)
+                {
+                    continue;
+                }
+
+                var ancestorBounds = GetGestureBounds(ancestor, topLevel);
+                rendered = rendered
+                    && ancestorBounds is not null
+                    && IntersectsPositive(ancestorBounds.Value, bounds.Value);
+                unclipped = unclipped
+                    && ancestorBounds is not null
+                    && Contains(ancestorBounds.Value, bounds.Value);
+            }
+        }
+
+        var availableActions = GetAvailableActions(visual);
+        var actionable = rendered && unclipped && enabled && availableActions.Count > 0;
+        if (actionable)
+        {
+            var hitVisual = topLevel.GetVisualAt(bounds!.Value.Center);
+            actionable = hitVisual is not null
+                && (ReferenceEquals(hitVisual, visual) || hitVisual.GetVisualAncestors().Contains(visual));
+        }
+
+        return new RuntimeNodeInteractionState(
+            visible,
+            enabled,
+            rendered,
+            actionable,
+            availableActions);
+    }
+
+    private static bool IntersectsPositive(Rect first, Rect second) =>
+        Math.Max(first.Left, second.Left) < Math.Min(first.Right, second.Right)
+        && Math.Max(first.Top, second.Top) < Math.Min(first.Bottom, second.Bottom);
+
+    private IReadOnlyList<string> GetAvailableActions(Visual visual)
+    {
+        var actions = new HashSet<string>(StringComparer.Ordinal);
+        if (visual is Control control)
+        {
+            try
+            {
+                var peer = ControlAutomationPeer.CreatePeerForElement(control);
+                if (peer is not null)
+                {
+                    actions.UnionWith(GetSupportedSemanticAutomationActions(peer));
+                }
+            }
+            catch (InvalidOperationException)
+            {
+                // A control without a ready automation peer is not semantically actionable yet.
+            }
+
+            if (control.Focusable)
+            {
+                actions.Add(InputActions.Focus);
+                actions.Add(InputActions.KeyDown);
+                actions.Add(InputActions.KeyUp);
+            }
+
+            if (control is Button)
+            {
+                actions.Add(InputActions.Click);
+            }
+
+            if (control is TextBox)
+            {
+                actions.Add(InputActions.KeyText);
+                actions.Add(InputActions.ClearText);
+            }
+
+            if (control is ScrollViewer)
+            {
+                actions.Add(InputActions.Scroll);
+            }
+        }
+
+        foreach (var registration in EnumerateCustomActions().Where(entry => ReferenceEquals(entry.Target, visual)))
+        {
+            actions.Add($"custom:{registration.Registration.Name}");
+        }
+
+        return actions.Order(StringComparer.Ordinal).ToArray();
     }
 
     private static IReadOnlyList<string> GetClasses(object node)
@@ -6668,6 +6949,8 @@ public sealed class AvaScopeBridgeRuntime
         Action Reset);
 
     private sealed record ResolvedMutationTarget(object Node, RuntimeTargetContext Target);
+
+    private sealed record InputTargetResolution(string? NodeId);
 
     private sealed record ResolvedCustomActionTarget(Visual Target, RuntimeTargetContext CurrentTarget);
 

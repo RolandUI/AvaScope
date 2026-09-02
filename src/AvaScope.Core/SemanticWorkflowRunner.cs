@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Diagnostics;
+using System.Text.Json;
 using AvaScope.Protocol;
 
 namespace AvaScope.Core;
@@ -532,7 +533,36 @@ public sealed class SemanticWorkflowRunner
             inputKey: step.Key,
             keyModifiers: step.Modifiers,
             gesture: CreateGestureOptions(step, destination.Value),
-            cancellationToken: cancellationToken);
+            cancellationToken: cancellationToken,
+            inputTarget: target.Value.Target,
+            gestureDestinationTarget: destination.Value?.Target);
+        if (!validation.Success && IsPreDispatchStale(validation.Error!))
+        {
+            target = await ResolveTargetAsync(bridgeClient, request, step, cancellationToken);
+            if (!target.Success)
+            {
+                return Fail(step, target.Error!);
+            }
+
+            destination = await ResolveDestinationAsync(bridgeClient, request, step, cancellationToken);
+            if (!destination.Success)
+            {
+                return Fail(step, destination.Error!, target.Value!.Target);
+            }
+
+            validation = await bridgeClient.ValidateInputAsync(
+                request.SessionId,
+                request.TopLevelId,
+                step.InputAction,
+                inputText: step.Text,
+                targetNodeId: target.Value!.Target.NodeId,
+                inputKey: step.Key,
+                keyModifiers: step.Modifiers,
+                gesture: CreateGestureOptions(step, destination.Value),
+                cancellationToken: cancellationToken,
+                inputTarget: target.Value.Target,
+                gestureDestinationTarget: destination.Value?.Target);
+        }
         return validation.Success
             ? Pass(
                 step,
@@ -574,6 +604,30 @@ public sealed class SemanticWorkflowRunner
         }
 
         var response = validation.Value!;
+        if (string.Equals(response.Status, RuntimeMutationStatuses.StaleTarget, StringComparison.Ordinal))
+        {
+            target = await ResolveTargetAsync(bridgeClient, request, step, cancellationToken);
+            if (!target.Success)
+            {
+                return Fail(step, target.Error!);
+            }
+
+            mutationRequest = new RuntimeMutationRequest(
+                mutationRequest.RequestId,
+                target.Value!.Target,
+                step.Mutation);
+            validation = await bridgeClient.ValidateMutationAsync(
+                request.SessionId,
+                mutationRequest,
+                cancellationToken);
+            if (!validation.Success)
+            {
+                return Fail(step, validation.Error!, target.Value.Target);
+            }
+
+            response = validation.Value!;
+        }
+
         if (!string.Equals(response.Status, RuntimeMutationStatuses.Validated, StringComparison.Ordinal))
         {
             var diagnostic = response.Diagnostics.FirstOrDefault()
@@ -813,6 +867,34 @@ public sealed class SemanticWorkflowRunner
         }
 
         var response = invocation.Value!;
+        if (!response.Executed
+            && response.Diagnostics.Any(static diagnostic =>
+                string.Equals(diagnostic.Code, RuntimeCustomActionErrorCodes.TargetStale, StringComparison.Ordinal)))
+        {
+            target = await ResolveTargetAsync(bridgeClient, request, step, cancellationToken);
+            if (!target.Success)
+            {
+                return Fail(step, target.Error!);
+            }
+
+            customRequest = new RuntimeCustomActionRequest(
+                customRequest.RequestId,
+                target.Value!.Target,
+                descriptor.Name,
+                step.CustomActionParameters,
+                authorizedDestructive);
+            invocation = await bridgeClient.InvokeCustomActionAsync(
+                request.SessionId,
+                customRequest,
+                cancellationToken);
+            if (!invocation.Success)
+            {
+                return Fail(step, invocation.Error!, target.Value.Target);
+            }
+
+            response = invocation.Value!;
+        }
+
         return string.Equals(response.Status, RuntimeCustomActionStatuses.Executed, StringComparison.Ordinal)
             ? Pass(
                 step,
@@ -872,7 +954,49 @@ public sealed class SemanticWorkflowRunner
             inputKey: step.Key,
             keyModifiers: step.Modifiers,
             gesture: CreateGestureOptions(step, destination.Value),
-            cancellationToken: cancellationToken);
+            cancellationToken: cancellationToken,
+            inputTarget: resolvedTarget.Target,
+            gestureDestinationTarget: destination.Value?.Target);
+
+        if (!result.Success && IsPreDispatchStale(result.Error!))
+        {
+            target = await ResolveTargetAsync(bridgeClient, request, step, cancellationToken);
+            if (!target.Success)
+            {
+                return Fail(step, target.Error!);
+            }
+
+            resolvedTarget = target.Value!;
+            destination = await ResolveDestinationAsync(bridgeClient, request, step, cancellationToken);
+            if (!destination.Success)
+            {
+                return Fail(step, destination.Error!, resolvedTarget.Target);
+            }
+
+            if (LooksDestructive(step, resolvedTarget)
+                && !request.AllowDestructive
+                && string.IsNullOrWhiteSpace(request.IsolatedStateDirectory))
+            {
+                return Fail(
+                    step,
+                    "semantic_workflow_destructive_target_requires_isolation",
+                    "The re-resolved target looks destructive; provide isolatedStateDirectory or set allowDestructive explicitly.",
+                    resolvedTarget.Target);
+            }
+
+            result = await bridgeClient.InputAsync(
+                request.SessionId,
+                request.TopLevelId,
+                inputAction,
+                inputText: step.Text,
+                targetNodeId: resolvedTarget.Target.NodeId,
+                inputKey: step.Key,
+                keyModifiers: step.Modifiers,
+                gesture: CreateGestureOptions(step, destination.Value),
+                cancellationToken: cancellationToken,
+                inputTarget: resolvedTarget.Target,
+                gestureDestinationTarget: destination.Value?.Target);
+        }
 
         return result.Success
             ? Pass(step, $"Input action '{inputAction}' executed.", resolvedTarget.Target, result.Value)
@@ -1060,9 +1184,17 @@ public sealed class SemanticWorkflowRunner
                 selector.NodeId,
                 cancellationToken);
 
-            return inspect.Success
-                ? CoreResult<ResolvedWorkflowTarget>.Ok(CreateResolvedTarget(inspect.Value!))
-                : CoreResult<ResolvedWorkflowTarget>.Fail(inspect.Error!);
+            if (!inspect.Success)
+            {
+                return CoreResult<ResolvedWorkflowTarget>.Fail(inspect.Error!);
+            }
+
+            return MatchesInteractionState(inspect.Value!.InteractionState, selector)
+                ? CoreResult<ResolvedWorkflowTarget>.Ok(CreateResolvedTarget(inspect.Value))
+                : CoreResult<ResolvedWorkflowTarget>.Fail(new CoreError(
+                    CoreErrorCodes.InvalidBridgeRequest,
+                    $"{selectorRole} selector matched the node identity but not its requested interaction state.",
+                    CreateSelectorDetails(selector)));
         }
 
         if (!string.IsNullOrWhiteSpace(selector.BindingPath) || !string.IsNullOrWhiteSpace(selector.CommandName))
@@ -1075,13 +1207,17 @@ public sealed class SemanticWorkflowRunner
             request.SessionId,
             request.TopLevelId,
             selector.TreeKind,
-            nodeType,
-            selector.Name,
-            selector.AutomationId,
-            selector.Text,
-            selector.MaxDepth ?? request.MaxDepth,
-            maxResults: 2,
-            cancellationToken);
+            nodeType: nodeType,
+            name: selector.Name,
+            automationId: selector.AutomationId,
+            text: selector.Text,
+            maxDepth: selector.MaxDepth ?? request.MaxDepth,
+            maxResults: 9,
+            cancellationToken: cancellationToken,
+            visible: selector.Visible,
+            enabled: selector.Enabled,
+            rendered: selector.Rendered,
+            actionable: selector.Actionable);
 
         if (!result.Success)
         {
@@ -1101,7 +1237,10 @@ public sealed class SemanticWorkflowRunner
             return CoreResult<ResolvedWorkflowTarget>.Fail(new CoreError(
                 CoreErrorCodes.InvalidBridgeRequest,
                 $"{selectorRole} selector matched multiple nodes; make the selector more specific.",
-                CreateSelectorDetails(selector)));
+                CreateAmbiguityDetails(
+                    selector,
+                    result.Value.Matches.Select(static match => match.Node),
+                    request.TopLevelId)));
         }
 
         var match = result.Value.Matches[0];
@@ -1145,7 +1284,7 @@ public sealed class SemanticWorkflowRunner
 
         var matches = EnumerateNodes(tree.Value!.Root)
             .Where(node => MatchesSourceMappedSelector(node, selector))
-            .Take(2)
+            .Take(9)
             .ToArray();
 
         if (matches.Length == 0)
@@ -1161,7 +1300,7 @@ public sealed class SemanticWorkflowRunner
             return CoreResult<ResolvedWorkflowTarget>.Fail(new CoreError(
                 CoreErrorCodes.InvalidBridgeRequest,
                 "Workflow source-mapped selector matched multiple nodes; add automationId, name, or text.",
-                CreateSelectorDetails(selector)));
+                CreateAmbiguityDetails(selector, matches, request.TopLevelId)));
         }
 
         return CoreResult<ResolvedWorkflowTarget>.Ok(CreateResolvedTarget(matches[0]));
@@ -1219,7 +1358,17 @@ public sealed class SemanticWorkflowRunner
             return false;
         }
 
-        return true;
+        return MatchesInteractionState(node.InteractionState, selector);
+    }
+
+    private static bool MatchesInteractionState(
+        RuntimeNodeInteractionState? state,
+        SemanticWorkflowSelector selector)
+    {
+        return (!selector.Visible.HasValue || state?.Visible == selector.Visible)
+            && (!selector.Enabled.HasValue || state?.Enabled == selector.Enabled)
+            && (!selector.Rendered.HasValue || state?.Rendered == selector.Rendered)
+            && (!selector.Actionable.HasValue || state?.Actionable == selector.Actionable);
     }
 
     private static string? ReadInspectableValue(InspectNodeResponse response, string propertyName)
@@ -1385,7 +1534,48 @@ public sealed class SemanticWorkflowRunner
         CopyDetail(details, "role", selector.Role);
         CopyDetail(details, "bindingPath", selector.BindingPath);
         CopyDetail(details, "commandName", selector.CommandName);
+        CopyDetail(details, "visible", selector.Visible);
+        CopyDetail(details, "enabled", selector.Enabled);
+        CopyDetail(details, "rendered", selector.Rendered);
+        CopyDetail(details, "actionable", selector.Actionable);
 
+        return details;
+    }
+
+    private static bool IsPreDispatchStale(CoreError error)
+    {
+        return string.Equals(error.Code, RuntimeInputErrorCodes.TargetStale, StringComparison.Ordinal)
+            && error.Details?.TryGetValue("dispatched", out var dispatched) == true
+            && string.Equals(dispatched, bool.FalseString, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static IReadOnlyDictionary<string, string> CreateAmbiguityDetails(
+        SemanticWorkflowSelector selector,
+        IEnumerable<TreeNodeSummary> matches,
+        string topLevelId)
+    {
+        var nodes = matches.Take(9).ToArray();
+        var details = new Dictionary<string, string>(CreateSelectorDetails(selector), StringComparer.Ordinal)
+        {
+            ["candidateCount"] = nodes.Length.ToString(CultureInfo.InvariantCulture),
+            ["candidatesTruncated"] = (nodes.Length > 8).ToString().ToLowerInvariant(),
+            ["candidates"] = JsonSerializer.Serialize(nodes.Take(8).Select(node => new
+            {
+                node.NodeId,
+                node.NodeType,
+                node.Name,
+                node.AutomationId,
+                node.Text,
+                node.Bounds,
+                TopLevelId = node.Target?.TopLevelId ?? topLevelId,
+                Visible = node.InteractionState?.Visible,
+                Enabled = node.InteractionState?.Enabled,
+                Rendered = node.InteractionState?.Rendered,
+                Actionable = node.InteractionState?.Actionable,
+                AvailableActions = node.InteractionState?.AvailableActions ?? []
+            })),
+            ["nextAction"] = "Add a stable identity field or an interaction-state filter, then resolve the selector again."
+        };
         return details;
     }
 
@@ -1394,6 +1584,14 @@ public sealed class SemanticWorkflowRunner
         if (!string.IsNullOrWhiteSpace(value))
         {
             details[key] = value;
+        }
+    }
+
+    private static void CopyDetail(IDictionary<string, string> details, string key, bool? value)
+    {
+        if (value.HasValue)
+        {
+            details[key] = value.Value.ToString().ToLowerInvariant();
         }
     }
 

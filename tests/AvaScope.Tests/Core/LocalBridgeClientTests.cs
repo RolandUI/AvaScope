@@ -703,6 +703,125 @@ public sealed class LocalBridgeClientTests : IDisposable
     }
 
     [Fact]
+    public async Task SemanticWorkflowRetriesOnlyGenerationStaleInputThatWasNotDispatched()
+    {
+        Directory.CreateDirectory(_manifestDirectory);
+        var sessionId = new SessionId("selector-recovery");
+        var topLevelId = "topLevel:selector-recovery";
+        var pipeName = TestPipeNames.New();
+        WriteManifest(
+            "selector-recovery.json",
+            new BridgeSessionManifest(
+                sessionId,
+                Environment.ProcessId,
+                pipeName,
+                DateTimeOffset.UtcNow,
+                "Selector recovery app"));
+
+        RuntimeTargetContext Target(string nodeId, string generation) =>
+            new(
+                sessionId,
+                topLevelId,
+                TreeKinds.Visual,
+                nodeId,
+                topLevelGeneration: "top-generation",
+                nodeGeneration: generation);
+
+        BridgeIpcResponse FindResponse(BridgeIpcRequest request, RuntimeTargetContext target) =>
+            BridgeIpcResponse.Ok(
+                request.RequestId,
+                new FindNodesResponse(
+                    sessionId,
+                    topLevelId,
+                    TreeKinds.Visual,
+                    8,
+                    [
+                        new FindNodeMatch(
+                            new TreeNodeSummary(
+                                target.NodeId!,
+                                "Avalonia.Controls.Button",
+                                automationId: "save-action",
+                                bounds: new NodeBounds(10, 10, 100, 32),
+                                target: target,
+                                interactionState: new RuntimeNodeInteractionState(
+                                    visible: true,
+                                    enabled: true,
+                                    rendered: true,
+                                    actionable: true,
+                                    availableActions: [InputActions.Invoke])),
+                            ["visual:root", target.NodeId!])
+                    ]));
+
+        var oldTarget = Target("visual:old", "old-generation");
+        var currentTarget = Target("visual:current", "current-generation");
+        var serverTask = RespondToBridgeRequestsAsync(
+            pipeName,
+            expectedCount: 6,
+            (index, request) => index switch
+            {
+                0 => FindResponse(request, oldTarget),
+                1 => BridgeIpcResponse.Fail(
+                    request.RequestId,
+                    new ProtocolError(
+                        RuntimeInputErrorCodes.TargetStale,
+                        "Node was recreated before dispatch.",
+                        new Dictionary<string, string> { ["dispatched"] = "false" })),
+                2 => FindResponse(request, currentTarget),
+                3 => BridgeIpcResponse.Ok(
+                    request.RequestId,
+                    new InputResponse(
+                        sessionId,
+                        topLevelId,
+                        InputActions.Invoke,
+                        handled: true,
+                        DateTimeOffset.UtcNow,
+                        currentTarget.NodeId,
+                        currentTarget)),
+                4 => FindResponse(request, currentTarget),
+                5 => BridgeIpcResponse.Fail(
+                    request.RequestId,
+                    new ProtocolError(
+                        RuntimeInputErrorCodes.TargetStale,
+                        "Generation changed after dispatch.",
+                        new Dictionary<string, string> { ["dispatched"] = "true" })),
+                _ => throw new InvalidOperationException("Unexpected bridge request index.")
+            });
+        var client = new LocalBridgeClient(_manifestDirectory, BridgePipeTestTimeout);
+        SemanticWorkflowRequest Request(string requestId) => new(
+            sessionId,
+            topLevelId,
+            [
+                new SemanticWorkflowStep(
+                    SemanticWorkflowActions.Invoke,
+                    "invoke-save",
+                    new SemanticWorkflowSelector(automationId: "save-action", actionable: true))
+            ],
+            requestId: requestId,
+            maxDepth: 8);
+
+        var recovered = await new SemanticWorkflowRunner().RunAsync(client, Request("recover-before-dispatch"));
+        var postDispatch = await new SemanticWorkflowRunner().RunAsync(client, Request("do-not-retry-after-dispatch"));
+        var requests = await serverTask;
+
+        Assert.Equal("passed", recovered.Value!.Status);
+        Assert.Equal(currentTarget.NodeId, Assert.Single(recovered.Value.Steps).Target!.NodeId);
+        Assert.Equal("failed", postDispatch.Value!.Status);
+        Assert.Equal(RuntimeInputErrorCodes.TargetStale, Assert.Single(Assert.Single(postDispatch.Value.Steps).Diagnostics).Code);
+        Assert.Equal(
+            [
+                BridgeIpcMethods.FindNodes,
+                BridgeIpcMethods.Input,
+                BridgeIpcMethods.FindNodes,
+                BridgeIpcMethods.Input,
+                BridgeIpcMethods.FindNodes,
+                BridgeIpcMethods.Input
+            ],
+            requests.Select(static request => request.Method).ToArray());
+        Assert.Equal(oldTarget.NodeGeneration, requests[1].InputTarget!.NodeGeneration);
+        Assert.Equal(currentTarget.NodeGeneration, requests[3].InputTarget!.NodeGeneration);
+    }
+
+    [Fact]
     public async Task ReloadRuntimeReturnsStructuredErrorWhenNoManifestMatches()
     {
         var client = new LocalBridgeClient(_manifestDirectory);

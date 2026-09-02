@@ -35,7 +35,13 @@ public sealed record BridgeIpcRequest
         int? maxResponseDepth = null,
         InputGestureOptions? gesture = null,
         RuntimeTargetContext? customActionTarget = null,
-        RuntimeCustomActionRequest? customAction = null)
+        RuntimeCustomActionRequest? customAction = null,
+        bool? visible = null,
+        bool? enabled = null,
+        bool? rendered = null,
+        bool? actionable = null,
+        RuntimeTargetContext? inputTarget = null,
+        RuntimeTargetContext? gestureDestinationTarget = null)
     {
         if (string.IsNullOrWhiteSpace(requestId))
         {
@@ -77,6 +83,12 @@ public sealed record BridgeIpcRequest
         Gesture = gesture;
         CustomActionTarget = customActionTarget;
         CustomAction = customAction;
+        Visible = visible;
+        Enabled = enabled;
+        Rendered = rendered;
+        Actionable = actionable;
+        InputTarget = inputTarget;
+        GestureDestinationTarget = gestureDestinationTarget;
     }
 
     [JsonPropertyName("requestId")]
@@ -192,4 +204,28 @@ public sealed record BridgeIpcRequest
     [JsonPropertyName("customAction")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public RuntimeCustomActionRequest? CustomAction { get; }
+
+    [JsonPropertyName("visible")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Visible { get; }
+
+    [JsonPropertyName("enabled")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Enabled { get; }
+
+    [JsonPropertyName("rendered")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Rendered { get; }
+
+    [JsonPropertyName("actionable")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Actionable { get; }
+
+    [JsonPropertyName("inputTarget")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public RuntimeTargetContext? InputTarget { get; }
+
+    [JsonPropertyName("gestureDestinationTarget")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public RuntimeTargetContext? GestureDestinationTarget { get; }
 }

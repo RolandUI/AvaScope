@@ -249,7 +249,11 @@ public sealed class LocalBridgeClient
         bool includeBounds = true,
         bool includeAccessibility = false,
         bool includeBindings = false,
-        int? maxResponseDepth = null)
+        int? maxResponseDepth = null,
+        bool? visible = null,
+        bool? enabled = null,
+        bool? rendered = null,
+        bool? actionable = null)
     {
         ArgumentNullException.ThrowIfNull(sessionId);
 
@@ -268,7 +272,11 @@ public sealed class LocalBridgeClient
         if (string.IsNullOrWhiteSpace(nodeType)
             && string.IsNullOrWhiteSpace(name)
             && string.IsNullOrWhiteSpace(automationId)
-            && string.IsNullOrWhiteSpace(text))
+            && string.IsNullOrWhiteSpace(text)
+            && !visible.HasValue
+            && !enabled.HasValue
+            && !rendered.HasValue
+            && !actionable.HasValue)
         {
             return CoreResult<FindNodesResponse>.Fail(
                 new CoreError(CoreErrorCodes.InvalidBridgeRequest, "At least one find filter is required."));
@@ -297,7 +305,11 @@ public sealed class LocalBridgeClient
             includeBounds: includeBounds,
             includeAccessibility: includeAccessibility,
             includeBindings: includeBindings,
-            maxResponseDepth: maxResponseDepth),
+            maxResponseDepth: maxResponseDepth,
+            visible: visible,
+            enabled: enabled,
+            rendered: rendered,
+            actionable: actionable),
             cancellationToken);
     }
 
@@ -356,7 +368,9 @@ public sealed class LocalBridgeClient
         string? inputKey = null,
         string? keyModifiers = null,
         InputGestureOptions? gesture = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        RuntimeTargetContext? inputTarget = null,
+        RuntimeTargetContext? gestureDestinationTarget = null)
     {
         ArgumentNullException.ThrowIfNull(sessionId);
 
@@ -391,7 +405,9 @@ public sealed class LocalBridgeClient
                 targetNodeId: targetNodeId,
                 inputKey: inputKey,
                 keyModifiers: keyModifiers,
-                gesture: gesture),
+                gesture: gesture,
+                inputTarget: inputTarget,
+                gestureDestinationTarget: gestureDestinationTarget),
             cancellationToken);
     }
 
@@ -462,7 +478,9 @@ public sealed class LocalBridgeClient
         string? inputKey = null,
         string? keyModifiers = null,
         InputGestureOptions? gesture = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        RuntimeTargetContext? inputTarget = null,
+        RuntimeTargetContext? gestureDestinationTarget = null)
     {
         ArgumentNullException.ThrowIfNull(sessionId);
 
@@ -492,7 +510,9 @@ public sealed class LocalBridgeClient
                 targetNodeId: targetNodeId,
                 inputKey: inputKey,
                 keyModifiers: keyModifiers,
-                gesture: gesture),
+                gesture: gesture,
+                inputTarget: inputTarget,
+                gestureDestinationTarget: gestureDestinationTarget),
             cancellationToken);
     }
 

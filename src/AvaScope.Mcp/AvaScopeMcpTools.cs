@@ -362,7 +362,7 @@ public sealed class AvaScopeMcpTools
         Destructive = false,
         OpenWorld = false,
         UseStructuredContent = true)]
-    [Description("Finds nodes in a bounded visual or logical tree by type, name, automation id, or text.")]
+    [Description("Finds nodes in a bounded visual or logical tree by identity and visible, enabled, rendered, or actionable interaction state.")]
     public static async Task<ToolResult<FindNodesResponse>> FindNodes(
         LocalBridgeClient bridgeClient,
         string sessionId,
@@ -372,6 +372,10 @@ public sealed class AvaScopeMcpTools
         string? name = null,
         string? automationId = null,
         string? text = null,
+        bool? visible = null,
+        bool? enabled = null,
+        bool? rendered = null,
+        bool? actionable = null,
         int? maxDepth = null,
         int? maxResults = null,
         bool includeChildren = false,
@@ -393,18 +397,22 @@ public sealed class AvaScopeMcpTools
             parsedSessionId!,
             topLevelId,
             treeKind.ToProtocolName(),
-            nodeType,
-            name,
-            automationId,
-            text,
-            maxDepth,
-            maxResults,
-            cancellationToken,
-            includeChildren,
-            includeBounds,
-            includeAccessibility,
-            includeBindings,
-            maxResponseDepth));
+            nodeType: nodeType,
+            name: name,
+            automationId: automationId,
+            text: text,
+            maxDepth: maxDepth,
+            maxResults: maxResults,
+            cancellationToken: cancellationToken,
+            includeChildren: includeChildren,
+            includeBounds: includeBounds,
+            includeAccessibility: includeAccessibility,
+            includeBindings: includeBindings,
+            maxResponseDepth: maxResponseDepth,
+            visible: visible,
+            enabled: enabled,
+            rendered: rendered,
+            actionable: actionable));
     }
 
     [McpServerTool(

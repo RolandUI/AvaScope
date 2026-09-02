@@ -25,7 +25,8 @@ public sealed record InspectNodeResponse
         RuntimeAccessibilityState? accessibilityState = null,
         RuntimeValidationState? validationState = null,
         RuntimeNodeSourceMap? sourceMap = null,
-        RuntimeLayoutExplanation? layoutExplanation = null)
+        RuntimeLayoutExplanation? layoutExplanation = null,
+        RuntimeNodeInteractionState? interactionState = null)
     {
         SessionId = sessionId ?? throw new ArgumentNullException(nameof(sessionId));
 
@@ -74,6 +75,7 @@ public sealed record InspectNodeResponse
         ValidationState = validationState;
         SourceMap = sourceMap;
         LayoutExplanation = layoutExplanation;
+        InteractionState = interactionState;
     }
 
     [JsonPropertyName("sessionId")]
@@ -146,4 +148,8 @@ public sealed record InspectNodeResponse
     [JsonPropertyName("layoutExplanation")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public RuntimeLayoutExplanation? LayoutExplanation { get; }
+
+    [JsonPropertyName("interactionState")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public RuntimeNodeInteractionState? InteractionState { get; }
 }

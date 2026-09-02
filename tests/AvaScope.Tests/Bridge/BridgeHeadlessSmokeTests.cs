@@ -2214,6 +2214,212 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
     }
 
     [Fact]
+    public async Task SemanticSelectorsFilterActionabilityRecoverAcrossRecreationAndBoundAmbiguity()
+    {
+        var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessTestApplication));
+
+        try
+        {
+            await session.Dispatch(async () =>
+            {
+                var clicks = 0;
+                var panel = new StackPanel();
+
+                Button CreateDurableButton(bool recreateOnClick)
+                {
+                    var button = new Button { Content = "Durable", Width = 120, Height = 36 };
+                    AutomationProperties.SetAutomationId(button, "durable-action");
+                    button.Click += (_, _) =>
+                    {
+                        clicks++;
+                        if (recreateOnClick)
+                        {
+                            panel.Children[0] = CreateDurableButton(recreateOnClick: false);
+                        }
+                    };
+                    return button;
+                }
+
+                var initialButton = CreateDurableButton(recreateOnClick: false);
+                var disabled = new Button { Content = "Disabled", IsEnabled = false, Width = 100, Height = 32 };
+                var hidden = new Button { Content = "Hidden", IsVisible = false, Width = 100, Height = 32 };
+                var zeroBounds = new Button { Content = "Zero", Width = 0, Height = 0 };
+                var templateText = new TextBlock { Text = "Template content" };
+                var clipped = new Button
+                {
+                    Content = "Clipped",
+                    Width = 120,
+                    Height = 36,
+                    Margin = new Thickness(20, 0, 0, 0)
+                };
+                var clippingHost = new Border
+                {
+                    Width = 10,
+                    Height = 36,
+                    ClipToBounds = true,
+                    Child = clipped
+                };
+                AutomationProperties.SetAutomationId(disabled, "disabled-action");
+                AutomationProperties.SetAutomationId(hidden, "hidden-action");
+                AutomationProperties.SetAutomationId(zeroBounds, "zero-action");
+                AutomationProperties.SetAutomationId(templateText, "template-content");
+                AutomationProperties.SetAutomationId(clipped, "clipped-action");
+                panel.Children.Add(initialButton);
+                panel.Children.Add(disabled);
+                panel.Children.Add(hidden);
+                panel.Children.Add(zeroBounds);
+                panel.Children.Add(templateText);
+                panel.Children.Add(clippingHost);
+
+                var window = new Window
+                {
+                    Title = "Durable selector sample",
+                    Width = 420,
+                    Height = 320,
+                    Content = panel
+                };
+                var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Durable selector sample"));
+                var manifestDirectory = Path.GetDirectoryName(runtime.SessionManifestPath)!;
+                var idempotencyDirectory = Path.Combine(manifestDirectory, ".avascope-idempotency");
+                try
+                {
+                    window.Show();
+                    using var registration = runtime.RegisterTopLevel(window);
+                    Dispatcher.UIThread.RunJobs();
+
+                    var client = new LocalBridgeClient(manifestDirectory);
+                    var topLevel = Assert.Single(await runtime.ListTopLevelsAsync());
+
+                    async Task<TreeNodeSummary> Find(string automationId)
+                    {
+                        var result = await client.FindNodesAsync(
+                            runtime.SessionId,
+                            topLevel.Id,
+                            TreeKinds.Visual,
+                            automationId: automationId,
+                            maxDepth: 10,
+                            maxResults: 2);
+                        Assert.True(result.Success, result.Error?.Message);
+                        return Assert.Single(result.Value!.Matches).Node;
+                    }
+
+                    var initialNode = await Find("durable-action");
+                    Assert.True(initialNode.InteractionState!.Visible);
+                    Assert.True(initialNode.InteractionState.Enabled);
+                    Assert.True(initialNode.InteractionState.Rendered);
+                    Assert.True(initialNode.InteractionState.Actionable);
+                    Assert.Contains(InputActions.Invoke, initialNode.InteractionState.AvailableActions);
+                    var mcpActionable = await AvaScopeMcpTools.FindNodes(
+                        client,
+                        runtime.SessionId.Value,
+                        topLevel.Id,
+                        automationId: "durable-action",
+                        actionable: true,
+                        maxDepth: 10,
+                        maxResults: 2);
+                    Assert.True(mcpActionable.Success, mcpActionable.Error?.Message);
+                    Assert.True(Assert.Single(mcpActionable.Value!.Matches).Node.InteractionState!.Actionable);
+
+                    foreach (var automationId in new[] { "disabled-action", "hidden-action", "zero-action", "clipped-action", "template-content" })
+                    {
+                        var unfiltered = await Find(automationId);
+                        Assert.False(unfiltered.InteractionState!.Actionable);
+                        var actionable = await client.FindNodesAsync(
+                            runtime.SessionId,
+                            topLevel.Id,
+                            TreeKinds.Visual,
+                            automationId: automationId,
+                            maxDepth: 10,
+                            maxResults: 2,
+                            actionable: true);
+                        Assert.True(actionable.Success, actionable.Error?.Message);
+                        Assert.Empty(actionable.Value!.Matches);
+                    }
+
+                    panel.Children[0] = CreateDurableButton(recreateOnClick: true);
+                    Dispatcher.UIThread.RunJobs();
+                    var stale = await client.InputAsync(
+                        runtime.SessionId,
+                        topLevel.Id,
+                        InputActions.Invoke,
+                        targetNodeId: initialNode.NodeId,
+                        inputTarget: initialNode.Target);
+                    Assert.False(stale.Success);
+                    Assert.Equal(RuntimeInputErrorCodes.TargetStale, stale.Error!.Code);
+                    Assert.Equal("false", stale.Error.Details!["dispatched"]);
+                    Assert.Equal(0, clicks);
+
+                    var request = new SemanticWorkflowRequest(
+                        runtime.SessionId,
+                        topLevel.Id,
+                        [
+                            new SemanticWorkflowStep(
+                                SemanticWorkflowActions.Invoke,
+                                "invoke-recreating-node",
+                                new SemanticWorkflowSelector(automationId: "durable-action", actionable: true),
+                                idempotencyKey: "durable-first"),
+                            new SemanticWorkflowStep(
+                                SemanticWorkflowActions.Invoke,
+                                "invoke-recreated-node",
+                                new SemanticWorkflowSelector(automationId: "durable-action", actionable: true),
+                                idempotencyKey: "durable-second")
+                        ],
+                        requestId: "durable-selector-workflow",
+                        maxDepth: 10);
+                    var first = await new SemanticWorkflowRunner().RunAsync(client, request);
+                    var replay = await new SemanticWorkflowRunner().RunAsync(client, request);
+                    Assert.Equal("passed", first.Value!.Status);
+                    Assert.Equal("passed", replay.Value!.Status);
+                    Assert.Equal(2, clicks);
+                    Assert.All(replay.Value.Steps, step => Assert.Equal("true", step.Metadata["idempotencyReplay"]));
+
+                    var duplicate = CreateDurableButton(recreateOnClick: false);
+                    panel.Children.Add(duplicate);
+                    Dispatcher.UIThread.RunJobs();
+                    var ambiguous = await new SemanticWorkflowRunner().RunAsync(
+                        client,
+                        new SemanticWorkflowRequest(
+                            runtime.SessionId,
+                            topLevel.Id,
+                            [
+                                new SemanticWorkflowStep(
+                                    SemanticWorkflowActions.Invoke,
+                                    "ambiguous-durable-action",
+                                    new SemanticWorkflowSelector(automationId: "durable-action", actionable: true))
+                            ],
+                            maxDepth: 10));
+                    var diagnostic = Assert.Single(Assert.Single(ambiguous.Value!.Steps).Diagnostics);
+                    Assert.Equal("2", diagnostic.Details!["candidateCount"]);
+                    using var candidates = JsonDocument.Parse(diagnostic.Details["candidates"]);
+                    Assert.Equal(2, candidates.RootElement.GetArrayLength());
+                    Assert.All(candidates.RootElement.EnumerateArray(), candidate =>
+                    {
+                        Assert.True(candidate.GetProperty("Actionable").GetBoolean());
+                        Assert.Equal(topLevel.Id, candidate.GetProperty("TopLevelId").GetString());
+                        Assert.True(candidate.GetProperty("AvailableActions").GetArrayLength() > 0);
+                        Assert.True(candidate.TryGetProperty("Bounds", out _));
+                    });
+                }
+                finally
+                {
+                    if (Directory.Exists(idempotencyDirectory))
+                    {
+                        Directory.Delete(idempotencyDirectory, recursive: true);
+                    }
+
+                    window.Close();
+                    AvaScopeBridge.Deactivate();
+                    Dispatcher.UIThread.RunJobs();
+                }
+            }, CancellationToken.None);
+        }
+        finally
+        {
+            DisposeHeadlessSessionAfterExplicitCleanup(session);
+        }
+    }
+
+    [Fact]
     public async Task PseudoStateMatrixCapturesCommonStatesAndResetsRuntimeForcing()
     {
         var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessTestApplication));

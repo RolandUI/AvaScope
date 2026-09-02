@@ -250,7 +250,8 @@ public static class ResponseBudgeter
             compact ? null : node.AccessibilityState,
             compact ? null : node.ValidationState,
             compact ? null : node.SourceMap,
-            compact ? null : node.BindingSummary);
+            compact ? null : node.BindingSummary,
+            node.InteractionState);
     }
 
     private static int CountNodes(TreeNodeSummary node) =>

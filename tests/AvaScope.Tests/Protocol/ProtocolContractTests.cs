@@ -298,7 +298,12 @@ public sealed class ProtocolContractTests
         var step = new SemanticWorkflowStep(
             SemanticWorkflowActions.ValidateMutation,
             "validate-width",
-            new SemanticWorkflowSelector(automationId: "target"),
+            new SemanticWorkflowSelector(
+                automationId: "target",
+                visible: true,
+                enabled: true,
+                rendered: true,
+                actionable: true),
             timeoutMs: 2500,
             pollIntervalMs: 50,
             inputAction: InputActions.Invoke,
@@ -318,6 +323,10 @@ public sealed class ProtocolContractTests
         Assert.Equal("set_property", node["mutation"]!["kind"]!.GetValue<string>());
         Assert.Equal("validate-width-once", node["idempotencyKey"]!.GetValue<string>());
         Assert.Equal(60000, node["idempotencyTtlMs"]!.GetValue<int>());
+        Assert.True(node["selector"]!["visible"]!.GetValue<bool>());
+        Assert.True(node["selector"]!["enabled"]!.GetValue<bool>());
+        Assert.True(node["selector"]!["rendered"]!.GetValue<bool>());
+        Assert.True(node["selector"]!["actionable"]!.GetValue<bool>());
         Assert.Contains(SemanticWorkflowActions.WaitForDialog, SemanticWorkflowActions.All);
         Assert.Contains(BridgeIpcMethods.ValidateInput, BridgeIpcMethods.All);
         Assert.Contains(BridgeIpcMethods.ValidateMutation, BridgeIpcMethods.All);
