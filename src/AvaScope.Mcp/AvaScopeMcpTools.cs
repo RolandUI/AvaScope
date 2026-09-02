@@ -701,7 +701,7 @@ public sealed class AvaScopeMcpTools
         Destructive = false,
         OpenWorld = false,
         UseStructuredContent = true)]
-    [Description("Runs or statically validates a bounded semantic local workflow with typed if/else branches, optional leaf steps, idempotent retry_until, variables, reusable acyclic fragments, workflow-scoped top-level aliases, rendered/command/binding/selection/value/lifecycle waits, and validate_action/validate_mutation dry runs. Semantic actions may declare verify to capture pre-state, execute once, and wait for a typed postcondition. The evidence policy can collect bounded runtime failure context and export aligned JSON, Markdown, and JUnit reports. validateOnly returns the fully expanded plan and all bounded static diagnostics without bridge dispatch.")]
+    [Description("Runs or statically validates a bounded semantic local workflow with typed if/else branches, optional leaf steps, idempotent retry_until, variables, reusable acyclic fragments, workflow-scoped top-level aliases, rendered/command/binding/selection/value/lifecycle waits, and validate_action/validate_mutation dry runs. Semantic actions may declare verify to capture pre-state, execute once, and wait for a typed postcondition. Evidence can collect bounded failure context and export aligned JSON, Markdown, and JUnit reports; its optional explicit local policy adds redaction, screenshot masking, owned retention, local action audit, action allowlists, and session/process authorization, with network upload unavailable. validateOnly returns the fully expanded plan and all bounded static diagnostics without bridge dispatch.")]
     public static async Task<ToolResult<SemanticWorkflowResponse>> RunWorkflow(
         LocalBridgeClient bridgeClient,
         SemanticWorkflowRequest request,
@@ -725,7 +725,7 @@ public sealed class AvaScopeMcpTools
         Destructive = false,
         OpenWorld = false,
         UseStructuredContent = true)]
-    [Description("Runs a safe local runtime scenario by validating the workflow before side effects; optionally building before launch for an executable or project; waiting for bridge readiness, attach, and registered top levels; executing observe-act-verify steps across bounded execution paths; preserving logs and failure evidence; and optionally terminating only the exact AvaScope-owned process tree.")]
+    [Description("Runs a safe local runtime scenario by validating the workflow and optional local evidence/action policy before side effects; optionally building before launch for an executable or project; waiting for bridge readiness, attach, and registered top levels; executing observe-act-verify steps across bounded execution paths; preserving policy-redacted logs and failure evidence; and optionally terminating only the exact AvaScope-owned process tree.")]
     public static async Task<ToolResult<RuntimeScenarioResponse>> RunScenario(
         LocalBridgeClient bridgeClient,
         RuntimeScenarioRequest request,

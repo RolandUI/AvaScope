@@ -289,6 +289,13 @@ For CI report validation, run a sample baseline check with `--report <report.jso
 
 For the packaged lifecycle gate, run `pwsh -NoProfile -File ./eng/test-packaged-lifecycle.ps1 -CliAssembly <framework-dependent-package>/avascope.dll -Configuration Release` on Windows, Linux, and macOS. The gate must complete explicit build, direct project launch, bridge readiness and attach, top-level discovery, workflow execution, local evidence, and exact owned-process cleanup while proving launch environment values are absent from normal JSON output.
 
+For the v1.4 runtime evidence privacy and action policy, run the focused policy and real Bridge evidence tests. They must cover inline/tree/JSON/Markdown/JUnit/audit redaction, explicit and control-derived screenshot masks, fail-closed removal, safe retention ownership, path traversal, action/gesture/custom-action gates, foreign session/PID authorization, and the unavailable network-upload boundary:
+
+```powershell
+dotnet test tests/AvaScope.Tests/AvaScope.Tests.csproj --filter "FullyQualifiedName~RuntimeEvidencePolicyEnforcerTests|FullyQualifiedName~RuntimeEvidencePolicyRedactsAndMasksWorkflowEvidenceEndToEnd"
+dotnet test tests/AvaScope.Tests/AvaScope.Tests.csproj --filter "FullyQualifiedName~SecurityThreatModelDocumentationTests|FullyQualifiedName~StableSurfaceDocumentationTests"
+```
+
 For visual-regression GitHub Actions example work, include:
 
 ```powershell

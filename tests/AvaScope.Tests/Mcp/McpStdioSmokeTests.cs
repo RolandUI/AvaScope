@@ -92,6 +92,8 @@ public sealed class McpStdioSmokeTests
         Assert.Contains("validateOnly", workflow.ProtocolTool.Description, StringComparison.Ordinal);
         Assert.Contains("postcondition", workflow.ProtocolTool.Description, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("JUnit", workflow.ProtocolTool.Description, StringComparison.Ordinal);
+        Assert.Contains("redaction", workflow.ProtocolTool.Description, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("network upload unavailable", workflow.ProtocolTool.Description, StringComparison.OrdinalIgnoreCase);
         Assert.Contains(
             "\"waitCondition\"",
             JsonSerializer.Serialize(workflow.ProtocolTool.InputSchema),
@@ -126,6 +128,14 @@ public sealed class McpStdioSmokeTests
             StringComparison.Ordinal);
         Assert.Contains(
             "\"evidence\"",
+            JsonSerializer.Serialize(workflow.ProtocolTool.InputSchema),
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "\"ownedEvidenceRoot\"",
+            JsonSerializer.Serialize(workflow.ProtocolTool.InputSchema),
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "\"allowedActions\"",
             JsonSerializer.Serialize(workflow.ProtocolTool.InputSchema),
             StringComparison.Ordinal);
         Assert.Contains(

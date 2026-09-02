@@ -33,13 +33,31 @@ public sealed class SemanticWorkflowRunner
 
         var startedAt = DateTimeOffset.UtcNow;
         var compiled = SemanticWorkflowCompiler.Compile(request);
+        var policy = request.Evidence?.Policy is null
+            ? null
+            : new RuntimeEvidencePolicyEnforcer(request.Evidence.Policy);
+        var policyDiagnostics = new List<ProtocolError>();
+        if (policy is not null)
+        {
+            foreach (var item in compiled.Plan.Steps)
+            {
+                var authorization = policy.AuthorizeAction(item.Action, customActionName: null);
+                if (!authorization.Success)
+                {
+                    policyDiagnostics.Add(ToProtocolError(authorization.Error!));
+                    break;
+                }
+            }
+        }
+
         var isolatedStateStatus = string.IsNullOrWhiteSpace(request.IsolatedStateDirectory)
             ? "not_configured"
             : "declared_by_request";
-        if (!compiled.Plan.Valid || request.ValidateOnly)
+        if (!compiled.Plan.Valid || policyDiagnostics.Count > 0 || request.ValidateOnly)
         {
-            var validationStatus = compiled.Plan.Valid ? "validated" : "validation_failed";
-            return CoreResult<SemanticWorkflowResponse>.Ok(new SemanticWorkflowResponse(
+            var validationStatus = compiled.Plan.Valid && policyDiagnostics.Count == 0 ? "validated" : "validation_failed";
+            var validationDiagnostics = compiled.Plan.Diagnostics.Concat(policyDiagnostics).ToArray();
+            var validationResponse = new SemanticWorkflowResponse(
                 request.RequestId,
                 request.SessionId,
                 request.TopLevelId,
@@ -48,12 +66,54 @@ public sealed class SemanticWorkflowRunner
                 DateTimeOffset.UtcNow,
                 [],
                 isolatedStateStatus,
-                compiled.Plan.Diagnostics,
+                validationDiagnostics,
                 CreateWorkflowMetadata(request, compiled.Plan, replayCount: 0, executedSteps: 0),
-                plan: compiled.Plan));
+                plan: compiled.Plan);
+            if (policy is null)
+            {
+                return CoreResult<SemanticWorkflowResponse>.Ok(validationResponse);
+            }
+
+            var sanitized = policy.Sanitize(validationResponse);
+            return CoreResult<SemanticWorkflowResponse>.Ok(sanitized.Success
+                ? sanitized.Value!
+                : RedactionFailureResponse(validationResponse, sanitized.Error!));
         }
 
-        if (!string.IsNullOrWhiteSpace(request.OutputDirectory))
+        IReadOnlyDictionary<string, string>? policyMetadata = null;
+        if (policy is not null)
+        {
+            var artifactRoot = ResolveArtifactRoot(request);
+            var policyReportDirectory = request.Evidence!.ReportDirectory
+                ?? Path.Combine(artifactRoot, "reports");
+            var workflowSteps = EnumerateWorkflowSteps(request).ToArray();
+            if (workflowSteps.Any(step => !string.Equals(policy.SanitizeScalar(step.Id), step.Id, StringComparison.Ordinal)))
+            {
+                return PolicyFailure(new CoreError(
+                    CoreErrorCodes.RuntimeEvidencePolicyInvalid,
+                    "Workflow step identifiers cannot contain configured sensitive values because they contribute to local artifact paths."));
+            }
+
+            var artifactPaths = workflowSteps
+                .Select(static step => step.ScreenshotPath)
+                .Append(policyReportDirectory);
+            var prepared = policy.PrepareRun(artifactRoot, artifactPaths, request.RequestId);
+            if (!prepared.Success)
+            {
+                return PolicyFailure(prepared.Error!);
+            }
+
+            var authorization = policy.Authorize(bridgeClient, request, compiled.Plan);
+            if (!authorization.Success)
+            {
+                return PolicyFailure(authorization.Error!);
+            }
+
+            policyMetadata = prepared.Value!
+                .Concat(authorization.Value!)
+                .ToDictionary(static pair => pair.Key, static pair => pair.Value, StringComparer.Ordinal);
+        }
+        else if (!string.IsNullOrWhiteSpace(request.OutputDirectory))
         {
             Directory.CreateDirectory(request.OutputDirectory);
         }
@@ -63,8 +123,10 @@ public sealed class SemanticWorkflowRunner
         var context = new CompositionExecutionContext(
             request,
             bridgeClient,
-            new WorkflowIdempotencyStore(bridgeClient.ManifestDirectory),
-            compiled.Plan);
+            new WorkflowIdempotencyStore(policy?.RunDirectory ?? bridgeClient.ManifestDirectory),
+            compiled.Plan,
+            policy,
+            policyMetadata);
         try
         {
             await ExecuteNodesAsync(context, compiled.Roots, attempt: null, workflowCancellation.Token);
@@ -101,8 +163,22 @@ public sealed class SemanticWorkflowRunner
                 request,
                 compiled.Plan,
                 context.ReplayCount,
-                context.Results.Count),
+                context.Results.Count,
+                context.PolicyMetadata),
             plan: compiled.Plan);
+        if (policy is not null)
+        {
+            var sanitized = policy.Sanitize(response);
+            if (!sanitized.Success)
+            {
+                response = RedactionFailureResponse(response, sanitized.Error!);
+            }
+            else
+            {
+                response = sanitized.Value!;
+            }
+        }
+
         if (request.Evidence is not { ExportReports: true })
         {
             return CoreResult<SemanticWorkflowResponse>.Ok(response);
@@ -128,6 +204,14 @@ public sealed class SemanticWorkflowRunner
                 diagnostics,
                 response.Metadata,
                 plan: response.Plan);
+            if (policy is not null)
+            {
+                var sanitized = policy.Sanitize(response);
+                response = sanitized.Success
+                    ? sanitized.Value!
+                    : RedactionFailureResponse(response, sanitized.Error!);
+            }
+
             return CoreResult<SemanticWorkflowResponse>.Ok(response);
         }
 
@@ -170,16 +254,51 @@ public sealed class SemanticWorkflowRunner
                 reportPack: report.Value);
         }
 
+        if (policy is not null)
+        {
+            var sanitized = policy.Sanitize(response);
+            response = sanitized.Success
+                ? sanitized.Value!
+                : RedactionFailureResponse(response, sanitized.Error!);
+        }
+
         return CoreResult<SemanticWorkflowResponse>.Ok(response);
+
+        CoreResult<SemanticWorkflowResponse> PolicyFailure(CoreError error)
+        {
+            var diagnostic = ToProtocolError(error);
+            var failure = new SemanticWorkflowResponse(
+                request.RequestId,
+                request.SessionId,
+                request.TopLevelId,
+                "validation_failed",
+                startedAt,
+                DateTimeOffset.UtcNow,
+                [],
+                isolatedStateStatus,
+                [diagnostic],
+                CreateWorkflowMetadata(request, compiled.Plan, replayCount: 0, executedSteps: 0),
+                plan: compiled.Plan);
+            if (policy is null)
+            {
+                return CoreResult<SemanticWorkflowResponse>.Ok(failure);
+            }
+
+            var sanitized = policy.Sanitize(failure);
+            return CoreResult<SemanticWorkflowResponse>.Ok(sanitized.Success
+                ? sanitized.Value!
+                : RedactionFailureResponse(failure, sanitized.Error!));
+        }
     }
 
     private static IReadOnlyDictionary<string, string> CreateWorkflowMetadata(
         SemanticWorkflowRequest request,
         SemanticWorkflowPlan plan,
         int replayCount,
-        int executedSteps)
+        int executedSteps,
+        IReadOnlyDictionary<string, string>? policyMetadata = null)
     {
-        return new Dictionary<string, string>
+        var metadata = new Dictionary<string, string>
         {
             ["requestedSteps"] = request.Steps.Count.ToString(CultureInfo.InvariantCulture),
             ["expandedSteps"] = plan.ExpandedStepCount.ToString(CultureInfo.InvariantCulture),
@@ -193,8 +312,21 @@ public sealed class SemanticWorkflowRunner
             ["workflowTimeoutMs"] = request.TimeoutMs.ToString(CultureInfo.InvariantCulture),
             ["verification"] = "observe_act_typed_wait_verify",
             ["failureEvidence"] = request.Evidence is null ? "not_requested" : "bounded_request_policy",
-            ["reportExport"] = request.Evidence?.ExportReports == true ? "json_markdown_junit" : "not_requested"
+            ["reportExport"] = request.Evidence?.ExportReports == true ? "json_markdown_junit" : "not_requested",
+            ["evidencePolicy"] = request.Evidence?.Policy is null ? "not_configured" : "explicit_local_opt_in",
+            ["storage"] = "local_filesystem",
+            ["provenance"] = "avascope_runtime_evidence",
+            ["networkUpload"] = "disabled"
         };
+        if (policyMetadata is not null)
+        {
+            foreach (var pair in policyMetadata)
+            {
+                metadata[pair.Key] = pair.Value;
+            }
+        }
+
+        return metadata;
     }
 
     private static async Task<bool> ExecuteNodesAsync(
@@ -241,6 +373,19 @@ public sealed class SemanticWorkflowRunner
         int? attempt,
         CancellationToken cancellationToken)
     {
+        if (context.Policy is not null)
+        {
+            var authorization = context.Policy.AuthorizeAction(node.Step.Action, node.Step.CustomActionName);
+            if (!authorization.Success)
+            {
+                var rejected = WithCompositionEvidence(Fail(node.Step, authorization.Error!), node, attempt);
+                context.Results.Add(rejected);
+                context.Diagnostics.AddRange(rejected.Diagnostics);
+                AppendAudit(context, rejected);
+                return false;
+            }
+        }
+
         var verificationStartedAt = DateTimeOffset.UtcNow;
         var before = node.Step.Verify is { CaptureBefore: true }
             ? await CaptureVerificationSnapshotAsync(
@@ -256,6 +401,7 @@ public sealed class SemanticWorkflowRunner
             context.Request,
             node.Step,
             context.Results.Count,
+            context.Policy,
             cancellationToken,
             node.ParentStepId is null ? null : node.ExecutionPath);
         if (node.Step.Verify is not null)
@@ -309,6 +455,11 @@ public sealed class SemanticWorkflowRunner
         }
 
         context.Results.Add(result);
+        if (!AppendAudit(context, result))
+        {
+            return false;
+        }
+
         if (result.Status == "failed")
         {
             context.Diagnostics.AddRange(result.Diagnostics);
@@ -327,6 +478,7 @@ public sealed class SemanticWorkflowRunner
                 context.Request,
                 node.Step,
                 context.Results.Count,
+                context.Policy,
                 cancellationToken);
             screenshot = WithCompositionEvidence(
                 screenshot,
@@ -337,6 +489,11 @@ public sealed class SemanticWorkflowRunner
                 },
                 attempt);
             context.Results.Add(screenshot);
+            if (!AppendAudit(context, screenshot))
+            {
+                return false;
+            }
+
             if (screenshot.Status == "failed")
             {
                 context.Diagnostics.AddRange(screenshot.Diagnostics);
@@ -487,7 +644,26 @@ public sealed class SemanticWorkflowRunner
                     cancellationToken);
                 if (capture.Success)
                 {
-                    screenshot = capture.Value;
+                    if (context.Policy is null)
+                    {
+                        screenshot = capture.Value;
+                    }
+                    else
+                    {
+                        var masked = await context.Policy.MaskScreenshotAsync(
+                            context.BridgeClient,
+                            request,
+                            capture.Value!,
+                            cancellationToken);
+                        if (masked.Success)
+                        {
+                            screenshot = capture.Value;
+                        }
+                        else
+                        {
+                            diagnostics.Add(ToProtocolError(masked.Error!));
+                        }
+                    }
                 }
                 else
                 {
@@ -645,7 +821,26 @@ public sealed class SemanticWorkflowRunner
                     cancellationToken);
                 if (capture.Success)
                 {
-                    screenshotPath = capture.Value!.FilePath;
+                    if (context.Policy is null)
+                    {
+                        screenshotPath = capture.Value!.FilePath;
+                    }
+                    else
+                    {
+                        var masked = await context.Policy.MaskScreenshotAsync(
+                            context.BridgeClient,
+                            request,
+                            capture.Value!,
+                            cancellationToken);
+                        if (masked.Success)
+                        {
+                            screenshotPath = capture.Value!.FilePath;
+                        }
+                        else
+                        {
+                            AddUnavailable("screenshot", masked.Error!);
+                        }
+                    }
                 }
                 else
                 {
@@ -808,7 +1003,17 @@ public sealed class SemanticWorkflowRunner
             try
             {
                 var path = Path.Combine(directory, fileName);
-                File.WriteAllText(path, JsonSerializer.Serialize(value, EvidenceJsonOptions), Encoding.UTF8);
+                var json = context.Policy is null
+                    ? CoreResult<string>.Ok(JsonSerializer.Serialize(value, EvidenceJsonOptions))
+                    : context.Policy.SanitizeJson(value);
+                if (!json.Success)
+                {
+                    diagnostics.Add(ToProtocolError(json.Error!));
+                    MarkUnavailable(evidenceKind);
+                    return null;
+                }
+
+                File.WriteAllText(path, json.Value!, Encoding.UTF8);
                 return path;
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException or NotSupportedException)
@@ -900,6 +1105,74 @@ public sealed class SemanticWorkflowRunner
         request.OutputDirectory
         ?? request.Evidence?.ReportDirectory
         ?? Path.Combine(Path.GetTempPath(), "AvaScope", "workflows", request.RequestId);
+
+    private static IEnumerable<SemanticWorkflowStep> EnumerateWorkflowSteps(SemanticWorkflowRequest request)
+    {
+        foreach (var step in request.Steps.Concat(request.Fragments.SelectMany(static fragment => fragment.Steps)))
+        {
+            foreach (var item in EnumerateWorkflowSteps(step))
+            {
+                yield return item;
+            }
+        }
+    }
+
+    private static IEnumerable<SemanticWorkflowStep> EnumerateWorkflowSteps(SemanticWorkflowStep step)
+    {
+        yield return step;
+        foreach (var child in step.Then.Concat(step.Else).Concat(step.Steps))
+        {
+            foreach (var item in EnumerateWorkflowSteps(child))
+            {
+                yield return item;
+            }
+        }
+    }
+
+    private static bool AppendAudit(CompositionExecutionContext context, SemanticWorkflowStepResult result)
+    {
+        if (context.Policy is null)
+        {
+            return true;
+        }
+
+        var audit = context.Policy.AppendActionAudit(context.Request, result);
+        if (audit.Success)
+        {
+            return true;
+        }
+
+        context.Diagnostics.Add(ToProtocolError(audit.Error!));
+        if (context.PolicyMetadata is IDictionary<string, string> metadata)
+        {
+            metadata.Remove("actionAuditPath");
+            metadata["actionAudit"] = "failed_closed";
+        }
+
+        return false;
+    }
+
+    private static SemanticWorkflowResponse RedactionFailureResponse(
+        SemanticWorkflowResponse response,
+        CoreError error)
+    {
+        return new SemanticWorkflowResponse(
+            "redacted-request",
+            new SessionId("redacted-session"),
+            null,
+            "failed",
+            response.StartedAt,
+            response.CompletedAt,
+            [],
+            response.IsolatedStateStatus,
+            [ToProtocolError(error)],
+            new Dictionary<string, string>
+            {
+                ["evidencePolicy"] = "failed_closed",
+                ["storage"] = "local_filesystem",
+                ["networkUpload"] = "disabled"
+            });
+    }
 
     private static string SafeArtifactName(string value)
     {
@@ -1278,6 +1551,7 @@ public sealed class SemanticWorkflowRunner
         SemanticWorkflowRequest request,
         SemanticWorkflowStep step,
         int stepIndex,
+        RuntimeEvidencePolicyEnforcer? policy,
         CancellationToken cancellationToken,
         string? idempotencyScope = null)
     {
@@ -1288,6 +1562,7 @@ public sealed class SemanticWorkflowRunner
                 request,
                 step,
                 stepIndex,
+                policy,
                 cancellationToken);
         }
 
@@ -1321,7 +1596,19 @@ public sealed class SemanticWorkflowRunner
             request,
             step,
             stepIndex,
+            policy,
             cancellationToken);
+        if (policy is not null)
+        {
+            var sanitized = policy.Sanitize(result);
+            if (!sanitized.Success)
+            {
+                return Fail(step, sanitized.Error!, result.Target);
+            }
+
+            result = sanitized.Value!;
+        }
+
         var save = store.Save(
             request.SessionId,
             effectiveIdempotencyKey,
@@ -1336,6 +1623,7 @@ public sealed class SemanticWorkflowRunner
         SemanticWorkflowRequest request,
         SemanticWorkflowStep step,
         int stepIndex,
+        RuntimeEvidencePolicyEnforcer? policy,
         CancellationToken cancellationToken)
     {
         try
@@ -1378,27 +1666,27 @@ public sealed class SemanticWorkflowRunner
                 SemanticWorkflowActions.WaitForDialog => await WaitForDialogAsync(bridgeClient, effectiveRequest, step, cancellationToken),
                 SemanticWorkflowActions.ValidateAction => await ValidateActionAsync(bridgeClient, effectiveRequest, step, cancellationToken),
                 SemanticWorkflowActions.ValidateMutation => await ValidateMutationAsync(bridgeClient, effectiveRequest, step, cancellationToken),
-                SemanticWorkflowActions.Screenshot => await ScreenshotAsync(bridgeClient, effectiveRequest, step, stepIndex, cancellationToken),
+                SemanticWorkflowActions.Screenshot => await ScreenshotAsync(bridgeClient, effectiveRequest, step, stepIndex, policy, cancellationToken),
                 SemanticWorkflowActions.Inspect => await InspectAsync(bridgeClient, effectiveRequest, step, cancellationToken),
                 SemanticWorkflowActions.AssertState => await AssertStateAsync(bridgeClient, effectiveRequest, step, cancellationToken),
                 SemanticWorkflowActions.PickerResult => ConsumePickerResult(bridgeClient, effectiveRequest, step),
-                SemanticWorkflowActions.Click => await InputAsync(bridgeClient, effectiveRequest, step, InputActions.Click, cancellationToken),
-                SemanticWorkflowActions.TypeText => await InputAsync(bridgeClient, effectiveRequest, step, InputActions.KeyText, cancellationToken),
-                SemanticWorkflowActions.ClearText => await InputAsync(bridgeClient, effectiveRequest, step, InputActions.ClearText, cancellationToken),
-                SemanticWorkflowActions.Focus => await InputAsync(bridgeClient, effectiveRequest, step, InputActions.Focus, cancellationToken),
-                SemanticWorkflowActions.Invoke => await InputAsync(bridgeClient, effectiveRequest, step, InputActions.Invoke, cancellationToken),
-                SemanticWorkflowActions.Select => await InputAsync(bridgeClient, effectiveRequest, step, InputActions.Select, cancellationToken),
-                SemanticWorkflowActions.Toggle => await InputAsync(bridgeClient, effectiveRequest, step, InputActions.Toggle, cancellationToken),
-                SemanticWorkflowActions.Expand => await InputAsync(bridgeClient, effectiveRequest, step, InputActions.Expand, cancellationToken),
-                SemanticWorkflowActions.Collapse => await InputAsync(bridgeClient, effectiveRequest, step, InputActions.Collapse, cancellationToken),
-                SemanticWorkflowActions.KeyDown => await InputAsync(bridgeClient, effectiveRequest, step, InputActions.KeyDown, cancellationToken),
-                SemanticWorkflowActions.KeyUp => await InputAsync(bridgeClient, effectiveRequest, step, InputActions.KeyUp, cancellationToken),
-                SemanticWorkflowActions.Drag => await InputAsync(bridgeClient, effectiveRequest, step, InputActions.Drag, cancellationToken),
-                SemanticWorkflowActions.Swipe => await InputAsync(bridgeClient, effectiveRequest, step, InputActions.Swipe, cancellationToken),
-                SemanticWorkflowActions.LongPress => await InputAsync(bridgeClient, effectiveRequest, step, InputActions.LongPress, cancellationToken),
-                SemanticWorkflowActions.PressAndHold => await InputAsync(bridgeClient, effectiveRequest, step, InputActions.PressAndHold, cancellationToken),
+                SemanticWorkflowActions.Click => await InputAsync(bridgeClient, effectiveRequest, step, InputActions.Click, policy, cancellationToken),
+                SemanticWorkflowActions.TypeText => await InputAsync(bridgeClient, effectiveRequest, step, InputActions.KeyText, policy, cancellationToken),
+                SemanticWorkflowActions.ClearText => await InputAsync(bridgeClient, effectiveRequest, step, InputActions.ClearText, policy, cancellationToken),
+                SemanticWorkflowActions.Focus => await InputAsync(bridgeClient, effectiveRequest, step, InputActions.Focus, policy, cancellationToken),
+                SemanticWorkflowActions.Invoke => await InputAsync(bridgeClient, effectiveRequest, step, InputActions.Invoke, policy, cancellationToken),
+                SemanticWorkflowActions.Select => await InputAsync(bridgeClient, effectiveRequest, step, InputActions.Select, policy, cancellationToken),
+                SemanticWorkflowActions.Toggle => await InputAsync(bridgeClient, effectiveRequest, step, InputActions.Toggle, policy, cancellationToken),
+                SemanticWorkflowActions.Expand => await InputAsync(bridgeClient, effectiveRequest, step, InputActions.Expand, policy, cancellationToken),
+                SemanticWorkflowActions.Collapse => await InputAsync(bridgeClient, effectiveRequest, step, InputActions.Collapse, policy, cancellationToken),
+                SemanticWorkflowActions.KeyDown => await InputAsync(bridgeClient, effectiveRequest, step, InputActions.KeyDown, policy, cancellationToken),
+                SemanticWorkflowActions.KeyUp => await InputAsync(bridgeClient, effectiveRequest, step, InputActions.KeyUp, policy, cancellationToken),
+                SemanticWorkflowActions.Drag => await InputAsync(bridgeClient, effectiveRequest, step, InputActions.Drag, policy, cancellationToken),
+                SemanticWorkflowActions.Swipe => await InputAsync(bridgeClient, effectiveRequest, step, InputActions.Swipe, policy, cancellationToken),
+                SemanticWorkflowActions.LongPress => await InputAsync(bridgeClient, effectiveRequest, step, InputActions.LongPress, policy, cancellationToken),
+                SemanticWorkflowActions.PressAndHold => await InputAsync(bridgeClient, effectiveRequest, step, InputActions.PressAndHold, policy, cancellationToken),
                 SemanticWorkflowActions.CustomActions => await CustomActionsAsync(bridgeClient, effectiveRequest, step, cancellationToken),
-                SemanticWorkflowActions.CustomAction => await CustomActionAsync(bridgeClient, effectiveRequest, step, cancellationToken),
+                SemanticWorkflowActions.CustomAction => await CustomActionAsync(bridgeClient, effectiveRequest, step, policy, cancellationToken),
                 _ => Fail(step, "semantic_workflow_action_not_supported", $"Workflow action '{step.Action}' is not supported.")
             };
             return step.TopLevelAlias is null
@@ -2408,6 +2696,7 @@ public sealed class SemanticWorkflowRunner
         LocalBridgeClient bridgeClient,
         SemanticWorkflowRequest request,
         SemanticWorkflowStep step,
+        RuntimeEvidencePolicyEnforcer? policy,
         CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(step.CustomActionName))
@@ -2445,7 +2734,10 @@ public sealed class SemanticWorkflowRunner
                 });
         }
 
-        var authorizedDestructive = request.AllowDestructive || !string.IsNullOrWhiteSpace(request.IsolatedStateDirectory);
+        var requestAuthorizedDestructive = request.AllowDestructive || !string.IsNullOrWhiteSpace(request.IsolatedStateDirectory);
+        var authorizedDestructive = policy is null
+            ? requestAuthorizedDestructive
+            : policy.AllowsDestructiveAction(request.AllowDestructive, !string.IsNullOrWhiteSpace(request.IsolatedStateDirectory));
         if (string.Equals(descriptor.SafetyClassification, RuntimeCustomActionSafetyClassifications.Destructive, StringComparison.Ordinal)
             && !authorizedDestructive)
         {
@@ -2538,6 +2830,7 @@ public sealed class SemanticWorkflowRunner
         SemanticWorkflowRequest request,
         SemanticWorkflowStep step,
         string inputAction,
+        RuntimeEvidencePolicyEnforcer? policy,
         CancellationToken cancellationToken)
     {
         var target = await ResolveTargetAsync(bridgeClient, request, step, cancellationToken);
@@ -2554,8 +2847,9 @@ public sealed class SemanticWorkflowRunner
         }
 
         if (LooksDestructive(step, resolvedTarget)
-            && !request.AllowDestructive
-            && string.IsNullOrWhiteSpace(request.IsolatedStateDirectory))
+            && !(policy is null
+                ? request.AllowDestructive || !string.IsNullOrWhiteSpace(request.IsolatedStateDirectory)
+                : policy.AllowsDestructiveAction(request.AllowDestructive, !string.IsNullOrWhiteSpace(request.IsolatedStateDirectory))))
         {
             return Fail(
                 step,
@@ -2593,8 +2887,9 @@ public sealed class SemanticWorkflowRunner
             }
 
             if (LooksDestructive(step, resolvedTarget)
-                && !request.AllowDestructive
-                && string.IsNullOrWhiteSpace(request.IsolatedStateDirectory))
+                && !(policy is null
+                    ? request.AllowDestructive || !string.IsNullOrWhiteSpace(request.IsolatedStateDirectory)
+                    : policy.AllowsDestructiveAction(request.AllowDestructive, !string.IsNullOrWhiteSpace(request.IsolatedStateDirectory))))
             {
                 return Fail(
                     step,
@@ -2710,6 +3005,7 @@ public sealed class SemanticWorkflowRunner
         SemanticWorkflowRequest request,
         SemanticWorkflowStep step,
         int stepIndex,
+        RuntimeEvidencePolicyEnforcer? policy,
         CancellationToken cancellationToken)
     {
         var path = ResolveScreenshotPath(request, step, stepIndex);
@@ -2724,9 +3020,23 @@ public sealed class SemanticWorkflowRunner
             path,
             cancellationToken);
 
-        return result.Success
-            ? Pass(step, "Screenshot captured.", result.Value!.Target, screenshot: result.Value)
-            : Fail(step, ToProtocolError(result.Error!));
+        if (!result.Success)
+        {
+            return Fail(step, ToProtocolError(result.Error!));
+        }
+
+        if (policy is not null)
+        {
+            var masked = await policy.MaskScreenshotAsync(bridgeClient, request, result.Value!, cancellationToken);
+            if (!masked.Success)
+            {
+                return Fail(step, masked.Error!);
+            }
+
+            return Pass(step, "Screenshot captured and policy-masked.", result.Value!.Target, screenshot: result.Value, metadata: masked.Value);
+        }
+
+        return Pass(step, "Screenshot captured.", result.Value!.Target, screenshot: result.Value);
     }
 
     private static Task<SemanticWorkflowStepResult> CaptureStepScreenshotAsync(
@@ -2734,6 +3044,7 @@ public sealed class SemanticWorkflowRunner
         SemanticWorkflowRequest request,
         SemanticWorkflowStep step,
         int stepIndex,
+        RuntimeEvidencePolicyEnforcer? policy,
         CancellationToken cancellationToken)
     {
         var screenshotStep = new SemanticWorkflowStep(
@@ -2741,7 +3052,7 @@ public sealed class SemanticWorkflowRunner
             $"{step.Id}:screenshot",
             screenshotPath: ResolveScreenshotPath(request, step, stepIndex),
             topLevelAlias: step.TopLevelAlias);
-        return ExecuteStepAsync(bridgeClient, request, screenshotStep, stepIndex, cancellationToken);
+        return ExecuteStepAsync(bridgeClient, request, screenshotStep, stepIndex, policy, cancellationToken);
     }
 
     private static SemanticWorkflowRequest WithTopLevelId(
@@ -3443,12 +3754,16 @@ public sealed class SemanticWorkflowRunner
             SemanticWorkflowRequest request,
             LocalBridgeClient bridgeClient,
             WorkflowIdempotencyStore idempotencyStore,
-            SemanticWorkflowPlan plan)
+            SemanticWorkflowPlan plan,
+            RuntimeEvidencePolicyEnforcer? policy,
+            IReadOnlyDictionary<string, string>? policyMetadata)
         {
             Request = request;
             BridgeClient = bridgeClient;
             IdempotencyStore = idempotencyStore;
             Plan = plan;
+            Policy = policy;
+            PolicyMetadata = policyMetadata;
         }
 
         public SemanticWorkflowRequest Request { get; }
@@ -3458,6 +3773,10 @@ public sealed class SemanticWorkflowRunner
         public WorkflowIdempotencyStore IdempotencyStore { get; }
 
         public SemanticWorkflowPlan Plan { get; }
+
+        public RuntimeEvidencePolicyEnforcer? Policy { get; }
+
+        public IReadOnlyDictionary<string, string>? PolicyMetadata { get; }
 
         public List<SemanticWorkflowStepResult> Results { get; } = [];
 

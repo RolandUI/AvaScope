@@ -39,7 +39,15 @@ The safe mutation set is limited to selected public Avalonia style, layout, clas
 
 ## Runtime Custom Action Permissions
 
-Application-defined actions are disabled by default. A host must set `enableCustomActions: true`, provide an exact activation allowlist, and register each action against a live visual instance. Discovery reports required state, current executability, parameter schema, and safety classification. Invocation validates the current generation-scoped target and schema on the UI thread and returns bounded audit evidence. Destructive classifications require two independent gates: `allowDestructiveCustomActions` at activation and `allowDestructive` on the request (or an isolated workflow state directory). The registered name never overrides the safety classification.
+Application-defined actions are disabled by default. A host must set `enableCustomActions: true`, provide an exact activation allowlist, and register each action against a live visual instance. Discovery reports required state, current executability, parameter schema, and safety classification. Invocation validates the current generation-scoped target and schema on the UI thread and returns bounded audit evidence. Destructive classifications always require the independent `allowDestructiveCustomActions` activation gate and request authorization (`allowDestructive` or an isolated workflow state directory); a configured runtime evidence policy adds its own explicit destructive-action gate. The registered name never overrides the safety classification.
+
+## Runtime Evidence Privacy And Action Policy
+
+Workflow and scenario `evidence.policy` is an explicit opt-in boundary over runtime evidence and automation. The configured `ownedEvidenceRoot` must contain the run directory as a strict child; report, timeline, screenshot, lifecycle-log, audit, and policy-scoped idempotency paths cannot escape it. AvaScope creates ownership markers and retention considers only marked direct-child run directories. It rejects volume roots, traversal outside the run, and reparse points before recursive deletion, so unrelated or linked content is never treated as owned evidence.
+
+Configured text and AutomationIds are redacted before persisted JSON, Markdown, JUnit, scenario timelines, lifecycle logs, and local JSONL action audits. Excluded controls are structurally redacted; their current visual-tree bounds and explicit pixel regions are black-masked in every policy-managed screenshot. A redaction, control-bound resolution, decode, encode, or path failure fails closed for the affected artifact: unmasked screenshots are deleted and unserializable evidence is omitted behind a generic `runtime_evidence_redaction_failed` or `runtime_evidence_mask_failed` diagnostic that does not repeat the sensitive value.
+
+The policy's safe default allowlist contains observation, bounded waits, validation, composition, and custom-action discovery. Interactive actions require explicit allowlisting. Gestures require separate gesture and destructive-action authorization. Application-defined action names require a second exact allowlist and keep the Bridge's independent activation and destructive gates. Optional session and process allowlists are matched against exactly one live `local_only` manifest before dispatch. Network upload is not implemented and `networkUpload: true` is rejected; results report local filesystem storage and AvaScope provenance.
 
 ## Preview Execution
 
@@ -50,6 +58,8 @@ Preview rendering can build and load user project code. That code runs inside `A
 AvaScope writes screenshots, diffs, JSON reports, HTML viewers, JUnit/SARIF-style report assets, launch stdout/stderr, and release artifacts only to explicit local paths or AvaScope-owned local temp directories. Generated files can contain UI text, paths, diagnostics, and screenshots from the user's app; agents should treat them as local sensitive artifacts and upload them only when the user or CI workflow explicitly chooses to.
 
 Runtime scenario build and launch requests may contain sensitive environment values or application arguments. Normal lifecycle responses expose only environment-variable names and argument counts; raw values are passed directly to the owned child process and are not copied into metadata, diagnostics, or timelines. Captured stdout/stderr remain local artifacts and may still contain values printed by the application itself. Scenario cleanup records the launched session, PID, and process start time and terminates the process tree only when all identity checks still match; foreign, manually launched, already-replaced, or PID-reused processes are not killed.
+
+When `evidence.policy` is configured, scenario stdout/stderr are redacted in place before the response and timeline are returned. Without that explicit policy, the compatibility behavior remains local-only but unredacted, so callers must continue treating the files as sensitive.
 
 The visual-regression GitHub Actions example uses read-only repository permissions and artifact upload only. Publishing workflows require separate release gates and credentials.
 
@@ -68,6 +78,10 @@ Clients should call `capabilities` and gate workflows by capability id rather th
 | Mutation targets another session | `LocalBridgeClient.MutateNodeAsync` rejects mismatched target sessions before IPC. |
 | Runtime mutations become permanent source edits | Mutation review source suggestions are advisory; no automatic source editing is implemented. |
 | App-defined action becomes implicitly callable | Custom actions default off and require activation, exact allowlisting, per-target registration, current-state validation, and dual authorization for destructive classifications. |
+| Workflow action bypasses an evidence policy | The compiled plan and every leaf action are checked; gestures and destructive/custom actions require their additional independent gates. |
+| Evidence retention deletes unrelated data | Only marked direct-child runs under a validated, non-reparse-point owned root are eligible. |
+| Redaction or screenshot masking fails | The affected evidence fails closed and the diagnostic omits configured secrets. |
+| Evidence is uploaded unexpectedly | Network upload is unavailable; policy construction rejects `networkUpload: true` and reports local storage provenance. |
 | Preview user code loads inside MCP/CLI | Core launches the isolated PreviewHost process for preview rendering. |
 | CI example publishes packages or releases | Visual regression example uses `permissions: contents: read` and no publish scripts or secrets. |
 
@@ -76,7 +90,7 @@ Clients should call `capabilities` and gate workflows by capability id rather th
 - PreviewHost still executes user project code locally. This is inherent to realistic Avalonia preview rendering and is mitigated by child-process isolation, explicit inputs, and local artifacts.
 - Runtime mutation coverage is intentionally narrow. Broader arbitrary-property editing requires separate conversion, validation, rollback, and security validation.
 - Remote inspection/control, no-code attach, process injection, CLR profiling, and private Avalonia hooks remain post-1.0 unless a separate threat model is designed.
-- Generated screenshots and reports may contain sensitive UI data. Upload and retention policy belongs to the user or CI workflow that handles the local artifacts.
+- Generated screenshots and reports may contain sensitive UI data when the optional evidence policy is not configured. Upload remains an explicit external user/CI decision; AvaScope itself has no network-upload path.
 
 The final non-blocking post-1.0 backlog and release-blocking audit is recorded in [POST_1_0_BACKLOG.md](POST_1_0_BACKLOG.md).
 

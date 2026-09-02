@@ -17,7 +17,8 @@ public sealed record SemanticWorkflowEvidenceOptions
         bool exportReports = true,
         string? reportDirectory = null,
         int treeDepth = 4,
-        int maxSelectorCandidates = MaximumSelectorCandidates)
+        int maxSelectorCandidates = MaximumSelectorCandidates,
+        RuntimeEvidencePolicy? policy = null)
     {
         if (treeDepth is < 0 or > MaximumTreeDepth)
         {
@@ -38,6 +39,7 @@ public sealed record SemanticWorkflowEvidenceOptions
         ReportDirectory = string.IsNullOrWhiteSpace(reportDirectory) ? null : Path.GetFullPath(reportDirectory);
         TreeDepth = treeDepth;
         MaxSelectorCandidates = maxSelectorCandidates;
+        Policy = policy;
     }
 
     [JsonPropertyName("captureOnFailure")]
@@ -67,4 +69,8 @@ public sealed record SemanticWorkflowEvidenceOptions
 
     [JsonPropertyName("maxSelectorCandidates")]
     public int MaxSelectorCandidates { get; }
+
+    [JsonPropertyName("policy")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public RuntimeEvidencePolicy? Policy { get; }
 }

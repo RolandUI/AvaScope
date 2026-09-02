@@ -215,7 +215,7 @@ public static class AvaScopeCapabilityCatalog
             Capability(
                 AvaScopeCapabilityIds.RuntimeWorkflowEvidence,
                 "runtime",
-                "Observe action pre-state, execute once, verify a bounded typed postcondition, and write deterministic runtime failure evidence and JSON, Markdown, and JUnit reports.",
+                "Observe action pre-state, execute once, verify a bounded typed postcondition, and write deterministic local runtime evidence with optional redaction, masking, retention, authorization, and action safety policy.",
                 ["run-workflow", "run-scenario", "run_workflow", "run_scenario"],
                 requires: [AvaScopeCapabilityIds.RuntimeSemanticWorkflow, AvaScopeCapabilityIds.ReportsJson],
                 metadata: new Dictionary<string, string>
@@ -225,6 +225,11 @@ public static class AvaScopeCapabilityCatalog
                     ["failureEvidence"] = "inspection,visual_tree,selector_candidates,interaction_state,actions,binding_validation,top_levels,adjacent_steps,timeline",
                     ["unavailableEvidence"] = "explicit",
                     ["reports"] = "json,markdown,junit",
+                    ["privacyPolicy"] = "text_and_automation_id_redaction,excluded_controls,screenshot_regions,fail_closed",
+                    ["retention"] = "validated_owned_root,marker_owned_runs,age_or_count_bounded",
+                    ["actionSafety"] = "explicit_allowlist,gestures_and_destructive_actions_denied_by_default,custom_action_allowlist",
+                    ["authorization"] = "local_session_and_process_allowlists",
+                    ["storage"] = "local_filesystem_only,network_upload_unavailable,redacted_action_audit",
                     ["treeDepthMaximum"] = SemanticWorkflowEvidenceOptions.MaximumTreeDepth.ToString(System.Globalization.CultureInfo.InvariantCulture),
                     ["selectorCandidatesMaximum"] = SemanticWorkflowEvidenceOptions.MaximumSelectorCandidates.ToString(System.Globalization.CultureInfo.InvariantCulture)
                 }),

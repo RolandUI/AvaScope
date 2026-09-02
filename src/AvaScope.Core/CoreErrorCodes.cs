@@ -31,4 +31,10 @@ public static class CoreErrorCodes
     public const string ArtifactRunIndexUnavailable = "artifact_run_index_unavailable";
     public const string RuntimeMutationReviewUnavailable = "runtime_mutation_review_unavailable";
     public const string RuntimeReloadNotSupported = "runtime_reload_not_supported";
+    public const string RuntimeEvidencePolicyInvalid = "runtime_evidence_policy_invalid";
+    public const string RuntimeEvidenceUnauthorized = "runtime_evidence_unauthorized";
+    public const string RuntimeEvidenceActionDisallowed = "runtime_evidence_action_disallowed";
+    public const string RuntimeEvidenceRedactionFailed = "runtime_evidence_redaction_failed";
+    public const string RuntimeEvidenceMaskFailed = "runtime_evidence_mask_failed";
+    public const string RuntimeEvidenceAuditFailed = "runtime_evidence_audit_failed";
 }

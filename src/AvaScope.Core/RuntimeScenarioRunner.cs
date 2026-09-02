@@ -19,6 +19,9 @@ public sealed class RuntimeScenarioRunner
         ArgumentNullException.ThrowIfNull(request);
 
         var startedAt = DateTimeOffset.UtcNow;
+        var evidencePolicy = request.Evidence?.Policy is null
+            ? null
+            : new RuntimeEvidencePolicyEnforcer(request.Evidence.Policy);
         var validationSessionId = request.SessionId ?? new SessionId($"scenario-validation-{request.RequestId}");
         var validationTopLevelId = request.TopLevelId
             ?? (request.TopLevelAliases.Count == 0 ? "topLevel:scenario-validation" : null);
@@ -38,9 +41,24 @@ public sealed class RuntimeScenarioRunner
             timeoutMs: request.WorkflowTimeoutMs,
             evidence: request.Evidence);
         var validation = SemanticWorkflowCompiler.Compile(validationRequest);
-        if (!validation.Plan.Valid)
+        var policyValidationDiagnostics = new List<ProtocolError>();
+        if (evidencePolicy is not null)
+        {
+            foreach (var item in validation.Plan.Steps)
+            {
+                var authorization = evidencePolicy.AuthorizeAction(item.Action, customActionName: null);
+                if (!authorization.Success)
+                {
+                    policyValidationDiagnostics.Add(ToProtocolError(authorization.Error!));
+                    break;
+                }
+            }
+        }
+
+        if (!validation.Plan.Valid || policyValidationDiagnostics.Count > 0)
         {
             var completedAt = DateTimeOffset.UtcNow;
+            var validationDiagnostics = validation.Plan.Diagnostics.Concat(policyValidationDiagnostics).ToArray();
             var validationWorkflow = new SemanticWorkflowResponse(
                 request.RequestId,
                 validationSessionId,
@@ -49,30 +67,74 @@ public sealed class RuntimeScenarioRunner
                 startedAt,
                 completedAt,
                 [],
-                diagnostics: validation.Plan.Diagnostics,
+                diagnostics: validationDiagnostics,
                 metadata: new Dictionary<string, string> { ["validationOnly"] = "true" },
                 plan: validation.Plan);
-            return CoreResult<RuntimeScenarioResponse>.Ok(new RuntimeScenarioResponse(
+            var invalidResponse = new RuntimeScenarioResponse(
                 request.RequestId,
                 Failed,
                 startedAt,
                 completedAt,
                 workflow: validationWorkflow,
-                diagnostics: validation.Plan.Diagnostics,
+                diagnostics: validationDiagnostics,
                 metadata: new Dictionary<string, string>
                 {
                     ["scenarioMode"] = "validation",
-                    ["dispatchPerformed"] = "false"
+                    ["dispatchPerformed"] = "false",
+                    ["evidencePolicy"] = evidencePolicy is null ? "not_configured" : "explicit_local_opt_in",
+                    ["storage"] = "local_filesystem",
+                    ["provenance"] = "avascope_runtime_evidence",
+                    ["networkUpload"] = "disabled"
                 },
-                failureStage: RuntimeScenarioFailureStages.Validation));
+                failureStage: RuntimeScenarioFailureStages.Validation);
+            if (evidencePolicy is null)
+            {
+                return CoreResult<RuntimeScenarioResponse>.Ok(invalidResponse);
+            }
+
+            var sanitized = evidencePolicy.Sanitize(invalidResponse);
+            return CoreResult<RuntimeScenarioResponse>.Ok(sanitized.Success
+                ? sanitized.Value!
+                : CreateRedactionFailure(startedAt, sanitized.Error!));
         }
 
         var diagnostics = new List<ProtocolError>();
         var outputDirectory = ResolveOutputDirectory(request);
-        Directory.CreateDirectory(outputDirectory);
+        var timelinePath = request.TimelinePath ?? Path.Combine(outputDirectory, "scenario-timeline.md");
+        IReadOnlyDictionary<string, string>? evidencePolicyMetadata = null;
+        if (evidencePolicy is not null)
+        {
+            var policyReportDirectory = request.Evidence!.ReportDirectory
+                ?? Path.Combine(outputDirectory, "reports");
+            var workflowSteps = EnumerateWorkflowSteps(request).ToArray();
+            if (workflowSteps.Any(step => !string.Equals(evidencePolicy.SanitizeScalar(step.Id), step.Id, StringComparison.Ordinal)))
+            {
+                return CoreResult<RuntimeScenarioResponse>.Ok(CreatePolicyFailure(
+                    startedAt,
+                    new CoreError(
+                        CoreErrorCodes.RuntimeEvidencePolicyInvalid,
+                        "Workflow step identifiers cannot contain configured sensitive values because they contribute to local artifact paths.")));
+            }
+
+            var artifactPaths = workflowSteps
+                .Select(static step => step.ScreenshotPath)
+                .Append(policyReportDirectory)
+                .Append(timelinePath)
+                .Append(request.Launch?.OutputDirectory);
+            var prepared = evidencePolicy.PrepareRun(outputDirectory, artifactPaths, request.RequestId);
+            if (!prepared.Success)
+            {
+                return CoreResult<RuntimeScenarioResponse>.Ok(CreatePolicyFailure(startedAt, prepared.Error!));
+            }
+
+            evidencePolicyMetadata = prepared.Value;
+        }
+        else
+        {
+            Directory.CreateDirectory(outputDirectory);
+        }
 
         var isolation = PrepareIsolation(request, outputDirectory);
-        var timelinePath = request.TimelinePath ?? Path.Combine(outputDirectory, "scenario-timeline.md");
         SessionId? sessionId = null;
         string? topLevelId = request.TopLevelId;
         LaunchAppResponse? launch = null;
@@ -138,7 +200,32 @@ public sealed class RuntimeScenarioRunner
                 }
             }
 
-            return CoreResult<RuntimeScenarioResponse>.Ok(CreateResponse(
+            if (evidencePolicy is not null)
+            {
+                CoreError? redactionFailure = null;
+                foreach (var path in new[]
+                {
+                    build?.StdoutPath,
+                    build?.StderrPath,
+                    launch?.StdoutPath,
+                    launch?.StderrPath
+                }.Where(static path => !string.IsNullOrWhiteSpace(path)))
+                {
+                    var redacted = evidencePolicy.SanitizeTextFile(path!);
+                    if (!redacted.Success)
+                    {
+                        redactionFailure = redacted.Error;
+                        break;
+                    }
+                }
+
+                if (redactionFailure is not null)
+                {
+                    return CoreResult<RuntimeScenarioResponse>.Ok(CreateRedactionFailure(startedAt, redactionFailure));
+                }
+            }
+
+            var response = CreateResponse(
                 request,
                 status,
                 startedAt,
@@ -157,7 +244,18 @@ public sealed class RuntimeScenarioRunner
                 readiness,
                 topLevels,
                 cleanup,
-                failureStage));
+                failureStage,
+                evidencePolicyMetadata);
+            if (evidencePolicy is not null)
+            {
+                var sanitized = evidencePolicy.Sanitize(response);
+                response = sanitized.Success
+                    ? sanitized.Value!
+                    : CreateRedactionFailure(startedAt, sanitized.Error!);
+            }
+
+            WriteTimeline(response);
+            return CoreResult<RuntimeScenarioResponse>.Ok(response);
         }
 
         if (effectiveBuild is not null)
@@ -539,7 +637,8 @@ public sealed class RuntimeScenarioRunner
         RuntimeScenarioReadinessEvidence? readiness = null,
         IReadOnlyList<TopLevelSummary>? topLevels = null,
         CloseSessionResponse? cleanup = null,
-        string? failureStage = null)
+        string? failureStage = null,
+        IReadOnlyDictionary<string, string>? evidencePolicyMetadata = null)
     {
         var completedAt = DateTimeOffset.UtcNow;
         var metadata = new Dictionary<string, string>(StringComparer.Ordinal)
@@ -548,8 +647,19 @@ public sealed class RuntimeScenarioRunner
             ["outputDirectory"] = outputDirectory,
             ["timelineFormat"] = "markdown",
             ["requestedSteps"] = request.Steps.Count.ToString(CultureInfo.InvariantCulture),
-            ["terminateLaunchedProcessRequested"] = request.TerminateLaunchedProcess.ToString().ToLowerInvariant()
+            ["terminateLaunchedProcessRequested"] = request.TerminateLaunchedProcess.ToString().ToLowerInvariant(),
+            ["storage"] = "local_filesystem",
+            ["provenance"] = "avascope_runtime_evidence",
+            ["networkUpload"] = "disabled"
         };
+
+        if (evidencePolicyMetadata is not null)
+        {
+            foreach (var pair in evidencePolicyMetadata)
+            {
+                metadata[pair.Key] = pair.Value;
+            }
+        }
 
         if (!string.IsNullOrWhiteSpace(failureStage))
         {
@@ -591,7 +701,6 @@ public sealed class RuntimeScenarioRunner
             cleanup: cleanup,
             failureStage: failureStage);
 
-        WriteTimeline(response);
         return response;
     }
 
@@ -600,6 +709,62 @@ public sealed class RuntimeScenarioRunner
         return request.OutputDirectory
             ?? Path.Combine(Path.GetTempPath(), "AvaScope", "scenarios", request.RequestId);
     }
+
+    private static IEnumerable<SemanticWorkflowStep> EnumerateWorkflowSteps(RuntimeScenarioRequest request)
+    {
+        foreach (var step in request.Steps.Concat(request.Fragments.SelectMany(static fragment => fragment.Steps)))
+        {
+            foreach (var item in EnumerateWorkflowSteps(step))
+            {
+                yield return item;
+            }
+        }
+    }
+
+    private static IEnumerable<SemanticWorkflowStep> EnumerateWorkflowSteps(SemanticWorkflowStep step)
+    {
+        yield return step;
+        foreach (var child in step.Then.Concat(step.Else).Concat(step.Steps))
+        {
+            foreach (var item in EnumerateWorkflowSteps(child))
+            {
+                yield return item;
+            }
+        }
+    }
+
+    private static RuntimeScenarioResponse CreatePolicyFailure(DateTimeOffset startedAt, CoreError error) =>
+        new(
+            "redacted-request",
+            Failed,
+            startedAt,
+            DateTimeOffset.UtcNow,
+            diagnostics: [ToProtocolError(error)],
+            metadata: new Dictionary<string, string>
+            {
+                ["dispatchPerformed"] = "false",
+                ["evidencePolicy"] = "rejected",
+                ["storage"] = "local_filesystem",
+                ["provenance"] = "avascope_runtime_evidence",
+                ["networkUpload"] = "disabled"
+            },
+            failureStage: RuntimeScenarioFailureStages.Validation);
+
+    private static RuntimeScenarioResponse CreateRedactionFailure(DateTimeOffset startedAt, CoreError error) =>
+        new(
+            "redacted-request",
+            Failed,
+            startedAt,
+            DateTimeOffset.UtcNow,
+            diagnostics: [ToProtocolError(error)],
+            metadata: new Dictionary<string, string>
+            {
+                ["evidencePolicy"] = "failed_closed",
+                ["storage"] = "local_filesystem",
+                ["provenance"] = "avascope_runtime_evidence",
+                ["networkUpload"] = "disabled"
+            },
+            failureStage: RuntimeScenarioFailureStages.Validation);
 
     private static ScenarioIsolation PrepareIsolation(RuntimeScenarioRequest request, string outputDirectory)
     {

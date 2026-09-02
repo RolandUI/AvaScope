@@ -13,6 +13,7 @@ public sealed class SecurityThreatModelDocumentationTests
         Assert.Contains("## Local-Only Transport", document, StringComparison.Ordinal);
         Assert.Contains("## Opt-In Bridge Activation", document, StringComparison.Ordinal);
         Assert.Contains("## Runtime Mutation Permissions", document, StringComparison.Ordinal);
+        Assert.Contains("## Runtime Evidence Privacy And Action Policy", document, StringComparison.Ordinal);
         Assert.Contains("## Preview Execution", document, StringComparison.Ordinal);
         Assert.Contains("## File Outputs And Logs", document, StringComparison.Ordinal);
         Assert.Contains("## Package, API, CLI, And MCP Compatibility", document, StringComparison.Ordinal);
@@ -25,6 +26,9 @@ public sealed class SecurityThreatModelDocumentationTests
         Assert.Contains("capability_not_supported", document, StringComparison.Ordinal);
         Assert.Contains("environment values", document, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("PID-reused", document, StringComparison.Ordinal);
+        Assert.Contains("runtime_evidence_redaction_failed", document, StringComparison.Ordinal);
+        Assert.Contains("networkUpload: true", document, StringComparison.Ordinal);
+        Assert.Contains("reparse points", document, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("TODO", document, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("TBD", document, StringComparison.OrdinalIgnoreCase);
     }

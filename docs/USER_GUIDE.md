@@ -441,6 +441,8 @@ dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll launch-app --command do
 
 The helper sets `AVASCOPE_BRIDGE_MANIFEST_DIR` for the child process, captures stdout/stderr to deterministic files, waits for a bridge manifest from the launched process, and returns session, top-level when available, process, manifest, stdout, and stderr details. It does not inject into apps; the app must explicitly enable `AvaScopeBridge.Activate`.
 
+Keep activation in development-only host code and behind an explicit local feature flag. A typical application wraps the `AvaScopeBridge.Activate(...)` call in `#if DEBUG` and then checks an app-specific environment/configuration switch; production builds should contain no unconditional activation path. The Bridge itself exposes only the local manifest and named-pipe transport and provides no network activation endpoint.
+
 List top-level windows/views and capture a runtime screenshot from an active bridge session:
 
 ```powershell
@@ -717,7 +719,26 @@ Side-effecting semantic actions may add `verify`. AvaScope optionally captures t
     "exportReports": true,
     "reportDirectory": "artifacts/workflows/save/reports",
     "treeDepth": 4,
-    "maxSelectorCandidates": 8
+    "maxSelectorCandidates": 8,
+    "policy": {
+      "ownedEvidenceRoot": "artifacts/workflows",
+      "redactedText": ["customer-secret"],
+      "redactedAutomationIds": ["private-account-id"],
+      "excludedControlAutomationIds": ["credit-card-number"],
+      "screenshotMaskRegions": [
+        { "x": 20, "y": 20, "width": 240, "height": 48, "name": "account-header" }
+      ],
+      "allowedActions": ["invoke"],
+      "allowedCustomActions": [],
+      "allowGestures": false,
+      "allowDestructiveActions": false,
+      "authorizedSessionIds": ["session-id"],
+      "authorizedProcessIds": [1234],
+      "retentionMaxAgeMinutes": 10080,
+      "retentionMaxOwnedRuns": 20,
+      "writeActionAudit": true,
+      "networkUpload": false
+    }
   },
   "steps": [
     {
@@ -738,6 +759,10 @@ Side-effecting semantic actions may add `verify`. AvaScope optionally captures t
 
 When `evidence.captureOnFailure` is enabled, the first terminal failed action receives `failureEvidence` with stable paths for every available inspection, screenshot, bounded visual tree, selector-candidate set, active top-level list, and adjacent authored/executed workflow context. Inspection data carries visible/enabled/bounds, available actions, binding state, and validation state; `unavailableEvidence` names every diagnostic class the runtime could not provide. Artifact errors do not erase the action or verification result and produce `partial` or `unavailable` evidence status. With `exportReports`, `reportPack` references `workflow-report.json`, `workflow-report.md`, and `workflow-junit.xml`; all three use the same workflow and step PASS/FAIL state. `agentReview` provides the bounded failure shortlist and report/artifact paths. The same fields are available through `run-workflow`, `run_workflow`, `run-scenario`, and `run_scenario`.
 
+`evidence.policy` is an explicit local opt-in privacy and action boundary. `ownedEvidenceRoot` must contain the workflow/scenario run directory as a strict child; every report, timeline, and explicit screenshot path must stay inside that run. AvaScope marks its own roots/runs and retention deletes only marked direct-child runs after rejecting reparse-point traversal. Count and age limits may be combined. Configured text and AutomationIds are replaced before inline results, failure JSON, action audit, workflow JSON, Markdown, JUnit, scenario timeline, and lifecycle log persistence. Excluded controls are redacted from structured evidence and their live visual bounds are converted to screenshot pixels and masked together with explicit regions. If masking or redaction cannot be completed, AvaScope deletes or omits the affected unredacted artifact and returns a secret-free `runtime_evidence_*` diagnostic.
+
+With a policy present, the default action allowlist contains observation, validation, waits, composition, and custom-action discovery only. Input actions must be named explicitly. `drag`, `swipe`, `long_press`, and `press_and_hold` additionally require both `allowGestures` and `allowDestructiveActions`; destructive-looking built-in actions still require request isolation or `allowDestructive`. Application-defined actions require both the workflow action and exact custom action name in their respective allowlists, while destructive classifications retain the Bridge activation gate and also require the request and policy gates. Optional session/PID allowlists are checked against one live `local_only` manifest before dispatch. `networkUpload` cannot be enabled: policy metadata always reports `storage: local_filesystem`, AvaScope provenance, and `networkUpload: disabled`. When enabled, the redacted local audit is `action-audit.jsonl` under the owned run.
+
 Deterministic workflows can use `wait_for_node`, `wait_for_state`, and `wait_for_dialog`. Each wait accepts `timeoutMs` (default `5000`, maximum `60000`) and `pollIntervalMs` (default `100`, range `25`–`5000`), uses cancellation-aware bounded polling, and resolves its selector again on every poll. `wait_for_node` accepts `exists` and `disappears`; `wait_for_state` accepts `visible`, `hidden`, `enabled`, `disabled`, `checked`, `unchecked`, `selected_value`, `text`, `value`, `rendered`, `command_executable`, `binding_value`, `top_level_opened`, `top_level_closed`, and `change_from_baseline`. Comparisons are typed and support `equals`, `not_equals`, numeric ordering, and `changed`. A successful step exposes `waitObservation`; a failure distinguishes unavailable state (`semantic_workflow_wait_state_unavailable`) from a false condition that timed out (`semantic_workflow_wait_timeout`). Timeout metadata contains the last typed observation, elapsed time, bounded ambiguity candidates when present, and a next action. The compatible `assertProperty`/`expected` form remains supported.
 
 ```json
@@ -755,7 +780,7 @@ Deterministic workflows can use `wait_for_node`, `wait_for_state`, and `wait_for
 
 For a binding, set `kind` to `binding_value`, identify it with `bindingPath` and optionally `propertyName`, then provide `expected` and `valueType`. For disappearance or `top_level_closed`, success deliberately has no surviving target id. Top-level waits use `topLevelId` and/or `topLevelTitle` in `waitCondition`. To wait for any inspected property to change, use `change_from_baseline` with `propertyName`; omit `baseline` to capture the first available observation or provide it explicitly for a known starting state.
 
-Add `idempotencyKey` to a side-effecting step to prevent duplicate dispatch after a client retry. Results are persisted under the selected local session manifest directory, scoped by session and request signature, and replayed with `idempotencyReplay: true`. `idempotencyTtlMs` defaults to `300000` and accepts `100`–`86400000`; reusing a live key with different step content fails with `semantic_workflow_idempotency_conflict`.
+Add `idempotencyKey` to a side-effecting step to prevent duplicate dispatch after a client retry. Without an evidence policy, results are persisted under the selected local session manifest directory. With a policy, the sanitized replay record is kept under the owned run directory so retention and privacy rules cover it. Records remain scoped by session and request signature and replay with `idempotencyReplay: true`. `idempotencyTtlMs` defaults to `300000` and accepts `100`–`86400000`; reusing a live key with different step content fails with `semantic_workflow_idempotency_conflict`.
 
 Use `validate_action` with `inputAction`, or `validate_mutation` with a structured `mutation`, to run the same selector, target, provider/property, and value checks without input dispatch or runtime state changes:
 

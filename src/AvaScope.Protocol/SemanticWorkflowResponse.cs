@@ -124,6 +124,9 @@ public sealed record SemanticWorkflowResponse
             .ToArray() ?? [];
         var allArtifacts = Steps
             .SelectMany(static step => EvidencePaths(step))
+            .Concat(Metadata.TryGetValue("actionAuditPath", out var actionAuditPath)
+                ? [new AgentReviewPath("action_audit", actionAuditPath)]
+                : [])
             .ToArray();
         var artifacts = allArtifacts.Take(AgentReviewSurface.MaximumPaths).ToArray();
         var reviewStatus = string.Equals(Status, "passed", StringComparison.Ordinal)

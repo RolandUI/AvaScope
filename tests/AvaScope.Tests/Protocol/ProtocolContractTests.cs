@@ -563,7 +563,21 @@ public sealed class ProtocolContractTests
             evidence: new SemanticWorkflowEvidenceOptions(
                 reportDirectory: "C:\\state\\workflow-report",
                 treeDepth: 3,
-                maxSelectorCandidates: 4));
+                maxSelectorCandidates: 4,
+                policy: new RuntimeEvidencePolicy(
+                    Path.Combine(Path.GetTempPath(), "AvaScope", "evidence"),
+                    redactedText: ["secret"],
+                    redactedAutomationIds: ["private-id"],
+                    excludedControlAutomationIds: ["payment-card"],
+                    screenshotMaskRegions: [new ScreenshotRegion(1, 2, 30, 40, "header")],
+                    allowedActions: [SemanticWorkflowActions.Invoke],
+                    allowedCustomActions: ["safe.refresh"],
+                    allowGestures: false,
+                    allowDestructiveActions: false,
+                    authorizedSessionIds: ["verified-session"],
+                    authorizedProcessIds: [123],
+                    retentionMaxAgeMinutes: 60,
+                    retentionMaxOwnedRuns: 5)));
         var verificationResult = new SemanticWorkflowVerificationResult(
             "failed",
             condition,
@@ -600,6 +614,13 @@ public sealed class ProtocolContractTests
         Assert.True(requestNode["steps"]![0]!["verify"]!["captureScreenshots"]!.GetValue<bool>());
         Assert.Equal(3, requestNode["evidence"]!["treeDepth"]!.GetValue<int>());
         Assert.Equal(4, requestNode["evidence"]!["maxSelectorCandidates"]!.GetValue<int>());
+        Assert.Equal("secret", requestNode["evidence"]!["policy"]!["redactedText"]![0]!.GetValue<string>());
+        Assert.Equal("private-id", requestNode["evidence"]!["policy"]!["redactedAutomationIds"]![0]!.GetValue<string>());
+        Assert.Equal("payment-card", requestNode["evidence"]!["policy"]!["excludedControlAutomationIds"]![0]!.GetValue<string>());
+        Assert.Equal(30, requestNode["evidence"]!["policy"]!["screenshotMaskRegions"]![0]!["width"]!.GetValue<int>());
+        Assert.Equal("invoke", requestNode["evidence"]!["policy"]!["allowedActions"]![0]!.GetValue<string>());
+        Assert.Equal(123, requestNode["evidence"]!["policy"]!["authorizedProcessIds"]![0]!.GetValue<int>());
+        Assert.False(requestNode["evidence"]!["policy"]!["networkUpload"]!.GetValue<bool>());
         Assert.Equal("failed", resultNode["verification"]!["status"]!.GetValue<string>());
         Assert.Equal("partial", resultNode["failureEvidence"]!["status"]!.GetValue<string>());
         Assert.Equal("screenshot", resultNode["failureEvidence"]!["unavailableEvidence"]![0]!.GetValue<string>());

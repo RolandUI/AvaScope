@@ -4803,6 +4803,7 @@ public sealed class CliSmokeTests
             $"cli-composition-validation-{Guid.NewGuid():N}");
         Directory.CreateDirectory(manifestDirectory);
         var requestPath = Path.Combine(manifestDirectory, "composition-workflow.json");
+        var evidenceRoot = Path.Combine(manifestDirectory, "owned-evidence");
         var request = new SemanticWorkflowRequest(
             new SessionId("cli-composition"),
             "topLevel:diagnostic-only",
@@ -4845,7 +4846,16 @@ public sealed class CliSmokeTests
             ],
             validateOnly: true,
             evidence: new SemanticWorkflowEvidenceOptions(
-                reportDirectory: Path.Combine(manifestDirectory, "reports")));
+                exportReports: false,
+                policy: new RuntimeEvidencePolicy(
+                    evidenceRoot,
+                    allowedActions:
+                    [
+                        SemanticWorkflowActions.If,
+                        SemanticWorkflowActions.UseFragment,
+                        SemanticWorkflowActions.Invoke,
+                        SemanticWorkflowActions.AssertState
+                    ])));
         await File.WriteAllTextAsync(requestPath, JsonSerializer.Serialize(request, JsonOptions));
 
         try
@@ -4866,7 +4876,9 @@ public sealed class CliSmokeTests
             Assert.True(payload.Value.Plan!.Valid);
             Assert.Equal(4, payload.Value.Plan.ExpandedStepCount);
             Assert.Contains(payload.Value.Plan.Steps, step => step.SourceFragment == "assert-status");
-            Assert.False(Directory.Exists(Path.Combine(manifestDirectory, "reports")));
+            Assert.Equal("explicit_local_opt_in", payload.Value.Metadata["evidencePolicy"]);
+            Assert.Equal("disabled", payload.Value.Metadata["networkUpload"]);
+            Assert.False(Directory.Exists(evidenceRoot));
         }
         finally
         {

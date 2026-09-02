@@ -2861,6 +2861,132 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
     }
 
     [Fact]
+    public async Task RuntimeEvidencePolicyRedactsAndMasksWorkflowEvidenceEndToEnd()
+    {
+        var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessTestApplication));
+        var artifactRoot = Path.Combine(
+            Path.GetTempPath(),
+            "AvaScope.Tests",
+            $"evidence-policy-{Guid.NewGuid():N}");
+
+        try
+        {
+            await session.Dispatch(async () =>
+            {
+                const string secretText = "SSN-123-45-6789";
+                const string secretAutomationId = "private-customer-number";
+                var sensitive = new Border
+                {
+                    Width = 180,
+                    Height = 64,
+                    Background = Brushes.Orange,
+                    Child = new TextBlock { Text = secretText }
+                };
+                AutomationProperties.SetAutomationId(sensitive, secretAutomationId);
+                var window = new Window
+                {
+                    Width = 360,
+                    Height = 220,
+                    Content = new StackPanel { Children = { sensitive, new TextBlock { Text = "public" } } }
+                };
+                var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Evidence policy"));
+                window.Show();
+                using var registration = runtime.RegisterTopLevel(window);
+                Dispatcher.UIThread.RunJobs();
+
+                try
+                {
+                    var topLevelId = Assert.Single(await runtime.ListTopLevelsAsync()).Id;
+                    var client = new LocalBridgeClient(Path.GetDirectoryName(runtime.SessionManifestPath)!);
+                    var tree = await client.VisualTreeAsync(runtime.SessionId, topLevelId, 8);
+                    var rootBounds = tree.Value!.Root.Bounds!;
+                    var sensitiveNode = Enumerate(tree.Value.Root).Single(node => node.AutomationId == secretAutomationId);
+                    var sensitiveBounds = sensitiveNode.Bounds!;
+                    var runDirectory = Path.Combine(artifactRoot, "run");
+                    var reports = Path.Combine(runDirectory, "reports");
+                    var policy = new RuntimeEvidencePolicy(
+                        artifactRoot,
+                        redactedText: [secretText],
+                        redactedAutomationIds: [secretAutomationId],
+                        excludedControlAutomationIds: [secretAutomationId],
+                        allowedActions: [SemanticWorkflowActions.AssertState],
+                        authorizedSessionIds: [runtime.SessionId.Value],
+                        authorizedProcessIds: [Environment.ProcessId]);
+                    var request = new SemanticWorkflowRequest(
+                        runtime.SessionId,
+                        topLevelId,
+                        [
+                            new SemanticWorkflowStep(
+                                SemanticWorkflowActions.AssertState,
+                                "secure-assertion",
+                                new SemanticWorkflowSelector(automationId: secretAutomationId),
+                                assertProperty: "text",
+                                expected: "not-the-secret")
+                        ],
+                        outputDirectory: runDirectory,
+                        evidence: new SemanticWorkflowEvidenceOptions(
+                            reportDirectory: reports,
+                            policy: policy));
+
+                    var result = await new SemanticWorkflowRunner().RunAsync(client, request);
+
+                    Assert.True(result.Success, result.Error?.Message);
+                    Assert.Equal("failed", result.Value!.Status);
+                    Assert.Equal("disabled", result.Value.Metadata["networkUpload"]);
+                    Assert.Equal("local_filesystem", result.Value.Metadata["storage"]);
+                    var serialized = JsonSerializer.Serialize(result.Value);
+                    Assert.DoesNotContain(secretText, serialized, StringComparison.Ordinal);
+                    Assert.DoesNotContain(secretAutomationId, serialized, StringComparison.Ordinal);
+                    var failedStep = Assert.Single(result.Value.Steps);
+                    Assert.NotNull(failedStep.FailureEvidence);
+                    Assert.True(File.Exists(failedStep.FailureEvidence!.ScreenshotPath));
+                    Assert.True(File.Exists(Path.Combine(runDirectory, "action-audit.jsonl")));
+
+                    foreach (var textArtifact in Directory.EnumerateFiles(runDirectory, "*", SearchOption.AllDirectories)
+                                 .Where(path => Path.GetExtension(path) is ".json" or ".jsonl" or ".md" or ".xml"))
+                    {
+                        var content = File.ReadAllText(textArtifact);
+                        Assert.DoesNotContain(secretText, content, StringComparison.Ordinal);
+                        Assert.DoesNotContain(secretAutomationId, content, StringComparison.Ordinal);
+                    }
+
+                    using var screenshot = SKBitmap.Decode(failedStep.FailureEvidence.ScreenshotPath);
+                    var centerX = (int)Math.Round(
+                        (sensitiveBounds.X + sensitiveBounds.Width / 2 - rootBounds.X)
+                        * screenshot.Width / rootBounds.Width);
+                    var centerY = (int)Math.Round(
+                        (sensitiveBounds.Y + sensitiveBounds.Height / 2 - rootBounds.Y)
+                        * screenshot.Height / rootBounds.Height);
+                    Assert.Equal(SKColors.Black, screenshot.GetPixel(centerX, centerY));
+                }
+                finally
+                {
+                    window.Close();
+                    AvaScopeBridge.Deactivate();
+                    Dispatcher.UIThread.RunJobs();
+                }
+            }, CancellationToken.None);
+        }
+        finally
+        {
+            DisposeHeadlessSessionAfterExplicitCleanup(session);
+            DeleteDirectoryIfExists(artifactRoot);
+        }
+
+        static IEnumerable<TreeNodeSummary> Enumerate(TreeNodeSummary node)
+        {
+            yield return node;
+            foreach (var child in node.Children)
+            {
+                foreach (var descendant in Enumerate(child))
+                {
+                    yield return descendant;
+                }
+            }
+        }
+    }
+
+    [Fact]
     public async Task SemanticWorkflowCompositionBranchesRetriesSkipsExpandsAndValidatesBeforeDispatch()
     {
         var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessTestApplication));
@@ -4328,6 +4454,10 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
     public async Task RuntimeCustomActionsAreDiscoverableSafeAndExecutableAcrossMcpWorkflowAndCli()
     {
         var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessTestApplication));
+        var policyArtifactRoot = Path.Combine(
+            Path.GetTempPath(),
+            "AvaScope.Tests",
+            $"custom-action-policy-{Guid.NewGuid():N}");
         try
         {
             await session.Dispatch(async () =>
@@ -4508,6 +4638,63 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                     Assert.False(deniedReset.Value!.Executed);
                     Assert.Equal(RuntimeCustomActionErrorCodes.Disallowed, Assert.Single(deniedReset.Value.Diagnostics).Code);
 
+                    var policyDeniedReset = await new SemanticWorkflowRunner().RunAsync(
+                        client,
+                        new SemanticWorkflowRequest(
+                            runtime.SessionId,
+                            topLevel.Id,
+                            [
+                                new SemanticWorkflowStep(
+                                    SemanticWorkflowActions.CustomAction,
+                                    "policy-denied-reset",
+                                    new SemanticWorkflowSelector(automationId: "custom-action-target"),
+                                    customActionName: "reset")
+                            ],
+                            outputDirectory: Path.Combine(policyArtifactRoot, "denied"),
+                            allowDestructive: true,
+                            evidence: new SemanticWorkflowEvidenceOptions(
+                                captureOnFailure: false,
+                                exportReports: false,
+                                policy: new RuntimeEvidencePolicy(
+                                    policyArtifactRoot,
+                                    allowedActions: [SemanticWorkflowActions.CustomAction],
+                                    allowedCustomActions: ["reset"],
+                                    allowDestructiveActions: false,
+                                    authorizedSessionIds: [runtime.SessionId.Value],
+                                    authorizedProcessIds: [Environment.ProcessId]))));
+                    Assert.Equal("failed", policyDeniedReset.Value!.Status);
+                    Assert.Equal("confirmed:review", status.Text);
+                    Assert.Contains(
+                        Assert.Single(policyDeniedReset.Value.Steps).Diagnostics,
+                        diagnostic => diagnostic.Code == RuntimeCustomActionErrorCodes.Disallowed);
+
+                    var policyAllowedReset = await new SemanticWorkflowRunner().RunAsync(
+                        client,
+                        new SemanticWorkflowRequest(
+                            runtime.SessionId,
+                            topLevel.Id,
+                            [
+                                new SemanticWorkflowStep(
+                                    SemanticWorkflowActions.CustomAction,
+                                    "policy-allowed-reset",
+                                    new SemanticWorkflowSelector(automationId: "custom-action-target"),
+                                    customActionName: "reset")
+                            ],
+                            outputDirectory: Path.Combine(policyArtifactRoot, "allowed"),
+                            allowDestructive: true,
+                            evidence: new SemanticWorkflowEvidenceOptions(
+                                captureOnFailure: false,
+                                exportReports: false,
+                                policy: new RuntimeEvidencePolicy(
+                                    policyArtifactRoot,
+                                    allowedActions: [SemanticWorkflowActions.CustomAction],
+                                    allowedCustomActions: ["reset"],
+                                    allowDestructiveActions: true,
+                                    authorizedSessionIds: [runtime.SessionId.Value],
+                                    authorizedProcessIds: [Environment.ProcessId]))));
+                    Assert.Equal("passed", policyAllowedReset.Value!.Status);
+                    Assert.Equal("ready", status.Text);
+
                     var cliDiscovery = await RunCliInputAsync(
                         "custom-actions",
                         "--session", runtime.SessionId.Value,
@@ -4569,6 +4756,7 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
         finally
         {
             DisposeHeadlessSessionAfterExplicitCleanup(session);
+            DeleteDirectoryIfExists(policyArtifactRoot);
         }
     }
 

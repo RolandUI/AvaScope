@@ -267,6 +267,64 @@ public sealed class RuntimeScenarioLifecycleTests : IDisposable
         AssertProcessExited(result.Value.Launch.ProcessId);
     }
 
+    [Fact]
+    public async Task EvidencePolicyRedactsScenarioLifecycleLogsTimelineAndInlineResponse()
+    {
+        var repositoryRoot = FindRepositoryRoot();
+        var projectPath = Path.Combine(
+            repositoryRoot,
+            "tests",
+            "AvaScope.LifecycleTestApp",
+            "AvaScope.LifecycleTestApp.csproj");
+        var evidenceRoot = Path.Combine(_testRoot, "policy-root");
+        var scenarioDirectory = Path.Combine(evidenceRoot, "scenario");
+        var manifestDirectory = Path.Combine(scenarioDirectory, "manifests");
+        var timelinePath = Path.Combine(scenarioDirectory, "timeline.md");
+        const string secret = "policy-lifecycle-secret";
+        var policy = new RuntimeEvidencePolicy(
+            evidenceRoot,
+            redactedText: [secret],
+            allowedActions: [SemanticWorkflowActions.Wait],
+            retentionMaxOwnedRuns: 2);
+        var request = new RuntimeScenarioRequest(
+            [new SemanticWorkflowStep(SemanticWorkflowActions.Wait, "policy-wait", waitMs: 1)],
+            requestId: "policy-lifecycle",
+            launch: new RuntimeScenarioLaunchOptions(
+                projectPath: projectPath,
+                configuration: "Debug",
+                framework: "net10.0",
+                noBuild: true,
+                manifestDirectory: manifestDirectory,
+                outputDirectory: Path.Combine(scenarioDirectory, "launch"),
+                environment: new Dictionary<string, string>
+                {
+                    ["AVASCOPE_LIFECYCLE_TEST_SECRET"] = secret,
+                    ["AVASCOPE_LIFECYCLE_TEST_ECHO_SECRET"] = "1"
+                },
+                timeoutMs: 15000),
+            outputDirectory: scenarioDirectory,
+            timelinePath: timelinePath,
+            evidence: new SemanticWorkflowEvidenceOptions(
+                exportReports: false,
+                policy: policy),
+            terminateLaunchedProcess: true);
+
+        var result = await new RuntimeScenarioRunner().RunAsync(
+            new LocalBridgeClient(manifestDirectory),
+            request);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal("passed", result.Value!.Status);
+        Assert.Equal(CloseSessionOutcomes.Terminated, result.Value.Cleanup!.Outcome);
+        Assert.Equal("disabled", result.Value.Metadata["networkUpload"]);
+        Assert.DoesNotContain(secret, JsonSerializer.Serialize(result.Value), StringComparison.Ordinal);
+        Assert.DoesNotContain(secret, await File.ReadAllTextAsync(result.Value.Launch!.StdoutPath), StringComparison.Ordinal);
+        Assert.Contains("[REDACTED]", await File.ReadAllTextAsync(result.Value.Launch.StdoutPath), StringComparison.Ordinal);
+        Assert.DoesNotContain(secret, await File.ReadAllTextAsync(timelinePath), StringComparison.Ordinal);
+        Assert.True(File.Exists(Path.Combine(scenarioDirectory, "action-audit.jsonl")));
+        AssertProcessExited(result.Value.Launch.ProcessId);
+    }
+
     private RuntimeScenarioRequest CreateRequest(
         string requestId,
         RuntimeScenarioBuildOptions? build = null,
