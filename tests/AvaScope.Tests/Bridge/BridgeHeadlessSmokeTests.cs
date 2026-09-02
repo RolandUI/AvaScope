@@ -13,6 +13,7 @@ using AvaScope.Bridge;
 using AvaScope.Core;
 using AvaScope.Mcp;
 using AvaScope.Protocol;
+using SkiaSharp;
 using System.Globalization;
 
 namespace AvaScope.Tests.Bridge;
@@ -91,6 +92,117 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
             }
 
             window.Close();
+        }, CancellationToken.None);
+    }
+
+    [Theory]
+    [InlineData(1.0)]
+    [InlineData(2.0)]
+    public async Task RuntimeScreenshotAppliesRenderScalingOnceToNestedContent(double renderScaling)
+    {
+        using var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessTestApplication));
+
+        await session.Dispatch(() =>
+        {
+            var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Scaled screenshot sample"));
+            var nestedControl = new Border
+            {
+                Name = "NestedControl",
+                Width = 12,
+                Height = 10,
+                Background = Brushes.Blue
+            };
+            Canvas.SetLeft(nestedControl, 8);
+            Canvas.SetTop(nestedControl, 6);
+
+            var drawingGroup = new DrawingGroup
+            {
+                Transform = new TranslateTransform(2, 1)
+            };
+            drawingGroup.Children.Add(new GeometryDrawing
+            {
+                Brush = Brushes.Lime,
+                Geometry = new RectangleGeometry(new Rect(0, 0, 8, 6))
+            });
+            var vectorImage = new Image
+            {
+                Name = "NestedVector",
+                Width = 12,
+                Height = 10,
+                Stretch = Stretch.Fill,
+                Source = new DrawingImage(drawingGroup)
+            };
+            Canvas.SetLeft(vectorImage, 28);
+            Canvas.SetTop(vectorImage, 10);
+
+            var nestedCanvas = new Canvas
+            {
+                Width = 60,
+                Height = 40,
+                Children =
+                {
+                    nestedControl,
+                    vectorImage
+                }
+            };
+            var parent = new Border
+            {
+                Name = "ParentContainer",
+                Width = 60,
+                Height = 40,
+                Background = Brushes.Red,
+                Child = nestedCanvas
+            };
+            Canvas.SetLeft(parent, 30);
+            Canvas.SetTop(parent, 20);
+
+            var root = new Canvas
+            {
+                Width = 160,
+                Height = 100,
+                Background = Brushes.Black,
+                Children = { parent }
+            };
+            var window = new Window
+            {
+                Title = "AvaScope Scaled Screenshot Sample",
+                Width = 160,
+                Height = 100,
+                Content = root
+            };
+            window.SetRenderScaling(renderScaling);
+
+            var screenshotPath = Path.Combine(
+                Path.GetTempPath(),
+                "AvaScope.Tests",
+                $"{Guid.NewGuid():N}.png");
+
+            try
+            {
+                window.Show();
+                using var registration = runtime.RegisterTopLevel(window);
+                Dispatcher.UIThread.RunJobs();
+
+                var topLevel = Assert.Single(runtime.ListTopLevelsAsync().GetAwaiter().GetResult());
+                Assert.Equal(renderScaling, topLevel.RenderScaling);
+                var screenshot = runtime.CaptureScreenshotAsync(topLevel.Id, screenshotPath).GetAwaiter().GetResult();
+                Assert.True(screenshot.Success, screenshot.Error?.Message);
+                Assert.Equal((int)Math.Ceiling(window.ClientSize.Width * renderScaling), screenshot.Value!.PixelWidth);
+                Assert.Equal((int)Math.Ceiling(window.ClientSize.Height * renderScaling), screenshot.Value.PixelHeight);
+
+                using var bitmap = SKBitmap.Decode(screenshot.Value.FilePath);
+                Assert.NotNull(bitmap);
+                AssertPixelColor(bitmap, new Point(44, 31), renderScaling, SKColors.Blue);
+                AssertPixelColor(bitmap, new Point(64, 35), renderScaling, SKColors.Lime);
+            }
+            finally
+            {
+                window.Close();
+                if (File.Exists(screenshotPath))
+                {
+                    File.Delete(screenshotPath);
+                }
+            }
         }, CancellationToken.None);
     }
 
@@ -2697,6 +2809,24 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
         }
 
         return null;
+    }
+
+    private static void AssertPixelColor(
+        SKBitmap bitmap,
+        Point logicalPoint,
+        double renderScaling,
+        SKColor expected)
+    {
+        var x = Math.Clamp(
+            (int)Math.Floor(logicalPoint.X * renderScaling),
+            0,
+            bitmap.Width - 1);
+        var y = Math.Clamp(
+            (int)Math.Floor(logicalPoint.Y * renderScaling),
+            0,
+            bitmap.Height - 1);
+
+        Assert.Equal(expected, bitmap.GetPixel(x, y));
     }
 
     private static void DeleteIfExists(string path)

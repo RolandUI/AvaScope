@@ -2,6 +2,7 @@
 
 GitHub Issues and Milestones are the primary project-management source for autonomous agents working on AvaScope. This document is the compact local handoff and validation log. Update it whenever meaningful implementation, validation, or planning changes the active GitHub issue or release state.
 
+- `2026-09-02`: Started #98. Added focused scale-factor-1 and scale-factor-2 Bridge screenshot coverage with nested controls and a transformed `DrawingImage`/`DrawingGroup`; both cases pass on the local Skia headless path, confirming that the reported displacement requires the native macOS path. The macOS runtime smoke now reports the active native `RenderScaling` so the hosted Retina path can provide authoritative reproduction evidence before the render implementation changes.
 - `2026-09-02`: Defined `v1.4.0` as the next minor release from two incoming requests: the macOS Retina nested runtime screenshot regression and robust agent-driven workflows for complex Avalonia applications. Created milestone `v1.4.0`, ready issues #98-#109, and ordered AvaScope Roadmap cards 1401-1412 with #98 as Current Slice, #99-#108 as Planned Slice, and #109 as Release Tracker. Existing v1.2.0 waits, launch/attach, owned cleanup, idempotency, and partial evidence are treated as foundations rather than duplicated scope.
 - `2026-07-30`: Published `v1.3.0` from exact release commit `1e6e34d4e051334e569589f85178086694ea1f46` through successful Release workflow `30531802480`. The remote tag resolves to that commit; the GitHub Release exposes all 12 expected assets; the downloaded 11-entry manifest matches every packaged asset size and SHA-256 digest; and nuget.org exposes Protocol/Core/Bridge `1.3.0` as latest. The workflow also successfully pushed all three packages to GitHub Packages.
 - `2026-07-30`: The v1.3.0 release candidate gate passed from `5f60717`. Full Debug and Release builds completed with `0` warnings/errors and all `419` tests passed in each configuration. `eng/create-local-release.ps1` regenerated three `1.2.0` NuGet packages, four framework-dependent ZIPs, four installers, and the exact 11-entry manifest; packaged Windows install/repair/doctor/MCP/uninstall and real preview passed. NuGet and GitHub Release dry-runs passed with both macOS architectures. Hosted CI `30529601921` supplies the successful native macOS installed attach/preview/evidence/uninstall gate. No v1.3.0 version, tag, package, or release has been published yet.
@@ -57,13 +58,13 @@ GitHub Issues and Milestones are the primary project-management source for auton
 - `Release v1.4.0`
 - GitHub Issue: `#98`
 - GitHub Milestone: `v1.4.0`
-- Status: `Ready`
+- Status: `In Progress`
 - Owner: autonomous agent
 - Goal: correct nested runtime screenshot scaling on macOS Retina displays.
 
 ## Next Action
 
-Start #98 by moving it to `status:in-progress`, adding the required validation comment, and reproducing the scale-factor-2 nested rendering defect on the hosted/native macOS path.
+Use the hosted/native macOS `RenderScaling` evidence to reproduce and correct the scale-factor-2 nested rendering defect, then run the focused and full cross-platform validation.
 
 ## Latest Validation
 

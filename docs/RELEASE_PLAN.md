@@ -55,7 +55,7 @@ The roadmap below records the release-shaped plan through `v1.0.0`. It is intent
 
 - Release: `v1.4.0`
 - Target Version: `1.4.0`
-- Release State: `Planned`
+- Release State: `In Progress`
 - Scope Lock: `2026-09-02`
 - GitHub Milestone: `v1.4.0`
 - GitHub Issues: #98 through #109
@@ -75,7 +75,7 @@ The `v1.4.0` minor release makes complex local Avalonia automation deterministic
 
 ### v1.4.0 Milestone Map
 
-- #98 `R1.4.0-M1 Fix nested runtime screenshot scaling on macOS Retina displays`; Status: `Ready`.
+- #98 `R1.4.0-M1 Fix nested runtime screenshot scaling on macOS Retina displays`; Status: `In Progress`.
 - #99 `R1.4.0-M2 Add bounds-derived semantic drag, swipe, and hold gestures`; Status: `Ready`.
 - #100 `R1.4.0-M3 Add discoverable application-defined semantic actions`; Status: `Ready`.
 - #101 `R1.4.0-M4 Re-resolve actionable selectors and recover safely from stale runtime nodes`; Status: `Ready`.

@@ -111,6 +111,17 @@ dotnet "$cli_dll" list-top-levels \
   --manifest-dir "$manifest_dir" \
   > "$test_root/top-levels.json"
 
+python3 - "$test_root/top-levels.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8-sig") as stream:
+    payload = json.load(stream)
+items = payload.get("value", {}).get("topLevels", [])
+if items:
+    print(f"macOS runtime RenderScaling: {items[0].get('renderScaling')}")
+PY
+
 top_level_id="$(
   python3 - "$test_root/attach.json" "$test_root/top-levels.json" <<'PY'
 import json

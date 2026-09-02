@@ -1,7 +1,7 @@
 # BUG-0004: Runtime screenshots misplace nested content on macOS Retina displays
 
-- Status: `Planned`
-- Fix Status: `Planned for v1.4.0`
+- Status: `In progress`
+- Fix Status: `In progress for v1.4.0`
 - Stored: `2026-09-02`
 - Privacy Review: no personal paths, identities, credentials, or machine-specific identifiers were included.
 
