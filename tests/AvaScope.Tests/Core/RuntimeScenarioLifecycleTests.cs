@@ -280,6 +280,7 @@ public sealed class RuntimeScenarioLifecycleTests : IDisposable
         var scenarioDirectory = Path.Combine(evidenceRoot, "scenario");
         var manifestDirectory = Path.Combine(scenarioDirectory, "manifests");
         var timelinePath = Path.Combine(scenarioDirectory, "timeline.md");
+        var configuration = new DirectoryInfo(AppContext.BaseDirectory).Parent!.Name;
         const string secret = "policy-lifecycle-secret";
         var policy = new RuntimeEvidencePolicy(
             evidenceRoot,
@@ -291,7 +292,7 @@ public sealed class RuntimeScenarioLifecycleTests : IDisposable
             requestId: "policy-lifecycle",
             launch: new RuntimeScenarioLaunchOptions(
                 projectPath: projectPath,
-                configuration: "Debug",
+                configuration: configuration,
                 framework: "net10.0",
                 noBuild: true,
                 manifestDirectory: manifestDirectory,
@@ -314,7 +315,9 @@ public sealed class RuntimeScenarioLifecycleTests : IDisposable
             request);
 
         Assert.True(result.Success, result.Error?.Message);
-        Assert.Equal("passed", result.Value!.Status);
+        Assert.True(
+            string.Equals("passed", result.Value!.Status, StringComparison.Ordinal),
+            JsonSerializer.Serialize(result.Value));
         Assert.Equal(CloseSessionOutcomes.Terminated, result.Value.Cleanup!.Outcome);
         Assert.Equal("disabled", result.Value.Metadata["networkUpload"]);
         Assert.DoesNotContain(secret, JsonSerializer.Serialize(result.Value), StringComparison.Ordinal);
