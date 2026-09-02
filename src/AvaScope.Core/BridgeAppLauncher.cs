@@ -109,7 +109,16 @@ public sealed class BridgeAppLauncher
         var stdoutTask = CopyToFileUntilExitAsync(process.StandardOutput, stdoutPath, outputCancellation.Token);
         var stderrTask = CopyToFileUntilExitAsync(process.StandardError, stderrPath, outputCancellation.Token);
 
-        var client = new LocalBridgeClient(fullManifestDirectory);
+        var client = new LocalBridgeClient(
+            fullManifestDirectory,
+            terminateOnFailure ? effectiveTimeout : null);
+        using var readinessTimeout = new CancellationTokenSource(effectiveTimeout);
+        using var readinessCancellation = CancellationTokenSource.CreateLinkedTokenSource(
+            cancellationToken,
+            readinessTimeout.Token);
+        var readinessCancellationToken = terminateOnFailure
+            ? readinessCancellation.Token
+            : cancellationToken;
         var stopAt = DateTimeOffset.UtcNow + effectiveTimeout;
         var readinessChecks = 0;
         while (DateTimeOffset.UtcNow < stopAt)
@@ -186,9 +195,9 @@ public sealed class BridgeAppLauncher
                         manifest.ProcessId,
                         manifest.SessionId,
                         processName: null,
-                        cancellationToken: cancellationToken);
+                        cancellationToken: readinessCancellationToken);
                 }
-                catch (OperationCanceledException) when (terminateOnFailure && cancellationToken.IsCancellationRequested)
+                catch (OperationCanceledException) when (terminateOnFailure && readinessCancellationToken.IsCancellationRequested)
                 {
                     var details = CreateLaunchDetails(
                         process,
@@ -198,9 +207,14 @@ public sealed class BridgeAppLauncher
                         displayName,
                         failureStage: RuntimeScenarioFailureStages.Attach,
                         readinessChecks: readinessChecks);
-                    details["cancelled"] = "true";
+                    var cancelled = cancellationToken.IsCancellationRequested;
+                    details[cancelled ? "cancelled" : "timedOut"] = "true";
                     TerminateAndDetachLaunchProcess(process, outputCancellation, stdoutTask, stderrTask);
-                    return Fail("The app launch was cancelled while attaching to its bridge session.", details);
+                    return Fail(
+                        cancelled
+                            ? "The app launch was cancelled while attaching to its bridge session."
+                            : "Timed out while attaching to the launched app's bridge session.",
+                        details);
                 }
 
                 if (!attach.Success)
@@ -236,9 +250,9 @@ public sealed class BridgeAppLauncher
                 CoreResult<ListTopLevelsResponse> topLevels;
                 try
                 {
-                    topLevels = await client.ListTopLevelsAsync(manifest.SessionId, cancellationToken);
+                    topLevels = await client.ListTopLevelsAsync(manifest.SessionId, readinessCancellationToken);
                 }
-                catch (OperationCanceledException) when (terminateOnFailure && cancellationToken.IsCancellationRequested)
+                catch (OperationCanceledException) when (terminateOnFailure && readinessCancellationToken.IsCancellationRequested)
                 {
                     var details = CreateLaunchDetails(
                         process,
@@ -248,9 +262,14 @@ public sealed class BridgeAppLauncher
                         displayName,
                         failureStage: RuntimeScenarioFailureStages.TopLevels,
                         readinessChecks: readinessChecks);
-                    details["cancelled"] = "true";
+                    var cancelled = cancellationToken.IsCancellationRequested;
+                    details[cancelled ? "cancelled" : "timedOut"] = "true";
                     TerminateAndDetachLaunchProcess(process, outputCancellation, stdoutTask, stderrTask);
-                    return Fail("The app launch was cancelled while reading registered top levels.", details);
+                    return Fail(
+                        cancelled
+                            ? "The app launch was cancelled while reading registered top levels."
+                            : "Timed out while reading registered top levels from the launched app.",
+                        details);
                 }
 
                 var topLevelId = topLevels.Success
@@ -328,9 +347,9 @@ public sealed class BridgeAppLauncher
 
             try
             {
-                await Task.Delay(TimeSpan.FromMilliseconds(100), cancellationToken);
+                await Task.Delay(TimeSpan.FromMilliseconds(100), readinessCancellationToken);
             }
-            catch (OperationCanceledException) when (terminateOnFailure && cancellationToken.IsCancellationRequested)
+            catch (OperationCanceledException) when (terminateOnFailure && readinessCancellationToken.IsCancellationRequested)
             {
                 var details = CreateLaunchDetails(
                     process,
@@ -340,9 +359,14 @@ public sealed class BridgeAppLauncher
                     displayName,
                     failureStage: RuntimeScenarioFailureStages.BridgeReadiness,
                     readinessChecks: readinessChecks);
-                details["cancelled"] = "true";
+                var cancelled = cancellationToken.IsCancellationRequested;
+                details[cancelled ? "cancelled" : "timedOut"] = "true";
                 TerminateAndDetachLaunchProcess(process, outputCancellation, stdoutTask, stderrTask);
-                return Fail("The app launch was cancelled while waiting for bridge readiness.", details);
+                return Fail(
+                    cancelled
+                        ? "The app launch was cancelled while waiting for bridge readiness."
+                        : "Timed out waiting for bridge readiness from the launched app.",
+                    details);
             }
         }
 

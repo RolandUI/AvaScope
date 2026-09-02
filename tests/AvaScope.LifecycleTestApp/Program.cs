@@ -6,6 +6,9 @@ using AvaScope.Protocol;
 
 var markerPath = ReadOption(args, "--marker");
 var secret = Environment.GetEnvironmentVariable("AVASCOPE_LIFECYCLE_TEST_SECRET");
+_ = int.TryParse(
+    Environment.GetEnvironmentVariable("AVASCOPE_LIFECYCLE_TEST_FIRST_RESPONSE_DELAY_MS"),
+    out var firstResponseDelayMs);
 if (!string.IsNullOrWhiteSpace(markerPath))
 {
     var markerDirectory = Path.GetDirectoryName(Path.GetFullPath(markerPath));
@@ -31,6 +34,7 @@ var manifestPath = BridgeSessionManifest.GetDefaultPath(sessionId);
 Directory.CreateDirectory(Path.GetDirectoryName(manifestPath)!);
 File.WriteAllText(manifestPath, JsonSerializer.Serialize(manifest));
 Console.WriteLine("Lifecycle test bridge ready.");
+var firstResponse = true;
 
 while (true)
 {
@@ -46,6 +50,12 @@ while (true)
     if (request is null)
     {
         continue;
+    }
+
+    if (firstResponse && firstResponseDelayMs > 0)
+    {
+        firstResponse = false;
+        await Task.Delay(firstResponseDelayMs);
     }
 
     var response = request.Method switch

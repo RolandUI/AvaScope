@@ -223,9 +223,10 @@ public sealed class RuntimeScenarioLifecycleTests : IDisposable
                 outputDirectory: Path.Combine(scenarioDirectory, "launch"),
                 environment: new Dictionary<string, string>
                 {
-                    ["AVASCOPE_LIFECYCLE_TEST_SECRET"] = secret
+                    ["AVASCOPE_LIFECYCLE_TEST_SECRET"] = secret,
+                    ["AVASCOPE_LIFECYCLE_TEST_FIRST_RESPONSE_DELAY_MS"] = "5500"
                 },
-                timeoutMs: 15000),
+                timeoutMs: 30000),
             outputDirectory: scenarioDirectory,
             timelinePath: timelinePath,
             build: new RuntimeScenarioBuildOptions(
