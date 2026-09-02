@@ -2,7 +2,7 @@
 
 GitHub Issues and Milestones are the primary project-management source for autonomous agents working on AvaScope. This document is the compact local handoff and validation log. Update it whenever meaningful implementation, validation, or planning changes the active GitHub issue or release state.
 
-- `2026-09-02`: Implemented #99 locally. Protocol, Bridge, Core workflows, CLI, and MCP now support bounds-derived `drag`, `swipe`, `long_press`, and `press_and_hold`; directional percentage and source-to-target forms; public `IRangeValueProvider` preference; bounded pointer fallback; transformed current-bounds paths; structured provenance/timing/clipping output; and cancellation-safe release. Coverage includes standard/custom controls, provider/fallback paths, real runtime CLI/MCP dispatch, schema parity, ambiguous/stale/hidden/disabled/zero/clipped targets, duration bounds, clipping, transforms, and cancellation. Debug and Release builds passed with `0` warnings/errors and the full suite passed all `436` tests in both configurations; hosted CI is pending the pushed slice.
+- `2026-09-02`: Completed #99 in `8429802`. Protocol, Bridge, Core workflows, CLI, and MCP now support bounds-derived `drag`, `swipe`, `long_press`, and `press_and_hold`; directional percentage and source-to-target forms; public `IRangeValueProvider` preference; bounded pointer fallback; transformed current-bounds paths; structured provenance/timing/clipping output; and cancellation-safe release. Debug and Release builds passed with `0` warnings/errors and all `436` tests passed in both configurations. Hosted CI `33642028902` passed Windows Build/Test/Pack and installer verification, Linux installer validation, and macOS full tests plus native runtime/preview/package validation. Started #100 for explicit discoverable application-defined semantic actions.
 - `2026-09-02`: Completed #98 in `f63701f`, `3ff191b`, `67ef92b`, `04adfdd`, and `834fb72`. Runtime screenshots now render the Avalonia 12 presentation root while applying `RenderScaling` exactly once. Regression coverage verifies nested template and transformed vector pixels at scale factors 1 and 2; the native macOS smoke resolves and checks the live nested status card. Local Debug and Release builds passed with `0` warnings/errors and all `421` tests passed in both configurations. Hosted CI validation is recorded on the issue. Started #99 for bounds-derived drag, swipe, long-press, and press-and-hold gestures.
 - `2026-09-02`: Started #98. Added focused scale-factor-1 and scale-factor-2 Bridge screenshot coverage with nested controls and a transformed `DrawingImage`/`DrawingGroup`; both cases pass on the local Skia headless path, confirming that the reported displacement requires the native macOS path. The macOS runtime smoke now reports the active native `RenderScaling` so the hosted Retina path can provide authoritative reproduction evidence before the render implementation changes.
 - `2026-09-02`: Defined `v1.4.0` as the next minor release from two incoming requests: the macOS Retina nested runtime screenshot regression and robust agent-driven workflows for complex Avalonia applications. Created milestone `v1.4.0`, ready issues #98-#109, and ordered AvaScope Roadmap cards 1401-1412 with #98 as Current Slice, #99-#108 as Planned Slice, and #109 as Release Tracker. Existing v1.2.0 waits, launch/attach, owned cleanup, idempotency, and partial evidence are treated as foundations rather than duplicated scope.
@@ -58,15 +58,15 @@ GitHub Issues and Milestones are the primary project-management source for auton
 ## Current Focus
 
 - `Release v1.4.0`
-- GitHub Issue: `#99`
+- GitHub Issue: `#100`
 - GitHub Milestone: `v1.4.0`
 - Status: `In Progress`
 - Owner: autonomous agent
-- Goal: add bounds-derived semantic drag, swipe, long-press, and press-and-hold gestures.
+- Goal: add explicitly registered, discoverable, safely executable application-defined semantic actions.
 
 ## Next Action
 
-Implement the gesture protocol and Bridge execution path with automation-provider preference, bounded pointer fallback, current-bounds resolution, cancellation, and CLI/MCP/workflow parity.
+Define the custom-action protocol/registration boundary, reuse selector and session safety policy, execute handlers on `Dispatcher.UIThread`, and add discovery/invocation parity through CLI and MCP.
 
 ## Latest Validation
 
