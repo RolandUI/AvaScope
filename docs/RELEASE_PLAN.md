@@ -75,8 +75,8 @@ The `v1.4.0` minor release makes complex local Avalonia automation deterministic
 
 ### v1.4.0 Milestone Map
 
-- #98 `R1.4.0-M1 Fix nested runtime screenshot scaling on macOS Retina displays`; Status: `In Progress`.
-- #99 `R1.4.0-M2 Add bounds-derived semantic drag, swipe, and hold gestures`; Status: `Ready`.
+- #98 `R1.4.0-M1 Fix nested runtime screenshot scaling on macOS Retina displays`; Status: `Done`.
+- #99 `R1.4.0-M2 Add bounds-derived semantic drag, swipe, and hold gestures`; Status: `In Progress`.
 - #100 `R1.4.0-M3 Add discoverable application-defined semantic actions`; Status: `Ready`.
 - #101 `R1.4.0-M4 Re-resolve actionable selectors and recover safely from stale runtime nodes`; Status: `Ready`.
 - #102 `R1.4.0-M5 Extend deterministic waits to rendered, command, binding, and selection state`; Status: `Ready`.

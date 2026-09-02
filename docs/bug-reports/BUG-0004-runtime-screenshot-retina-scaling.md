@@ -1,7 +1,7 @@
 # BUG-0004: Runtime screenshots misplace nested content on macOS Retina displays
 
-- Status: `In progress`
-- Fix Status: `In progress for v1.4.0`
+- Status: `Fixed`
+- Fix Status: `Implemented for v1.4.0`
 - Stored: `2026-09-02`
 - Privacy Review: no personal paths, identities, credentials, or machine-specific identifiers were included.
 
@@ -47,11 +47,15 @@ GitHub tracking: [#98](https://github.com/RolandUI/AvaScope/issues/98).
 - Every physical coordinate equals its logical coordinate multiplied by `RenderScaling` once.
 - Nested templates and vector drawings retain their displayed position, scale, and clipping.
 
-## Suspected Cause
+## Root Cause
 
-The observed two-times displacement is consistent with `RenderScaling` being applied twice in the off-screen `RenderTargetBitmap` path, such as combining scaled pixel dimensions or DPI with an additional root, compositor, or nested transform.
+Avalonia 12 does not guarantee that a `TopLevel` is the root visual presented by its render target. AvaScope passed the registered `TopLevel` directly to `RenderTargetBitmap.Render`, so platform presentation-root transforms were omitted while the output bitmap still used the top-level's scaled pixel size and DPI. On macOS Retina this made nested template and drawing transforms resolve in the wrong coordinate context.
 
-This is a hypothesis; the exact implementation location has not been confirmed.
+## Resolution
+
+Runtime capture now renders `topLevel.GetPresentationSource()?.RootVisual` and falls back to the registered top-level only when no presentation source exists. Pixel dimensions and DPI continue to derive once from `ClientSize` and `RenderScaling`.
+
+Regression coverage applies a presentation-root transform and verifies nested control and vector-drawing pixels at scale factors 1 and 2. The native macOS smoke also resolves a nested DataTemplate control from the live visual tree and verifies its expected screenshot pixel using the reported runtime scaling.
 
 ## Regression Coverage
 

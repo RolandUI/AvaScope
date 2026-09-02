@@ -2,6 +2,7 @@
 
 GitHub Issues and Milestones are the primary project-management source for autonomous agents working on AvaScope. This document is the compact local handoff and validation log. Update it whenever meaningful implementation, validation, or planning changes the active GitHub issue or release state.
 
+- `2026-09-02`: Completed #98 in `f63701f`, `3ff191b`, `67ef92b`, `04adfdd`, and `834fb72`. Runtime screenshots now render the Avalonia 12 presentation root while applying `RenderScaling` exactly once. Regression coverage verifies nested template and transformed vector pixels at scale factors 1 and 2; the native macOS smoke resolves and checks the live nested status card. Local Debug and Release builds passed with `0` warnings/errors and all `421` tests passed in both configurations. Hosted CI validation is recorded on the issue. Started #99 for bounds-derived drag, swipe, long-press, and press-and-hold gestures.
 - `2026-09-02`: Started #98. Added focused scale-factor-1 and scale-factor-2 Bridge screenshot coverage with nested controls and a transformed `DrawingImage`/`DrawingGroup`; both cases pass on the local Skia headless path, confirming that the reported displacement requires the native macOS path. The macOS runtime smoke now reports the active native `RenderScaling` so the hosted Retina path can provide authoritative reproduction evidence before the render implementation changes.
 - `2026-09-02`: Defined `v1.4.0` as the next minor release from two incoming requests: the macOS Retina nested runtime screenshot regression and robust agent-driven workflows for complex Avalonia applications. Created milestone `v1.4.0`, ready issues #98-#109, and ordered AvaScope Roadmap cards 1401-1412 with #98 as Current Slice, #99-#108 as Planned Slice, and #109 as Release Tracker. Existing v1.2.0 waits, launch/attach, owned cleanup, idempotency, and partial evidence are treated as foundations rather than duplicated scope.
 - `2026-07-30`: Published `v1.3.0` from exact release commit `1e6e34d4e051334e569589f85178086694ea1f46` through successful Release workflow `30531802480`. The remote tag resolves to that commit; the GitHub Release exposes all 12 expected assets; the downloaded 11-entry manifest matches every packaged asset size and SHA-256 digest; and nuget.org exposes Protocol/Core/Bridge `1.3.0` as latest. The workflow also successfully pushed all three packages to GitHub Packages.
@@ -56,15 +57,15 @@ GitHub Issues and Milestones are the primary project-management source for auton
 ## Current Focus
 
 - `Release v1.4.0`
-- GitHub Issue: `#98`
+- GitHub Issue: `#99`
 - GitHub Milestone: `v1.4.0`
 - Status: `In Progress`
 - Owner: autonomous agent
-- Goal: correct nested runtime screenshot scaling on macOS Retina displays.
+- Goal: add bounds-derived semantic drag, swipe, long-press, and press-and-hold gestures.
 
 ## Next Action
 
-Use the hosted/native macOS `RenderScaling` evidence to reproduce and correct the scale-factor-2 nested rendering defect, then run the focused and full cross-platform validation.
+Implement the gesture protocol and Bridge execution path with automation-provider preference, bounded pointer fallback, current-bounds resolution, cancellation, and CLI/MCP/workflow parity.
 
 ## Latest Validation
 
