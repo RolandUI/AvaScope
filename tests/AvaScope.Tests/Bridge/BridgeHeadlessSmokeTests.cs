@@ -9,6 +9,7 @@ using Avalonia.Markup.Xaml.Diagnostics;
 using Avalonia.Media;
 using Avalonia.Themes.Fluent;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using AvaScope.Bridge;
 using AvaScope.Core;
 using AvaScope.Mcp;
@@ -98,7 +99,7 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
     [Theory]
     [InlineData(1.0)]
     [InlineData(2.0)]
-    public async Task RuntimeScreenshotAppliesRenderScalingOnceToNestedContent(double renderScaling)
+    public async Task RuntimeScreenshotUsesPresentationRootAndAppliesRenderScalingOnce(double renderScaling)
     {
         using var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessTestApplication));
 
@@ -185,6 +186,10 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
 
                 var topLevel = Assert.Single(runtime.ListTopLevelsAsync().GetAwaiter().GetResult());
                 Assert.Equal(renderScaling, topLevel.RenderScaling);
+                var renderRoot = window.GetPresentationSource()?.RootVisual;
+                Assert.NotNull(renderRoot);
+                Assert.NotSame(window, renderRoot);
+                renderRoot.RenderTransform = new TranslateTransform(3, 2);
                 var screenshot = runtime.CaptureScreenshotAsync(topLevel.Id, screenshotPath).GetAwaiter().GetResult();
                 Assert.True(screenshot.Success, screenshot.Error?.Message);
                 Assert.Equal((int)Math.Ceiling(window.ClientSize.Width * renderScaling), screenshot.Value!.PixelWidth);
@@ -192,8 +197,8 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
 
                 using var bitmap = SKBitmap.Decode(screenshot.Value.FilePath);
                 Assert.NotNull(bitmap);
-                AssertPixelColor(bitmap, new Point(44, 31), renderScaling, SKColors.Blue);
-                AssertPixelColor(bitmap, new Point(64, 35), renderScaling, SKColors.Lime);
+                AssertPixelColor(bitmap, new Point(47, 33), renderScaling, SKColors.Blue);
+                AssertPixelColor(bitmap, new Point(67, 37), renderScaling, SKColors.Lime);
             }
             finally
             {

@@ -529,7 +529,8 @@ public sealed class AvaScopeBridgeRuntime
 
             var dpi = new Vector(96 * GetRenderScaling(topLevel), 96 * GetRenderScaling(topLevel));
             using var bitmap = new RenderTargetBitmap(pixelSize, dpi);
-            bitmap.Render(topLevel);
+            var renderRoot = topLevel.GetPresentationSource()?.RootVisual ?? topLevel;
+            bitmap.Render(renderRoot);
 
             using (var stream = File.Create(fullPath))
             {
