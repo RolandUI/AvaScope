@@ -805,7 +805,8 @@ public sealed class RuntimeScenarioRunner
             ["XDG_DATA_HOME"] = data,
             ["XDG_CACHE_HOME"] = cache,
             ["TEMP"] = temp,
-            ["TMP"] = temp
+            ["TMP"] = temp,
+            ["TMPDIR"] = temp
         };
     }
 

@@ -3916,6 +3916,8 @@ public sealed class CliSmokeTests
             Assert.Equal(CoreErrorCodes.BridgeSessionNotFound, payload.Error!.Code);
             Assert.Equal("true", payload.Error.Details!["partialValueAvailable"]);
             Assert.True(Directory.Exists(Path.Combine(isolatedStateDirectory, "appdata", "local")));
+            Assert.Contains("TMPDIR", payload.Value.Metadata["isolatedEnvironmentVariables"], StringComparison.Ordinal);
+            Assert.True(Directory.Exists(Path.Combine(isolatedStateDirectory, "temp")));
             Assert.True(File.Exists(timelinePath), timelinePath);
             var timeline = await File.ReadAllTextAsync(timelinePath);
             Assert.Contains("applied_environment", timeline, StringComparison.Ordinal);
