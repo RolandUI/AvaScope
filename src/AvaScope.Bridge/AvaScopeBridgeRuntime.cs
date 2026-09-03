@@ -3588,8 +3588,7 @@ public sealed class AvaScopeBridgeRuntime
         }
         else if (!isHold)
         {
-            end = ResolveDirectionalGestureEnd(
-                start,
+            (start, end) = ResolveDirectionalGesturePath(
                 sourceTarget.Bounds,
                 new Rect(topLevel.Bounds.Size),
                 direction!,
@@ -3773,8 +3772,7 @@ public sealed class AvaScopeBridgeRuntime
         return CoreResult<GestureTarget>.Ok(new GestureTarget(targetNodeId, visual, inputElement, bounds.Value));
     }
 
-    private static Point ResolveDirectionalGestureEnd(
-        Point start,
+    private static (Point Start, Point End) ResolveDirectionalGesturePath(
         Rect sourceBounds,
         Rect topLevelBounds,
         string direction,
@@ -3782,22 +3780,42 @@ public sealed class AvaScopeBridgeRuntime
         out bool clipped)
     {
         const double edgeInset = 1d;
-        var distanceX = sourceBounds.Width * distancePercentage / 100d;
-        var distanceY = sourceBounds.Height * distancePercentage / 100d;
-        var requested = direction switch
+        var sourceHorizontalInset = Math.Min(edgeInset, sourceBounds.Width / 2d);
+        var sourceVerticalInset = Math.Min(edgeInset, sourceBounds.Height / 2d);
+        var sourceLeft = sourceBounds.Left + sourceHorizontalInset;
+        var sourceRight = sourceBounds.Right - sourceHorizontalInset;
+        var sourceTop = sourceBounds.Top + sourceVerticalInset;
+        var sourceBottom = sourceBounds.Bottom - sourceVerticalInset;
+        var distanceX = (sourceRight - sourceLeft) * distancePercentage / 100d;
+        var distanceY = (sourceBottom - sourceTop) * distancePercentage / 100d;
+        var requestedStart = direction switch
         {
-            GestureDirections.Left => new Point(start.X - distanceX, start.Y),
-            GestureDirections.Right => new Point(start.X + distanceX, start.Y),
-            GestureDirections.Up => new Point(start.X, start.Y - distanceY),
-            GestureDirections.Down => new Point(start.X, start.Y + distanceY),
-            GestureDirections.Start => new Point(sourceBounds.Left + edgeInset, start.Y),
-            _ => new Point(sourceBounds.Right - edgeInset, start.Y)
+            GestureDirections.Left or GestureDirections.Start => new Point(sourceRight, sourceBounds.Center.Y),
+            GestureDirections.Right or GestureDirections.End => new Point(sourceLeft, sourceBounds.Center.Y),
+            GestureDirections.Up => new Point(sourceBounds.Center.X, sourceBottom),
+            _ => new Point(sourceBounds.Center.X, sourceTop)
         };
-        var effective = new Point(
-            Math.Clamp(requested.X, topLevelBounds.Left + edgeInset, topLevelBounds.Right - edgeInset),
-            Math.Clamp(requested.Y, topLevelBounds.Top + edgeInset, topLevelBounds.Bottom - edgeInset));
-        clipped = effective != requested;
-        return effective;
+        var requestedEnd = direction switch
+        {
+            GestureDirections.Left or GestureDirections.Start => new Point(requestedStart.X - distanceX, requestedStart.Y),
+            GestureDirections.Right or GestureDirections.End => new Point(requestedStart.X + distanceX, requestedStart.Y),
+            GestureDirections.Up => new Point(requestedStart.X, requestedStart.Y - distanceY),
+            _ => new Point(requestedStart.X, requestedStart.Y + distanceY)
+        };
+        var topLevelHorizontalInset = Math.Min(edgeInset, topLevelBounds.Width / 2d);
+        var topLevelVerticalInset = Math.Min(edgeInset, topLevelBounds.Height / 2d);
+        var minimumX = topLevelBounds.Left + topLevelHorizontalInset;
+        var maximumX = topLevelBounds.Right - topLevelHorizontalInset;
+        var minimumY = topLevelBounds.Top + topLevelVerticalInset;
+        var maximumY = topLevelBounds.Bottom - topLevelVerticalInset;
+        var effectiveStart = new Point(
+            Math.Clamp(requestedStart.X, minimumX, maximumX),
+            Math.Clamp(requestedStart.Y, minimumY, maximumY));
+        var effectiveEnd = new Point(
+            Math.Clamp(requestedEnd.X, minimumX, maximumX),
+            Math.Clamp(requestedEnd.Y, minimumY, maximumY));
+        clipped = effectiveStart != requestedStart || effectiveEnd != requestedEnd;
+        return (effectiveStart, effectiveEnd);
     }
 
     private CoreResult<InputResponse> ExecuteRangeGesture(GesturePlan plan)

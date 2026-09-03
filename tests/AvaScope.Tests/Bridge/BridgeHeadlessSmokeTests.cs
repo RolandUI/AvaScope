@@ -4117,6 +4117,9 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                 var pressed = 0;
                 var moved = 0;
                 var released = 0;
+                double? thresholdPressX = null;
+                var thresholdTravel = 0d;
+                var thresholdCompletions = 0;
                 var slider = new Slider
                 {
                     Minimum = 0,
@@ -4146,6 +4149,44 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                 }, RoutingStrategies.Bubble, handledEventsToo: true);
                 source.AddHandler(InputElement.PointerMovedEvent, (_, _) => moved++, RoutingStrategies.Bubble, handledEventsToo: true);
                 source.AddHandler(InputElement.PointerReleasedEvent, (_, _) => released++, RoutingStrategies.Bubble, handledEventsToo: true);
+
+                var thresholdSlider = new Border
+                {
+                    Width = 250,
+                    Height = 40,
+                    Background = Brushes.SteelBlue
+                };
+                AutomationProperties.SetAutomationId(thresholdSlider, "gesture-threshold-slider");
+                Canvas.SetLeft(thresholdSlider, 20);
+                Canvas.SetTop(thresholdSlider, 280);
+                thresholdSlider.AddHandler(InputElement.PointerPressedEvent, (_, eventArgs) =>
+                {
+                    thresholdPressX = eventArgs.GetPosition(thresholdSlider).X;
+                    thresholdTravel = 0;
+                    eventArgs.Pointer.Capture(thresholdSlider);
+                }, RoutingStrategies.Bubble, handledEventsToo: true);
+                thresholdSlider.AddHandler(InputElement.PointerMovedEvent, (_, eventArgs) =>
+                {
+                    if (thresholdPressX is double startX)
+                    {
+                        thresholdTravel = Math.Max(thresholdTravel, eventArgs.GetPosition(thresholdSlider).X - startX);
+                    }
+                }, RoutingStrategies.Bubble, handledEventsToo: true);
+                thresholdSlider.AddHandler(InputElement.PointerReleasedEvent, (_, eventArgs) =>
+                {
+                    if (thresholdPressX is double startX
+                        && eventArgs.GetPosition(thresholdSlider).X - startX >= 200)
+                    {
+                        thresholdCompletions++;
+                    }
+                    else
+                    {
+                        thresholdTravel = 0;
+                    }
+
+                    thresholdPressX = null;
+                    eventArgs.Pointer.Capture(null);
+                }, RoutingStrategies.Bubble, handledEventsToo: true);
 
                 var destination = new Border
                 {
@@ -4213,13 +4254,14 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                 {
                     Title = "AvaScope Semantic Gesture Sample",
                     Width = 500,
-                    Height = 300,
+                    Height = 360,
                     Content = new Canvas
                     {
                         Children =
                         {
                             slider,
                             source,
+                            thresholdSlider,
                             destination,
                             disabled,
                             zeroSized,
@@ -4253,6 +4295,7 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
 
                     var sliderNode = RequireNode("gesture-slider");
                     var sourceNode = RequireNode("gesture-source");
+                    var thresholdSliderNode = RequireNode("gesture-threshold-slider");
                     var destinationNode = RequireNode("gesture-destination");
 
                     var providerDrag = await AvaScopeMcpTools.Input(
@@ -4270,6 +4313,70 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                     Assert.Equal(nameof(Avalonia.Automation.Provider.IRangeValueProvider), providerDrag.Value.Gesture.Provenance);
                     Assert.Equal(25, double.Parse(providerDrag.Value.Metadata["previousRangeValue"], CultureInfo.InvariantCulture));
                     Assert.Equal(0, providerDrag.Value.Gesture.EffectiveDurationMs);
+
+                    async Task<RuntimeGesturePath> ValidateDirectionalPath(string gestureDirection, double distancePercentage)
+                    {
+                        var validation = await client.ValidateInputAsync(
+                            runtime.SessionId,
+                            topLevel.Id,
+                            InputActions.Drag,
+                            targetNodeId: thresholdSliderNode.NodeId,
+                            gesture: new InputGestureOptions(gestureDirection, distancePercentage, durationMs: 50));
+                        Assert.True(validation.Success, validation.Error?.Message);
+                        Assert.Equal("pointer_fallback", validation.Value!.Gesture!.ExecutionMode);
+                        Assert.Equal("synthetic_pointer_events", validation.Value.Gesture.Provenance);
+                        Assert.False(validation.Value.Gesture.Path.Clipped);
+                        return validation.Value.Gesture.Path;
+                    }
+
+                    var fullEndPath = await ValidateDirectionalPath(GestureDirections.End, 100);
+                    var thresholdBounds = fullEndPath.SourceBounds;
+                    var expectedLeft = thresholdBounds.X + 1;
+                    var expectedRight = thresholdBounds.X + thresholdBounds.Width - 1;
+                    var expectedTop = thresholdBounds.Y + 1;
+                    var expectedBottom = thresholdBounds.Y + thresholdBounds.Height - 1;
+                    var expectedCenterX = thresholdBounds.X + thresholdBounds.Width / 2;
+                    var expectedCenterY = thresholdBounds.Y + thresholdBounds.Height / 2;
+                    Assert.Equal(expectedLeft, fullEndPath.Points[0].X, 3);
+                    Assert.Equal(expectedRight, fullEndPath.Points[^1].X, 3);
+                    Assert.Equal(expectedCenterY, fullEndPath.Points[0].Y, 3);
+
+                    var fullStartPath = await ValidateDirectionalPath(GestureDirections.Start, 100);
+                    Assert.Equal(expectedRight, fullStartPath.Points[0].X, 3);
+                    Assert.Equal(expectedLeft, fullStartPath.Points[^1].X, 3);
+
+                    var halfRightPath = await ValidateDirectionalPath(GestureDirections.Right, 50);
+                    Assert.Equal(expectedLeft, halfRightPath.Points[0].X, 3);
+                    Assert.Equal((thresholdBounds.Width - 2) * 0.5, halfRightPath.Points[^1].X - halfRightPath.Points[0].X, 3);
+
+                    var halfLeftPath = await ValidateDirectionalPath(GestureDirections.Left, 50);
+                    Assert.Equal(expectedRight, halfLeftPath.Points[0].X, 3);
+                    Assert.Equal((thresholdBounds.Width - 2) * -0.5, halfLeftPath.Points[^1].X - halfLeftPath.Points[0].X, 3);
+
+                    var fullDownPath = await ValidateDirectionalPath(GestureDirections.Down, 100);
+                    Assert.Equal(expectedCenterX, fullDownPath.Points[0].X, 3);
+                    Assert.Equal(expectedTop, fullDownPath.Points[0].Y, 3);
+                    Assert.Equal(expectedBottom, fullDownPath.Points[^1].Y, 3);
+
+                    var fullUpPath = await ValidateDirectionalPath(GestureDirections.Up, 100);
+                    Assert.Equal(expectedBottom, fullUpPath.Points[0].Y, 3);
+                    Assert.Equal(expectedTop, fullUpPath.Points[^1].Y, 3);
+
+                    var thresholdDrag = await AvaScopeMcpTools.Input(
+                        client,
+                        runtime.SessionId.Value,
+                        topLevel.Id,
+                        InputActions.Drag,
+                        targetNodeId: thresholdSliderNode.NodeId,
+                        gestureDirection: GestureDirections.End,
+                        gestureDistancePercentage: 100,
+                        gestureDurationMs: 50);
+                    Assert.True(thresholdDrag.Success, thresholdDrag.Error?.Message);
+                    Assert.True(thresholdDrag.Value!.Handled);
+                    Assert.Equal("current_target_bounds", thresholdDrag.Value.Metadata["coordinateSource"]);
+                    Assert.Equal("pointer_fallback", thresholdDrag.Value.Gesture!.ExecutionMode);
+                    Assert.InRange(thresholdTravel, 200, thresholdBounds.Width);
+                    Assert.Equal(1, thresholdCompletions);
 
                     var workflow = await AvaScopeMcpTools.RunWorkflow(
                         client,
@@ -4330,7 +4437,8 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                         gestureDistancePercentage: 50,
                         gestureDurationMs: 50);
                     Assert.True(swipe.Success, swipe.Error?.Message);
-                    Assert.Equal(swipe.Value!.Gesture!.Path.SourceBounds.Width * 0.5, swipe.Value.Gesture.Path.Points[^1].X - swipe.Value.Gesture.Path.Points[0].X, 3);
+                    Assert.Equal(swipe.Value!.Gesture!.Path.SourceBounds.X + 1, swipe.Value.Gesture.Path.Points[0].X, 3);
+                    Assert.Equal((swipe.Value.Gesture.Path.SourceBounds.Width - 2) * 0.5, swipe.Value.Gesture.Path.Points[^1].X - swipe.Value.Gesture.Path.Points[0].X, 3);
                     Assert.Equal(50, swipe.Value.Gesture.Path.DistancePercentage);
 
                     var edgeNode = RequireNode("gesture-edge");
@@ -4344,10 +4452,12 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                         gestureDistancePercentage: 100,
                         gestureDurationMs: 50);
                     Assert.True(clippedSwipe.Success, clippedSwipe.Error?.Message);
-                    Assert.True(clippedSwipe.Value!.Gesture!.Path.Clipped);
-                    Assert.True(
-                        clippedSwipe.Value.Gesture.Path.Points[^1].X
-                        < clippedSwipe.Value.Gesture.Path.Points[0].X + clippedSwipe.Value.Gesture.Path.SourceBounds.Width);
+                    Assert.False(clippedSwipe.Value!.Gesture!.Path.Clipped);
+                    Assert.Equal(clippedSwipe.Value.Gesture.Path.SourceBounds.X + 1, clippedSwipe.Value.Gesture.Path.Points[0].X, 3);
+                    Assert.Equal(
+                        clippedSwipe.Value.Gesture.Path.SourceBounds.X + clippedSwipe.Value.Gesture.Path.SourceBounds.Width - 1,
+                        clippedSwipe.Value.Gesture.Path.Points[^1].X,
+                        3);
 
                     var holdStopwatch = Stopwatch.StartNew();
                     var hold = await AvaScopeMcpTools.Input(
@@ -4385,6 +4495,34 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                     Assert.True(cliGesture!.Success, cliGesture.Error?.Message);
                     Assert.Equal(InputActions.LongPress, cliGesture.Value!.Action);
                     Assert.Single(cliGesture.Value.Gesture!.Path.Points);
+
+                    var cliDrag = await RunCliInputAsync(
+                        "input",
+                        "--session",
+                        runtime.SessionId.Value,
+                        "--top-level",
+                        topLevel.Id,
+                        "--action",
+                        InputActions.Drag,
+                        "--target-node",
+                        sourceNode.NodeId,
+                        "--direction",
+                        GestureDirections.Right,
+                        "--distance-percent",
+                        "50",
+                        "--duration-ms",
+                        "50",
+                        "--manifest-dir",
+                        Path.GetDirectoryName(runtime.SessionManifestPath)!);
+                    Assert.Equal(0, cliDrag.ExitCode);
+                    Assert.True(string.IsNullOrWhiteSpace(cliDrag.StandardError), cliDrag.StandardError);
+                    var cliDragResult = JsonSerializer.Deserialize<ToolResult<InputResponse>>(
+                        cliDrag.StandardOutput,
+                        new JsonSerializerOptions(JsonSerializerDefaults.Web));
+                    Assert.True(cliDragResult!.Success, cliDragResult.Error?.Message);
+                    var cliDragPath = cliDragResult.Value!.Gesture!.Path;
+                    Assert.Equal(cliDragPath.SourceBounds.X + 1, cliDragPath.Points[0].X, 3);
+                    Assert.Equal((cliDragPath.SourceBounds.Width - 2) * 0.5, cliDragPath.Points[^1].X - cliDragPath.Points[0].X, 3);
 
                     foreach (var invalidNode in new[]
                     {
