@@ -6,6 +6,8 @@ namespace AvaScope.Core;
 
 public static class ResponseBudgeter
 {
+    internal const string ArtifactDirectoryEnvironmentVariable = "AVASCOPE_RESPONSE_ARTIFACT_DIR";
+
     public const int DefaultMaxInlineBytes = 128 * 1024;
     public const int DefaultMaxItems = 200;
     public const int DefaultMaxDepth = 8;
@@ -387,7 +389,10 @@ public static class ResponseBudgeter
         try
         {
             var hash = Convert.ToHexString(SHA256.HashData(payload)).ToLowerInvariant()[..16];
-            var directory = Path.Combine(Path.GetTempPath(), "AvaScope", "response-artifacts");
+            var configuredDirectory = Environment.GetEnvironmentVariable(ArtifactDirectoryEnvironmentVariable);
+            var directory = string.IsNullOrWhiteSpace(configuredDirectory)
+                ? Path.Combine(Path.GetTempPath(), "AvaScope", "response-artifacts")
+                : Path.GetFullPath(configuredDirectory);
             Directory.CreateDirectory(directory);
             var path = Path.Combine(directory, $"{kind}-{hash}.json");
             if (!File.Exists(path))

@@ -769,7 +769,7 @@ public sealed class RuntimeScenarioRunner
 
         var stateDirectory = request.IsolatedStateDirectory
             ?? Path.Combine(outputDirectory, "isolated-state");
-        var environment = CreateIsolatedStateEnvironment(stateDirectory);
+        var environment = CreateIsolatedStateEnvironment(stateDirectory, outputDirectory);
         foreach (var path in environment.Values.Where(static value => value.Contains(Path.DirectorySeparatorChar, StringComparison.Ordinal)))
         {
             Directory.CreateDirectory(path);
@@ -782,7 +782,9 @@ public sealed class RuntimeScenarioRunner
             environment);
     }
 
-    private static IReadOnlyDictionary<string, string> CreateIsolatedStateEnvironment(string stateDirectory)
+    private static IReadOnlyDictionary<string, string> CreateIsolatedStateEnvironment(
+        string stateDirectory,
+        string outputDirectory)
     {
         var fullStateDirectory = Path.GetFullPath(stateDirectory);
         var roaming = Path.Combine(fullStateDirectory, "appdata", "roaming");
@@ -797,6 +799,7 @@ public sealed class RuntimeScenarioRunner
         {
             ["AVASCOPE_SCENARIO_STATE_DIR"] = fullStateDirectory,
             ["AVASCOPE_ISOLATED_STATE_DIR"] = fullStateDirectory,
+            [ResponseBudgeter.ArtifactDirectoryEnvironmentVariable] = Path.Combine(Path.GetFullPath(outputDirectory), "response-artifacts"),
             ["APPDATA"] = roaming,
             ["LOCALAPPDATA"] = local,
             ["USERPROFILE"] = profile,
@@ -805,8 +808,7 @@ public sealed class RuntimeScenarioRunner
             ["XDG_DATA_HOME"] = data,
             ["XDG_CACHE_HOME"] = cache,
             ["TEMP"] = temp,
-            ["TMP"] = temp,
-            ["TMPDIR"] = temp
+            ["TMP"] = temp
         };
     }
 
