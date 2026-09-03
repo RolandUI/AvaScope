@@ -46,16 +46,16 @@ The roadmap below records the release-shaped plan through `v1.0.0`. It is intent
 - `v0.7.0` starts the agent-first product direction: AvaScope becomes an agent control plane for inspecting, changing, validating, and explaining Avalonia UI behavior through structured CLI/MCP workflows.
 - `v0.9.0` is released.
 - `v1.0.0` is released.
-- `v1.4.0` is planned as the next release.
+- `v1.4.0` is the current release candidate.
 - Each release must preserve the current product boundaries: MCP and CLI stay adapters over Core, runtime bridge activation stays opt-in and local-only, PreviewHost stays isolated from the MCP server, and private Avalonia/runtime hooks remain out of the default path.
 - Every release must include targeted tests, full build/test validation, release dry-run validation, documentation updates, and explicit deferrals.
 - A release may be split into a patch release if a P0/P1 regression blocks users or CI, but patch scope must remain defect-focused.
 
-## Planned Target: v1.4.0
+## Current Release Target
 
 - Release: `v1.4.0`
 - Target Version: `1.4.0`
-- Release State: `In Progress`
+- Release State: `Release Candidate`
 - Scope Lock: `2026-09-02`
 - GitHub Milestone: `v1.4.0`
 - GitHub Issues: #98 through #109
@@ -107,6 +107,7 @@ The `v1.4.0` minor release makes complex local Avalonia automation deterministic
 
 ### v1.4.0 Implementation Validation
 
+- `2026-09-03`: The v1.4.0 release-candidate gate passed through final hardening commit `d378d51`. All implementation issues #98-#108 are closed. Full Debug and Release builds completed with `0` warnings/errors and all `504` tests passed; focused invalid-PNG fail-closed cleanup passed `20/20`, and transient read-only bridge disconnect recovery passed its regression without allowing side-effect retries. With staged version `1.4.0`, `eng/create-local-release.ps1` generated and verified three NuGet packages, four framework-dependent executable ZIPs, four installers, and the exact 11-entry manifest from the latest code. Windows installer, packaged doctor, real preview, regenerated packaged complex CLI/MCP repeat-plus-failure gates, exact NuGet/GitHub Release dry-runs, and the release-commit guard passed. Hosted CI `33706370770` passed complete Windows, Linux, and native macOS Retina/package gates, including the previously failing Linux packaged MCP repeat. No `v1.4.0` tag, package, or release exists yet.
 - `2026-09-03`: Completed #108 in `a6ca200`, `5e0446c`, `a7ee9e7`, `2275f4e`, and `4038886`. Repeat CLI and real MCP stdio runs cover two semantic window aliases, range-provider and bounds-derived custom-control drags, optional UI branches, app-defined action discovery/invocation, asynchronous typed waits, bounded retry, fragments, cross-window verification, automatic screenshots/reports, an intentional redacted failure, marker-owned retention, and exact cleanup without request coordinates, fixed sleeps, or persisted runtime ids. The failure run closed a policy gap in complete response-budget fallback JSON; owned referenced artifacts are recursively sanitized, external paths fail closed, and child response artifacts remain in the policy-owned run without changing Unix named-pipe temp resolution. Full local Debug and Release builds completed with `0` warnings/errors and all `503` tests passed; source and packaged win-x64 CLI/MCP gates each passed two success runs plus failure. Hosted CI `33701443743` passed complete Windows, Linux, and macOS gates, including native Retina validation and packaged complex CLI/MCP on both Unix platforms after one unchanged macOS retry cleared a transient pointer-test pipe timeout. Started #109.
 - `2026-09-03`: Completed #107 in `d28aebe`, `5aeec24`, `0bcd625`, `18db34b`, and `6135a5f` with explicit local redaction/masking, marker-owned retention, pre-serialization action/process-output sanitation, action/custom-action/gesture/destructive gates, session/PID authorization, safe path/reparse enforcement, and unavailable network upload. Debug and Release builds completed with `0` warnings/errors and all `500` tests passed in both configurations. Hosted CI `33695657065` passed the complete Windows, Linux, and macOS gates, including all `500` macOS tests, native Retina runtime/preview validation, packaged lifecycle, native artifact, and installer validation. Started #108.
 - `2026-09-02`: Completed #106 in `1f3b5da`, `2c4f309`, `14e358e`, and `3abb982` with structured explicit/implicit builds, tokenized direct command/project launch, exact-process manifest selection, bounded bridge readiness and top-level discovery, stage-specific logs/diagnostics, redacted normal metadata, cancellation/timeout cleanup, and optional identity-verified owned process-tree termination. Readiness IPC uses the scenario deadline rather than a shorter client default, with deterministic delayed-response coverage and a short Unix-safe bridge pipe. Protocol/Core/CLI/MCP/capability/docs coverage includes the complete lifecycle plus build failure, launch start failure, early exit, readiness timeout, cancellation, idempotent cleanup, PID reuse, and shared response budgeting. Debug and Release builds completed with `0` warnings/errors and all `477` tests passed in both configurations; packaged win-x64 lifecycle and PowerShell validation passed locally. Hosted CI `33685175325` passed the complete Windows, Linux, and macOS gates, including packaged lifecycle execution on every platform. Started #107.
