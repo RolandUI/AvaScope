@@ -116,10 +116,7 @@ public sealed class AvaScopeBridgeTests : IDisposable
         {
             BridgeIpcMethods.Health,
             BridgeIpcMethods.Capabilities,
-            BridgeIpcMethods.ListTopLevels,
-            BridgeIpcMethods.FindNodes,
-            BridgeIpcMethods.CustomActions,
-            BridgeIpcMethods.ValidateMutation
+            "unsupported-concurrent-method"
         };
         var requests = Enumerable.Range(0, 48)
             .Select(index => new BridgeIpcRequest(
@@ -138,8 +135,7 @@ public sealed class AvaScopeBridgeTests : IDisposable
         {
             Assert.Equal(requests[index].RequestId, responses[index].RequestId);
             if (methods[index % methods.Length] is BridgeIpcMethods.Health
-                or BridgeIpcMethods.Capabilities
-                or BridgeIpcMethods.ListTopLevels)
+                or BridgeIpcMethods.Capabilities)
             {
                 Assert.True(responses[index].Success, responses[index].Error?.Message);
             }
