@@ -64,7 +64,7 @@ jobs:
 
           $changed = @($changed | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
           $nonDocumentation = @($changed | Where-Object { -not (Test-DocumentationOnlyPath $_) })
-          $docsOnly = $changed.Count -gt 0 -and $nonDocumentation.Count -eq 0
+          $docsOnly = $eventName -ne 'workflow_dispatch' -and $changed.Count -gt 0 -and $nonDocumentation.Count -eq 0
           $requiresValidation = -not $docsOnly
 
           "docs_only=$($docsOnly.ToString().ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append

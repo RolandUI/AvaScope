@@ -250,6 +250,7 @@ public sealed class StableSurfaceContractTests
         var releaseWorkflow = NormalizeLineEndings(File.ReadAllText(Path.Combine(root, ".github", "workflows", "publish-nuget.yml")));
 
         Assert.Contains("\n  workflow_dispatch:", ciWorkflow, StringComparison.Ordinal);
+        Assert.Contains("$eventName -ne 'workflow_dispatch'", ciWorkflow, StringComparison.Ordinal);
         Assert.Contains("\n  pull_request:", ciWorkflow, StringComparison.Ordinal);
         Assert.Contains("\n    branches:\n      - master", ciWorkflow, StringComparison.Ordinal);
         Assert.DoesNotContain("\n  push:", ciWorkflow, StringComparison.Ordinal);
