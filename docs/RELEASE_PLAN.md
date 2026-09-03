@@ -73,9 +73,9 @@ The `v1.4.2` priority patch release corrects two macOS runtime regressions repor
 
 ### v1.4.2 Milestone Map
 
-- #112 `Concurrent bridge requests intermittently return an empty IPC response`; Status: `Review`.
-- #113 `Synthetic drag and swipe do not complete a templated custom slider and may leave its inner control pressed`; Status: `In Progress`.
-- #114 `Release v1.4.2`; Status: `Ready`.
+- #112 `Concurrent bridge requests intermittently return an empty IPC response`; Status: `Done`.
+- #113 `Synthetic drag and swipe do not complete a templated custom slider and may leave its inner control pressed`; Status: `Done`.
+- #114 `Release v1.4.2`; Status: `In Progress`.
 
 ### Explicit Non-Goals
 
@@ -90,6 +90,10 @@ The `v1.4.2` priority patch release corrects two macOS runtime regressions repor
 - One consolidated local full Release build/test pass after both fixes are ready.
 - One combined hosted Windows, Linux, and native macOS CI run before release packaging.
 - Package, installer, manifest, packaged runtime workflow, NuGet, and GitHub Release dry-runs before the exact `Release 1.4.2` commit.
+
+### v1.4.2 Implementation Validation
+
+- `2026-09-03`: Completed #112 and #113 through `a1ee8d1`. Local `dotnet test AvaScope.slnx -c Release --nologo` passed all `505` tests. Combined hosted CI `33729834402` passed the complete Windows, Linux, and native macOS gates, including source and packaged complex CLI/MCP workflows, installers, native runtime/Retina checks, and artifact verification. Started release tracker #114 for exact-version packaging, dry-runs, and publication.
 
 ## Released Target: v1.4.1
 
