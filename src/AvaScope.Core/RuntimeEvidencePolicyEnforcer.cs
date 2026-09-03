@@ -752,40 +752,48 @@ public sealed class RuntimeEvidencePolicyEnforcer
 
     private static void MaskPng(string path, IReadOnlyList<ScreenshotRegion> masks)
     {
-        using var bitmap = SKBitmap.Decode(path) ?? throw new InvalidOperationException("Screenshot image could not be decoded.");
-        using var canvas = new SKCanvas(bitmap);
-        using var paint = new SKPaint { Color = SKColors.Black, Style = SKPaintStyle.Fill, IsAntialias = false };
-        foreach (var mask in masks)
+        SKBitmap bitmap;
+        using (var source = File.OpenRead(path))
         {
-            var left = Math.Clamp(mask.X, 0, bitmap.Width);
-            var top = Math.Clamp(mask.Y, 0, bitmap.Height);
-            var right = Math.Clamp(mask.X + mask.Width, left, bitmap.Width);
-            var bottom = Math.Clamp(mask.Y + mask.Height, top, bitmap.Height);
-            if (right > left && bottom > top)
-            {
-                canvas.DrawRect(new SKRect(left, top, right, bottom), paint);
-            }
+            bitmap = SKBitmap.Decode(source) ?? throw new InvalidOperationException("Screenshot image could not be decoded.");
         }
 
-        canvas.Flush();
-        using var image = SKImage.FromBitmap(bitmap);
-        using var data = image.Encode(SKEncodedImageFormat.Png, 100)
-            ?? throw new InvalidOperationException("Masked screenshot could not be encoded.");
-        var temporaryPath = path + ".masked.tmp";
-        try
+        using (bitmap)
         {
-            using (var stream = File.Create(temporaryPath))
+            using var canvas = new SKCanvas(bitmap);
+            using var paint = new SKPaint { Color = SKColors.Black, Style = SKPaintStyle.Fill, IsAntialias = false };
+            foreach (var mask in masks)
             {
-                data.SaveTo(stream);
+                var left = Math.Clamp(mask.X, 0, bitmap.Width);
+                var top = Math.Clamp(mask.Y, 0, bitmap.Height);
+                var right = Math.Clamp(mask.X + mask.Width, left, bitmap.Width);
+                var bottom = Math.Clamp(mask.Y + mask.Height, top, bitmap.Height);
+                if (right > left && bottom > top)
+                {
+                    canvas.DrawRect(new SKRect(left, top, right, bottom), paint);
+                }
             }
 
-            File.Move(temporaryPath, path, overwrite: true);
-        }
-        finally
-        {
-            if (File.Exists(temporaryPath))
+            canvas.Flush();
+            using var image = SKImage.FromBitmap(bitmap);
+            using var data = image.Encode(SKEncodedImageFormat.Png, 100)
+                ?? throw new InvalidOperationException("Masked screenshot could not be encoded.");
+            var temporaryPath = path + ".masked.tmp";
+            try
             {
-                File.Delete(temporaryPath);
+                using (var stream = File.Create(temporaryPath))
+                {
+                    data.SaveTo(stream);
+                }
+
+                File.Move(temporaryPath, path, overwrite: true);
+            }
+            finally
+            {
+                if (File.Exists(temporaryPath))
+                {
+                    File.Delete(temporaryPath);
+                }
             }
         }
     }
