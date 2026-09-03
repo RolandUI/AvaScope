@@ -47,9 +47,48 @@ The roadmap below records the release-shaped plan through `v1.0.0`. It is intent
 - `v0.9.0` is released.
 - `v1.0.0` is released.
 - `v1.4.0` is released.
+- `v1.4.1` is the active priority patch release.
 - Each release must preserve the current product boundaries: MCP and CLI stay adapters over Core, runtime bridge activation stays opt-in and local-only, PreviewHost stays isolated from the MCP server, and private Avalonia/runtime hooks remain out of the default path.
 - Every release must include targeted tests, full build/test validation, release dry-run validation, documentation updates, and explicit deferrals.
 - A release may be split into a patch release if a P0/P1 regression blocks users or CI, but patch scope must remain defect-focused.
+
+## Active Target: v1.4.1
+
+- Release: `v1.4.1`
+- Target Version: `1.4.1`
+- Release State: `In Progress`
+- Scope Lock: `2026-09-03`
+- GitHub Milestone: `v1.4.1`
+- GitHub Issues: #110 and #111
+- Previous Release: `v1.4.0`
+
+### v1.4.1 Release Goals
+
+The `v1.4.1` patch release corrects the v1.4.0 bounds-derived pointer-fallback path so semantic directional gestures can complete controls that require nearly the full target span.
+
+1. `RG-1.4.1-1 Full-Span Directional Gestures`: a 100% bounds-derived drag or swipe travels from the source target's directional leading edge to its trailing edge, subject only to the existing safe inset and clipping rules.
+2. `RG-1.4.1-2 Compatible Percentage Semantics`: partial directional percentages scale against the full usable target span while provider-backed, source-to-target, explicit-coordinate, cancellation, and metadata behavior remains compatible.
+3. `RG-1.4.1-3 Verified Patch Publication`: focused custom-slider regression coverage, complete Debug/Release validation, packaged workflow gates, artifact checks, and publish dry-runs pass before the exact `Release 1.4.1` commit is published.
+
+### v1.4.1 Milestone Map
+
+- #110 `Bounds-based drag cannot complete sliders that require full-width pointer travel`; Status: `In Progress`.
+- #111 `Release v1.4.1`; Status: `Ready`.
+
+### Explicit Non-Goals
+
+- New start-position, source-percentage, or destination-percentage protocol fields.
+- Automatic draggable-descendant or thumb discovery.
+- Changes to automation-provider range semantics or native Avalonia drag-and-drop payload exchange.
+- Redefining `handled` as proof of an application-level state transition; callers use existing observe-act-verify postconditions for that guarantee.
+
+### Required Validation
+
+- Focused Bridge coverage for full-span, partial, reverse, vertical, clipping-safe, cancellation, and threshold-based custom-slider gestures.
+- CLI and MCP regression coverage for identical runtime path and response metadata.
+- Full Debug and Release build/test suites.
+- Packaged complex CLI/MCP workflows and supported-platform release gates.
+- Package, installer, manifest, NuGet, and GitHub Release dry-runs before the exact `Release 1.4.1` commit.
 
 ## Released Target: v1.4.0
 
