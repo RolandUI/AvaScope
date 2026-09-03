@@ -72,8 +72,8 @@ The `v1.4.1` patch release corrects the v1.4.0 bounds-derived pointer-fallback p
 
 ### v1.4.1 Milestone Map
 
-- #110 `Bounds-based drag cannot complete sliders that require full-width pointer travel`; Status: `In Progress`.
-- #111 `Release v1.4.1`; Status: `Ready`.
+- #110 `Bounds-based drag cannot complete sliders that require full-width pointer travel`; Status: `Done`.
+- #111 `Release v1.4.1`; Status: `In Progress`.
 
 ### Explicit Non-Goals
 
@@ -89,6 +89,10 @@ The `v1.4.1` patch release corrects the v1.4.0 bounds-derived pointer-fallback p
 - Full Debug and Release build/test suites.
 - Packaged complex CLI/MCP workflows and supported-platform release gates.
 - Package, installer, manifest, NuGet, and GitHub Release dry-runs before the exact `Release 1.4.1` commit.
+
+### v1.4.1 Implementation Validation
+
+- `2026-09-03`: Completed #110 in `9da3148`. Pointer-fallback directional gestures now derive both endpoints from the source's current safe bounds and scale percentages over the complete usable span. A 250 DIP custom slider requiring at least 200 DIP travel completes at 100%; coverage also verifies partial, reverse, vertical, edge-safe, provider-backed, source-to-target, CLI, MCP, and cancellation behavior. Local Debug and Release builds completed with `0` warnings/errors and all `504` tests passed in both configurations. Hosted CI `33721707756` passed the complete Windows, Linux, and native macOS test, workflow, package, installer, Retina/runtime/preview, and artifact gates. Started release tracker #111.
 
 ## Released Target: v1.4.0
 

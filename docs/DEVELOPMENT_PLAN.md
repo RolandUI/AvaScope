@@ -2,6 +2,7 @@
 
 GitHub Issues and Milestones are the primary project-management source for autonomous agents working on AvaScope. This document is the compact local handoff and validation log. Update it whenever meaningful implementation, validation, or planning changes the active GitHub issue or release state.
 
+- `2026-09-03`: Completed #110 in `9da3148`. Bounds-derived pointer fallback now starts at the opposite safe target edge and scales directional percentages across the full usable span; a 250 DIP custom-slider regression requires and receives at least 200 DIP travel. Local Debug and Release builds completed with `0` warnings/errors and all `504` tests passed in both configurations. Hosted CI `33721707756` passed Windows, Linux, and native macOS, including runtime/Retina/preview, source and packaged complex CLI/MCP workflows, installers, and artifact verification. Closed #110 and started release tracker #111.
 - `2026-09-03`: Started priority patch issue #110 under the new `v1.4.1` milestone, with release tracker #111 ready. The scope is limited to making bounds-derived pointer-fallback directional percentages use the full safe target span, preserving provider/source-to-target/explicit-coordinate behavior, validating a threshold-based custom slider, and documenting that `handled` is dispatch evidence while observe-act-verify supplies application postconditions. Roadmap order is #110 at `141.1` as Current Slice and #111 at `141.2` as Release Tracker.
 - `2026-09-03`: Published `v1.4.0` from exact release commit `7363c56b9cfb692a514cac6de92b6795c964b08c` through successful Release workflow `33707881196`. The remote tag resolves to that commit; the non-draft, non-prerelease GitHub Release exposes all 12 expected assets; and a fresh download verified all 11 manifest entries by name, size, and SHA-256 plus all three package metadata versions. Nuget.org exposes Protocol/Core/Bridge `1.4.0` as latest, all three downloaded packages pass repository-signature verification, and their unsigned entry content matches the GitHub Release packages. The workflow also successfully pushed all three packages to GitHub Packages.
 - `2026-09-03`: The v1.4.0 release-candidate gate passed through final hardening commit `d378d51`. All #98-#108 implementation issues are closed. Full Debug and Release builds completed with `0` warnings/errors and all `504` tests passed; focused invalid-PNG cleanup passed `20/20`, and transient read-only bridge disconnect recovery passed its regression. With staged version `1.4.0`, the release workflow generated and verified three NuGet packages, four framework-dependent ZIPs, four installers, and an exact 11-entry manifest from the latest code. Windows installer, packaged doctor, real preview, regenerated packaged complex CLI/MCP repeat-plus-failure gates, exact NuGet/GitHub Release dry-runs, and the release-commit guard passed. Hosted CI `33706370770` passed the complete Windows, Linux, and native macOS Retina/package gates, including the Linux path that exposed the transient disconnect in the prior run. The target is `Release Candidate`; the remote tag and release remain absent.
@@ -69,19 +70,20 @@ GitHub Issues and Milestones are the primary project-management source for auton
 
 ## Current Focus
 
-- `Bounds-based drag cannot complete sliders that require full-width pointer travel`
-- GitHub Issue: `#110`
+- `Release v1.4.1`
+- GitHub Issue: `#111`
 - GitHub Milestone: `v1.4.1`
 - Status: `In Progress`
 - Owner: autonomous agent
-- Goal: make bounds-derived pointer-fallback directional drag/swipe paths use the full safe target span without changing public gesture contracts.
+- Goal: publish and remotely verify the focused full-span gesture correction from the exact `Release 1.4.1` commit.
 
 ## Next Action
 
-Implement and validate #110, commit and push the completed slice, then run release tracker #111 through the exact `v1.4.1` publication gate.
+Run the exact-version v1.4.1 local release gate and dry-runs, advance to Release Candidate, commit only version/readiness metadata as `Release 1.4.1`, then verify the guarded publication remotely.
 
 ## Latest Validation
 
+- `2026-09-03`: Hosted CI `33721707756` passed exact implementation commit `9da3148` on Windows, Linux, and native macOS. Windows passed all `504` tests, source/packaged complex CLI/MCP workflows, lifecycle, installer, and artifacts; Linux passed packaged lifecycle, complex workflows, installer, repair, and uninstall; macOS passed all `504` tests, the full-span gesture regression, Retina/runtime/preview checks, native package installation, packaged workflows, and uninstall. #110 is closed and #111 is active.
 - `2026-09-03`: v1.4.1 planning and GitHub intake completed. Milestone #16 contains active P0 bug #110 and ready release tracker #111; the Roadmap fields and local release/development plans agree. Product code and package version remain unchanged pending implementation validation.
 - `2026-09-03`: Release workflow `33707881196` published v1.4.0 from exact commit `7363c56b9cfb692a514cac6de92b6795c964b08c`. The remote tag matches; the release is public and contains 12/12 assets; the 11-entry manifest matches every asset size and SHA-256; all package metadata is `1.4.0`; and nuget.org exposes three latest, repository-signed packages whose unsigned entries match the release packages. GitHub Packages publication succeeded for all three packages in the workflow log.
 - `2026-09-03`: Exact-version v1.4.0 validation passed through `d378d51`: Debug and Release `504/504`, invalid-PNG cleanup `20/20`, transient read-only disconnect regression, 11 verified `1.4.0` artifacts, Windows installer, packaged doctor/preview, packaged complex CLI/MCP repeat-plus-failure, both exact publish dry-runs, and the release-commit guard. Hosted CI `33706370770` passed complete Windows, Linux, and macOS gates including native Retina validation.
