@@ -47,16 +47,16 @@ The roadmap below records the release-shaped plan through `v1.0.0`. It is intent
 - `v0.9.0` is released.
 - `v1.0.0` is released.
 - `v1.4.0` is released.
-- `v1.4.1` is the active priority patch release.
+- `v1.4.1` is the current release candidate.
 - Each release must preserve the current product boundaries: MCP and CLI stay adapters over Core, runtime bridge activation stays opt-in and local-only, PreviewHost stays isolated from the MCP server, and private Avalonia/runtime hooks remain out of the default path.
 - Every release must include targeted tests, full build/test validation, release dry-run validation, documentation updates, and explicit deferrals.
 - A release may be split into a patch release if a P0/P1 regression blocks users or CI, but patch scope must remain defect-focused.
 
-## Active Target: v1.4.1
+## Current Release Target
 
 - Release: `v1.4.1`
 - Target Version: `1.4.1`
-- Release State: `In Progress`
+- Release State: `Release Candidate`
 - Scope Lock: `2026-09-03`
 - GitHub Milestone: `v1.4.1`
 - GitHub Issues: #110 and #111
@@ -73,7 +73,7 @@ The `v1.4.1` patch release corrects the v1.4.0 bounds-derived pointer-fallback p
 ### v1.4.1 Milestone Map
 
 - #110 `Bounds-based drag cannot complete sliders that require full-width pointer travel`; Status: `Done`.
-- #111 `Release v1.4.1`; Status: `In Progress`.
+- #111 `Release v1.4.1`; Status: `Review`.
 
 ### Explicit Non-Goals
 
@@ -92,6 +92,7 @@ The `v1.4.1` patch release corrects the v1.4.0 bounds-derived pointer-fallback p
 
 ### v1.4.1 Implementation Validation
 
+- `2026-09-03`: The v1.4.1 release-candidate gate passed through `73f10dd` with the exact `1.4.1` version staged. Local Debug and Release builds completed with `0` warnings/errors and all `504` tests passed in each configuration; the exact-version Release suite passed twice. `eng/create-local-release.ps1` produced and verified three NuGet packages, four framework-dependent ZIPs, four installers, and the exact 11-entry manifest. Windows installer, packaged doctor, real preview, packaged lifecycle, and packaged complex CLI/MCP repeat-plus-failure gates passed. NuGet and 12-asset GitHub Release dry-runs passed without publication. Hosted CI `33721707756` passed complete Windows, Linux, and native macOS gates. Two artifact attempts stopped safely on three old apphosts and their three orphaned MCP child processes; only path-verified processes under the repository artifact root were terminated before the clean packaging pass. Remote tag and release `v1.4.1` remain absent.
 - `2026-09-03`: Completed #110 in `9da3148`. Pointer-fallback directional gestures now derive both endpoints from the source's current safe bounds and scale percentages over the complete usable span. A 250 DIP custom slider requiring at least 200 DIP travel completes at 100%; coverage also verifies partial, reverse, vertical, edge-safe, provider-backed, source-to-target, CLI, MCP, and cancellation behavior. Local Debug and Release builds completed with `0` warnings/errors and all `504` tests passed in both configurations. Hosted CI `33721707756` passed the complete Windows, Linux, and native macOS test, workflow, package, installer, Retina/runtime/preview, and artifact gates. Started release tracker #111.
 
 ## Released Target: v1.4.0
