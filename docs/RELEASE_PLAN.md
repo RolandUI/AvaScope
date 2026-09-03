@@ -73,8 +73,8 @@ The `v1.4.2` priority patch release corrects two macOS runtime regressions repor
 
 ### v1.4.2 Milestone Map
 
-- #112 `Concurrent bridge requests intermittently return an empty IPC response`; Status: `In Progress`.
-- #113 `Synthetic drag and swipe do not complete a templated custom slider and may leave its inner control pressed`; Status: `Ready`.
+- #112 `Concurrent bridge requests intermittently return an empty IPC response`; Status: `Review`.
+- #113 `Synthetic drag and swipe do not complete a templated custom slider and may leave its inner control pressed`; Status: `In Progress`.
 - #114 `Release v1.4.2`; Status: `Ready`.
 
 ### Explicit Non-Goals

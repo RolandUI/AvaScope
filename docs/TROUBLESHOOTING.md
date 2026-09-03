@@ -10,7 +10,7 @@ Use this when an agent workflow fails and the next action is not obvious from th
 
 - `bridge_session_not_found`: no active local manifest matched the selected process, session, process name, or manifest path. Run `avascope diagnostics --manifest-dir <dir>`, then retry with `--session` or `--manifest`.
 - `multiple_bridge_sessions`: the selection was ambiguous. Retry with an explicit `--session`, `--process`, or `--manifest`; do not let an agent guess between active apps.
-- `bridge_ipc_unavailable`: the process is stale, the named pipe is gone, or the app stopped responding. Run `cleanup-bridge-sessions`, restart the bridge-enabled app, and attach again.
+- `bridge_ipc_unavailable`: the process is stale, the named pipe is gone, or the app stopped responding. AvaScope 1.4.1 could also return an empty response when several same-session operations arrived concurrently; upgrade both the Bridge package and CLI/MCP to 1.4.2 or later for queued concurrent handling. Otherwise run `cleanup-bridge-sessions`, restart the bridge-enabled app, and attach again.
 - `bridge_protocol_incompatible`: the app and CLI/MCP use incompatible AvaScope protocol major versions. Align package versions in the app and the local tool.
 - If the sample app does not expose a bridge session, confirm it was launched with `AVASCOPE_SAMPLE_BRIDGE=1`.
 

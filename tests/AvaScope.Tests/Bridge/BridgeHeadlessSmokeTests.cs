@@ -4117,9 +4117,17 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                 var pressed = 0;
                 var moved = 0;
                 var released = 0;
+                var sourceCaptureLost = 0;
+                IPointer? sourcePointer = null;
                 double? thresholdPressX = null;
                 var thresholdTravel = 0d;
                 var thresholdCompletions = 0;
+                double? nestedPressX = null;
+                var nestedTravel = 0d;
+                var nestedCompletions = 0;
+                var captureNestedPointer = false;
+                var nestedCaptureLost = 0;
+                IPointer? nestedPointer = null;
                 var slider = new Slider
                 {
                     Minimum = 0,
@@ -4145,10 +4153,16 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                 source.AddHandler(InputElement.PointerPressedEvent, (_, eventArgs) =>
                 {
                     pressed++;
+                    sourcePointer = eventArgs.Pointer;
                     eventArgs.Pointer.Capture(source);
                 }, RoutingStrategies.Bubble, handledEventsToo: true);
                 source.AddHandler(InputElement.PointerMovedEvent, (_, _) => moved++, RoutingStrategies.Bubble, handledEventsToo: true);
                 source.AddHandler(InputElement.PointerReleasedEvent, (_, _) => released++, RoutingStrategies.Bubble, handledEventsToo: true);
+                source.AddHandler(
+                    InputElement.PointerCaptureLostEvent,
+                    (_, _) => sourceCaptureLost++,
+                    RoutingStrategies.Bubble,
+                    handledEventsToo: true);
 
                 var thresholdSlider = new Border
                 {
@@ -4187,6 +4201,62 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                     thresholdPressX = null;
                     eventArgs.Pointer.Capture(null);
                 }, RoutingStrategies.Bubble, handledEventsToo: true);
+
+                var nestedThumb = new ToggleButton
+                {
+                    Width = 48,
+                    Height = 44,
+                    Content = "Slide"
+                };
+                Canvas.SetLeft(nestedThumb, 0);
+                Canvas.SetTop(nestedThumb, 0);
+                var nestedSlider = new Border
+                {
+                    Width = 250,
+                    Height = 44,
+                    Background = Brushes.DarkSlateBlue,
+                    Child = new Canvas
+                    {
+                        Children = { nestedThumb }
+                    }
+                };
+                AutomationProperties.SetAutomationId(nestedSlider, "gesture-nested-slider");
+                Canvas.SetLeft(nestedSlider, 20);
+                Canvas.SetTop(nestedSlider, 330);
+                nestedThumb.AddHandler(InputElement.PointerPressedEvent, (_, eventArgs) =>
+                {
+                    nestedPointer = eventArgs.Pointer;
+                    nestedPressX = eventArgs.GetPosition(nestedSlider).X;
+                    nestedTravel = 0;
+                    if (captureNestedPointer)
+                    {
+                        eventArgs.Pointer.Capture(nestedThumb);
+                    }
+                }, RoutingStrategies.Bubble, handledEventsToo: true);
+                nestedThumb.AddHandler(InputElement.PointerMovedEvent, (_, eventArgs) =>
+                {
+                    if (nestedPressX is double startX)
+                    {
+                        nestedTravel = Math.Max(
+                            nestedTravel,
+                            eventArgs.GetPosition(nestedSlider).X - startX);
+                    }
+                }, RoutingStrategies.Bubble, handledEventsToo: true);
+                nestedThumb.AddHandler(InputElement.PointerReleasedEvent, (_, eventArgs) =>
+                {
+                    if (nestedPressX is double startX
+                        && eventArgs.GetPosition(nestedSlider).X - startX >= 200)
+                    {
+                        nestedCompletions++;
+                    }
+
+                    nestedPressX = null;
+                }, RoutingStrategies.Bubble, handledEventsToo: true);
+                nestedThumb.AddHandler(
+                    InputElement.PointerCaptureLostEvent,
+                    (_, _) => nestedCaptureLost++,
+                    RoutingStrategies.Bubble,
+                    handledEventsToo: true);
 
                 var destination = new Border
                 {
@@ -4254,7 +4324,7 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                 {
                     Title = "AvaScope Semantic Gesture Sample",
                     Width = 500,
-                    Height = 360,
+                    Height = 430,
                     Content = new Canvas
                     {
                         Children =
@@ -4262,6 +4332,7 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                             slider,
                             source,
                             thresholdSlider,
+                            nestedSlider,
                             destination,
                             disabled,
                             zeroSized,
@@ -4296,6 +4367,7 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                     var sliderNode = RequireNode("gesture-slider");
                     var sourceNode = RequireNode("gesture-source");
                     var thresholdSliderNode = RequireNode("gesture-threshold-slider");
+                    var nestedSliderNode = RequireNode("gesture-nested-slider");
                     var destinationNode = RequireNode("gesture-destination");
 
                     var providerDrag = await AvaScopeMcpTools.Input(
@@ -4377,6 +4449,66 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                     Assert.Equal("pointer_fallback", thresholdDrag.Value.Gesture!.ExecutionMode);
                     Assert.InRange(thresholdTravel, 200, thresholdBounds.Width);
                     Assert.Equal(1, thresholdCompletions);
+
+                    captureNestedPointer = false;
+                    var nestedDrag = await AvaScopeMcpTools.Input(
+                        client,
+                        runtime.SessionId.Value,
+                        topLevel.Id,
+                        InputActions.Drag,
+                        targetNodeId: nestedSliderNode.NodeId,
+                        gestureDirection: GestureDirections.End,
+                        gestureDistancePercentage: 100,
+                        gestureDurationMs: 50);
+                    Assert.True(nestedDrag.Success, nestedDrag.Error?.Message);
+                    Assert.True(nestedDrag.Value!.Handled);
+                    Assert.InRange(nestedTravel, 200, nestedDrag.Value.Gesture!.Path.SourceBounds.Width);
+                    Assert.Equal(1, nestedCompletions);
+                    Assert.False(nestedThumb.IsPressed);
+                    Assert.Null(nestedPointer!.Captured);
+
+                    captureNestedPointer = true;
+                    var captureLostBeforeSwipe = nestedCaptureLost;
+                    var nestedSwipe = await AvaScopeMcpTools.Input(
+                        client,
+                        runtime.SessionId.Value,
+                        topLevel.Id,
+                        InputActions.Swipe,
+                        targetNodeId: nestedSliderNode.NodeId,
+                        gestureDirection: GestureDirections.End,
+                        gestureDistancePercentage: 100,
+                        gestureDurationMs: 50);
+                    Assert.True(nestedSwipe.Success, nestedSwipe.Error?.Message);
+                    Assert.True(nestedSwipe.Value!.Handled);
+                    Assert.InRange(nestedTravel, 200, nestedSwipe.Value.Gesture!.Path.SourceBounds.Width);
+                    Assert.Equal(2, nestedCompletions);
+                    Assert.False(nestedThumb.IsPressed);
+                    Assert.Equal(captureLostBeforeSwipe + 1, nestedCaptureLost);
+                    Assert.Null(nestedPointer!.Captured);
+
+                    captureNestedPointer = false;
+                    var nestedBounds = nestedSwipe.Value.Gesture.Path.SourceBounds;
+                    var pointerDown = await AvaScopeMcpTools.Input(
+                        client,
+                        runtime.SessionId.Value,
+                        topLevel.Id,
+                        InputActions.PointerDown,
+                        nestedBounds.X + 1,
+                        nestedBounds.Y + nestedBounds.Height / 2);
+                    Assert.True(pointerDown.Success, pointerDown.Error?.Message);
+                    Assert.True(nestedThumb.IsPressed);
+
+                    var pointerUp = await AvaScopeMcpTools.Input(
+                        client,
+                        runtime.SessionId.Value,
+                        topLevel.Id,
+                        InputActions.PointerUp,
+                        nestedBounds.X + nestedBounds.Width - 1,
+                        nestedBounds.Y + nestedBounds.Height / 2);
+                    Assert.True(pointerUp.Success, pointerUp.Error?.Message);
+                    Assert.Equal(3, nestedCompletions);
+                    Assert.False(nestedThumb.IsPressed);
+                    Assert.Null(nestedPointer!.Captured);
 
                     var workflow = await AvaScopeMcpTools.RunWorkflow(
                         client,
@@ -4563,6 +4695,7 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                     Assert.Equal(BridgeErrorCodes.InvalidInputRequest, conflictingPath.Error!.Code);
 
                     var releasesBeforeCancellation = released;
+                    var captureLostBeforeCancellation = sourceCaptureLost;
                     using var cancellation = new CancellationTokenSource(80);
                     await Assert.ThrowsAnyAsync<OperationCanceledException>(() => client.InputAsync(
                         runtime.SessionId,
@@ -4573,6 +4706,8 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                         cancellationToken: cancellation.Token));
                     Dispatcher.UIThread.RunJobs();
                     Assert.Equal(releasesBeforeCancellation + 1, released);
+                    Assert.Equal(captureLostBeforeCancellation + 1, sourceCaptureLost);
+                    Assert.Null(sourcePointer!.Captured);
                 }
                 finally
                 {

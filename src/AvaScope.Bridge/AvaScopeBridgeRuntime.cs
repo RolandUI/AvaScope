@@ -48,7 +48,7 @@ public sealed class AvaScopeBridgeRuntime
     private const string MutationValueKindString = "string";
     private const string MutationValueKindThickness = "thickness";
     private readonly ConcurrentDictionary<int, WeakReference<TopLevel>> _registeredTopLevels = new();
-    private readonly ConcurrentDictionary<string, Pointer> _activePointers = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, ActivePointerState> _activePointers = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, AppliedRuntimeMutation> _activeMutations = new(StringComparer.Ordinal);
     private readonly ConcurrentQueue<RuntimeMutationReviewEntry> _mutationHistory = new();
     private readonly ConcurrentDictionary<long, RegisteredCustomAction> _customActions = new();
@@ -3395,9 +3395,16 @@ public sealed class AvaScopeBridgeRuntime
         var stopwatch = Stopwatch.StartNew();
         var pressed = false;
         var lastPoint = plan.Path.Points[0];
+        InputElement? pointerTarget = null;
         try
         {
-            await DispatchGesturePointerAsync(plan, pointer, plan.Path.Points[0], GesturePointerEvent.Pressed, cancellationToken);
+            pointerTarget = await DispatchGesturePointerAsync(
+                plan,
+                pointer,
+                pointerTarget,
+                plan.Path.Points[0],
+                GesturePointerEvent.Pressed,
+                cancellationToken);
             pressed = true;
 
             if (plan.Path.Points.Count == 1)
@@ -3415,9 +3422,10 @@ public sealed class AvaScopeBridgeRuntime
                         await Task.Delay(remaining, cancellationToken);
                     }
 
-                    await DispatchGesturePointerAsync(
+                    pointerTarget = await DispatchGesturePointerAsync(
                         plan,
                         pointer,
+                        pointerTarget,
                         plan.Path.Points[index],
                         GesturePointerEvent.Moved,
                         cancellationToken);
@@ -3425,13 +3433,21 @@ public sealed class AvaScopeBridgeRuntime
                 }
             }
 
-            await DispatchGesturePointerAsync(
-                plan,
-                pointer,
-                plan.Path.Points[^1],
-                GesturePointerEvent.Released,
-                cancellationToken);
-            pressed = false;
+            try
+            {
+                await DispatchGesturePointerAsync(
+                    plan,
+                    pointer,
+                    pointerTarget,
+                    plan.Path.Points[^1],
+                    GesturePointerEvent.Released,
+                    cancellationToken);
+            }
+            finally
+            {
+                pressed = false;
+            }
+
             stopwatch.Stop();
             return CoreResult<InputResponse>.Ok(CreateGestureResponse(
                 plan,
@@ -3446,6 +3462,7 @@ public sealed class AvaScopeBridgeRuntime
                 await DispatchGesturePointerAsync(
                     plan,
                     pointer,
+                    pointerTarget,
                     lastPoint,
                     GesturePointerEvent.Released,
                     CancellationToken.None);
@@ -3846,25 +3863,30 @@ public sealed class AvaScopeBridgeRuntime
             effectiveDurationMs: 0));
     }
 
-    private async Task DispatchGesturePointerAsync(
+    private async Task<InputElement> DispatchGesturePointerAsync(
         GesturePlan plan,
         Pointer pointer,
+        InputElement? pointerTarget,
         RuntimeVector vector,
         GesturePointerEvent pointerEvent,
         CancellationToken cancellationToken)
     {
-        void Dispatch()
+        InputElement Dispatch()
         {
             var point = new Point(vector.X, vector.Y);
-            var hitVisual = plan.TopLevel.GetVisualAt(point);
-            var target = pointer.Captured as InputElement
-                ?? hitVisual as InputElement
-                ?? hitVisual?.FindAncestorOfType<InputElement>()
-                ?? plan.Source.InputElement;
+            var target = pointer.Captured as InputElement ?? pointerTarget;
+            if (target is null)
+            {
+                var hitVisual = plan.TopLevel.GetVisualAt(point);
+                target = hitVisual as InputElement
+                    ?? hitVisual?.FindAncestorOfType<InputElement>()
+                    ?? plan.Source.InputElement;
+            }
+
             switch (pointerEvent)
             {
                 case GesturePointerEvent.Pressed:
-                    _activePointers[plan.TopLevelId] = pointer;
+                    _activePointers[plan.TopLevelId] = new ActivePointerState(pointer, target);
                     target.RaiseEvent(new PointerPressedEventArgs(
                         target,
                         pointer,
@@ -3873,7 +3895,7 @@ public sealed class AvaScopeBridgeRuntime
                         (ulong)Environment.TickCount64,
                         new PointerPointProperties(RawInputModifiers.LeftMouseButton, PointerUpdateKind.LeftButtonPressed),
                         KeyModifiers.None));
-                    break;
+                    return pointer.Captured as InputElement ?? target;
                 case GesturePointerEvent.Moved:
                     target.RaiseEvent(new PointerEventArgs(
                         InputElement.PointerMovedEvent,
@@ -3884,29 +3906,47 @@ public sealed class AvaScopeBridgeRuntime
                         (ulong)Environment.TickCount64,
                         new PointerPointProperties(RawInputModifiers.LeftMouseButton, PointerUpdateKind.Other),
                         KeyModifiers.None));
-                    break;
+                    return pointer.Captured as InputElement ?? target;
                 case GesturePointerEvent.Released:
-                    target.RaiseEvent(new PointerReleasedEventArgs(
-                        target,
-                        pointer,
-                        plan.TopLevel,
-                        point,
-                        (ulong)Environment.TickCount64,
-                        new PointerPointProperties(RawInputModifiers.None, PointerUpdateKind.LeftButtonReleased),
-                        KeyModifiers.None,
-                        MouseButton.Left));
-                    _activePointers.TryRemove(plan.TopLevelId, out _);
-                    break;
+                    try
+                    {
+                        target.RaiseEvent(new PointerReleasedEventArgs(
+                            target,
+                            pointer,
+                            plan.TopLevel,
+                            point,
+                            (ulong)Environment.TickCount64,
+                            new PointerPointProperties(RawInputModifiers.None, PointerUpdateKind.LeftButtonReleased),
+                            KeyModifiers.None,
+                            MouseButton.Left));
+                    }
+                    finally
+                    {
+                        try
+                        {
+                            if (pointer.Captured is not null)
+                            {
+                                pointer.Capture(null);
+                            }
+                        }
+                        finally
+                        {
+                            _activePointers.TryRemove(plan.TopLevelId, out _);
+                        }
+                    }
+
+                    return target;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(pointerEvent), pointerEvent, "Unknown gesture pointer event.");
             }
         }
 
         if (Dispatcher.UIThread.CheckAccess())
         {
-            Dispatch();
-            return;
+            return Dispatch();
         }
 
-        await Dispatcher.UIThread.InvokeAsync(
+        return await Dispatcher.UIThread.InvokeAsync(
             Dispatch,
             DispatcherPriority.Background,
             cancellationToken);
@@ -4027,6 +4067,8 @@ public sealed class AvaScopeBridgeRuntime
         double? PreviousRangeValue,
         double? NextRangeValue);
 
+    private sealed record ActivePointerState(Pointer Pointer, InputElement PressedTarget);
+
     private enum GesturePointerEvent
     {
         Pressed,
@@ -4098,9 +4140,33 @@ public sealed class AvaScopeBridgeRuntime
             return CoreResult<InputResponse>.Fail(point.Error!);
         }
 
-        var target = topLevel.GetVisualAt(point.Value);
-        var metadata = CreatePointerInputMetadata(topLevel, point.Value, target, null);
-        if (target is null)
+        var hitVisual = topLevel.GetVisualAt(point.Value);
+        var hitInputTarget = hitVisual as InputElement ?? hitVisual?.FindAncestorOfType<InputElement>();
+        Pointer pointer;
+        InputElement? inputTarget;
+
+        if (isPressed)
+        {
+            pointer = new Pointer(Pointer.GetNextFreeId(), PointerType.Mouse, isPrimary: true);
+            inputTarget = hitInputTarget;
+            if (inputTarget is not null)
+            {
+                _activePointers[topLevelId] = new ActivePointerState(pointer, inputTarget);
+            }
+        }
+        else if (_activePointers.TryRemove(topLevelId, out var activePointer))
+        {
+            pointer = activePointer.Pointer;
+            inputTarget = pointer.Captured as InputElement ?? activePointer.PressedTarget;
+        }
+        else
+        {
+            pointer = new Pointer(Pointer.GetNextFreeId(), PointerType.Mouse, isPrimary: true);
+            inputTarget = hitInputTarget;
+        }
+
+        var metadata = CreatePointerInputMetadata(topLevel, point.Value, hitVisual, inputTarget);
+        if (inputTarget is null)
         {
             return CoreResult<InputResponse>.Ok(new InputResponse(
                 SessionId,
@@ -4111,19 +4177,8 @@ public sealed class AvaScopeBridgeRuntime
                 metadata: metadata));
         }
 
-        var inputTarget = target as InputElement ?? target.FindAncestorOfType<InputElement>();
-        if (inputTarget is null)
-        {
-            return CoreResult<InputResponse>.Fail(new CoreError(
-                BridgeErrorCodes.UnsupportedInputAction,
-                "Pointer button target is not an input element."));
-        }
-
         if (isPressed)
         {
-            var pointer = new Pointer(Pointer.GetNextFreeId(), PointerType.Mouse, isPrimary: true);
-            _activePointers[topLevelId] = pointer;
-
             inputTarget.RaiseEvent(new PointerPressedEventArgs(
                 inputTarget,
                 pointer,
@@ -4135,20 +4190,25 @@ public sealed class AvaScopeBridgeRuntime
         }
         else
         {
-            if (!_activePointers.TryRemove(topLevelId, out var pointer))
+            try
             {
-                pointer = new Pointer(Pointer.GetNextFreeId(), PointerType.Mouse, isPrimary: true);
+                inputTarget.RaiseEvent(new PointerReleasedEventArgs(
+                    inputTarget,
+                    pointer,
+                    topLevel,
+                    point.Value,
+                    (ulong)Environment.TickCount64,
+                    new PointerPointProperties(RawInputModifiers.None, PointerUpdateKind.LeftButtonReleased),
+                    KeyModifiers.None,
+                    MouseButton.Left));
             }
-
-            inputTarget.RaiseEvent(new PointerReleasedEventArgs(
-                inputTarget,
-                pointer,
-                topLevel,
-                point.Value,
-                (ulong)Environment.TickCount64,
-                new PointerPointProperties(RawInputModifiers.None, PointerUpdateKind.LeftButtonReleased),
-                KeyModifiers.None,
-                MouseButton.Left));
+            finally
+            {
+                if (pointer.Captured is not null)
+                {
+                    pointer.Capture(null);
+                }
+            }
         }
 
         return CoreResult<InputResponse>.Ok(new InputResponse(
@@ -4160,7 +4220,7 @@ public sealed class AvaScopeBridgeRuntime
             CreateNodeId(inputTarget, TreeKinds.Visual),
             CreateNodeTarget(topLevelId, TreeKinds.Visual, topLevel, inputTarget),
             pointerButton: "left",
-            metadata: CreatePointerInputMetadata(topLevel, point.Value, target, inputTarget)));
+            metadata: metadata));
     }
 
     private CoreResult<InputResponse> Click(
