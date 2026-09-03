@@ -48,9 +48,48 @@ The roadmap below records the release-shaped plan through `v1.0.0`. It is intent
 - `v1.0.0` is released.
 - `v1.4.0` is released.
 - `v1.4.1` is released.
+- `v1.4.2` is in progress.
 - Each release must preserve the current product boundaries: MCP and CLI stay adapters over Core, runtime bridge activation stays opt-in and local-only, PreviewHost stays isolated from the MCP server, and private Avalonia/runtime hooks remain out of the default path.
 - Every release must include targeted tests, full build/test validation, release dry-run validation, documentation updates, and explicit deferrals.
 - A release may be split into a patch release if a P0/P1 regression blocks users or CI, but patch scope must remain defect-focused.
+
+## Active Target: v1.4.2
+
+- Release: `v1.4.2`
+- Target Version: `1.4.2`
+- Release State: `In Progress`
+- Scope Lock: `2026-09-03`
+- GitHub Milestone: `v1.4.2`
+- GitHub Issues: #112 through #114
+- Previous Release: `v1.4.1`
+
+### v1.4.2 Release Goals
+
+The `v1.4.2` priority patch release corrects two macOS runtime regressions reported against `v1.4.1` without changing the public protocol.
+
+1. `RG-1.4.2-1 Concurrent Bridge IPC`: same-session concurrent clients receive one complete, request-id-matched response each while the bridge continues accepting connections during request processing.
+2. `RG-1.4.2-2 Captured Gesture Lifecycle`: pointer-fallback drag and swipe retain the originally pressed or currently captured input target through move and release, then clean up residual capture.
+3. `RG-1.4.2-3 Verified Priority Publication`: consolidated local Release validation, one combined hosted Windows/Linux/native-macOS CI run, packaged workflow gates, artifact verification, and publish dry-runs pass before the exact `Release 1.4.2` commit is published.
+
+### v1.4.2 Milestone Map
+
+- #112 `Concurrent bridge requests intermittently return an empty IPC response`; Status: `In Progress`.
+- #113 `Synthetic drag and swipe do not complete a templated custom slider and may leave its inner control pressed`; Status: `Ready`.
+- #114 `Release v1.4.2`; Status: `Ready`.
+
+### Explicit Non-Goals
+
+- New remote transports, unauthenticated access, or changes to the local-only bridge boundary.
+- Public gesture schema changes, automatic thumb discovery, or native drag-and-drop payload exchange.
+- Redefining `handled` as proof of an application postcondition.
+
+### Required Validation
+
+- Repeated concurrent same-session Bridge IPC requests, including mixed read-only and validation/no-op operations.
+- Nested templated-control drag/swipe regressions that assert completion, release routing, pressed-state cleanup, and cancellation cleanup.
+- One consolidated local full Release build/test pass after both fixes are ready.
+- One combined hosted Windows, Linux, and native macOS CI run before release packaging.
+- Package, installer, manifest, packaged runtime workflow, NuGet, and GitHub Release dry-runs before the exact `Release 1.4.2` commit.
 
 ## Released Target: v1.4.1
 
