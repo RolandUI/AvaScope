@@ -48,17 +48,20 @@ The roadmap below records the release-shaped plan through `v1.0.0`. It is intent
 - `v1.0.0` is released.
 - `v1.4.0` is released.
 - `v1.4.1` is released.
-- `v1.4.2` is a release candidate.
+- `v1.4.2` is released.
 - Each release must preserve the current product boundaries: MCP and CLI stay adapters over Core, runtime bridge activation stays opt-in and local-only, PreviewHost stays isolated from the MCP server, and private Avalonia/runtime hooks remain out of the default path.
 - Every release must include targeted tests, full build/test validation, release dry-run validation, documentation updates, and explicit deferrals.
 - A release may be split into a patch release if a P0/P1 regression blocks users or CI, but patch scope must remain defect-focused.
 
-## Current Release Target: v1.4.2
+## Released Target: v1.4.2
 
 - Release: `v1.4.2`
 - Target Version: `1.4.2`
-- Release State: `Release Candidate`
+- Release State: `Released`
+- Release Commit: `66d23c040e4bf16ed66b0b43e7021507966347a9` (`Release 1.4.2`)
 - Scope Lock: `2026-09-03`
+- Published At: `2026-09-03T08:22:33Z`
+- GitHub Release: https://github.com/RolandUI/AvaScope/releases/tag/v1.4.2
 - GitHub Milestone: `v1.4.2`
 - GitHub Issues: #112 through #114
 - Previous Release: `v1.4.1`
@@ -75,7 +78,7 @@ The `v1.4.2` priority patch release corrects two macOS runtime regressions repor
 
 - #112 `Concurrent bridge requests intermittently return an empty IPC response`; Status: `Done`.
 - #113 `Synthetic drag and swipe do not complete a templated custom slider and may leave its inner control pressed`; Status: `Done`.
-- #114 `Release v1.4.2`; Status: `In Progress`.
+- #114 `Release v1.4.2`; Status: `Done`.
 
 ### Explicit Non-Goals
 
@@ -93,6 +96,7 @@ The `v1.4.2` priority patch release corrects two macOS runtime regressions repor
 
 ### v1.4.2 Implementation Validation
 
+- `2026-09-03`: Published v1.4.2 from exact release commit `66d23c040e4bf16ed66b0b43e7021507966347a9` through successful Release workflow `33732182248`. The remote tag resolves to that commit and the public, non-prerelease GitHub Release contains all 12 expected assets. A fresh download verified every one of the 11 manifest entries by exact name, byte size, and SHA-256 plus all three package metadata versions. NuGet.org exposes Protocol, Core, and Bridge `1.4.2` as latest; fresh CDN packages pass repository-signature verification and every unsigned entry matches the GitHub Release package. Workflow logs confirm successful GitHub Packages publication for all three packages.
 - `2026-09-03`: The v1.4.2 release-candidate gate passed through `59bb5e0` with exact version `1.4.2` staged. The consolidated local Release suite passed `505/505` once after both fixes. Hosted CI `33729834402` passed the complete Windows, Linux, and native macOS gates. `eng/create-local-release.ps1 -SkipTests` then rebuilt the exact version with `0` warnings/errors and produced three NuGet packages, four framework-dependent ZIPs, four installers, and the verified 11-entry manifest; Windows installer, packaged doctor/preview/lifecycle, and packaged complex CLI/MCP repeat-plus-redacted-failure gates passed. NuGet and the 12-asset GitHub Release dry-runs passed without publication. The remote `v1.4.2` tag and release remain absent pending the exact release commit.
 - `2026-09-03`: Completed #112 and #113 through `a1ee8d1`. Local `dotnet test AvaScope.slnx -c Release --nologo` passed all `505` tests. Combined hosted CI `33729834402` passed the complete Windows, Linux, and native macOS gates, including source and packaged complex CLI/MCP workflows, installers, native runtime/Retina checks, and artifact verification. Started release tracker #114 for exact-version packaging, dry-runs, and publication.
 
