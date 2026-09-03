@@ -276,6 +276,11 @@ public sealed class RuntimeEvidencePolicyEnforcer
                 return RedactionFailed<string>();
             }
 
+            SanitizeReferencedArtifacts(
+                node,
+                new HashSet<string>(OperatingSystem.IsWindows()
+                    ? StringComparer.OrdinalIgnoreCase
+                    : StringComparer.Ordinal));
             SanitizeNode(node, excludedControl: false);
             return CoreResult<string>.Ok(node.ToJsonString(JsonOptions));
         }
@@ -423,6 +428,13 @@ public sealed class RuntimeEvidencePolicyEnforcer
                     }
 
                     masks.Add(ToPixelRegion(node.Bounds, rootBounds, screenshot));
+                }
+
+                var responseArtifacts = SanitizeReferencedArtifacts(tree.Value);
+                if (!responseArtifacts.Success)
+                {
+                    DeleteUnmasked(screenshot.FilePath);
+                    return MaskFailed("Screenshot masking could not sanitize its bounded tree fallback; the unmasked artifact was removed.");
                 }
             }
 
@@ -630,6 +642,96 @@ public sealed class RuntimeEvidencePolicyEnforcer
                 }
 
                 break;
+        }
+    }
+
+    private void SanitizeReferencedArtifacts(JsonNode node, HashSet<string> visited)
+    {
+        switch (node)
+        {
+            case JsonObject obj:
+                foreach (var property in obj.ToArray())
+                {
+                    if (string.Equals(property.Key, "artifactPath", StringComparison.Ordinal)
+                        && obj.ContainsKey("maxInlineBytes")
+                        && obj.ContainsKey("truncated")
+                        && property.Value is JsonValue pathValue
+                        && pathValue.TryGetValue<string>(out var referencedPath)
+                        && !string.IsNullOrWhiteSpace(referencedPath))
+                    {
+                        SanitizeReferencedArtifact(referencedPath, visited);
+                    }
+
+                    if (property.Value is not null)
+                    {
+                        SanitizeReferencedArtifacts(property.Value, visited);
+                    }
+                }
+
+                break;
+            case JsonArray array:
+                foreach (var item in array)
+                {
+                    if (item is not null)
+                    {
+                        SanitizeReferencedArtifacts(item, visited);
+                    }
+                }
+
+                break;
+        }
+    }
+
+    private CoreResult<bool> SanitizeReferencedArtifacts<T>(T value)
+    {
+        try
+        {
+            var node = JsonSerializer.SerializeToNode(value, JsonOptions);
+            if (node is null)
+            {
+                return RedactionFailed<bool>();
+            }
+
+            SanitizeReferencedArtifacts(
+                node,
+                new HashSet<string>(OperatingSystem.IsWindows()
+                    ? StringComparer.OrdinalIgnoreCase
+                    : StringComparer.Ordinal));
+            return CoreResult<bool>.Ok(true);
+        }
+        catch
+        {
+            return RedactionFailed<bool>();
+        }
+    }
+
+    private void SanitizeReferencedArtifact(string referencedPath, HashSet<string> visited)
+    {
+        var fullPath = Path.GetFullPath(referencedPath);
+        if (_runDirectory is null || !IsSameOrDescendant(_runDirectory, fullPath))
+        {
+            throw new InvalidOperationException("A response artifact escaped the policy-owned workflow directory.");
+        }
+
+        if (!visited.Add(fullPath) || !File.Exists(fullPath))
+        {
+            return;
+        }
+
+        try
+        {
+            EnsureNoReparseTraversal(fullPath, _runDirectory);
+            EnsureMarkerIsNotReparsePoint(fullPath);
+            var artifact = JsonNode.Parse(File.ReadAllText(fullPath, Encoding.UTF8))
+                ?? throw new JsonException("A response artifact contained no JSON value.");
+            SanitizeReferencedArtifacts(artifact, visited);
+            SanitizeNode(artifact, excludedControl: false);
+            File.WriteAllText(fullPath, artifact.ToJsonString(JsonOptions), Encoding.UTF8);
+        }
+        catch
+        {
+            DeleteUnmasked(fullPath);
+            throw;
         }
     }
 

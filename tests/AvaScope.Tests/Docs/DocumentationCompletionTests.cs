@@ -92,10 +92,13 @@ public sealed class DocumentationCompletionTests
         Assert.Contains("press_and_hold", userGuide, StringComparison.Ordinal);
         Assert.Contains("IRangeValueProvider", userGuide, StringComparison.Ordinal);
         Assert.Contains("destinationSelector", userGuide, StringComparison.Ordinal);
+        Assert.Contains("AvaScope.ComplexWorkflowApp", userGuide, StringComparison.Ordinal);
+        Assert.Contains("test-complex-workflow.ps1", userGuide, StringComparison.Ordinal);
 
         var agentWorkflow = File.ReadAllText(Path.Combine(root, "docs", "AGENT_WORKFLOW.md"));
         Assert.Contains("--distance-percent", agentWorkflow, StringComparison.Ordinal);
         Assert.Contains("cancellation releases a pressed pointer", agentWorkflow, StringComparison.Ordinal);
+        Assert.Contains("test-complex-workflow.ps1", agentWorkflow, StringComparison.Ordinal);
 
         Assert.Contains("# AvaScope Upgrade And Compatibility", upgrade, StringComparison.Ordinal);
         Assert.Contains("AvaScope.Protocol", upgrade, StringComparison.Ordinal);

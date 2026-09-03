@@ -9,10 +9,12 @@
     <Project Path="src/AvaScope.Protocol/AvaScope.Protocol.csproj" />
   </Folder>
   <Folder Name="/samples/">
+    <Project Path="samples/AvaScope.ComplexWorkflowApp/AvaScope.ComplexWorkflowApp.csproj" />
     <Project Path="samples/AvaScope.GettingStartedApp/AvaScope.GettingStartedApp.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/AvaScope.LifecycleTestApp/AvaScope.LifecycleTestApp.csproj" />
+    <Project Path="tests/AvaScope.McpScenarioClient/AvaScope.McpScenarioClient.csproj" />
     <Project Path="tests/AvaScope.Tests/AvaScope.Tests.csproj" />
   </Folder>
 </Solution>

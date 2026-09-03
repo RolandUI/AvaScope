@@ -289,6 +289,15 @@ For CI report validation, run a sample baseline check with `--report <report.jso
 
 For the packaged lifecycle gate, run `pwsh -NoProfile -File ./eng/test-packaged-lifecycle.ps1 -CliAssembly <framework-dependent-package>/avascope.dll -Configuration Release` on Windows, Linux, and macOS. The gate must complete explicit build, direct project launch, bridge readiness and attach, top-level discovery, workflow execution, local evidence, and exact owned-process cleanup while proving launch environment values are absent from normal JSON output.
 
+For the v1.4 complex workflow gate, run the source and packaged CLI/MCP surfaces. Each invocation performs at least two successful runs with alternating optional UI plus one intentional failure:
+
+```powershell
+pwsh -NoProfile -File ./eng/test-complex-workflow.ps1 -CliAssembly <cli>/avascope.dll -Surface Cli -Configuration Release
+pwsh -NoProfile -File ./eng/test-complex-workflow.ps1 -CliAssembly <cli>/avascope.dll -Surface Mcp -McpAssembly <mcp>/AvaScope.Mcp.dll -McpScenarioClientAssembly ./tests/AvaScope.McpScenarioClient/bin/Release/net10.0/AvaScope.McpScenarioClient.dll -Configuration Release
+```
+
+The gate must prove two distinct aliases resolve without persisted runtime ids; provider and bounds-derived drag modes both execute without caller coordinates; the custom action, bounded retry, conditional branches, fragments, typed waits, automatic screenshots, and cross-window verification pass; JSON/Markdown/JUnit and the intentional failure screenshot are redacted; response-budget fallback JSON contains no configured secret; count retention removes only marked prior runs; the launched process is terminated; and unrelated files and the calling process remain. CI runs the source gate on Windows and the packaged gate on Windows, Linux, and macOS; the existing native macOS runtime gate remains responsible for Retina scaling coverage.
+
 For the v1.4 runtime evidence privacy and action policy, run the focused policy and real Bridge evidence tests. They must cover inline/tree/JSON/Markdown/JUnit/audit redaction, explicit and control-derived screenshot masks, fail-closed removal, safe retention ownership, path traversal, action/gesture/custom-action gates, foreign session/PID authorization, and the unavailable network-upload boundary:
 
 ```powershell

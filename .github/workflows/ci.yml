@@ -106,6 +106,21 @@ jobs:
         if: ${{ steps.changes.outputs.requires_validation == 'true' }}
         run: dotnet test AvaScope.slnx -c Release --no-build
 
+      - name: Validate source complex workflows through CLI and MCP
+        if: ${{ steps.changes.outputs.requires_validation == 'true' }}
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -File ./eng/test-complex-workflow.ps1 `
+            -CliAssembly ./src/AvaScope.Cli/bin/Release/net10.0/avascope.dll `
+            -Surface Cli `
+            -Configuration Release
+          pwsh -NoProfile -File ./eng/test-complex-workflow.ps1 `
+            -CliAssembly ./src/AvaScope.Cli/bin/Release/net10.0/avascope.dll `
+            -Surface Mcp `
+            -McpAssembly ./src/AvaScope.Mcp/bin/Release/net10.0/AvaScope.Mcp.dll `
+            -McpScenarioClientAssembly ./tests/AvaScope.McpScenarioClient/bin/Release/net10.0/AvaScope.McpScenarioClient.dll `
+            -Configuration Release
+
       - name: Pack libraries
         if: ${{ steps.changes.outputs.requires_validation == 'true' }}
         shell: pwsh
@@ -126,6 +141,21 @@ jobs:
         if: ${{ steps.changes.outputs.requires_validation == 'true' }}
         shell: pwsh
         run: pwsh -NoProfile -File ./eng/test-packaged-lifecycle.ps1 -CliAssembly ./artifacts/executables/avascope-win-x64-framework-dependent/avascope.dll -Configuration Release
+
+      - name: Test packaged Windows complex workflows through CLI and MCP
+        if: ${{ steps.changes.outputs.requires_validation == 'true' }}
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -File ./eng/test-complex-workflow.ps1 `
+            -CliAssembly ./artifacts/executables/avascope-win-x64-framework-dependent/avascope.dll `
+            -Surface Cli `
+            -Configuration Release
+          pwsh -NoProfile -File ./eng/test-complex-workflow.ps1 `
+            -CliAssembly ./artifacts/executables/avascope-win-x64-framework-dependent/avascope.dll `
+            -Surface Mcp `
+            -McpAssembly ./artifacts/executables/avascope-win-x64-framework-dependent/AvaScope.Mcp.dll `
+            -McpScenarioClientAssembly ./tests/AvaScope.McpScenarioClient/bin/Release/net10.0/AvaScope.McpScenarioClient.dll `
+            -Configuration Release
 
       - name: Install Inno Setup
         if: ${{ steps.changes.outputs.requires_validation == 'true' }}
@@ -196,6 +226,20 @@ jobs:
         shell: pwsh
         run: pwsh -NoProfile -File ./eng/test-packaged-lifecycle.ps1 -CliAssembly ./artifacts/executables/avascope-linux-x64-framework-dependent/avascope.dll -Configuration Release
 
+      - name: Test packaged Linux complex workflows through CLI and MCP
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -File ./eng/test-complex-workflow.ps1 `
+            -CliAssembly ./artifacts/executables/avascope-linux-x64-framework-dependent/avascope.dll `
+            -Surface Cli `
+            -Configuration Release
+          pwsh -NoProfile -File ./eng/test-complex-workflow.ps1 `
+            -CliAssembly ./artifacts/executables/avascope-linux-x64-framework-dependent/avascope.dll `
+            -Surface Mcp `
+            -McpAssembly ./artifacts/executables/avascope-linux-x64-framework-dependent/AvaScope.Mcp.dll `
+            -McpScenarioClientAssembly ./tests/AvaScope.McpScenarioClient/bin/Release/net10.0/AvaScope.McpScenarioClient.dll `
+            -Configuration Release
+
       - name: Package Linux installer
         shell: pwsh
         run: pwsh -NoProfile -File ./eng/package-installers.ps1 -RuntimeIdentifiers linux-x64
@@ -250,6 +294,16 @@ jobs:
           pwsh -NoProfile -File ./eng/package-executables.ps1 -RuntimeIdentifiers "$runtime_identifier"
           pwsh -NoProfile -File ./eng/test-packaged-lifecycle.ps1 \
             -CliAssembly "./artifacts/executables/avascope-$runtime_identifier-framework-dependent/avascope.dll" \
+            -Configuration Release
+          pwsh -NoProfile -File ./eng/test-complex-workflow.ps1 \
+            -CliAssembly "./artifacts/executables/avascope-$runtime_identifier-framework-dependent/avascope.dll" \
+            -Surface Cli \
+            -Configuration Release
+          pwsh -NoProfile -File ./eng/test-complex-workflow.ps1 \
+            -CliAssembly "./artifacts/executables/avascope-$runtime_identifier-framework-dependent/avascope.dll" \
+            -Surface Mcp \
+            -McpAssembly "./artifacts/executables/avascope-$runtime_identifier-framework-dependent/AvaScope.Mcp.dll" \
+            -McpScenarioClientAssembly ./tests/AvaScope.McpScenarioClient/bin/Release/net10.0/AvaScope.McpScenarioClient.dll \
             -Configuration Release
           pwsh -NoProfile -File ./eng/package-installers.ps1 -RuntimeIdentifiers "$runtime_identifier"
           dotnet pack src/AvaScope.Protocol/AvaScope.Protocol.csproj -c Release --no-build --output artifacts/packages

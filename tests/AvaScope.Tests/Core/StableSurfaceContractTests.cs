@@ -296,6 +296,32 @@ public sealed class StableSurfaceContractTests
         Assert.Contains("preview", smoke, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void CiRunsRepeatableComplexWorkflowAcrossSourcePackagedCliAndMcpSurfaces()
+    {
+        var root = FindRepositoryRoot();
+        var workflow = File.ReadAllText(Path.Combine(root, ".github", "workflows", "ci.yml"));
+        var smoke = File.ReadAllText(Path.Combine(root, "eng", "test-complex-workflow.ps1"));
+
+        Assert.Contains("Validate source complex workflows through CLI and MCP", workflow, StringComparison.Ordinal);
+        Assert.Contains("Test packaged Windows complex workflows through CLI and MCP", workflow, StringComparison.Ordinal);
+        Assert.Contains("Test packaged Linux complex workflows through CLI and MCP", workflow, StringComparison.Ordinal);
+        Assert.Equal(8, workflow.Split("-File ./eng/test-complex-workflow.ps1", StringSplitOptions.None).Length - 1);
+        Assert.Contains("-Surface Cli", workflow, StringComparison.Ordinal);
+        Assert.Contains("-Surface Mcp", workflow, StringComparison.Ordinal);
+        Assert.Contains("AvaScope.McpScenarioClient.dll", workflow, StringComparison.Ordinal);
+        Assert.Contains("AvaScope Complex Workflow", smoke, StringComparison.Ordinal);
+        Assert.Contains("AvaScope Complex Details", smoke, StringComparison.Ordinal);
+        Assert.Contains("workflow-standard-slider", smoke, StringComparison.Ordinal);
+        Assert.Contains("workflow-drag-source", smoke, StringComparison.Ordinal);
+        Assert.Contains("workflow.commit", smoke, StringComparison.Ordinal);
+        Assert.Contains("retry_until", smoke, StringComparison.Ordinal);
+        Assert.Contains("captureAfterEachStep = $true", smoke, StringComparison.Ordinal);
+        Assert.Contains("retentionMaxOwnedRuns = 1", smoke, StringComparison.Ordinal);
+        Assert.Contains("Failure evidence leaked", smoke, StringComparison.Ordinal);
+        Assert.Contains("runtime ids, or fixed sleeps", smoke, StringComparison.Ordinal);
+    }
+
     private static IReadOnlyList<string> ReadRegexGroupValues(string path, string pattern)
     {
         var source = File.ReadAllText(path);

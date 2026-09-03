@@ -97,6 +97,63 @@ public sealed class RuntimeEvidencePolicyEnforcerTests : IDisposable
     }
 
     [Fact]
+    public void SanitizeRedactsOwnedResponseBudgetFallbackArtifacts()
+    {
+        var run = Path.Combine(_directory, "root", "run");
+        var enforcer = new RuntimeEvidencePolicyEnforcer(CreatePolicy(
+            redactedText: ["budget-secret"],
+            excludedControlAutomationIds: ["private-control"]));
+        Assert.True(enforcer.PrepareRun(run, [], "request").Success);
+        var artifactPath = Path.Combine(run, "response-artifacts", "tree.json");
+        Directory.CreateDirectory(Path.GetDirectoryName(artifactPath)!);
+        File.WriteAllText(
+            artifactPath,
+            "{\"automationId\":\"private-control\",\"text\":\"budget-secret\",\"details\":\"must-not-survive\"}");
+        var value = new
+        {
+            responseBudget = new
+            {
+                maxInlineBytes = 1024,
+                artifactPath,
+                truncated = true
+            }
+        };
+
+        var sanitized = enforcer.SanitizeJson(value);
+
+        Assert.True(sanitized.Success, sanitized.Error?.Message);
+        var artifact = File.ReadAllText(artifactPath);
+        Assert.DoesNotContain("budget-secret", artifact, StringComparison.Ordinal);
+        Assert.DoesNotContain("private-control", artifact, StringComparison.Ordinal);
+        Assert.DoesNotContain("must-not-survive", artifact, StringComparison.Ordinal);
+        Assert.Contains("[EXCLUDED]", artifact, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SanitizeRejectsResponseBudgetFallbackOutsideOwnedRun()
+    {
+        var run = Path.Combine(_directory, "root", "run");
+        var outsidePath = Path.Combine(_directory, "outside-response.json");
+        var enforcer = new RuntimeEvidencePolicyEnforcer(CreatePolicy(redactedText: ["outside-secret"]));
+        Assert.True(enforcer.PrepareRun(run, [], "request").Success);
+        File.WriteAllText(outsidePath, "{\"text\":\"outside-secret\"}");
+
+        var sanitized = enforcer.SanitizeJson(new
+        {
+            responseBudget = new
+            {
+                maxInlineBytes = 1024,
+                artifactPath = outsidePath,
+                truncated = true
+            }
+        });
+
+        Assert.False(sanitized.Success);
+        Assert.Equal(CoreErrorCodes.RuntimeEvidenceRedactionFailed, sanitized.Error!.Code);
+        Assert.Contains("outside-secret", File.ReadAllText(outsidePath), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task ScreenshotMaskingBlacksConfiguredRegions()
     {
         var root = Path.Combine(_directory, "root");

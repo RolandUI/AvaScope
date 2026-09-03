@@ -234,6 +234,8 @@ For bounded composition, use typed `if` steps with `then`/`else`, leaf `optional
 
 For observe-act-verify, put `verify` only on a side-effecting semantic action. Use its typed `condition`, optional observation `selector`/`topLevelAlias`, and bounded timeout; enable pre/post screenshots only when visual evidence is necessary. Add request `evidence` when failures must be self-explaining. Start with `failureEvidence.status` and `unavailableEvidence`, then inspect the referenced inspection, bounded visual tree, selector candidates, active top levels, adjacent workflow context, and screenshot. Use `reportPack` JSON for machine processing, Markdown for handoff, and JUnit for CI; their workflow and step status must agree. A `partial` artifact status means the action/verification result is still authoritative and the missing evidence is named explicitly.
 
+Use `eng/test-complex-workflow.ps1` as the repository reference before release. Run it at least twice per surface against source and packaged assemblies. Its requests intentionally contain no coordinates, fixed `wait` step, persisted node id, or persisted top-level id; it alternates present and absent optional UI, and it verifies both the successful multi-window path and an intentional redacted failure. Treat any secret found in a referenced response-budget fallback, report, timeline, audit, build/launch log, or failure JSON as a gate failure even when the inline response is clean.
+
 Runtime input is intentionally narrow, local-only, and non-destructive. Unsupported actions return structured errors.
 
 For hover, tooltip, popup, or flyout failures, use a pointer diagnostics request instead of trying to infer everything from one screenshot:

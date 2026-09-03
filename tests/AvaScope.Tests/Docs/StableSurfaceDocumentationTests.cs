@@ -47,6 +47,8 @@ public sealed class StableSurfaceDocumentationTests
         Assert.Contains("RuntimeEvidencePolicy", stableSurface, StringComparison.Ordinal);
         Assert.Contains("action-audit.jsonl", stableSurface, StringComparison.Ordinal);
         Assert.Contains("runtime_evidence_*", stableSurface, StringComparison.Ordinal);
+        Assert.Contains("responseBudget.artifactPath", stableSurface, StringComparison.Ordinal);
+        Assert.Contains("test-complex-workflow.ps1", stableSurface, StringComparison.Ordinal);
         Assert.Contains("terminateLaunchedProcess", stableSurface, StringComparison.Ordinal);
         Assert.Contains("failureStage", stableSurface, StringComparison.Ordinal);
         Assert.Contains("process start time", stableSurface, StringComparison.OrdinalIgnoreCase);

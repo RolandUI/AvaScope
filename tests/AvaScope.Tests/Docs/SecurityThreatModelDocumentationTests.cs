@@ -27,6 +27,7 @@ public sealed class SecurityThreatModelDocumentationTests
         Assert.Contains("environment values", document, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("PID-reused", document, StringComparison.Ordinal);
         Assert.Contains("runtime_evidence_redaction_failed", document, StringComparison.Ordinal);
+        Assert.Contains("responseBudget.artifactPath", document, StringComparison.Ordinal);
         Assert.Contains("networkUpload: true", document, StringComparison.Ordinal);
         Assert.Contains("reparse points", document, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("TODO", document, StringComparison.OrdinalIgnoreCase);

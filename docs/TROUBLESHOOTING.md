@@ -36,6 +36,13 @@ Use this when an agent workflow fails and the next action is not obvious from th
 - Do not update committed baselines from CI. Refresh baselines locally or through a reviewed workflow.
 - If report paths are missing, confirm `--report`, `--report-pack`, `--out-dir`, and `--diff-dir` point to writable local directories.
 
+## Complex Workflow Release Gate
+
+- If `test-complex-workflow.ps1` fails only when optional UI is absent, inspect the `optional-ui-branch` result. The condition targets the always-present `workflow-optional-state` marker; selecting the optional button itself would turn an expected false branch into a missing-selector error.
+- If a run returns a bounded response with no inline steps, read the policy-owned `reports/workflow-report.json` or `responseBudget.artifactPath`. The release gate validates the full report instead of treating inline truncation as missing execution.
+- `runtime_evidence_redaction_failed` while collecting a large tree can mean a response-budget fallback escaped `ownedEvidenceRoot`. Keep the scenario output, isolated state, manifest, lifecycle logs, and report directories beneath the marked run; do not weaken or bypass the ownership check.
+- For MCP parity failures, verify the test client points to the intended `AvaScope.Mcp.dll`, while `CliAssembly` and the complex sample use the same build configuration. The stdio client sends the exact structured scenario request rather than shelling back into the CLI.
+
 ## Packages And Release Artifacts
 
 - Framework-dependent ZIPs require a compatible local .NET runtime. Run `avascope doctor` from the extracted ZIP before using preview or MCP commands.
