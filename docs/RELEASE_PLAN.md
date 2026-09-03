@@ -48,16 +48,16 @@ The roadmap below records the release-shaped plan through `v1.0.0`. It is intent
 - `v1.0.0` is released.
 - `v1.4.0` is released.
 - `v1.4.1` is released.
-- `v1.4.2` is in progress.
+- `v1.4.2` is a release candidate.
 - Each release must preserve the current product boundaries: MCP and CLI stay adapters over Core, runtime bridge activation stays opt-in and local-only, PreviewHost stays isolated from the MCP server, and private Avalonia/runtime hooks remain out of the default path.
 - Every release must include targeted tests, full build/test validation, release dry-run validation, documentation updates, and explicit deferrals.
 - A release may be split into a patch release if a P0/P1 regression blocks users or CI, but patch scope must remain defect-focused.
 
-## Active Target: v1.4.2
+## Current Release Target: v1.4.2
 
 - Release: `v1.4.2`
 - Target Version: `1.4.2`
-- Release State: `In Progress`
+- Release State: `Release Candidate`
 - Scope Lock: `2026-09-03`
 - GitHub Milestone: `v1.4.2`
 - GitHub Issues: #112 through #114
@@ -93,6 +93,7 @@ The `v1.4.2` priority patch release corrects two macOS runtime regressions repor
 
 ### v1.4.2 Implementation Validation
 
+- `2026-09-03`: The v1.4.2 release-candidate gate passed through `59bb5e0` with exact version `1.4.2` staged. The consolidated local Release suite passed `505/505` once after both fixes. Hosted CI `33729834402` passed the complete Windows, Linux, and native macOS gates. `eng/create-local-release.ps1 -SkipTests` then rebuilt the exact version with `0` warnings/errors and produced three NuGet packages, four framework-dependent ZIPs, four installers, and the verified 11-entry manifest; Windows installer, packaged doctor/preview/lifecycle, and packaged complex CLI/MCP repeat-plus-redacted-failure gates passed. NuGet and the 12-asset GitHub Release dry-runs passed without publication. The remote `v1.4.2` tag and release remain absent pending the exact release commit.
 - `2026-09-03`: Completed #112 and #113 through `a1ee8d1`. Local `dotnet test AvaScope.slnx -c Release --nologo` passed all `505` tests. Combined hosted CI `33729834402` passed the complete Windows, Linux, and native macOS gates, including source and packaged complex CLI/MCP workflows, installers, native runtime/Retina checks, and artifact verification. Started release tracker #114 for exact-version packaging, dry-runs, and publication.
 
 ## Released Target: v1.4.1
