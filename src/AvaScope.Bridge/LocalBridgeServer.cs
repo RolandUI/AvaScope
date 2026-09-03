@@ -8,11 +8,14 @@ namespace AvaScope.Bridge;
 
 internal sealed class LocalBridgeServer : IDisposable
 {
+    private const int MaximumConcurrentConnections = 4;
     private readonly CancellationTokenSource _cancellation = new();
+    private readonly SemaphoreSlim _connectionSlots = new(MaximumConcurrentConnections);
     private readonly object _pipeSyncRoot = new();
+    private readonly HashSet<NamedPipeServerStream> _activePipes = [];
+    private readonly HashSet<Task> _connectionTasks = [];
     private readonly AvaScopeBridgeRuntime _runtime;
     private readonly Task _serverTask;
-    private NamedPipeServerStream? _activePipe;
 
     private LocalBridgeServer(AvaScopeBridgeRuntime runtime, string pipeName, string manifestPath)
     {
@@ -56,9 +59,15 @@ internal sealed class LocalBridgeServer : IDisposable
     {
         _cancellation.Cancel();
 
+        NamedPipeServerStream[] activePipes;
         lock (_pipeSyncRoot)
         {
-            _activePipe?.Dispose();
+            activePipes = _activePipes.ToArray();
+        }
+
+        foreach (var pipe in activePipes)
+        {
+            pipe.Dispose();
         }
 
         try
@@ -94,45 +103,60 @@ internal sealed class LocalBridgeServer : IDisposable
 
     private async Task RunAsync(CancellationToken cancellationToken)
     {
-        while (!cancellationToken.IsCancellationRequested)
+        try
         {
-            await using var pipe = CreatePipe();
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                var pipe = CreatePipe();
+                lock (_pipeSyncRoot)
+                {
+                    _activePipes.Add(pipe);
+                }
+
+                try
+                {
+                    await pipe.WaitForConnectionAsync(cancellationToken);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    await RemoveAndDisposePipeAsync(pipe);
+                    break;
+                }
+                catch (ObjectDisposedException) when (cancellationToken.IsCancellationRequested)
+                {
+                    await RemoveAndDisposePipeAsync(pipe);
+                    break;
+                }
+                catch (IOException) when (cancellationToken.IsCancellationRequested)
+                {
+                    await RemoveAndDisposePipeAsync(pipe);
+                    break;
+                }
+                catch (IOException)
+                {
+                    await RemoveAndDisposePipeAsync(pipe);
+                    continue;
+                }
+
+                TrackConnection(HandleConnectedPipeAsync(pipe, cancellationToken));
+            }
+        }
+        finally
+        {
+            Task[] connectionTasks;
+            lock (_pipeSyncRoot)
+            {
+                connectionTasks = _connectionTasks.ToArray();
+            }
 
             try
             {
-                lock (_pipeSyncRoot)
-                {
-                    _activePipe = pipe;
-                }
-
-                await pipe.WaitForConnectionAsync(cancellationToken);
-                await HandleConnectionAsync(pipe, cancellationToken);
+                await Task.WhenAll(connectionTasks);
             }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            catch (Exception exception) when (
+                cancellationToken.IsCancellationRequested
+                && exception is OperationCanceledException or ObjectDisposedException or IOException)
             {
-                return;
-            }
-            catch (ObjectDisposedException) when (cancellationToken.IsCancellationRequested)
-            {
-                return;
-            }
-            catch (IOException) when (cancellationToken.IsCancellationRequested)
-            {
-                return;
-            }
-            catch (IOException)
-            {
-                // A client can disconnect mid-request; keep serving later local clients.
-            }
-            finally
-            {
-                lock (_pipeSyncRoot)
-                {
-                    if (ReferenceEquals(_activePipe, pipe))
-                    {
-                        _activePipe = null;
-                    }
-                }
             }
         }
     }
@@ -142,9 +166,74 @@ internal sealed class LocalBridgeServer : IDisposable
         return new NamedPipeServerStream(
             PipeName,
             PipeDirection.InOut,
-            4,
+            NamedPipeServerStream.MaxAllowedServerInstances,
             PipeTransmissionMode.Byte,
             PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
+    }
+
+    private void TrackConnection(Task connectionTask)
+    {
+        lock (_pipeSyncRoot)
+        {
+            _connectionTasks.Add(connectionTask);
+        }
+
+        _ = connectionTask.ContinueWith(
+            completedTask =>
+            {
+                lock (_pipeSyncRoot)
+                {
+                    _connectionTasks.Remove(completedTask);
+                }
+            },
+            CancellationToken.None,
+            TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
+    }
+
+    private async Task HandleConnectedPipeAsync(
+        NamedPipeServerStream pipe,
+        CancellationToken cancellationToken)
+    {
+        var enteredConnectionSlot = false;
+        try
+        {
+            await _connectionSlots.WaitAsync(cancellationToken);
+            enteredConnectionSlot = true;
+            await HandleConnectionAsync(pipe, cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+        catch (ObjectDisposedException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+        catch (IOException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+        catch (IOException)
+        {
+            // A client can disconnect mid-request; keep serving later local clients.
+        }
+        finally
+        {
+            if (enteredConnectionSlot)
+            {
+                _connectionSlots.Release();
+            }
+
+            await RemoveAndDisposePipeAsync(pipe);
+        }
+    }
+
+    private async ValueTask RemoveAndDisposePipeAsync(NamedPipeServerStream pipe)
+    {
+        lock (_pipeSyncRoot)
+        {
+            _activePipes.Remove(pipe);
+        }
+
+        await pipe.DisposeAsync();
     }
 
     private static string ToProtocolTransportScope(BridgeTransportScope transportScope)

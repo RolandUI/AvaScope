@@ -91,6 +91,67 @@ public sealed class AvaScopeBridgeTests : IDisposable
     }
 
     [Fact]
+    public async Task LocalPipeServerContinuesAcceptingAndReturnsMatchingConcurrentResponses()
+    {
+        var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Concurrent sample app"));
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        await using var incompleteRequest = new NamedPipeClientStream(
+            ".",
+            runtime.LocalPipeName!,
+            PipeDirection.InOut,
+            PipeOptions.Asynchronous);
+
+        await incompleteRequest.ConnectAsync(timeout.Token);
+        var incompleteBytes = Encoding.UTF8.GetBytes("{\"requestId\":\"incomplete\"");
+        await incompleteRequest.WriteAsync(incompleteBytes, timeout.Token);
+        await incompleteRequest.FlushAsync(timeout.Token);
+
+        var whileIncomplete = await SendBridgeRequestAsync(
+            runtime.LocalPipeName!,
+            new BridgeIpcRequest("request-while-incomplete", BridgeIpcMethods.Health));
+        Assert.True(whileIncomplete.Success, whileIncomplete.Error?.Message);
+        Assert.Equal("request-while-incomplete", whileIncomplete.RequestId);
+
+        var methods = new[]
+        {
+            BridgeIpcMethods.Health,
+            BridgeIpcMethods.Capabilities,
+            BridgeIpcMethods.ListTopLevels,
+            BridgeIpcMethods.FindNodes,
+            BridgeIpcMethods.CustomActions,
+            BridgeIpcMethods.ValidateMutation
+        };
+        var requests = Enumerable.Range(0, 48)
+            .Select(index => new BridgeIpcRequest(
+                $"concurrent-{index}",
+                methods[index % methods.Length]))
+            .ToArray();
+
+        var responses = await Task.WhenAll(requests.Select(request =>
+            SendBridgeRequestAsync(runtime.LocalPipeName!, request)));
+
+        Assert.Equal(requests.Length, responses.Length);
+        Assert.Equal(
+            requests.Select(request => request.RequestId).OrderBy(id => id),
+            responses.Select(response => response.RequestId).OrderBy(id => id));
+        for (var index = 0; index < requests.Length; index++)
+        {
+            Assert.Equal(requests[index].RequestId, responses[index].RequestId);
+            if (methods[index % methods.Length] is BridgeIpcMethods.Health
+                or BridgeIpcMethods.Capabilities
+                or BridgeIpcMethods.ListTopLevels)
+            {
+                Assert.True(responses[index].Success, responses[index].Error?.Message);
+            }
+            else
+            {
+                Assert.False(responses[index].Success);
+                Assert.NotNull(responses[index].Error);
+            }
+        }
+    }
+
+    [Fact]
     public async Task LocalPipeCloseSessionRespondsThenRemovesManifest()
     {
         var registry = new SessionRegistry();
@@ -169,9 +230,8 @@ public sealed class AvaScopeBridgeTests : IDisposable
             PipeDirection.InOut,
             PipeOptions.Asynchronous);
 
-        pipe.Connect(5000);
-
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        await pipe.ConnectAsync(timeout.Token);
         var requestBytes = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(request) + Environment.NewLine);
         await pipe.WriteAsync(requestBytes, timeout.Token);
         await pipe.FlushAsync(timeout.Token);
