@@ -232,6 +232,46 @@ public sealed class LocalBridgeClientTests : IDisposable
     }
 
     [Fact]
+    public async Task FindNodesRetriesOneTransientTransportDisconnect()
+    {
+        Directory.CreateDirectory(_manifestDirectory);
+        var sessionId = SessionId.New();
+        var pipeName = TestPipeNames.New();
+        var topLevelId = "topLevel:retry";
+        WriteManifest(
+            "retry.json",
+            new BridgeSessionManifest(
+                sessionId,
+                Environment.ProcessId,
+                pipeName,
+                DateTimeOffset.UtcNow,
+                "Retry app"));
+        var serverTask = DisconnectFirstThenRespondAsync(
+            pipeName,
+            request => BridgeIpcResponse.Ok(
+                request.RequestId,
+                new FindNodesResponse(
+                    sessionId,
+                    topLevelId,
+                    TreeKinds.Visual,
+                    8,
+                    [])));
+        var client = new LocalBridgeClient(_manifestDirectory, BridgePipeTestTimeout);
+
+        var result = await client.FindNodesAsync(
+            sessionId,
+            topLevelId,
+            TreeKinds.Visual,
+            automationId: "retry-target");
+        var requests = await serverTask;
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(2, requests.Count);
+        Assert.All(requests, request => Assert.Equal(BridgeIpcMethods.FindNodes, request.Method));
+        Assert.Equal(requests[0].RequestId, requests[1].RequestId);
+    }
+
+    [Fact]
     public async Task InspectNodeRejectsEmptyNodeIdBeforeIpc()
     {
         var client = new LocalBridgeClient(_manifestDirectory);
@@ -1334,6 +1374,42 @@ public sealed class LocalBridgeClientTests : IDisposable
         {
             throw new TimeoutException($"Timed out waiting for {expectedCount} bridge IPC requests on pipe '{pipeName}'.");
         }
+    }
+
+    private static async Task<IReadOnlyList<BridgeIpcRequest>> DisconnectFirstThenRespondAsync(
+        string pipeName,
+        Func<BridgeIpcRequest, BridgeIpcResponse> responseFactory)
+    {
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var requests = new List<BridgeIpcRequest>(2);
+
+        for (var index = 0; index < 2; index++)
+        {
+            await using var pipe = new NamedPipeServerStream(
+                pipeName,
+                PipeDirection.InOut,
+                maxNumberOfServerInstances: 1,
+                PipeTransmissionMode.Byte,
+                PipeOptions.Asynchronous);
+
+            await pipe.WaitForConnectionAsync(cancellation.Token);
+            var requestLine = await ReadLineAsync(pipe, cancellation.Token);
+            var request = JsonSerializer.Deserialize<BridgeIpcRequest>(requestLine)
+                ?? throw new InvalidOperationException("Bridge IPC request payload was empty.");
+            requests.Add(request);
+
+            if (index == 0)
+            {
+                continue;
+            }
+
+            var responseBytes = Encoding.UTF8.GetBytes(
+                JsonSerializer.Serialize(responseFactory(request)) + Environment.NewLine);
+            await pipe.WriteAsync(responseBytes, cancellation.Token);
+            await pipe.FlushAsync(cancellation.Token);
+        }
+
+        return requests;
     }
 
     private static BridgeIpcResponse CreateEvidenceScreenshotResponse(

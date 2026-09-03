@@ -12,6 +12,7 @@ public sealed class LocalBridgeClient
     private const int MaxMessageBytes = 1024 * 1024;
     private const int MaxDiagnosticsSessions = 100;
     private const int MaxDiagnosticIssues = 200;
+    private static readonly TimeSpan SafeRequestRetryDelay = TimeSpan.FromMilliseconds(25);
     private readonly TimeSpan _operationTimeout;
 
     public LocalBridgeClient()
@@ -1356,65 +1357,94 @@ public sealed class LocalBridgeClient
         BridgeIpcRequest request,
         CancellationToken cancellationToken)
     {
-        try
+        var maximumAttempts = IsSafeToRetry(request.Method) ? 2 : 1;
+
+        for (var attempt = 1; attempt <= maximumAttempts; attempt++)
         {
-            await using var pipe = new NamedPipeClientStream(
-                ".",
-                manifest.PipeName,
-                PipeDirection.InOut,
-                PipeOptions.Asynchronous);
+            try
+            {
+                await using var pipe = new NamedPipeClientStream(
+                    ".",
+                    manifest.PipeName,
+                    PipeDirection.InOut,
+                    PipeOptions.Asynchronous);
 
-            await ConnectAsync(pipe, cancellationToken);
+                await ConnectAsync(pipe, cancellationToken);
 
-            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            timeout.CancelAfter(_operationTimeout);
+                using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                timeout.CancelAfter(_operationTimeout);
 
-            var requestBytes = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(request) + Environment.NewLine);
-            await pipe.WriteAsync(requestBytes, timeout.Token);
-            await pipe.FlushAsync(timeout.Token);
+                var requestBytes = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(request) + Environment.NewLine);
+                await pipe.WriteAsync(requestBytes, timeout.Token);
+                await pipe.FlushAsync(timeout.Token);
 
-            var responseLine = await ReadLineAsync(pipe, timeout.Token);
-            var response = JsonSerializer.Deserialize<BridgeIpcResponse>(responseLine)
-                ?? throw new JsonException("Bridge IPC response payload was empty.");
+                var responseLine = await ReadLineAsync(pipe, timeout.Token);
+                var response = JsonSerializer.Deserialize<BridgeIpcResponse>(responseLine)
+                    ?? throw new JsonException("Bridge IPC response payload was empty.");
 
-            if (!string.Equals(response.RequestId, request.RequestId, StringComparison.Ordinal))
+                if (!string.Equals(response.RequestId, request.RequestId, StringComparison.Ordinal))
+                {
+                    return CoreResult<T>.Fail(new CoreError(
+                        CoreErrorCodes.BridgeIpcFailed,
+                        "Bridge IPC response request id did not match the request.",
+                        CreateRequestDetails(manifest, request)));
+                }
+
+                if (!response.Success)
+                {
+                    return CoreResult<T>.Fail(new CoreError(
+                        response.Error!.Code,
+                        response.Error.Message,
+                        CreateRequestDetails(manifest, request, response.Error.Details)));
+                }
+
+                var value = response.GetValue<T>();
+                return value is null
+                    ? CoreResult<T>.Fail(new CoreError(
+                        CoreErrorCodes.BridgeIpcFailed,
+                        "Bridge IPC response value was empty.",
+                        CreateRequestDetails(manifest, request)))
+                    : CoreResult<T>.Ok(value);
+            }
+            catch (Exception exception) when (
+                attempt < maximumAttempts
+                && exception is IOException or TimeoutException or JsonException or InvalidOperationException or ObjectDisposedException)
+            {
+                await Task.Delay(SafeRequestRetryDelay, cancellationToken);
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
             {
                 return CoreResult<T>.Fail(new CoreError(
-                    CoreErrorCodes.BridgeIpcFailed,
-                    "Bridge IPC response request id did not match the request.",
+                    CoreErrorCodes.BridgeIpcUnavailable,
+                    "Bridge IPC request timed out.",
                     CreateRequestDetails(manifest, request)));
             }
-
-            if (!response.Success)
+            catch (Exception exception) when (exception is IOException or TimeoutException or JsonException or InvalidOperationException or ObjectDisposedException)
             {
                 return CoreResult<T>.Fail(new CoreError(
-                    response.Error!.Code,
-                    response.Error.Message,
-                    CreateRequestDetails(manifest, request, response.Error.Details)));
+                    CoreErrorCodes.BridgeIpcUnavailable,
+                    exception.Message,
+                    CreateRequestDetails(manifest, request)));
             }
+        }
 
-            var value = response.GetValue<T>();
-            return value is null
-                ? CoreResult<T>.Fail(new CoreError(
-                    CoreErrorCodes.BridgeIpcFailed,
-                    "Bridge IPC response value was empty.",
-                    CreateRequestDetails(manifest, request)))
-                : CoreResult<T>.Ok(value);
-        }
-        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
-        {
-            return CoreResult<T>.Fail(new CoreError(
-                CoreErrorCodes.BridgeIpcUnavailable,
-                "Bridge IPC request timed out.",
-                CreateRequestDetails(manifest, request)));
-        }
-        catch (Exception exception) when (exception is IOException or TimeoutException or JsonException or InvalidOperationException or ObjectDisposedException)
-        {
-            return CoreResult<T>.Fail(new CoreError(
-                CoreErrorCodes.BridgeIpcUnavailable,
-                exception.Message,
-                CreateRequestDetails(manifest, request)));
-        }
+        throw new UnreachableException();
+    }
+
+    private static bool IsSafeToRetry(string method)
+    {
+        return method is BridgeIpcMethods.Health
+            or BridgeIpcMethods.Capabilities
+            or BridgeIpcMethods.ListTopLevels
+            or BridgeIpcMethods.VisualTree
+            or BridgeIpcMethods.LogicalTree
+            or BridgeIpcMethods.InspectNode
+            or BridgeIpcMethods.ExplainLayout
+            or BridgeIpcMethods.FindNodes
+            or BridgeIpcMethods.ValidateInput
+            or BridgeIpcMethods.ValidateMutation
+            or BridgeIpcMethods.MutationReview
+            or BridgeIpcMethods.CustomActions;
     }
 
     private async Task ConnectAsync(NamedPipeClientStream pipe, CancellationToken cancellationToken)
