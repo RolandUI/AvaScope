@@ -2,6 +2,8 @@
 
 GitHub Issues and Milestones are the primary project-management source for autonomous agents working on AvaScope. This document is the compact local handoff and validation log. Update it whenever meaningful implementation, validation, or planning changes the active GitHub issue or release state.
 
+- `2026-09-04`: Implemented the #115 showcase source and release-only deployment contract. Added a responsive, accessible static narrative covering preview, inspection, semantic interaction, reversible mutation, diagnostics/evidence, workflows, and safety; repository-owned brand and real sample artifacts; dynamic release metadata; GitHub Pages deployment triggered only by `release: published` or manual recovery; public-site documentation; README integration; and three structural regression tests. Debug build passed with `0` warnings/errors, focused showcase tests passed `3/3`, the full suite passed `508/508`, JavaScript syntax and eight-asset local HTTP smoke passed, and `git diff --check` reported only line-ending normalization warnings. Next: commit/push, enable Pages, run the initial manual deployment, and verify the public URL.
+- `2026-09-04`: Started #115 under the new `v1.5.0` milestone, with release tracker #116 ready. The slice adds a public, accessible GitHub Pages feature showcase backed by concrete AvaScope examples and release metadata. The deployment workflow will run only for published GitHub Releases or explicit manual recovery, with an initial manual publication after validation. Roadmap order is #115 at `1501` as Current Slice and #116 at `1502` as Release Tracker.
 - `2026-09-03`: Published `v1.4.2` from exact release commit `66d23c040e4bf16ed66b0b43e7021507966347a9` through successful Release workflow `33732182248`. The remote tag matches; the public, non-prerelease GitHub Release has 12/12 assets; and fresh downloads verified all 11 manifest entries by exact name, size, and SHA-256 plus every package metadata version. NuGet.org exposes Protocol/Core/Bridge `1.4.2` as latest; all three CDN packages pass repository-signature verification and their unsigned entries match the release packages. GitHub Packages publication succeeded for all three packages. Release tracker #114 and milestone `v1.4.2` are closed.
 - `2026-09-03`: The v1.4.2 release-candidate gate passed through `59bb5e0` with exact version `1.4.2` staged. The consolidated local Release suite passed `505/505` once, hosted CI `33729834402` passed Windows/Linux/native macOS, and exact-version packaging rebuilt with `0` warnings/errors. Three NuGet packages, four framework-dependent ZIPs, four installers, the 11-entry manifest, Windows installer, packaged doctor/preview/lifecycle, packaged complex CLI/MCP repeat-plus-failure gates, and both publish dry-runs passed. Next: commit exactly `Release 1.4.2`, publish, and verify every remote surface.
 - `2026-09-03`: Completed #112 and #113 through `a1ee8d1`; #114 is now the active v1.4.2 release tracker. The bridge concurrently accepts bounded same-session IPC clients, and synthetic drag/swipe plus paired pointer actions preserve the original/currently captured target through release and clear residual capture. Local Release validation passed `505/505`; combined hosted CI `33729834402` passed Windows, Linux, and native macOS, including packaged workflows, installers, runtime/Retina checks, and artifact verification. Next: exact `1.4.2` packaging and publish dry-runs.
@@ -76,19 +78,20 @@ GitHub Issues and Milestones are the primary project-management source for auton
 
 ## Current Focus
 
-- `Release v1.4.1`
-- GitHub Issue: `#111`
-- GitHub Milestone: `v1.4.1`
-- Status: `Done`
+- `Release v1.5.0`
+- GitHub Issue: `#115`
+- GitHub Milestone: `v1.5.0`
+- Status: `In Progress`
 - Owner: autonomous agent
-- Goal: published and remotely verified from the exact `Release 1.4.1` commit.
+- Goal: publish a release-aligned GitHub Pages feature showcase.
 
 ## Next Action
 
-No implementation issue is active. Select the next GitHub milestone issue before changing product code.
+Implement and validate #115, publish the initial GitHub Pages deployment manually, then close the slice and leave #116 ready for the guarded v1.5.0 release.
 
 ## Latest Validation
 
+- `2026-09-04`: #115 local validation passed: Debug build `0` warnings/errors; focused showcase tests `3/3`; full Debug suite `508/508`; `node --check website/script.js`; local HTTP `200` and non-empty response for the page, CSS, JavaScript, release metadata, logo/icon, preview, and animation assets; and `git diff --check` with line-ending normalization warnings only.
 - `2026-09-03`: Release workflow `33724707621` published v1.4.1 from exact commit `37810fc0e02d0be7203eb9c50e4beeb3c723cf86`. The tag matches; the release is public and contains 12/12 assets; the remote 11-entry manifest matches every artifact size and SHA-256; all package metadata is `1.4.1`; and nuget.org exposes three latest, repository-signed packages whose unsigned entries match the release packages. GitHub Packages publication succeeded for all three packages.
 - `2026-09-03`: Exact-version v1.4.1 release-candidate validation passed: Debug and Release `504/504`; hosted Windows/Linux/macOS CI `33721707756`; 11 verified local release artifacts; Windows installer; packaged doctor, preview, lifecycle, and complex CLI/MCP; NuGet and GitHub Release dry-runs. Remote `v1.4.1` remains absent before the release commit.
 - `2026-09-03`: Hosted CI `33721707756` passed exact implementation commit `9da3148` on Windows, Linux, and native macOS. Windows passed all `504` tests, source/packaged complex CLI/MCP workflows, lifecycle, installer, and artifacts; Linux passed packaged lifecycle, complex workflows, installer, repair, and uninstall; macOS passed all `504` tests, the full-span gesture regression, Retina/runtime/preview checks, native package installation, packaged workflows, and uninstall. #110 is closed and #111 is active.

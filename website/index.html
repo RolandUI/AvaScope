@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#071113">
+  <meta name="description" content="See how AvaScope lets agents inspect, preview, control, validate, and explain local Avalonia applications through structured tool calls.">
+  <link rel="icon" href="assets/avascope-icon.png">
+  <link rel="stylesheet" href="styles.css">
+  <title>AvaScope — Agent control plane for Avalonia apps</title>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-header">
+    <a class="brand" href="#top" aria-label="AvaScope home">
+      <img src="assets/avascope-logo.png" width="250" height="72" alt="AvaScope">
+    </a>
+    <nav aria-label="Primary navigation">
+      <a href="#workflow">Workflow</a>
+      <a href="#capabilities">Capabilities</a>
+      <a href="#evidence">Evidence</a>
+      <a href="#safety">Safety</a>
+    </nav>
+    <a class="header-action" href="https://github.com/RolandUI/AvaScope" rel="noreferrer">View on GitHub</a>
+  </header>
+
+  <main id="main">
+    <section class="hero" id="top">
+      <div class="hero-copy">
+        <div class="release-line">
+          <span class="status-dot" aria-hidden="true"></span>
+          <span id="release-label">Latest stable release</span>
+        </div>
+        <h1>Give agents structured access to real Avalonia UI.</h1>
+        <p class="hero-lede">AvaScope previews project views, inspects running apps, performs bounded interactions, and returns evidence an agent can reason about—without turning pixels into guesswork.</p>
+        <div class="hero-actions">
+          <a class="button primary" href="#workflow">Explore the control loop</a>
+          <a class="button secondary" href="https://github.com/RolandUI/AvaScope/releases/latest" rel="noreferrer">Download latest release</a>
+        </div>
+        <dl class="proof-list" aria-label="Project proof points">
+          <div><dt>30+</dt><dd>agent-facing tools</dd></div>
+          <div><dt>505</dt><dd>release-gate tests</dd></div>
+          <div><dt>3</dt><dd>desktop platforms</dd></div>
+        </dl>
+      </div>
+
+      <div class="hero-console" aria-label="Example AvaScope agent workflow">
+        <div class="window-bar">
+          <span></span><span></span><span></span>
+          <code>agent / avascope</code>
+        </div>
+        <div class="console-body">
+          <div class="console-request"><span>01</span><code>find_nodes</code><small>automationId: "trade-confirm"</small></div>
+          <div class="console-link" aria-hidden="true"></div>
+          <div class="console-response">
+            <div class="response-head"><span class="ok-mark">✓</span><strong>1 actionable target</strong><em>12 ms</em></div>
+            <pre><code>{
+  "nodeType": "Button",
+  "name": "Confirm trade",
+  "bounds": { "x": 812, "y": 644,
+              "width": 124, "height": 40 },
+  "availableActions": ["invoke"]
+}</code></pre>
+          </div>
+          <div class="console-request"><span>02</span><code>invoke</code><small>verify: dialog opened</small></div>
+          <div class="evidence-chip"><span class="pulse" aria-hidden="true"></span> Observe · act · verify · retain evidence</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="signal-strip" aria-label="Supported surfaces">
+      <span>Codex</span><span>Claude</span><span>Cursor</span><span>Rider</span><span>VS Code</span><span>Visual Studio</span><span>CLI</span>
+    </section>
+
+    <section class="section workflow-section" id="workflow">
+      <div class="section-heading">
+        <p class="eyebrow">One local control loop</p>
+        <h2>From source to verified interaction.</h2>
+        <p>Choose a stage to see the structured request, visible result, and evidence AvaScope returns.</p>
+      </div>
+
+      <div class="workflow-shell">
+        <div class="workflow-tabs" role="tablist" aria-label="AvaScope workflow stages">
+          <button type="button" role="tab" aria-selected="true" aria-controls="workflow-panel" data-step="preview"><span>01</span>Preview</button>
+          <button type="button" role="tab" aria-selected="false" aria-controls="workflow-panel" data-step="inspect"><span>02</span>Inspect</button>
+          <button type="button" role="tab" aria-selected="false" aria-controls="workflow-panel" data-step="act"><span>03</span>Act</button>
+          <button type="button" role="tab" aria-selected="false" aria-controls="workflow-panel" data-step="verify"><span>04</span>Verify</button>
+        </div>
+
+        <div class="workflow-panel" id="workflow-panel" role="tabpanel" tabindex="0">
+          <div class="workflow-copy">
+            <span class="tool-name" id="workflow-tool">preview_axaml</span>
+            <h3 id="workflow-title">Render the real project view</h3>
+            <p id="workflow-description">Build in isolation, load application resources and design data, then render the requested AXAML through Avalonia and Skia.</p>
+            <ul id="workflow-points">
+              <li>Theme, size, DPI, culture, and state variants</li>
+              <li>Project build diagnostics with bounded artifacts</li>
+              <li>Persistent sessions with explicit reload</li>
+            </ul>
+          </div>
+          <div class="workflow-visual" id="workflow-visual">
+            <img src="assets/getting-started-preview.png" width="720" height="420" alt="AvaScope rendering of the Getting Started Avalonia sample">
+            <span class="visual-badge">real PreviewHost output</span>
+          </div>
+          <pre class="workflow-json"><code id="workflow-json">{
+  "projectPath": "Sample.csproj",
+  "viewPath": "Views/MainView.axaml",
+  "themeVariant": "Dark",
+  "width": 720,
+  "height": 420
+}</code></pre>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="capabilities">
+      <div class="section-heading split-heading">
+        <div>
+          <p class="eyebrow">Complete feature surface</p>
+          <h2>Small tools. Composable workflows.</h2>
+        </div>
+        <p>Each operation is bounded, versioned, and designed to give an agent the next useful fact instead of an unstructured dump.</p>
+      </div>
+
+      <div class="bento-grid">
+        <article class="feature-card wide teal">
+          <div class="feature-number">01</div>
+          <div>
+            <p class="card-kicker">Runtime intelligence</p>
+            <h3>Inspect what Avalonia actually rendered.</h3>
+            <p>Attach to an opt-in app, traverse visual and logical trees, find controls semantically, and inspect bounds, classes, resources, bindings, accessibility, validation, and source provenance.</p>
+          </div>
+          <div class="tree-demo" aria-label="Example visual tree">
+            <div><span class="tree-chevron">⌄</span><strong>Window</strong><small>MainWindow</small></div>
+            <div class="depth-1"><span class="tree-chevron">⌄</span><strong>Grid</strong><small>MainLayout</small></div>
+            <div class="depth-2 selected-node"><span class="node-dot"></span><strong>Button</strong><small>trade-confirm</small></div>
+            <div class="depth-2"><span class="node-dot"></span><strong>TextBlock</strong><small>Portfolio total</small></div>
+          </div>
+        </article>
+
+        <article class="feature-card preview-card">
+          <div class="feature-number">02</div>
+          <p class="card-kicker">Design-time preview</p>
+          <h3>Real AXAML. Isolated process.</h3>
+          <p>Render views using the project’s compiled resources, styles, templates, custom controls, and design data.</p>
+          <div class="variant-row"><span>Light</span><span>Dark</span><span>hu-HU</span><span>420×320</span></div>
+        </article>
+
+        <article class="feature-card motion-card">
+          <div class="feature-number">03</div>
+          <p class="card-kicker">Interaction</p>
+          <h3>Act by meaning, not coordinates.</h3>
+          <p>Invoke, select, toggle, expand, type, drag, swipe, hold, and scroll through public Avalonia automation and safe pointer fallbacks.</p>
+          <div class="gesture-track"><span class="gesture-origin"></span><span class="gesture-line"></span><span class="gesture-target"></span></div>
+          <small class="gesture-label">selector → action → typed postcondition</small>
+        </article>
+
+        <article class="feature-card mutation-card">
+          <div class="feature-number">04</div>
+          <p class="card-kicker">Reversible mutation</p>
+          <h3>Test a UI change without touching source.</h3>
+          <div class="mutation-demo">
+            <div><small>Before</small><button type="button" tabindex="-1">Confirm</button></div>
+            <span aria-hidden="true">→</span>
+            <div class="after"><small>After</small><button type="button" tabindex="-1">Confirm order</button></div>
+          </div>
+          <p>Apply bounded style, layout, text, class, or resource changes. Capture before/after evidence, review history, then reset cleanly.</p>
+        </article>
+
+        <article class="feature-card wide evidence-card">
+          <div class="feature-number">05</div>
+          <div>
+            <p class="card-kicker">Diagnostics and evidence</p>
+            <h3>Explain failure with artifacts, not anecdotes.</h3>
+            <p>Trace binding and DataContext state, explain clipped or zero-sized layouts, audit accessibility, compare pixels and semantic regions, and export JSON, Markdown, HTML, JUnit, and SARIF-style reports.</p>
+          </div>
+          <div class="diagnostic-list">
+            <div><span class="severity warning">!</span><p><strong>layout_clipped</strong><small>Parent viewport constrains 36 px</small></p></div>
+            <div><span class="severity info">i</span><p><strong>binding_fallback_used</strong><small>Value resolved from FallbackValue</small></p></div>
+            <div><span class="severity pass">✓</span><p><strong>evidence_complete</strong><small>JSON · HTML · JUnit · screenshots</small></p></div>
+          </div>
+        </article>
+
+        <article class="feature-card workflow-card">
+          <div class="feature-number">06</div>
+          <p class="card-kicker">Workflow orchestration</p>
+          <h3>Run complex scenarios deterministically.</h3>
+          <p>Compose variables, fragments, conditions, bounded retries, typed waits, multi-window aliases, idempotency, dry runs, and automatic failure capture.</p>
+          <div class="mini-timeline"><span class="done">attach</span><span class="done">find</span><span class="done">act</span><span class="current">verify</span></div>
+        </article>
+
+        <article class="feature-card safety-card">
+          <div class="feature-number">07</div>
+          <p class="card-kicker">Safety boundary</p>
+          <h3>Local by default. Explicit by design.</h3>
+          <p>Current-user local transport, opt-in bridge activation, allowlisted custom actions, owned-process cleanup, redaction, screenshot masking, and no automatic network upload.</p>
+          <div class="safety-seal"><span>LOCAL</span><small>stdio · named pipe · localhost</small></div>
+        </article>
+      </div>
+    </section>
+
+    <section class="section evidence-section" id="evidence">
+      <div class="section-heading">
+        <p class="eyebrow">Release-grade proof</p>
+        <h2>Every important action can leave a reviewable trail.</h2>
+      </div>
+      <div class="evidence-layout">
+        <figure class="artifact-frame">
+          <div class="artifact-toolbar"><span>animation-strip.png</span><small>4 deterministic samples</small></div>
+          <img src="assets/animation-strip.png" width="2240" height="260" loading="lazy" alt="Four deterministic AvaScope animation preview frames sampled over time">
+          <figcaption>Animation sampling records exact offsets, pixel changes, diagnostics, and a file-backed viewer.</figcaption>
+        </figure>
+        <div class="report-stack">
+          <article><span>JSON</span><strong>Machine-readable result</strong><small>Stable protocol contracts</small></article>
+          <article><span>HTML</span><strong>Human review surface</strong><small>Linked visual artifacts</small></article>
+          <article><span>JUnit</span><strong>CI-native outcome</strong><small>Pass, failure, and timeout</small></article>
+          <article><span>SARIF</span><strong>Code-scanning handoff</strong><small>Bounded diagnostic findings</small></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section safety-section" id="safety">
+      <div class="safety-copy">
+        <p class="eyebrow">Built for local agent work</p>
+        <h2>Powerful enough to act. Narrow enough to trust.</h2>
+        <p>AvaScope never exposes unauthenticated remote inspection. Applications opt in, runtime operations remain bounded, previews execute in an isolated child process, and destructive behavior requires explicit independent authorization.</p>
+        <a href="https://github.com/RolandUI/AvaScope/blob/master/docs/SECURITY_THREAT_MODEL.md" rel="noreferrer">Read the threat model <span aria-hidden="true">→</span></a>
+      </div>
+      <div class="boundary-map" aria-label="AvaScope local security boundary">
+        <div class="boundary-label">YOUR MACHINE</div>
+        <div class="boundary-row"><span>Agent / IDE</span><i>structured call</i><span>AvaScope CLI / MCP</span></div>
+        <div class="boundary-row"><span>PreviewHost</span><i>isolated process</i><span>Project view</span></div>
+        <div class="boundary-row"><span>Local bridge</span><i>opt-in pipe</i><span>Running app</span></div>
+        <div class="boundary-footer"><span class="status-dot"></span>No network listener</div>
+      </div>
+    </section>
+
+    <section class="section start-section" id="start">
+      <div>
+        <p class="eyebrow">Start with one command</p>
+        <h2>Inspect your first Avalonia view.</h2>
+        <p>Download the current release or build from source, then run the included sample through the real preview pipeline.</p>
+      </div>
+      <div class="command-box">
+        <code id="quick-command">avascope preview MyApp.csproj --view Views/MainView.axaml --out preview.png</code>
+        <button type="button" id="copy-command" aria-label="Copy preview command">Copy</button>
+      </div>
+      <div class="final-actions">
+        <a class="button primary" href="https://github.com/RolandUI/AvaScope#install-from-a-release" rel="noreferrer">Install AvaScope</a>
+        <a class="button secondary" href="https://github.com/RolandUI/AvaScope/blob/master/docs/USER_GUIDE.md" rel="noreferrer">Read the user guide</a>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <a class="footer-brand" href="#top"><img src="assets/avascope-icon.png" width="36" height="36" alt=""><strong>AvaScope</strong></a>
+    <p>Agent control plane for Avalonia apps.</p>
+    <div><a href="https://github.com/RolandUI/AvaScope">GitHub</a><a href="https://github.com/RolandUI/AvaScope/releases/latest">Releases</a><a href="https://github.com/RolandUI/AvaScope/blob/master/LICENSE">Apache-2.0</a></div>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>

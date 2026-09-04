@@ -49,9 +49,43 @@ The roadmap below records the release-shaped plan through `v1.0.0`. It is intent
 - `v1.4.0` is released.
 - `v1.4.1` is released.
 - `v1.4.2` is released.
+- `v1.5.0` is in progress.
 - Each release must preserve the current product boundaries: MCP and CLI stay adapters over Core, runtime bridge activation stays opt-in and local-only, PreviewHost stays isolated from the MCP server, and private Avalonia/runtime hooks remain out of the default path.
 - Every release must include targeted tests, full build/test validation, release dry-run validation, documentation updates, and explicit deferrals.
 - A release may be split into a patch release if a P0/P1 regression blocks users or CI, but patch scope must remain defect-focused.
+
+## Active Target: v1.5.0
+
+- Release: `v1.5.0`
+- Target Version: `1.5.0`
+- Release State: `In Progress`
+- Scope Lock: `2026-09-04`
+- GitHub Milestone: `v1.5.0`
+- GitHub Issues: #115 and #116
+- Previous Release: `v1.4.2`
+
+### v1.5.0 Release Goals
+
+1. `RG-1.5.0-1 Public Feature Showcase`: publish a responsive, accessible GitHub Pages site that demonstrates AvaScope's preview, runtime inspection, automation, mutation, diagnostics, visual regression, workflow, evidence, safety, and cross-platform capabilities with concrete examples.
+2. `RG-1.5.0-2 Release-Aligned Publishing`: keep the site source versioned in the repository while updating the public site only when a GitHub Release is published; retain a manual dispatch path for initial publication and recovery.
+3. `RG-1.5.0-3 Guarded Release`: validate the site, workflow contract, repository build/tests, and public deployment before the release tracker advances.
+
+### v1.5.0 Milestone Map
+
+- #115 `R1.5.0-M1 Publish a release-aligned GitHub Pages feature showcase`; Status: `In Progress`.
+- #116 `Release v1.5.0`; Status: `Ready`.
+
+### Explicit Non-Goals
+
+- A browser-hosted AvaScope runtime, remote bridge access, or server-side execution of user projects.
+- Publishing the site on ordinary branch pushes or pull requests.
+- Replacing the repository's detailed user, agent, security, or API documentation.
+
+### Required Validation
+
+- Static-site structure, internal links, semantic markup, accessibility affordances, and responsive layout checks.
+- Workflow validation proving GitHub Release `published` and explicit manual dispatch are the only deployment triggers.
+- Local HTTP render smoke, full repository build/tests, GitHub Pages deployment, and public URL verification.
 
 ## Released Target: v1.4.2
 
