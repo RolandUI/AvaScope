@@ -8,8 +8,6 @@
 
 <p align="center"><strong>Agent control plane for Avalonia apps.</strong></p>
 
-<p align="center"><a href="https://rolandui.github.io/AvaScope/"><strong>Explore the feature showcase</strong></a> · <a href="https://github.com/RolandUI/AvaScope/releases/latest">Download the latest release</a></p>
-
 AvaScope is a local-first agent tool for understanding, validating, and controlling Avalonia UI through structured CLI and MCP workflows. It helps an agent inspect running UI trees, render `.axaml` previews in an isolated process, capture screenshots, send narrow non-destructive input, collect diagnostics, and produce evidence artifacts without relying on unstructured screen reading.
 
 AvaScope targets Avalonia 12 and `net10.0`.
@@ -87,7 +85,6 @@ Per-user Windows, Linux, and macOS installers, portable executable ZIPs, and pac
 - [Troubleshooting](docs/TROUBLESHOOTING.md): attach, preview, mutation, report, and package failure triage.
 - [Validation](docs/VALIDATION.md): local validation commands and release checks.
 - [Visual regression CI](docs/VISUAL_REGRESSION_CI.md): baseline-check artifact collection for GitHub Actions.
-- [Feature showcase](docs/SHOWCASE.md): public GitHub Pages presentation and release-aligned publishing contract.
 - [Release plan](docs/RELEASE_PLAN.md): release goals, milestones, non-goals, and roadmap.
 - [Project workflow](docs/GITHUB_PROJECT_WORKFLOW.md): GitHub Issues, Milestones, labels, and Project board conventions.
 - [Security policy](SECURITY.md): private vulnerability reporting and supported-version policy.
@@ -108,7 +105,7 @@ AvaScope-authored source code and official AvaScope release artifacts published 
 
 ## Project Status
 
-AvaScope `v1.4.2` is the current stable agent control-plane release. Package identities, protocol DTOs, CLI commands, MCP tools, exit codes, artifact names, and release workflow behavior are documented in [docs/STABLE_SURFACE.md](docs/STABLE_SURFACE.md).
+AvaScope `v1.1.3` is the current stable agent control-plane release. Package identities, protocol DTOs, CLI commands, MCP tools, exit codes, artifact names, and release workflow behavior are documented in [docs/STABLE_SURFACE.md](docs/STABLE_SURFACE.md).
 
 Development is tracked in GitHub Issues, Milestones, and the public [AvaScope Roadmap](https://github.com/users/RolandUI/projects/4) Project board.
 
@@ -123,5 +120,4 @@ Development is tracked in GitHub Issues, Milestones, and the public [AvaScope Ro
 - `src/AvaScope.Installer`: single-file Linux/macOS per-user installer host.
 - `eng/installer`: Windows Inno Setup wizard definition and command shim.
 - `samples/AvaScope.GettingStartedApp`: small Avalonia sample app.
-- `website`: static public feature showcase deployed to GitHub Pages on published releases.
 - `tests/AvaScope.Tests`: protocol, core, MCP, bridge, preview host, and CLI tests.
