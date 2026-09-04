@@ -2,7 +2,6 @@
 
 GitHub Issues and Milestones are the primary project-management source for autonomous agents working on AvaScope. This document is the compact local handoff and validation log. Update it whenever meaningful implementation, validation, or planning changes the active GitHub issue or release state.
 
-- `2026-09-04`: Completed #115 through `1ea086d` and successful GitHub Pages workflow run `33905531452`. The workflow built and deployed the showcase, Pages is public with enforced HTTPS, the repository Website field points to `https://rolandui.github.io/AvaScope/`, the public page returned HTTP `200`, and deployed release metadata reported `v1.4.2`. Automatic refresh is restricted to published GitHub Releases; manual dispatch remains available for initial publication and recovery. #116 remains ready as the v1.5.0 release tracker.
 - `2026-09-04`: Implemented the #115 showcase source and release-only deployment contract. Added a responsive, accessible static narrative covering preview, inspection, semantic interaction, reversible mutation, diagnostics/evidence, workflows, and safety; repository-owned brand and real sample artifacts; dynamic release metadata; GitHub Pages deployment triggered only by `release: published` or manual recovery; public-site documentation; README integration; and three structural regression tests. Debug build passed with `0` warnings/errors, focused showcase tests passed `3/3`, the full suite passed `508/508`, JavaScript syntax and eight-asset local HTTP smoke passed, and `git diff --check` reported only line-ending normalization warnings. Next: commit/push, enable Pages, run the initial manual deployment, and verify the public URL.
 - `2026-09-04`: Started #115 under the new `v1.5.0` milestone, with release tracker #116 ready. The slice adds a public, accessible GitHub Pages feature showcase backed by concrete AvaScope examples and release metadata. The deployment workflow will run only for published GitHub Releases or explicit manual recovery, with an initial manual publication after validation. Roadmap order is #115 at `1501` as Current Slice and #116 at `1502` as Release Tracker.
 - `2026-09-03`: Published `v1.4.2` from exact release commit `66d23c040e4bf16ed66b0b43e7021507966347a9` through successful Release workflow `33732182248`. The remote tag matches; the public, non-prerelease GitHub Release has 12/12 assets; and fresh downloads verified all 11 manifest entries by exact name, size, and SHA-256 plus every package metadata version. NuGet.org exposes Protocol/Core/Bridge `1.4.2` as latest; all three CDN packages pass repository-signature verification and their unsigned entries match the release packages. GitHub Packages publication succeeded for all three packages. Release tracker #114 and milestone `v1.4.2` are closed.
@@ -80,19 +79,18 @@ GitHub Issues and Milestones are the primary project-management source for auton
 ## Current Focus
 
 - `Release v1.5.0`
-- GitHub Issue: `#116`
+- GitHub Issue: `#115`
 - GitHub Milestone: `v1.5.0`
-- Status: `Ready`
+- Status: `In Progress`
 - Owner: autonomous agent
-- Goal: run the guarded v1.5.0 release after all explicitly accepted scope is complete.
+- Goal: publish a release-aligned GitHub Pages feature showcase.
 
 ## Next Action
 
-Keep #116 ready until the v1.5.0 release scope is explicitly finalized; the showcase will update automatically when that GitHub Release is published.
+Implement and validate #115, publish the initial GitHub Pages deployment manually, then close the slice and leave #116 ready for the guarded v1.5.0 release.
 
 ## Latest Validation
 
-- `2026-09-04`: Showcase workflow `33905531452` passed its build and deploy jobs. GitHub Pages reports `build_type=workflow`, `https_enforced=true`, and `public=true`; `https://rolandui.github.io/AvaScope/` returned HTTP `200` with the expected showcase content and deployed `release.json` reported `v1.4.2`.
 - `2026-09-04`: #115 local validation passed: Debug build `0` warnings/errors; focused showcase tests `3/3`; full Debug suite `508/508`; `node --check website/script.js`; local HTTP `200` and non-empty response for the page, CSS, JavaScript, release metadata, logo/icon, preview, and animation assets; and `git diff --check` with line-ending normalization warnings only.
 - `2026-09-03`: Release workflow `33724707621` published v1.4.1 from exact commit `37810fc0e02d0be7203eb9c50e4beeb3c723cf86`. The tag matches; the release is public and contains 12/12 assets; the remote 11-entry manifest matches every artifact size and SHA-256; all package metadata is `1.4.1`; and nuget.org exposes three latest, repository-signed packages whose unsigned entries match the release packages. GitHub Packages publication succeeded for all three packages.
 - `2026-09-03`: Exact-version v1.4.1 release-candidate validation passed: Debug and Release `504/504`; hosted Windows/Linux/macOS CI `33721707756`; 11 verified local release artifacts; Windows installer; packaged doctor, preview, lifecycle, and complex CLI/MCP; NuGet and GitHub Release dry-runs. Remote `v1.4.1` remains absent before the release commit.
