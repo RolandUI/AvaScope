@@ -72,7 +72,7 @@ The roadmap below records the release-shaped plan through `v1.0.0`. It is intent
 
 ### v1.5.0 Milestone Map
 
-- #115 `R1.5.0-M1 Publish a release-aligned GitHub Pages feature showcase`; Status: `In Progress`.
+- #115 `R1.5.0-M1 Publish a release-aligned GitHub Pages feature showcase`; Status: `Done`.
 - #116 `Release v1.5.0`; Status: `Ready`.
 
 ### Explicit Non-Goals
@@ -86,6 +86,11 @@ The roadmap below records the release-shaped plan through `v1.0.0`. It is intent
 - Static-site structure, internal links, semantic markup, accessibility affordances, and responsive layout checks.
 - Workflow validation proving GitHub Release `published` and explicit manual dispatch are the only deployment triggers.
 - Local HTTP render smoke, full repository build/tests, GitHub Pages deployment, and public URL verification.
+
+### v1.5.0 Implementation Validation
+
+- `2026-09-04`: #115 published the initial showcase through successful manual workflow run `33905531452`. GitHub Pages is configured for workflow builds with enforced HTTPS, the repository Website field points to `https://rolandui.github.io/AvaScope/`, the public page returned HTTP `200`, and deployed release metadata identified `v1.4.2`. The workflow has no branch-push or pull-request trigger; subsequent automatic deployments occur only when a GitHub Release is published.
+- `2026-09-04`: Local validation passed with a Debug build containing `0` warnings/errors, focused showcase tests `3/3`, full Debug suite `508/508`, JavaScript syntax validation, eight-asset HTTP smoke, and `git diff --check` with line-ending normalization warnings only.
 
 ## Released Target: v1.4.2
 
