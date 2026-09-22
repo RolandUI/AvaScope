@@ -10,6 +10,8 @@ The [native platform matrix](NATIVE_PLATFORM_MATRIX.md) provides repeatable pack
 
 Use [runtime readiness](RUNTIME_READINESS.md) to distinguish bridge availability, window creation, a completed frame and optional application readiness. Scoped stability waits and capture-after-render are bounded and do not require global application idleness.
 
+Use [`observe`](RUNTIME_OBSERVATIONS.md) for one bounded request containing selected windows, focus, visual fragments, available actions, validation and optional screenshot evidence. Check per-part availability and sampled consistency before acting.
+
 ## 1. Create And Install A Local Release
 
 ```powershell

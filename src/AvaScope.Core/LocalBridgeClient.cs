@@ -751,6 +751,15 @@ public sealed class LocalBridgeClient
             cancellationToken);
     }
 
+    internal async Task<CoreResult<RuntimeObservationResponse>> ReadObservationAsync(RuntimeObservationRequest request,
+        CancellationToken cancellationToken)
+    {
+        var manifest = FindSingleManifest(null, request.SessionId);
+        if (!manifest.Success) return CoreResult<RuntimeObservationResponse>.Fail(manifest.Error!);
+        return await SendAsync<RuntimeObservationResponse>(manifest.Value!,
+            new BridgeIpcRequest(NewRequestId(), BridgeIpcMethods.Observe, observation: request), cancellationToken);
+    }
+
     public async Task<CoreResult<RuntimeReadinessSnapshot>> ReadinessAsync(
         SessionId sessionId, string topLevelId, string? nodeId = null,
         RuntimeReadinessProbeOptions? options = null, CancellationToken cancellationToken = default)

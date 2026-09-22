@@ -40,6 +40,7 @@ public sealed class McpStdioSmokeTests
         Assert.Contains("capabilities", toolNames);
         Assert.Contains("session_capabilities", toolNames);
         Assert.Contains("list_sessions", toolNames);
+        Assert.Contains("observe", toolNames);
         Assert.Contains("close_session", toolNames);
         Assert.Contains("diagnostics", toolNames);
         Assert.Contains("mutate_node", toolNames);

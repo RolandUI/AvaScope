@@ -171,15 +171,30 @@ public sealed class RuntimeEvidencePolicyEnforcer
         ArgumentNullException.ThrowIfNull(bridgeClient);
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(plan);
+        var sessionAuthorization = AuthorizeSession(bridgeClient, request.SessionId);
+        if (!sessionAuthorization.Success) return sessionAuthorization;
+        foreach (var item in plan.Steps)
+        {
+            var authorization = AuthorizeAction(item.Action, customActionName: null);
+            if (!authorization.Success)
+                return CoreResult<IReadOnlyDictionary<string, string>>.Fail(authorization.Error!);
+        }
+        return sessionAuthorization;
+    }
+
+    public CoreResult<IReadOnlyDictionary<string, string>> AuthorizeSession(LocalBridgeClient bridgeClient, SessionId sessionId)
+    {
+        ArgumentNullException.ThrowIfNull(bridgeClient);
+        ArgumentNullException.ThrowIfNull(sessionId);
 
         if (_policy.AuthorizedSessionIds.Count > 0
-            && !_policy.AuthorizedSessionIds.Contains(request.SessionId.Value, StringComparer.Ordinal))
+            && !_policy.AuthorizedSessionIds.Contains(sessionId.Value, StringComparer.Ordinal))
         {
             return Unauthorized("The selected bridge session is outside the policy authorization set.");
         }
 
         var manifests = bridgeClient.ListSessionManifests()
-            .Where(candidate => string.Equals(candidate.SessionId.Value, request.SessionId.Value, StringComparison.Ordinal))
+            .Where(candidate => string.Equals(candidate.SessionId.Value, sessionId.Value, StringComparison.Ordinal))
             .Take(2)
             .ToArray();
         if (manifests.Length != 1)
@@ -199,18 +214,9 @@ public sealed class RuntimeEvidencePolicyEnforcer
             return Unauthorized("The bridge process is outside the policy authorization set.");
         }
 
-        foreach (var item in plan.Steps)
-        {
-            var authorization = AuthorizeAction(item.Action, customActionName: null);
-            if (!authorization.Success)
-            {
-                return CoreResult<IReadOnlyDictionary<string, string>>.Fail(authorization.Error!);
-            }
-        }
-
         return CoreResult<IReadOnlyDictionary<string, string>>.Ok(new Dictionary<string, string>
         {
-            ["authorizedSessionId"] = request.SessionId.Value,
+            ["authorizedSessionId"] = sessionId.Value,
             ["authorizedProcessId"] = manifest.ProcessId.ToString(CultureInfo.InvariantCulture),
             ["transportScope"] = manifest.TransportScope,
             ["actionAllowlist"] = string.Join(',', _policy.AllowedActions),
@@ -757,6 +763,37 @@ public sealed class RuntimeEvidencePolicyEnforcer
         return new ScreenshotRegion(x, y, right - x, bottom - y, "excluded-control");
     }
 
+    internal (byte[] Png, string Masking) MaskObservationPng(byte[] png, ScreenshotResponse screenshot)
+    {
+        var masks = _policy.ScreenshotMaskRegions.ToList();
+        var sensitive = _policy.ExcludedControlAutomationIds.Count > 0 || _policy.RedactedAutomationIds.Count > 0 || _policy.RedactedText.Count > 0;
+        // Bounded sampling cannot prove that all sensitive controls were observed.
+        if (sensitive) masks.Add(new ScreenshotRegion(0, 0, screenshot.PixelWidth, screenshot.PixelHeight, "bounded-sensitive-observation"));
+        if (masks.Count == 0) return (png, "not_required");
+        using var bitmap = SKBitmap.Decode(png) ?? throw new InvalidOperationException("Observation PNG could not be decoded.");
+        if (bitmap.Width != screenshot.PixelWidth || bitmap.Height != screenshot.PixelHeight)
+            throw new InvalidOperationException("Observation PNG dimensions do not match the capture evidence.");
+        MaskBitmap(bitmap, masks);
+        using var image = SKImage.FromBitmap(bitmap);
+        using var data = image.Encode(SKEncodedImageFormat.Png, 100) ?? throw new InvalidOperationException("Observation PNG could not be masked.");
+        return (data.ToArray(), sensitive ? "full_sensitive_mask" : "applied");
+    }
+
+    private static void MaskBitmap(SKBitmap bitmap, IReadOnlyList<ScreenshotRegion> masks)
+    {
+        using var canvas = new SKCanvas(bitmap);
+        using var paint = new SKPaint { Color = SKColors.Black, Style = SKPaintStyle.Fill, IsAntialias = false };
+        foreach (var mask in masks)
+        {
+            var left = Math.Clamp(mask.X, 0, bitmap.Width);
+            var top = Math.Clamp(mask.Y, 0, bitmap.Height);
+            var right = Math.Clamp(mask.X + mask.Width, left, bitmap.Width);
+            var bottom = Math.Clamp(mask.Y + mask.Height, top, bitmap.Height);
+            if (right > left && bottom > top) canvas.DrawRect(new SKRect(left, top, right, bottom), paint);
+        }
+        canvas.Flush();
+    }
+
     private static void MaskPng(string path, IReadOnlyList<ScreenshotRegion> masks)
     {
         SKBitmap bitmap;
@@ -767,21 +804,7 @@ public sealed class RuntimeEvidencePolicyEnforcer
 
         using (bitmap)
         {
-            using var canvas = new SKCanvas(bitmap);
-            using var paint = new SKPaint { Color = SKColors.Black, Style = SKPaintStyle.Fill, IsAntialias = false };
-            foreach (var mask in masks)
-            {
-                var left = Math.Clamp(mask.X, 0, bitmap.Width);
-                var top = Math.Clamp(mask.Y, 0, bitmap.Height);
-                var right = Math.Clamp(mask.X + mask.Width, left, bitmap.Width);
-                var bottom = Math.Clamp(mask.Y + mask.Height, top, bitmap.Height);
-                if (right > left && bottom > top)
-                {
-                    canvas.DrawRect(new SKRect(left, top, right, bottom), paint);
-                }
-            }
-
-            canvas.Flush();
+            MaskBitmap(bitmap, masks);
             using var image = SKImage.FromBitmap(bitmap);
             using var data = image.Encode(SKEncodedImageFormat.Png, 100)
                 ?? throw new InvalidOperationException("Masked screenshot could not be encoded.");

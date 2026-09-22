@@ -40,8 +40,39 @@ public static class ResponseBudgeter
                 => (T)(object)ApplyWorkflow(response, maxInlineBytes, maxItems, maxDepth),
             RuntimeScenarioResponse response when response.ResponseBudget is null
                 => (T)(object)ApplyScenario(response, maxInlineBytes, maxItems, maxDepth),
+            RuntimeObservationResponse response when response.ResponseBudget is null
+                => (T)(object)ApplyObservation(response, maxInlineBytes, maxItems, maxDepth),
             _ => value
         };
+    }
+
+    public static RuntimeObservationResponse ApplyObservation(RuntimeObservationResponse response,
+        int maxInlineBytes, int maxItems, int maxDepth, string? artifactDirectory = null)
+    {
+        var payload = Serialize(response);
+        if (payload.Length <= maxInlineBytes) return response;
+        var totalItems = response.Windows.Sum(window => window.Nodes.Count);
+        var artifactPath = WriteArtifact("observation", payload, artifactDirectory);
+        var windows = response.Windows.ToArray();
+        var returned = totalItems;
+        while (Serialize(response with { Windows = windows }).Length > Math.Max(1024, maxInlineBytes - 1024) && returned > 0)
+        {
+            var largest = Array.FindIndex(windows, window => window.Nodes.Count == windows.Max(candidate => candidate.Nodes.Count));
+            var window = windows[largest];
+            var keep = window.Nodes.Count / 2;
+            returned -= window.Nodes.Count - keep;
+            windows[largest] = window with { Nodes = window.Nodes.Take(keep).ToArray(), Truncated = true };
+        }
+        var result = response with
+        {
+            Windows = windows, Truncated = true,
+            ResponseBudget = CreateInfo(maxInlineBytes, payload.Length, maxItems, totalItems, returned, maxDepth, maxDepth, maxDepth,
+                artifactPath, ["byte_budget"])
+        };
+        if (Serialize(result).Length > maxInlineBytes)
+            result = result with { Windows = [], Diagnostics = [], ResponseBudget = CreateInfo(maxInlineBytes, payload.Length,
+                maxItems, totalItems, 0, maxDepth, maxDepth, 0, artifactPath, ["byte_budget"]) };
+        return result;
     }
 
     private static TreeResponse ApplyTree(TreeResponse response, int maxInlineBytes, int maxItems, int maxDepth)
@@ -384,15 +415,15 @@ public static class ResponseBudgeter
     private static byte[] Serialize<T>(T value) =>
         JsonSerializer.SerializeToUtf8Bytes(value, JsonOptions);
 
-    private static string? WriteArtifact(string kind, byte[] payload)
+    private static string? WriteArtifact(string kind, byte[] payload, string? artifactDirectory = null)
     {
         try
         {
             var hash = Convert.ToHexString(SHA256.HashData(payload)).ToLowerInvariant()[..16];
             var configuredDirectory = Environment.GetEnvironmentVariable(ArtifactDirectoryEnvironmentVariable);
-            var directory = string.IsNullOrWhiteSpace(configuredDirectory)
+            var directory = artifactDirectory ?? (string.IsNullOrWhiteSpace(configuredDirectory)
                 ? Path.Combine(Path.GetTempPath(), "AvaScope", "response-artifacts")
-                : Path.GetFullPath(configuredDirectory);
+                : Path.GetFullPath(configuredDirectory));
             Directory.CreateDirectory(directory);
             var path = Path.Combine(directory, $"{kind}-{hash}.json");
             if (!File.Exists(path))

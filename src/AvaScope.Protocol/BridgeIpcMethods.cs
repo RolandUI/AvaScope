@@ -5,6 +5,7 @@ public static class BridgeIpcMethods
     public const string Health = "health";
     public const string Capabilities = "capabilities";
     public const string Readiness = "readiness";
+    public const string Observe = "observe";
     public const string ListTopLevels = "list_top_levels";
     public const string Screenshot = "screenshot";
     public const string VisualTree = "visual_tree";
@@ -26,6 +27,7 @@ public static class BridgeIpcMethods
         Health,
         Capabilities,
         Readiness,
+        Observe,
         ListTopLevels,
         Screenshot,
         VisualTree,

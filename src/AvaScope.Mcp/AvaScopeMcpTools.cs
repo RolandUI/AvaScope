@@ -9,6 +9,13 @@ namespace AvaScope.Mcp;
 [McpServerToolType]
 public sealed class AvaScopeMcpTools
 {
+    [McpServerTool(Name = "observe", Title = "Observe runtime UI", ReadOnly = true, Idempotent = true,
+        Destructive = false, OpenWorld = false, UseStructuredContent = true)]
+    [Description("Collects selected windows, focus, bounded flat visual fragments, available actions, public validation diagnostics and optional screenshots in one request. Returns generation/correlation identifiers, per-part availability and sampled change detection; never claims atomic tree/screenshot consistency. Optional local evidence policy redacts/excludes every part before bounded artifact export.")]
+    public static async Task<ToolResult<RuntimeObservationResponse>> Observe(LocalBridgeClient bridgeClient,
+        RuntimeObservationRequest request, string? manifestDirectory = null, CancellationToken cancellationToken = default)
+        => ToToolResult(await new RuntimeObserver().ObserveAsync(CreateBridgeClient(bridgeClient, manifestDirectory), request, cancellationToken));
+
     [McpServerTool(Name = "doctor_target", Title = "Target application readiness", ReadOnly = true,
         Idempotent = true, Destructive = false, OpenWorld = false, UseStructuredContent = true)]
     [Description("Extends doctor for an explicitly selected application/project/profile/provider and backend. Checks compatibility, dependencies, installation origins, actual X11 access, renderer/fonts and only requested native permissions/services in a bounded isolated probe. Does not load host code, activate a bridge, attach sessions or expose display authentication material.")]
