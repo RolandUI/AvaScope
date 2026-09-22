@@ -92,6 +92,12 @@ public static class AvaScopeCapabilityCatalog
                 ["integration-guide", "integration_guide"],
                 requires: [AvaScopeCapabilityIds.RuntimeStandaloneProvider]),
             Capability(
+                AvaScopeCapabilityIds.RuntimeIntegrationVerification,
+                "runtime",
+                "Verify the complete owned-host bridge lifecycle or independent disabled production output/startup with structured stage evidence.",
+                ["verify-integration", "verify_integration"],
+                requires: [AvaScopeCapabilityIds.RuntimeStandaloneProvider]),
+            Capability(
                 AvaScopeCapabilityIds.RuntimeEffectiveCapabilities,
                 "runtime",
                 "Negotiate the effective protocol, bridge methods, input actions, automation patterns, mutation support, and native picker mode of one attached session.",
@@ -534,6 +540,8 @@ public static class AvaScopeCapabilityCatalog
             Mcp("verify_provider", AvaScopeCapabilityIds.RuntimeStandaloneProvider),
             Cli("integration-guide", AvaScopeCapabilityIds.RuntimeIntegrationGuidance),
             Mcp("integration_guide", AvaScopeCapabilityIds.RuntimeIntegrationGuidance),
+            Cli("verify-integration", AvaScopeCapabilityIds.RuntimeIntegrationVerification),
+            Mcp("verify_integration", AvaScopeCapabilityIds.RuntimeIntegrationVerification),
             Cli("diagnostics", AvaScopeCapabilityIds.DiagnosticsSummary, AvaScopeCapabilityIds.SafetyLocalOnly),
             Mcp("diagnostics", AvaScopeCapabilityIds.DiagnosticsSummary, AvaScopeCapabilityIds.SafetyLocalOnly),
             Cli("attach", AvaScopeCapabilityIds.RuntimeAttach),

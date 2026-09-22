@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using System.Text.Json;
 using AvaScope.Protocol;
 
 namespace AvaScope.Core;
@@ -44,6 +45,12 @@ public sealed class RuntimeScenarioRunner
         var policyValidationDiagnostics = new List<ProtocolError>();
         if (evidencePolicy is not null)
         {
+            if (request.CaptureVisualTree)
+            {
+                var authorization = evidencePolicy.AuthorizeAction(SemanticWorkflowActions.Inspect, customActionName: null);
+                if (!authorization.Success) policyValidationDiagnostics.Add(ToProtocolError(authorization.Error!));
+            }
+
             foreach (var item in validation.Plan.Steps)
             {
                 var authorization = evidencePolicy.AuthorizeAction(item.Action, customActionName: null);
@@ -176,6 +183,9 @@ public sealed class RuntimeScenarioRunner
                 if (!cleanupResult.Success)
                 {
                     diagnostics.Insert(0, ToProtocolError(cleanupResult.Error!));
+                    var ownership = new LaunchOwnershipStore(workflowClient.ManifestDirectory).TryRead(sessionId);
+                    if (ownership is not null)
+                        cleanup = LocalBridgeClient.TerminateOwnedProcess(ownership, DateTimeOffset.UtcNow);
                     status = Failed;
                     failureStage = RuntimeScenarioFailureStages.Cleanup;
                 }
@@ -417,6 +427,28 @@ public sealed class RuntimeScenarioRunner
                 return await CompleteAsync(Failed, RuntimeScenarioFailureStages.TopLevels);
             }
 
+            if (request.CaptureVisualTree)
+            {
+                currentStage = "inspection";
+                var tree = await workflowClient.VisualTreeAsync(sessionId, topLevelId, Math.Min(request.MaxDepth, 32), cancellationToken);
+                if (!tree.Success)
+                {
+                    diagnostics.Add(ToProtocolError(tree.Error!));
+                    return await CompleteAsync(Failed, currentStage);
+                }
+
+                if (evidencePolicy is not null)
+                {
+                    tree = evidencePolicy.Sanitize(tree.Value!);
+                    if (!tree.Success)
+                    {
+                        diagnostics.Add(ToProtocolError(tree.Error!));
+                        return await CompleteAsync(Failed, currentStage);
+                    }
+                }
+                File.WriteAllText(Path.Combine(outputDirectory, "runtime-tree.json"), JsonSerializer.Serialize(tree.Value, new JsonSerializerOptions(JsonSerializerDefaults.Web)));
+            }
+
             currentStage = RuntimeScenarioFailureStages.Workflow;
             var workflowRequest = new SemanticWorkflowRequest(
                 sessionId,
@@ -461,6 +493,12 @@ public sealed class RuntimeScenarioRunner
                     ["failureStage"] = currentStage
                 }));
             return await CompleteAsync(Cancelled, currentStage);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException)
+        {
+            diagnostics.Add(new ProtocolError("runtime_scenario_stage_failed", exception.Message,
+                new Dictionary<string, string> { ["failureStage"] = currentStage }));
+            return await CompleteAsync(Failed, currentStage);
         }
     }
 

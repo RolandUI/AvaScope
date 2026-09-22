@@ -775,7 +775,7 @@ public sealed class LocalBridgeClient
             : CoreResult<NativePickerResponse>.Fail(manifest.Error!);
     }
 
-    private static CloseSessionResponse TerminateOwnedProcess(
+    internal static CloseSessionResponse TerminateOwnedProcess(
         LaunchOwnershipRecord ownership,
         DateTimeOffset closedAt,
         bool sessionAlreadyClosed = false)

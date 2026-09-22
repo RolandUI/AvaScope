@@ -5,6 +5,7 @@ using System.Text.Json;
 using AvaScope.Protocol;
 
 var markerPath = ReadOption(args, "--marker");
+var failMethod = ReadOption(args, "--fail-method");
 var secret = Environment.GetEnvironmentVariable("AVASCOPE_LIFECYCLE_TEST_SECRET");
 var echoSecret = string.Equals(
     Environment.GetEnvironmentVariable("AVASCOPE_LIFECYCLE_TEST_ECHO_SECRET"),
@@ -25,8 +26,8 @@ if (!string.IsNullOrWhiteSpace(markerPath))
 }
 
 var sessionId = new SessionId($"lifecycle-{Guid.NewGuid():N}");
-var pipeName = $"avl-{Guid.NewGuid():N}"[..20];
 var process = Process.GetCurrentProcess();
+var pipeName = $"avs-{process.Id}-{Guid.NewGuid().ToString("N")[..16]}";
 var manifest = new BridgeSessionManifest(
     sessionId,
     process.Id,
@@ -66,14 +67,16 @@ while (true)
         await Task.Delay(firstResponseDelayMs);
     }
 
-    var response = request.Method switch
+    var response = request.Method == failMethod
+        ? BridgeIpcResponse.Fail(request.RequestId, new ProtocolError("fixture_failure", $"Requested fixture failure: {failMethod}"))
+        : request.Method switch
     {
         BridgeIpcMethods.Health => BridgeIpcResponse.Ok(
             request.RequestId,
             HealthResponse.Current(SessionCapabilitiesResponse.Current(sessionId, process.Id))),
         BridgeIpcMethods.ListTopLevels => BridgeIpcResponse.Ok(
             request.RequestId,
-            new TopLevelSummary[]
+            args.Contains("--empty-windows", StringComparer.Ordinal) ? [] : new TopLevelSummary[]
             {
                 new TopLevelSummary(
                     "topLevel:lifecycle",

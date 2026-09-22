@@ -20,6 +20,22 @@ Conventional `Application.OnFrameworkInitializationCompleted` startup with a uni
 
 The `EnableUiInspection` property is host-owned and unset by default. Package guidance guards both the reference and call; standalone guidance guards the loader call and excludes its copied helper from normal compilation. Existing references require a reviewed migration before claiming dependency-free production output. Run the integration verification after applying a chosen mode, including its independent disabled-build lane.
 
+Run `avascope verify-integration --request integration.json` or MCP `verify_integration(request)` to exercise the selected host. A minimal enabled request is:
+
+```json
+{
+  "launch": {"command": "dotnet", "argumentList": ["/absolute/host/Host.dll"], "timeoutMs": 20000},
+  "providerDirectory": "/absolute/external/provider",
+  "outputDirectory": "/absolute/local/evidence"
+}
+```
+
+Omit `providerDirectory` for package integration. Optional `build` uses the existing scenario build options and runs before launch; always supply the explicit built executable/DLL, including projects with a custom assembly name. The verifier allocates an isolated manifest directory, pins the verified provider for the host, reuses scenario launch/ownership, queries a bounded visual tree, inspects its root, captures the registered window and terminates only its own process. `safeInputTarget` plus `safeInputTargetDeclared: true` permits a focus-only probe on an explicitly declared non-destructive host target. `inspectionTarget` overrides the default visible root selector.
+
+For the independent negative lane, select a separately built production output, set `bootstrapDisabled: true`, `productionOutputDirectory` to that output and optionally `observationMs` (250–30000, default 1500). This flag requests verification; it cannot disable bootstrap inside an incorrectly built application. The host must stay alive for the whole interval. The lane rejects AvaScope DLL/EXE output and observes its private manifest directory and PID-scoped AvaScope named pipes every 50 ms; it does not claim to detect arbitrary third-party listeners or activation after the observation interval. The supplied .NET 10 Unix transport uses the [runtime's CoreFxPipe naming](https://github.com/dotnet/runtime/blob/v10.0.0/src/libraries/System.IO.Pipes/src/System/IO/Pipes/PipeStream.Unix.cs). No TCP listener, attach scan or unrelated-process shutdown is used.
+
+Every run creates an `integration-report.json` under a unique child directory with stage status, failure stage, remediation, logs, tree/screenshot evidence and the underlying scenario response. CLI exits 1 for a failed verification; MCP returns the same report in the usual tool envelope. Loader compatibility diagnostics distinguish activation failures from discovery timeouts. Failed runs retain evidence and recover only stopped resources belonging to their own process. Scenario `captureVisualTree` is an additive opt-in that stores `runtime-tree.json` before workflow dispatch, respecting configured evidence policy redaction and inspection permission.
+
 Copy [OptionalProviderLoader.cs](examples/OptionalProviderLoader.cs) into the host. It uses only the .NET BCL and can be excluded from normal builds. The [StandaloneHost sample](../samples/AvaScope.StandaloneHost) links this source only when `EnableUiInspection=true`; it has no AvaScope package/project reference. Its normal output contains no AvaScope assemblies.
 
 ```csharp

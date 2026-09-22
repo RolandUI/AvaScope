@@ -185,6 +185,7 @@ jobs:
         run: |
           powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\package-provider.ps1
           pwsh -NoProfile -File .\eng\test-standalone-provider.ps1 -Native -SkipBuild
+          pwsh -NoProfile -File .\eng\test-integration-onboarding.ps1 -Native -SkipBuild
           powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\verify-artifacts.ps1
           Get-Content artifacts\release-manifest.json
 
@@ -231,6 +232,7 @@ jobs:
           sudo apt-get install -y xvfb libx11-6 libice6 libsm6 libfontconfig1
           pwsh -NoProfile -File ./eng/package-provider.ps1
           xvfb-run -a -s "-screen 0 1280x900x24 -nolisten tcp" pwsh -NoProfile -File ./eng/test-standalone-provider.ps1 -Native -SkipBuild
+          xvfb-run -a -s "-screen 0 1280x900x24 -nolisten tcp" pwsh -NoProfile -File ./eng/test-integration-onboarding.ps1 -Native -SkipBuild
 
       - name: Test packaged Linux lifecycle scenario
         shell: pwsh
@@ -321,6 +323,7 @@ jobs:
           dotnet pack src/AvaScope.Bridge/AvaScope.Bridge.csproj -c Release --no-build --output artifacts/packages
           pwsh -NoProfile -File ./eng/package-provider.ps1
           pwsh -NoProfile -File ./eng/test-standalone-provider.ps1 -Native -SkipBuild
+          pwsh -NoProfile -File ./eng/test-integration-onboarding.ps1 -Native -SkipBuild
           pwsh -NoProfile -File ./eng/verify-artifacts.ps1 \
             -ExecutableRuntimeIdentifiers "$runtime_identifier" \
             -InstallerRuntimeIdentifiers "$runtime_identifier"

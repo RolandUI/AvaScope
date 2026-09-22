@@ -26,7 +26,8 @@ public sealed record RuntimeScenarioRequest
         int workflowTimeoutMs = SemanticWorkflowLimits.DefaultWorkflowTimeoutMs,
         SemanticWorkflowEvidenceOptions? evidence = null,
         RuntimeScenarioBuildOptions? build = null,
-        bool terminateLaunchedProcess = false)
+        bool terminateLaunchedProcess = false,
+        bool captureVisualTree = false)
     {
         if (steps is null || steps.Count == 0)
         {
@@ -74,6 +75,7 @@ public sealed record RuntimeScenarioRequest
         Evidence = evidence;
         Build = build;
         TerminateLaunchedProcess = terminateLaunchedProcess;
+        CaptureVisualTree = captureVisualTree;
     }
 
     [JsonPropertyName("requestId")]
@@ -148,6 +150,9 @@ public sealed record RuntimeScenarioRequest
 
     [JsonPropertyName("terminateLaunchedProcess")]
     public bool TerminateLaunchedProcess { get; }
+
+    [JsonPropertyName("captureVisualTree")]
+    public bool CaptureVisualTree { get; }
 }
 
 public sealed record RuntimeScenarioPickerResult

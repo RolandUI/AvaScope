@@ -62,6 +62,7 @@ The stable CLI command name set is:
 - `doctor`
 - `verify-provider`
 - `integration-guide`
+- `verify-integration`
 - `diagnostics`
 - `attach`
 - `session-capabilities`
@@ -126,6 +127,7 @@ The stable MCP tool name set is:
 - `session_capabilities`
 - `verify_provider`
 - `integration_guide`
+- `verify_integration`
 - `launch_app`
 - `list_top_levels`
 - `screenshot`

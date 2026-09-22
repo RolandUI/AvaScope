@@ -9,6 +9,13 @@ namespace AvaScope.Mcp;
 [McpServerToolType]
 public sealed class AvaScopeMcpTools
 {
+    [McpServerTool(Name = "verify_integration", Title = "Verify bridge integration", ReadOnly = false,
+        Idempotent = false, Destructive = false, OpenWorld = false, UseStructuredContent = true)]
+    [Description("Verifies one explicitly launched local host: optional build/provider checks, owned session discovery, window readiness, tree, screenshot, declared safe focus probe and shutdown cleanup. bootstrapDisabled selects the independent production-output and bounded no-manifest/no-listener lane. Produces a local stage report; never attaches to unrelated processes.")]
+    public static async Task<ToolResult<BridgeIntegrationVerificationResponse>> VerifyIntegration(
+        BridgeIntegrationVerificationRequest request, CancellationToken cancellationToken = default)
+        => ToToolResult(await new BridgeIntegrationVerifier().RunAsync(request, cancellationToken));
+
     [McpServerTool(Name = "integration_guide", Title = "Bridge integration guidance", ReadOnly = true,
         Idempotent = true, Destructive = false, OpenWorld = false, UseStructuredContent = true)]
     [Description("Read-only, bounded analysis of an explicitly selected .csproj. Returns file/line/hash guidance for guarded package or external-provider integration, existing call sites, and unresolved startup/framework diagnostics. Does not build, evaluate MSBuild or edit source.")]
