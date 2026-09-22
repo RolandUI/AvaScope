@@ -13,6 +13,16 @@ For the `v1.0.0` end-to-end release-readiness ledger, keep [END_TO_END_VALIDATIO
 
 Run build and test commands sequentially. Parallel build/test invocations can contend for the same `bin/` and `obj/` outputs.
 
+For the standalone-provider foundation (#117/#119/#121), batch the bootstrap/provider regressions with the real external-host gate:
+
+```powershell
+dotnet test tests/AvaScope.Tests/AvaScope.Tests.csproj -c Release --filter "FullyQualifiedName~Bridge|FullyQualifiedName~ProviderVerifierTests"
+pwsh -File eng/test-standalone-provider.ps1
+pwsh -File eng/test-standalone-provider.ps1 -Native -SkipBuild
+```
+
+The gate records the actual headless/native mode and exercises CLI plus MCP stdio against the no-PackageReference sample, isolated enabled/disabled/incompatible builds, window lifecycle, screenshot, malformed/missing/tampered providers, pins, normal shutdown and remote transport cleanup. On Linux, run the native lane inside an owned X11 display. Hosted Windows/Linux/macOS evidence is required before closing cross-platform acceptance. See [STANDALONE_PROVIDER.md](STANDALONE_PROVIDER.md) for artifact pinning and compatibility boundaries.
+
 For protocol-only work, also run:
 
 ```powershell

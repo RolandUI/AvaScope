@@ -59,17 +59,27 @@ internal sealed class SampleApplication : Application
             // The host owns this compile-time authorization. Merely supplying files or an
             // environment variable cannot enable inspection in the normal build.
 #if ENABLE_UI_INSPECTION
-            var result = OptionalDiagnostics.OptionalProviderLoader.TryStartFromEnvironment(
-                expectedVersion: Environment.GetEnvironmentVariable("UI_INSPECTION_PROVIDER_VERSION"),
-                expectedManifestSha256: Environment.GetEnvironmentVariable("UI_INSPECTION_PROVIDER_SHA256"));
-            Console.Error.WriteLine(System.Text.Json.JsonSerializer.Serialize(result));
-            if (result.Activated)
+            if (desktop.Args?.Contains("--load-only", StringComparer.Ordinal) == true)
             {
-                // Exercise idempotent reflection activation without any host registration.
-                var repeated = OptionalDiagnostics.OptionalProviderLoader.TryStartFromEnvironment();
-                if (!repeated.Success || repeated.SessionId != result.SessionId)
+                var path = Path.Combine(Environment.GetEnvironmentVariable("UI_INSPECTION_PROVIDER_PATH")!, "AvaScope.Bridge.dll");
+                var assembly = System.Runtime.Loader.AssemblyLoadContext.Default.LoadFromAssemblyPath(path);
+                _ = assembly.GetType("AvaScope.Bridge.Bootstrap", throwOnError: true);
+                Console.Error.WriteLine("AVASCOPE_PROVIDER_LOADED_ONLY");
+            }
+            else
+            {
+                var result = OptionalDiagnostics.OptionalProviderLoader.TryStartFromEnvironment(
+                    expectedVersion: Environment.GetEnvironmentVariable("UI_INSPECTION_PROVIDER_VERSION"),
+                    expectedManifestSha256: Environment.GetEnvironmentVariable("UI_INSPECTION_PROVIDER_SHA256"));
+                Console.Error.WriteLine(System.Text.Json.JsonSerializer.Serialize(result));
+                if (result.Activated)
                 {
-                    throw new InvalidOperationException("Repeated provider activation changed the session.");
+                    // Exercise idempotent reflection activation without any host registration.
+                    var repeated = OptionalDiagnostics.OptionalProviderLoader.TryStartFromEnvironment();
+                    if (!repeated.Success || repeated.SessionId != result.SessionId)
+                    {
+                        throw new InvalidOperationException("Repeated provider activation changed the session.");
+                    }
                 }
             }
 #endif

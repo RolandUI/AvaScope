@@ -146,6 +146,11 @@ try {
         throw "eng/package-installers.ps1 failed with exit code $LASTEXITCODE."
     }
 
+    & (Join-Path $repoRoot "eng/package-provider.ps1") -Configuration $Configuration
+    if ($LASTEXITCODE -ne 0) {
+        throw "eng/package-provider.ps1 failed with exit code $LASTEXITCODE."
+    }
+
     & (Join-Path $repoRoot "eng/verify-artifacts.ps1") `
         -ExecutableRuntimeIdentifiers $ExecutableRuntimeIdentifiers `
         -InstallerRuntimeIdentifiers $InstallerRuntimeIdentifiers `

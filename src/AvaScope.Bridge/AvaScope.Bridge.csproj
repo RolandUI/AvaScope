@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <PackageReference Include="Avalonia" Version="12.1.0" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="3.119.4" Condition="'$(AvaScopeStandaloneProvider)' == 'true'" />
   </ItemGroup>
 
   <ItemGroup>

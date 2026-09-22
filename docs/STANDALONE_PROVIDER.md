@@ -38,4 +38,18 @@ dotnet samples/AvaScope.StandaloneHost/bin/Release/net10.0/StandaloneInspectionH
 
 For noninteractive smoke validation the sample accepts `--headless --exit-after-ms=3000`. Native backend validation omits `--headless`. Both modes use the real Avalonia controls and the same explicit reflection loader. Build without `EnableUiInspection` for the independently disabled lane; an environment variable alone cannot turn that build into an inspectable app.
 
-Provider distribution is coordinated by #121; the complete standalone acceptance gate is tracked in #117.
+## Provider distribution and verification
+
+`pwsh -File eng/package-provider.ps1` produces `artifacts/providers/avascope-bridge-provider.zip` and its `.sha256` sidecar. The archive includes the Bridge/Core/Protocol assemblies, their resolver metadata, managed and native private dependencies, the copyable loader, documentation and license notices. `provider-manifest.json` declares the exact provider version, supported runtime/platform range, stable entry point, host-shared assembly identities, and the size/SHA-256 of every private file. Auxiliary Avalonia assemblies can have their own version line; their declared assembly identities are checked separately from the Avalonia engine's product range.
+
+The release publishes this ZIP and checksum in addition to the normal CLI/MCP distributions and NuGet packages. Provider files remain separate from the application's deployment. Choose an explicit release artifact, validate its ZIP hash against `release-manifest.json`, extract it to a version-specific directory, and pin its exact manifest hash for the run. CLI upgrades do not select or replace that directory.
+
+```powershell
+avascope verify-provider --directory C:\diagnostics\avascope\1.5.0 --version 1.5.0 --sha256 <manifest-sha256>
+```
+
+The equivalent read-only MCP tool is `verify_provider(directory, expectedVersion, expectedManifestSha256)`. Both return the same provider identity and compatibility requirements without loading the bridge. Actual host Avalonia identity is checked by the explicit host loader at activation; successful offline verification does not claim that an unexamined host is compatible.
+
+`pwsh -File eng/verify-provider.ps1` checks the release ZIP inventory, private file hashes, required native libraries, legal files and archive checksum. `pwsh -File eng/test-standalone-provider.ps1` builds separate enabled, disabled and incompatible hosts, then validates real reflection loading through CLI and MCP, existing/new/closed windows, screenshots, normal exit and remote-close cleanup, pins, tampering and load-only startup. Pass `-Native` for actual desktop backend coverage; default headless results are identified explicitly. Evidence and process logs remain under an isolated `artifacts/provider-validation/<run>` directory.
+
+The complete standalone acceptance gate is tracked in #117, #119 and #121.

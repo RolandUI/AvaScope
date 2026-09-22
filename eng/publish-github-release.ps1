@@ -3,6 +3,7 @@ param(
     [string]$Tag,
     [string]$PackageRoot = "artifacts/packages",
     [string]$ExecutableRoot = "artifacts/executables",
+    [string]$ProviderRoot = "artifacts/providers",
     [string]$ManifestPath = "artifacts/release-manifest.json",
     [string[]]$ExecutableRuntimeIdentifiers = @("win-x64", "linux-x64", "osx-arm64", "osx-x64"),
     [string[]]$InstallerRuntimeIdentifiers = @("win-x64", "linux-x64", "osx-arm64", "osx-x64"),
@@ -97,9 +98,10 @@ if ([string]::IsNullOrWhiteSpace($Tag)) {
 $repoRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot ".."))
 $packageRootPath = Resolve-RepoPath -Path $PackageRoot -RepoRoot $repoRoot
 $executableRootPath = Resolve-RepoPath -Path $ExecutableRoot -RepoRoot $repoRoot
+$providerRootPath = Resolve-RepoPath -Path $ProviderRoot -RepoRoot $repoRoot
 $manifestPathValue = Resolve-RepoPath -Path $ManifestPath -RepoRoot $repoRoot
 
-foreach ($path in @($packageRootPath, $executableRootPath, $manifestPathValue)) {
+foreach ($path in @($packageRootPath, $executableRootPath, $providerRootPath, $manifestPathValue)) {
     if (-not (Test-IsUnderDirectory -Path $path -Directory $repoRoot)) {
         throw "Release artifact paths must stay inside the repository: $path"
     }
@@ -117,6 +119,8 @@ if ($Tag -ne $expectedTag) {
 }
 
 $assetPaths = @(
+    (Join-Path $providerRootPath 'avascope-bridge-provider.zip'),
+    (Join-Path $providerRootPath 'avascope-bridge-provider.zip.sha256'),
     (Join-Path $packageRootPath "AvaScope.Protocol.$version.nupkg"),
     (Join-Path $packageRootPath "AvaScope.Core.$version.nupkg"),
     (Join-Path $packageRootPath "AvaScope.Bridge.$version.nupkg")

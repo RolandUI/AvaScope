@@ -11,6 +11,7 @@ public sealed class StableSurfaceContractTests
         "capabilities",
         "mcp",
         "doctor",
+        "verify-provider",
         "diagnostics",
         "attach",
         "session-capabilities",
@@ -60,6 +61,7 @@ public sealed class StableSurfaceContractTests
     [
         "capabilities",
         "health",
+        "verify_provider",
         "diagnostics",
         "attach_to_app",
         "session_capabilities",

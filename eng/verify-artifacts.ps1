@@ -1,6 +1,7 @@
 param(
     [string]$PackageRoot = "artifacts/packages",
     [string]$ExecutableRoot = "artifacts/executables",
+    [string]$ProviderRoot = "artifacts/providers",
     [string[]]$ExecutableRuntimeIdentifiers = @("win-x64", "linux-x64", "osx-arm64", "osx-x64"),
     [string[]]$InstallerRuntimeIdentifiers = @("win-x64", "linux-x64", "osx-arm64", "osx-x64"),
     [ValidateSet("framework-dependent", "self-contained")]
@@ -155,9 +156,10 @@ function Get-RepoRelativePath {
 $repoRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot ".."))
 $packageRootPath = Resolve-RepoPath -Path $PackageRoot -RepoRoot $repoRoot
 $executableRootPath = Resolve-RepoPath -Path $ExecutableRoot -RepoRoot $repoRoot
+$providerRootPath = Resolve-RepoPath -Path $ProviderRoot -RepoRoot $repoRoot
 $outputPathValue = Resolve-RepoPath -Path $OutputPath -RepoRoot $repoRoot
 
-foreach ($path in @($packageRootPath, $executableRootPath, $outputPathValue)) {
+foreach ($path in @($packageRootPath, $executableRootPath, $providerRootPath, $outputPathValue)) {
     if (-not (Test-IsUnderDirectory -Path $path -Directory $repoRoot)) {
         throw "Artifact verification paths must stay inside the repository: $path"
     }
@@ -178,6 +180,14 @@ if ([string]::IsNullOrWhiteSpace($version)) {
 }
 
 $requiredArtifacts = @(
+    [pscustomobject]@{
+        Kind = "bridge-provider"
+        Path = Join-Path $providerRootPath "avascope-bridge-provider.zip"
+    },
+    [pscustomobject]@{
+        Kind = "bridge-provider-checksum"
+        Path = Join-Path $providerRootPath "avascope-bridge-provider.zip.sha256"
+    },
     [pscustomobject]@{
         Kind = "nuget-package"
         Path = Join-Path $packageRootPath "AvaScope.Protocol.$version.nupkg"
@@ -275,6 +285,8 @@ foreach ($artifact in $requiredArtifacts | Where-Object { $_.Kind -eq "nuget-pac
 foreach ($artifact in $requiredArtifacts | Where-Object { $_.Kind -eq "executable-zip" }) {
     Assert-ExecutableLegalFiles -Path $artifact.Path
 }
+
+& (Join-Path $PSScriptRoot 'verify-provider.ps1') -Archive (Join-Path $providerRootPath 'avascope-bridge-provider.zip') -ExpectedVersion $version
 
 $artifacts = foreach ($artifact in $requiredArtifacts) {
     if (-not (Test-Path -LiteralPath $artifact.Path -PathType Leaf)) {

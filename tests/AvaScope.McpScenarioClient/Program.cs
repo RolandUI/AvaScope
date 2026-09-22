@@ -1,9 +1,9 @@
 using System.Text.Json;
 using ModelContextProtocol.Client;
 
-if (args.Length != 3)
+if (args.Length is not 3 and not 4)
 {
-    Console.Error.WriteLine("Usage: AvaScope.McpScenarioClient <mcp-assembly> <request-json> <manifest-directory>");
+    Console.Error.WriteLine("Usage: AvaScope.McpScenarioClient <mcp-assembly> <request-json> <manifest-directory> [tool-name]");
     return 2;
 }
 
@@ -31,13 +31,17 @@ await using var client = await McpClient.CreateAsync(
         ShutdownTimeout = TimeSpan.FromSeconds(5)
     }),
     cancellationToken: cancellation.Token);
-var result = await client.CallToolAsync(
-    "run_scenario",
-    new Dictionary<string, object?>
+var toolName = args.Length == 4 ? args[3] : "run_scenario";
+var toolArguments = args.Length == 4
+    ? request.EnumerateObject().ToDictionary(property => property.Name, property => (object?)property.Value)
+    : new Dictionary<string, object?>
     {
         ["request"] = request,
         ["manifestDirectory"] = manifestDirectory
-    },
+    };
+var result = await client.CallToolAsync(
+    toolName,
+    toolArguments,
     cancellationToken: cancellation.Token);
 var output = JsonSerializer.Serialize(result.StructuredContent);
 Console.WriteLine(output);

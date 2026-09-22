@@ -9,6 +9,13 @@ namespace AvaScope.Mcp;
 [McpServerToolType]
 public sealed class AvaScopeMcpTools
 {
+    [McpServerTool(Name = "verify_provider", Title = "Verify standalone provider", ReadOnly = true,
+        Idempotent = true, Destructive = false, OpenWorld = false, UseStructuredContent = true)]
+    [Description("Verifies an explicit external provider directory and optional exact version/manifest SHA-256 pins without loading or activating the bridge. Host Avalonia compatibility is checked at explicit activation.")]
+    public static ToolResult<ProviderVerificationResponse> VerifyProvider(
+        string directory, string? expectedVersion = null, string? expectedManifestSha256 = null)
+        => ToToolResult(ProviderVerifier.Verify(directory, expectedVersion, expectedManifestSha256));
+
     [McpServerTool(
         Name = "health",
         Title = "Health",

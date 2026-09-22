@@ -73,6 +73,19 @@ public static class AvaScopeCapabilityCatalog
                 ["attach", "attach_to_app"],
                 requires: [AvaScopeCapabilityIds.SafetyLocalOnly]),
             Capability(
+                AvaScopeCapabilityIds.RuntimeStandaloneProvider,
+                "runtime",
+                "Verify and pin an external reflection-loadable bridge provider; only the host's explicit bootstrap activates it.",
+                ["verify-provider", "verify_provider"],
+                requires: [AvaScopeCapabilityIds.SafetyLocalOnly],
+                metadata: new Dictionary<string, string>
+                {
+                    ["bootstrap"] = "AvaScope.Bridge.Bootstrap.Start",
+                    ["runtime"] = "net10.0",
+                    ["avalonia"] = "[12.1.0,12.2.0)",
+                    ["activation"] = "explicit_host_call_only"
+                }),
+            Capability(
                 AvaScopeCapabilityIds.RuntimeEffectiveCapabilities,
                 "runtime",
                 "Negotiate the effective protocol, bridge methods, input actions, automation patterns, mutation support, and native picker mode of one attached session.",
@@ -511,6 +524,8 @@ public static class AvaScopeCapabilityCatalog
             Mcp("capabilities", AvaScopeCapabilityIds.ProtocolCapabilityDiscovery, AvaScopeCapabilityIds.ProtocolToolResultV1),
             Mcp("health", AvaScopeCapabilityIds.ProtocolToolResultV1),
             Cli("doctor", AvaScopeCapabilityIds.DiagnosticsSummary, AvaScopeCapabilityIds.SafetyLocalOnly),
+            Cli("verify-provider", AvaScopeCapabilityIds.RuntimeStandaloneProvider),
+            Mcp("verify_provider", AvaScopeCapabilityIds.RuntimeStandaloneProvider),
             Cli("diagnostics", AvaScopeCapabilityIds.DiagnosticsSummary, AvaScopeCapabilityIds.SafetyLocalOnly),
             Mcp("diagnostics", AvaScopeCapabilityIds.DiagnosticsSummary, AvaScopeCapabilityIds.SafetyLocalOnly),
             Cli("attach", AvaScopeCapabilityIds.RuntimeAttach),
