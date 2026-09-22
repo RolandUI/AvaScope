@@ -21,7 +21,7 @@ $profile = @{
             launch=@{command='dotnet';argumentList=@((Join-Path $hostOutput 'StandaloneInspectionHost.dll'));timeoutMs=20000}
             x11Environment=@{mode='managed';windowManager=$true;sessionBus=$true}
             outputDirectory='runs/{runId}';captureVisualTree=$true
-            steps=@(@{action='inspect';selector=@{name='NameField'}},@{action='screenshot'})
+            steps=@(@{action='inspect';selector=@{name='NameField'}},@{action='focus';selector=@{name='NameField'}},@{action='screenshot'})
         }
     }}
 }
@@ -43,6 +43,12 @@ foreach ($adapter in @('cli','mcp')) {
     }
     foreach ($helper in $result.environment.helpers) {
         if (-not $helper.exited -or (Get-Process -Id $helper.processId -ErrorAction SilentlyContinue)) { throw 'An owned helper survived scenario cleanup.' }
+    }
+    if ($result.topLevels[0].backend.backend -ne 'x11' -or
+        $result.workflow.steps[1].input.provenance.route -ne 'avalonia_focus_api' -or
+        $result.workflow.steps[2].screenshot.provenance.route -ne 'avalonia_render_target_bitmap' -or
+        $result.workflow.steps[2].screenshot.provenance.backend.backend -ne 'x11') {
+        throw 'Actual X11 operation provenance was lost through the adapter or workflow.'
     }
     $displays += $result.environment.display
 }

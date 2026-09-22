@@ -21,7 +21,8 @@ public sealed record SessionCapabilitiesResponse
         IReadOnlyList<string> nativePickerOperations,
         string revision,
         bool customActionsEnabled = false,
-        IReadOnlyList<string>? allowedCustomActions = null)
+        IReadOnlyList<string>? allowedCustomActions = null,
+        IReadOnlyList<RuntimeBackendInfo>? backends = null)
     {
         SessionId = sessionId ?? throw new ArgumentNullException(nameof(sessionId));
         if (processId < 1)
@@ -49,6 +50,7 @@ public sealed record SessionCapabilitiesResponse
         Revision = revision;
         CustomActionsEnabled = customActionsEnabled;
         AllowedCustomActions = allowedCustomActions ?? [];
+        Backends = backends ?? [];
     }
 
     [JsonPropertyName("sessionId")] public SessionId SessionId { get; }
@@ -65,18 +67,23 @@ public sealed record SessionCapabilitiesResponse
     [JsonPropertyName("revision")] public string Revision { get; }
     [JsonPropertyName("customActionsEnabled")] public bool CustomActionsEnabled { get; }
     [JsonPropertyName("allowedCustomActions")] public IReadOnlyList<string> AllowedCustomActions { get; }
+    [JsonPropertyName("backends")] public IReadOnlyList<RuntimeBackendInfo> Backends { get; }
 
     public static SessionCapabilitiesResponse Current(
         SessionId sessionId,
         int processId,
         bool customActionsEnabled = false,
-        IReadOnlyList<string>? allowedCustomActions = null)
+        IReadOnlyList<string>? allowedCustomActions = null,
+        IReadOnlyList<RuntimeBackendInfo>? backends = null)
     {
         var methods = BridgeIpcMethods.All;
         var actions = global::AvaScope.Protocol.InputActions.All;
         var patterns = global::AvaScope.Protocol.AutomationPatterns.All;
         var mutations = RuntimeMutationCapabilityCatalog.CurrentBridgeCapabilities();
-        var pickerMode = OperatingSystem.IsWindows()
+        backends ??= [];
+        var nativePickerSupported = OperatingSystem.IsWindows()
+            && backends.Any(static backend => backend.Backend == "win32");
+        var pickerMode = nativePickerSupported
             ? "windows_live_and_injected"
             : "injected_only";
         var revisionSource = string.Join(
@@ -92,7 +99,10 @@ public sealed record SessionCapabilitiesResponse
                 customActionsEnabled.ToString(),
                 string.Join(",", allowedCustomActions ?? []),
                 pickerMode,
-                string.Join(",", global::AvaScope.Protocol.NativePickerOperations.All)
+                string.Join(",", global::AvaScope.Protocol.NativePickerOperations.All),
+                string.Join(";", backends.Select(static backend =>
+                    $"{backend.Backend}|{backend.Platform}|{backend.RenderMode}|{string.Join(',', backend.InputRoutes)}|{string.Join(',', backend.ScreenshotRoutes)}|{string.Join(',', backend.Restrictions)}")
+                    .Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal))
             ]);
         var revision = Convert.ToHexString(
             SHA256.HashData(Encoding.UTF8.GetBytes(revisionSource))).ToLowerInvariant();
@@ -106,12 +116,13 @@ public sealed record SessionCapabilitiesResponse
             actions,
             patterns,
             mutations,
-            OperatingSystem.IsWindows(),
+            nativePickerSupported,
             pickerMode,
             global::AvaScope.Protocol.NativePickerOperations.All,
             revision,
             customActionsEnabled,
-            allowedCustomActions);
+            allowedCustomActions,
+            backends);
     }
 }
 

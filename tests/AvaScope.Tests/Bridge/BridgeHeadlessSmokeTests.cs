@@ -4382,6 +4382,9 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                     Assert.Equal(100, slider.Value);
                     Assert.NotNull(providerDrag.Value!.Gesture);
                     Assert.Equal("automation_provider", providerDrag.Value.Gesture!.ExecutionMode);
+                    Assert.Equal(RuntimeOperationRoutes.AutomationProvider, providerDrag.Value.Provenance!.Route);
+                    Assert.True(providerDrag.Value.Provenance.Dispatched);
+                    Assert.False(providerDrag.Value.Provenance.Fallback);
                     Assert.Equal(nameof(Avalonia.Automation.Provider.IRangeValueProvider), providerDrag.Value.Gesture.Provenance);
                     Assert.Equal(25, double.Parse(providerDrag.Value.Metadata["previousRangeValue"], CultureInfo.InvariantCulture));
                     Assert.Equal(0, providerDrag.Value.Gesture.EffectiveDurationMs);
@@ -4447,6 +4450,8 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                     Assert.True(thresholdDrag.Value!.Handled);
                     Assert.Equal("current_target_bounds", thresholdDrag.Value.Metadata["coordinateSource"]);
                     Assert.Equal("pointer_fallback", thresholdDrag.Value.Gesture!.ExecutionMode);
+                    Assert.Equal(RuntimeOperationRoutes.SyntheticPointer, thresholdDrag.Value.Provenance!.Route);
+                    Assert.True(thresholdDrag.Value.Provenance.Fallback);
                     Assert.InRange(thresholdTravel, 200, thresholdBounds.Width);
                     Assert.Equal(1, thresholdCompletions);
 
@@ -5244,7 +5249,7 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
         }
     }
 
-    private sealed class BridgeHeadlessTestApplication : Application
+    internal sealed class BridgeHeadlessTestApplication : Application
     {
         public static AppBuilder BuildAvaloniaApp()
         {

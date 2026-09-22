@@ -12,7 +12,8 @@ public sealed record TopLevelSummary
         double width,
         double height,
         double renderScaling,
-        bool isActive)
+        bool isActive,
+        RuntimeBackendInfo? backend = null)
     {
         if (string.IsNullOrWhiteSpace(id))
         {
@@ -31,6 +32,7 @@ public sealed record TopLevelSummary
         Height = height;
         RenderScaling = renderScaling;
         IsActive = isActive;
+        Backend = backend;
     }
 
     [JsonPropertyName("id")]
@@ -54,4 +56,8 @@ public sealed record TopLevelSummary
 
     [JsonPropertyName("isActive")]
     public bool IsActive { get; }
+
+    [JsonPropertyName("backend")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public RuntimeBackendInfo? Backend { get; }
 }

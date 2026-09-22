@@ -125,7 +125,10 @@ public static class AvaScopeCapabilityCatalog
                 metadata: new Dictionary<string, string>
                 {
                     ["revision"] = "sha256",
-                    ["fallback"] = "attach_effectiveCapabilities_null_for_older_bridge"
+                    ["fallback"] = "attach_effectiveCapabilities_null_for_older_bridge",
+                    ["backendEvidence"] = "registered_top_level_platform_implementation",
+                    ["operationEvidence"] = "input.provenance,screenshot.provenance",
+                    ["unknownEvidence"] = "no_observed_backend_or_render_mode_is_not_native_coverage"
                 }),
             Capability(
                 AvaScopeCapabilityIds.RuntimeSessionLifecycle,

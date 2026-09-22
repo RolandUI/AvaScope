@@ -17,7 +17,8 @@ internal static class InspectableTopLevel
             window.ClientSize.Width,
             window.ClientSize.Height,
             window.RenderScaling,
-            window.IsActive);
+            window.IsActive,
+            RuntimePlatformEvidence.Observe(window));
     }
 
     internal static TopLevelSummary FromTopLevel(TopLevel topLevel, string kind)
@@ -31,7 +32,8 @@ internal static class InspectableTopLevel
             topLevel.ClientSize.Width,
             topLevel.ClientSize.Height,
             topLevel.RenderScaling,
-            false);
+            false,
+            RuntimePlatformEvidence.Observe(topLevel));
     }
 
     internal static string CreateId(TopLevel topLevel)

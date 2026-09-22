@@ -4,6 +4,8 @@ This workflow is for agents using AvaScope as a local control plane for an Avalo
 
 The intended agent loop is: check readiness, preview the UI, inspect a running app, act through bounded local commands, capture evidence, and clean up explicit local state. AvaScope returns structured JSON and file paths so an agent can make follow-up decisions without parsing screenshots or terminal text as the source of truth.
 
+Use the session's observed backends and each input/screenshot's [runtime provenance](RUNTIME_PROVENANCE.md) when assessing test coverage. Headless, automation-provider, synthetic input, and control rendering have different guarantees; missing or unknown evidence does not establish native desktop coverage.
+
 ## 1. Create And Install A Local Release
 
 ```powershell

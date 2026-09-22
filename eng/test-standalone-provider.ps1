@@ -132,12 +132,22 @@ try {
     $topLevels = Invoke-Cli -Arguments @('list-top-levels','--session',$sessionId,'--manifest-dir',$run.ManifestDirectory)
     if ($topLevels.value.topLevels.Count -ne 1) { throw 'Existing main window was not registered once.' }
     $mainId = $topLevels.value.topLevels[0].id
+    $expectedBackend = if (-not $Native) { 'headless' } elseif ($IsWindows) { 'win32' } elseif ($IsMacOS) { 'macos' } else { 'x11' }
+    if ($topLevels.value.topLevels[0].backend.backend -ne $expectedBackend) { throw 'Top-level reports an incorrect runtime backend.' }
+    $capabilities = Invoke-Cli -Arguments @('session-capabilities','--session',$sessionId,'--manifest-dir',$run.ManifestDirectory)
+    if ($expectedBackend -notin $capabilities.value.backends.backend) { throw 'Session capabilities lost the observed backend.' }
     Invoke-Mcp -Tool 'visual_tree' -Arguments @{ sessionId=$sessionId; topLevelId=$mainId; maxDepth=6; manifestDirectory=$run.ManifestDirectory } | Out-Null
-    Invoke-Mcp -Tool 'screenshot' -Arguments @{ sessionId=$sessionId; topLevelId=$mainId; outputPath=(Join-Path $run.Root 'main.png'); manifestDirectory=$run.ManifestDirectory } | Out-Null
+    $screenshot = Invoke-Mcp -Tool 'screenshot' -Arguments @{ sessionId=$sessionId; topLevelId=$mainId; outputPath=(Join-Path $run.Root 'main.png'); manifestDirectory=$run.ManifestDirectory }
+    if ($screenshot.value.provenance.route -ne 'avalonia_render_target_bitmap' -or
+        $screenshot.value.provenance.backend.backend -ne $expectedBackend -or
+        $screenshot.value.provenance.renderScaling -ne $topLevels.value.topLevels[0].renderScaling) { throw 'Screenshot route/backend/scale evidence is incorrect.' }
     if ((Get-Item -LiteralPath (Join-Path $run.Root 'main.png')).Length -lt 64) { throw 'Screenshot is missing or empty.' }
     $open = Invoke-Cli -Arguments @('find-nodes','--session',$sessionId,'--top-level',$mainId,'--name','OpenWindow','--manifest-dir',$run.ManifestDirectory)
     if ($open.value.matches.Count -ne 1) { throw 'Open-window control was not unique.' }
-    Invoke-Mcp -Tool 'input' -Arguments @{ sessionId=$sessionId; topLevelId=$mainId; action='invoke'; targetNodeId=$open.value.matches[0].node.nodeId; manifestDirectory=$run.ManifestDirectory } | Out-Null
+    $invoke = Invoke-Mcp -Tool 'input' -Arguments @{ sessionId=$sessionId; topLevelId=$mainId; action='invoke'; targetNodeId=$open.value.matches[0].node.nodeId; manifestDirectory=$run.ManifestDirectory }
+    if ($invoke.value.provenance.route -ne 'avalonia_automation_provider' -or
+        $invoke.value.provenance.backend.backend -ne $expectedBackend -or
+        -not $invoke.value.provenance.dispatched) { throw 'Input reports an incorrect operation route.' }
     $topLevels = Invoke-Cli -Arguments @('list-top-levels','--session',$sessionId,'--manifest-dir',$run.ManifestDirectory)
     if ($topLevels.value.topLevels.Count -ne 2) { throw 'New child window was not registered automatically.' }
     $childId = ($topLevels.value.topLevels | Where-Object id -ne $mainId).id

@@ -48,6 +48,7 @@ public sealed class AvaScopeBridgeRuntime
     private const string MutationValueKindString = "string";
     private const string MutationValueKindThickness = "thickness";
     private readonly ConcurrentDictionary<int, WeakReference<TopLevel>> _registeredTopLevels = new();
+    private readonly ConcurrentDictionary<string, RuntimeBackendInfo> _observedBackends = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, ActivePointerState> _activePointers = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, AppliedRuntimeMutation> _activeMutations = new(StringComparer.Ordinal);
     private readonly ConcurrentQueue<RuntimeMutationReviewEntry> _mutationHistory = new();
@@ -87,6 +88,13 @@ public sealed class AvaScopeBridgeRuntime
 
     public IReadOnlyList<string> AllowedCustomActions => _activationOptions.AllowedCustomActions;
 
+    // Health stays responsive without dispatching to a potentially blocked UI thread. Observations
+    // are refreshed by registration/discovery on that thread and removed with registrations.
+    public SessionCapabilitiesResponse GetCapabilities() => SessionCapabilitiesResponse.Current(
+        SessionId, Environment.ProcessId, CustomActionsEnabled, AllowedCustomActions,
+        _observedBackends.Values.GroupBy(static backend => backend.Backend, StringComparer.Ordinal)
+            .Select(static group => group.First()).OrderBy(static backend => backend.Backend, StringComparer.Ordinal).ToArray());
+
     public IDisposable RegisterTopLevel(TopLevel topLevel)
     {
         ArgumentNullException.ThrowIfNull(topLevel);
@@ -95,6 +103,7 @@ public sealed class AvaScopeBridgeRuntime
         var key = InspectableTopLevel.GetRuntimeId(topLevel);
         var topLevelId = InspectableTopLevel.CreateId(topLevel);
         _registeredTopLevels[key] = new WeakReference<TopLevel>(topLevel);
+        _observedBackends[topLevelId] = RuntimePlatformEvidence.Observe(topLevel);
 
         return new TopLevelRegistration(() => UnregisterTopLevel(key, topLevelId));
     }
@@ -543,6 +552,7 @@ public sealed class AvaScopeBridgeRuntime
         ResetActiveMutationsOnUiThread(static _ => true);
         _customActions.Clear();
         _registeredTopLevels.Clear();
+        _observedBackends.Clear();
         return _sessionRegistry.Close(SessionId);
     }
 
@@ -955,6 +965,17 @@ public sealed class AvaScopeBridgeRuntime
             }
         }
 
+        foreach (var topLevel in discovered)
+        {
+            _observedBackends[topLevel.Id] = topLevel.Backend!;
+        }
+        foreach (var id in _observedBackends.Keys)
+        {
+            if (!seen.Contains(id))
+            {
+                _observedBackends.TryRemove(id, out _);
+            }
+        }
         return discovered;
     }
 
@@ -1034,7 +1055,9 @@ public sealed class AvaScopeBridgeRuntime
                 pixelSize.Width,
                 pixelSize.Height,
                 DateTimeOffset.UtcNow,
-                CreateTopLevelTarget(topLevelId, topLevel)));
+                CreateTopLevelTarget(topLevelId, topLevel),
+                RuntimePlatformEvidence.Operation(topLevel, RuntimeOperationRoutes.RenderTargetBitmap,
+                    coordinateSpace: "top_level_pixel")));
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or NotSupportedException or InvalidOperationException)
         {
@@ -1469,7 +1492,7 @@ public sealed class AvaScopeBridgeRuntime
                 y,
                 $"Input action '{action}' requires x/y coordinates.");
             return pointerTarget.Success
-                ? ValidatedInput(topLevelId, action, pointerTarget.Value!)
+                ? ValidatedInput(topLevel, topLevelId, action, pointerTarget.Value!, RuntimeOperationRoutes.SyntheticPointer)
                 : CoreResult<InputResponse>.Fail(pointerTarget.Error!);
         }
 
@@ -1584,7 +1607,12 @@ public sealed class AvaScopeBridgeRuntime
             inputTarget = viewer;
         }
 
-        return ValidatedInput(topLevelId, action, inputTarget);
+        return ValidatedInput(topLevel, topLevelId, action, inputTarget, action switch
+        {
+            InputActions.Focus => RuntimeOperationRoutes.Focus,
+            InputActions.KeyDown or InputActions.KeyUp => RuntimeOperationRoutes.SyntheticKey,
+            _ => RuntimeOperationRoutes.ControlProperty
+        });
 
         static CoreResult<InputResponse> Invalid(string message) =>
             CoreResult<InputResponse>.Fail(new CoreError(BridgeErrorCodes.InvalidInputRequest, message));
@@ -1594,9 +1622,11 @@ public sealed class AvaScopeBridgeRuntime
     }
 
     private CoreResult<InputResponse> ValidatedInput(
+        TopLevel topLevel,
         string topLevelId,
         string action,
-        InputElement target) =>
+        InputElement target,
+        string plannedRoute) =>
         CoreResult<InputResponse>.Ok(new InputResponse(
             SessionId,
             topLevelId,
@@ -1614,7 +1644,8 @@ public sealed class AvaScopeBridgeRuntime
                 ["dryRun"] = "true",
                 ["validationStatus"] = "validated",
                 ["targetType"] = target.GetType().FullName ?? target.GetType().Name
-            }));
+            },
+            provenance: RuntimePlatformEvidence.Operation(topLevel, plannedRoute, dispatched: false)));
 
     private CoreResult<RuntimeMutationResponse> MutateNode(RuntimeMutationRequest request)
     {
@@ -2215,6 +2246,7 @@ public sealed class AvaScopeBridgeRuntime
     private void UnregisterTopLevel(int key, string topLevelId)
     {
         _registeredTopLevels.TryRemove(key, out _);
+        _observedBackends.TryRemove(topLevelId, out _);
         ResetActiveMutationsOnUiThread(mutation => string.Equals(mutation.TopLevelId, topLevelId, StringComparison.Ordinal));
     }
 
@@ -3689,7 +3721,10 @@ public sealed class AvaScopeBridgeRuntime
             provenance,
             rangeProvider,
             previousRangeValue,
-            nextRangeValue));
+            nextRangeValue,
+            RuntimePlatformEvidence.Operation(topLevel,
+                rangeProvider is null ? RuntimeOperationRoutes.SyntheticPointer : RuntimeOperationRoutes.AutomationProvider,
+                fallback: rangeProvider is null, coordinateSpace: path.CoordinateSpace)));
     }
 
     private CoreResult<GestureTarget> ResolveGestureTarget(
@@ -4010,7 +4045,16 @@ public sealed class AvaScopeBridgeRuntime
                 plan.RequestedDurationMs,
                 effectiveDurationMs,
                 plan.Source.NodeId,
-                plan.Destination?.NodeId));
+                plan.Destination?.NodeId),
+            provenance: validateOnly
+                ? plan.OperationProvenance with
+                {
+                    Route = RuntimeOperationRoutes.NotDispatched,
+                    PlannedRoute = plan.OperationProvenance.Route,
+                    Dispatched = false,
+                    Fallback = false
+                }
+                : plan.OperationProvenance);
     }
 
     private static CoreResult<T> InvalidGesture<T>(
@@ -4073,7 +4117,8 @@ public sealed class AvaScopeBridgeRuntime
         string Provenance,
         IRangeValueProvider? RangeProvider,
         double? PreviousRangeValue,
-        double? NextRangeValue);
+        double? NextRangeValue,
+        RuntimeOperationProvenance OperationProvenance);
 
     private sealed record ActivePointerState(Pointer Pointer, InputElement PressedTarget);
 
@@ -4086,6 +4131,7 @@ public sealed class AvaScopeBridgeRuntime
 
     private CoreResult<InputResponse> PointerMove(TopLevel topLevel, string topLevelId, double? x, double? y)
     {
+        var provenance = RuntimePlatformEvidence.Operation(topLevel, RuntimeOperationRoutes.SyntheticPointer, coordinateSpace: "top_level_dip");
         var point = GetInputPoint(x, y);
         if (!point.Success)
         {
@@ -4102,7 +4148,8 @@ public sealed class AvaScopeBridgeRuntime
                 InputActions.PointerMove,
                 handled: false,
                 DateTimeOffset.UtcNow,
-                metadata: metadata));
+                metadata: metadata,
+                provenance: provenance with { Route = RuntimeOperationRoutes.NotDispatched, Dispatched = false, PlannedRoute = provenance.Route }));
         }
 
         var inputTarget = target as InputElement ?? target.FindAncestorOfType<InputElement>();
@@ -4131,7 +4178,8 @@ public sealed class AvaScopeBridgeRuntime
             DateTimeOffset.UtcNow,
             CreateNodeId(inputTarget, TreeKinds.Visual),
             CreateNodeTarget(topLevelId, TreeKinds.Visual, topLevel, inputTarget),
-            metadata: CreatePointerInputMetadata(topLevel, point.Value, target, inputTarget)));
+            metadata: CreatePointerInputMetadata(topLevel, point.Value, target, inputTarget),
+            provenance: provenance));
     }
 
     private CoreResult<InputResponse> PointerButton(
@@ -4142,6 +4190,7 @@ public sealed class AvaScopeBridgeRuntime
         string action,
         bool isPressed)
     {
+        var provenance = RuntimePlatformEvidence.Operation(topLevel, RuntimeOperationRoutes.SyntheticPointer, coordinateSpace: "top_level_dip");
         var point = GetInputPoint(x, y);
         if (!point.Success)
         {
@@ -4182,7 +4231,8 @@ public sealed class AvaScopeBridgeRuntime
                 action,
                 handled: false,
                 DateTimeOffset.UtcNow,
-                metadata: metadata));
+                metadata: metadata,
+                provenance: provenance with { Route = RuntimeOperationRoutes.NotDispatched, Dispatched = false, PlannedRoute = provenance.Route }));
         }
 
         if (isPressed)
@@ -4228,7 +4278,8 @@ public sealed class AvaScopeBridgeRuntime
             CreateNodeId(inputTarget, TreeKinds.Visual),
             CreateNodeTarget(topLevelId, TreeKinds.Visual, topLevel, inputTarget),
             pointerButton: "left",
-            metadata: metadata));
+            metadata: metadata,
+            provenance: provenance));
     }
 
     private CoreResult<InputResponse> Click(
@@ -4239,6 +4290,7 @@ public sealed class AvaScopeBridgeRuntime
         string? targetNodeId,
         bool validateOnly = false)
     {
+        var provenance = RuntimePlatformEvidence.Operation(topLevel, RuntimeOperationRoutes.RoutedEvent, dispatched: !validateOnly, coordinateSpace: "top_level_dip");
         if ((x is null) != (y is null))
         {
             return CoreResult<InputResponse>.Fail(new CoreError(
@@ -4392,7 +4444,8 @@ public sealed class AvaScopeBridgeRuntime
             CreateNodeId(button, TreeKinds.Visual),
             CreateNodeTarget(topLevelId, TreeKinds.Visual, topLevel, button),
             pointerButton: "left",
-            metadata: metadata));
+            metadata: metadata,
+            provenance: provenance));
     }
 
     private CoreResult<InputResponse> InvalidClickTarget(
@@ -4473,6 +4526,7 @@ public sealed class AvaScopeBridgeRuntime
         string? targetNodeId,
         string? inputText)
     {
+        var provenance = RuntimePlatformEvidence.Operation(topLevel, RuntimeOperationRoutes.ControlProperty);
         if (string.IsNullOrEmpty(inputText))
         {
             return CoreResult<InputResponse>.Fail(new CoreError(
@@ -4543,7 +4597,8 @@ public sealed class AvaScopeBridgeRuntime
             handled: true,
             DateTimeOffset.UtcNow,
             CreateNodeId(textBox, TreeKinds.Visual),
-            CreateNodeTarget(topLevelId, TreeKinds.Visual, topLevel, textBox)));
+            CreateNodeTarget(topLevelId, TreeKinds.Visual, topLevel, textBox),
+            provenance: provenance));
     }
 
     private CoreResult<InputResponse> ClearText(
@@ -4551,6 +4606,7 @@ public sealed class AvaScopeBridgeRuntime
         string topLevelId,
         string? targetNodeId)
     {
+        var provenance = RuntimePlatformEvidence.Operation(topLevel, RuntimeOperationRoutes.ControlProperty);
         TextBox? textBox;
         if (string.IsNullOrWhiteSpace(targetNodeId))
         {
@@ -4605,7 +4661,8 @@ public sealed class AvaScopeBridgeRuntime
             handled: true,
             DateTimeOffset.UtcNow,
             CreateNodeId(textBox, TreeKinds.Visual),
-            CreateNodeTarget(topLevelId, TreeKinds.Visual, topLevel, textBox)));
+            CreateNodeTarget(topLevelId, TreeKinds.Visual, topLevel, textBox),
+            provenance: provenance));
     }
 
     private CoreResult<InputResponse> FocusTarget(
@@ -4615,6 +4672,7 @@ public sealed class AvaScopeBridgeRuntime
         double? x,
         double? y)
     {
+        var provenance = RuntimePlatformEvidence.Operation(topLevel, RuntimeOperationRoutes.Focus);
         var target = ResolveInputTarget(topLevel, targetNodeId, x, y, "Focus input requires targetNodeId or x/y coordinates.");
         if (!target.Success)
         {
@@ -4638,7 +4696,8 @@ public sealed class AvaScopeBridgeRuntime
             handled: true,
             DateTimeOffset.UtcNow,
             CreateNodeId(target.Value, TreeKinds.Visual),
-            CreateNodeTarget(topLevelId, TreeKinds.Visual, topLevel, target.Value)));
+            CreateNodeTarget(topLevelId, TreeKinds.Visual, topLevel, target.Value),
+            provenance: provenance));
     }
 
     private CoreResult<InputResponse> KeyInput(
@@ -4649,6 +4708,7 @@ public sealed class AvaScopeBridgeRuntime
         string? inputKey,
         string? keyModifiers)
     {
+        var provenance = RuntimePlatformEvidence.Operation(topLevel, RuntimeOperationRoutes.SyntheticKey);
         var key = ParseInputKey(inputKey);
         if (!key.Success)
         {
@@ -4712,7 +4772,8 @@ public sealed class AvaScopeBridgeRuntime
             CreateNodeId(target, TreeKinds.Visual),
             CreateNodeTarget(topLevelId, TreeKinds.Visual, topLevel, target),
             key.Value.ToString(),
-            modifiers.Value.ToString()));
+            modifiers.Value.ToString(),
+            provenance: provenance));
     }
 
     private CoreResult<InputResponse> SelectTarget(
@@ -4721,6 +4782,7 @@ public sealed class AvaScopeBridgeRuntime
         string? targetNodeId,
         string? selectionText)
     {
+        var provenance = RuntimePlatformEvidence.Operation(topLevel, RuntimeOperationRoutes.ControlProperty);
         if (string.IsNullOrWhiteSpace(targetNodeId))
         {
             return CoreResult<InputResponse>.Fail(new CoreError(
@@ -4792,7 +4854,8 @@ public sealed class AvaScopeBridgeRuntime
             DateTimeOffset.UtcNow,
             CreateNodeId(selector, TreeKinds.Visual),
             CreateNodeTarget(topLevelId, TreeKinds.Visual, topLevel, selector),
-            metadata: metadata));
+            metadata: metadata,
+            provenance: provenance));
     }
 
     private CoreResult<InputResponse> SemanticAutomationAction(
@@ -4802,6 +4865,7 @@ public sealed class AvaScopeBridgeRuntime
         string? targetNodeId,
         bool validateOnly = false)
     {
+        var provenance = RuntimePlatformEvidence.Operation(topLevel, RuntimeOperationRoutes.AutomationProvider, dispatched: !validateOnly);
         if (string.IsNullOrWhiteSpace(targetNodeId))
         {
             return CoreResult<InputResponse>.Fail(new CoreError(
@@ -4930,7 +4994,8 @@ public sealed class AvaScopeBridgeRuntime
             DateTimeOffset.UtcNow,
             CreateNodeId(control, TreeKinds.Visual),
             CreateNodeTarget(topLevelId, TreeKinds.Visual, topLevel, control),
-            metadata: metadata));
+            metadata: metadata,
+            provenance: provenance));
     }
 
     private static bool Invoke(AutomationPeer peer)
@@ -5073,6 +5138,7 @@ public sealed class AvaScopeBridgeRuntime
         double? deltaX,
         double? deltaY)
     {
+        var provenance = RuntimePlatformEvidence.Operation(topLevel, RuntimeOperationRoutes.ControlProperty, coordinateSpace: "top_level_dip");
         if (deltaX is null && deltaY is null)
         {
             return CoreResult<InputResponse>.Fail(new CoreError(
@@ -5134,7 +5200,8 @@ public sealed class AvaScopeBridgeRuntime
             CreateNodeTarget(topLevelId, TreeKinds.Visual, topLevel, viewer),
             wheelDeltaX: deltaX,
             wheelDeltaY: deltaY,
-            metadata: metadata));
+            metadata: metadata,
+            provenance: provenance));
     }
 
     private static CoreResult<Point> GetInputPoint(double? x, double? y)
