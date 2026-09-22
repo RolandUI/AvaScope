@@ -12,4 +12,30 @@ The bootstrap does not enable custom/destructive application actions, inject int
 
 Implementation sources for the lifecycle hooks: [Avalonia 12.1 Window events](https://github.com/AvaloniaUI/Avalonia/blob/12.1.0/src/Avalonia.Controls/Window.cs) and [classic desktop lifetime](https://github.com/AvaloniaUI/Avalonia/blob/12.1.0/src/Avalonia.Controls/ApplicationLifetimes/ClassicDesktopStyleApplicationLifetime.cs).
 
-Distribution, loader sample and compatibility-manifest validation are coordinated by #119 and #121; the complete standalone acceptance gate is tracked in #117.
+## Host loader example
+
+Copy [OptionalProviderLoader.cs](examples/OptionalProviderLoader.cs) into the host. It uses only the .NET BCL and can be excluded from normal builds. The [StandaloneHost sample](../samples/AvaScope.StandaloneHost) links this source only when `EnableUiInspection=true`; it has no AvaScope package/project reference. Its normal output contains no AvaScope assemblies.
+
+```csharp
+#if ENABLE_UI_INSPECTION
+var result = OptionalDiagnostics.OptionalProviderLoader.TryStartFromEnvironment(
+    environmentVariable: "UI_INSPECTION_PROVIDER_PATH",
+    expectedVersion: "1.5.0",
+    expectedManifestSha256: "<SHA-256 of the pinned provider-manifest.json>");
+// Send result.Code and result.Message to the host's diagnostic sink.
+#endif
+```
+
+Call this from the UI thread at the end of `OnFrameworkInitializationCompleted`. The environment variable must name the absolute external directory containing `AvaScope.Bridge.dll` and `provider-manifest.json`. Leaving it unset disables this optional provider. Paths with spaces are supported; path comparison respects the host OS. Supplying an invalid path produces a structured failure and does not stop the host application. The sample logs the result to stderr for CI inspection.
+
+The loader verifies every inventoried file before loading, checks exact optional version/manifest-hash pins, shares Avalonia assemblies exclusively through the host's default load context, and resolves provider-private dependencies only from verified files. Missing files, bad assemblies, wrong runtime/Avalonia versions and missing bootstrap members have diagnostic results. The provider is trusted executable code supplied explicitly by the host's operator: checksums establish integrity and pins, not publisher authenticity. Do not mutate a provider directory while its host is running; replacing a loaded provider requires restarting the host.
+
+```powershell
+dotnet build samples/AvaScope.StandaloneHost -c Release -p:EnableUiInspection=true
+$env:UI_INSPECTION_PROVIDER_PATH = (Resolve-Path artifacts/providers/avascope-bridge-provider).Path
+dotnet samples/AvaScope.StandaloneHost/bin/Release/net10.0/StandaloneInspectionHost.dll
+```
+
+For noninteractive smoke validation the sample accepts `--headless --exit-after-ms=3000`. Native backend validation omits `--headless`. Both modes use the real Avalonia controls and the same explicit reflection loader. Build without `EnableUiInspection` for the independently disabled lane; an environment variable alone cannot turn that build into an inspectable app.
+
+Provider distribution is coordinated by #121; the complete standalone acceptance gate is tracked in #117.

@@ -11,6 +11,7 @@
   <Folder Name="/samples/">
     <Project Path="samples/AvaScope.ComplexWorkflowApp/AvaScope.ComplexWorkflowApp.csproj" />
     <Project Path="samples/AvaScope.GettingStartedApp/AvaScope.GettingStartedApp.csproj" />
+    <Project Path="samples/AvaScope.StandaloneHost/AvaScope.StandaloneHost.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/AvaScope.LifecycleTestApp/AvaScope.LifecycleTestApp.csproj" />

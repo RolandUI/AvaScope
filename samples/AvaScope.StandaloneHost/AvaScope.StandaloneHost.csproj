@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>StandaloneInspectionHost</AssemblyName>
+    <IsPackable>false</IsPackable>
+    <DefineConstants Condition="'$(EnableUiInspection)' == 'true'">$(DefineConstants);ENABLE_UI_INSPECTION</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia.Desktop" Version="12.1.0" />
+    <PackageReference Include="Avalonia.Headless" Version="12.1.0" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.0" />
+    <Compile Include="../../docs/examples/OptionalProviderLoader.cs" Link="OptionalProviderLoader.cs" Condition="'$(EnableUiInspection)' == 'true'" />
+  </ItemGroup>
+</Project>
