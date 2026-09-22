@@ -34,7 +34,7 @@ public sealed partial class AvaScopeBridgeRuntime
         {
             return Failure("timeout", "Item resolution or realization exceeded its deadline. Scroll may have occurred; no successful selection is claimed.");
         }
-        catch (Exception exception) when (exception is TargetInvocationException or InvalidOperationException or ArgumentException or NotSupportedException)
+        catch (Exception exception) when (exception is not OperationCanceledException and not OutOfMemoryException and not AccessViolationException)
         {
             return Failure("unsupported", $"The public item model could not be safely resolved ({exception.GetType().Name}). No alternate item was selected.");
         }

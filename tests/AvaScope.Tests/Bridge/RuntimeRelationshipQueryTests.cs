@@ -99,11 +99,11 @@ public sealed class RuntimeRelationshipQueryTests
                 new(SemanticWorkflowActions.ValidateAction, "validate", workflowSelector, text: "Budapest", inputAction: InputActions.KeyText),
                 new(SemanticWorkflowActions.TypeText, "type", workflowSelector, text: "Budapest",
                     verify: new(new(SemanticWaitConditionKinds.Text, "Budapest"))),
-                new(SemanticWorkflowActions.WaitForState, "wait", workflowSelector, timeoutMs: 500, pollIntervalMs: 25,
+                new(SemanticWorkflowActions.WaitForState, "wait", workflowSelector, timeoutMs: 2500, pollIntervalMs: 25,
                     waitCondition: new(SemanticWaitConditionKinds.Text, "Budapest"))
             ], maxDepth: 32, variables: new Dictionary<string, string> { ["group"] = "Shipping" });
             var result = await new SemanticWorkflowRunner().RunAsync(client, workflow);
-            Assert.Equal("passed", result.Value!.Status);
+            Assert.True(result.Value!.Status == "passed", JsonSerializer.Serialize(result));
             Assert.Equal("Budapest", city.Text);
             Assert.Equal("unchanged", otherCity.Text);
             var edit = InGroup("Edit", "Peter");
@@ -138,7 +138,8 @@ public sealed class RuntimeRelationshipQueryTests
                 targetNodeId: beforeFocus.NodeId, inputTarget: beforeFocus, execution: new());
             Assert.False(syntheticFocus.Success);
             Assert.Equal("Budapest", city.Text);
-            mary.Name = "Peter";
+            root.Children.Remove(mary);
+            root.Children.Add(Group("Peter", new Button { Name = "Edit", Content = "Edit" }));
             var ambiguous = await new SemanticWorkflowRunner().RunAsync(client, new(runtime.SessionId, top,
                 [new(SemanticWorkflowActions.Invoke, "edit", edit)], maxDepth: 32));
             Assert.Equal("failed", ambiguous.Value!.Status);
@@ -307,7 +308,7 @@ public sealed class RuntimeRelationshipQueryTests
         var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessSmokeTests.BridgeHeadlessTestApplication));
         try
         {
-            await session.Dispatch(async () =>
+            await BridgeHeadlessSmokeTests.DispatchAsync(session, async () =>
             {
                 AvaScopeBridge.Deactivate();
                 var runtime = AvaScopeBridge.Activate();

@@ -9,6 +9,20 @@ namespace AvaScope.Mcp;
 [McpServerToolType]
 public sealed class AvaScopeMcpTools
 {
+    [McpServerTool(Name = "query_table", Title = "Query structured runtime table data", ReadOnly = true, Idempotent = true,
+        Destructive = false, OpenWorld = false, UseStructuredContent = true)]
+    [Description("Read typed public DataGrid cell values with stable row keys, selected columns, bounded AND filters and paging. Coverage describes the available public collection view, never the full application dataset. Missing values, unsupported bindings, duplicate keys and truncated scans remain explicit. No scrolling, selection or application-store queries are performed.")]
+    public static async Task<ToolResult<RuntimeTableQueryResponse>> QueryTable(LocalBridgeClient bridgeClient,
+        RuntimeTableQueryRequest request, string? manifestDirectory = null, CancellationToken cancellationToken = default)
+        => ToToolResult(await CreateBridgeClient(bridgeClient, manifestDirectory).QueryTableAsync(request, cancellationToken));
+
+    [McpServerTool(Name = "table_action", Title = "Select, edit or sort a runtime table", ReadOnly = false, Idempotent = true,
+        Destructive = true, OpenWorld = false, UseStructuredContent = true)]
+    [Description("Perform one explicit DataGrid select_row, edit_cell or sort intent by observed row/column identity. Re-resolves stable keys through realization and rejects ambiguity, stale generations, active edits and policy exclusions. Uses public control APIs and supported routed/provider editors, then verifies values/selection/order. Never writes row properties directly or rolls back a failed draft. Preserve the exact requestId and payload when retrieving uncertain results; no automatic write retry.")]
+    public static async Task<ToolResult<RuntimeTableActionResponse>> TableAction(LocalBridgeClient bridgeClient,
+        RuntimeTableActionRequest request, string? manifestDirectory = null, CancellationToken cancellationToken = default)
+        => ToToolResult(await CreateBridgeClient(bridgeClient, manifestDirectory).TableActionAsync(request, cancellationToken));
+
     [McpServerTool(Name = "inspect_form", Title = "Inspect runtime form fields", ReadOnly = true, Idempotent = true,
         Destructive = false, OpenWorld = false, UseStructuredContent = true)]
     [Description("Read a bounded visual form scope: explicit labels, field values, choices, writable state and observed validation. Unknown required/async validation metadata remains unknown. Password values are always redacted. No input or submit is dispatched.")]

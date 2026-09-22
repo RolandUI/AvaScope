@@ -177,7 +177,7 @@ public sealed class ExplicitInputTests
     private static async Task WithWindow(Func<AvaScopeBridgeRuntime, Border, TextBox, string, LocalBridgeClient, Task> test)
     {
         using var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessSmokeTests.BridgeHeadlessTestApplication));
-        await session.Dispatch(async () =>
+        await BridgeHeadlessSmokeTests.DispatchAsync(session, async () =>
         {
             AvaScopeBridge.Deactivate();
             var runtime = AvaScopeBridge.Activate();
@@ -190,6 +190,7 @@ public sealed class ExplicitInputTests
                 using var registration = runtime.RegisterTopLevel(window);
                 Dispatcher.UIThread.RunJobs();
                 var top = Assert.Single(await runtime.ListTopLevelsAsync());
+                Assert.True((await runtime.ReadinessAsync(top.Id, options: new(waitForFrame: true))).Success);
                 await test(runtime, pad, editor, top.Id, new LocalBridgeClient(Path.GetDirectoryName(runtime.SessionManifestPath)!));
             }
             finally { window.Close(); AvaScopeBridge.Deactivate(); }

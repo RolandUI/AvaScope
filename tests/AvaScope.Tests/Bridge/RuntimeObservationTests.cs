@@ -23,7 +23,7 @@ public sealed class RuntimeObservationTests
         var output = TemporaryDirectory();
         try
         {
-            await session.Dispatch(async () =>
+            await BridgeHeadlessSmokeTests.DispatchAsync(session, async () =>
             {
                 AvaScopeBridge.Deactivate();
                 var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Observation"));
@@ -97,7 +97,7 @@ public sealed class RuntimeObservationTests
         var longSecret = new string('q', 450) + "-secret-end";
         try
         {
-            await session.Dispatch(async () =>
+            await BridgeHeadlessSmokeTests.DispatchAsync(session, async () =>
             {
                 AvaScopeBridge.Deactivate();
                 var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Policy observation"));
@@ -162,7 +162,7 @@ public sealed class RuntimeObservationTests
         var output = TemporaryDirectory();
         try
         {
-            await session.Dispatch(async () =>
+            await BridgeHeadlessSmokeTests.DispatchAsync(session, async () =>
             {
                 AvaScopeBridge.Deactivate();
                 var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Adapter observation"));
@@ -201,7 +201,7 @@ public sealed class RuntimeObservationTests
                     Assert.True(mcp.Success, mcp.Error?.Message);
                     Assert.Equal(cli.Value!.CapabilityRevision, mcp.Value!.CapabilityRevision);
                     Assert.Equal(cli.Value.Windows[0].Nodes.Select(node => node.NodeId), mcp.Value.Windows[0].Nodes.Select(node => node.NodeId));
-                    Assert.Equal(cli.Value.Windows[0].Window, mcp.Value.Windows[0].Window);
+                    Assert.Equal(JsonSerializer.Serialize(cli.Value.Windows[0].Window), JsonSerializer.Serialize(mcp.Value.Windows[0].Window));
                     Assert.NotEqual(cli.Value.ObservationId, mcp.Value.ObservationId);
                     await File.WriteAllTextAsync(requestPath, JsonSerializer.Serialize(new RuntimeObservationChangesRequest(request)));
                     start.ArgumentList[1] = "observe-changes";

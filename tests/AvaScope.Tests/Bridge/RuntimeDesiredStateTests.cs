@@ -28,8 +28,8 @@ public sealed class RuntimeDesiredStateTests
             var check = new CheckBox { Name = "Check", IsThreeState = true, IsChecked = false };
             var calls = 0;
             check.Click += (_, _) => calls++;
-            var folder = new TreeViewItem { Name = "Folder", Header = "Folder", Items = { new TreeViewItem { Header = "Child" } } };
-            root.Children.Add(check); root.Children.Add(new TreeView { Items = { folder } });
+            var folder = new Expander { Name = "Folder", Header = "Folder", Content = new TextBlock { Text = "Child" } };
+            root.Children.Add(check); root.Children.Add(folder);
             Dispatcher.UIThread.RunJobs();
             var target = await Target(runtime, top, "Check");
             var unchanged = await client.EnsureStateAsync(Request(target, "checked", false));
@@ -47,7 +47,8 @@ public sealed class RuntimeDesiredStateTests
             var unsupported = await client.EnsureStateAsync(Request(target, "checked", null));
             Assert.False(unsupported.Value!.Verified); Assert.InRange(unsupported.Value.DispatchedOperations, 1, 3);
             var folderTarget = await Target(runtime, top, "Folder");
-            Assert.True((await client.EnsureStateAsync(Request(folderTarget, "expanded", true))).Value!.Verified);
+            var expansion = await client.EnsureStateAsync(Request(folderTarget, "expanded", true));
+            Assert.True(expansion.Value!.Verified, JsonSerializer.Serialize(expansion));
             Assert.True(folder.IsExpanded);
             Assert.Equal(0, (await client.EnsureStateAsync(Request(folderTarget, "expanded", true))).Value!.DispatchedOperations);
             Assert.True((await client.EnsureStateAsync(Request(folderTarget, "expanded", false))).Value!.Verified);
@@ -299,7 +300,7 @@ public sealed class RuntimeDesiredStateTests
         var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessSmokeTests.BridgeHeadlessTestApplication));
         try
         {
-            await session.Dispatch(async () =>
+            await BridgeHeadlessSmokeTests.DispatchAsync(session, async () =>
             {
                 AvaScopeBridge.Deactivate(); var runtime = AvaScopeBridge.Activate();
                 var root = new StackPanel(); var window = new Window { Width = 500, Height = 700, Content = root };

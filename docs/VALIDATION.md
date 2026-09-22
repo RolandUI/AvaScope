@@ -13,6 +13,21 @@ For the `v1.0.0` end-to-end release-readiness ledger, keep [END_TO_END_VALIDATIO
 
 Run build and test commands sequentially. Parallel build/test invocations can contend for the same `bin/` and `obj/` outputs.
 
+Headless asynchronous test bodies must use `BridgeHeadlessSmokeTests.DispatchAsync`
+or the explicit `HeadlessUnitTestSession.Dispatch<T>(Func<Task<T>>, CancellationToken)`
+overload. Avalonia has no `Func<Task>` overload: `Dispatch(async () => { ... })`
+without a return value can select the synchronous generic overload and produce
+`Task<Task>`, leaving assertions after the first suspension unobserved. The
+`TestSessionPropagatesAnExceptionAfterAnAsynchronousBoundary` regression verifies
+that the shared helper propagates such failures. A green run with unobserved test
+bodies is not release evidence.
+
+The test process and its CLI/MCP children use an isolated recovery registry under
+the test temporary directory. An explicit `AVASCOPE_RUN_STORE_DIR` override is
+honored. Validation must not depend on or add records to a developer's normal run
+store; accumulated real records can otherwise introduce path conflicts and lock
+contention unrelated to the fixture.
+
 For the standalone-provider foundation (#117/#119/#121), batch the bootstrap/provider regressions with the real external-host gate:
 
 ```powershell

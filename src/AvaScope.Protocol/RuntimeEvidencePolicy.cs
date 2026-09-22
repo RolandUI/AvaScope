@@ -43,7 +43,8 @@ public sealed record RuntimeEvidencePolicy
         int? retentionMaxOwnedRuns = null,
         bool writeActionAudit = true,
         bool networkUpload = false,
-        IReadOnlyList<string>? allowedDesiredStates = null)
+        IReadOnlyList<string>? allowedDesiredStates = null,
+        IReadOnlyList<string>? allowedTableActions = null)
     {
         if (string.IsNullOrWhiteSpace(ownedEvidenceRoot))
         {
@@ -67,6 +68,9 @@ public sealed record RuntimeEvidencePolicy
 
         OwnedEvidenceRoot = Path.GetFullPath(ownedEvidenceRoot);
         AllowedDesiredStates = Normalize(allowedDesiredStates ?? [], nameof(allowedDesiredStates));
+        AllowedTableActions = Normalize(allowedTableActions ?? [], nameof(allowedTableActions));
+        if (AllowedTableActions.Any(action => action is not ("select_row" or "edit_cell" or "sort")))
+            throw new ArgumentException("Unsupported table action permission.", nameof(allowedTableActions));
         if (AllowedDesiredStates.Any(state => !RuntimeDesiredStateRequest.Properties.Contains(state, StringComparer.Ordinal)))
             throw new ArgumentException("Unsupported desired-state property in policy.", nameof(allowedDesiredStates));
         RedactedText = Normalize(redactedText, nameof(redactedText));
@@ -112,6 +116,9 @@ public sealed record RuntimeEvidencePolicy
 
     [JsonPropertyName("allowedDesiredStates")]
     public IReadOnlyList<string> AllowedDesiredStates { get; }
+
+    [JsonPropertyName("allowedTableActions")]
+    public IReadOnlyList<string> AllowedTableActions { get; }
 
     [JsonPropertyName("redactedText")]
     public IReadOnlyList<string> RedactedText { get; }

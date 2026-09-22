@@ -190,7 +190,7 @@ public sealed class RuntimeObservationChangesTests
     private static async Task WithApp(Func<AvaScopeBridgeRuntime, Window, StackPanel, LocalBridgeClient, Task> test)
     {
         using var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessSmokeTests.BridgeHeadlessTestApplication));
-        await session.Dispatch(async () =>
+        await BridgeHeadlessSmokeTests.DispatchAsync(session, async () =>
         {
             AvaScopeBridge.Deactivate();
             var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Change observation"));

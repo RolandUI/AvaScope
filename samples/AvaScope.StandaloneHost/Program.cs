@@ -223,6 +223,27 @@ internal sealed class SampleApplication : Application
         window.Width = 520;
         window.Height = 580;
         window.Content = new StackPanel { Margin = new Thickness(16), Spacing = 6, Children = { state, release, keys, result, motion, pad, editor, other, interrupt, open, save, prepared } };
+#if TABLE_FIXTURE
+        var table = new DataGrid { Name = "NativeTable", AutoGenerateColumns = false, Height = 360, Margin = new Thickness(16),
+            ItemsSource = Enumerable.Range(0, 80).Select(index => new NativeTableRow("row-" + index, index % 2 == 0 ? "failed" : "passed")).ToArray() };
+        table.Columns.Add(new DataGridTextColumn { Header = "Identifier", Binding = new Avalonia.Data.ReflectionBinding("Id"), IsReadOnly = true });
+        table.Columns.Add(new DataGridTextColumn { Header = "Status", Binding = new Avalonia.Data.ReflectionBinding("Status") });
+        window.Styles.Add(new Avalonia.Markup.Xaml.Styling.StyleInclude(new Uri("avares://Avalonia.Controls.DataGrid/"))
+            { Source = new Uri("avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml") });
+        var inputPanel = (Control)window.Content;
+        window.Content = null;
+        Grid.SetColumn(table, 1);
+        window.Width = 1000;
+        window.Content = new Grid { ColumnDefinitions = new ColumnDefinitions("*,*"), Children = { inputPanel, table } };
+#endif
         window.Opened += (_, _) => window.Activate();
     }
+
+#if TABLE_FIXTURE
+    private sealed class NativeTableRow(string id, string status)
+    {
+        public string Id { get; } = id;
+        public string Status { get; set; } = status;
+    }
+#endif
 }

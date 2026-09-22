@@ -36,6 +36,7 @@ public sealed class RuntimeTestFixtureTests
             Assert.Equal("passed", cli.Value!.Status);
             Assert.Equal("cleaned", cli.Value.TestFixture!.CleanupStatus);
             var environment = StdioClientTransportOptions.GetDefaultEnvironmentVariables();
+            environment[AgentRunStore.DirectoryEnvironmentVariable] = Environment.GetEnvironmentVariable(AgentRunStore.DirectoryEnvironmentVariable)!;
             if (Environment.GetEnvironmentVariable("TMPDIR") is { } temporary) environment["TMPDIR"] = temporary;
             await using var client = await McpClient.CreateAsync(new StdioClientTransport(new StdioClientTransportOptions
             {
@@ -150,17 +151,21 @@ public sealed class RuntimeTestFixtureTests
     {
         await WithHost(async host =>
         {
-            host.ReadinessDelay = 600;
-            var timedOut = await new RuntimeScenarioRunner().RunAsync(host.Client, host.Request("empty", timeoutMs: 160));
+            host.ReadinessDelay = 3000;
+            var timedOut = await new RuntimeScenarioRunner().RunAsync(host.Client, host.Request("empty", timeoutMs: 1500));
             Assert.Equal("failed", timedOut.Value!.Status);
             Assert.Equal("fixture_preparation", timedOut.Value.FailureStage);
             Assert.Equal("cleaned", timedOut.Value.TestFixture!.CleanupStatus);
             Assert.NotEqual("ready", timedOut.Value.TestFixture.ReadinessStatus);
-            using var cancelled = new CancellationTokenSource(100);
-            var cancellation = await new RuntimeScenarioRunner().RunAsync(host.Client, host.Request("empty"), cancelled.Token);
+            using var cancelled = new CancellationTokenSource();
+            var cancellationTask = new RuntimeScenarioRunner().RunAsync(host.Client, host.Request("empty"), cancelled.Token);
+            for (var attempt = 0; host.Prepared < 2 && attempt < 200; attempt++) await Task.Delay(10);
+            Assert.Equal(2, host.Prepared);
+            cancelled.Cancel();
+            var cancellation = await cancellationTask;
             Assert.Equal("cancelled", cancellation.Value!.Status);
             Assert.Equal("cleaned", cancellation.Value.TestFixture!.CleanupStatus);
-            await Task.Delay(650);
+            await Task.Delay(3100);
             Assert.Equal(0, host.ReadySignals);
             Assert.Equal(2, host.Cleaned);
             host.ReadinessDelay = 25;
@@ -181,7 +186,7 @@ public sealed class RuntimeTestFixtureTests
     public async Task FixtureRegistrationIsDisabledByDefaultAndRequiresDeclaredTestResources()
     {
         using var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessSmokeTests.BridgeHeadlessTestApplication));
-        await session.Dispatch(async () =>
+        await BridgeHeadlessSmokeTests.DispatchAsync(session, async () =>
         {
             var fixture = new RuntimeTestFixtureDescriptor("empty", "1", ["test-memory"], new SemanticWaitCondition(SemanticWaitConditionKinds.ApplicationReady));
             var target = new Border();
@@ -211,7 +216,7 @@ public sealed class RuntimeTestFixtureTests
         var output = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));
         try
         {
-            await session.Dispatch(async () =>
+            await BridgeHeadlessSmokeTests.DispatchAsync(session, async () =>
             {
                 AvaScopeBridge.Deactivate();
                 var names = new[] { "seeded", "empty", "offline" };

@@ -2,7 +2,7 @@
 
 GitHub Issues and Milestones are the primary project-management source for autonomous agents working on AvaScope. This document is the compact local handoff and validation log. Update it whenever meaningful implementation, validation, or planning changes the active GitHub issue or release state.
 
-- `2026-09-23`: Active release `v1.5.0` / #156 covers #117-#153 and #155 (38 issues); #154 cancelled: no foreign framework interoperability/adapters/import. #117-#137 are closed. #138 remains in review at `2586948` plus GTK correction `a072878`: CI 35788965456 passed Windows/macOS but exposed Linux GTK idle-source starvation; a deterministic regression failed before the correction and passed after it. #139 implements bounded `inspect_form` / `fill_form` and CLI equivalents with complete plan prevalidation, provider/routed input, per-field plus final verification, exact-request replay, explicit partial/dependency effects, policy and password redaction. Release builds pass with 0 warnings/errors. Focused Windows/Linux batches each passed 115 tests, final Windows changed-surface tests passed 30, and real Windows/Linux X11 CLI/MCP form inventory/fill/replay plus native dialog gates passed. #139 is ready for committed CI; next slice #140 is structured runtime tables. Product version stays `1.4.2` until the final validated release commit.
+- `2026-09-23`: Active release `v1.5.0` / #156 covers #117-#153 and #155 (38 issues); #154 is cancelled: no foreign framework interoperability, adapters or workflow import. #117-#139 are closed; combined CI 35792577645 passed Windows/Linux/macOS at `df76b5e`. Active #140 adds bounded structured DataGrid queries and verified row/select/sort/edit operations through optional public APIs, CLI and MCP. A deterministic failing canary exposed an older headless-test overload bug: async bodies selected `Task<Task>` and escaped assertions after suspension. All affected fixtures now explicitly await their complete bodies; exposed failures are being corrected and earlier headless pass counts are not release evidence. A complete corrected suite and native table gates are required before release. Runtime/sample packages use Avalonia 12.1.3; Bridge preserves its 12.1.0 standalone baseline. Product version stays `1.4.2` until the final validated release commit.
 
 - `2026-09-03`: Published `v1.4.2` from exact release commit `66d23c040e4bf16ed66b0b43e7021507966347a9` through successful Release workflow `33732182248`. The remote tag matches; the public, non-prerelease GitHub Release has 12/12 assets; and fresh downloads verified all 11 manifest entries by exact name, size, and SHA-256 plus every package metadata version. NuGet.org exposes Protocol/Core/Bridge `1.4.2` as latest; all three CDN packages pass repository-signature verification and their unsigned entries match the release packages. GitHub Packages publication succeeded for all three packages. Release tracker #114 and milestone `v1.4.2` are closed.
 - `2026-09-03`: The v1.4.2 release-candidate gate passed through `59bb5e0` with exact version `1.4.2` staged. The consolidated local Release suite passed `505/505` once, hosted CI `33729834402` passed Windows/Linux/native macOS, and exact-version packaging rebuilt with `0` warnings/errors. Three NuGet packages, four framework-dependent ZIPs, four installers, the 11-entry manifest, Windows installer, packaged doctor/preview/lifecycle, packaged complex CLI/MCP repeat-plus-failure gates, and both publish dry-runs passed. Next: commit exactly `Release 1.4.2`, publish, and verify every remote surface.
@@ -78,16 +78,16 @@ GitHub Issues and Milestones are the primary project-management source for auton
 
 ## Current Focus
 
-- `Release v1.4.1`
-- GitHub Issue: `#111`
-- GitHub Milestone: `v1.4.1`
-- Status: `Done`
+- `Release v1.5.0`
+- GitHub Issue: `#140`
+- GitHub Milestone: `v1.5.0`
+- Status: `In Progress`
 - Owner: autonomous agent
-- Goal: published and remotely verified from the exact `Release 1.4.1` commit.
+- Goal: structured public table workflows and corrected end-to-end asynchronous validation.
 
 ## Next Action
 
-No implementation issue is active. Select the next GitHub milestone issue before changing product code.
+Complete #140 and the corrected Windows/Linux test and native gates, then implement #141-#153 and #155 in issue order before the #156 release gate.
 
 ## Latest Validation
 
@@ -802,7 +802,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### M0 Project Foundation
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: create a clean .NET solution foundation for Avalonia 12-oriented development.
 - Deliverables: solution structure, source/test folders, shared build settings, test project, local validation command list.
 - Acceptance Criteria:
@@ -817,7 +817,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### M1 Protocol Contracts
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: define stable, transport-neutral request/response contracts.
 - Deliverables: session identifiers, protocol version model, core tool result shapes, JSON serialization tests.
 - Acceptance Criteria:
@@ -829,7 +829,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### M2 Core Session Model
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: implement reusable session lifecycle behavior outside MCP.
 - Deliverables: session registry, session IDs, lifecycle state, error model, unit tests.
 - Acceptance Criteria:
@@ -841,7 +841,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### M3 Minimal MCP Adapter
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: expose the first MCP surface as a thin adapter over protocol/core.
 - Deliverables: stdio MCP server, health/version tool, `list_sessions` tool.
 - Acceptance Criteria:
@@ -854,7 +854,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### M4 Opt-in Bridge MVP
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: provide an opt-in Avalonia 12 bridge package for runtime inspection.
 - Deliverables: bridge activation API, local-only transport boundary, top-level/window discovery.
 - Acceptance Criteria:
@@ -867,7 +867,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### M5 Runtime Screenshot Slice
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: capture screenshots from a running bridged Avalonia app.
 - Deliverables: attach flow, screenshot request/response, generated image file output, sample validation.
 - Progress:
@@ -892,7 +892,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### M6 Tree Inspection Slice
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: expose visual and logical tree inspection with stable node identity.
 - Deliverables: tree serialization, depth limits, node metadata, basic find behavior.
 - Progress:
@@ -912,7 +912,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### M7 Input Slice
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: send basic local-only input to a running bridged Avalonia app.
 - Deliverables: click, pointer move, key text commands, safety checks.
 - Progress:
@@ -932,7 +932,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### M8 Preview Host Slice
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: render a `.axaml` view from a project in an isolated preview process.
 - Deliverables: preview host process, project/view selection, headless Skia rendering, basic variants.
 - Progress:
@@ -953,7 +953,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### M9 Preview Adapter Integration
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: expose preview rendering through adapter surfaces without moving preview execution into MCP.
 - Deliverables: reusable Core preview host client, MCP `preview_axaml` tool, structured process diagnostics.
 - Progress:
@@ -970,7 +970,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### M10 CLI Integration
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: provide a local `avascope` command for developer workflows.
 - Deliverables: CLI project, preview command, MCP server command handoff or documented invocation path.
 - Progress:
@@ -988,7 +988,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### M11 Documentation and Release Readiness
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: document the current usable workflows and harden local validation for handoff.
 - Deliverables: README usage guide, architecture/safety summary, validation command checklist, current limitations.
 - Progress:
@@ -1005,7 +1005,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### M12 Post-MVP Hardening
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: audit and close the highest-risk gaps in the first usable AvaScope workflow set.
 - Deliverables: prioritized gap list, next vertical hardening slice, validation updates.
 - Progress:
@@ -1025,7 +1025,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### M13 Diagnostics Surface
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: provide the first aggregate diagnostics surface without coupling MCP schemas to bridge or preview internals.
 - Deliverables: diagnostics protocol DTOs, local bridge diagnostics path, MCP `diagnostics` tool, focused tests.
 - Progress:
@@ -1048,7 +1048,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### M14 Preview App Resource Scope
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: improve project preview fidelity by loading compiled app-level resources before view rendering.
 - Deliverables: preview host app resource discovery/loading, resource-backed render smoke test, structured diagnostics for missing/failed app resource loading.
 - Progress:
@@ -1069,7 +1069,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### M15 Preview Diagnostics Expansion
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: report preview-host readiness in the existing diagnostics tool without launching user project code.
 - Deliverables: preview host diagnostic DTO, Core diagnostics population, MCP diagnostics coverage, tests.
 - Progress:
@@ -1093,7 +1093,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### M16 Preview Reload Foundation
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: create the minimal persistent preview-session model required before implementing `reload`.
 - Deliverables: preview session DTOs, Core preview session registry flow, MCP list/close integration for preview sessions where applicable, tests.
 - Progress:
@@ -1118,7 +1118,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### M17 Preview Reload MVP
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: re-render an existing preview session from its stored request.
 - Deliverables: Core reload method, MCP `reload` tool for preview sessions, updated preview session metadata, tests.
 - Progress:
@@ -1142,7 +1142,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### M18 Input Press/Release Slice
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: add one focused runtime input primitive pair beyond move/click/text.
 - Deliverables: protocol input action constants, bridge routed pointer press/release handling, Core/MCP path reuse, headless tests.
 - Progress:
@@ -1166,7 +1166,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### M19 Runtime Reload Contract Slice
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: make runtime reload semantics explicit and safe now that preview reload has a working MVP.
 - Deliverables: reload protocol decision, Core/MCP behavior for runtime sessions, tests, README/tracking updates.
 - Progress:
@@ -1190,7 +1190,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### M20 Packaging Metadata Slice
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: prepare local package artifacts without introducing publishing or CI yet.
 - Deliverables: package metadata for packable projects, local output folder convention, pack validation commands, docs/tracking update.
 - Progress:
@@ -1213,7 +1213,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### M21 CI Validation Slice
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: make the documented local validation path run in CI without release publishing.
 - Deliverables: GitHub Actions workflow, CI command list, documentation/tracking updates.
 - Progress:
@@ -1234,7 +1234,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### M22 Executable Packaging Slice
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: define repeatable local artifacts for the `avascope` CLI, MCP server, and preview host without publishing.
 - Deliverables: executable artifact decision, local publish/package command(s), docs/tracking updates, validation.
 - Progress:
@@ -1257,7 +1257,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### M23 Release Artifact Hardening Slice
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: make local release artifacts easier for agents to verify, compare, and hand off.
 - Deliverables: artifact manifest or checksum output, documented verification command, CI/local validation alignment, next release-distribution decision.
 - Progress:
@@ -1284,7 +1284,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### M24 Cross-platform Framework-dependent Artifact Slice
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: extend executable artifacts beyond the initial Windows-only ZIP while preserving co-located CLI/MCP/PreviewHost behavior.
 - Deliverables: explicit RID/artifact strategy, script support for named framework-dependent runtime outputs, CI/local validation update, docs/tracking update.
 - Progress:
@@ -1310,7 +1310,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### M25 Runtime Focus And Keyboard Input Slice
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: add explicit runtime focus targeting and basic keyboard key input support.
 - Deliverables: protocol input actions for focus and key press/release or key tap, bridge implementation on `Dispatcher.UIThread`, MCP/Core path, focused tests, docs/tracking update.
 - Progress:
@@ -1337,7 +1337,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### M26 Inspect Node Detail Slice
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: add the missing `inspect_node` vertical slice for runtime bridge sessions.
 - Deliverables: protocol inspect-node response, bridge node lookup by stable node id, Core client method, MCP `inspect_node` tool, focused tests, docs/tracking update.
 - Progress:
@@ -1363,7 +1363,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### M27 CLI Runtime Bridge Workflow Slice
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: expose the core runtime bridge workflow through the `avascope` CLI beyond `mcp` and `preview`.
 - Deliverables: CLI command shape for local runtime bridge sessions, implementation over `LocalBridgeClient`, process/argument smoke tests, docs/tracking update.
 - Progress:
@@ -1388,7 +1388,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### M28 CLI Runtime Top-level And Screenshot Slice
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: extend CLI runtime support from attach to top-level listing and screenshot capture.
 - Deliverables: `list-top-levels` and/or `screenshot` CLI commands over `LocalBridgeClient`, structured JSON output, argument validation tests, README/tracking update.
 - Progress:
@@ -1409,7 +1409,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### M29 CLI Runtime Tree Inspection Slice
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: expose bounded runtime tree inspection from the `avascope` CLI.
 - Deliverables: `visual-tree` and `logical-tree` CLI commands over `LocalBridgeClient`, optional `inspect-node` CLI command if the slice remains small, structured JSON output, argument validation tests, README/tracking update.
 - Progress:
@@ -1432,7 +1432,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### M30 CLI Runtime Node Detail Slice
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: expose single-node runtime details from the `avascope` CLI.
 - Deliverables: `inspect-node` CLI command over `LocalBridgeClient.InspectNodeAsync`, explicit tree-kind option, structured JSON output, argument validation tests, README/tracking update.
 - Progress:
@@ -1454,7 +1454,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### M31 CLI Runtime Find Nodes Slice
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: expose runtime node search from the `avascope` CLI.
 - Deliverables: `find-nodes` CLI command over `LocalBridgeClient.FindNodesAsync`, filter argument validation, optional depth/result limits, structured JSON output, README/tracking update.
 - Progress:
@@ -1476,7 +1476,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### M32 CLI Runtime Input Slice
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: expose local-only runtime input commands from the `avascope` CLI.
 - Deliverables: `input` CLI command over `LocalBridgeClient.InputAsync`, action-specific argument validation, structured JSON output, README/tracking update.
 - Progress:
@@ -1498,7 +1498,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### M33 CLI Runtime Close Session Slice
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: expose runtime bridge session closure from the `avascope` CLI.
 - Deliverables: `close-session` CLI command over `LocalBridgeClient.CloseSessionAsync`, structured JSON output, deterministic argument validation, README/tracking update.
 - Progress:
@@ -1517,7 +1517,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### M34 CLI Runtime Diagnostics Slice
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: expose bounded runtime diagnostics from the `avascope` CLI.
 - Deliverables: `diagnostics` CLI command over `LocalBridgeClient.DiagnosticsAsync`, process/session filters, max-session validation, structured JSON output, README/tracking update.
 - Progress:
@@ -1538,7 +1538,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### M35 CLI Runtime Reload Slice
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: expose runtime/preview reload checks from the `avascope` CLI.
 - Deliverables: `reload` CLI command aligned with MCP reload behavior, runtime unsupported diagnostics, preview session reload path if reusable from CLI, structured JSON output, README/tracking update.
 - Progress:
@@ -1559,7 +1559,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### M36 Reload And Hot Preview Foundation Slice
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: move beyond explicit runtime reload unsupported checks toward a durable reload foundation.
 - Deliverables: repository-backed reload gap audit, smallest durable preview-session persistence or reload-state foundation, tests, README/tracking update.
 - Progress:
@@ -1584,7 +1584,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### M37 Preview Resource And Style Scope Slice
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: improve preview-host resource/style parity after durable preview-session persistence.
 - Deliverables: focused preview-host resource/style loading improvement, tests with a tiny sample project/view, README/tracking update.
 - Progress:
@@ -1606,7 +1606,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### M38 Preview Resource Include Scope Slice
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: improve preview-host support for App.axaml resource/style includes.
 - Deliverables: focused support for one compiled `ResourceInclude` or `StyleInclude` scenario, tests with tiny sample project/view, README/tracking update.
 - Progress:
@@ -1626,7 +1626,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### M39 Preview Theme Dictionary Variant Slice
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: improve preview-host theme-variant resource parity.
 - Deliverables: focused support for one `ThemeDictionaries` scenario, tests with light/dark preview variants, README/tracking update.
 - Progress:
@@ -1646,7 +1646,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### M40 Preview Style Include Scope Slice
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: improve preview-host app style include parity.
 - Deliverables: focused support for one compiled `StyleInclude` scenario, tests with tiny sample project/view, README/tracking update.
 - Progress:
@@ -1666,7 +1666,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### M41 Preview Culture Variant Contract Slice
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: add explicit culture selection to preview rendering.
 - Deliverables: preview culture DTO field, CLI/MCP argument propagation, preview-host culture application, tiny culture-sensitive render test, README/tracking update.
 - Progress:
@@ -1687,7 +1687,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### M42 Preview Design Data Contract Audit Slice
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: define the next safe design-data preview boundary.
 - Deliverables: design-data gap audit, smallest proposed contract, acceptance criteria for first implementation slice, README/tracking update.
 - Progress:
@@ -1708,7 +1708,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### M43 Preview Design Data Type Slice
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: implement the first explicit project-owned design-data boundary.
 - Deliverables: `designDataType` DTO field, CLI/MCP argument propagation, PreviewHost type instantiation and root `DataContext` assignment, typed-binding render test, README/tracking update.
 - Progress:
@@ -1730,7 +1730,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### M44 Preview App Startup Boundary Audit Slice
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: define the next safe App startup/lifecycle preview boundary.
 - Deliverables: audit of current `Application.Initialize()` and lifetime behavior, selected startup/lifecycle boundary or explicit deferral, acceptance criteria for first implementation slice, README/tracking update.
 - Progress:
@@ -1751,7 +1751,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### M45 Preview App DataTemplates Scope Slice
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: improve preview-host app-level data-template parity without running app startup hooks.
 - Deliverables: transfer project `Application.DataTemplates` into the PreviewHost render scope, tiny compiled data-template sample, README/tracking update.
 - Progress:
@@ -1772,7 +1772,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### M46 Getting Started Sample Slice
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: make the first external-developer workflow runnable from a repository sample.
 - Deliverables: tiny Avalonia sample app, documented preview command, documented bridge activation/run command, validation notes.
 - Progress:
@@ -1796,7 +1796,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### M47 Public Alpha Release Validation Refresh
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: revalidate release artifacts after the sample and CLI workflow stabilization changes.
 - Deliverables: Release build/test validation, local NuGet package validation, executable ZIP validation, artifact manifest verification, README/tracking update if release commands need adjustment.
 - Progress:
@@ -1821,7 +1821,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### M48 Preview Failure Diagnostics Detail Slice
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: make preview build/render failures easier for agents and users to diagnose.
 - Deliverables: audit current PreviewHost/Core error propagation, structured preview failure context, tests for at least one build or render failure path, README/tracking update.
 - Progress:
@@ -1842,7 +1842,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### M49 Runtime Safety Boundary Audit Slice
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: harden and document public-alpha runtime bridge safety boundaries.
 - Deliverables: bridge activation/local transport audit, missing safety tests or docs, explicit non-goals for runtime control, tracking update.
 - Progress:
@@ -1864,7 +1864,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### M50 Public Alpha Completion Audit Slice
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: verify whether the repository satisfies the full public-alpha objective.
 - Deliverables: requirement-by-requirement completion audit, final gap fixes or explicit deferrals, final build/test/pack validation, clean committed worktree.
 - Progress:
@@ -1887,7 +1887,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### W1 Intake Ledgers
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: maintain sanitized holding areas for reported bugs and feature requests without treating intake records as authorization to implement fixes or features.
 - Deliverables: bug report index, feature request index, per-record Markdown files, privacy validation command, development-plan tracking.
 - Progress:
@@ -1911,7 +1911,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### W2 PreviewHost Stored Bug Fixes
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: implement stored `BUG-0001` and `BUG-0002` after explicit user authorization.
 - Deliverables: Window/TopLevel-root preview rendering, Avalonia design-time `DataContext` support, regression tests, bug ledger status updates, validation and commit tracking.
 - Progress:
@@ -1936,7 +1936,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### W3 Local Release Workflow
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: provide a single repeatable local Release command for testing AvaScope from packaged artifacts.
 - Deliverables: local release orchestration script, packaged executable smoke validation, user-facing docs, development-plan tracking, commit.
 - Progress:
@@ -1957,7 +1957,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### W4 NuGet Publish Workflow
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: provide a repeatable manual NuGet publish path for the public AvaScope library packages.
 - Deliverables: API-key based publish script, dry-run validation mode, optional manual GitHub Actions workflow, user-facing docs, development-plan tracking, validation, commit.
 - Progress:
@@ -1980,7 +1980,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### W5 Tag-Based NuGet CI Release
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: move NuGet publishing responsibility to CI while keeping release execution explicit and version-gated.
 - Deliverables: tag-triggered GitHub Actions release workflow, tag/package version check, manual workflow fallback, README/validation/gap/tracking updates, validation, commit.
 - Progress:
@@ -2003,7 +2003,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### W6 GitHub Release And Package Distribution
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: publish release outputs to GitHub as both GitHub Packages and GitHub Release assets while preserving nuget.org publishing.
 - Deliverables: GitHub Release asset script, workflow updates for GitHub Packages and Release assets, docs/tracking updates, validation, commit.
 - Progress:
@@ -2029,7 +2029,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### W7 Version-Bump CI Release
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: release automatically from CI when the repository package version is increased, without requiring a manually pushed release tag.
 - Deliverables: branch-push release detection, remote tag existence check, CI-created version tag, no-op behavior for already released versions, README/validation/gap/tracking updates, validation, commit.
 - Progress:
@@ -2055,7 +2055,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### W8 CI Release Follow-Up
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: fix the first CI and Release workflow failures observed after pushing the version-bump release infrastructure.
 - Deliverables: GitHub Release creation hardening, CLI fake bridge pipe test hardening, tracking update, validation, commit, push.
 - Progress:
@@ -2075,7 +2075,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### W9 Feature Ticket Implementation
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: implement all stored feature tickets `FEAT-0001` through `FEAT-0007`, plus protocol, adapter, validation, and documentation support needed for the complete requested feature set.
 - Deliverables: structured preview diagnostics, layout warnings, computed property/style inspection, multi-size preview, screenshot diff/baseline comparison, scoped preview/session cleanup, feature ledger updates, documentation, tests, commit, push.
 - Progress:
@@ -2110,7 +2110,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### W10 CLI Preview Session Workflow
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: make durable preview sessions available from `avascope` without requiring an MCP client.
 - Deliverables: CLI `create-preview-session`, `list-preview-sessions`, `reload-preview-session` or compatible reload path, `close-preview-session`, README/validation updates, tests, commit, push.
 - Progress:
@@ -2136,7 +2136,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### W11 Live Preview File Watch Reload
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: add an explicit file-watch workflow for preview sessions that re-renders through isolated PreviewHost child processes when watched project or AXAML files change.
 - Deliverables: Core watch orchestration, CLI watch command, bounded event/debounce behavior, tests, documentation, commit, push.
 - Progress:
@@ -2160,7 +2160,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### W12 Visual Regression Workflow
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: layer baseline-set creation and checking over the existing multi-size preview and screenshot diff primitives.
 - Deliverables: baseline manifest protocol/Core model, CLI baseline create/check commands, deterministic artifacts, CI-friendly exit codes, tests, documentation, commit, push.
 - Progress:
@@ -2184,7 +2184,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### W13 Deeper Diagnostics
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: improve preview/runtime diagnostics beyond W9 while staying on public Avalonia APIs or documented logging hooks.
 - Deliverables: deeper binding/resource/style diagnostics where reliable, bounded protocol fields, tests, documentation, commit, push.
 - Progress:
@@ -2206,7 +2206,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### W14 Richer Runtime Input
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: expand local runtime input beyond the current pointer/key/focus subset while preserving non-destructive local-only safety.
 - Deliverables: richer pointer button state, drag/drop or text-input improvements where public Avalonia APIs allow, tests, documentation, commit, push.
 - Progress:
@@ -2227,7 +2227,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### W15 Preview Startup Parity
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: safely improve PreviewHost startup parity for real Avalonia projects without weakening the isolated child-process boundary.
 - Deliverables: audited startup/lifetime expansion, opt-in behavior where needed, tests, documentation, commit, push.
 - Progress:
@@ -2247,7 +2247,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### W16 Distribution Hardening
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: harden executable distribution beyond current framework-dependent Windows/Linux ZIPs.
 - Deliverables: self-contained artifact path or explicit decision, macOS artifact policy, installer decision, CI/release updates, tests/scripts, documentation, commit, push.
 - Progress:
@@ -2270,7 +2270,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### W17 Plan Refresh And Alpha Gate
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: close the stale post-W16 planning state and define the next product-aligned development period before new implementation work begins.
 - Deliverables: refreshed `Current Focus`, `Next Action`, W17-W25 milestone definitions, audit alignment notes, validation, commit, push.
 - Progress:
@@ -2285,7 +2285,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### W18 CLI Doctor And Self-Test
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: add a first-class local self-test command that reports AvaScope runtime readiness, preview-host readiness, local bridge discovery state, preview-session store state, and packaged-command availability without loading user projects.
 - Deliverables: CLI `doctor` command, structured protocol/core or CLI DTOs as needed, tests, README/validation updates, commit, push.
 - Progress:
@@ -2312,7 +2312,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### W19 Preview Profiles
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: make repeated preview commands less brittle by allowing project-local named preview profiles.
 - Deliverables: `avascope.preview.json` profile schema, CLI profile loading for preview and preview-session creation, sample profile, tests, documentation, commit, push.
 - Progress:
@@ -2335,7 +2335,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### W20 Agent Workflow Pack
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: document and validate an agent-ready workflow that exercises preview, runtime bridge inspection, diagnostics, visual tree, input, screenshot, and diff commands from the packaged CLI.
 - Deliverables: workflow documentation, sample walkthrough updates, validation commands, commit, push.
 - Progress:
@@ -2355,7 +2355,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### W21 Runtime Interaction V2
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: expand runtime input where public Avalonia APIs and deterministic headless tests support it.
 - Deliverables: richer non-destructive input behavior, protocol/CLI/MCP propagation if needed, bridge tests, documentation, commit, push.
 - Progress:
@@ -2377,7 +2377,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### W22 Diagnostics V2
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: improve diagnostics with bounded history and clearer severity/provenance without relying on private Avalonia internals.
 - Deliverables: diagnostics history/provenance slice, protocol/core/adapter updates, tests, documentation, commit, push.
 - Progress:
@@ -2400,7 +2400,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### W23 Faster Live Preview
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: reduce live-preview reload friction while preserving the isolated child-process boundary for user code.
 - Deliverables: measured preview reload improvement or explicit deferral, process/session lifecycle tests, documentation, commit, push.
 - Progress:
@@ -2422,7 +2422,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### W24 Visual Regression CI Kit
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: make baseline checking easier to run in CI and easier for agents to summarize.
 - Deliverables: CI-friendly baseline report output, stable artifact layout, tests, validation docs, commit, push.
 - Progress:
@@ -2446,7 +2446,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### W25 Public Alpha Release Candidate
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: validate the post-W17 development period as a coherent public-alpha release-candidate state.
 - Deliverables: release-candidate audit refresh, full validation, packaged smoke checks, remaining deferrals, commit, push.
 - Progress:
@@ -2470,7 +2470,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### R0.2.0 Release Planning And Gate
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: move AvaScope development to release-based planning with an explicit `v0.2.0` target and a guarded release commit path.
 - Deliverables: release plan, release goal definitions, release commit validation script, CI release guard, README/validation/gap/development-plan updates, commit, push.
 - Progress:
@@ -2492,7 +2492,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### R0.2.0-M1 Runtime Workflow Hardening
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: make runtime node targeting easier and safer for agents using repeated CLI/MCP inspection and input workflows.
 - Deliverables: selector/targeting improvements, stale-node diagnostics, CLI/MCP documentation, tests, validation, commit, push.
 - Progress:
@@ -2513,7 +2513,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### R0.2.0-M2 Preview Diagnostics Readiness
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: make preview failures more actionable before agents retry expensive or impossible render commands.
 - Deliverables: project/environment readiness diagnostics, CLI/MCP surface updates, docs, tests, validation, commit, push.
 - Progress:
@@ -2533,7 +2533,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### R0.2.0-M3 Live Preview Lifecycle Decision
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: decide and implement the smallest safe live-preview improvement after unchanged-input skip events.
 - Deliverables: lifecycle decision record, implementation or explicit deferral, tests/docs, validation, commit, push.
 - Progress:
@@ -2551,7 +2551,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### R0.2.0-M4 Visual Regression CI Integration
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: make baseline report/current/diff artifacts straightforward to publish from CI without changing local baseline command behavior.
 - Deliverables: workflow example or CI helper, docs, tests or script validation, commit, push.
 - Progress:
@@ -2570,7 +2570,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### R0.2.0-M5 Codex Preview Surface
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: make AvaScope previews usable from Codex through a local file-backed viewer and explicit MCP/CLI URL handoff.
 - Deliverables: local file-backed preview viewer, preview/session `previewUrl` handoff, Codex in-app browser workflow docs, tests, validation, commit, push.
 - Progress:
@@ -2595,7 +2595,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### R0.2.0-M6 Release Candidate And Version Bump
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: close `v0.2.0` as a release candidate, bump the version, and publish through the guarded release workflow.
 - Deliverables: audit refresh, full release validation, `Directory.Build.props` version bump to `0.2.0`, release commit, push.
 - Progress:
@@ -2625,7 +2625,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### R0.2.1-M1 Theme-Aware Preview Wrapper Background
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: make PreviewHost wrapper windows use a theme-aware background for root controls that do not paint their own canvas.
 - Deliverables: PreviewHost background resolution fix, smoke tests for dark theme wrapper rendering and explicit app window-style precedence, development-plan/release-plan updates, validation, commit, push.
 - Progress:
@@ -2647,7 +2647,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### R0.2.1-M2 Release Candidate And Version Bump
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: close `v0.2.1` as a release candidate, bump the version, and publish through the guarded release workflow.
 - Deliverables: full release validation, `Directory.Build.props` version bump to `0.2.1`, release commit, push.
 - Progress:
@@ -2673,7 +2673,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### R0.2.2-M1 DataTemplate Binding Diagnostics
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: fix BUG-0003 DataTemplate binding diagnostic false positives by validating template-contained bindings against their template item context.
 - Deliverables: DataTemplate-aware binding diagnostics, regression smoke tests, bug report status update, validation, commit, push.
 - Progress:
@@ -2691,7 +2691,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### R0.2.2-M2 Template-Aware Layout Diagnostics
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: reduce BUG-0003 layout diagnostic noise for Avalonia layer/template internals and metric-only clipping.
 - Deliverables: template-aware overlap filtering, text clipping tolerance, slider template hit-target handling, regression smoke tests, validation, commit, push.
 - Progress:
@@ -2711,7 +2711,7 @@ No implementation issue is active. Select the next GitHub milestone issue before
 
 ### R0.2.2-M3 Release Candidate And Version Bump
 
-- Status: `Done`
+- Status: `In Progress`
 - Goal: close `v0.2.2` as a release candidate, bump the version, and publish through the guarded release workflow.
 - Deliverables: full release validation, `Directory.Build.props` version bump to `0.2.2`, release commit, push.
 - Progress:

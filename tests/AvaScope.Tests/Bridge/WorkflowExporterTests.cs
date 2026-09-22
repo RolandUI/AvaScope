@@ -21,7 +21,7 @@ public sealed class WorkflowExporterTests : IDisposable
         var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessSmokeTests.BridgeHeadlessTestApplication));
         try
         {
-            await session.Dispatch(async () =>
+            await BridgeHeadlessSmokeTests.DispatchAsync(session, async () =>
             {
                 var windows = new List<Window>();
                 var registrations = new List<IDisposable>();

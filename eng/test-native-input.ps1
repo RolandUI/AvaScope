@@ -5,7 +5,7 @@ $repoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $root = Join-Path $repoRoot ('artifacts/native-input/' + [Guid]::NewGuid().ToString('N'))
 $hostOutput = Join-Path $root 'host'
 New-Item -ItemType Directory -Force -Path $root | Out-Null
-& dotnet publish (Join-Path $repoRoot 'samples/AvaScope.StandaloneHost/AvaScope.StandaloneHost.csproj') -c $Configuration -o $hostOutput --artifacts-path (Join-Path $root 'build') -p:EnableUiInspection=true *> (Join-Path $root 'build.log')
+& dotnet publish (Join-Path $repoRoot 'samples/AvaScope.StandaloneHost/AvaScope.StandaloneHost.csproj') -c $Configuration -o $hostOutput --artifacts-path (Join-Path $root 'build') -p:EnableUiInspection=true -p:EnableTableFixture=true *> (Join-Path $root 'build.log')
 if ($LASTEXITCODE -ne 0) { throw "Native input host publish failed: $root/build.log" }
 if (@(Get-ChildItem $hostOutput -Filter 'AvaScope.*.dll').Count -ne 0) { throw 'The reflection host unexpectedly contains AvaScope assemblies.' }
 $previous = @{}

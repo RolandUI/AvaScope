@@ -169,6 +169,40 @@ public sealed class NativeInputIntegrationTests
             Assert.True(fillReplay.Success); Assert.True(fillReplay.Value!.Replayed);
             await WaitText("NativeEditor", "form árvíz 😀");
 
+            var tableQuery = new RuntimeTableQueryRequest((await Node("NativeTable")).Target!, "Id", ["binding:Id", "binding:Status"],
+                [new("binding:Status", "equals", JsonSerializer.SerializeToElement("failed"))], limit: 64, maxRows: 128);
+            var tableCall = await mcp.CallToolAsync("query_table", new Dictionary<string, object?>
+            { ["request"] = JsonSerializer.SerializeToElement(tableQuery) }, cancellationToken: token);
+            var table = JsonSerializer.Deserialize<ToolResult<RuntimeTableQueryResponse>>(JsonSerializer.Serialize(tableCall.StructuredContent))!;
+            Assert.True(table.Success, table.Error?.Message); Assert.Equal(40, table.Value!.Rows.Count);
+            Assert.True(table.Value.Coverage.CompleteAvailableView); Assert.Equal("unknown", table.Value.Coverage.DatasetCompleteness);
+            var tableRow = table.Value.Rows.Single(row => row.Key == "row-70"); Assert.False(tableRow.Realized);
+            var tableColumn = table.Value.Columns.Single(column => column.Id == "binding:Status");
+            var tableEdit = new RuntimeTableActionRequest(tableQuery, "edit_cell", "native-table-edit", tableRow.Key, tableRow.Generation,
+                tableColumn.Id, tableColumn.Generation, JsonSerializer.SerializeToElement("passed"), timeoutMs: 3000);
+            var tablePath = Path.Combine(output, "table-edit-request.json");
+            await File.WriteAllTextAsync(tablePath, JsonSerializer.Serialize(tableEdit), token);
+            var tableStart = new ProcessStartInfo("dotnet") { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
+            foreach (var argument in new[] { Path.Combine(AppContext.BaseDirectory, "avascope.dll"), "table-action", "--request", tablePath }) tableStart.ArgumentList.Add(argument);
+            using (var cli = Process.Start(tableStart)!)
+            {
+                var resultText = cli.StandardOutput.ReadToEndAsync(token); var errorText = cli.StandardError.ReadToEndAsync(token);
+                await cli.WaitForExitAsync(token);
+                var result = JsonSerializer.Deserialize<ToolResult<RuntimeTableActionResponse>>(await resultText)!;
+                await File.WriteAllTextAsync(Path.Combine(output, "cli-table-edit.json"), await resultText, token);
+                Assert.True(result.Success, result.Error?.Message + await errorText + await resultText); Assert.Equal(0, cli.ExitCode);
+                Assert.Equal(backend, result.Value!.Provenance.Backend.Backend);
+                Assert.True(result.Value.After!.Selected); Assert.True(result.Value.After.Realized);
+                Assert.Equal("passed", result.Value.After.Cells.Single(cell => cell.ColumnId == tableColumn.Id).Value!.Value.GetString());
+            }
+            tableCall = await mcp.CallToolAsync("table_action", new Dictionary<string, object?>
+            { ["request"] = JsonSerializer.SerializeToElement(tableEdit) }, cancellationToken: token);
+            var tableReplay = JsonSerializer.Deserialize<ToolResult<RuntimeTableActionResponse>>(JsonSerializer.Serialize(tableCall.StructuredContent))!;
+            await File.WriteAllTextAsync(Path.Combine(output, "mcp-table-edit.json"), JsonSerializer.Serialize(tableReplay), token);
+            Assert.True(tableReplay.Success); Assert.True(tableReplay.Value!.Replayed);
+            var tableAfter = await client.QueryTableAsync(tableQuery, token);
+            Assert.True(tableAfter.Success); Assert.Equal(39, tableAfter.Value!.Rows.Count);
+
             var wrongTarget = new RuntimeTargetContext(new SessionId("unrelated-session"), top.Id, TreeKinds.Visual, pad.NodeId);
             Assert.False((await client.InputAsync(sessionId, top.Id, InputActions.Click, targetNodeId: pad.NodeId,
                 inputTarget: wrongTarget, execution: clickOptions, cancellationToken: token)).Success);
@@ -239,7 +273,8 @@ public sealed class NativeInputIntegrationTests
                 checks = new[] { "CLI right double modifier click", "MCP middle triple click",
                     backend == "macos" ? "native drag refused before dispatch; explicit synthetic drag" : "bounded native drag",
                     backend == "macos" ? "interrupted native click cleanup" : "interrupted native drag cleanup",
-                    "paired native navigation chord", "literal Unicode capability", "CLI desired text; MCP replay; no-op verification", "MCP form inventory; CLI fill; MCP replay", "focus loss", "wrong session", "wrong picker owner", "explicit correlated one-shot host result", "real native cancel", "real native select and confirm" }
+                    "paired native navigation chord", "literal Unicode capability", "CLI desired text; MCP replay; no-op verification", "MCP form inventory; CLI fill; MCP replay",
+                    "MCP typed table query; CLI offscreen cell edit; MCP replay; filtered postcondition", "focus loss", "wrong session", "wrong picker owner", "explicit correlated one-shot host result", "real native cancel", "real native select and confirm" }
             }), token);
 
             async Task<TreeNodeSummary> Node(string name) => Assert.Single((await client.FindNodesAsync(sessionId, top.Id, TreeKinds.Visual,

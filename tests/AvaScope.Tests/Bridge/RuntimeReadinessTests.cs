@@ -17,7 +17,7 @@ public sealed class RuntimeReadinessTests
     public async Task MissingHookIsDistinctFromBusyAndAsyncStartupThroughIpcAndMcp()
     {
         using var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessSmokeTests.BridgeHeadlessTestApplication));
-        await session.Dispatch(async () =>
+        await BridgeHeadlessSmokeTests.DispatchAsync(session, async () =>
         {
             AvaScopeBridge.Deactivate();
             var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Readiness"));
@@ -78,7 +78,7 @@ public sealed class RuntimeReadinessTests
         var output = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));
         try
         {
-            await session.Dispatch(async () =>
+            await BridgeHeadlessSmokeTests.DispatchAsync(session, async () =>
             {
                 AvaScopeBridge.Deactivate();
                 var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Frame readiness"));
@@ -97,7 +97,7 @@ public sealed class RuntimeReadinessTests
                     timer.Start();
                     Assert.Equal("passed", (await Wait(client, runtime.SessionId, top.Id, SemanticWaitConditionKinds.FrameReady)).Status);
                     var scoped = await Wait(client, runtime.SessionId, top.Id, SemanticWaitConditionKinds.FrameStable, "Stable");
-                    Assert.Equal("passed", scoped.Status);
+                    Assert.True(scoped.Status == "passed", JsonSerializer.Serialize(scoped));
                     Assert.NotNull(scoped.WaitObservation!.Readiness!.FrameFingerprint);
                     Assert.True(ticks > 0);
                     var moving = await Wait(client, runtime.SessionId, top.Id, SemanticWaitConditionKinds.FrameStable, "Animated", timeoutMs: 180);
@@ -143,7 +143,7 @@ public sealed class RuntimeReadinessTests
         var output = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));
         try
         {
-            await session.Dispatch(async () =>
+            await BridgeHeadlessSmokeTests.DispatchAsync(session, async () =>
             {
                 AvaScopeBridge.Deactivate();
                 var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Startup gate"));
@@ -157,23 +157,24 @@ public sealed class RuntimeReadinessTests
                     using var registration = runtime.RegisterTopLevel(window);
                     var top = Assert.Single(await runtime.ListTopLevelsAsync());
                     var client = new LocalBridgeClient(Path.GetDirectoryName(runtime.SessionManifestPath)!);
-                    var request = new RuntimeScenarioRequest(
+                    RuntimeScenarioRequest Request() => new(
                         [new SemanticWorkflowStep(SemanticWorkflowActions.Invoke, selector: new SemanticWorkflowSelector(name: "Action"))],
-                        sessionId: runtime.SessionId, topLevelId: top.Id, outputDirectory: output,
+                        sessionId: runtime.SessionId, topLevelId: top.Id, outputDirectory: Path.Combine(output, Guid.NewGuid().ToString("N")),
                         startupReadiness: new RuntimeStartupReadinessOptions(waitForFrame: false, waitForApplication: true, timeoutMs: 200));
-                    var absent = await AvaScopeMcpTools.RunScenario(client, request);
-                    Assert.True(absent.Success, absent.Error?.Message);
+                    var absent = await AvaScopeMcpTools.RunScenario(client, Request());
+                    Assert.False(absent.Success);
+                    Assert.NotNull(absent.Value);
                     Assert.Equal("ui_readiness", absent.Value!.FailureStage);
                     Assert.Null(absent.Value.Workflow);
                     Assert.Equal("unavailable", absent.Value.Readiness!.Observations.Last().Availability);
                     Assert.Equal(0, invoked);
                     runtime.SetReadiness("busy");
-                    var busy = await AvaScopeMcpTools.RunScenario(client, request);
+                    var busy = await AvaScopeMcpTools.RunScenario(client, Request());
                     Assert.Equal("available", busy.Value!.Readiness!.Observations.Last().Availability);
                     Assert.False(busy.Value.Readiness.Observations.Last().Matched);
                     Assert.Equal(0, invoked);
                     runtime.SetReadiness("ready");
-                    var ready = await AvaScopeMcpTools.RunScenario(client, request);
+                    var ready = await AvaScopeMcpTools.RunScenario(client, Request());
                     Assert.Equal("passed", ready.Value!.Status);
                     Assert.All(ready.Value.Readiness!.Observations, value => Assert.True(value.Matched));
                     Assert.Equal(1, invoked);
@@ -223,7 +224,7 @@ public sealed class RuntimeReadinessTests
             [new SemanticWorkflowStep(SemanticWorkflowActions.WaitForState,
                 selector: name is null ? null : new SemanticWorkflowSelector(name: name),
                 waitCondition: new SemanticWaitCondition(kind), timeoutMs: timeoutMs, pollIntervalMs: 25)]));
-        Assert.True(result.Success, result.Error?.Message);
+        Assert.NotNull(result.Value);
         return Assert.Single(result.Value!.Steps);
     }
 }

@@ -32,7 +32,7 @@ internal static class RuntimePlatformEvidence
         {
             RuntimeOperationRoutes.AutomationProvider, RuntimeOperationRoutes.SyntheticPointer,
             RuntimeOperationRoutes.SyntheticKey, RuntimeOperationRoutes.RoutedEvent,
-            RuntimeOperationRoutes.ControlProperty, RuntimeOperationRoutes.Focus
+            RuntimeOperationRoutes.ControlProperty, RuntimeOperationRoutes.ControlApi, RuntimeOperationRoutes.Focus
         };
         try
         {

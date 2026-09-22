@@ -331,7 +331,7 @@ public sealed class RuntimeFormTests
         var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessSmokeTests.BridgeHeadlessTestApplication));
         try
         {
-            await session.Dispatch(async () =>
+            await BridgeHeadlessSmokeTests.DispatchAsync(session, async () =>
             {
                 AvaScopeBridge.Deactivate(); var runtime = AvaScopeBridge.Activate();
                 var root = new StackPanel(); var window = new Window { Width = 600, Height = 750, Content = root };

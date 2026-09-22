@@ -5,6 +5,7 @@ using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Headless;
+using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Threading;
 using AvaScope.Bridge;
@@ -111,7 +112,7 @@ public sealed class ActionExplanationTests
             button.Clip = new CombinedGeometry(GeometryCombineMode.Exclude,
                 new RectangleGeometry(new Rect(0, 0, 140, 60)), new RectangleGeometry(new Rect(40, 15, 60, 30)));
             var pressed = 0;
-            button.PointerPressed += (_, _) => pressed++;
+            button.AddHandler(InputElement.PointerPressedEvent, (_, _) => pressed++, handledEventsToo: true);
             Dispatcher.UIThread.RunJobs();
             var id = await Node(runtime, top, "Save");
             var center = await runtime.ExplainActionAsync(new(runtime.SessionId, top, id, strategy: "synthetic"));
@@ -135,6 +136,7 @@ public sealed class ActionExplanationTests
             var overlay = new Border { Name = "Overlay", Width = 140, Height = 60, Background = Brushes.Red };
             canvas.Children.Add(overlay);
             Dispatcher.UIThread.RunJobs();
+            Assert.True((await runtime.ReadinessAsync(top, options: new(waitForFrame: true))).Success);
             var covered = await runtime.ExplainActionAsync(new(runtime.SessionId, top, id, strategy: "synthetic"));
             Assert.Equal("obstructed", covered.Value!.ActivationPoint.Status);
             Assert.Contains(covered.Value.Reasons, r => r.Code == "hit_test_obstruction" && r.Target?.NodeId == covered.Value.ActivationPoint.HitTarget!.NodeId);
@@ -144,6 +146,7 @@ public sealed class ActionExplanationTests
             Assert.Equal(1, pressed);
             overlay.IsHitTestVisible = false;
             Dispatcher.UIThread.RunJobs();
+            Assert.True((await runtime.ReadinessAsync(top, options: new(waitForFrame: true))).Success);
             Assert.Equal("valid", (await runtime.ExplainActionAsync(new(runtime.SessionId, top, id, strategy: "synthetic"))).Value!.ActivationPoint.Status);
             button.Context = new(new Point(double.NaN, 10));
             Assert.Equal("invalid", (await runtime.ExplainActionAsync(new(runtime.SessionId, top, id))).Value!.ActivationPoint.Status);
@@ -262,7 +265,7 @@ public sealed class ActionExplanationTests
         var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessSmokeTests.BridgeHeadlessTestApplication));
         try
         {
-            await session.Dispatch(async () =>
+            await BridgeHeadlessSmokeTests.DispatchAsync(session, async () =>
             {
                 AvaScopeBridge.Deactivate();
                 var runtime = AvaScopeBridge.Activate();
@@ -276,6 +279,7 @@ public sealed class ActionExplanationTests
                     using var registration = runtime.RegisterTopLevel(window);
                     Dispatcher.UIThread.RunJobs();
                     var top = Assert.Single(await runtime.ListTopLevelsAsync());
+                    Assert.True((await runtime.ReadinessAsync(top.Id, options: new(waitForFrame: true))).Success);
                     await test(runtime, window, canvas, button, top.Id, new(Path.GetDirectoryName(runtime.SessionManifestPath)!));
                 }
                 finally { window.Close(); AvaScopeBridge.Deactivate(); }
@@ -286,6 +290,7 @@ public sealed class ActionExplanationTests
 
     private sealed class EvidenceButton : Button, IAvaScopeActionContextProvider
     {
+        protected override Type StyleKeyOverride => typeof(Button);
         public AvaScopeActionContext Context { get; set; } = new();
         public bool ThrowEvidence { get; set; }
         public AvaScopeActionContext GetActionContext(string action) => ThrowEvidence ? throw new InvalidOperationException("private-error-canary") : Context;

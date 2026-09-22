@@ -45,6 +45,13 @@ separate explicit action; no automatic rollback is provided. Password values rem
 redacted. See [form workflows](FORM_WORKFLOWS.md) for supported fields, limits and
 same-session exact-request replay.
 
+The additive v1.5 `runtime.tables` capability exposes `query-table` / `query_table`
+and `table-action` / `table_action`. Public DataGrid collection-view reads return
+bounded typed rows, column identities, filter/projection coverage and a paging
+revision. Selection, editing and sorting require observed generations and verify
+the resulting public state. `allowedTableActions` defaults to no table-action
+permission when a policy is supplied. See [table workflows](TABLE_WORKFLOWS.md).
+
 The stable service name is `avascope`. The protocol version uses `AvaScopeProtocol.CurrentVersion`; breaking protocol changes require `protocolVersion.major` to increase.
 The MCP initialization handshake reports `serverInfo.name` as `avascope` and `serverInfo.version` as the same product version returned by the CLI and structured protocol surfaces.
 

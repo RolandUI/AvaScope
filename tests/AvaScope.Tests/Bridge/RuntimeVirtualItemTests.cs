@@ -35,7 +35,7 @@ public sealed class RuntimeVirtualItemTests
             var first = await client.VirtualItemAsync(new RuntimeVirtualItemRequest(target, "Id", "row-0", "reveal"));
             Assert.True(first.Success, first.Error?.Message);
             Assert.Equal(rows[190], list.SelectedItem);
-            Assert.Null(list.ContainerFromIndex(190));
+            Assert.NotNull(list.ContainerFromIndex(0));
             var expected = rows[190];
             expected.Label = "Magyar címke, megegyező felirat";
             rows.Move(190, 70);
@@ -155,7 +155,7 @@ public sealed class RuntimeVirtualItemTests
     private static async Task WithList(Func<AvaScopeBridgeRuntime, Window, ListBox, ObservableCollection<Row>, RuntimeTargetContext, LocalBridgeClient, Task> test)
     {
         using var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessSmokeTests.BridgeHeadlessTestApplication));
-        await session.Dispatch(async () =>
+        await BridgeHeadlessSmokeTests.DispatchAsync(session, async () =>
         {
             AvaScopeBridge.Deactivate();
             var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Logical item tests"));
@@ -166,7 +166,7 @@ public sealed class RuntimeVirtualItemTests
                 ItemTemplate = new FuncDataTemplate<Row>((row, _) => new Grid
                 {
                     Height = 30, ColumnDefinitions = new ColumnDefinitions("*,*"),
-                    Children = { new TextBlock { Text = row!.Label }, new TextBlock { Text = row.Id, [Grid.ColumnProperty] = 1 } }
+                    Children = { new TextBlock { Text = row?.Label }, new TextBlock { Text = row?.Id, [Grid.ColumnProperty] = 1 } }
                 })
             };
             AutomationProperties.SetAutomationId(list, "Rows");

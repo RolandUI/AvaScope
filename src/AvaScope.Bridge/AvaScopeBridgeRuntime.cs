@@ -5781,7 +5781,7 @@ public sealed partial class AvaScopeBridgeRuntime
             GetName(node),
             GetAutomationId(node),
             GetText(node),
-            GetBounds(node),
+            treeKind == TreeKinds.Visual ? GetTreeNodeBounds(topLevel, node) : GetBounds(node),
             GetClasses(node),
             children,
             CreateNodeTarget(topLevelId, treeKind, topLevel, node),

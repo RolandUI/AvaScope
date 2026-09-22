@@ -827,6 +827,58 @@ public sealed partial class LocalBridgeClient
             new BridgeIpcRequest(NewRequestId(), BridgeIpcMethods.Observe, observation: request), cancellationToken);
     }
 
+    public async Task<CoreResult<RuntimeTableQueryResponse>> QueryTableAsync(RuntimeTableQueryRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var policy = request.Policy is null ? null : new RuntimeEvidencePolicyEnforcer(request.Policy);
+        if (policy is not null)
+        {
+            var authorization = policy.AuthorizeSession(this, request.Table.SessionId);
+            if (!authorization.Success) return CoreResult<RuntimeTableQueryResponse>.Fail(authorization.Error!);
+            var action = policy.AuthorizeAction(SemanticWorkflowActions.Inspect, null);
+            if (!action.Success) return CoreResult<RuntimeTableQueryResponse>.Fail(action.Error!);
+        }
+        var manifest = FindSingleManifest(null, request.Table.SessionId);
+        if (!manifest.Success) return CoreResult<RuntimeTableQueryResponse>.Fail(manifest.Error!);
+        var result = await SendAsync<RuntimeTableQueryResponse>(manifest.Value!,
+            new BridgeIpcRequest(NewRequestId(), BridgeIpcMethods.QueryTable, tableQuery: request), cancellationToken);
+        if (policy is null) return result;
+        if (result.Success) return policy.Sanitize(result.Value!);
+        var error = policy.Sanitize(result.Error!);
+        return CoreResult<RuntimeTableQueryResponse>.Fail(error.Success ? error.Value! : error.Error!);
+    }
+
+    public async Task<CoreResult<RuntimeTableActionResponse>> TableActionAsync(RuntimeTableActionRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var policy = request.Query.Policy is null ? null : new RuntimeEvidencePolicyEnforcer(request.Query.Policy);
+        if (policy is not null)
+        {
+            var authorization = policy.AuthorizeSession(this, request.Query.Table.SessionId);
+            if (!authorization.Success) return CoreResult<RuntimeTableActionResponse>.Fail(authorization.Error!);
+            var action = policy.AuthorizeAction(SemanticWorkflowActions.Inspect, null);
+            if (!action.Success) return CoreResult<RuntimeTableActionResponse>.Fail(action.Error!);
+        }
+        var manifest = FindSingleManifest(null, request.Query.Table.SessionId);
+        if (!manifest.Success) return CoreResult<RuntimeTableActionResponse>.Fail(manifest.Error!);
+        var result = await SendAsync<RuntimeTableActionResponse>(manifest.Value!,
+            new BridgeIpcRequest(NewRequestId(), BridgeIpcMethods.TableAction, tableAction: request), cancellationToken,
+            _operationTimeout + TimeSpan.FromMilliseconds(request.TimeoutMs));
+        if (!result.Success && result.Error!.Code is CoreErrorCodes.BridgeIpcUnavailable or CoreErrorCodes.BridgeIpcFailed)
+            result = CoreResult<RuntimeTableActionResponse>.Fail(new(result.Error.Code, result.Error.Message,
+                new Dictionary<string, string>(result.Error.Details ?? new Dictionary<string, string>())
+                {
+                    ["dispatched"] = "unknown", ["tableRequestId"] = request.RequestId,
+                    ["nextAction"] = "Retrieve the original table action result with the exact payload and requestId in this session. Do not repeat with a new id without observing current state."
+                }));
+        if (policy is null) return result;
+        if (result.Success) return policy.Sanitize(result.Value!);
+        var error = policy.Sanitize(result.Error!);
+        return CoreResult<RuntimeTableActionResponse>.Fail(error.Success ? error.Value! : error.Error!);
+    }
+
     public async Task<CoreResult<RuntimeFormInspectionResponse>> InspectFormAsync(RuntimeFormInspectionRequest request,
         CancellationToken cancellationToken = default)
     {
@@ -1644,6 +1696,7 @@ public sealed partial class LocalBridgeClient
             or BridgeIpcMethods.LogicalTree
             or BridgeIpcMethods.InspectNode
             or BridgeIpcMethods.InspectForm
+            or BridgeIpcMethods.QueryTable
             or BridgeIpcMethods.ExplainLayout
             or BridgeIpcMethods.FindNodes
             or BridgeIpcMethods.ValidateInput

@@ -20,7 +20,7 @@ public sealed class RuntimeProvenanceTests
         var output = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));
         try
         {
-            await session.Dispatch(async () =>
+            await BridgeHeadlessSmokeTests.DispatchAsync(session, async () =>
             {
                 AvaScopeBridge.Deactivate();
                 var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Route evidence"));
@@ -76,7 +76,8 @@ public sealed class RuntimeProvenanceTests
                     var workflow = await AvaScopeMcpTools.RunWorkflow(client, new SemanticWorkflowRequest(
                         runtime.SessionId, top.Id,
                         [new SemanticWorkflowStep(SemanticWorkflowActions.Invoke, selector: new SemanticWorkflowSelector(name: "Action")),
-                            new SemanticWorkflowStep(SemanticWorkflowActions.Screenshot)], outputDirectory: output));
+                            new SemanticWorkflowStep(SemanticWorkflowActions.Screenshot)], outputDirectory: output,
+                        evidence: new SemanticWorkflowEvidenceOptions(exportReports: true)));
                     Assert.True(workflow.Success, workflow.Error?.Message);
                     Assert.Equal("passed", workflow.Value!.Status);
                     Assert.Equal(RuntimeOperationRoutes.AutomationProvider, workflow.Value.Steps[0].Input!.Provenance!.Route);
