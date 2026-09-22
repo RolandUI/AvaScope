@@ -27,6 +27,8 @@ public static class OperationResultMapper
     {
         return value switch
         {
+            RuntimeDesiredStateResponse response when !response.Verified
+                => OutcomeError("desired_state_not_verified", response.Status, response.Diagnostics),
             SemanticWorkflowResponse response when response.Status is not ("passed" or "validated")
                 => OutcomeError("workflow_failed", response.Status, response.Diagnostics),
             RuntimeScenarioResponse response when response.Status != "passed"

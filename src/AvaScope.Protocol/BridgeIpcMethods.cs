@@ -7,6 +7,7 @@ public static class BridgeIpcMethods
     public const string Readiness = "readiness";
     public const string Observe = "observe";
     public const string ExplainAction = "explain_action";
+    public const string EnsureState = "ensure_state";
     public const string ObserveChanges = "observe_changes";
     public const string VirtualItem = "virtual_item";
     public const string NativePicker = "native_picker";
@@ -34,6 +35,7 @@ public static class BridgeIpcMethods
         Readiness,
         Observe,
         ExplainAction,
+        EnsureState,
         ObserveChanges,
         VirtualItem,
         NativePicker,
@@ -55,7 +57,7 @@ public static class BridgeIpcMethods
         CloseSession
     ];
 
-    public static bool RequiresControl(BridgeIpcRequest request) => request.Method is Input or MutateNode or InvokeCustomAction or CloseSession
+    public static bool RequiresControl(BridgeIpcRequest request) => request.Method is Input or MutateNode or InvokeCustomAction or CloseSession or EnsureState
         || request.Method == VirtualItem && request.VirtualItem?.Action != "find"
         || request.Method == NativePicker && request.NativePicker?.Operation != "detect";
 }

@@ -827,6 +827,35 @@ public sealed partial class LocalBridgeClient
             new BridgeIpcRequest(NewRequestId(), BridgeIpcMethods.Observe, observation: request), cancellationToken);
     }
 
+    public async Task<CoreResult<RuntimeDesiredStateResponse>> EnsureStateAsync(RuntimeDesiredStateRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var policy = request.Policy is null ? null : new RuntimeEvidencePolicyEnforcer(request.Policy);
+        if (policy is not null)
+        {
+            var authorization = policy.AuthorizeSession(this, request.Target.SessionId);
+            if (!authorization.Success) return CoreResult<RuntimeDesiredStateResponse>.Fail(authorization.Error!);
+            if (!request.Policy!.AllowedDesiredStates.Contains(request.Property, StringComparer.Ordinal))
+                return CoreResult<RuntimeDesiredStateResponse>.Fail(new("desired_state_policy_denied", "The evidence policy must explicitly allow this desired-state property."));
+        }
+        var manifest = FindSingleManifest(null, request.Target.SessionId);
+        if (!manifest.Success) return CoreResult<RuntimeDesiredStateResponse>.Fail(manifest.Error!);
+        var result = await SendAsync<RuntimeDesiredStateResponse>(manifest.Value!,
+            new BridgeIpcRequest(NewRequestId(), BridgeIpcMethods.EnsureState, desiredState: request), cancellationToken);
+        if (!result.Success && result.Error!.Code is CoreErrorCodes.BridgeIpcUnavailable or CoreErrorCodes.BridgeIpcFailed)
+            result = CoreResult<RuntimeDesiredStateResponse>.Fail(new(result.Error.Code, result.Error.Message,
+                new Dictionary<string, string>(result.Error.Details ?? new Dictionary<string, string>())
+                {
+                    ["dispatched"] = "unknown", ["desiredStateRequestId"] = request.RequestId,
+                    ["nextAction"] = "Retrieve the result with the exact original desired-state payload and requestId in this session. Do not retry the action with a new id without observing current state."
+                }));
+        if (policy is null) return result;
+        if (result.Success) return policy.Sanitize(result.Value!);
+        var error = policy.Sanitize(result.Error!);
+        return CoreResult<RuntimeDesiredStateResponse>.Fail(error.Success ? error.Value! : error.Error!);
+    }
+
     public async Task<CoreResult<RuntimeActionExplanation>> ExplainActionAsync(RuntimeActionExplanationRequest request,
         CancellationToken cancellationToken = default)
     {

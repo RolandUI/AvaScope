@@ -259,25 +259,29 @@ public sealed class ActionExplanationTests
 
     private static async Task WithWindow(Func<AvaScopeBridgeRuntime, Window, Canvas, EvidenceButton, string, LocalBridgeClient, Task> test)
     {
-        using var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessSmokeTests.BridgeHeadlessTestApplication));
-        await session.Dispatch(async () =>
+        var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessSmokeTests.BridgeHeadlessTestApplication));
+        try
         {
-            AvaScopeBridge.Deactivate();
-            var runtime = AvaScopeBridge.Activate();
-            var button = new EvidenceButton { Name = "Save", Content = "Save", Width = 140, Height = 60, Background = Brushes.White };
-            AutomationProperties.SetAutomationId(button, "save");
-            var canvas = new Canvas { Background = Brushes.White, Children = { button } };
-            var window = new Window { Width = 320, Height = 240, Content = canvas };
-            try
+            await session.Dispatch(async () =>
             {
-                window.Show();
-                using var registration = runtime.RegisterTopLevel(window);
-                Dispatcher.UIThread.RunJobs();
-                var top = Assert.Single(await runtime.ListTopLevelsAsync());
-                await test(runtime, window, canvas, button, top.Id, new(Path.GetDirectoryName(runtime.SessionManifestPath)!));
-            }
-            finally { window.Close(); AvaScopeBridge.Deactivate(); }
-        }, CancellationToken.None);
+                AvaScopeBridge.Deactivate();
+                var runtime = AvaScopeBridge.Activate();
+                var button = new EvidenceButton { Name = "Save", Content = "Save", Width = 140, Height = 60, Background = Brushes.White };
+                AutomationProperties.SetAutomationId(button, "save");
+                var canvas = new Canvas { Background = Brushes.White, Children = { button } };
+                var window = new Window { Width = 320, Height = 240, Content = canvas };
+                try
+                {
+                    window.Show();
+                    using var registration = runtime.RegisterTopLevel(window);
+                    Dispatcher.UIThread.RunJobs();
+                    var top = Assert.Single(await runtime.ListTopLevelsAsync());
+                    await test(runtime, window, canvas, button, top.Id, new(Path.GetDirectoryName(runtime.SessionManifestPath)!));
+                }
+                finally { window.Close(); AvaScopeBridge.Deactivate(); }
+            }, CancellationToken.None);
+        }
+        finally { BridgeHeadlessSmokeTests.DisposeHeadlessSessionAfterExplicitCleanup(session); }
     }
 
     private sealed class EvidenceButton : Button, IAvaScopeActionContextProvider

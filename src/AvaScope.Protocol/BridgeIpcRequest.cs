@@ -51,7 +51,8 @@ public sealed record BridgeIpcRequest
         SessionControlRequest? sessionControl = null,
         string? controlToken = null,
         RuntimeActionExplanationRequest? actionExplanation = null,
-        RuntimeQueryRequest? query = null)
+        RuntimeQueryRequest? query = null,
+        RuntimeDesiredStateRequest? desiredState = null)
     {
         if (string.IsNullOrWhiteSpace(requestId))
         {
@@ -108,6 +109,7 @@ public sealed record BridgeIpcRequest
         SessionControl = sessionControl;
         ControlToken = controlToken;
         ActionExplanation = actionExplanation;
+        DesiredState = desiredState;
         Query = query;
     }
 
@@ -120,6 +122,9 @@ public sealed record BridgeIpcRequest
 
     [JsonPropertyName("query"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public RuntimeQueryRequest? Query { get; }
+
+    [JsonPropertyName("desiredState"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public RuntimeDesiredStateRequest? DesiredState { get; }
 
     [JsonPropertyName("inputExecution")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

@@ -113,6 +113,33 @@ public sealed class NativeInputIntegrationTests
             Assert.True(literal.Success, literal.Error?.Message);
             await WaitText("NativeEditor", "<Ctrl+A> árvíz 😀");
 
+            // Desired state uses the advertised Avalonia route on the real desktop backend.
+            var desired = new RuntimeDesiredStateRequest((await Node("NativeEditor")).Target!, "text",
+                JsonSerializer.SerializeToElement("desired-state árvíz 😀"), "native-desired-state");
+            var desiredPath = Path.Combine(output, "desired-state-request.json");
+            await File.WriteAllTextAsync(desiredPath, JsonSerializer.Serialize(desired), token);
+            var desiredStart = new ProcessStartInfo("dotnet") { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
+            foreach (var argument in new[] { Path.Combine(AppContext.BaseDirectory, "avascope.dll"), "ensure-state", "--request", desiredPath })
+                desiredStart.ArgumentList.Add(argument);
+            using (var cli = Process.Start(desiredStart)!)
+            {
+                var resultText = cli.StandardOutput.ReadToEndAsync(token); var errorText = cli.StandardError.ReadToEndAsync(token);
+                await cli.WaitForExitAsync(token);
+                var result = JsonSerializer.Deserialize<ToolResult<RuntimeDesiredStateResponse>>(await resultText)!;
+                await File.WriteAllTextAsync(Path.Combine(output, "cli-desired-state.json"), await resultText, token);
+                Assert.True(result.Success, result.Error?.Message + await errorText); Assert.Equal(0, cli.ExitCode);
+                Assert.Equal(backend, result.Value!.Provenance.Backend.Backend);
+                Assert.Equal(RuntimeOperationRoutes.RoutedEvent, result.Value.Provenance.Route);
+            }
+            var replay = await mcp.CallToolAsync("ensure_state", new Dictionary<string, object?>
+            { ["request"] = JsonSerializer.SerializeToElement(desired) }, cancellationToken: token);
+            var desiredReplay = JsonSerializer.Deserialize<ToolResult<RuntimeDesiredStateResponse>>(JsonSerializer.Serialize(replay.StructuredContent))!;
+            await File.WriteAllTextAsync(Path.Combine(output, "mcp-desired-state.json"), JsonSerializer.Serialize(desiredReplay), token);
+            Assert.True(desiredReplay.Success); Assert.True(desiredReplay.Value!.Replayed);
+            var desiredAgain = await client.EnsureStateAsync(new(desired.Target, desired.Property, desired.Desired, "native-desired-no-op"), token);
+            Assert.Equal("already_satisfied", desiredAgain.Value!.Status); Assert.Equal(0, desiredAgain.Value.DispatchedOperations);
+            await WaitText("NativeEditor", "desired-state árvíz 😀");
+
             var wrongTarget = new RuntimeTargetContext(new SessionId("unrelated-session"), top.Id, TreeKinds.Visual, pad.NodeId);
             Assert.False((await client.InputAsync(sessionId, top.Id, InputActions.Click, targetNodeId: pad.NodeId,
                 inputTarget: wrongTarget, execution: clickOptions, cancellationToken: token)).Success);
@@ -183,7 +210,7 @@ public sealed class NativeInputIntegrationTests
                 checks = new[] { "CLI right double modifier click", "MCP middle triple click",
                     backend == "macos" ? "native drag refused before dispatch; explicit synthetic drag" : "bounded native drag",
                     backend == "macos" ? "interrupted native click cleanup" : "interrupted native drag cleanup",
-                    "paired native navigation chord", "literal Unicode capability", "focus loss", "wrong session", "wrong picker owner", "explicit correlated one-shot host result", "real native cancel", "real native select and confirm" }
+                    "paired native navigation chord", "literal Unicode capability", "CLI desired text; MCP replay; no-op verification", "focus loss", "wrong session", "wrong picker owner", "explicit correlated one-shot host result", "real native cancel", "real native select and confirm" }
             }), token);
 
             async Task<TreeNodeSummary> Node(string name) => Assert.Single((await client.FindNodesAsync(sessionId, top.Id, TreeKinds.Visual,

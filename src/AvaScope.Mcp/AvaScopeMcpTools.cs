@@ -9,6 +9,13 @@ namespace AvaScope.Mcp;
 [McpServerToolType]
 public sealed class AvaScopeMcpTools
 {
+    [McpServerTool(Name = "ensure_state", Title = "Ensure desired runtime state", ReadOnly = false, Idempotent = true,
+        Destructive = true, OpenWorld = false, UseStructuredContent = true)]
+    [Description("Read, change only if necessary and verify checked/expanded/text/value/selection state on a fresh explicit target. Preserve requestId and the entire payload when retrieving an uncertain or lost result; no automatic write retry. Text uses routed input for TextBox, other supported states use public automation providers.")]
+    public static async Task<ToolResult<RuntimeDesiredStateResponse>> EnsureState(LocalBridgeClient bridgeClient,
+        RuntimeDesiredStateRequest request, string? manifestDirectory = null, CancellationToken cancellationToken = default)
+        => ToToolResult(await CreateBridgeClient(bridgeClient, manifestDirectory).EnsureStateAsync(request, cancellationToken));
+
     [McpServerTool(Name = "explain_action", Title = "Explain runtime action blockers", ReadOnly = true, Idempotent = true,
         Destructive = false, OpenWorld = false, UseStructuredContent = true)]
     [Description("Explains bounded observable blockers, related validation and separately labeled app-declared reasons for an explicit live target. Resolves an application-declared local activation point or bounds center and validates current clipping and Avalonia input hit testing. Native OS visibility remains unknown. No input, reveal, focus, mutation or recovery is executed. Reuse the geometryRevision with explicit input execution.expectedGeometryRevision to reject stale geometry before dispatch; validation is still required at dispatch.")]

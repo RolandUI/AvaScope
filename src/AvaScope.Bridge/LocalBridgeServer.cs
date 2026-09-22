@@ -336,6 +336,7 @@ internal sealed class LocalBridgeServer : IDisposable
             BridgeIpcMethods.Readiness => Respond(await ReadinessAsync(request, cancellationToken)),
             BridgeIpcMethods.Observe => Respond(await ObserveAsync(request, cancellationToken)),
             BridgeIpcMethods.ExplainAction => Respond(await ExplainActionAsync(request, cancellationToken)),
+            BridgeIpcMethods.EnsureState => Respond(await EnsureStateAsync(request, cancellationToken)),
             BridgeIpcMethods.ObserveChanges => Respond(await ObserveChangesAsync(request, cancellationToken)),
             BridgeIpcMethods.VirtualItem => Respond(await VirtualItemAsync(request, cancellationToken)),
             BridgeIpcMethods.NativePicker => Respond(await NativePickerAsync(request, cancellationToken)),
@@ -408,6 +409,15 @@ internal sealed class LocalBridgeServer : IDisposable
         if (request.Observation is null)
             return BridgeIpcResponse.Fail(request.RequestId, new ProtocolError("missing_observation_request", "Observation options are required."));
         var result = await _runtime.ObserveAsync(request.Observation, cancellationToken);
+        return result.Success ? BridgeIpcResponse.Ok(request.RequestId, result.Value)
+            : BridgeIpcResponse.Fail(request.RequestId, ToProtocolError(result.Error!));
+    }
+
+    private async Task<BridgeIpcResponse> EnsureStateAsync(BridgeIpcRequest request, CancellationToken cancellationToken)
+    {
+        if (request.DesiredState is null)
+            return BridgeIpcResponse.Fail(request.RequestId, new ProtocolError("missing_desired_state", "Desired-state options are required."));
+        var result = await _runtime.EnsureStateAsync(request.DesiredState, cancellationToken);
         return result.Success ? BridgeIpcResponse.Ok(request.RequestId, result.Value)
             : BridgeIpcResponse.Fail(request.RequestId, ToProtocolError(result.Error!));
     }

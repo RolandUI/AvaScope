@@ -31,6 +31,13 @@ They are distributed through installers, executable ZIPs, and source, not as pac
 
 ## Protocol Contracts
 
+The additive v1.5 `runtime.desired_state` capability exposes `ensure-state` and
+`ensure_state` with fresh generation-bearing targets, typed desired values,
+before/after verification, operation provenance and exact-payload request replay.
+Unverified/partial/uncertain results retain evidence with `success:false`.
+Optional policy `allowedDesiredStates` defaults to no desired-state permission.
+See [desired-state actions](DESIRED_STATE_ACTIONS.md) for bounds and replay scope.
+
 The stable service name is `avascope`. The protocol version uses `AvaScopeProtocol.CurrentVersion`; breaking protocol changes require `protocolVersion.major` to increase.
 The MCP initialization handshake reports `serverInfo.name` as `avascope` and `serverInfo.version` as the same product version returned by the CLI and structured protocol surfaces.
 

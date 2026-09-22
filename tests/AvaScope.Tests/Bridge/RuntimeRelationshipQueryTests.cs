@@ -304,23 +304,27 @@ public sealed class RuntimeRelationshipQueryTests
 
     private static async Task WithWindow(Func<AvaScopeBridgeRuntime, Window, StackPanel, string, LocalBridgeClient, Task> test)
     {
-        using var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessSmokeTests.BridgeHeadlessTestApplication));
-        await session.Dispatch(async () =>
+        var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessSmokeTests.BridgeHeadlessTestApplication));
+        try
         {
-            AvaScopeBridge.Deactivate();
-            var runtime = AvaScopeBridge.Activate();
-            var root = new StackPanel { Name = "Root" };
-            var window = new Window { Width = 500, Height = 700, Content = root };
-            try
+            await session.Dispatch(async () =>
             {
-                window.Show();
-                using var registration = runtime.RegisterTopLevel(window);
-                Dispatcher.UIThread.RunJobs();
-                var top = Assert.Single(await runtime.ListTopLevelsAsync());
-                await test(runtime, window, root, top.Id, new(Path.GetDirectoryName(runtime.SessionManifestPath)!));
-            }
-            finally { window.Close(); AvaScopeBridge.Deactivate(); }
-        }, CancellationToken.None);
+                AvaScopeBridge.Deactivate();
+                var runtime = AvaScopeBridge.Activate();
+                var root = new StackPanel { Name = "Root" };
+                var window = new Window { Width = 500, Height = 700, Content = root };
+                try
+                {
+                    window.Show();
+                    using var registration = runtime.RegisterTopLevel(window);
+                    Dispatcher.UIThread.RunJobs();
+                    var top = Assert.Single(await runtime.ListTopLevelsAsync());
+                    await test(runtime, window, root, top.Id, new(Path.GetDirectoryName(runtime.SessionManifestPath)!));
+                }
+                finally { window.Close(); AvaScopeBridge.Deactivate(); }
+            }, CancellationToken.None);
+        }
+        finally { BridgeHeadlessSmokeTests.DisposeHeadlessSessionAfterExplicitCleanup(session); }
     }
 
     private sealed class ChangingLabelControl : Control

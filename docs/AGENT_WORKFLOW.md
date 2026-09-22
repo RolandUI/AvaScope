@@ -14,6 +14,8 @@ Use [action explanations](ACTION_EXPLANATIONS.md) when a target is blocked or it
 
 Use [relationship selectors and typed projections](RELATIONSHIP_QUERIES.md) to distinguish repeated controls by their container, row or explicit label, and to request only selected field values. Treat partial coverage and missing/redacted values explicitly before deciding an action.
 
+Use [desired-state actions](DESIRED_STATE_ACTIONS.md) to ensure a check, expansion, value, text or selection state without reversing an already satisfied result. Preserve the exact request ID/payload after a lost response and inspect partial or uncertain outcomes before another intent.
+
 Use [workflow export and replay](WORKFLOW_EXPORT.md) to turn a recorded AvaScope workflow into a parameterized regression. Review missing assertions and unstable targets, validate against fresh bindings, then explicitly execute with the existing runner.
 
 The [native platform matrix](NATIVE_PLATFORM_MATRIX.md) provides repeatable packaged CLI/MCP lifecycle, modal, popup, focus, resize, failure-evidence and cleanup checks for Headless, Windows, Linux X11 and macOS.

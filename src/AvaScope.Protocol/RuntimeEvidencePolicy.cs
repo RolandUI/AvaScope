@@ -42,7 +42,8 @@ public sealed record RuntimeEvidencePolicy
         int? retentionMaxAgeMinutes = null,
         int? retentionMaxOwnedRuns = null,
         bool writeActionAudit = true,
-        bool networkUpload = false)
+        bool networkUpload = false,
+        IReadOnlyList<string>? allowedDesiredStates = null)
     {
         if (string.IsNullOrWhiteSpace(ownedEvidenceRoot))
         {
@@ -65,6 +66,9 @@ public sealed record RuntimeEvidencePolicy
         }
 
         OwnedEvidenceRoot = Path.GetFullPath(ownedEvidenceRoot);
+        AllowedDesiredStates = Normalize(allowedDesiredStates ?? [], nameof(allowedDesiredStates));
+        if (AllowedDesiredStates.Any(state => !RuntimeDesiredStateRequest.Properties.Contains(state, StringComparer.Ordinal)))
+            throw new ArgumentException("Unsupported desired-state property in policy.", nameof(allowedDesiredStates));
         RedactedText = Normalize(redactedText, nameof(redactedText));
         RedactedAutomationIds = Normalize(redactedAutomationIds, nameof(redactedAutomationIds));
         ExcludedControlAutomationIds = Normalize(excludedControlAutomationIds, nameof(excludedControlAutomationIds));
@@ -105,6 +109,9 @@ public sealed record RuntimeEvidencePolicy
 
     [JsonPropertyName("ownedEvidenceRoot")]
     public string OwnedEvidenceRoot { get; }
+
+    [JsonPropertyName("allowedDesiredStates")]
+    public IReadOnlyList<string> AllowedDesiredStates { get; }
 
     [JsonPropertyName("redactedText")]
     public IReadOnlyList<string> RedactedText { get; }
