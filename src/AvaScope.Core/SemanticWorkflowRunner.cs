@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
+using System.Security.Cryptography;
 using AvaScope.Protocol;
 
 namespace AvaScope.Core;
@@ -300,6 +301,7 @@ public sealed class SemanticWorkflowRunner
     {
         var metadata = new Dictionary<string, string>
         {
+            ["requestDefinitionSha256"] = DefinitionHash(request),
             ["requestedSteps"] = request.Steps.Count.ToString(CultureInfo.InvariantCulture),
             ["expandedSteps"] = plan.ExpandedStepCount.ToString(CultureInfo.InvariantCulture),
             ["executedSteps"] = executedSteps.ToString(CultureInfo.InvariantCulture),
@@ -327,6 +329,31 @@ public sealed class SemanticWorkflowRunner
         }
 
         return metadata;
+    }
+
+    internal static string DefinitionHash(SemanticWorkflowRequest request)
+    {
+        using var bytes = new MemoryStream();
+        using (var writer = new Utf8JsonWriter(bytes)) Write(JsonSerializer.SerializeToElement(request), writer);
+        return Convert.ToHexStringLower(SHA256.HashData(bytes.ToArray()));
+
+        static void Write(JsonElement value, Utf8JsonWriter writer)
+        {
+            if (value.ValueKind == JsonValueKind.Object)
+            {
+                writer.WriteStartObject();
+                foreach (var property in value.EnumerateObject().OrderBy(property => property.Name, StringComparer.Ordinal))
+                { writer.WritePropertyName(property.Name); Write(property.Value, writer); }
+                writer.WriteEndObject();
+            }
+            else if (value.ValueKind == JsonValueKind.Array)
+            {
+                writer.WriteStartArray();
+                foreach (var item in value.EnumerateArray()) Write(item, writer);
+                writer.WriteEndArray();
+            }
+            else value.WriteTo(writer);
+        }
     }
 
     private static async Task<bool> ExecuteNodesAsync(

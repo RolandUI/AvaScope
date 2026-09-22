@@ -8,6 +8,8 @@ Use the session's observed backends and each input/screenshot's [runtime provena
 
 Use [explicit input strategies](INPUT_STRATEGIES.md) for compound/native actions and [session control and run recovery](RUN_RECOVERY.md) when coordinating clients or recovering an interrupted scenario.
 
+Use [workflow export and replay](WORKFLOW_EXPORT.md) to turn a recorded AvaScope workflow into a parameterized regression. Review missing assertions and unstable targets, validate against fresh bindings, then explicitly execute with the existing runner.
+
 The [native platform matrix](NATIVE_PLATFORM_MATRIX.md) provides repeatable packaged CLI/MCP lifecycle, modal, popup, focus, resize, failure-evidence and cleanup checks for Headless, Windows, Linux X11 and macOS.
 
 Use [runtime readiness](RUNTIME_READINESS.md) to distinguish bridge availability, window creation, a completed frame and optional application readiness. Scoped stability waits and capture-after-render are bounded and do not require global application idleness.

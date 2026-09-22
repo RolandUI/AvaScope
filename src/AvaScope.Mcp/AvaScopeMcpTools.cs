@@ -9,6 +9,19 @@ namespace AvaScope.Mcp;
 [McpServerToolType]
 public sealed class AvaScopeMcpTools
 {
+    [McpServerTool(Name = "export_workflow", Title = "Export recorded AvaScope workflow", ReadOnly = false, Idempotent = false,
+        Destructive = false, OpenWorld = false, UseStructuredContent = true)]
+    [Description("Exports an original AvaScope workflow request and its matching complete execution response to a parameterized native workflow and review document. Preserves actual assertions, action/redaction policy and idempotency; marks missing verification or unstable targets. Parameter values are never persisted as defaults. No foreign framework import or screenshot baseline acceptance. Does not replay actions.")]
+    public static ToolResult<WorkflowExportResponse> ExportWorkflow(WorkflowExportRequest request)
+        => ToToolResult(WorkflowExporter.Export(request));
+
+    [McpServerTool(Name = "replay_workflow", Title = "Validate or replay exported workflow", ReadOnly = false, Idempotent = false,
+        Destructive = false, OpenWorld = false, UseStructuredContent = true)]
+    [Description("Binds an AvaScope export.json to an explicitly selected fresh session, output, named parameters and required policy authorization. Defaults to validateOnly=true through the existing compiler; false executes through the existing workflow runner and reports. Blocking review items require correcting and re-exporting the source; remaining review items require acknowledgeReview=true. Never automatically repeats uncertain actions or accepts baselines.")]
+    public static async Task<ToolResult<SemanticWorkflowResponse>> ReplayWorkflow(LocalBridgeClient bridgeClient,
+        WorkflowReplayRequest request, string? manifestDirectory = null, CancellationToken cancellationToken = default)
+        => ToToolResult(await WorkflowExporter.ReplayAsync(CreateBridgeClient(bridgeClient, manifestDirectory), request, cancellationToken));
+
     [McpServerTool(Name = "list_agent_runs", Title = "List local agent runs", ReadOnly = true, Idempotent = true,
         Destructive = false, OpenWorld = false, UseStructuredContent = true)]
     [Description("Lists the newest bounded private local scenario recovery records, including active or abandoned runs. Does not discover unrelated processes, return lease tokens, resume actions or delete evidence. Use a returned runId with recover_run.")]

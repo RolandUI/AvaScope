@@ -55,6 +55,13 @@ Stable DTO areas covered by protocol contract tests include health, sessions, di
 
 ## CLI Commands
 
+The additive native workflow export commands are `export-workflow` and
+`replay-workflow`; MCP exposes `export_workflow` and `replay_workflow`.
+`WorkflowExportRequest` correlates an original request with complete execution
+evidence. `WorkflowReplayRequest` binds explicit parameters and fresh session
+authorization, defaulting to validation only. The schema version 1 export document
+wraps the existing semantic workflow format. See [workflow export](WORKFLOW_EXPORT.md).
+
 The additive session coordination and recovery commands are `session-control`,
 `recover-run`, and `list-agent-runs`; their MCP counterparts are `session_control`,
 `recover_run`, and `list_agent_runs`. `SessionControlRequest` / `SessionControlResponse`

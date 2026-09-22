@@ -22,6 +22,7 @@ public static class AvaScopeCapabilityIds
     public const string RuntimeTestFixtures = "runtime.test_fixtures";
     public const string RuntimeSessionControl = "runtime.session_control";
     public const string RuntimeRunRecovery = "runtime.run_recovery";
+    public const string RuntimeWorkflowExport = "runtime.workflow_export";
     public const string DiagnosticsTargetReadiness = "diagnostics.target_readiness";
     public const string RuntimeSessionLifecycle = "runtime.session_lifecycle";
     public const string RuntimeTrees = "runtime.trees";
