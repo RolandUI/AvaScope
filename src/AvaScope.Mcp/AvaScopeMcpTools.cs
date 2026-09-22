@@ -9,6 +9,26 @@ namespace AvaScope.Mcp;
 [McpServerToolType]
 public sealed class AvaScopeMcpTools
 {
+    [McpServerTool(Name = "list_agent_runs", Title = "List local agent runs", ReadOnly = true, Idempotent = true,
+        Destructive = false, OpenWorld = false, UseStructuredContent = true)]
+    [Description("Lists the newest bounded private local scenario recovery records, including active or abandoned runs. Does not discover unrelated processes, return lease tokens, resume actions or delete evidence. Use a returned runId with recover_run.")]
+    public static ToolResult<IReadOnlyList<AgentRunRecoveryResponse>> ListAgentRuns(int maxResults = 25, string? storeDirectory = null)
+        => ToToolResult(new AgentRunStore(storeDirectory).List(maxResults));
+
+    [McpServerTool(Name = "recover_run", Title = "Inspect or recover agent run", ReadOnly = false, Idempotent = false,
+        Destructive = false, OpenWorld = false, UseStructuredContent = true)]
+    [Description("Inspects a durable local run, resumes control of its exact live session, or cleans up owned processes/private runtime resources after interruption. Refuses active runs, conflicting leases and changed process identities. Preserves evidence and test data. Resume returns a control token; it never replays an uncertain action or restarts the app. storeDirectory overrides the private local recovery store only when explicitly supplied.")]
+    public static async Task<ToolResult<AgentRunRecoveryResponse>> RecoverRun(AgentRunRecoveryRequest request,
+        string? storeDirectory = null, CancellationToken cancellationToken = default)
+        => ToToolResult(await new AgentRunStore(storeDirectory).RecoverAsync(request, cancellationToken));
+
+    [McpServerTool(Name = "session_control", Title = "Coordinate session control", ReadOnly = false, Idempotent = false,
+        Destructive = false, OpenWorld = false, UseStructuredContent = true)]
+    [Description("Inspects, acquires, renews or releases exclusive session control for an explicit owner/run. ttlMs is 1000..300000. The current MCP server remembers acquired tokens for subsequent control calls; reconnects use the returned token to renew. Other clients may observe but conflicting control fails before dispatch. Expiry never transfers an operation still executing. Tokens are coordination credentials; keep them out of reports.")]
+    public static async Task<ToolResult<SessionControlResponse>> SessionControl(LocalBridgeClient bridgeClient, string sessionId,
+        SessionControlRequest request, string? manifestDirectory = null, CancellationToken cancellationToken = default)
+        => ToToolResult(await CreateBridgeClient(bridgeClient, manifestDirectory).SessionControlAsync(new(sessionId), request, cancellationToken));
+
     [McpServerTool(Name = "virtual_item", Title = "Resolve virtualized logical item", ReadOnly = false, Idempotent = false,
         Destructive = false, OpenWorld = false, UseStructuredContent = true)]
     [Description("Finds, reveals or selects one logical ItemsControl item using an explicitly chosen public stable scalar key property. Verifies uniqueness across a bounded complete ItemsView and re-resolves after realization. Duplicate keys, unsupported models, stale collections and limits fail explicitly; container ids and indices are diagnostic evidence, never persisted item identity. Host key getters must be fast and side-effect free; selection handlers may run application code.")]
@@ -1909,7 +1929,7 @@ public sealed class AvaScopeMcpTools
     {
         return string.IsNullOrWhiteSpace(manifestDirectory)
             ? bridgeClient
-            : new LocalBridgeClient(manifestDirectory, bridgeClient.OperationTimeout);
+            : bridgeClient.WithManifestDirectory(manifestDirectory);
     }
 
     private static DiagnosticsResponse ApplyDiagnosticsMode(

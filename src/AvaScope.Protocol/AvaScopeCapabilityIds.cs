@@ -20,6 +20,8 @@ public static class AvaScopeCapabilityIds
     public const string RuntimeObservationChanges = "runtime.observation_changes";
     public const string RuntimeVirtualItems = "runtime.virtual_items";
     public const string RuntimeTestFixtures = "runtime.test_fixtures";
+    public const string RuntimeSessionControl = "runtime.session_control";
+    public const string RuntimeRunRecovery = "runtime.run_recovery";
     public const string DiagnosticsTargetReadiness = "diagnostics.target_readiness";
     public const string RuntimeSessionLifecycle = "runtime.session_lifecycle";
     public const string RuntimeTrees = "runtime.trees";

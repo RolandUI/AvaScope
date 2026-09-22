@@ -7,7 +7,7 @@ using AvaScope.Protocol;
 
 namespace AvaScope.Core;
 
-public sealed class LocalBridgeClient
+public sealed partial class LocalBridgeClient
 {
     private const int MaxMessageBytes = 1024 * 1024;
     private const int MaxDiagnosticsSessions = 100;
@@ -20,12 +20,13 @@ public sealed class LocalBridgeClient
     {
     }
 
-    public LocalBridgeClient(string? manifestDirectory, TimeSpan? operationTimeout = null)
+    public LocalBridgeClient(string? manifestDirectory, TimeSpan? operationTimeout = null, string? controlToken = null)
     {
         ManifestDirectory = string.IsNullOrWhiteSpace(manifestDirectory)
             ? BridgeSessionManifest.GetDefaultDirectory()
             : Path.GetFullPath(manifestDirectory);
         _operationTimeout = operationTimeout ?? TimeSpan.FromSeconds(5);
+        _defaultControlToken = controlToken;
 
         if (_operationTimeout <= TimeSpan.Zero)
         {
@@ -810,23 +811,24 @@ public sealed class LocalBridgeClient
     {
         ArgumentNullException.ThrowIfNull(sessionId);
         var manifest = FindSingleManifest(null, sessionId);
-        if (manifest.Success && topLevelId is not null
-            && operation is not (NativePickerOperations.PredefineResult or NativePickerOperations.ConsumePredefinedResult))
-            return SendAsync<NativePickerResponse>(manifest.Value!, new BridgeIpcRequest(NewRequestId(), BridgeIpcMethods.NativePicker,
-                nativePicker: new RuntimeNativePickerRequest(topLevelId, operation, path, timeoutMs, redactPath)), CancellationToken.None)
-                .GetAwaiter().GetResult();
-        return manifest.Success
-            ? NativePickerAutomation.Execute(
-                manifest.Value!,
-                ManifestDirectory,
-                operation,
-                path,
-                predefinedResult,
-                correlationId,
-                ttlMs,
-                timeoutMs,
-                redactPath)
-            : CoreResult<NativePickerResponse>.Fail(manifest.Error!);
+        if (!manifest.Success) return CoreResult<NativePickerResponse>.Fail(manifest.Error!);
+        var request = new RuntimeNativePickerRequest(topLevelId, operation, path, timeoutMs, redactPath, predefinedResult, correlationId, ttlMs);
+        // Host-owned app logic can consume its own prepared state without blocking its UI thread on IPC.
+        // External CLI/MCP clients always pass through the bridge's control lease.
+        if (manifest.Value!.ProcessId == Environment.ProcessId && topLevelId is null)
+            return ExecuteHostedPicker(sessionId, request);
+        return SendAsync<NativePickerResponse>(manifest.Value!, new BridgeIpcRequest(NewRequestId(), BridgeIpcMethods.NativePicker,
+            nativePicker: request), CancellationToken.None).GetAwaiter().GetResult();
+    }
+
+    public CoreResult<NativePickerResponse> ExecuteHostedPicker(SessionId sessionId, RuntimeNativePickerRequest request)
+    {
+        var manifest = FindSingleManifest(null, sessionId);
+        if (!manifest.Success) return CoreResult<NativePickerResponse>.Fail(manifest.Error!);
+        if (manifest.Value!.ProcessId != Environment.ProcessId)
+            return CoreResult<NativePickerResponse>.Fail(new("picker_host_ownership_required", "Only the application process may execute its host-side picker hook; external clients must use NativePicker."));
+        return NativePickerAutomation.Execute(manifest.Value, ManifestDirectory, request.Operation, request.Path,
+            request.PredefinedResult, request.CorrelationId, request.TtlMs, request.TimeoutMs, request.RedactPath);
     }
 
     internal static CloseSessionResponse TerminateOwnedProcess(
@@ -1411,6 +1413,7 @@ public sealed class LocalBridgeClient
         BridgeIpcRequest request,
         CancellationToken cancellationToken)
     {
+        request = request with { ControlToken = request.ControlToken ?? GetControlToken(manifest.SessionId) };
         var maximumAttempts = IsSafeToRetry(request.Method) ? 2 : 1;
 
         for (var attempt = 1; attempt <= maximumAttempts; attempt++)

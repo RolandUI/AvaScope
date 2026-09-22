@@ -27,6 +27,9 @@ public sealed class X11TestEnvironment : IAsyncDisposable
     private volatile bool _stopping;
     private ProtocolError? _unexpectedExit;
     private bool _disposed;
+    internal Action<string, Process>? ProcessStarted { get; init; }
+    internal Action<string>? RuntimeDirectoryCreated { get; init; }
+    internal Action<RuntimeEnvironmentEvidence>? EvidenceChanged { get; init; }
 
     public X11TestEnvironment(X11EnvironmentOptions options, string outputDirectory, Func<string, string>? sanitize = null)
     {
@@ -76,6 +79,7 @@ public sealed class X11TestEnvironment : IAsyncDisposable
                 // Short private socket paths also work when the evidence directory is deeply nested.
                 _runtimeDirectory = Path.Combine(Path.GetTempPath(), "avs-x11-" + Guid.NewGuid().ToString("N"));
                 Directory.CreateDirectory(_runtimeDirectory, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+                RuntimeDirectoryCreated?.Invoke(_runtimeDirectory);
                 _environment["XDG_RUNTIME_DIR"] = _runtimeDirectory;
                 _environment["XAUTHORITY"] = Path.Combine(_runtimeDirectory, "authority");
                 _environment["WAYLAND_DISPLAY"] = string.Empty;
@@ -150,6 +154,13 @@ public sealed class X11TestEnvironment : IAsyncDisposable
         _startingCommand = command;
         var process = new Process { StartInfo = CreateStartInfo(command, arguments), EnableRaisingEvents = true };
         if (!process.Start()) throw new InvalidOperationException("The owned helper did not start.");
+        try { ProcessStarted?.Invoke(kind, process); }
+        catch
+        {
+            if (!process.HasExited) process.Kill(entireProcessTree: true);
+            process.Dispose();
+            throw;
+        }
         var helper = new Helper(kind, process, Path.Combine(_outputDirectory, kind + ".stdout.log"), Path.Combine(_outputDirectory, kind + ".stderr.log"));
         _helpers.Add(helper);
         helper.Stderr = DrainAsync(process.StandardError, helper.StderrPath);
@@ -239,8 +250,13 @@ public sealed class X11TestEnvironment : IAsyncDisposable
         stream.Write(RandomNumberGenerator.GetBytes(16));
     }
 
-    private void WriteEvidence() => File.WriteAllText(Path.Combine(_outputDirectory, "environment.json"),
-        _sanitize(JsonSerializer.Serialize(Evidence, new JsonSerializerOptions(JsonSerializerDefaults.Web))));
+    private void WriteEvidence()
+    {
+        var evidence = Evidence;
+        EvidenceChanged?.Invoke(evidence);
+        File.WriteAllText(Path.Combine(_outputDirectory, "environment.json"),
+            _sanitize(JsonSerializer.Serialize(evidence, new JsonSerializerOptions(JsonSerializerDefaults.Web))));
+    }
 
     public async ValueTask DisposeAsync()
     {
@@ -286,6 +302,13 @@ public sealed class X11TestEnvironment : IAsyncDisposable
         if (Directory.Exists(_outputDirectory)) WriteEvidence();
         _disposed = true;
         _failure.Dispose();
+    }
+
+    internal void RetainForRecovery()
+    {
+        _stopping = true;
+        _status = "retained";
+        WriteEvidence();
     }
 
     private void RemoveOwnedXvfbLock()

@@ -55,6 +55,15 @@ Stable DTO areas covered by protocol contract tests include health, sessions, di
 
 ## CLI Commands
 
+The additive session coordination and recovery commands are `session-control`,
+`recover-run`, and `list-agent-runs`; their MCP counterparts are `session_control`,
+`recover_run`, and `list_agent_runs`. `SessionControlRequest` / `SessionControlResponse`
+describe explicit bounded control leases. `AgentRunRecoveryRequest` /
+`AgentRunRecoveryResponse` describe durable run identity, retained evidence,
+owned process identities and truthful cleanup outcomes. Scenario responses add
+`runId`. Read/list results never disclose control tokens; explicit acquire, renew
+and resume may return them. See [run recovery](RUN_RECOVERY.md).
+
 The stable CLI command name set is:
 
 - `capabilities`

@@ -6,6 +6,8 @@ The intended agent loop is: check readiness, preview the UI, inspect a running a
 
 Use the session's observed backends and each input/screenshot's [runtime provenance](RUNTIME_PROVENANCE.md) when assessing test coverage. Headless, automation-provider, synthetic input, and control rendering have different guarantees; missing or unknown evidence does not establish native desktop coverage.
 
+Use [explicit input strategies](INPUT_STRATEGIES.md) for compound/native actions and [session control and run recovery](RUN_RECOVERY.md) when coordinating clients or recovering an interrupted scenario.
+
 The [native platform matrix](NATIVE_PLATFORM_MATRIX.md) provides repeatable packaged CLI/MCP lifecycle, modal, popup, focus, resize, failure-evidence and cleanup checks for Headless, Windows, Linux X11 and macOS.
 
 Use [runtime readiness](RUNTIME_READINESS.md) to distinguish bridge availability, window creation, a completed frame and optional application readiness. Scoped stability waits and capture-after-render are bounded and do not require global application idleness.

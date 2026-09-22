@@ -5156,7 +5156,7 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
         }
     }
 
-    private static void DisposeHeadlessSessionAfterExplicitCleanup(HeadlessUnitTestSession session)
+    internal static void DisposeHeadlessSessionAfterExplicitCleanup(HeadlessUnitTestSession session)
     {
         try
         {

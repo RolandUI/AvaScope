@@ -47,7 +47,9 @@ public sealed record BridgeIpcRequest
         RuntimeObservationChangesRequest? observationChanges = null,
         RuntimeVirtualItemRequest? virtualItem = null,
         InputExecutionOptions? inputExecution = null,
-        RuntimeNativePickerRequest? nativePicker = null)
+        RuntimeNativePickerRequest? nativePicker = null,
+        SessionControlRequest? sessionControl = null,
+        string? controlToken = null)
     {
         if (string.IsNullOrWhiteSpace(requestId))
         {
@@ -101,6 +103,8 @@ public sealed record BridgeIpcRequest
         VirtualItem = virtualItem;
         InputExecution = inputExecution;
         NativePicker = nativePicker;
+        SessionControl = sessionControl;
+        ControlToken = controlToken;
     }
 
     [JsonPropertyName("requestId")]
@@ -113,6 +117,14 @@ public sealed record BridgeIpcRequest
     [JsonPropertyName("nativePicker")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public RuntimeNativePickerRequest? NativePicker { get; }
+
+    [JsonPropertyName("sessionControl")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public SessionControlRequest? SessionControl { get; }
+
+    [JsonPropertyName("controlToken")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ControlToken { get; init; }
 
     [JsonPropertyName("readiness")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

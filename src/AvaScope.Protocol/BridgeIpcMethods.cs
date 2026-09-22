@@ -9,6 +9,7 @@ public static class BridgeIpcMethods
     public const string ObserveChanges = "observe_changes";
     public const string VirtualItem = "virtual_item";
     public const string NativePicker = "native_picker";
+    public const string SessionControl = "session_control";
     public const string ListTopLevels = "list_top_levels";
     public const string Screenshot = "screenshot";
     public const string VisualTree = "visual_tree";
@@ -34,6 +35,7 @@ public static class BridgeIpcMethods
         ObserveChanges,
         VirtualItem,
         NativePicker,
+        SessionControl,
         ListTopLevels,
         Screenshot,
         VisualTree,
@@ -50,4 +52,8 @@ public static class BridgeIpcMethods
         InvokeCustomAction,
         CloseSession
     ];
+
+    public static bool RequiresControl(BridgeIpcRequest request) => request.Method is Input or MutateNode or InvokeCustomAction or CloseSession
+        || request.Method == VirtualItem && request.VirtualItem?.Action != "find"
+        || request.Method == NativePicker && request.NativePicker?.Operation != "detect";
 }

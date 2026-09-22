@@ -3,6 +3,7 @@ using System.IO.Pipes;
 using System.Text;
 using System.Text.Json;
 using AvaScope.Protocol;
+using AvaScope.Core;
 
 var markerPath = ReadOption(args, "--marker");
 var failMethod = ReadOption(args, "--fail-method");
@@ -44,6 +45,12 @@ if (echoSecret && !string.IsNullOrWhiteSpace(secret))
     Console.WriteLine($"Lifecycle secret: {secret}");
 }
 var firstResponse = true;
+var control = new SessionControlCoordinator(sessionId);
+if (ReadOption(args, "--control-token-file") is { } tokenFile)
+{
+    var lease = control.Execute(new("acquire", "fixture-owner", TtlMs: 300000));
+    File.WriteAllText(tokenFile, lease.Value!.Token);
+}
 
 while (true)
 {
@@ -67,10 +74,15 @@ while (true)
         await Task.Delay(firstResponseDelayMs);
     }
 
-    var response = request.Method == failMethod
+    var authorization = BridgeIpcMethods.RequiresControl(request) ? control.Enter(request.ControlToken) : null;
+    using var permit = authorization?.Value;
+    var response = authorization is { Success: false }
+        ? BridgeIpcResponse.Fail(request.RequestId, new ProtocolError(authorization.Error!.Code, authorization.Error.Message))
+        : request.Method == failMethod
         ? BridgeIpcResponse.Fail(request.RequestId, new ProtocolError("fixture_failure", $"Requested fixture failure: {failMethod}"))
         : request.Method switch
     {
+        BridgeIpcMethods.SessionControl => Control(request),
         BridgeIpcMethods.Health => BridgeIpcResponse.Ok(
             request.RequestId,
             HealthResponse.Current(SessionCapabilitiesResponse.Current(sessionId, process.Id))),
@@ -105,6 +117,13 @@ while (true)
     var responseBytes = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(response) + Environment.NewLine);
     await pipe.WriteAsync(responseBytes);
     await pipe.FlushAsync();
+}
+
+BridgeIpcResponse Control(BridgeIpcRequest request)
+{
+    var result = control.Execute(request.SessionControl ?? new());
+    return result.Success ? BridgeIpcResponse.Ok(request.RequestId, result.Value)
+        : BridgeIpcResponse.Fail(request.RequestId, new ProtocolError(result.Error!.Code, result.Error.Message));
 }
 
 static string? ReadOption(IReadOnlyList<string> args, string name)

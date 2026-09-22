@@ -15,11 +15,13 @@ internal sealed class LocalBridgeServer : IDisposable
     private readonly HashSet<NamedPipeServerStream> _activePipes = [];
     private readonly HashSet<Task> _connectionTasks = [];
     private readonly AvaScopeBridgeRuntime _runtime;
+    private readonly SessionControlCoordinator _control;
     private readonly Task _serverTask;
 
     private LocalBridgeServer(AvaScopeBridgeRuntime runtime, string pipeName, string manifestPath)
     {
         _runtime = runtime;
+        _control = new(runtime.SessionId);
         PipeName = pipeName;
         ManifestPath = manifestPath;
         _serverTask = Task.Run(() => RunAsync(_cancellation.Token));
@@ -310,6 +312,15 @@ internal sealed class LocalBridgeServer : IDisposable
                 new ProtocolError("invalid_request", exception.Message)));
         }
 
+        if (request.Method == BridgeIpcMethods.SessionControl)
+        {
+            var control = _control.Execute(request.SessionControl ?? new());
+            return Respond(control.Success ? BridgeIpcResponse.Ok(request.RequestId, control.Value)
+                : BridgeIpcResponse.Fail(request.RequestId, ToProtocolError(control.Error!)));
+        }
+        var permit = BridgeIpcMethods.RequiresControl(request) ? _control.Enter(request.ControlToken) : null;
+        if (permit is { Success: false }) return Respond(BridgeIpcResponse.Fail(request.RequestId, ToProtocolError(permit.Error!)));
+        using var controlPermit = permit?.Value;
         return request.Method switch
         {
             BridgeIpcMethods.Health => Respond(BridgeIpcResponse.Ok(

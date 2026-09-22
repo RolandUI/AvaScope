@@ -7,5 +7,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\AvaScope.Protocol\AvaScope.Protocol.csproj" />
+    <ProjectReference Include="..\..\src\AvaScope.Core\AvaScope.Core.csproj" />
   </ItemGroup>
 </Project>

@@ -35,6 +35,9 @@ internal static class Program
             "preview-animation" => await PreviewAnimation(args[1..]),
             "attach" => await Attach(args[1..]),
             "session-capabilities" => await SessionCapabilities(args[1..]),
+            "session-control" => await SessionControl(args[1..]),
+            "recover-run" => await RecoverRun(args[1..]),
+            "list-agent-runs" => ListAgentRuns(args[1..]),
             "list-top-levels" => await ListTopLevels(args[1..]),
             "observe" => await Observe(args[1..]),
             "observe-changes" => await Observe(args[1..], changes: true),
@@ -1473,7 +1476,7 @@ internal static class Program
 
     private static LocalBridgeClient CreateBridgeClient(IReadOnlyDictionary<string, string> options)
     {
-        return new LocalBridgeClient(options.GetValueOrDefault("manifest-dir"));
+        return new LocalBridgeClient(options.GetValueOrDefault("manifest-dir"), controlToken: options.GetValueOrDefault("control-token"));
     }
 
     private static async Task<int> Attach(string[] args)
@@ -3181,7 +3184,7 @@ internal static class Program
     {
         foreach (var key in options.Keys)
         {
-            if (!allowedOptions.Contains(key, StringComparer.OrdinalIgnoreCase))
+            if (!string.Equals(key, "control-token", StringComparison.OrdinalIgnoreCase) && !allowedOptions.Contains(key, StringComparer.OrdinalIgnoreCase))
             {
                 WriteFailure(InvalidCliArguments, usage);
                 return false;
@@ -4286,6 +4289,46 @@ internal static class Program
             InvalidCliArguments,
             $"Unsupported predefined picker result '{result}'. Supported results: {string.Join(", ", NativePickerResultStates.Preparable)}.");
         return false;
+    }
+
+    private static int ListAgentRuns(string[] args)
+    {
+        const string usage = "Usage: avascope list-agent-runs [--store-dir <private-dir>] [--max-results <1-100>]";
+        var options = ParseOptions(args, usage);
+        if (!options.Success || !ValidateOptions(options.Values, usage, "store-dir", "max-results")) return 2;
+        var max = 25;
+        if (options.Values.TryGetValue("max-results", out var text) && !int.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out max))
+        { WriteFailure(InvalidCliArguments, usage); return 2; }
+        var result = new AgentRunStore(options.Values.GetValueOrDefault("store-dir")).List(max);
+        WriteResult(result);
+        return result.Success ? 0 : 1;
+    }
+
+    private static async Task<int> RecoverRun(string[] args)
+    {
+        const string usage = "Usage: avascope recover-run --run <id> --operation inspect|resume|cleanup [--store-dir <private-dir>]";
+        var options = ParseOptions(args, usage);
+        if (!options.Success || !ValidateOptions(options.Values, usage, "run", "operation", "store-dir")
+            || !TryReadRequiredOption(options.Values, "run", usage, out var run)
+            || !TryReadRequiredOption(options.Values, "operation", usage, out var operation)) return 2;
+        var result = await new AgentRunStore(options.Values.GetValueOrDefault("store-dir")).RecoverAsync(new(run!, operation!));
+        WriteResult(result);
+        return result.Success && result.Value!.State != "partial_cleanup" ? 0 : 1;
+    }
+
+    private static async Task<int> SessionControl(string[] args)
+    {
+        const string usage = "Usage: avascope session-control --session <id> --operation status|acquire|renew|release [--owner <run>] [--control-token <token>] [--ttl-ms <1000-300000>] [--manifest-dir <dir>]";
+        var options = ParseOptions(args, usage);
+        if (!options.Success || !ValidateOptions(options.Values, usage, "session", "operation", "owner", "ttl-ms", "manifest-dir")
+            || !TryReadRequiredSessionId(options.Values, usage, out var sessionId)
+            || !TryReadRequiredOption(options.Values, "operation", usage, out var operation)) return 2;
+        var ttl = 30000;
+        if (options.Values.TryGetValue("ttl-ms", out var text) && !int.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out ttl))
+        { WriteFailure(InvalidCliArguments, usage); return 2; }
+        var result = await CreateBridgeClient(options.Values).SessionControlAsync(sessionId!, new(operation!, options.Values.GetValueOrDefault("owner"), TtlMs: ttl));
+        WriteResult(result);
+        return result.Success ? 0 : 1;
     }
 
     private static async Task<int> SessionCapabilities(string[] args)

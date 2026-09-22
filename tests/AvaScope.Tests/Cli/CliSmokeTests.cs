@@ -3437,7 +3437,7 @@ public sealed class CliSmokeTests
                         "02-click-save.png"),
                     _ => throw new InvalidOperationException("Unexpected scenario bridge request index.")
                 };
-            });
+            }, controlSession: sessionId);
 
         var scenario = new RuntimeScenarioRequest(
             [
@@ -3809,7 +3809,7 @@ public sealed class CliSmokeTests
                     1 => CreateScenarioFindNodesResponse(request, sessionId, target, automationId: "delete-button", text: "Delete"),
                     _ => throw new InvalidOperationException("Unexpected scenario bridge request index.")
                 };
-            });
+            }, controlSession: sessionId);
 
         var scenario = new RuntimeScenarioRequest(
             [
@@ -6091,13 +6091,16 @@ public sealed class CliSmokeTests
     private static async Task<IReadOnlyList<BridgeIpcRequest>> RespondToBridgeRequestsAsync(
         string pipeName,
         int expectedCount,
-        Func<int, BridgeIpcRequest, BridgeIpcResponse> responseFactory)
+        Func<int, BridgeIpcRequest, BridgeIpcResponse> responseFactory,
+        SessionId? controlSession = null)
     {
         using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(30));
         var requests = new List<BridgeIpcRequest>(expectedCount);
+        var control = controlSession is null ? null : new SessionControlCoordinator(controlSession);
+        var leased = false;
         try
         {
-            while (requests.Count < expectedCount)
+            while (requests.Count < expectedCount || leased)
             {
                 await using var pipe = new NamedPipeServerStream(
                     pipeName,
@@ -6129,16 +6132,30 @@ public sealed class CliSmokeTests
                     continue;
                 }
 
-                var index = requests.Count;
-                requests.Add(request);
+                BridgeIpcResponse response;
+                if (control is not null && request.Method == BridgeIpcMethods.SessionControl)
+                {
+                    var result = control.Execute(request.SessionControl!);
+                    Assert.True(result.Success, result.Error?.Message);
+                    leased = result.Value!.State == "leased";
+                    response = BridgeIpcResponse.Ok(request.RequestId, result.Value);
+                }
+                else
+                {
+                    using var permit = control is not null && BridgeIpcMethods.RequiresControl(request) ? control.Enter(request.ControlToken).Value : null;
+                    if (control is not null && BridgeIpcMethods.RequiresControl(request)) Assert.NotNull(permit);
+                    var index = requests.Count;
+                    requests.Add(request);
+                    response = responseFactory(index, request);
+                }
                 var responseBytes = Encoding.UTF8.GetBytes(
-                    JsonSerializer.Serialize(responseFactory(index, request), JsonOptions) + Environment.NewLine);
+                    JsonSerializer.Serialize(response, JsonOptions) + Environment.NewLine);
                 try
                 {
                     await pipe.WriteAsync(responseBytes, cancellation.Token);
                     await pipe.FlushAsync(cancellation.Token);
                 }
-                catch (IOException) when (requests.Count == expectedCount)
+                catch (IOException) when (requests.Count == expectedCount && !leased)
                 {
                     return requests;
                 }

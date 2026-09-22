@@ -53,7 +53,8 @@ public sealed class BridgeAppLauncher
         bool directProcess,
         bool terminateOnFailure,
         bool captureOutputUntilExit,
-        Func<string, string>? outputSanitizer)
+        Func<string, string>? outputSanitizer,
+        Action<Process>? processStarted = null)
     {
         if (string.IsNullOrWhiteSpace(command))
         {
@@ -136,6 +137,13 @@ public sealed class BridgeAppLauncher
                 });
         }
 
+        try { processStarted?.Invoke(process); }
+        catch
+        {
+            if (!process.HasExited) process.Kill(entireProcessTree: true);
+            process.Dispose();
+            throw;
+        }
         var outputCancellation = new CancellationTokenSource();
         var stdoutTask = CopyToFileUntilExitAsync(
             process.StandardOutput,

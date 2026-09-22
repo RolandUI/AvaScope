@@ -12,6 +12,8 @@ public sealed partial class AvaScopeBridgeRuntime
     public async Task<CoreResult<NativePickerResponse>> NativePickerAsync(RuntimeNativePickerRequest request, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
+        if (request.TopLevelId is null || request.Operation is NativePickerOperations.PredefineResult or NativePickerOperations.ConsumePredefinedResult)
+            return await Task.Run(() => new LocalBridgeClient(Path.GetDirectoryName(SessionManifestPath)!).ExecuteHostedPicker(SessionId, request), cancellationToken);
         if (request.TimeoutMs is < 0 or > 3000 || string.IsNullOrWhiteSpace(request.TopLevelId)
             || request.Operation is not (NativePickerOperations.Detect or NativePickerOperations.SelectPath or NativePickerOperations.Confirm or NativePickerOperations.Cancel))
             return Fail("Native picker requests require an explicit topLevelId, detect/select_path/confirm/cancel and timeoutMs 0..3000.");

@@ -10,6 +10,9 @@ public sealed class StableSurfaceContractTests
     [
         "capabilities",
         "mcp",
+        "session-control",
+        "recover-run",
+        "list-agent-runs",
         "doctor",
         "verify-provider",
         "integration-guide",
@@ -67,6 +70,9 @@ public sealed class StableSurfaceContractTests
     [
         "capabilities",
         "health",
+        "session_control",
+        "recover_run",
+        "list_agent_runs",
         "verify_provider",
         "integration_guide",
         "verify_integration",

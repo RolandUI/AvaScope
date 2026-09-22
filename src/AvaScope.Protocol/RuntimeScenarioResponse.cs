@@ -28,7 +28,8 @@ public sealed record RuntimeScenarioResponse
         CloseSessionResponse? cleanup = null,
         string? failureStage = null,
         RuntimeEnvironmentEvidence? environment = null,
-        RuntimeTestFixtureEvidence? testFixture = null)
+        RuntimeTestFixtureEvidence? testFixture = null,
+        string? runId = null)
     {
         if (string.IsNullOrWhiteSpace(requestId))
         {
@@ -63,10 +64,15 @@ public sealed record RuntimeScenarioResponse
         FailureStage = string.IsNullOrWhiteSpace(failureStage) ? null : failureStage.Trim();
         Environment = environment;
         TestFixture = testFixture;
+        RunId = runId;
     }
 
     [JsonPropertyName("requestId")]
     public string RequestId { get; }
+
+    [JsonPropertyName("runId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? RunId { get; init; }
 
     [JsonPropertyName("status")]
     public string Status { get; }

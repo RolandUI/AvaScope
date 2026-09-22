@@ -135,6 +135,12 @@ public sealed class RuntimeScenarioRunner
 
         var diagnostics = new List<ProtocolError>();
         var outputDirectory = ResolveOutputDirectory(request);
+        var runStarted = new AgentRunStore().Begin(outputDirectory,
+            request.Launch is null ? null : request.IsolatedStateDirectory ?? (request.IsolateState ? Path.Combine(outputDirectory, "isolated-state") : null),
+            request.Launch?.OutputDirectory, request.Launch?.ManifestDirectory ?? bridgeClient.ManifestDirectory, request.Launch?.Environment,
+            EnumerateWorkflowSteps(request).Select(step => step.ScreenshotPath).Append(request.TimelinePath).Append(request.Evidence?.ReportDirectory).ToArray());
+        if (!runStarted.Success) return CoreResult<RuntimeScenarioResponse>.Fail(runStarted.Error!);
+        using var runRegistration = runStarted.Value!;
         var timelinePath = request.TimelinePath ?? Path.Combine(outputDirectory, "scenario-timeline.md");
         IReadOnlyDictionary<string, string>? evidencePolicyMetadata = null;
         if (evidencePolicy is not null)
@@ -144,11 +150,12 @@ public sealed class RuntimeScenarioRunner
             var workflowSteps = EnumerateWorkflowSteps(request).ToArray();
             if (workflowSteps.Any(step => !string.Equals(evidencePolicy.SanitizeScalar(step.Id), step.Id, StringComparison.Ordinal)))
             {
+                runRegistration.Complete("completed", Failed, "policy");
                 return CoreResult<RuntimeScenarioResponse>.Ok(CreatePolicyFailure(
                     startedAt,
                     new CoreError(
                         CoreErrorCodes.RuntimeEvidencePolicyInvalid,
-                        "Workflow step identifiers cannot contain configured sensitive values because they contribute to local artifact paths.")));
+                        "Workflow step identifiers cannot contain configured sensitive values because they contribute to local artifact paths.")) with { RunId = runRegistration.RunId });
             }
 
             var artifactPaths = workflowSteps
@@ -159,7 +166,8 @@ public sealed class RuntimeScenarioRunner
             var prepared = evidencePolicy.PrepareRun(outputDirectory, artifactPaths, request.RequestId);
             if (!prepared.Success)
             {
-                return CoreResult<RuntimeScenarioResponse>.Ok(CreatePolicyFailure(startedAt, prepared.Error!));
+                runRegistration.Complete("completed", Failed, "policy");
+                return CoreResult<RuntimeScenarioResponse>.Ok(CreatePolicyFailure(startedAt, prepared.Error!) with { RunId = runRegistration.RunId });
             }
 
             evidencePolicyMetadata = prepared.Value;
@@ -197,9 +205,16 @@ public sealed class RuntimeScenarioRunner
             : RuntimeScenarioFailureStages.Build;
         DateTimeOffset? launchReadinessStartedAt = null;
         X11TestEnvironment? desktop = null;
+        var retainDesktop = false;
         CancellationTokenSource? environmentCancellation = null;
         var executionToken = cancellationToken;
         RuntimeTestFixtureRun? fixtureRun = null;
+        var leaseAcquired = false;
+        using var stopHeartbeat = new CancellationTokenSource();
+        using var leaseFailure = new CancellationTokenSource();
+        CancellationTokenSource? leaseCancellation = null;
+        Task heartbeat = Task.CompletedTask;
+        CoreError? heartbeatError = null;
 
         async Task<CoreResult<RuntimeScenarioResponse>> CompleteAsync(
             string status,
@@ -218,6 +233,8 @@ public sealed class RuntimeScenarioRunner
             }
             if (launch is not null && request.TerminateLaunchedProcess && sessionId is not null)
             {
+                await stopHeartbeat.CancelAsync();
+                await heartbeat;
                 var cleanupResult = await workflowClient.CloseSessionAsync(
                     sessionId,
                     CancellationToken.None,
@@ -226,7 +243,7 @@ public sealed class RuntimeScenarioRunner
                 {
                     diagnostics.Insert(0, ToProtocolError(cleanupResult.Error!));
                     var ownership = new LaunchOwnershipStore(workflowClient.ManifestDirectory).TryRead(sessionId);
-                    if (ownership is not null)
+                    if (ownership is not null && cleanupResult.Error!.Code != "session_control_conflict")
                         cleanup = LocalBridgeClient.TerminateOwnedProcess(ownership, DateTimeOffset.UtcNow);
                     status = Failed;
                     failureStage = RuntimeScenarioFailureStages.Cleanup;
@@ -250,9 +267,34 @@ public sealed class RuntimeScenarioRunner
                         failureStage = RuntimeScenarioFailureStages.Cleanup;
                     }
                 }
+                if (desktop is not null && cleanup?.Outcome is not (CloseSessionOutcomes.Terminated or CloseSessionOutcomes.AlreadyExited))
+                {
+                    retainDesktop = true;
+                    desktop.RetainForRecovery();
+                    diagnostics.Add(new("run_desktop_retained", "The app could not be safely terminated; its owned desktop remains available for explicit run recovery."));
+                }
             }
 
-            if (desktop is not null)
+            await stopHeartbeat.CancelAsync();
+            await heartbeat;
+            if (heartbeatError is not null)
+            {
+                diagnostics.Add(ToProtocolError(heartbeatError));
+                status = Failed;
+                if (failureStage != RuntimeScenarioFailureStages.Cleanup) failureStage = "session_control";
+            }
+            if (leaseAcquired && sessionId is not null && cleanup is null)
+            {
+                var release = await workflowClient.SessionControlAsync(sessionId, new("release"), CancellationToken.None);
+                if (!release.Success && workflowClient.ListSessionManifests().Any(m => m.SessionId == sessionId))
+                {
+                    diagnostics.Add(ToProtocolError(release.Error!));
+                    status = Failed;
+                    failureStage = RuntimeScenarioFailureStages.Cleanup;
+                }
+            }
+
+            if (desktop is not null && !retainDesktop)
             {
                 await desktop.DisposeAsync();
                 if (desktop.UnexpectedExit is { } helperFailure)
@@ -269,6 +311,7 @@ public sealed class RuntimeScenarioRunner
                 }
             }
 
+            runRegistration.Complete(failureStage == RuntimeScenarioFailureStages.Cleanup ? "partial_cleanup" : "completed", status, failureStage);
             var response = CreateResponse(
                 request,
                 status,
@@ -292,6 +335,7 @@ public sealed class RuntimeScenarioRunner
                 evidencePolicyMetadata,
                 desktop?.Evidence,
                 fixtureRun?.Evidence);
+            response = response with { RunId = runRegistration.RunId };
             if (evidencePolicy is not null)
             {
                 var sanitized = evidencePolicy.Sanitize(response);
@@ -332,7 +376,9 @@ public sealed class RuntimeScenarioRunner
             {
                 currentStage = "environment";
                 desktop = new X11TestEnvironment(request.X11Environment, Path.Combine(outputDirectory, "environment"),
-                    evidencePolicy is null ? null : value => evidencePolicy.SanitizeScalar(value));
+                    evidencePolicy is null ? null : value => evidencePolicy.SanitizeScalar(value))
+                { ProcessStarted = runRegistration.ProcessStarted, RuntimeDirectoryCreated = runRegistration.OwnRuntimeDirectory,
+                    EvidenceChanged = runRegistration.EnvironmentChanged };
                 var preparedEnvironment = await desktop.StartAsync(cancellationToken);
                 if (!preparedEnvironment.Success)
                 {
@@ -354,7 +400,8 @@ public sealed class RuntimeScenarioRunner
                     isolation,
                     evidencePolicy,
                     desktop?.EnvironmentVariables,
-                    executionToken);
+                    executionToken,
+                    runRegistration);
                 if (!launchResult.Success)
                 {
                     diagnostics.Add(ToProtocolError(launchResult.Error!));
@@ -428,6 +475,36 @@ public sealed class RuntimeScenarioRunner
                     "Scenario could not resolve an active bridge session."));
                 return await CompleteAsync(Failed, RuntimeScenarioFailureStages.Attach);
             }
+
+            runRegistration.Session(attach!, token: null);
+            var acquired = await workflowClient.SessionControlAsync(sessionId, new("acquire", "run:" + runRegistration.RunId), executionToken);
+            if (!acquired.Success)
+            {
+                diagnostics.Add(ToProtocolError(acquired.Error!));
+                return await CompleteAsync(Failed, "session_control");
+            }
+            leaseAcquired = true;
+            runRegistration.Session(attach!, acquired.Value!.Token!);
+            leaseCancellation = CancellationTokenSource.CreateLinkedTokenSource(executionToken, leaseFailure.Token);
+            executionToken = leaseCancellation.Token;
+            heartbeat = Task.Run(async () =>
+            {
+                using var timer = new PeriodicTimer(TimeSpan.FromSeconds(10));
+                try
+                {
+                    while (await timer.WaitForNextTickAsync(stopHeartbeat.Token))
+                    {
+                        var renewed = await workflowClient.SessionControlAsync(sessionId, new("renew"), stopHeartbeat.Token);
+                        if (!renewed.Success)
+                        {
+                            heartbeatError = renewed.Error;
+                            await leaseFailure.CancelAsync();
+                            break;
+                        }
+                    }
+                }
+                catch (OperationCanceledException) when (stopHeartbeat.IsCancellationRequested) { }
+            }, CancellationToken.None);
 
             if (request.PickerResult is not null)
             {
@@ -648,8 +725,11 @@ public sealed class RuntimeScenarioRunner
         }
         finally
         {
+            await stopHeartbeat.CancelAsync();
+            await heartbeat;
+            leaseCancellation?.Dispose();
             environmentCancellation?.Dispose();
-            if (desktop is not null) await desktop.DisposeAsync();
+            if (desktop is not null && !retainDesktop) await desktop.DisposeAsync();
         }
     }
 
@@ -660,7 +740,8 @@ public sealed class RuntimeScenarioRunner
         ScenarioIsolation isolation,
         RuntimeEvidencePolicyEnforcer? evidencePolicy,
         IReadOnlyDictionary<string, string>? desktopEnvironment,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        AgentRunStore.Registration runRegistration)
     {
         var launch = request.Launch!;
         var environment = new Dictionary<string, string>(launch.Environment, StringComparer.Ordinal);
@@ -676,6 +757,7 @@ public sealed class RuntimeScenarioRunner
             foreach (var pair in desktopEnvironment) environment[pair.Key] = pair.Value;
 
         environment["AVASCOPE_SCENARIO_ID"] = request.RequestId;
+        environment["AVASCOPE_RUN_ID"] = runRegistration.RunId;
 
         var command = launch.Command ?? "dotnet";
         var workingDirectory = launch.WorkingDirectory;
@@ -726,7 +808,8 @@ public sealed class RuntimeScenarioRunner
             directProcess: true,
             terminateOnFailure: true,
             captureOutputUntilExit: true,
-            outputSanitizer: evidencePolicy is null ? null : value => evidencePolicy.SanitizeScalar(value));
+            outputSanitizer: evidencePolicy is null ? null : value => evidencePolicy.SanitizeScalar(value),
+            processStarted: process => runRegistration.ProcessStarted("app", process));
     }
 
     private static async Task<(CoreResult<ListTopLevelsResponse> Result, int CheckCount)> ResolveTopLevelsAsync(
@@ -883,7 +966,7 @@ public sealed class RuntimeScenarioRunner
     private static string ResolveOutputDirectory(RuntimeScenarioRequest request)
     {
         return request.OutputDirectory
-            ?? Path.Combine(Path.GetTempPath(), "AvaScope", "scenarios", request.RequestId);
+            ?? Path.Combine(Path.GetTempPath(), "AvaScope", "scenarios", Guid.NewGuid().ToString("N"));
     }
 
     private static IEnumerable<SemanticWorkflowStep> EnumerateWorkflowSteps(RuntimeScenarioRequest request)
