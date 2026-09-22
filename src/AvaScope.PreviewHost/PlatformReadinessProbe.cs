@@ -28,7 +28,21 @@ internal static class PlatformReadinessProbe
             foreach (var library in new[] { "libX11.so.6", "libICE.so.6", "libSM.so.6", "libfontconfig.so.1" })
                 Check(library, CanLoad(library), "target_native_dependency_missing", $"Native dependency: {library}.", "Install the corresponding distribution library package.", "dependencies");
             var display = Environment.GetEnvironmentVariable("DISPLAY");
-            if (string.IsNullOrWhiteSpace(display))
+            if (request.X11Environment is { Mode: "managed" } managed)
+            {
+                var commands = new List<string> { "Xvfb", "xdpyinfo" };
+                if (managed.WindowManager) commands.AddRange(["openbox", "xprop"]);
+                if (managed.SessionBus) commands.AddRange(["dbus-daemon", "dbus-send"]);
+                foreach (var command in commands)
+                {
+                    var found = (Environment.GetEnvironmentVariable("PATH") ?? string.Empty).Split(Path.PathSeparator)
+                        .Where(directory => !string.IsNullOrWhiteSpace(directory)).Select(directory => Path.Combine(directory, command))
+                        .Any(path => OperatingSystem.IsLinux() && File.Exists(path) && (File.GetUnixFileMode(path) & (UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute)) != 0);
+                    Check(command, found, "target_x11_prerequisite_missing", $"Managed X11 executable: {command}.", $"Install {command} for the explicitly managed Linux profile.", "dependencies");
+                }
+                checks.Add(new("x11_display", "not_started", "The profile allocates its own display at execution; actual connectivity is verified then. Doctor does not start Xvfb.", stage: "display"));
+            }
+            else if (string.IsNullOrWhiteSpace(display))
                 Check("x11_display", false, "target_display_missing", "DISPLAY is not configured for the selected launch environment.", "Select an authorized X11 display or an owned Xvfb test profile.", "display");
             else
             {

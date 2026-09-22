@@ -19,6 +19,14 @@ public sealed class RuntimeScenarioRunner
         ArgumentNullException.ThrowIfNull(bridgeClient);
         ArgumentNullException.ThrowIfNull(request);
 
+        if (request.X11Environment is { } environmentOptions)
+        {
+            if (X11TestEnvironment.Validate(environmentOptions) is { } invalid)
+                return CoreResult<RuntimeScenarioResponse>.Fail(new(invalid.Code, invalid.Message));
+            if (request.Launch is null || environmentOptions.Mode == "managed" && !request.TerminateLaunchedProcess)
+                return CoreResult<RuntimeScenarioResponse>.Fail(new("x11_environment_ownership_required", "X11 environments require an explicit launch; managed mode also requires terminateLaunchedProcess so the app exits before its owned desktop."));
+        }
+
         var startedAt = DateTimeOffset.UtcNow;
         var evidencePolicy = request.Evidence?.Policy is null
             ? null
@@ -168,6 +176,9 @@ public sealed class RuntimeScenarioRunner
                 : RuntimeScenarioFailureStages.Attach
             : RuntimeScenarioFailureStages.Build;
         DateTimeOffset? launchReadinessStartedAt = null;
+        X11TestEnvironment? desktop = null;
+        CancellationTokenSource? environmentCancellation = null;
+        var executionToken = cancellationToken;
 
         async Task<CoreResult<RuntimeScenarioResponse>> CompleteAsync(
             string status,
@@ -210,6 +221,23 @@ public sealed class RuntimeScenarioRunner
                 }
             }
 
+            if (desktop is not null)
+            {
+                await desktop.DisposeAsync();
+                if (desktop.UnexpectedExit is { } helperFailure)
+                {
+                    diagnostics.Add(helperFailure);
+                    status = Failed;
+                    failureStage = "environment";
+                }
+                if (desktop.Evidence.Status == "cleanup_failed")
+                {
+                    diagnostics.AddRange(desktop.Evidence.Diagnostics);
+                    status = Failed;
+                    failureStage = RuntimeScenarioFailureStages.Cleanup;
+                }
+            }
+
             var response = CreateResponse(
                 request,
                 status,
@@ -230,7 +258,8 @@ public sealed class RuntimeScenarioRunner
                 topLevels,
                 cleanup,
                 failureStage,
-                evidencePolicyMetadata);
+                evidencePolicyMetadata,
+                desktop?.Evidence);
             if (evidencePolicy is not null)
             {
                 var sanitized = evidencePolicy.Sanitize(response);
@@ -267,6 +296,20 @@ public sealed class RuntimeScenarioRunner
 
         try
         {
+            if (request.X11Environment is not null)
+            {
+                currentStage = "environment";
+                desktop = new X11TestEnvironment(request.X11Environment, Path.Combine(outputDirectory, "environment"),
+                    evidencePolicy is null ? null : value => evidencePolicy.SanitizeScalar(value));
+                var preparedEnvironment = await desktop.StartAsync(cancellationToken);
+                if (!preparedEnvironment.Success)
+                {
+                    diagnostics.Add(ToProtocolError(preparedEnvironment.Error!));
+                    return await CompleteAsync(cancellationToken.IsCancellationRequested ? Cancelled : Failed, currentStage);
+                }
+                environmentCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, desktop.FailureToken);
+                executionToken = environmentCancellation.Token;
+            }
             if (request.Launch is not null)
             {
                 scenarioMode = "launch";
@@ -278,7 +321,8 @@ public sealed class RuntimeScenarioRunner
                     outputDirectory,
                     isolation,
                     evidencePolicy,
-                    cancellationToken);
+                    desktop?.EnvironmentVariables,
+                    executionToken);
                 if (!launchResult.Success)
                 {
                     diagnostics.Add(ToProtocolError(launchResult.Error!));
@@ -313,13 +357,13 @@ public sealed class RuntimeScenarioRunner
                     ? await bridgeClient.AttachLatestToAppAsync(
                         processId: request.Attach.ProcessId,
                         processName: request.Attach.ProcessName,
-                        cancellationToken: cancellationToken)
+                        cancellationToken: executionToken)
                     : await bridgeClient.AttachToAppAsync(
                         request.Attach.ProcessId,
                         request.Attach.SessionId,
                         request.Attach.ProcessName,
                         request.Attach.ManifestPath,
-                        cancellationToken);
+                        executionToken);
                 if (!attachResult.Success)
                 {
                     diagnostics.Add(ToProtocolError(attachResult.Error!));
@@ -334,7 +378,7 @@ public sealed class RuntimeScenarioRunner
                 currentStage = RuntimeScenarioFailureStages.Attach;
                 var attachResult = await bridgeClient.AttachToAppAsync(
                     sessionId: request.SessionId,
-                    cancellationToken: cancellationToken);
+                    cancellationToken: executionToken);
                 if (!attachResult.Success)
                 {
                     diagnostics.Add(ToProtocolError(attachResult.Error!));
@@ -381,7 +425,7 @@ public sealed class RuntimeScenarioRunner
                     workflowClient,
                     sessionId,
                     request.Launch is null ? TimeSpan.Zero : TimeSpan.FromMilliseconds(request.Launch.TimeoutMs),
-                    cancellationToken);
+                    executionToken);
                 topLevelCheckCount = topLevelResult.CheckCount;
                 if (!topLevelResult.Result.Success)
                 {
@@ -430,7 +474,7 @@ public sealed class RuntimeScenarioRunner
             if (request.CaptureVisualTree)
             {
                 currentStage = "inspection";
-                var tree = await workflowClient.VisualTreeAsync(sessionId, topLevelId, Math.Min(request.MaxDepth, 32), cancellationToken);
+                var tree = await workflowClient.VisualTreeAsync(sessionId, topLevelId, Math.Min(request.MaxDepth, 32), executionToken);
                 if (!tree.Success)
                 {
                     diagnostics.Add(ToProtocolError(tree.Error!));
@@ -465,7 +509,7 @@ public sealed class RuntimeScenarioRunner
                 fragments: request.Fragments,
                 timeoutMs: request.WorkflowTimeoutMs,
                 evidence: request.Evidence);
-            var workflow = await new SemanticWorkflowRunner().RunAsync(workflowClient, workflowRequest, cancellationToken);
+            var workflow = await new SemanticWorkflowRunner().RunAsync(workflowClient, workflowRequest, executionToken);
             if (!workflow.Success)
             {
                 diagnostics.Add(ToProtocolError(workflow.Error!));
@@ -483,7 +527,7 @@ public sealed class RuntimeScenarioRunner
                     : RuntimeScenarioFailureStages.Workflow,
                 workflow.Value);
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException) when (executionToken.IsCancellationRequested)
         {
             diagnostics.Add(new ProtocolError(
                 "runtime_scenario_cancelled",
@@ -500,6 +544,11 @@ public sealed class RuntimeScenarioRunner
                 new Dictionary<string, string> { ["failureStage"] = currentStage }));
             return await CompleteAsync(Failed, currentStage);
         }
+        finally
+        {
+            environmentCancellation?.Dispose();
+            if (desktop is not null) await desktop.DisposeAsync();
+        }
     }
 
     private async Task<CoreResult<LaunchAppResponse>> LaunchAsync(
@@ -508,6 +557,7 @@ public sealed class RuntimeScenarioRunner
         string outputDirectory,
         ScenarioIsolation isolation,
         RuntimeEvidencePolicyEnforcer? evidencePolicy,
+        IReadOnlyDictionary<string, string>? desktopEnvironment,
         CancellationToken cancellationToken)
     {
         var launch = request.Launch!;
@@ -519,6 +569,9 @@ public sealed class RuntimeScenarioRunner
                 environment[pair.Key] = pair.Value;
             }
         }
+
+        if (desktopEnvironment is not null)
+            foreach (var pair in desktopEnvironment) environment[pair.Key] = pair.Value;
 
         environment["AVASCOPE_SCENARIO_ID"] = request.RequestId;
 
@@ -655,7 +708,8 @@ public sealed class RuntimeScenarioRunner
         IReadOnlyList<TopLevelSummary>? topLevels = null,
         CloseSessionResponse? cleanup = null,
         string? failureStage = null,
-        IReadOnlyDictionary<string, string>? evidencePolicyMetadata = null)
+        IReadOnlyDictionary<string, string>? evidencePolicyMetadata = null,
+        RuntimeEnvironmentEvidence? environment = null)
     {
         var completedAt = DateTimeOffset.UtcNow;
         var metadata = new Dictionary<string, string>(StringComparer.Ordinal)
@@ -716,7 +770,8 @@ public sealed class RuntimeScenarioRunner
             readiness: readiness,
             topLevels: topLevels,
             cleanup: cleanup,
-            failureStage: failureStage);
+            failureStage: failureStage,
+            environment: environment);
 
         return response;
     }

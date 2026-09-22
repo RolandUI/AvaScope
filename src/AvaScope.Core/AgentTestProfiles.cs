@@ -77,6 +77,7 @@ public static class AgentTestProfiles
                 if (config!["environment"] is not null) throw new ArgumentException("Use environmentReferences instead of checked-in environment values.");
 
             ResolvePaths(scenario, directory, "outputDirectory", "isolatedStateDirectory", "timelinePath");
+            if (scenario["x11Environment"] is JsonObject x11) ResolvePaths(x11, directory, "xauthority");
             ResolvePaths(launch, directory, "projectPath", "workingDirectory", "manifestDirectory", "outputDirectory");
             if (launch["command"] is JsonValue commandValue && commandValue.GetValue<string>() is var command && command.IndexOfAny(['/', '\\']) >= 0)
                 launch["command"] = Path.GetFullPath(command, directory);
@@ -135,6 +136,10 @@ public static class AgentTestProfiles
             policy["allowedActions"] ??= JsonSerializer.SerializeToNode(SemanticWorkflowActions.All, JsonOptions);
             ResolveStepPaths(scenario, directory);
             var request = scenario.Deserialize<RuntimeScenarioRequest>(JsonOptions) ?? throw new JsonException("Invalid scenario request.");
+            if (request.X11Environment is { } x11Options && X11TestEnvironment.Validate(x11Options) is { } environmentError)
+                throw new ArgumentException(environmentError.Message);
+            if (request.X11Environment is { Mode: "managed" } && !request.TerminateLaunchedProcess)
+                throw new ArgumentException("Managed X11 profiles require terminateLaunchedProcess so the host exits before its owned desktop.");
             var plan = SemanticWorkflowCompiler.Compile(new SemanticWorkflowRequest(new SessionId("profile-validation"), "topLevel:profile-validation",
                 request.Steps, outputDirectory: output, topLevelAliases: request.TopLevelAliases, variables: request.Variables, fragments: request.Fragments,
                 validateOnly: true, timeoutMs: request.WorkflowTimeoutMs, evidence: request.Evidence));

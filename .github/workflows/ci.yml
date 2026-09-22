@@ -245,8 +245,10 @@ jobs:
         shell: bash
         run: |
           sudo apt-get update
-          sudo apt-get install -y xvfb x11-utils libx11-6 libice6 libsm6 libfontconfig1 fonts-dejavu-core
+          sudo apt-get install -y xvfb x11-utils openbox dbus libx11-6 libice6 libsm6 libfontconfig1 fonts-dejavu-core
+          AVASCOPE_VALIDATION_EVIDENCE_ROOT="$GITHUB_WORKSPACE/artifacts/x11-unit" dotnet test AvaScope.slnx -c Release --no-build --filter FullyQualifiedName~X11TestEnvironmentTests
           pwsh -NoProfile -File ./eng/package-provider.ps1
+          pwsh -NoProfile -File ./eng/test-managed-x11.ps1
           xvfb-run -a -s "-screen 0 1280x900x24 -nolisten tcp" pwsh -NoProfile -File ./eng/test-standalone-provider.ps1 -Native -SkipBuild
           xvfb-run -a -s "-screen 0 1280x900x24 -nolisten tcp" pwsh -NoProfile -File ./eng/test-integration-onboarding.ps1 -Native -SkipBuild
           xvfb-run -a -s "-screen 0 1280x900x24 -nolisten tcp" pwsh -NoProfile -File ./eng/test-target-readiness.ps1
@@ -293,6 +295,13 @@ jobs:
             artifacts/onboarding-validation/**/*.log
             artifacts/onboarding-validation/**/validation.json
             artifacts/readiness-validation/**/*.json
+            artifacts/x11-validation/**/*.log
+            artifacts/x11-validation/**/environment.json
+            artifacts/x11-validation/**/validation.json
+            artifacts/x11-validation/**/cli.json
+            artifacts/x11-validation/**/mcp.json
+            artifacts/x11-unit/**/*.log
+            artifacts/x11-unit/**/environment.json
 
   macos-runtime:
     name: macOS Runtime

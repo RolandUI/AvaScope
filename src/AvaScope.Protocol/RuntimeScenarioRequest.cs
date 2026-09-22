@@ -27,7 +27,8 @@ public sealed record RuntimeScenarioRequest
         SemanticWorkflowEvidenceOptions? evidence = null,
         RuntimeScenarioBuildOptions? build = null,
         bool terminateLaunchedProcess = false,
-        bool captureVisualTree = false)
+        bool captureVisualTree = false,
+        X11EnvironmentOptions? x11Environment = null)
     {
         if (steps is null || steps.Count == 0)
         {
@@ -76,6 +77,7 @@ public sealed record RuntimeScenarioRequest
         Build = build;
         TerminateLaunchedProcess = terminateLaunchedProcess;
         CaptureVisualTree = captureVisualTree;
+        X11Environment = x11Environment;
     }
 
     [JsonPropertyName("requestId")]
@@ -153,6 +155,10 @@ public sealed record RuntimeScenarioRequest
 
     [JsonPropertyName("captureVisualTree")]
     public bool CaptureVisualTree { get; }
+
+    [JsonPropertyName("x11Environment")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public X11EnvironmentOptions? X11Environment { get; }
 }
 
 public sealed record RuntimeScenarioPickerResult

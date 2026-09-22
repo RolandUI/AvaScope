@@ -33,6 +33,7 @@ public sealed class TargetReadinessDoctor
         var providerVersion = request.ExpectedProviderVersion;
         var providerHash = request.ExpectedManifestSha256;
         var backend = request.Backend;
+        X11EnvironmentOptions? x11Environment = null;
         void Check(string name, bool passed, string code, string message, string remediation, string stage)
             => checks.Add(new(name, passed ? "available" : "unavailable", message,
                 error: passed ? null : new(code, message), stage: stage, remediation: passed ? null : remediation));
@@ -45,6 +46,11 @@ public sealed class TargetReadinessDoctor
                 Check("test_profile", profile.Success, profile.Error?.Code ?? "target_profile_invalid", profile.Error?.Message ?? "The selected named profile resolved without execution.", "Resolve the profile's missing references, incompatible provider or invalid fields.", "configuration");
                 if (!profile.Success) return Complete();
                 var scenario = profile.Value!;
+                x11Environment = scenario.X11Environment;
+                if (x11Environment is not null)
+                {
+                    if (backend == "auto") backend = "x11";
+                }
                 project ??= scenario.Build?.ProjectPath ?? scenario.Launch?.ProjectPath;
                 selectedFramework ??= scenario.Build?.Framework ?? scenario.Launch?.Framework;
                 if (scenario.Launch is { } launch)
@@ -56,6 +62,11 @@ public sealed class TargetReadinessDoctor
                 providerDirectory ??= environment.GetValueOrDefault("UI_INSPECTION_PROVIDER_PATH");
                 providerVersion ??= environment.GetValueOrDefault("UI_INSPECTION_PROVIDER_VERSION");
                 providerHash ??= environment.GetValueOrDefault("UI_INSPECTION_PROVIDER_SHA256");
+                if (x11Environment is { Mode: "existing" })
+                {
+                    environment["DISPLAY"] = x11Environment.Display!;
+                    if (x11Environment.Xauthority is not null) environment["XAUTHORITY"] = x11Environment.Xauthority;
+                }
             }
             if (backend == "auto") backend = OperatingSystem.IsWindows() ? "win32" : OperatingSystem.IsMacOS() ? "macos" :
                 !string.IsNullOrWhiteSpace(environment.GetValueOrDefault("WAYLAND_DISPLAY") ?? Environment.GetEnvironmentVariable("WAYLAND_DISPLAY")) ? "wayland" : "x11";
@@ -85,7 +96,8 @@ public sealed class TargetReadinessDoctor
                 var provider = ProviderVerifier.Verify(providerDirectory, providerVersion, providerHash);
                 Check("provider", provider.Success, provider.Error?.Code ?? "target_provider_incompatible", provider.Error?.Message ?? "Selected provider inventory, exact pins and declared compatibility passed.", "Supply a complete provider distribution compatible with the target runtime/Avalonia version.", "provider");
             }
-            var probe = await RunProbeAsync(probePath, new(backend, request.NativeInput, request.NativeScreenshot, request.NativeDialogs), environment, request.TimeoutMs, cancellationToken);
+            var probe = await RunProbeAsync(probePath, new(backend, request.NativeInput, request.NativeScreenshot, request.NativeDialogs,
+                x11Environment is { Mode: "managed" } ? x11Environment : null), environment, request.TimeoutMs, cancellationToken);
             checks.AddRange(probe);
             return Complete();
         }

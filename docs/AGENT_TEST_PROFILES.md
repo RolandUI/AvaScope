@@ -2,6 +2,8 @@
 
 Store shared build/launch recipes in a JSON file with `schemaVersion: 1` and a `profiles` object. A profile resolves into the existing `RuntimeScenarioRequest`; it has no separate execution engine. Existing explicit `run-scenario --request` and MCP `run_scenario(request)` calls remain unchanged.
 
+The Linux override can set `scenario.x11Environment` for an [owned Xvfb display](MANAGED_X11.md) or an explicitly selected existing display. Its `xauthority` path resolves relative to the profile. Target doctor checks managed-display prerequisites without starting helpers; actual connectivity is verified when the scenario starts.
+
 ```json
 {
   "schemaVersion": 1,

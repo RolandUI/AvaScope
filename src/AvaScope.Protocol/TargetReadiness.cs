@@ -25,4 +25,5 @@ public sealed record TargetReadinessResponse(
     [property: JsonPropertyName("componentOrigins")] IReadOnlyList<DiagnosticComponentOrigin> ComponentOrigins,
     [property: JsonPropertyName("bridgeActivated")] bool BridgeActivated = false);
 
-public sealed record PlatformReadinessProbeRequest(string Backend, bool NativeInput, bool NativeScreenshot, bool NativeDialogs);
+public sealed record PlatformReadinessProbeRequest(string Backend, bool NativeInput, bool NativeScreenshot, bool NativeDialogs,
+    X11EnvironmentOptions? X11Environment = null);

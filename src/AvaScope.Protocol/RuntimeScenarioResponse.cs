@@ -26,7 +26,8 @@ public sealed record RuntimeScenarioResponse
         RuntimeScenarioReadinessEvidence? readiness = null,
         IReadOnlyList<TopLevelSummary>? topLevels = null,
         CloseSessionResponse? cleanup = null,
-        string? failureStage = null)
+        string? failureStage = null,
+        RuntimeEnvironmentEvidence? environment = null)
     {
         if (string.IsNullOrWhiteSpace(requestId))
         {
@@ -59,6 +60,7 @@ public sealed record RuntimeScenarioResponse
         TopLevels = topLevels ?? [];
         Cleanup = cleanup;
         FailureStage = string.IsNullOrWhiteSpace(failureStage) ? null : failureStage.Trim();
+        Environment = environment;
     }
 
     [JsonPropertyName("requestId")]
@@ -136,4 +138,8 @@ public sealed record RuntimeScenarioResponse
     [JsonPropertyName("failureStage")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? FailureStage { get; }
+
+    [JsonPropertyName("environment")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public RuntimeEnvironmentEvidence? Environment { get; }
 }
