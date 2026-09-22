@@ -16,6 +16,8 @@ Use [`observe_changes`](RUNTIME_OBSERVATION_CHANGES.md) to continue a scoped cur
 
 Use the [testability audit and virtual item workflow](TESTABILITY_AND_VIRTUAL_ITEMS.md) when selectors are ambiguous or list/table rows are unrealized. Prefer verified scoped recommendations and explicit stable logical keys.
 
+Use [host-declared test fixtures](TEST_FIXTURES.md) for repeatable seeded, empty or offline test state. Select a declared test-resource identity and let the scenario runner verify readiness and perform required cleanup.
+
 ## 1. Create And Install A Local Release
 
 ```powershell

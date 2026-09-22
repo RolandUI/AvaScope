@@ -14,7 +14,8 @@ public sealed record RuntimeCustomActionDescriptor
         IReadOnlyDictionary<string, string>? requiredState = null,
         string? description = null,
         string? unavailableReason = null,
-        string targetScope = "node")
+        string targetScope = "node",
+        RuntimeTestFixtureDescriptor? testFixture = null)
     {
         if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(targetScope))
         {
@@ -37,9 +38,13 @@ public sealed record RuntimeCustomActionDescriptor
         Description = string.IsNullOrWhiteSpace(description) ? null : description.Trim();
         UnavailableReason = string.IsNullOrWhiteSpace(unavailableReason) ? null : unavailableReason.Trim();
         TargetScope = targetScope.Trim();
+        TestFixture = testFixture;
     }
 
     [JsonPropertyName("name")] public string Name { get; }
+    [JsonPropertyName("testFixture")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public RuntimeTestFixtureDescriptor? TestFixture { get; }
     [JsonPropertyName("target")] public RuntimeTargetContext Target { get; }
     [JsonPropertyName("targetScope")] public string TargetScope { get; }
     [JsonPropertyName("requiredState")] public IReadOnlyDictionary<string, string> RequiredState { get; }

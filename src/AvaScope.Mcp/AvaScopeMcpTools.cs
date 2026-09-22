@@ -780,7 +780,7 @@ public sealed class AvaScopeMcpTools
         Destructive = false,
         OpenWorld = false,
         UseStructuredContent = true)]
-    [Description("Runs a safe local runtime scenario by validating the workflow and optional local evidence/action policy before side effects; optionally building before launch for an executable or project; waiting for bridge readiness, attach, and registered top levels; executing observe-act-verify steps across bounded execution paths; preserving policy-redacted logs and failure evidence; and optionally terminating only the exact AvaScope-owned process tree.")]
+    [Description("Runs a safe local runtime scenario by validating the workflow and optional local evidence/action policy before side effects; optionally building before launch for an executable or project; waiting for bridge readiness, attach, and registered top levels; optionally preparing a declared host test fixture with explicit test-resource identity, bounded readiness and required cleanup; executing observe-act-verify steps across bounded execution paths; preserving policy-redacted logs and failure evidence; and optionally terminating only the exact AvaScope-owned process tree.")]
     public static async Task<ToolResult<RuntimeScenarioResponse>> RunScenario(
         LocalBridgeClient bridgeClient,
         RuntimeScenarioRequest? request = null,

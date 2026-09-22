@@ -10,7 +10,8 @@ public sealed record RuntimeCustomActionRequest
         RuntimeTargetContext target,
         string actionName,
         IReadOnlyDictionary<string, string>? parameters = null,
-        bool allowDestructive = false)
+        bool allowDestructive = false,
+        string? expectedFixtureVersion = null)
     {
         if (string.IsNullOrWhiteSpace(requestId) || string.IsNullOrWhiteSpace(actionName))
         {
@@ -24,6 +25,8 @@ public sealed record RuntimeCustomActionRequest
             .Take(32)
             .ToDictionary(static pair => pair.Key, static pair => pair.Value, StringComparer.Ordinal);
         AllowDestructive = allowDestructive;
+        if (expectedFixtureVersion is not null) RuntimeTestFixtureDescriptor.ValidateIdentifier(expectedFixtureVersion, nameof(expectedFixtureVersion));
+        ExpectedFixtureVersion = expectedFixtureVersion;
     }
 
     [JsonPropertyName("requestId")] public string RequestId { get; }
@@ -31,4 +34,7 @@ public sealed record RuntimeCustomActionRequest
     [JsonPropertyName("actionName")] public string ActionName { get; }
     [JsonPropertyName("parameters")] public IReadOnlyDictionary<string, string> Parameters { get; }
     [JsonPropertyName("allowDestructive")] public bool AllowDestructive { get; }
+    [JsonPropertyName("expectedFixtureVersion")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ExpectedFixtureVersion { get; }
 }

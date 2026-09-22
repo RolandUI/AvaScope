@@ -29,7 +29,8 @@ public sealed record RuntimeScenarioRequest
         bool terminateLaunchedProcess = false,
         bool captureVisualTree = false,
         X11EnvironmentOptions? x11Environment = null,
-        RuntimeStartupReadinessOptions? startupReadiness = null)
+        RuntimeStartupReadinessOptions? startupReadiness = null,
+        RuntimeScenarioFixtureOptions? testFixture = null)
     {
         if (steps is null || steps.Count == 0)
         {
@@ -80,6 +81,7 @@ public sealed record RuntimeScenarioRequest
         CaptureVisualTree = captureVisualTree;
         X11Environment = x11Environment;
         StartupReadiness = startupReadiness;
+        TestFixture = testFixture;
     }
 
     [JsonPropertyName("requestId")]
@@ -165,6 +167,10 @@ public sealed record RuntimeScenarioRequest
     [JsonPropertyName("startupReadiness")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public RuntimeStartupReadinessOptions? StartupReadiness { get; }
+
+    [JsonPropertyName("testFixture")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public RuntimeScenarioFixtureOptions? TestFixture { get; }
 }
 
 public sealed record RuntimeScenarioPickerResult

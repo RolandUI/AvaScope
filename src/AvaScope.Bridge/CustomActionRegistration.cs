@@ -12,7 +12,8 @@ public sealed record CustomActionRegistration
         string safetyClassification = RuntimeCustomActionSafetyClassifications.NonDestructive,
         IReadOnlyList<RuntimeCustomActionParameterDescriptor>? parameters = null,
         IReadOnlyDictionary<string, string>? requiredState = null,
-        Func<Visual, CustomActionAvailability>? availability = null)
+        Func<Visual, CustomActionAvailability>? availability = null,
+        RuntimeTestFixtureDescriptor? testFixture = null)
     {
         if (string.IsNullOrWhiteSpace(name))
         {
@@ -31,6 +32,7 @@ public sealed record CustomActionRegistration
         Parameters = (parameters ?? []).ToArray();
         RequiredState = requiredState ?? new Dictionary<string, string>();
         Availability = availability;
+        TestFixture = testFixture;
     }
 
     public string Name { get; }
@@ -40,6 +42,7 @@ public sealed record CustomActionRegistration
     public IReadOnlyList<RuntimeCustomActionParameterDescriptor> Parameters { get; }
     public IReadOnlyDictionary<string, string> RequiredState { get; }
     public Func<Visual, CustomActionAvailability>? Availability { get; }
+    public RuntimeTestFixtureDescriptor? TestFixture { get; }
 }
 
 public sealed record CustomActionContext(

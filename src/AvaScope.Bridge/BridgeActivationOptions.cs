@@ -13,7 +13,9 @@ public sealed record BridgeActivationOptions
         SessionRegistry? sessionRegistry = null,
         bool enableCustomActions = false,
         IReadOnlyList<string>? allowedCustomActions = null,
-        bool allowDestructiveCustomActions = false)
+        bool allowDestructiveCustomActions = false,
+        bool enableTestFixtures = false,
+        IReadOnlyList<string>? allowedTestResources = null)
     {
         if (string.IsNullOrWhiteSpace(sessionKind))
         {
@@ -30,6 +32,9 @@ public sealed record BridgeActivationOptions
             .Distinct(StringComparer.Ordinal)
             .ToArray();
         AllowDestructiveCustomActions = allowDestructiveCustomActions;
+        EnableTestFixtures = enableTestFixtures;
+        AllowedTestResources = (allowedTestResources ?? []).Distinct(StringComparer.Ordinal).ToArray();
+        foreach (var resource in AllowedTestResources) RuntimeTestFixtureDescriptor.ValidateIdentifier(resource, nameof(allowedTestResources));
     }
 
     public string? DisplayName { get; }
@@ -43,4 +48,6 @@ public sealed record BridgeActivationOptions
     public IReadOnlyList<string> AllowedCustomActions { get; }
 
     public bool AllowDestructiveCustomActions { get; }
+    public bool EnableTestFixtures { get; }
+    public IReadOnlyList<string> AllowedTestResources { get; }
 }

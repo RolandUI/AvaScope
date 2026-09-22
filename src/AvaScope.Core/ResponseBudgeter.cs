@@ -319,7 +319,7 @@ public static class ResponseBudgeter
             response.SessionId, response.TopLevelId, response.Launch, response.Attach, workflow,
             response.IsolatedStateStatus, response.IsolatedStateDirectory, response.TimelinePath,
             diagnostics, response.Metadata, response.PreparedPickerResult, budget,
-            response.Build, response.Readiness, topLevels, response.Cleanup, response.FailureStage);
+            response.Build, response.Readiness, topLevels, response.Cleanup, response.FailureStage, response.Environment, response.TestFixture);
     }
 
     private static TreeNodeSummary ProjectNode(

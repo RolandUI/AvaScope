@@ -138,6 +138,15 @@ public sealed partial class AvaScopeBridgeRuntime
             throw new ArgumentException("Custom action parameter names must be unique.", nameof(registration));
         }
 
+        if (registration.TestFixture is { } fixture && (!_activationOptions.EnableTestFixtures
+            || fixture.ResourceIds.Any(resource => !_activationOptions.AllowedTestResources.Contains(resource, StringComparer.Ordinal))
+            || registration.Name != fixture.PrepareAction && registration.Name != fixture.CleanupAction
+            || registration.Parameters.Count > 17
+            || registration.Parameters.Any(parameter => parameter.Type == RuntimeCustomActionParameterTypes.String && parameter.AllowedValues.Count == 0)
+            || !registration.Parameters.Any(parameter => parameter.Name == "testResource" && parameter.Required
+                && parameter.AllowedValues.Order(StringComparer.Ordinal).SequenceEqual(fixture.ResourceIds.Order(StringComparer.Ordinal)))))
+            throw new InvalidOperationException("Test fixtures require explicit activation, an action allowlist, declared test resources and a matching required resource parameter.");
+
         var sequence = Interlocked.Increment(ref _customActionRegistrationSequence);
         _customActions[sequence] = new RegisteredCustomAction(
             new WeakReference<Visual>(target),
@@ -659,6 +668,11 @@ public sealed partial class AvaScopeBridgeRuntime
         }
 
         var registration = registered.Registration;
+        if (request.ExpectedFixtureVersion is { } expectedVersion && registration.TestFixture?.Version != expectedVersion)
+            return CoreResult<RuntimeCustomActionResponse>.Ok(CreateCustomActionResponse(request, currentTarget,
+                registration.SafetyClassification, RuntimeCustomActionStatuses.Rejected, executed: false,
+                "The fixture declaration changed since discovery.",
+                new ProtocolError("runtime_fixture_version_changed", "Discover the current host fixture before preparing test state.")));
         if (string.Equals(registration.SafetyClassification, RuntimeCustomActionSafetyClassifications.Destructive, StringComparison.Ordinal)
             && (!_activationOptions.AllowDestructiveCustomActions || !request.AllowDestructive))
         {
@@ -682,6 +696,19 @@ public sealed partial class AvaScopeBridgeRuntime
                 diagnostic));
         }
 
+        var parameterDiagnostic = ValidateCustomActionParameters(registration.Parameters, request.Parameters);
+        if (parameterDiagnostic is not null)
+        {
+            return CoreResult<RuntimeCustomActionResponse>.Ok(CreateCustomActionResponse(
+                request,
+                currentTarget,
+                registration.SafetyClassification,
+                RuntimeCustomActionStatuses.Rejected,
+                executed: false,
+                parameterDiagnostic.Message,
+                parameterDiagnostic));
+        }
+
         var availability = EvaluateCustomActionAvailability(registration, visual);
         if (!availability.Executable)
         {
@@ -699,19 +726,6 @@ public sealed partial class AvaScopeBridgeRuntime
                 executed: false,
                 diagnostic.Message,
                 diagnostic));
-        }
-
-        var parameterDiagnostic = ValidateCustomActionParameters(registration.Parameters, request.Parameters);
-        if (parameterDiagnostic is not null)
-        {
-            return CoreResult<RuntimeCustomActionResponse>.Ok(CreateCustomActionResponse(
-                request,
-                currentTarget,
-                registration.SafetyClassification,
-                RuntimeCustomActionStatuses.Rejected,
-                executed: false,
-                parameterDiagnostic.Message,
-                parameterDiagnostic));
         }
 
         try
@@ -844,7 +858,8 @@ public sealed partial class AvaScopeBridgeRuntime
             registration.Parameters,
             registration.RequiredState,
             registration.Description,
-            reason);
+            reason,
+            testFixture: registration.TestFixture);
     }
 
     private static CustomActionAvailability EvaluateCustomActionAvailability(

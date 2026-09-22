@@ -53,6 +53,20 @@ public sealed class RuntimeScenarioRunner
         var policyValidationDiagnostics = new List<ProtocolError>();
         if (evidencePolicy is not null)
         {
+            if (request.TestFixture is { } fixtureOptions)
+            {
+                foreach (var (action, customName) in new[]
+                {
+                    (SemanticWorkflowActions.CustomActions, (string?)null),
+                    (SemanticWorkflowActions.WaitForState, (string?)null),
+                    (SemanticWorkflowActions.CustomAction, "fixture.prepare." + fixtureOptions.Name)
+                })
+                {
+                    var authorization = evidencePolicy.AuthorizeAction(action, customName);
+                    if (!authorization.Success) policyValidationDiagnostics.Add(ToProtocolError(authorization.Error!));
+                }
+            }
+
             if (request.StartupReadiness is not null)
             {
                 var authorization = evidencePolicy.AuthorizeAction(SemanticWorkflowActions.WaitForState, customActionName: null);
@@ -185,12 +199,23 @@ public sealed class RuntimeScenarioRunner
         X11TestEnvironment? desktop = null;
         CancellationTokenSource? environmentCancellation = null;
         var executionToken = cancellationToken;
+        RuntimeTestFixtureRun? fixtureRun = null;
 
         async Task<CoreResult<RuntimeScenarioResponse>> CompleteAsync(
             string status,
             string? failureStage,
             SemanticWorkflowResponse? workflow = null)
         {
+            if (fixtureRun is not null)
+            {
+                var fixtureCleanup = await fixtureRun.CleanupAsync();
+                if (!fixtureCleanup.Success)
+                {
+                    diagnostics.Add(ToProtocolError(fixtureCleanup.Error!));
+                    status = Failed;
+                    failureStage = "fixture_cleanup";
+                }
+            }
             if (launch is not null && request.TerminateLaunchedProcess && sessionId is not null)
             {
                 var cleanupResult = await workflowClient.CloseSessionAsync(
@@ -265,7 +290,8 @@ public sealed class RuntimeScenarioRunner
                 cleanup,
                 failureStage,
                 evidencePolicyMetadata,
-                desktop?.Evidence);
+                desktop?.Evidence,
+                fixtureRun?.Evidence);
             if (evidencePolicy is not null)
             {
                 var sanitized = evidencePolicy.Sanitize(response);
@@ -475,6 +501,18 @@ public sealed class RuntimeScenarioRunner
                         ["readinessChecks"] = topLevelCheckCount.ToString(CultureInfo.InvariantCulture)
                     }));
                 return await CompleteAsync(Failed, RuntimeScenarioFailureStages.TopLevels);
+            }
+
+            if (request.TestFixture is not null)
+            {
+                currentStage = "fixture_preparation";
+                fixtureRun = new RuntimeTestFixtureRun(workflowClient, request, sessionId, topLevelId, outputDirectory, evidencePolicy);
+                var prepared = await fixtureRun.PrepareAsync(executionToken);
+                if (!prepared.Success)
+                {
+                    diagnostics.Add(ToProtocolError(prepared.Error!));
+                    return await CompleteAsync(Failed, currentStage);
+                }
             }
 
             if (request.StartupReadiness is { } startup)
@@ -773,7 +811,8 @@ public sealed class RuntimeScenarioRunner
         CloseSessionResponse? cleanup = null,
         string? failureStage = null,
         IReadOnlyDictionary<string, string>? evidencePolicyMetadata = null,
-        RuntimeEnvironmentEvidence? environment = null)
+        RuntimeEnvironmentEvidence? environment = null,
+        RuntimeTestFixtureEvidence? testFixture = null)
     {
         var completedAt = DateTimeOffset.UtcNow;
         var metadata = new Dictionary<string, string>(StringComparer.Ordinal)
@@ -835,7 +874,8 @@ public sealed class RuntimeScenarioRunner
             topLevels: topLevels,
             cleanup: cleanup,
             failureStage: failureStage,
-            environment: environment);
+            environment: environment,
+            testFixture: testFixture);
 
         return response;
     }
@@ -1001,6 +1041,15 @@ public sealed class RuntimeScenarioRunner
         AppendOptional(builder, "Launch stderr", response.Launch?.StderrPath);
         AppendOptional(builder, "Bridge readiness", response.Readiness?.Status);
         AppendOptional(builder, "Cleanup outcome", response.Cleanup?.Outcome);
+        if (response.TestFixture is { } fixture)
+        {
+            AppendOptional(builder, "Fixture", fixture.Name);
+            AppendOptional(builder, "Fixture version", fixture.Version);
+            AppendOptional(builder, "Fixture resource", fixture.ResourceId);
+            AppendOptional(builder, "Fixture preparation", fixture.PreparationStatus);
+            AppendOptional(builder, "Fixture readiness", fixture.ReadinessStatus);
+            AppendOptional(builder, "Fixture cleanup", fixture.CleanupStatus);
+        }
         builder.AppendLine($"- Registered top levels: `{response.TopLevels.Count.ToString(CultureInfo.InvariantCulture)}`");
 
         if (response.Diagnostics.Count > 0)
