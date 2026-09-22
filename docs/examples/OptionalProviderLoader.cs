@@ -285,6 +285,14 @@ public static class OptionalProviderLoader
 
         protected override nint LoadUnmanagedDll(string unmanagedDllName)
         {
+            // Apple frameworks are OS prerequisites, not redistributed provider
+            // assets. Some macOS versions resolve them to concrete system paths
+            // while others use the dyld cache. Permit only these exact imports;
+            // all provider-local native dependencies still require manifest hashes.
+            if (OperatingSystem.IsMacOS() && unmanagedDllName is
+                "/usr/lib/libobjc.A.dylib" or
+                "/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics" or
+                "/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation") return 0;
             var path = _resolver.ResolveUnmanagedDllToPath(unmanagedDllName);
             return path is null ? 0 : LoadUnmanagedDllFromPath(RequireVerified(path));
         }
