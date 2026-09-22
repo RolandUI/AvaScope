@@ -9,6 +9,20 @@ namespace AvaScope.Mcp;
 [McpServerToolType]
 public sealed class AvaScopeMcpTools
 {
+    [McpServerTool(Name = "inspect_form", Title = "Inspect runtime form fields", ReadOnly = true, Idempotent = true,
+        Destructive = false, OpenWorld = false, UseStructuredContent = true)]
+    [Description("Read a bounded visual form scope: explicit labels, field values, choices, writable state and observed validation. Unknown required/async validation metadata remains unknown. Password values are always redacted. No input or submit is dispatched.")]
+    public static async Task<ToolResult<RuntimeFormInspectionResponse>> InspectForm(LocalBridgeClient bridgeClient,
+        RuntimeFormInspectionRequest request, string? manifestDirectory = null, CancellationToken cancellationToken = default)
+        => ToToolResult(await CreateBridgeClient(bridgeClient, manifestDirectory).InspectFormAsync(request, cancellationToken));
+
+    [McpServerTool(Name = "fill_form", Title = "Fill and verify runtime form fields", ReadOnly = false, Idempotent = true,
+        Destructive = true, OpenWorld = false, UseStructuredContent = true)]
+    [Description("Prevalidate up to 16 unique field selectors and typed desired values, fill through supported input/providers, and verify each field after bounded settling. Stops on changed plans or rejection and reports partial effects and appearing/changing fields. Never invokes submit or rollback. Exact requestId/payload replay retrieves the original result without repeating input; use a new id only for a newly observed intent. Sensitive input requires explicit permission and remains redacted.")]
+    public static async Task<ToolResult<RuntimeFormFillResponse>> FillForm(LocalBridgeClient bridgeClient,
+        RuntimeFormFillRequest request, string? manifestDirectory = null, CancellationToken cancellationToken = default)
+        => ToToolResult(await CreateBridgeClient(bridgeClient, manifestDirectory).FillFormAsync(request, cancellationToken));
+
     [McpServerTool(Name = "ensure_state", Title = "Ensure desired runtime state", ReadOnly = false, Idempotent = true,
         Destructive = true, OpenWorld = false, UseStructuredContent = true)]
     [Description("Read, change only if necessary and verify checked/expanded/text/value/selection state on a fresh explicit target. Preserve requestId and the entire payload when retrieving an uncertain or lost result; no automatic write retry. Text uses routed input for TextBox, other supported states use public automation providers.")]

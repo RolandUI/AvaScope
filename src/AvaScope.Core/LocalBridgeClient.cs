@@ -827,6 +827,58 @@ public sealed partial class LocalBridgeClient
             new BridgeIpcRequest(NewRequestId(), BridgeIpcMethods.Observe, observation: request), cancellationToken);
     }
 
+    public async Task<CoreResult<RuntimeFormInspectionResponse>> InspectFormAsync(RuntimeFormInspectionRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var policy = request.Policy is null ? null : new RuntimeEvidencePolicyEnforcer(request.Policy);
+        if (policy is not null)
+        {
+            var authorization = policy.AuthorizeSession(this, request.SessionId);
+            if (!authorization.Success) return CoreResult<RuntimeFormInspectionResponse>.Fail(authorization.Error!);
+            var action = policy.AuthorizeAction(SemanticWorkflowActions.Inspect, null);
+            if (!action.Success) return CoreResult<RuntimeFormInspectionResponse>.Fail(action.Error!);
+        }
+        var manifest = FindSingleManifest(null, request.SessionId);
+        if (!manifest.Success) return CoreResult<RuntimeFormInspectionResponse>.Fail(manifest.Error!);
+        var result = await SendAsync<RuntimeFormInspectionResponse>(manifest.Value!,
+            new BridgeIpcRequest(NewRequestId(), BridgeIpcMethods.InspectForm, formInspection: request), cancellationToken);
+        if (policy is null) return result;
+        if (result.Success) return policy.Sanitize(result.Value!);
+        var error = policy.Sanitize(result.Error!);
+        return CoreResult<RuntimeFormInspectionResponse>.Fail(error.Success ? error.Value! : error.Error!);
+    }
+
+    public async Task<CoreResult<RuntimeFormFillResponse>> FillFormAsync(RuntimeFormFillRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var policy = request.Form.Policy is null ? null : new RuntimeEvidencePolicyEnforcer(request.Form.Policy);
+        if (policy is not null)
+        {
+            var authorization = policy.AuthorizeSession(this, request.Form.SessionId);
+            if (!authorization.Success) return CoreResult<RuntimeFormFillResponse>.Fail(authorization.Error!);
+            var action = policy.AuthorizeAction(SemanticWorkflowActions.Inspect, null);
+            if (!action.Success) return CoreResult<RuntimeFormFillResponse>.Fail(action.Error!);
+        }
+        var manifest = FindSingleManifest(null, request.Form.SessionId);
+        if (!manifest.Success) return CoreResult<RuntimeFormFillResponse>.Fail(manifest.Error!);
+        var result = await SendAsync<RuntimeFormFillResponse>(manifest.Value!,
+            new BridgeIpcRequest(NewRequestId(), BridgeIpcMethods.FillForm, formFill: request), cancellationToken,
+            _operationTimeout + TimeSpan.FromMilliseconds(request.SettleMs * request.Fields.Count));
+        if (!result.Success && result.Error!.Code is CoreErrorCodes.BridgeIpcUnavailable or CoreErrorCodes.BridgeIpcFailed)
+            result = CoreResult<RuntimeFormFillResponse>.Fail(new(result.Error.Code, result.Error.Message,
+                new Dictionary<string, string>(result.Error.Details ?? new Dictionary<string, string>())
+                {
+                    ["dispatched"] = "unknown", ["formRequestId"] = request.RequestId,
+                    ["nextAction"] = "Retrieve the original fill result with the exact payload and requestId in this session. Do not repeat with a new id without observing current state."
+                }));
+        if (policy is null) return result;
+        if (result.Success) return policy.Sanitize(result.Value!);
+        var error = policy.Sanitize(result.Error!);
+        return CoreResult<RuntimeFormFillResponse>.Fail(error.Success ? error.Value! : error.Error!);
+    }
+
     public async Task<CoreResult<RuntimeDesiredStateResponse>> EnsureStateAsync(RuntimeDesiredStateRequest request,
         CancellationToken cancellationToken = default)
     {
@@ -1505,7 +1557,8 @@ public sealed partial class LocalBridgeClient
     private async Task<CoreResult<T>> SendAsync<T>(
         BridgeSessionManifest manifest,
         BridgeIpcRequest request,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        TimeSpan? operationTimeout = null)
     {
         request = request with { ControlToken = request.ControlToken ?? GetControlToken(manifest.SessionId) };
         var maximumAttempts = IsSafeToRetry(request.Method) ? 2 : 1;
@@ -1523,7 +1576,7 @@ public sealed partial class LocalBridgeClient
                 await ConnectAsync(pipe, cancellationToken);
 
                 using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-                timeout.CancelAfter(_operationTimeout);
+                timeout.CancelAfter(operationTimeout ?? _operationTimeout);
 
                 var requestBytes = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(request) + Environment.NewLine);
                 await pipe.WriteAsync(requestBytes, timeout.Token);
@@ -1590,6 +1643,7 @@ public sealed partial class LocalBridgeClient
             or BridgeIpcMethods.VisualTree
             or BridgeIpcMethods.LogicalTree
             or BridgeIpcMethods.InspectNode
+            or BridgeIpcMethods.InspectForm
             or BridgeIpcMethods.ExplainLayout
             or BridgeIpcMethods.FindNodes
             or BridgeIpcMethods.ValidateInput

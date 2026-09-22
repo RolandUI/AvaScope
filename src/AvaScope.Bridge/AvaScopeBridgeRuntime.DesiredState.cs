@@ -67,7 +67,7 @@ public sealed partial class AvaScopeBridgeRuntime
         return result;
     }
 
-    private CoreResult<RuntimeDesiredStateResponse> EnsureState(RuntimeDesiredStateRequest request)
+    private CoreResult<RuntimeDesiredStateResponse> EnsureState(RuntimeDesiredStateRequest request, bool validateOnly = false)
     {
         var target = request.Target;
         var top = FindTopLevel(target.TopLevelId);
@@ -123,6 +123,7 @@ public sealed partial class AvaScopeBridgeRuntime
             switch (request.Property)
             {
                 case "checked":
+                    if (validateOnly) { CheckAction(InputActions.Toggle); return Finish("validated", false); }
                     var seen = new HashSet<string>(StringComparer.Ordinal);
                     for (var attempt = 0; attempt < 3 && !Satisfied(after); attempt++)
                     {
@@ -134,6 +135,7 @@ public sealed partial class AvaScopeBridgeRuntime
                 case "expanded":
                     if (expand!.ExpandCollapseState == ExpandCollapseState.LeafNode)
                         throw new DesiredStateStop("desired_state_leaf", "A leaf node has no expanded/collapsed state.");
+                    if (validateOnly) { CheckAction(request.Desired.GetBoolean() ? InputActions.Expand : InputActions.Collapse); return Finish("validated", false); }
                     Dispatch(request.Desired.GetBoolean() ? expand.Expand : expand.Collapse,
                         request.Desired.GetBoolean() ? InputActions.Expand : InputActions.Collapse);
                     break;
@@ -142,6 +144,7 @@ public sealed partial class AvaScopeBridgeRuntime
                     if (range!.IsReadOnly || !double.IsFinite(range.Minimum) || !double.IsFinite(range.Maximum)
                         || value < range.Minimum || value > range.Maximum)
                         throw new DesiredStateStop("desired_state_range", "The requested value is outside the public provider range or the control is read-only.");
+                    if (validateOnly) { CheckAction("set_value"); return Finish("validated", false); }
                     Dispatch(() => range.SetValue(value), "set_value");
                     break;
                 case "text":
@@ -150,6 +153,7 @@ public sealed partial class AvaScopeBridgeRuntime
                     {
                         if (box.IsReadOnly) throw new DesiredStateStop("desired_state_read_only", "The text control is read-only.");
                         CheckAction(InputActions.KeyText);
+                        if (validateOnly) return Finish("validated", false);
                         preparation = true;
                         if (!box.IsFocused && !box.Focus(NavigationMethod.Unspecified))
                             throw new DesiredStateStop("desired_state_focus", "The selected text control did not accept focus.");
@@ -171,6 +175,7 @@ public sealed partial class AvaScopeBridgeRuntime
                     else
                     {
                         if (text!.IsReadOnly) throw new DesiredStateStop("desired_state_read_only", "The public value provider is read-only.");
+                        if (validateOnly) { CheckAction(InputActions.KeyText); return Finish("validated", false); }
                         Dispatch(() => text.SetValue(desiredText), InputActions.KeyText);
                     }
                     break;
@@ -178,6 +183,11 @@ public sealed partial class AvaScopeBridgeRuntime
                     if (!selection!.CanSelectMultiple && wantedItems.Count > 1 || selection.IsSelectionRequired && wantedItems.Count == 0)
                         throw new DesiredStateStop("desired_state_selection_constraints", "The requested set violates the provider's multiple/required-selection constraints.");
                     var selected = ReadSelection();
+                    if (validateOnly)
+                    {
+                        foreach (var item in selected.Concat(wantedItems)) CheckAction(InputActions.Select, item.Control);
+                        return Finish("validated", false);
+                    }
                     if (!selection.CanSelectMultiple && wantedItems.Count == 1)
                         Dispatch(wantedItems[0].Provider.Select, InputActions.Select, wantedItems[0].Control);
                     else
@@ -306,7 +316,12 @@ public sealed partial class AvaScopeBridgeRuntime
             { verified = false; status = "not_verified"; code = "desired_state_validation_errors"; message = "The requested state is visible, but the target reports validation errors."; }
             if (code is not null) diagnostics.Add(new(code, message!, new Dictionary<string, string>
             { ["nextAction"] = "Inspect before/after state and diagnostics. Replay the identical request id to retrieve this result; use a new id only for a newly observed intent." }));
-            return CoreResult<RuntimeDesiredStateResponse>.Ok(new(request.RequestId, target, request.Property, status, verified, before, after,
+            if (control is TextBox { PasswordChar: not '\0' })
+            { before = before with { Status = "redacted", Value = null }; after = after with { Status = "redacted", Value = null }; }
+            var evidenceTarget = control is TextBox { PasswordChar: not '\0' }
+                ? new RuntimeTargetContext(target.SessionId, target.TopLevelId, target.TreeKind, target.NodeId, target.CapturedAt,
+                    target.TargetKind, target.TopLevelGeneration, target.NodeGeneration) : target;
+            return CoreResult<RuntimeDesiredStateResponse>.Ok(new(request.RequestId, evidenceTarget, request.Property, status, verified, before, after,
                 operations, preparation, RuntimePlatformEvidence.Operation(top, route, operations > 0), diagnostics, DateTimeOffset.UtcNow));
         }
     }

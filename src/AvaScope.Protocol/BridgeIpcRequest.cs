@@ -52,7 +52,9 @@ public sealed record BridgeIpcRequest
         string? controlToken = null,
         RuntimeActionExplanationRequest? actionExplanation = null,
         RuntimeQueryRequest? query = null,
-        RuntimeDesiredStateRequest? desiredState = null)
+        RuntimeDesiredStateRequest? desiredState = null,
+        RuntimeFormInspectionRequest? formInspection = null,
+        RuntimeFormFillRequest? formFill = null)
     {
         if (string.IsNullOrWhiteSpace(requestId))
         {
@@ -110,6 +112,8 @@ public sealed record BridgeIpcRequest
         ControlToken = controlToken;
         ActionExplanation = actionExplanation;
         DesiredState = desiredState;
+        FormInspection = formInspection;
+        FormFill = formFill;
         Query = query;
     }
 
@@ -125,6 +129,12 @@ public sealed record BridgeIpcRequest
 
     [JsonPropertyName("desiredState"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public RuntimeDesiredStateRequest? DesiredState { get; }
+
+    [JsonPropertyName("formInspection"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public RuntimeFormInspectionRequest? FormInspection { get; }
+
+    [JsonPropertyName("formFill"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public RuntimeFormFillRequest? FormFill { get; }
 
     [JsonPropertyName("inputExecution")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

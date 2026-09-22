@@ -12,6 +12,7 @@ public static class AvaScopeCapabilityIds
     public const string RuntimeAttach = "runtime.attach";
     public const string RuntimeActionExplanation = "runtime.action_explanation";
     public const string RuntimeDesiredState = "runtime.desired_state";
+    public const string RuntimeForms = "runtime.forms";
     public const string RuntimeStandaloneProvider = "runtime.standalone_provider";
     public const string RuntimeIntegrationGuidance = "runtime.integration_guidance";
     public const string RuntimeIntegrationVerification = "runtime.integration_verification";

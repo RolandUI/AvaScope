@@ -337,6 +337,8 @@ internal sealed class LocalBridgeServer : IDisposable
             BridgeIpcMethods.Observe => Respond(await ObserveAsync(request, cancellationToken)),
             BridgeIpcMethods.ExplainAction => Respond(await ExplainActionAsync(request, cancellationToken)),
             BridgeIpcMethods.EnsureState => Respond(await EnsureStateAsync(request, cancellationToken)),
+            BridgeIpcMethods.InspectForm => Respond(await InspectFormAsync(request, cancellationToken)),
+            BridgeIpcMethods.FillForm => Respond(await FillFormAsync(request, cancellationToken)),
             BridgeIpcMethods.ObserveChanges => Respond(await ObserveChangesAsync(request, cancellationToken)),
             BridgeIpcMethods.VirtualItem => Respond(await VirtualItemAsync(request, cancellationToken)),
             BridgeIpcMethods.NativePicker => Respond(await NativePickerAsync(request, cancellationToken)),
@@ -409,6 +411,24 @@ internal sealed class LocalBridgeServer : IDisposable
         if (request.Observation is null)
             return BridgeIpcResponse.Fail(request.RequestId, new ProtocolError("missing_observation_request", "Observation options are required."));
         var result = await _runtime.ObserveAsync(request.Observation, cancellationToken);
+        return result.Success ? BridgeIpcResponse.Ok(request.RequestId, result.Value)
+            : BridgeIpcResponse.Fail(request.RequestId, ToProtocolError(result.Error!));
+    }
+
+    private async Task<BridgeIpcResponse> InspectFormAsync(BridgeIpcRequest request, CancellationToken cancellationToken)
+    {
+        if (request.FormInspection is null)
+            return BridgeIpcResponse.Fail(request.RequestId, new("form_request_required", "A form inspection request is required."));
+        var result = await _runtime.InspectFormAsync(request.FormInspection, cancellationToken);
+        return result.Success ? BridgeIpcResponse.Ok(request.RequestId, result.Value)
+            : BridgeIpcResponse.Fail(request.RequestId, ToProtocolError(result.Error!));
+    }
+
+    private async Task<BridgeIpcResponse> FillFormAsync(BridgeIpcRequest request, CancellationToken cancellationToken)
+    {
+        if (request.FormFill is null)
+            return BridgeIpcResponse.Fail(request.RequestId, new("form_request_required", "A form fill request is required."));
+        var result = await _runtime.FillFormAsync(request.FormFill, cancellationToken);
         return result.Success ? BridgeIpcResponse.Ok(request.RequestId, result.Value)
             : BridgeIpcResponse.Fail(request.RequestId, ToProtocolError(result.Error!));
     }

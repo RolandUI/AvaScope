@@ -38,6 +38,13 @@ Unverified/partial/uncertain results retain evidence with `success:false`.
 Optional policy `allowedDesiredStates` defaults to no desired-state permission.
 See [desired-state actions](DESIRED_STATE_ACTIONS.md) for bounds and replay scope.
 
+The additive v1.5 `runtime.forms` capability exposes `inspect-form` / `inspect_form`
+and `fill-form` / `fill_form`. It provides bounded field inventories, prevalidated
+desired values, field-level outcomes and observed dependency changes. Submit is a
+separate explicit action; no automatic rollback is provided. Password values remain
+redacted. See [form workflows](FORM_WORKFLOWS.md) for supported fields, limits and
+same-session exact-request replay.
+
 The stable service name is `avascope`. The protocol version uses `AvaScopeProtocol.CurrentVersion`; breaking protocol changes require `protocolVersion.major` to increase.
 The MCP initialization handshake reports `serverInfo.name` as `avascope` and `serverInfo.version` as the same product version returned by the CLI and structured protocol surfaces.
 

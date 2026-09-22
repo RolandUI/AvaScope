@@ -16,6 +16,8 @@ Use [relationship selectors and typed projections](RELATIONSHIP_QUERIES.md) to d
 
 Use [desired-state actions](DESIRED_STATE_ACTIONS.md) to ensure a check, expansion, value, text or selection state without reversing an already satisfied result. Preserve the exact request ID/payload after a lost response and inspect partial or uncertain outcomes before another intent.
 
+Use [form workflows](FORM_WORKFLOWS.md) to read explicit field labels, values, choices and validation, then fill a bounded plan with per-field verification. Inspect appearing or changing fields before a subsequent plan; submit remains a separate explicit operation.
+
 Use [workflow export and replay](WORKFLOW_EXPORT.md) to turn a recorded AvaScope workflow into a parameterized regression. Review missing assertions and unstable targets, validate against fresh bindings, then explicitly execute with the existing runner.
 
 The [native platform matrix](NATIVE_PLATFORM_MATRIX.md) provides repeatable packaged CLI/MCP lifecycle, modal, popup, focus, resize, failure-evidence and cleanup checks for Headless, Windows, Linux X11 and macOS.

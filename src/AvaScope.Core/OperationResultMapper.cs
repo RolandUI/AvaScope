@@ -27,6 +27,8 @@ public static class OperationResultMapper
     {
         return value switch
         {
+            RuntimeFormFillResponse response when response.Status != "passed"
+                => OutcomeError("form_fill_not_verified", response.Status, response.Diagnostics.Concat(response.Fields.SelectMany(field => field.Diagnostics))),
             RuntimeDesiredStateResponse response when !response.Verified
                 => OutcomeError("desired_state_not_verified", response.Status, response.Diagnostics),
             SemanticWorkflowResponse response when response.Status is not ("passed" or "validated")

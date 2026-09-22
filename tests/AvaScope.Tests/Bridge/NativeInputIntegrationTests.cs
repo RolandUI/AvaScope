@@ -40,7 +40,8 @@ public sealed class NativeInputIntegrationTests
         using var process = Process.Start(start)!;
         var stdout = process.StandardOutput.ReadToEndAsync();
         var stderr = process.StandardError.ReadToEndAsync();
-        var client = new LocalBridgeClient();
+        // A manifest can precede the first cold native window/layout initialization.
+        var client = new LocalBridgeClient(null, TimeSpan.FromSeconds(15));
         BridgeSessionManifest? manifest = null;
         try
         {
@@ -140,6 +141,34 @@ public sealed class NativeInputIntegrationTests
             Assert.Equal("already_satisfied", desiredAgain.Value!.Status); Assert.Equal(0, desiredAgain.Value.DispatchedOperations);
             await WaitText("NativeEditor", "desired-state árvíz 😀");
 
+            var form = new RuntimeFormInspectionRequest(sessionId, top.Id, new(name: "NativeEditor"));
+            var formCall = await mcp.CallToolAsync("inspect_form", new Dictionary<string, object?>
+            { ["request"] = JsonSerializer.SerializeToElement(form) }, cancellationToken: token);
+            var inventory = JsonSerializer.Deserialize<ToolResult<RuntimeFormInspectionResponse>>(JsonSerializer.Serialize(formCall.StructuredContent))!;
+            Assert.True(inventory.Success); Assert.Single(inventory.Value!.Fields);
+            var fill = new RuntimeFormFillRequest(form,
+                [new("editor", new(name: "NativeEditor"), JsonSerializer.SerializeToElement("form árvíz 😀"))], "native-form-fill");
+            var fillPath = Path.Combine(output, "form-fill-request.json");
+            await File.WriteAllTextAsync(fillPath, JsonSerializer.Serialize(fill), token);
+            var fillStart = new ProcessStartInfo("dotnet") { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
+            foreach (var argument in new[] { Path.Combine(AppContext.BaseDirectory, "avascope.dll"), "fill-form", "--request", fillPath }) fillStart.ArgumentList.Add(argument);
+            using (var cli = Process.Start(fillStart)!)
+            {
+                var resultText = cli.StandardOutput.ReadToEndAsync(token); var errorText = cli.StandardError.ReadToEndAsync(token);
+                await cli.WaitForExitAsync(token);
+                var result = JsonSerializer.Deserialize<ToolResult<RuntimeFormFillResponse>>(await resultText)!;
+                await File.WriteAllTextAsync(Path.Combine(output, "cli-form-fill.json"), await resultText, token);
+                Assert.True(result.Success, result.Error?.Message + await errorText); Assert.Equal(0, cli.ExitCode);
+                Assert.Equal(backend, Assert.Single(result.Value!.Fields).Execution!.Provenance.Backend.Backend);
+                Assert.False(result.Value.Submitted); Assert.False(result.Value.RolledBack);
+            }
+            formCall = await mcp.CallToolAsync("fill_form", new Dictionary<string, object?>
+            { ["request"] = JsonSerializer.SerializeToElement(fill) }, cancellationToken: token);
+            var fillReplay = JsonSerializer.Deserialize<ToolResult<RuntimeFormFillResponse>>(JsonSerializer.Serialize(formCall.StructuredContent))!;
+            await File.WriteAllTextAsync(Path.Combine(output, "mcp-form-fill.json"), JsonSerializer.Serialize(fillReplay), token);
+            Assert.True(fillReplay.Success); Assert.True(fillReplay.Value!.Replayed);
+            await WaitText("NativeEditor", "form árvíz 😀");
+
             var wrongTarget = new RuntimeTargetContext(new SessionId("unrelated-session"), top.Id, TreeKinds.Visual, pad.NodeId);
             Assert.False((await client.InputAsync(sessionId, top.Id, InputActions.Click, targetNodeId: pad.NodeId,
                 inputTarget: wrongTarget, execution: clickOptions, cancellationToken: token)).Success);
@@ -210,7 +239,7 @@ public sealed class NativeInputIntegrationTests
                 checks = new[] { "CLI right double modifier click", "MCP middle triple click",
                     backend == "macos" ? "native drag refused before dispatch; explicit synthetic drag" : "bounded native drag",
                     backend == "macos" ? "interrupted native click cleanup" : "interrupted native drag cleanup",
-                    "paired native navigation chord", "literal Unicode capability", "CLI desired text; MCP replay; no-op verification", "focus loss", "wrong session", "wrong picker owner", "explicit correlated one-shot host result", "real native cancel", "real native select and confirm" }
+                    "paired native navigation chord", "literal Unicode capability", "CLI desired text; MCP replay; no-op verification", "MCP form inventory; CLI fill; MCP replay", "focus loss", "wrong session", "wrong picker owner", "explicit correlated one-shot host result", "real native cancel", "real native select and confirm" }
             }), token);
 
             async Task<TreeNodeSummary> Node(string name) => Assert.Single((await client.FindNodesAsync(sessionId, top.Id, TreeKinds.Visual,
