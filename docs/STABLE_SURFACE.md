@@ -130,6 +130,7 @@ The stable MCP tool name set is:
 - `integration_guide`
 - `verify_integration`
 - `resolve_test_profile`
+- `doctor_target`
 - `launch_app`
 - `list_top_levels`
 - `screenshot`

@@ -68,6 +68,7 @@ public sealed class StableSurfaceContractTests
         "integration_guide",
         "verify_integration",
         "resolve_test_profile",
+        "doctor_target",
         "diagnostics",
         "attach_to_app",
         "session_capabilities",

@@ -51,6 +51,14 @@ internal static class Program
 
     public static async Task<int> Main(string[] args)
     {
+        if (args is ["--readiness-probe", var probeJson])
+        {
+            var probe = JsonSerializer.Deserialize<PlatformReadinessProbeRequest>(probeJson, JsonOptions);
+            if (probe is null) return 2;
+            Console.WriteLine(JsonSerializer.Serialize(await PlatformReadinessProbe.RunAsync(probe), JsonOptions));
+            return 0;
+        }
+
         var requestPath = GetRequestPath(args);
         if (requestPath is null)
         {

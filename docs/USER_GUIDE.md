@@ -6,7 +6,7 @@ AvaScope is an agent-focused local control plane for Avalonia apps. It gives CLI
 
 ## Current Capabilities
 
-For explicit external-provider activation and project onboarding, see [STANDALONE_PROVIDER.md](STANDALONE_PROVIDER.md). Reuse the same named build/launch workflow through CLI, MCP and CI with [agent test profiles](AGENT_TEST_PROFILES.md).
+For explicit external-provider activation and project onboarding, see [STANDALONE_PROVIDER.md](STANDALONE_PROVIDER.md). Reuse the same named build/launch workflow through CLI, MCP and CI with [agent test profiles](AGENT_TEST_PROFILES.md). Check selected application dependencies and desktop prerequisites with [target readiness diagnostics](TARGET_READINESS.md).
 
 - Agent-oriented inspect, preview, act, evidence, and cleanup workflows through CLI and MCP.
 - Opt-in runtime bridge for Avalonia apps.

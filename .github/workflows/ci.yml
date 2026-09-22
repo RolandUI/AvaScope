@@ -186,6 +186,7 @@ jobs:
           powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\package-provider.ps1
           pwsh -NoProfile -File .\eng\test-standalone-provider.ps1 -Native -SkipBuild
           pwsh -NoProfile -File .\eng\test-integration-onboarding.ps1 -Native -SkipBuild
+          pwsh -NoProfile -File .\eng\test-target-readiness.ps1
           powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\verify-artifacts.ps1
           Get-Content artifacts\release-manifest.json
 
@@ -193,6 +194,21 @@ jobs:
         if: ${{ steps.changes.outputs.requires_validation != 'true' }}
         shell: pwsh
         run: Write-Host "Only documentation files changed; skipped Restore, Build, Test, Pack, and artifact verification."
+
+      - name: Preserve provider and onboarding diagnostics
+        if: ${{ always() && steps.changes.outputs.requires_validation == 'true' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: agent-foundation-windows
+          retention-days: 7
+          path: |
+            artifacts/provider-validation/**/*.log
+            artifacts/provider-validation/**/cli-*.json
+            artifacts/provider-validation/**/mcp-*.json
+            artifacts/provider-validation/**/validation.json
+            artifacts/onboarding-validation/**/*.log
+            artifacts/onboarding-validation/**/validation.json
+            artifacts/readiness-validation/**/*.json
 
   installer-linux:
     name: Linux Installer
@@ -229,10 +245,11 @@ jobs:
         shell: bash
         run: |
           sudo apt-get update
-          sudo apt-get install -y xvfb libx11-6 libice6 libsm6 libfontconfig1
+          sudo apt-get install -y xvfb x11-utils libx11-6 libice6 libsm6 libfontconfig1 fonts-dejavu-core
           pwsh -NoProfile -File ./eng/package-provider.ps1
           xvfb-run -a -s "-screen 0 1280x900x24 -nolisten tcp" pwsh -NoProfile -File ./eng/test-standalone-provider.ps1 -Native -SkipBuild
           xvfb-run -a -s "-screen 0 1280x900x24 -nolisten tcp" pwsh -NoProfile -File ./eng/test-integration-onboarding.ps1 -Native -SkipBuild
+          xvfb-run -a -s "-screen 0 1280x900x24 -nolisten tcp" pwsh -NoProfile -File ./eng/test-target-readiness.ps1
 
       - name: Test packaged Linux lifecycle scenario
         shell: pwsh
@@ -261,6 +278,21 @@ jobs:
           expected_version="$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' Directory.Build.props)"
           bash ./eng/test-linux-installer.sh "$AVASCOPE_INSTALLER_ARTIFACT" "$expected_version"
           dotnet test AvaScope.slnx -c Release --no-build --filter FullyQualifiedName~PackagedInstallerSupportsInstallRepairDoctorMcpAndUninstall
+
+      - name: Preserve provider and onboarding diagnostics
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: agent-foundation-linux
+          retention-days: 7
+          path: |
+            artifacts/provider-validation/**/*.log
+            artifacts/provider-validation/**/cli-*.json
+            artifacts/provider-validation/**/mcp-*.json
+            artifacts/provider-validation/**/validation.json
+            artifacts/onboarding-validation/**/*.log
+            artifacts/onboarding-validation/**/validation.json
+            artifacts/readiness-validation/**/*.json
 
   macos-runtime:
     name: macOS Runtime
@@ -324,6 +356,7 @@ jobs:
           pwsh -NoProfile -File ./eng/package-provider.ps1
           pwsh -NoProfile -File ./eng/test-standalone-provider.ps1 -Native -SkipBuild
           pwsh -NoProfile -File ./eng/test-integration-onboarding.ps1 -Native -SkipBuild
+          pwsh -NoProfile -File ./eng/test-target-readiness.ps1
           pwsh -NoProfile -File ./eng/verify-artifacts.ps1 \
             -ExecutableRuntimeIdentifiers "$runtime_identifier" \
             -InstallerRuntimeIdentifiers "$runtime_identifier"
@@ -341,3 +374,18 @@ jobs:
             "artifacts/executables/avascope-$runtime_identifier-installer" \
             artifacts/release-manifest.json \
             Release
+
+      - name: Preserve provider and onboarding diagnostics
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: agent-foundation-macos
+          retention-days: 7
+          path: |
+            artifacts/provider-validation/**/*.log
+            artifacts/provider-validation/**/cli-*.json
+            artifacts/provider-validation/**/mcp-*.json
+            artifacts/provider-validation/**/validation.json
+            artifacts/onboarding-validation/**/*.log
+            artifacts/onboarding-validation/**/validation.json
+            artifacts/readiness-validation/**/*.json

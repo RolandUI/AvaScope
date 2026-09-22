@@ -14,6 +14,7 @@ public static class AvaScopeCapabilityIds
     public const string RuntimeIntegrationGuidance = "runtime.integration_guidance";
     public const string RuntimeIntegrationVerification = "runtime.integration_verification";
     public const string RuntimeAgentTestProfiles = "runtime.agent_test_profiles";
+    public const string DiagnosticsTargetReadiness = "diagnostics.target_readiness";
     public const string RuntimeSessionLifecycle = "runtime.session_lifecycle";
     public const string RuntimeTrees = "runtime.trees";
     public const string RuntimeInspect = "runtime.inspect";

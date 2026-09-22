@@ -9,6 +9,12 @@ namespace AvaScope.Mcp;
 [McpServerToolType]
 public sealed class AvaScopeMcpTools
 {
+    [McpServerTool(Name = "doctor_target", Title = "Target application readiness", ReadOnly = true,
+        Idempotent = true, Destructive = false, OpenWorld = false, UseStructuredContent = true)]
+    [Description("Extends doctor for an explicitly selected application/project/profile/provider and backend. Checks compatibility, dependencies, installation origins, actual X11 access, renderer/fonts and only requested native permissions/services in a bounded isolated probe. Does not load host code, activate a bridge, attach sessions or expose display authentication material.")]
+    public static async Task<ToolResult<TargetReadinessResponse>> DoctorTarget(TargetReadinessRequest request, CancellationToken cancellationToken = default)
+        => ToToolResult(await new TargetReadinessDoctor().CheckAsync(request, cancellationToken));
+
     [McpServerTool(Name = "resolve_test_profile", Title = "Resolve agent test profile", ReadOnly = true,
         Idempotent = true, Destructive = false, OpenWorld = false, UseStructuredContent = true)]
     [Description("Validates a named schemaVersion 1 test profile and returns redacted effective scenario settings, platform override precedence, profile-relative paths, provider identity and environment reference names. Does not build, launch or activate. Optional platform is for read-only preview; execution uses the actual platform.")]

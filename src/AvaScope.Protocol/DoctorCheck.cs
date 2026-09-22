@@ -10,7 +10,10 @@ public sealed record DoctorCheck
         string status,
         string message,
         string? path = null,
-        ProtocolError? error = null)
+        ProtocolError? error = null,
+        string? stage = null,
+        string? remediation = null,
+        IReadOnlyDictionary<string, string>? evidence = null)
     {
         if (string.IsNullOrWhiteSpace(name))
         {
@@ -32,6 +35,9 @@ public sealed record DoctorCheck
         Message = message;
         Path = string.IsNullOrWhiteSpace(path) ? null : System.IO.Path.GetFullPath(path);
         Error = error;
+        Stage = stage;
+        Remediation = remediation;
+        Evidence = evidence;
     }
 
     [JsonPropertyName("name")]
@@ -50,4 +56,16 @@ public sealed record DoctorCheck
     [JsonPropertyName("error")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public ProtocolError? Error { get; }
+
+    [JsonPropertyName("stage")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Stage { get; }
+
+    [JsonPropertyName("remediation")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Remediation { get; }
+
+    [JsonPropertyName("evidence")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyDictionary<string, string>? Evidence { get; }
 }

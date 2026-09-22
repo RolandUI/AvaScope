@@ -29,6 +29,13 @@ public static class AgentTestProfiles
         return await new RuntimeScenarioRunner().RunAsync(bridgeClient, resolved.Value!.Request, cancellationToken);
     }
 
+    internal static CoreResult<RuntimeScenarioRequest> ResolveRequest(string profileFile, string profileName)
+    {
+        var resolved = Read(profileFile, profileName, CurrentPlatform(), "{runId}");
+        return resolved.Success ? CoreResult<RuntimeScenarioRequest>.Ok(resolved.Value!.Request)
+            : CoreResult<RuntimeScenarioRequest>.Fail(resolved.Error!);
+    }
+
     private static CoreResult<ResolvedProfile> Read(string profileFile, string profileName, string platform, string runId)
     {
         var secrets = new List<string>();
