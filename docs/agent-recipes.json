@@ -1,0 +1,98 @@
+{
+  "schemaVersion": 1,
+  "description": "Executable AvaScope tool arguments for the generated onboarding fixture. Bind paths/session/output from this run; selectors describe this fixture only.",
+  "recipes": [
+    {
+      "id": "capabilities",
+      "tool": "capabilities",
+      "cli": "capabilities",
+      "arguments": { "requiredCapabilities": "runtime.semantic_workflow,runtime.run_recovery" }
+    },
+    {
+      "id": "integration-guide",
+      "tool": "integration_guide",
+      "cli": "integration-guide",
+      "arguments": { "projectPath": "${projectPath}" }
+    },
+    {
+      "id": "verify-provider",
+      "tool": "verify_provider",
+      "cli": "verify-provider",
+      "arguments": { "directory": "${providerDirectory}" }
+    },
+    {
+      "id": "readiness",
+      "tool": "doctor_target",
+      "cli": "doctor",
+      "arguments": { "request": { "assemblyPath": "${assemblyPath}", "providerDirectory": "${providerDirectory}", "backend": "${backend}" } }
+    },
+    {
+      "id": "resolve-profile",
+      "tool": "resolve_test_profile",
+      "cli": "resolve-test-profile",
+      "arguments": { "profileFile": "${profileFile}", "profileName": "inspect" }
+    },
+    {
+      "id": "launch-profile",
+      "tool": "run_scenario",
+      "cli": "run-scenario",
+      "arguments": { "profileFile": "${profileFile}", "profileName": "inspect" }
+    },
+    {
+      "id": "first-attach",
+      "tool": "attach_to_app",
+      "cli": "attach",
+      "arguments": { "sessionId": "${sessionId}", "manifestDirectory": "${manifestDirectory}", "latest": false }
+    },
+    {
+      "id": "session-capabilities",
+      "tool": "session_capabilities",
+      "cli": "session-capabilities",
+      "arguments": { "sessionId": "${sessionId}", "manifestDirectory": "${manifestDirectory}" }
+    },
+    {
+      "id": "observe",
+      "tool": "observe",
+      "cli": "observe",
+      "arguments": {
+        "manifestDirectory": "${manifestDirectory}",
+        "request": {
+          "sessionId": "${sessionId}", "topLevelTitle": "Generated integration", "maxNodes": 40,
+          "includeScreenshot": true, "outputDirectory": "${observationDirectory}",
+          "policy": { "ownedEvidenceRoot": "${evidenceRoot}", "redactedText": ["${secret}"] }
+        }
+      }
+    },
+    {
+      "id": "multi-window",
+      "tool": "run_workflow",
+      "cli": "run-workflow",
+      "arguments": {
+        "manifestDirectory": "${manifestDirectory}",
+        "request": {
+          "sessionId": "${sessionId}", "topLevelId": null, "outputDirectory": "${workflowDirectory}",
+          "topLevelAliases": [
+            { "alias": "main", "selector": { "title": "Generated integration" } },
+            { "alias": "detail", "selector": { "title": "Generated details" } }
+          ],
+          "steps": [
+            { "id": "open", "action": "invoke", "topLevelAlias": "main", "selector": { "name": "OpenDetails" },
+              "verify": { "condition": { "kind": "top_level_opened", "topLevelTitle": "Generated details" }, "captureBefore": false } },
+            { "id": "finish", "action": "invoke", "topLevelAlias": "detail", "selector": { "name": "Complete" },
+              "verify": { "selector": { "name": "Outcome" }, "condition": { "kind": "text", "expected": "Ready" }, "timeoutMs": 2000, "pollIntervalMs": 50 } }
+          ],
+          "evidence": {
+            "captureOnFailure": true, "exportReports": true,
+            "policy": { "ownedEvidenceRoot": "${evidenceRoot}", "redactedText": ["${secret}"], "allowedActions": ["invoke"] }
+          }
+        }
+      }
+    },
+    {
+      "id": "cleanup",
+      "tool": "recover_run",
+      "cli": "recover-run",
+      "arguments": { "request": { "runId": "${runId}", "operation": "cleanup" }, "storeDirectory": "${storeDirectory}" }
+    }
+  ]
+}

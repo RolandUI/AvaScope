@@ -75,6 +75,7 @@ Per-user Windows, Linux, and macOS installers, portable executable ZIPs, and pac
 
 - [User guide](docs/USER_GUIDE.md): detailed CLI, MCP, runtime bridge, preview, screenshot, diff, baseline, packaging, and release commands.
 - [Agent workflow](docs/AGENT_WORKFLOW.md): packaged CLI runbooks for agent-driven local workflows.
+- [Agent recipes and evaluation](docs/AGENT_RECIPES.md): executable MCP/CLI recipes, clean-project onboarding and separate conformance/agent measurements.
 - [Stable surface](docs/STABLE_SURFACE.md): v1 package, protocol, CLI, MCP, exit-code, artifact, and release compatibility rules.
 - [Upgrade and compatibility](docs/UPGRADE.md): version alignment, bridge-package upgrades, CLI/MCP replacement, and capability-gated client behavior.
 - [End-to-end validation](docs/END_TO_END_VALIDATION.md): v1 source, packaged CLI, packaged MCP, runtime bridge, report, and release-readiness validation record.

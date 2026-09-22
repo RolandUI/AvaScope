@@ -185,7 +185,8 @@ jobs:
         run: |
           powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\package-provider.ps1
           pwsh -NoProfile -File .\eng\test-standalone-provider.ps1 -Native -SkipBuild
-          pwsh -NoProfile -File .\eng\test-integration-onboarding.ps1 -Native -SkipBuild
+          pwsh -NoProfile -File .\eng\test-integration-onboarding.ps1 -Native -SkipBuild -SummaryPath artifacts/onboarding-validation/recipe-source.json
+          pwsh -NoProfile -File .\eng\test-agent-recipes.ps1 -Native -SkipBuild -OnboardingReport artifacts/onboarding-validation/recipe-source.json
           pwsh -NoProfile -File .\eng\test-target-readiness.ps1
           pwsh -NoProfile -File .\eng\test-native-input.ps1
           pwsh -NoProfile -File .\eng\test-native-platform-matrix.ps1 -Backend headless -CliAssembly ./artifacts/executables/avascope-win-x64-framework-dependent/avascope.dll -McpAssembly ./artifacts/executables/avascope-win-x64-framework-dependent/AvaScope.Mcp.dll
@@ -211,6 +212,11 @@ jobs:
             artifacts/provider-validation/**/validation.json
             artifacts/onboarding-validation/**/*.log
             artifacts/onboarding-validation/**/validation.json
+            artifacts/agent-evaluations/*/evaluation*.json
+            artifacts/agent-evaluations/*/tool-events.jsonl
+            artifacts/agent-evaluations/*/result-*.json
+            artifacts/agent-evaluations/*/evidence/*/workflow/reports/*
+            artifacts/agent-evaluations/*/evidence/*/workflow/failures/**
             artifacts/readiness-validation/**/*.json
             artifacts/native-input/**/evidence/**
             artifacts/native-input/**/test.log
@@ -264,7 +270,8 @@ jobs:
           pwsh -NoProfile -File ./eng/test-native-input.ps1
           pwsh -NoProfile -File ./eng/test-native-platform-matrix.ps1 -Backend x11 -CliAssembly ./artifacts/executables/avascope-linux-x64-framework-dependent/avascope.dll -McpAssembly ./artifacts/executables/avascope-linux-x64-framework-dependent/AvaScope.Mcp.dll
           xvfb-run -a -s "-screen 0 1280x900x24 -nolisten tcp" pwsh -NoProfile -File ./eng/test-standalone-provider.ps1 -Native -SkipBuild
-          xvfb-run -a -s "-screen 0 1280x900x24 -nolisten tcp" pwsh -NoProfile -File ./eng/test-integration-onboarding.ps1 -Native -SkipBuild
+          xvfb-run -a -s "-screen 0 1280x900x24 -nolisten tcp" pwsh -NoProfile -File ./eng/test-integration-onboarding.ps1 -Native -SkipBuild -SummaryPath artifacts/onboarding-validation/recipe-source.json
+          xvfb-run -a -s "-screen 0 1280x900x24 -nolisten tcp" pwsh -NoProfile -File ./eng/test-agent-recipes.ps1 -Native -SkipBuild -OnboardingReport artifacts/onboarding-validation/recipe-source.json
           xvfb-run -a -s "-screen 0 1280x900x24 -nolisten tcp" pwsh -NoProfile -File ./eng/test-target-readiness.ps1
 
       - name: Test packaged Linux lifecycle scenario
@@ -308,6 +315,11 @@ jobs:
             artifacts/provider-validation/**/validation.json
             artifacts/onboarding-validation/**/*.log
             artifacts/onboarding-validation/**/validation.json
+            artifacts/agent-evaluations/*/evaluation*.json
+            artifacts/agent-evaluations/*/tool-events.jsonl
+            artifacts/agent-evaluations/*/result-*.json
+            artifacts/agent-evaluations/*/evidence/*/workflow/reports/*
+            artifacts/agent-evaluations/*/evidence/*/workflow/failures/**
             artifacts/readiness-validation/**/*.json
             artifacts/native-input/**/evidence/**
             artifacts/native-input/**/test.log
@@ -387,7 +399,8 @@ jobs:
           dotnet pack src/AvaScope.Bridge/AvaScope.Bridge.csproj -c Release --no-build --output artifacts/packages
           pwsh -NoProfile -File ./eng/package-provider.ps1
           pwsh -NoProfile -File ./eng/test-standalone-provider.ps1 -Native -SkipBuild
-          pwsh -NoProfile -File ./eng/test-integration-onboarding.ps1 -Native -SkipBuild
+          pwsh -NoProfile -File ./eng/test-integration-onboarding.ps1 -Native -SkipBuild -SummaryPath artifacts/onboarding-validation/recipe-source.json
+          pwsh -NoProfile -File ./eng/test-agent-recipes.ps1 -Native -SkipBuild -OnboardingReport artifacts/onboarding-validation/recipe-source.json
           pwsh -NoProfile -File ./eng/test-target-readiness.ps1
           pwsh -NoProfile -File ./eng/test-native-input.ps1
           pwsh -NoProfile -File ./eng/test-native-platform-matrix.ps1 -Backend macos -CliAssembly "./artifacts/executables/avascope-$runtime_identifier-framework-dependent/avascope.dll" -McpAssembly "./artifacts/executables/avascope-$runtime_identifier-framework-dependent/AvaScope.Mcp.dll"
@@ -422,6 +435,11 @@ jobs:
             artifacts/provider-validation/**/validation.json
             artifacts/onboarding-validation/**/*.log
             artifacts/onboarding-validation/**/validation.json
+            artifacts/agent-evaluations/*/evaluation*.json
+            artifacts/agent-evaluations/*/tool-events.jsonl
+            artifacts/agent-evaluations/*/result-*.json
+            artifacts/agent-evaluations/*/evidence/*/workflow/reports/*
+            artifacts/agent-evaluations/*/evidence/*/workflow/failures/**
             artifacts/readiness-validation/**/*.json
             artifacts/native-input/**/evidence/**
             artifacts/native-input/**/test.log

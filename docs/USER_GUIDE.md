@@ -279,6 +279,8 @@ The repository includes a tiny Avalonia 12 sample app at `samples\AvaScope.Getti
 
 For a full packaged-CLI runbook covering doctor, preview profiles, preview sessions, runtime bridge inspection, screenshots, input, and diff/baseline workflows, use [AGENT_WORKFLOW.md](AGENT_WORKFLOW.md).
 
+For concise capability-first recipes, schema-checked examples, seeded failure diagnosis and measured tool use, see [AGENT_RECIPES.md](AGENT_RECIPES.md).
+
 Build AvaScope and render the sample preview:
 
 ```powershell

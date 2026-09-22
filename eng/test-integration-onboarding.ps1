@@ -1,5 +1,5 @@
 #requires -Version 7.0
-param([string]$Configuration = 'Release', [switch]$Native, [switch]$SkipBuild)
+param([string]$Configuration = 'Release', [switch]$Native, [switch]$SkipBuild, [string]$SummaryPath)
 $ErrorActionPreference = 'Stop'
 $repoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $root = Join-Path $repoRoot ('artifacts/onboarding-validation/' + [Guid]::NewGuid().ToString('N'))
@@ -10,6 +10,7 @@ $client = Join-Path $repoRoot "tests/AvaScope.McpScenarioClient/bin/$Configurati
 $provider = Join-Path $repoRoot 'artifacts/providers/avascope-bridge-provider'
 $feed = Join-Path $root 'feed'
 $packages = Join-Path $root 'packages'
+$toolCalls = 0
 if (-not $SkipBuild) {
     & dotnet build (Join-Path $repoRoot 'AvaScope.slnx') -c $Configuration *> (Join-Path $root 'build.log')
     if ($LASTEXITCODE -ne 0) { throw 'Solution build failed.' }
@@ -55,7 +56,24 @@ class App : Application
         if (System.Environment.GetEnvironmentVariable("AVASCOPE_PROFILE_TEST_SECRET") is { } secret)
             System.Console.WriteLine($"Profile fixture secret: {secret}");
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
-            desktop.MainWindow = new Window { Title = "Generated integration", Width = 400, Height = 200, Content = new TextBox { Name = "SafeField", Text = "Inspection ready" } };
+        {
+            var open = new Button { Name = "OpenDetails", Content = "Open details" };
+            open.Click += (_, _) =>
+            {
+                var state = new TextBlock { Name = "Outcome", Text = "Waiting" };
+                var complete = new Button { Name = "Complete", Content = "Complete" };
+                complete.Click += async (_, _) =>
+                {
+                    state.Text = "Working";
+                    await System.Threading.Tasks.Task.Delay(90);
+                    state.Text = System.Environment.GetEnvironmentVariable("AVASCOPE_RECIPE_BROKEN_APP") == "1" ? "Broken" : "Ready";
+                };
+                new Window { Title = "Generated details", Width = 400, Height = 240,
+                    Content = new StackPanel { Children = { state, complete } } }.Show(desktop.MainWindow!);
+            };
+            desktop.MainWindow = new Window { Title = "Generated integration", Width = 400, Height = 240,
+                Content = new StackPanel { Children = { new TextBox { Name = "SafeField", Text = "Inspection ready" }, open } } };
+        }
         base.OnFrameworkInitializationCompleted();
     }
 }
@@ -68,6 +86,7 @@ foreach ($mode in @('standalone','package')) {
     $sourcePath = Join-Path $projectRoot 'App.cs'
     [IO.File]::WriteAllText($project, $projectText)
     [IO.File]::WriteAllText($sourcePath, $source)
+    $toolCalls++
     $guideJson = & dotnet $cli integration-guide --project $project
     if ($LASTEXITCODE -ne 0) { throw "Integration guidance failed: $guideJson" }
     $guide = ($guideJson -join [Environment]::NewLine | ConvertFrom-Json).value
@@ -79,6 +98,7 @@ foreach ($mode in @('standalone','package')) {
     [IO.File]::WriteAllText($project, $projectText.Replace('</Project>', "$projectSnippet`n</Project>"))
     [IO.File]::WriteAllText($sourcePath, $source.Replace('base.OnFrameworkInitializationCompleted();', "$sourceSnippet`n        base.OnFrameworkInitializationCompleted();"))
     if ($mode -eq 'standalone') { Copy-Item -LiteralPath (Join-Path $provider 'OptionalProviderLoader.cs') -Destination $projectRoot }
+    $toolCalls++
     $repeat = (& dotnet $cli integration-guide --project $project | ConvertFrom-Json).value
     if ($repeat.status -ne 'already_integrated' -or $repeat.guidance.Count -ne 0) { throw 'Repeated analysis proposed duplicate integration.' }
 
@@ -110,6 +130,7 @@ foreach ($mode in @('standalone','package')) {
         else { $request.safeInputTarget = @{ name = 'SafeField' }; $request.safeInputTargetDeclared = $true }
         $requestPath = Join-Path $projectRoot "$variant-request.json"
         [IO.File]::WriteAllText($requestPath, ($request | ConvertTo-Json -Depth 15))
+        $toolCalls++
         $json = & dotnet $cli verify-integration --request $requestPath
         $exitCode = $LASTEXITCODE
         [IO.File]::WriteAllText((Join-Path $projectRoot "$variant-cli.json"), ($json -join [Environment]::NewLine))
@@ -118,6 +139,7 @@ foreach ($mode in @('standalone','package')) {
         $results += @{ mode=$mode; variant=$variant; adapter='cli'; report=$response.reportPath }
         $mcpRequestPath = Join-Path $projectRoot "$variant-mcp-request.json"
         [IO.File]::WriteAllText($mcpRequestPath, (@{ request=$request } | ConvertTo-Json -Depth 15))
+        $toolCalls++
         $json = & dotnet $client $mcp $mcpRequestPath $projectRoot verify_integration
         $exitCode = $LASTEXITCODE
         [IO.File]::WriteAllText((Join-Path $projectRoot "$variant-mcp.json"), ($json -join [Environment]::NewLine))
@@ -146,9 +168,11 @@ foreach ($mode in @('standalone','package')) {
             $fixtureSecret = 'profile-fixture-' + [Guid]::NewGuid().ToString('N')
             try {
                 $env:AVASCOPE_PROFILE_TEST_SECRET = $fixtureSecret
+                $toolCalls++
                 $resolved = & dotnet $cli resolve-test-profile --profile-file $profilePath --profile smoke
                 if ($LASTEXITCODE -ne 0 -or ($resolved -join '').Contains($fixtureSecret)) { throw 'Profile resolution failed or exposed a referenced secret.' }
                 foreach ($adapter in @('cli','mcp')) {
+                    $toolCalls++
                     if ($adapter -eq 'cli') { $json = & dotnet $cli run-scenario --profile-file $profilePath --profile smoke }
                     else {
                         $profileRequest = Join-Path $projectRoot 'profile-mcp-request.json'
@@ -168,5 +192,11 @@ foreach ($mode in @('standalone','package')) {
         }
     }
 }
-[IO.File]::WriteAllText((Join-Path $root 'validation.json'), (@{success=$true; runs=$results; native=$Native.IsPresent} | ConvertTo-Json -Depth 15))
+$summary = @{success=$true; runs=$results; native=$Native.IsPresent; root=$root; toolCalls=$toolCalls; mode='deterministic_conformance'} | ConvertTo-Json -Depth 15
+[IO.File]::WriteAllText((Join-Path $root 'validation.json'), $summary)
+if ($SummaryPath) {
+    $summaryFullPath = [IO.Path]::GetFullPath($SummaryPath)
+    [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($summaryFullPath)) | Out-Null
+    [IO.File]::WriteAllText($summaryFullPath, $summary)
+}
 Write-Output "Generated both integration modes, built enabled/disabled outputs, rejected duplicate guidance and passed all 8 lifecycle plus 4 shared-profile CLI/MCP runs: $root"

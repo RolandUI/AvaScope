@@ -100,9 +100,12 @@ public sealed class BridgeIntegrationVerifier
             stages.Add(new("discovery", activated ? "passed" : started && hostError is null ? "failed" : "skipped",
                 activated ? "Session discovered and attached by the exact launched process id in the private manifest directory." : diagnostic?.Message ?? "No owned session appeared.",
                 activated ? null : "Ensure the host honors AVASCOPE_BRIDGE_MANIFEST_DIR and explicitly starts the bridge."));
-            stages.Add(new("readiness", scenario.TopLevels.Count > 0 ? "passed" : activated ? "failed" : "skipped",
-                scenario.TopLevels.Count > 0 ? $"{scenario.TopLevels.Count} top-level(s) registered." : "No registered top-level became ready.",
-                scenario.TopLevels.Count > 0 ? null : "Assign/show the application window and enable automatic bootstrap registration."));
+            var controlFailed = scenario.FailureStage == "session_control";
+            if (controlFailed) stages.Add(new("session_control", "failed", diagnostic?.Message ?? "The bridge did not grant session control.",
+                "Check the selected provider's session-control capability and any existing owner before retrying."));
+            stages.Add(new("readiness", scenario.TopLevels.Count > 0 ? "passed" : controlFailed ? "skipped" : activated ? "failed" : "skipped",
+                scenario.TopLevels.Count > 0 ? $"{scenario.TopLevels.Count} top-level(s) registered." : controlFailed ? "Session control prevented the window readiness check." : "No registered top-level became ready.",
+                scenario.TopLevels.Count > 0 || controlFailed ? null : "Assign/show the application window and enable automatic bootstrap registration."));
             var treePath = Path.Combine(root, "runtime-tree.json");
             stages.Add(new("tree", File.Exists(treePath) ? "passed" : scenario.TopLevels.Count > 0 ? "failed" : "skipped",
                 File.Exists(treePath) ? "Bounded visual tree captured." : "Visual tree capture was not completed.",

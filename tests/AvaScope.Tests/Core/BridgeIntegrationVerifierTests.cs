@@ -103,6 +103,17 @@ public sealed class BridgeIntegrationVerifierTests : IDisposable
         AssertExited(result.Value.Scenario!.Launch!.ProcessId);
     }
 
+    [Fact]
+    public async Task SessionControlFailureIsNotMisreportedAsMissingApplicationWindows()
+    {
+        var result = await new BridgeIntegrationVerifier().RunAsync(new(FixtureLaunch(["--fail-method", BridgeIpcMethods.SessionControl]), _root));
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal("session_control", result.Value!.FailureStage);
+        Assert.Equal("skipped", result.Value.Stages.Single(stage => stage.Name == "readiness").Status);
+        Assert.Equal("passed", result.Value.Stages.Single(stage => stage.Name == "cleanup").Status);
+        AssertExited(result.Value.Scenario!.Launch!.ProcessId);
+    }
+
     private static RuntimeScenarioLaunchOptions SleepingLaunch() => OperatingSystem.IsWindows()
         ? new("powershell.exe", argumentList: ["-NoProfile", "-Command", "Start-Sleep -Seconds 30"], timeoutMs: 250)
         : new("/bin/sh", argumentList: ["-c", "sleep 30"], timeoutMs: 250);
