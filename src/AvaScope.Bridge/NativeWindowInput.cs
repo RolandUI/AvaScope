@@ -136,6 +136,18 @@ internal sealed class NativeWindowInput : IDisposable
                 type, new Mac.Point(point.X, _top.ClientSize.Height - point.Y), Mac.Flags(modifiers), Environment.TickCount64 / 1000d,
                 Mac.Send(_handle, "windowNumber"), 0, 0, count, phase == "up" ? 0 : 1);
             if (value == 0) throw new InvalidOperationException("AppKit rejected the native mouse event.");
+            if (button == MouseButton.Middle && Mac.Send(value, "buttonNumber") != 2)
+            {
+                // NSEvent's mouse factory has no button-number argument and can label
+                // otherMouseDown/Up as button zero. Preserve its window/location while
+                // setting the public CGEvent button field, then rebuild the NSEvent.
+                var cgEvent = Mac.Send(value, "CGEvent");
+                if (cgEvent == 0) throw new NotSupportedException("AppKit did not expose the native middle-button event representation.");
+                Mac.CGEventSetIntegerValueField(cgEvent, 3, 2); // kCGMouseEventButtonNumber
+                value = Mac.SendArg(Mac.Class("NSEvent"), Mac.Selector("eventWithCGEvent:"), cgEvent);
+                if (value == 0 || Mac.Send(value, "buttonNumber") != 2 || Mac.Send(value, "windowNumber") != Mac.Send(_handle, "windowNumber"))
+                    throw new NotSupportedException("AppKit could not preserve the owned window and middle-button identity; no event was dispatched.");
+            }
             Mac.SendArg(_handle, Mac.Selector("sendEvent:"), value);
         }
     }
@@ -329,6 +341,8 @@ internal sealed class NativeWindowInput : IDisposable
         [DllImport(ObjC, EntryPoint = "objc_msgSend")] internal static extern nint MouseEvent(nint receiver, nint selector, long type, Point location, nuint flags, double timestamp, nint window, nint context, nint eventNumber, nint clickCount, float pressure);
         [DllImport(ObjC, EntryPoint = "objc_msgSend")] internal static extern nint KeyEvent(nint receiver, nint selector, long type, Point location, nuint flags, double timestamp, nint window, nint context, nint characters, nint ignoringModifiers, [MarshalAs(UnmanagedType.I1)] bool repeat, ushort code);
         [DllImport(ObjC, EntryPoint = "objc_msgSend")] internal static extern void InsertText(nint receiver, nint selector, nint text, Range replacement);
+        [DllImport("/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics")]
+        internal static extern void CGEventSetIntegerValueField(nint value, int field, long number);
         internal static nint Send(nint receiver, string selector) => Send0(receiver, Selector(selector));
         internal static nint String(string value) => StringUtf8(Class("NSString"), Selector("stringWithUTF8String:"), value);
         internal static nuint Flags(KeyModifiers modifiers) =>

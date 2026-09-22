@@ -1,0 +1,47 @@
+name: Native input regression
+
+on:
+  workflow_dispatch:
+    inputs:
+      runner:
+        description: Native platform to validate after an input/dialog fix
+        type: choice
+        options: [macos-latest, ubuntu-latest, windows-latest]
+        default: macos-latest
+
+permissions:
+  contents: read
+
+jobs:
+  native-input:
+    runs-on: ${{ inputs.runner }}
+    timeout-minutes: 15
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+      DOTNET_NOLOGO: "1"
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+      - name: Linux native dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb x11-utils openbox dbus libx11-6 libice6 libsm6 libfontconfig1 fonts-dejavu-core libgtk-3-0
+      - name: Build
+        run: dotnet build AvaScope.slnx -c Release
+      - name: Validate external provider input and dialogs
+        shell: pwsh
+        run: |
+          ./eng/package-provider.ps1
+          ./eng/test-native-input.ps1
+      - name: Preserve native diagnostics
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: native-input-${{ runner.os }}
+          retention-days: 7
+          path: |
+            artifacts/native-input/**/evidence/**
+            artifacts/native-input/**/test.log
