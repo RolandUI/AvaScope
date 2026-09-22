@@ -53,6 +53,23 @@ The roadmap below records the release-shaped plan through `v1.0.0`. It is intent
 - Every release must include targeted tests, full build/test validation, release dry-run validation, documentation updates, and explicit deferrals.
 - A release may be split into a patch release if a P0/P1 regression blocks users or CI, but patch scope must remain defect-focused.
 
+## Active Target: v1.5.0
+
+- Release: `v1.5.0`
+- Target Version: `1.5.0` (version bump remains the final release commit)
+- Release State: `In Progress`
+- Scope Lock: `2026-09-22`
+- GitHub Milestone: `v1.5.0`
+- Release Tracker: #156
+- Implementation Scope: #117 through #155, including the PlatynUI `new_core` refinements to #132, #136, #137 and #143
+- Previous Release: `v1.4.2`
+
+The user authorized implementation of all 39 accepted issues followed by publication. Execute dependencies in coherent batches: standalone provider/integration; reproducible environments and observations; semantic agent controls; native evidence and cross-language clients; consolidated platform/release validation. Preserve opt-in local activation, session ownership, bounded operations, compatible contracts and thin CLI/MCP adapters.
+
+Keep one implementation issue in progress. Completed implementations can enter review until a shared batch gate passes. The requested validation cadence is focused tests at meaningful checkpoints, corrective commits when needed, and a full final release gate; do not rerun unchanged suites after each edit. Cross-platform acceptance remains required, and unsupported behavior must be explicit rather than silently emulated. No scope is deferred by this plan.
+
+Release requires all #117–#155 acceptance criteria, consolidated Debug/Release tests, hosted Windows/Linux X11/native macOS validation, documented Wayland coverage, packaged CLI/MCP workflows, standalone-provider and standard artifact verification, exact-version packaging and publish dry-runs. Publish only with the final `Release 1.5.0` commit, then verify remote tag, assets and package contents before closing #156 and the milestone.
+
 ## Released Target: v1.4.2
 
 - Release: `v1.4.2`

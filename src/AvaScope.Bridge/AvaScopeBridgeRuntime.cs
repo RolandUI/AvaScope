@@ -59,6 +59,7 @@ public sealed class AvaScopeBridgeRuntime
     private long _customActionRegistrationSequence;
     private long _customActionAuditSequence;
     private LocalBridgeServer? _localServer;
+    private AutomaticTopLevelRegistration? _automaticTopLevels;
 
     internal AvaScopeBridgeRuntime(
         SessionRegistry sessionRegistry,
@@ -538,15 +539,22 @@ public sealed class AvaScopeBridgeRuntime
 
     internal CoreResult<SessionSnapshot> CloseSession()
     {
+        Interlocked.Exchange(ref _automaticTopLevels, null)?.Dispose();
         ResetActiveMutationsOnUiThread(static _ => true);
         _customActions.Clear();
+        _registeredTopLevels.Clear();
         return _sessionRegistry.Close(SessionId);
     }
 
     internal void StopLocalServer()
     {
-        _localServer?.Dispose();
-        _localServer = null;
+        Interlocked.Exchange(ref _localServer, null)?.Dispose();
+    }
+
+    internal void EnableAutomaticTopLevels(IApplicationLifetime lifetime)
+    {
+        Dispatcher.UIThread.VerifyAccess();
+        _automaticTopLevels ??= new AutomaticTopLevelRegistration(this, lifetime);
     }
 
     internal void StartLocalServer()

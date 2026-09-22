@@ -43,14 +43,22 @@ public static class AvaScopeBridge
             var sessionRegistry = options.SessionRegistry ?? new SessionRegistry();
             var session = sessionRegistry.Create(options.SessionKind, options.DisplayName);
 
-            _current = new AvaScopeBridgeRuntime(
+            var runtime = new AvaScopeBridgeRuntime(
                 sessionRegistry,
                 session,
                 BridgeTransportScope.LocalOnly,
                 options);
-            _current.StartLocalServer();
-
-            return _current;
+            try
+            {
+                runtime.StartLocalServer();
+                _current = runtime;
+                return runtime;
+            }
+            catch
+            {
+                runtime.Close();
+                throw;
+            }
         }
     }
 

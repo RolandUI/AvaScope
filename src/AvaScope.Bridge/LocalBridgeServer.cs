@@ -50,9 +50,16 @@ internal sealed class LocalBridgeServer : IDisposable
                 : null);
 
         Directory.CreateDirectory(Path.GetDirectoryName(manifestPath)!);
-        File.WriteAllText(manifestPath, JsonSerializer.Serialize(manifest), Encoding.UTF8);
-
-        return new LocalBridgeServer(runtime, pipeName, manifestPath);
+        try
+        {
+            File.WriteAllText(manifestPath, JsonSerializer.Serialize(manifest), Encoding.UTF8);
+            return new LocalBridgeServer(runtime, pipeName, manifestPath);
+        }
+        catch
+        {
+            File.Delete(manifestPath);
+            throw;
+        }
     }
 
     public void Dispose()
