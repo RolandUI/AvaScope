@@ -65,6 +65,7 @@ The stable CLI command name set is:
 - `verify-integration`
 - `resolve-test-profile`
 - `observe`
+- `observe-changes`
 - `diagnostics`
 - `attach`
 - `session-capabilities`
@@ -133,6 +134,7 @@ The stable MCP tool name set is:
 - `resolve_test_profile`
 - `doctor_target`
 - `observe`
+- `observe_changes`
 - `launch_app`
 - `list_top_levels`
 - `screenshot`

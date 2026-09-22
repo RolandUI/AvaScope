@@ -10,18 +10,7 @@ public sealed class RuntimeObserver
         ArgumentNullException.ThrowIfNull(client);
         ArgumentNullException.ThrowIfNull(request);
         var policy = request.Policy is null ? null : new RuntimeEvidencePolicyEnforcer(request.Policy);
-        if (policy is not null)
-        {
-            var session = policy.AuthorizeSession(client, request.SessionId);
-            if (!session.Success) return CoreResult<RuntimeObservationResponse>.Fail(session.Error!);
-            foreach (var action in request.IncludeScreenshot ? new[] { SemanticWorkflowActions.Inspect, SemanticWorkflowActions.Screenshot } : [SemanticWorkflowActions.Inspect])
-            {
-                var authorization = policy.AuthorizeAction(action, customActionName: null);
-                if (!authorization.Success) return CoreResult<RuntimeObservationResponse>.Fail(authorization.Error!);
-            }
-            var prepared = policy.PrepareRun(request.OutputDirectory!, [], request.RequestId);
-            if (!prepared.Success) return CoreResult<RuntimeObservationResponse>.Fail(prepared.Error!);
-        }
+        if (PreparePolicy(client, request, policy) is { } policyError) return CoreResult<RuntimeObservationResponse>.Fail(policyError);
         var result = await client.ReadObservationAsync(request, cancellationToken);
         if (!result.Success) return result;
         var response = result.Value!;
@@ -85,5 +74,33 @@ public sealed class RuntimeObserver
         }
         return CoreResult<RuntimeObservationResponse>.Ok(ResponseBudgeter.ApplyObservation(response,
             request.MaxInlineBytes, request.MaxNodes, request.MaxDepth, request.OutputDirectory));
+    }
+
+    public async Task<CoreResult<RuntimeObservationChangesResponse>> ObserveChangesAsync(LocalBridgeClient client,
+        RuntimeObservationChangesRequest request, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(client);
+        ArgumentNullException.ThrowIfNull(request);
+        var policy = request.Observation.Policy is null ? null : new RuntimeEvidencePolicyEnforcer(request.Observation.Policy);
+        if (PreparePolicy(client, request.Observation, policy) is { } error) return CoreResult<RuntimeObservationChangesResponse>.Fail(error);
+        var result = await client.ReadObservationChangesAsync(request, cancellationToken);
+        if (!result.Success) return result;
+        if (policy is not null) result = policy.Sanitize(result.Value!);
+        if (!result.Success) return result;
+        return CoreResult<RuntimeObservationChangesResponse>.Ok(ResponseBudgeter.ApplyObservationChanges(result.Value!,
+            request.Observation.MaxInlineBytes, request.MaxEvents, request.Observation.OutputDirectory));
+    }
+
+    private static CoreError? PreparePolicy(LocalBridgeClient client, RuntimeObservationRequest request, RuntimeEvidencePolicyEnforcer? policy)
+    {
+        if (policy is null) return null;
+        var session = policy.AuthorizeSession(client, request.SessionId);
+        if (!session.Success) return session.Error;
+        foreach (var action in request.IncludeScreenshot ? new[] { SemanticWorkflowActions.Inspect, SemanticWorkflowActions.Screenshot } : [SemanticWorkflowActions.Inspect])
+        {
+            var authorization = policy.AuthorizeAction(action, customActionName: null);
+            if (!authorization.Success) return authorization.Error;
+        }
+        return policy.PrepareRun(request.OutputDirectory!, [], request.RequestId).Error;
     }
 }

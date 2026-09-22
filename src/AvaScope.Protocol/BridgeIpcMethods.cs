@@ -6,6 +6,7 @@ public static class BridgeIpcMethods
     public const string Capabilities = "capabilities";
     public const string Readiness = "readiness";
     public const string Observe = "observe";
+    public const string ObserveChanges = "observe_changes";
     public const string ListTopLevels = "list_top_levels";
     public const string Screenshot = "screenshot";
     public const string VisualTree = "visual_tree";
@@ -28,6 +29,7 @@ public static class BridgeIpcMethods
         Capabilities,
         Readiness,
         Observe,
+        ObserveChanges,
         ListTopLevels,
         Screenshot,
         VisualTree,

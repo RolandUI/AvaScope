@@ -12,6 +12,8 @@ Use [runtime readiness](RUNTIME_READINESS.md) to distinguish bridge availability
 
 Use [`observe`](RUNTIME_OBSERVATIONS.md) for one bounded request containing selected windows, focus, visual fragments, available actions, validation and optional screenshot evidence. Check per-part availability and sampled consistency before acting.
 
+Use [`observe_changes`](RUNTIME_OBSERVATION_CHANGES.md) to continue a scoped cursor with bounded changes and compact unchanged results. Check resynchronization and artifact requirements before advancing the cursor; intermediate states between samples may coalesce.
+
 ## 1. Create And Install A Local Release
 
 ```powershell

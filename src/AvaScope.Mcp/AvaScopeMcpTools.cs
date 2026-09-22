@@ -9,6 +9,13 @@ namespace AvaScope.Mcp;
 [McpServerToolType]
 public sealed class AvaScopeMcpTools
 {
+    [McpServerTool(Name = "observe_changes", Title = "Observe runtime changes", ReadOnly = true, Idempotent = true,
+        Destructive = false, OpenWorld = false, UseStructuredContent = true)]
+    [Description("Returns ordered bounded changes from an explicit observation cursor, or a baseline for initialization/resynchronization. Cursor scope includes session, filters and policy; expiry, eviction, restart, overflow and invalid scope never claim complete history. Optional bounded polling samples current state; intermediate states may be coalesced. Read a required response artifact before advancing its cursor.")]
+    public static async Task<ToolResult<RuntimeObservationChangesResponse>> ObserveChanges(LocalBridgeClient bridgeClient,
+        RuntimeObservationChangesRequest request, string? manifestDirectory = null, CancellationToken cancellationToken = default)
+        => ToToolResult(await new RuntimeObserver().ObserveChangesAsync(CreateBridgeClient(bridgeClient, manifestDirectory), request, cancellationToken));
+
     [McpServerTool(Name = "observe", Title = "Observe runtime UI", ReadOnly = true, Idempotent = true,
         Destructive = false, OpenWorld = false, UseStructuredContent = true)]
     [Description("Collects selected windows, focus, bounded flat visual fragments, available actions, public validation diagnostics and optional screenshots in one request. Returns generation/correlation identifiers, per-part availability and sampled change detection; never claims atomic tree/screenshot consistency. Optional local evidence policy redacts/excludes every part before bounded artifact export.")]

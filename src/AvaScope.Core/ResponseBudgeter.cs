@@ -42,7 +42,23 @@ public static class ResponseBudgeter
                 => (T)(object)ApplyScenario(response, maxInlineBytes, maxItems, maxDepth),
             RuntimeObservationResponse response when response.ResponseBudget is null
                 => (T)(object)ApplyObservation(response, maxInlineBytes, maxItems, maxDepth),
+            RuntimeObservationChangesResponse response when response.ResponseBudget is null
+                => (T)(object)ApplyObservationChanges(response, maxInlineBytes, maxItems),
             _ => value
+        };
+    }
+
+    public static RuntimeObservationChangesResponse ApplyObservationChanges(RuntimeObservationChangesResponse response,
+        int maxInlineBytes, int maxItems, string? artifactDirectory = null)
+    {
+        var payload = Serialize(response);
+        if (payload.Length <= maxInlineBytes) return response;
+        var artifact = WriteArtifact("observation-changes", payload, artifactDirectory);
+        return response with
+        {
+            Events = [], Baseline = null, RequiresArtifactRead = true,
+            ResponseBudget = CreateInfo(maxInlineBytes, payload.Length, maxItems, response.Events.Count, 0, 8, 8, 0,
+                artifact, ["byte_budget", "read_artifact_before_advancing_cursor"])
         };
     }
 

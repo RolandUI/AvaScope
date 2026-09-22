@@ -203,6 +203,27 @@ public sealed class RuntimeObservationTests
                     Assert.Equal(cli.Value.Windows[0].Nodes.Select(node => node.NodeId), mcp.Value.Windows[0].Nodes.Select(node => node.NodeId));
                     Assert.Equal(cli.Value.Windows[0].Window, mcp.Value.Windows[0].Window);
                     Assert.NotEqual(cli.Value.ObservationId, mcp.Value.ObservationId);
+                    await File.WriteAllTextAsync(requestPath, JsonSerializer.Serialize(new RuntimeObservationChangesRequest(request)));
+                    start.ArgumentList[1] = "observe-changes";
+                    using var changesProcess = Process.Start(start)!;
+                    var changesOutput = changesProcess.StandardOutput.ReadToEndAsync(timeout.Token);
+                    var changesError = changesProcess.StandardError.ReadToEndAsync(timeout.Token);
+                    await changesProcess.WaitForExitAsync(timeout.Token);
+                    Assert.Equal(0, changesProcess.ExitCode);
+                    Assert.True(string.IsNullOrWhiteSpace(await changesError));
+                    var initial = JsonSerializer.Deserialize<ToolResult<RuntimeObservationChangesResponse>>(await changesOutput)!;
+                    Assert.True(initial.Success, initial.Error?.Message);
+                    Assert.Equal("baseline", initial.Value!.Status);
+                    var continuation = await client.CallToolAsync("observe_changes", new Dictionary<string, object?>
+                    {
+                        ["request"] = JsonSerializer.SerializeToElement(new RuntimeObservationChangesRequest(request, initial.Value.Cursor)),
+                        ["manifestDirectory"] = Path.GetDirectoryName(runtime.SessionManifestPath)
+                    }, cancellationToken: timeout.Token);
+                    var continued = JsonSerializer.Deserialize<ToolResult<RuntimeObservationChangesResponse>>(JsonSerializer.Serialize(continuation.StructuredContent))!;
+                    Assert.True(continued.Success, continued.Error?.Message);
+                    Assert.Equal("unchanged", continued.Value!.Status);
+                    Assert.Equal(initial.Value.Cursor, continued.Value.Cursor);
+                    Assert.Null(continued.Value.Baseline);
                 }
                 finally
                 {

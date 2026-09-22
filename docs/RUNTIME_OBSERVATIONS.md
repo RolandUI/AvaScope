@@ -20,6 +20,8 @@ An observation includes a correlation `requestId`, unique `observationId`, sessi
 
 ## Collection and scope
 
+For repeated inspection, [`observe_changes`](RUNTIME_OBSERVATION_CHANGES.md) provides scoped cursors, bounded sampled deltas and explicit resynchronization when retained history is unavailable.
+
 The bridge coordinates tree, window and focus reads in one UI-dispatcher pass. Optional bounded render fences/screenshots follow; a second dispatcher pass compares the sampled projection. `changedDuringCollection` and `consistency` report detected changes or an unavailable comparison. `no_sampled_change_detected` is limited to the sampled properties and targets, including their redacted projection. It is never a promise of atomic screenshot/tree consistency, global idleness or a native desktop screenshot. The screenshot's provenance and readiness record describe its actual route.
 
 With no `topLevelIds`, the request samples up to four windows in the selected session. Use exact `topLevelTitle`, `activeOnly`, or explicit ids to narrow it. `rootNodeId` requires one explicit top-level id and selects a visual subtree. Missing focus is distinguished from focus outside that subtree. Policy exclusions remove matching nodes and their descendants, including excluded focus identities.

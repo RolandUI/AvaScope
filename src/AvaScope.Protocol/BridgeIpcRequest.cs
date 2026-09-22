@@ -43,7 +43,8 @@ public sealed record BridgeIpcRequest
         RuntimeTargetContext? inputTarget = null,
         RuntimeTargetContext? gestureDestinationTarget = null,
         RuntimeReadinessProbeOptions? readiness = null,
-        RuntimeObservationRequest? observation = null)
+        RuntimeObservationRequest? observation = null,
+        RuntimeObservationChangesRequest? observationChanges = null)
     {
         if (string.IsNullOrWhiteSpace(requestId))
         {
@@ -93,6 +94,7 @@ public sealed record BridgeIpcRequest
         GestureDestinationTarget = gestureDestinationTarget;
         Readiness = readiness;
         Observation = observation;
+        ObservationChanges = observationChanges;
     }
 
     [JsonPropertyName("requestId")]
@@ -105,6 +107,10 @@ public sealed record BridgeIpcRequest
     [JsonPropertyName("observation")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public RuntimeObservationRequest? Observation { get; }
+
+    [JsonPropertyName("observationChanges")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public RuntimeObservationChangesRequest? ObservationChanges { get; }
 
     [JsonPropertyName("method")]
     public string Method { get; }

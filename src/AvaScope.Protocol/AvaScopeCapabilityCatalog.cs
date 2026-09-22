@@ -116,6 +116,9 @@ public static class AvaScopeCapabilityCatalog
             Capability(AvaScopeCapabilityIds.RuntimeObservation, "runtime",
                 "Coordinated bounded windows, focus, nodes/actions, public validation and optional screenshot with sampled consistency and policy-redacted artifacts.",
                 ["observe"], requires: [AvaScopeCapabilityIds.RuntimeInspect]),
+            Capability(AvaScopeCapabilityIds.RuntimeObservationChanges, "runtime",
+                "Session/filter/policy-scoped bounded sampled change journals with expiry, overflow resynchronization, cancellation and local long-poll.",
+                ["observe-changes", "observe_changes"], requires: [AvaScopeCapabilityIds.RuntimeObservation]),
             Capability(
                 AvaScopeCapabilityIds.RuntimeManagedX11,
                 "runtime",
@@ -576,6 +579,8 @@ public static class AvaScopeCapabilityCatalog
             Mcp("doctor_target", AvaScopeCapabilityIds.DiagnosticsTargetReadiness),
             Cli("observe", AvaScopeCapabilityIds.RuntimeObservation, AvaScopeCapabilityIds.SafetyLocalOnly),
             Mcp("observe", AvaScopeCapabilityIds.RuntimeObservation, AvaScopeCapabilityIds.SafetyLocalOnly),
+            Cli("observe-changes", AvaScopeCapabilityIds.RuntimeObservationChanges, AvaScopeCapabilityIds.SafetyLocalOnly),
+            Mcp("observe_changes", AvaScopeCapabilityIds.RuntimeObservationChanges, AvaScopeCapabilityIds.SafetyLocalOnly),
             Cli("diagnostics", AvaScopeCapabilityIds.DiagnosticsSummary, AvaScopeCapabilityIds.SafetyLocalOnly),
             Mcp("diagnostics", AvaScopeCapabilityIds.DiagnosticsSummary, AvaScopeCapabilityIds.SafetyLocalOnly),
             Cli("attach", AvaScopeCapabilityIds.RuntimeAttach),

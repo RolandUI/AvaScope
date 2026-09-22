@@ -17,6 +17,7 @@ public static class AvaScopeCapabilityIds
     public const string RuntimeManagedX11 = "runtime.managed_x11";
     public const string RuntimeReadiness = "runtime.readiness";
     public const string RuntimeObservation = "runtime.observation";
+    public const string RuntimeObservationChanges = "runtime.observation_changes";
     public const string DiagnosticsTargetReadiness = "diagnostics.target_readiness";
     public const string RuntimeSessionLifecycle = "runtime.session_lifecycle";
     public const string RuntimeTrees = "runtime.trees";

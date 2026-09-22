@@ -552,6 +552,11 @@ public sealed partial class AvaScopeBridgeRuntime
 
     internal CoreResult<SessionSnapshot> CloseSession()
     {
+        lock (_observationChangesLock)
+        {
+            _observationChangesClosed = true;
+            _observationChanges.Clear();
+        }
         Interlocked.Exchange(ref _automaticTopLevels, null)?.Dispose();
         ResetActiveMutationsOnUiThread(static _ => true);
         _customActions.Clear();

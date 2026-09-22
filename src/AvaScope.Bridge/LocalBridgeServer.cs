@@ -324,6 +324,7 @@ internal sealed class LocalBridgeServer : IDisposable
             BridgeIpcMethods.Screenshot => Respond(await CaptureScreenshotAsync(request, cancellationToken)),
             BridgeIpcMethods.Readiness => Respond(await ReadinessAsync(request, cancellationToken)),
             BridgeIpcMethods.Observe => Respond(await ObserveAsync(request, cancellationToken)),
+            BridgeIpcMethods.ObserveChanges => Respond(await ObserveChangesAsync(request, cancellationToken)),
             BridgeIpcMethods.VisualTree => Respond(await GetTreeAsync(request, TreeKinds.Visual, cancellationToken)),
             BridgeIpcMethods.LogicalTree => Respond(await GetTreeAsync(request, TreeKinds.Logical, cancellationToken)),
             BridgeIpcMethods.InspectNode => Respond(await InspectNodeAsync(request, cancellationToken)),
@@ -393,6 +394,15 @@ internal sealed class LocalBridgeServer : IDisposable
         if (request.Observation is null)
             return BridgeIpcResponse.Fail(request.RequestId, new ProtocolError("missing_observation_request", "Observation options are required."));
         var result = await _runtime.ObserveAsync(request.Observation, cancellationToken);
+        return result.Success ? BridgeIpcResponse.Ok(request.RequestId, result.Value)
+            : BridgeIpcResponse.Fail(request.RequestId, ToProtocolError(result.Error!));
+    }
+
+    private async Task<BridgeIpcResponse> ObserveChangesAsync(BridgeIpcRequest request, CancellationToken cancellationToken)
+    {
+        if (request.ObservationChanges is null)
+            return BridgeIpcResponse.Fail(request.RequestId, new ProtocolError("missing_observation_changes_request", "Change observation options are required."));
+        var result = await _runtime.ObserveChangesAsync(request.ObservationChanges, cancellationToken);
         return result.Success ? BridgeIpcResponse.Ok(request.RequestId, result.Value)
             : BridgeIpcResponse.Fail(request.RequestId, ToProtocolError(result.Error!));
     }
