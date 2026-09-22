@@ -77,6 +77,7 @@ public sealed class NativeInputIntegrationTests
                 ["execution"] = JsonSerializer.SerializeToElement(clickOptions with { Button = "middle", ClickCount = 3 })
             }, cancellationToken: token);
             var middleResult = JsonSerializer.Deserialize<ToolResult<InputResponse>>(JsonSerializer.Serialize(middle.StructuredContent))!;
+            await File.WriteAllTextAsync(Path.Combine(output, "middle-input-result.json"), JsonSerializer.Serialize(middleResult), token);
             Assert.True(middleResult.Success, middleResult.Error?.Message);
             Assert.Equal(route, middleResult.Value!.Provenance!.Route);
             await WaitText("InputState", "MiddleButtonPressed:3:None");

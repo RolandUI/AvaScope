@@ -167,7 +167,8 @@ public sealed partial class AvaScopeBridgeRuntime
                 }, DispatcherPriority.Send);
                 await release.GetTask().WaitAsync(TimeSpan.FromSeconds(1));
             }
-            catch (Exception exception) when (exception is TimeoutException or InvalidOperationException or System.Runtime.InteropServices.ExternalException)
+            catch (Exception exception) when (exception is TimeoutException or InvalidOperationException or NotSupportedException
+                or System.Runtime.InteropServices.ExternalException or DllNotFoundException or EntryPointNotFoundException)
             {
                 cleanup = "failed_or_pending";
                 error ??= new CoreError(BridgeErrorCodes.InvalidInputRequest, "Input cleanup did not complete; inspect the selected app before continuing.");

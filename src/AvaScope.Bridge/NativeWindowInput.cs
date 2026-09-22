@@ -138,15 +138,32 @@ internal sealed class NativeWindowInput : IDisposable
             if (value == 0) throw new InvalidOperationException("AppKit rejected the native mouse event.");
             if (button == MouseButton.Middle && Mac.Send(value, "buttonNumber") != 2)
             {
-                // NSEvent's mouse factory has no button-number argument and can label
-                // otherMouseDown/Up as button zero. Preserve its window/location while
-                // setting the public CGEvent button field, then rebuild the NSEvent.
-                var cgEvent = Mac.Send(value, "CGEvent");
+                // The public factory omits the button number. A CGEvent round trip
+                // supplies it but can lose the NSWindow association. Address only our
+                // validated NSWindow and explicitly preserve window-local coordinates;
+                // never post the event to the desktop or patch private AppKit fields.
+                var original = Mac.Send(value, "CGEvent");
+                var cgEvent = original == 0 ? 0 : Mac.CGEventCreateCopy(original);
                 if (cgEvent == 0) throw new NotSupportedException("AppKit did not expose the native middle-button event representation.");
-                Mac.CGEventSetIntegerValueField(cgEvent, 3, 2); // kCGMouseEventButtonNumber
-                value = Mac.SendArg(Mac.Class("NSEvent"), Mac.Selector("eventWithCGEvent:"), cgEvent);
-                if (value == 0 || Mac.Send(value, "buttonNumber") != 2 || Mac.Send(value, "windowNumber") != Mac.Send(_handle, "windowNumber"))
-                    throw new NotSupportedException("AppKit could not preserve the owned window and middle-button identity; no event was dispatched.");
+                try
+                {
+                    Mac.CGEventSetIntegerValueField(cgEvent, 3, 2); // kCGMouseEventButtonNumber
+                    value = Mac.SendArg(Mac.Class("NSEvent"), Mac.Selector("eventWithCGEvent:"), cgEvent);
+                    var position = Mac.SendPoint(value, Mac.Selector("locationInWindow"));
+                    var cgPosition = Mac.CGEventGetLocation(cgEvent);
+                    var desired = new Mac.Point(point.X, _top.ClientSize.Height - point.Y);
+                    Mac.CGEventSetLocation(cgEvent, new(cgPosition.X + desired.X - position.X, cgPosition.Y - desired.Y + position.Y));
+                    value = Mac.SendArg(Mac.Class("NSEvent"), Mac.Selector("eventWithCGEvent:"), cgEvent);
+                    position = Mac.SendPoint(value, Mac.Selector("locationInWindow"));
+                    var windowNumber = Mac.Send(value, "windowNumber");
+                    if (value == 0 || Mac.Send(value, "buttonNumber") != 2
+                        || (windowNumber != 0 && windowNumber != Mac.Send(_handle, "windowNumber"))
+                        || Math.Abs(position.X - desired.X) > .01 || Math.Abs(position.Y - desired.Y) > .01)
+                        throw new NotSupportedException("AppKit could not preserve the owned-window coordinates and middle-button identity; no event was dispatched.");
+                    Mac.SendArg(_handle, Mac.Selector("sendEvent:"), value);
+                }
+                finally { Mac.CFRelease(cgEvent); }
+                return;
             }
             Mac.SendArg(_handle, Mac.Selector("sendEvent:"), value);
         }
@@ -341,8 +358,17 @@ internal sealed class NativeWindowInput : IDisposable
         [DllImport(ObjC, EntryPoint = "objc_msgSend")] internal static extern nint MouseEvent(nint receiver, nint selector, long type, Point location, nuint flags, double timestamp, nint window, nint context, nint eventNumber, nint clickCount, float pressure);
         [DllImport(ObjC, EntryPoint = "objc_msgSend")] internal static extern nint KeyEvent(nint receiver, nint selector, long type, Point location, nuint flags, double timestamp, nint window, nint context, nint characters, nint ignoringModifiers, [MarshalAs(UnmanagedType.I1)] bool repeat, ushort code);
         [DllImport(ObjC, EntryPoint = "objc_msgSend")] internal static extern void InsertText(nint receiver, nint selector, nint text, Range replacement);
+        [DllImport(ObjC, EntryPoint = "objc_msgSend")] internal static extern Point SendPoint(nint receiver, nint selector);
+        [DllImport("/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics")]
+        internal static extern nint CGEventCreateCopy(nint value);
+        [DllImport("/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics")]
+        internal static extern Point CGEventGetLocation(nint value);
+        [DllImport("/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics")]
+        internal static extern void CGEventSetLocation(nint value, Point location);
         [DllImport("/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics")]
         internal static extern void CGEventSetIntegerValueField(nint value, int field, long number);
+        [DllImport("/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation")]
+        internal static extern void CFRelease(nint value);
         internal static nint Send(nint receiver, string selector) => Send0(receiver, Selector(selector));
         internal static nint String(string value) => StringUtf8(Class("NSString"), Selector("stringWithUTF8String:"), value);
         internal static nuint Flags(KeyModifiers modifiers) =>
