@@ -13,7 +13,9 @@ public sealed record RuntimeTargetContext
         DateTimeOffset? capturedAt = null,
         string? targetKind = null,
         string? topLevelGeneration = null,
-        string? nodeGeneration = null)
+        string? nodeGeneration = null,
+        SemanticWorkflowSelector? selection = null,
+        string? selectionRevision = null)
     {
         SessionId = sessionId ?? throw new ArgumentNullException(nameof(sessionId));
 
@@ -46,6 +48,8 @@ public sealed record RuntimeTargetContext
         TargetKind = normalizedTargetKind;
         TopLevelGeneration = normalizedTopLevelGeneration;
         NodeGeneration = normalizedNodeGeneration;
+        Selection = selection;
+        SelectionRevision = selectionRevision;
     }
 
     [JsonPropertyName("sessionId")]
@@ -76,4 +80,10 @@ public sealed record RuntimeTargetContext
     [JsonPropertyName("nodeGeneration")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? NodeGeneration { get; }
+
+    [JsonPropertyName("selection"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public SemanticWorkflowSelector? Selection { get; }
+
+    [JsonPropertyName("selectionRevision"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? SelectionRevision { get; }
 }

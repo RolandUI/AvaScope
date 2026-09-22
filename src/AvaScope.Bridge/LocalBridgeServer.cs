@@ -484,6 +484,12 @@ internal sealed class LocalBridgeServer : IDisposable
         BridgeIpcRequest request,
         CancellationToken cancellationToken)
     {
+        if (request.Query is { } query)
+        {
+            var queried = await _runtime.QueryNodesAsync(query, cancellationToken);
+            return queried.Success ? BridgeIpcResponse.Ok(request.RequestId, queried.Value)
+                : BridgeIpcResponse.Fail(request.RequestId, ToProtocolError(queried.Error!));
+        }
         if (string.IsNullOrWhiteSpace(request.TopLevelId))
         {
             return BridgeIpcResponse.Fail(
@@ -554,7 +560,7 @@ internal sealed class LocalBridgeServer : IDisposable
             request.TopLevelId,
             request.TreeKind,
             request.NodeId,
-            cancellationToken);
+            cancellationToken, request.InputTarget);
 
         return result.Success
             ? BridgeIpcResponse.Ok(request.RequestId, result.Value)

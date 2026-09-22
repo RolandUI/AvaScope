@@ -192,6 +192,8 @@ public static class WorkflowExporter
             void CheckSelector(JsonObject? selector, InspectNodeResponse? inspection, string id)
             {
                 if (selector is null) return;
+                if (selector["relationships"] is JsonArray relationships)
+                    foreach (var relation in relationships.OfType<JsonObject>()) CheckSelector(relation["selector"] as JsonObject, null, id);
                 var transient = selector["nodeId"]?.GetValue<string>();
                 if (transient is not null)
                 {
@@ -203,7 +205,8 @@ public static class WorkflowExporter
                     }
                     Review("selector_rebound", id, "A transient node id was removed. The semantic selector must resolve uniquely on replay.");
                 }
-                if (new[] { "automationId", "name", "bindingPath", "commandName" }.All(key => string.IsNullOrWhiteSpace(selector[key]?.GetValue<string>())))
+                if (new[] { "automationId", "name", "bindingPath", "commandName" }.All(key => string.IsNullOrWhiteSpace(selector[key]?.GetValue<string>()))
+                    && selector["relationships"] is not JsonArray { Count: > 0 })
                     Review("unstable_selector", id, "The selector has no stable automation id, name, binding path or command. Supply one before replay.", true);
             }
             void CheckCondition(JsonObject? condition, string id)

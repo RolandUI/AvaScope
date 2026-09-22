@@ -50,7 +50,8 @@ public sealed record BridgeIpcRequest
         RuntimeNativePickerRequest? nativePicker = null,
         SessionControlRequest? sessionControl = null,
         string? controlToken = null,
-        RuntimeActionExplanationRequest? actionExplanation = null)
+        RuntimeActionExplanationRequest? actionExplanation = null,
+        RuntimeQueryRequest? query = null)
     {
         if (string.IsNullOrWhiteSpace(requestId))
         {
@@ -107,6 +108,7 @@ public sealed record BridgeIpcRequest
         SessionControl = sessionControl;
         ControlToken = controlToken;
         ActionExplanation = actionExplanation;
+        Query = query;
     }
 
     [JsonPropertyName("requestId")]
@@ -115,6 +117,9 @@ public sealed record BridgeIpcRequest
     [JsonPropertyName("actionExplanation")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public RuntimeActionExplanationRequest? ActionExplanation { get; }
+
+    [JsonPropertyName("query"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public RuntimeQueryRequest? Query { get; }
 
     [JsonPropertyName("inputExecution")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

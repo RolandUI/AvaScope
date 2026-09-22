@@ -638,7 +638,7 @@ public sealed class SemanticWorkflowRunner
                     request.TopLevelId!,
                     target.Value!.Target.TreeKind ?? TreeKinds.Visual,
                     target.Value.Target.NodeId!,
-                    cancellationToken);
+                    cancellationToken, target: target.Value.Target.Selection is null ? null : target.Value.Target);
                 if (inspect.Success)
                 {
                     inspection = inspect.Value;
@@ -791,7 +791,7 @@ public sealed class SemanticWorkflowRunner
                     resolvedTopLevelId,
                     target.Value!.Target.TreeKind ?? TreeKinds.Visual,
                     target.Value.Target.NodeId!,
-                    cancellationToken);
+                    cancellationToken, target: target.Value.Target.Selection is null ? null : target.Value.Target);
                 if (inspect.Success)
                 {
                     inspection = inspect.Value;
@@ -906,6 +906,14 @@ public sealed class SemanticWorkflowRunner
             if (resolvedTopLevelId is null || selector is not { HasSearchCriteria: true })
             {
                 MarkUnavailable("selector_candidates");
+            }
+            else if (selector.Relationships.Count > 0)
+            {
+                var candidates = await context.BridgeClient.QueryNodesAsync(new(request.SessionId, resolvedTopLevelId,
+                    selector, maxResults: Math.Min(options.MaxSelectorCandidates, 64), maxDepth: Math.Min(selector.MaxDepth ?? options.TreeDepth, 32),
+                    policy: request.Evidence?.Policy), cancellationToken);
+                if (candidates.Success) candidatesPath = WriteJson("selector_candidates", "selector-candidates.json", candidates.Value!);
+                else AddUnavailable("selector_candidates", candidates.Error!);
             }
             else if (!string.IsNullOrWhiteSpace(selector.BindingPath) || !string.IsNullOrWhiteSpace(selector.CommandName))
             {
@@ -2056,7 +2064,7 @@ public sealed class SemanticWorkflowRunner
                             pollRequest.TopLevelId!,
                             lastTarget.TreeKind ?? TreeKinds.Visual,
                             lastTarget.NodeId!,
-                            attemptCancellation.Token);
+                            attemptCancellation.Token, target: lastTarget.Selection is null ? null : lastTarget);
                         if (inspect.Success)
                         {
                             lastError = null;
@@ -3047,7 +3055,7 @@ public sealed class SemanticWorkflowRunner
             request.TopLevelId!,
             target.Value!.Target.TreeKind ?? TreeKinds.Visual,
             target.Value.Target.NodeId!,
-            cancellationToken);
+            cancellationToken, target: target.Value.Target.Selection is null ? null : target.Value.Target);
 
         return result.Success
             ? Pass(step, "Node inspection captured.", target.Value.Target, inspection: result.Value)
@@ -3076,7 +3084,7 @@ public sealed class SemanticWorkflowRunner
             request.TopLevelId!,
             target.Value!.Target.TreeKind ?? TreeKinds.Visual,
             target.Value.Target.NodeId!,
-            cancellationToken);
+            cancellationToken, target: target.Value.Target.Selection is null ? null : target.Value.Target);
 
         if (!inspect.Success)
         {
@@ -3353,6 +3361,27 @@ public sealed class SemanticWorkflowRunner
             return CoreResult<ResolvedWorkflowTarget>.Fail(new CoreError(
                 CoreErrorCodes.InvalidBridgeRequest,
                 $"{selectorRole} requires a selector."));
+        }
+
+        if (selector.Relationships.Count > 0)
+        {
+            var query = await bridgeClient.QueryNodesAsync(new(request.SessionId, request.TopLevelId!, selector,
+                maxResults: 9, maxDepth: Math.Min(selector.MaxDepth ?? request.MaxDepth, 32), policy: request.Evidence?.Policy), cancellationToken);
+            if (!query.Success) return CoreResult<ResolvedWorkflowTarget>.Fail(query.Error!);
+            if (query.Value!.Coverage?.Complete != true || query.Value.Matches.Count != 1)
+            {
+                var details = new Dictionary<string, string>(CreateAmbiguityDetails(selector, query.Value.Matches.Select(match => match.Node), request.TopLevelId!), StringComparer.Ordinal)
+                {
+                    ["coverage"] = JsonSerializer.Serialize(query.Value.Coverage),
+                    ["rejectedCandidates"] = JsonSerializer.Serialize(query.Value.Candidates),
+                    ["nextAction"] = "Inspect the bounded candidates and coverage; narrow the relationship selector or increase its explicit scope before acting."
+                };
+                return CoreResult<ResolvedWorkflowTarget>.Fail(new(CoreErrorCodes.InvalidBridgeRequest,
+                    query.Value.Coverage?.Complete == true && query.Value.Matches.Count == 0
+                        ? $"{selectorRole} selector did not match any node. Inspect the rejected relationship candidates."
+                        : "The relationship selector must resolve to exactly one target with complete query coverage.", details));
+            }
+            return CoreResult<ResolvedWorkflowTarget>.Ok(CreateResolvedTarget(query.Value.Matches[0].Node));
         }
 
         if (!string.IsNullOrWhiteSpace(selector.NodeId))
@@ -3765,6 +3794,7 @@ public sealed class SemanticWorkflowRunner
         CopyDetail(details, "role", selector.Role);
         CopyDetail(details, "bindingPath", selector.BindingPath);
         CopyDetail(details, "commandName", selector.CommandName);
+        if (selector.Relationships.Count > 0) details["relationships"] = JsonSerializer.Serialize(selector.Relationships);
         CopyDetail(details, "visible", selector.Visible);
         CopyDetail(details, "enabled", selector.Enabled);
         CopyDetail(details, "rendered", selector.Rendered);

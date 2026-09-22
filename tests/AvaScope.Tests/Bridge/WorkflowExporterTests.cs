@@ -259,6 +259,22 @@ public sealed class WorkflowExporterTests : IDisposable
         Assert.Contains(invalid.Value.Diagnostics, error => error.Code == "semantic_workflow_input_execution_invalid");
     }
 
+    [Fact]
+    public async Task ExportRetainsRelationshipsWhileRemovingTheirTransientNodeIds()
+    {
+        var source = Source(new SemanticWorkflowStep(SemanticWorkflowActions.Invoke, "edit",
+            new(nodeType: "Button", relationships: [new("ancestor", new(nodeId: "visual:old-container", name: "Shipping"))]), topLevelAlias: "main"));
+        var exported = WorkflowExporter.Export(new(source, Recording(source), _root));
+        Assert.True(exported.Success, exported.Error?.Message);
+        Assert.True(exported.Value!.Validated);
+        var text = File.ReadAllText(exported.Value.WorkflowPath);
+        Assert.DoesNotContain("visual:old-container", text);
+        Assert.Contains("Shipping", text);
+        Assert.Contains("ancestor", text);
+        var replay = await WorkflowExporter.ReplayAsync(new(), new(exported.Value.ExportPath, new("fresh"), _root, AcknowledgeReview: true));
+        Assert.Equal("validated", replay.Value!.Status);
+    }
+
     private static SemanticWorkflowRequest Source(params SemanticWorkflowStep[] steps) => new(new("recorded"), null, steps,
         requestId: "recorded", topLevelAliases: [MainAlias]);
 

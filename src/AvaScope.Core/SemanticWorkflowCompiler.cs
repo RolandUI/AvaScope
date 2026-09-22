@@ -465,6 +465,12 @@ internal static partial class SemanticWorkflowCompiler
 
         private void ValidateStepShape(SemanticWorkflowStep step, string path, bool insideRetry)
         {
+            foreach (var selector in new[] { step.Selector, step.DestinationSelector, step.Verify?.Selector })
+                if (selector is { Relationships.Count: > 0 })
+                {
+                    try { _ = new RuntimeQueryRequest(_request.SessionId, _request.TopLevelId ?? "alias", selector, maxDepth: Math.Min(selector.MaxDepth ?? _request.MaxDepth, 32)); }
+                    catch (ArgumentException exception) { AddDiagnostic("semantic_workflow_relationship_invalid", exception.Message, path); }
+                }
             if (step.InputExecution is { } execution)
             {
                 var inputAction = step.Action == SemanticWorkflowActions.TypeText ? InputActions.KeyText
@@ -845,7 +851,9 @@ internal static partial class SemanticWorkflowCompiler
                     selector.Visible,
                     selector.Enabled,
                     selector.Rendered,
-                    selector.Actionable);
+                    selector.Actionable,
+                    selector.Relationships.Select(relation => new RuntimeSelectorRelationship(relation.Kind,
+                        ResolveSelector(relation.Selector, variables, path + ".relationships")!, relation.MaxDepth)).ToArray());
         }
 
         private SemanticWaitCondition? ResolveCondition(

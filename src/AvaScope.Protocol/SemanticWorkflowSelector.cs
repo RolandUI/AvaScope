@@ -19,7 +19,8 @@ public sealed record SemanticWorkflowSelector
         bool? visible = null,
         bool? enabled = null,
         bool? rendered = null,
-        bool? actionable = null)
+        bool? actionable = null,
+        IReadOnlyList<RuntimeSelectorRelationship>? relationships = null)
     {
         if (maxDepth is < 0)
         {
@@ -40,6 +41,11 @@ public sealed record SemanticWorkflowSelector
         Enabled = enabled;
         Rendered = rendered;
         Actionable = actionable;
+        Relationships = relationships?.ToArray() ?? [];
+        if (Relationships.Count > 4 || Relationships.Any(relation => relation is null))
+            throw new ArgumentException("At most four non-null relationships are allowed per selector.", nameof(relationships));
+        if (RelationshipDepth > 4 || RelationshipCount > 16)
+            throw new ArgumentException("A selector is limited to four nested relationship levels and sixteen relationships.", nameof(relationships));
     }
 
     [JsonPropertyName("nodeId")]
@@ -97,6 +103,12 @@ public sealed record SemanticWorkflowSelector
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? Actionable { get; }
 
+    [JsonPropertyName("relationships")]
+    public IReadOnlyList<RuntimeSelectorRelationship> Relationships { get; }
+
+    [JsonIgnore] public int RelationshipDepth => Relationships.Count == 0 ? 0 : 1 + Relationships.Max(relation => relation.Selector.RelationshipDepth);
+    [JsonIgnore] public int RelationshipCount => Relationships.Sum(relation => 1 + relation.Selector.RelationshipCount);
+
     public bool HasSearchCriteria =>
         !string.IsNullOrWhiteSpace(NodeId)
         || !string.IsNullOrWhiteSpace(AutomationId)
@@ -109,5 +121,6 @@ public sealed record SemanticWorkflowSelector
         || Visible.HasValue
         || Enabled.HasValue
         || Rendered.HasValue
-        || Actionable.HasValue;
+        || Actionable.HasValue
+        || Relationships.Count > 0;
 }

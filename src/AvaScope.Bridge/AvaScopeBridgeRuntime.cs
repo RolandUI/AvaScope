@@ -347,7 +347,8 @@ public sealed partial class AvaScopeBridgeRuntime
         string topLevelId,
         string treeKind,
         string nodeId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        RuntimeTargetContext? target = null)
     {
         if (string.IsNullOrWhiteSpace(topLevelId))
         {
@@ -366,12 +367,12 @@ public sealed partial class AvaScopeBridgeRuntime
 
         if (Dispatcher.UIThread.CheckAccess())
         {
-            return Task.FromResult(InspectNode(topLevelId, treeKind, nodeId));
+            return Task.FromResult(InspectNode(topLevelId, treeKind, nodeId, target));
         }
 
         return Dispatcher.UIThread
             .InvokeAsync(
-                () => InspectNode(topLevelId, treeKind, nodeId),
+                () => InspectNode(topLevelId, treeKind, nodeId, target),
                 DispatcherPriority.Background,
                 cancellationToken)
             .GetTask();
@@ -1248,7 +1249,7 @@ public sealed partial class AvaScopeBridgeRuntime
             treeResult.Value.Target)));
     }
 
-    private CoreResult<InspectNodeResponse> InspectNode(string topLevelId, string treeKind, string nodeId)
+    private CoreResult<InspectNodeResponse> InspectNode(string topLevelId, string treeKind, string nodeId, RuntimeTargetContext? expectedTarget = null)
     {
         Dispatcher.UIThread.VerifyAccess();
 
@@ -1263,17 +1264,24 @@ public sealed partial class AvaScopeBridgeRuntime
             return InvalidInspectRequest<InspectNodeResponse>("Node id cannot be empty.");
         }
 
-        return treeKind switch
+        if (expectedTarget is not null)
         {
-            TreeKinds.Visual => InspectVisualNode(topLevel, topLevelId, nodeId),
+            if (expectedTarget.TreeKind != treeKind) return InvalidInspectRequest("Inspection target tree differs from the requested tree.");
+            var resolved = ResolveInputGenerationTarget(topLevel, topLevelId, nodeId, expectedTarget, "inspectTarget");
+            if (!resolved.Success) return CoreResult<InspectNodeResponse>.Fail(resolved.Error!);
+        }
+        var result = treeKind switch
+        {
+            TreeKinds.Visual => InspectVisualNode(topLevel, topLevelId, nodeId, expectedTarget),
             TreeKinds.Logical => topLevel is ILogical logical
-                ? InspectLogicalNode(logical, topLevel, topLevelId, nodeId)
+                ? InspectLogicalNode(logical, topLevel, topLevelId, nodeId, expectedTarget)
                 : NodeNotFound(topLevelId, treeKind, nodeId),
             _ => InvalidInspectRequest($"Tree kind '{treeKind}' is not supported for top-level '{topLevelId}'.")
         };
+        return RecheckQueryTarget(topLevel, expectedTarget) is { } queryError ? CoreResult<InspectNodeResponse>.Fail(queryError) : result;
     }
 
-    private CoreResult<InspectNodeResponse> InspectVisualNode(TopLevel topLevel, string topLevelId, string nodeId)
+    private CoreResult<InspectNodeResponse> InspectVisualNode(TopLevel topLevel, string topLevelId, string nodeId, RuntimeTargetContext? expectedTarget = null)
     {
         var node = FindVisualNodeById(topLevel, nodeId);
         if (node is null)
@@ -1283,7 +1291,7 @@ public sealed partial class AvaScopeBridgeRuntime
 
         var computedProperties = GetComputedProperties(node);
         var sourceMap = CreateRuntimeSourceMap(node, computedProperties);
-        var target = CreateNodeTarget(topLevelId, TreeKinds.Visual, topLevel, node);
+        var target = expectedTarget ?? CreateNodeTarget(topLevelId, TreeKinds.Visual, topLevel, node);
         return CoreResult<InspectNodeResponse>.Ok(new InspectNodeResponse(
             SessionId,
             topLevelId,
@@ -1308,7 +1316,7 @@ public sealed partial class AvaScopeBridgeRuntime
             CreateInteractionState(topLevel, node)));
     }
 
-    private CoreResult<InspectNodeResponse> InspectLogicalNode(ILogical root, TopLevel topLevel, string topLevelId, string nodeId)
+    private CoreResult<InspectNodeResponse> InspectLogicalNode(ILogical root, TopLevel topLevel, string topLevelId, string nodeId, RuntimeTargetContext? expectedTarget = null)
     {
         var node = FindLogicalNodeById(root, nodeId);
         if (node is null)
@@ -1318,7 +1326,7 @@ public sealed partial class AvaScopeBridgeRuntime
 
         var computedProperties = GetComputedProperties(node);
         var sourceMap = CreateRuntimeSourceMap(node, computedProperties);
-        var target = CreateNodeTarget(topLevelId, TreeKinds.Logical, topLevel, node);
+        var target = expectedTarget ?? CreateNodeTarget(topLevelId, TreeKinds.Logical, topLevel, node);
         return CoreResult<InspectNodeResponse>.Ok(new InspectNodeResponse(
             SessionId,
             topLevelId,
@@ -1419,19 +1427,19 @@ public sealed partial class AvaScopeBridgeRuntime
             InputActions.PointerMove => PointerMove(topLevel, topLevelId, x, y),
             InputActions.PointerDown => PointerButton(topLevel, topLevelId, x, y, InputActions.PointerDown, isPressed: true),
             InputActions.PointerUp => PointerButton(topLevel, topLevelId, x, y, InputActions.PointerUp, isPressed: false),
-            InputActions.Click => Click(topLevel, topLevelId, x, y, targetNodeId),
-            InputActions.KeyText => KeyText(topLevel, topLevelId, targetNodeId, inputText),
-            InputActions.ClearText => ClearText(topLevel, topLevelId, targetNodeId),
+            InputActions.Click => Click(topLevel, topLevelId, x, y, targetNodeId, inputTarget: inputTarget),
+            InputActions.KeyText => KeyText(topLevel, topLevelId, targetNodeId, inputText, inputTarget),
+            InputActions.ClearText => ClearText(topLevel, topLevelId, targetNodeId, inputTarget),
             InputActions.Focus => FocusTarget(topLevel, topLevelId, targetNodeId, x, y),
-            InputActions.KeyDown => KeyInput(topLevel, topLevelId, InputActions.KeyDown, targetNodeId, inputKey, keyModifiers),
+            InputActions.KeyDown => KeyInput(topLevel, topLevelId, InputActions.KeyDown, targetNodeId, inputKey, keyModifiers, inputTarget),
             InputActions.KeyUp => KeyInput(topLevel, topLevelId, InputActions.KeyUp, targetNodeId, inputKey, keyModifiers),
-            InputActions.Invoke => SemanticAutomationAction(topLevel, topLevelId, InputActions.Invoke, targetNodeId),
+            InputActions.Invoke => SemanticAutomationAction(topLevel, topLevelId, InputActions.Invoke, targetNodeId, inputTarget: inputTarget),
             InputActions.Select when string.IsNullOrWhiteSpace(inputText)
-                => SemanticAutomationAction(topLevel, topLevelId, InputActions.Select, targetNodeId),
-            InputActions.Select => SelectTarget(topLevel, topLevelId, targetNodeId, inputText),
-            InputActions.Toggle => SemanticAutomationAction(topLevel, topLevelId, InputActions.Toggle, targetNodeId),
-            InputActions.Expand => SemanticAutomationAction(topLevel, topLevelId, InputActions.Expand, targetNodeId),
-            InputActions.Collapse => SemanticAutomationAction(topLevel, topLevelId, InputActions.Collapse, targetNodeId),
+                => SemanticAutomationAction(topLevel, topLevelId, InputActions.Select, targetNodeId, inputTarget: inputTarget),
+            InputActions.Select => SelectTarget(topLevel, topLevelId, targetNodeId, inputText, inputTarget),
+            InputActions.Toggle => SemanticAutomationAction(topLevel, topLevelId, InputActions.Toggle, targetNodeId, inputTarget: inputTarget),
+            InputActions.Expand => SemanticAutomationAction(topLevel, topLevelId, InputActions.Expand, targetNodeId, inputTarget: inputTarget),
+            InputActions.Collapse => SemanticAutomationAction(topLevel, topLevelId, InputActions.Collapse, targetNodeId, inputTarget: inputTarget),
             InputActions.Scroll => ScrollTarget(topLevel, topLevelId, targetNodeId, x, y),
             _ => CoreResult<InputResponse>.Fail(new CoreError(
                 BridgeErrorCodes.UnsupportedInputAction,
@@ -2538,6 +2546,25 @@ public sealed partial class AvaScopeBridgeRuntime
                 }));
         }
 
+        if (target.Selection is not null || target.SelectionRevision is not null)
+        {
+            try
+            {
+                if (target.Selection is null || target.SelectionRevision is not { Length: 64 })
+                    throw new ArgumentException("Selection evidence requires both its selector and revision.");
+                var current = QueryNodes(new(SessionId, target.TopLevelId, target.Selection, maxResults: 2, maxNodes: 2048,
+                    maxDepth: target.Selection.MaxDepth ?? 16));
+                if (!current.Success || current.Value!.Coverage?.Complete != true || current.Value.Matches.Count != 1
+                    || current.Value.Matches[0].Target?.NodeId != target.NodeId
+                    || current.Value.Matches[0].Target?.SelectionRevision != target.SelectionRevision)
+                    throw new ArgumentException("The relationship selection changed, became ambiguous, or was recycled. Resolve it again before acting.");
+            }
+            catch (ArgumentException exception)
+            {
+                return CoreResult<ResolvedMutationTarget>.Fail(new(RuntimeMutationErrorCodes.RuntimeMutationTargetStale,
+                    exception.Message, CreateTargetErrorDetails(target.TopLevelId, target.TreeKind, target.NodeId)));
+            }
+        }
         return CoreResult<ResolvedMutationTarget>.Ok(new ResolvedMutationTarget(node, currentTarget));
     }
 
@@ -3774,7 +3801,7 @@ public sealed partial class AvaScopeBridgeRuntime
             nextRangeValue,
             RuntimePlatformEvidence.Operation(topLevel,
                 rangeProvider is null ? RuntimeOperationRoutes.SyntheticPointer : RuntimeOperationRoutes.AutomationProvider,
-                fallback: rangeProvider is null, coordinateSpace: path.CoordinateSpace)));
+                fallback: rangeProvider is null, coordinateSpace: path.CoordinateSpace), inputTarget, gestureDestinationTarget));
     }
 
     private CoreResult<GestureTarget> ResolveGestureTarget(
@@ -3931,6 +3958,8 @@ public sealed partial class AvaScopeBridgeRuntime
     private CoreResult<InputResponse> ExecuteRangeGesture(GesturePlan plan)
     {
         Dispatcher.UIThread.VerifyAccess();
+        if ((RecheckQueryTarget(plan.TopLevel, plan.InputTarget) ?? RecheckQueryTarget(plan.TopLevel, plan.DestinationTarget)) is { } queryError)
+            return CoreResult<InputResponse>.Fail(queryError);
         if (InputBlocker(plan.TopLevel, plan.TopLevelId, plan.Source.Visual, plan.Action) is { } blocker)
             return CoreResult<InputResponse>.Fail(blocker);
         try
@@ -3981,6 +4010,8 @@ public sealed partial class AvaScopeBridgeRuntime
             switch (pointerEvent)
             {
                 case GesturePointerEvent.Pressed:
+                    if ((RecheckQueryTarget(plan.TopLevel, plan.InputTarget) ?? RecheckQueryTarget(plan.TopLevel, plan.DestinationTarget)) is { } queryError)
+                        throw new InvalidOperationException(queryError.Message);
                     if (InputBlocker(plan.TopLevel, plan.TopLevelId, plan.Source.Visual, plan.Action) is { } blocker)
                         throw new InvalidOperationException(blocker.Message);
                     _activePointers[plan.TopLevelId] = new ActivePointerState(pointer, target);
@@ -4172,7 +4203,9 @@ public sealed partial class AvaScopeBridgeRuntime
         IRangeValueProvider? RangeProvider,
         double? PreviousRangeValue,
         double? NextRangeValue,
-        RuntimeOperationProvenance OperationProvenance);
+        RuntimeOperationProvenance OperationProvenance,
+        RuntimeTargetContext? InputTarget,
+        RuntimeTargetContext? DestinationTarget);
 
     private sealed record ActivePointerState(Pointer Pointer, InputElement PressedTarget);
 
@@ -4342,7 +4375,8 @@ public sealed partial class AvaScopeBridgeRuntime
         double? x,
         double? y,
         string? targetNodeId,
-        bool validateOnly = false)
+        bool validateOnly = false,
+        RuntimeTargetContext? inputTarget = null)
     {
         var provenance = RuntimePlatformEvidence.Operation(topLevel, RuntimeOperationRoutes.RoutedEvent, dispatched: !validateOnly, coordinateSpace: "top_level_dip");
         if ((x is null) != (y is null))
@@ -4442,6 +4476,8 @@ public sealed partial class AvaScopeBridgeRuntime
         if (!validateOnly)
         {
             button.Focus(NavigationMethod.Pointer);
+            if (RecheckQueryTarget(topLevel, inputTarget) is { } queryError)
+                return CoreResult<InputResponse>.Fail(queryError);
             if (TopLevel.GetTopLevel(button) != topLevel)
                 return CoreResult<InputResponse>.Fail(new(BridgeErrorCodes.InvalidInputRequest, "The click target detached while receiving focus; inspect current state before retrying."));
             if (InputBlocker(topLevel, topLevelId, button, InputActions.Click) is { } focusedBlocker)
@@ -4570,7 +4606,8 @@ public sealed partial class AvaScopeBridgeRuntime
         TopLevel topLevel,
         string topLevelId,
         string? targetNodeId,
-        string? inputText)
+        string? inputText,
+        RuntimeTargetContext? inputTarget = null)
     {
         var provenance = RuntimePlatformEvidence.Operation(topLevel, RuntimeOperationRoutes.ControlProperty);
         if (string.IsNullOrEmpty(inputText))
@@ -4622,6 +4659,8 @@ public sealed partial class AvaScopeBridgeRuntime
                 "Text input target is read-only."));
         }
 
+        if (RecheckQueryTarget(topLevel, inputTarget) is { } queryError)
+            return CoreResult<InputResponse>.Fail(queryError);
         var currentText = textBox.Text ?? string.Empty;
         var selectionStart = Math.Clamp(Math.Min(textBox.SelectionStart, textBox.SelectionEnd), 0, currentText.Length);
         var selectionEnd = Math.Clamp(Math.Max(textBox.SelectionStart, textBox.SelectionEnd), 0, currentText.Length);
@@ -4650,7 +4689,8 @@ public sealed partial class AvaScopeBridgeRuntime
     private CoreResult<InputResponse> ClearText(
         TopLevel topLevel,
         string topLevelId,
-        string? targetNodeId)
+        string? targetNodeId,
+        RuntimeTargetContext? inputTarget = null)
     {
         var provenance = RuntimePlatformEvidence.Operation(topLevel, RuntimeOperationRoutes.ControlProperty);
         TextBox? textBox;
@@ -4695,6 +4735,8 @@ public sealed partial class AvaScopeBridgeRuntime
                 "Clear text target is read-only."));
         }
 
+        if (RecheckQueryTarget(topLevel, inputTarget) is { } queryError)
+            return CoreResult<InputResponse>.Fail(queryError);
         textBox.Text = string.Empty;
         textBox.CaretIndex = 0;
         textBox.SelectionStart = 0;
@@ -4752,7 +4794,8 @@ public sealed partial class AvaScopeBridgeRuntime
         string action,
         string? targetNodeId,
         string? inputKey,
-        string? keyModifiers)
+        string? keyModifiers,
+        RuntimeTargetContext? inputTarget = null)
     {
         var provenance = RuntimePlatformEvidence.Operation(topLevel, RuntimeOperationRoutes.SyntheticKey);
         var key = ParseInputKey(inputKey);
@@ -4799,6 +4842,8 @@ public sealed partial class AvaScopeBridgeRuntime
             ? InputElement.KeyDownEvent
             : InputElement.KeyUpEvent;
 
+        if (RecheckQueryTarget(topLevel, inputTarget) is { } queryError)
+            return CoreResult<InputResponse>.Fail(queryError);
         target.RaiseEvent(new KeyEventArgs
         {
             RoutedEvent = routedEvent,
@@ -4826,7 +4871,8 @@ public sealed partial class AvaScopeBridgeRuntime
         TopLevel topLevel,
         string topLevelId,
         string? targetNodeId,
-        string? selectionText)
+        string? selectionText,
+        RuntimeTargetContext? inputTarget = null)
     {
         var provenance = RuntimePlatformEvidence.Operation(topLevel, RuntimeOperationRoutes.ControlProperty);
         if (string.IsNullOrWhiteSpace(targetNodeId))
@@ -4877,6 +4923,8 @@ public sealed partial class AvaScopeBridgeRuntime
                 }));
         }
 
+        if (RecheckQueryTarget(topLevel, inputTarget) is { } queryError)
+            return CoreResult<InputResponse>.Fail(queryError);
         selector.SelectedIndex = index.Value;
         selector.Focus(NavigationMethod.Unspecified);
 
@@ -4909,7 +4957,8 @@ public sealed partial class AvaScopeBridgeRuntime
         string topLevelId,
         string action,
         string? targetNodeId,
-        bool validateOnly = false)
+        bool validateOnly = false,
+        RuntimeTargetContext? inputTarget = null)
     {
         var provenance = RuntimePlatformEvidence.Operation(topLevel, RuntimeOperationRoutes.AutomationProvider, dispatched: !validateOnly);
         if (string.IsNullOrWhiteSpace(targetNodeId))
@@ -4975,6 +5024,8 @@ public sealed partial class AvaScopeBridgeRuntime
         }
 
         var previousState = GetAutomationState(peer, action);
+        if (!validateOnly && RecheckQueryTarget(topLevel, inputTarget) is { } queryError)
+            return CoreResult<InputResponse>.Fail(queryError);
         try
         {
             var handled = validateOnly || action switch

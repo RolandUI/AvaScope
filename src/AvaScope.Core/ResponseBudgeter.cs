@@ -32,6 +32,8 @@ public static class ResponseBudgeter
         {
             TreeResponse response when response.ResponseBudget is null
                 => (T)(object)ApplyTree(response, maxInlineBytes, maxItems, maxDepth),
+            FindNodesResponse response when response.Coverage is not null
+                => (T)(object)ApplyQuery(response, maxInlineBytes, maxItems),
             FindNodesResponse response when response.ResponseBudget is null
                 => (T)(object)ApplyFindNodes(response, maxInlineBytes, maxItems, maxDepth),
             DiagnosticsResponse response when response.ResponseBudget is null
@@ -46,6 +48,28 @@ public static class ResponseBudgeter
                 => (T)(object)ApplyObservationChanges(response, maxInlineBytes, maxItems),
             _ => value
         };
+    }
+
+    private static FindNodesResponse ApplyQuery(FindNodesResponse response, int maxInlineBytes, int maxItems)
+    {
+        var matches = response.Matches.Take(maxItems).ToList();
+        var projections = response.Projections.Take(maxItems).ToList();
+        var candidates = response.Candidates.Take(maxItems).ToList();
+        var reasons = response.Coverage!.Reasons.ToHashSet(StringComparer.Ordinal);
+        if (matches.Count != response.Matches.Count || projections.Count != response.Projections.Count || candidates.Count != response.Candidates.Count) reasons.Add("response_item_limit");
+        FindNodesResponse Result() => new(response.SessionId, response.TopLevelId, response.TreeKind, response.DepthLimit,
+            matches.ToArray(), response.Target, projections: projections.ToArray(),
+            coverage: response.Coverage with { Complete = response.Coverage.Complete && reasons.Count == 0, Reasons = reasons.Order(StringComparer.Ordinal).ToArray() }, candidates: candidates.ToArray());
+        var result = Result();
+        while (Serialize(result).Length > maxInlineBytes && (matches.Count > 0 || projections.Count > 0 || candidates.Count > 0))
+        {
+            reasons.Add("response_byte_limit");
+            if (matches.Count > 0) matches.RemoveAt(matches.Count - 1);
+            if (projections.Count > 0) projections.RemoveAt(projections.Count - 1);
+            if (candidates.Count > 0) candidates.RemoveAt(candidates.Count - 1);
+            result = Result();
+        }
+        return result;
     }
 
     public static RuntimeObservationChangesResponse ApplyObservationChanges(RuntimeObservationChangesResponse response,

@@ -199,7 +199,8 @@ public sealed partial class LocalBridgeClient
         string topLevelId,
         string treeKind,
         string nodeId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        RuntimeTargetContext? target = null)
     {
         ArgumentNullException.ThrowIfNull(sessionId);
 
@@ -234,7 +235,7 @@ public sealed partial class LocalBridgeClient
                 BridgeIpcMethods.InspectNode,
                 topLevelId,
                 treeKind: treeKind,
-                nodeId: nodeId),
+                nodeId: nodeId, inputTarget: target),
             cancellationToken);
     }
 
@@ -257,9 +258,30 @@ public sealed partial class LocalBridgeClient
         bool? visible = null,
         bool? enabled = null,
         bool? rendered = null,
-        bool? actionable = null)
+        bool? actionable = null,
+        SemanticWorkflowSelector? selector = null,
+        IReadOnlyList<string>? attributes = null,
+        int? maxNodes = null,
+        RuntimeEvidencePolicy? policy = null)
     {
         ArgumentNullException.ThrowIfNull(sessionId);
+
+        if (selector is not null || attributes is not null || maxNodes is not null || policy is not null)
+        {
+            if (selector is not null && (nodeType is not null || name is not null || automationId is not null || text is not null
+                || visible.HasValue || enabled.HasValue || rendered.HasValue || actionable.HasValue))
+                return CoreResult<FindNodesResponse>.Fail(new(CoreErrorCodes.InvalidBridgeRequest, "Use either selector or the flat find filters, without mixing them."));
+            if (includeChildren || includeAccessibility || includeBindings || maxResponseDepth is not null)
+                return CoreResult<FindNodesResponse>.Fail(new(CoreErrorCodes.InvalidBridgeRequest, "Bounded queries return flat nodes or explicit attributes; tree/binding expansion options do not apply."));
+            try
+            {
+                return await QueryNodesAsync(new(sessionId, topLevelId, selector ?? new(treeKind: treeKind,
+                    nodeType: nodeType, name: name, automationId: automationId, text: text, visible: visible, enabled: enabled,
+                    rendered: rendered, actionable: actionable), attributes, maxResults ?? 16, maxNodes ?? 512, maxDepth ?? 16, policy), cancellationToken);
+            }
+            catch (ArgumentException exception)
+            { return CoreResult<FindNodesResponse>.Fail(new(CoreErrorCodes.InvalidBridgeRequest, exception.Message)); }
+        }
 
         if (string.IsNullOrWhiteSpace(topLevelId))
         {
@@ -315,6 +337,27 @@ public sealed partial class LocalBridgeClient
             rendered: rendered,
             actionable: actionable),
             cancellationToken);
+    }
+
+    public async Task<CoreResult<FindNodesResponse>> QueryNodesAsync(RuntimeQueryRequest request, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var policy = request.Policy is null ? null : new RuntimeEvidencePolicyEnforcer(request.Policy);
+        if (policy is not null)
+        {
+            var authorization = policy.AuthorizeSession(this, request.SessionId);
+            if (!authorization.Success) return CoreResult<FindNodesResponse>.Fail(authorization.Error!);
+            var action = policy.AuthorizeAction(SemanticWorkflowActions.Inspect, null);
+            if (!action.Success) return CoreResult<FindNodesResponse>.Fail(action.Error!);
+        }
+        var manifest = FindSingleManifest(null, request.SessionId);
+        if (!manifest.Success) return CoreResult<FindNodesResponse>.Fail(manifest.Error!);
+        var result = await SendAsync<FindNodesResponse>(manifest.Value!,
+            new(NewRequestId(), BridgeIpcMethods.FindNodes, query: request), cancellationToken);
+        if (policy is null) return result;
+        if (result.Success) return policy.Sanitize(result.Value!);
+        var error = policy.Sanitize(result.Error!);
+        return CoreResult<FindNodesResponse>.Fail(error.Success ? error.Value! : error.Error!);
     }
 
     public async Task<CoreResult<LayoutExplainResponse>> ExplainLayoutAsync(

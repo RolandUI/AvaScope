@@ -12,6 +12,8 @@ Use [explicit input strategies](INPUT_STRATEGIES.md) for compound/native actions
 
 Use [action explanations](ACTION_EXPLANATIONS.md) when a target is blocked or its activation point is uncertain. Separate proven blockers from correlated validation and app-declared reasons; revalidate geometry before pointer dispatch.
 
+Use [relationship selectors and typed projections](RELATIONSHIP_QUERIES.md) to distinguish repeated controls by their container, row or explicit label, and to request only selected field values. Treat partial coverage and missing/redacted values explicitly before deciding an action.
+
 Use [workflow export and replay](WORKFLOW_EXPORT.md) to turn a recorded AvaScope workflow into a parameterized regression. Review missing assertions and unstable targets, validate against fresh bindings, then explicitly execute with the existing runner.
 
 The [native platform matrix](NATIVE_PLATFORM_MATRIX.md) provides repeatable packaged CLI/MCP lifecycle, modal, popup, focus, resize, failure-evidence and cleanup checks for Headless, Windows, Linux X11 and macOS.

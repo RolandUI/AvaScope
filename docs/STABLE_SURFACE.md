@@ -380,6 +380,14 @@ The following are intentionally non-stable unless promoted in a future major rel
 
 ## Migration Guidance
 
+The additive v1.5 query contract extends `find_nodes` with `selector`, `attributes`,
+`maxNodes` and `policy`, and `find-nodes` with `--request`. The existing selector
+adds bounded `relationships`; results add typed `projections`, rejected identity
+`candidates`, explicit `coverage`, and per-match relationship evidence. Source
+targets may carry `selection` and `selectionRevision` for stale/recycled-target
+checks. See [relationship queries](RELATIONSHIP_QUERIES.md) for the closed
+attribute model, limits and complete-coverage requirement before workflow input.
+
 Minor releases may add capabilities, tools metadata, optional fields, optional CLI flags, optional MCP parameters, diagnostics, and report assets. Major releases are required for removals, renamed stable commands/tools, changed required parameters, incompatible JSON changes, or changed success/failure semantics.
 
 When practical, deprecate before removal, keep aliases for at least one minor release, and document the replacement in this file plus `docs/USER_GUIDE.md`. Agents should request required capability ids before using optional workflows and fail closed on `capability_not_supported`.

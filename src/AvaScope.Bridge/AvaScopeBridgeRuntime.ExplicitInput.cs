@@ -195,6 +195,8 @@ public sealed partial class AvaScopeBridgeRuntime
                 throw new InvalidOperationException("The selected input target closed, detached or became unavailable.");
             if (InputBlocker(plan.TopLevel, topLevelId, plan.ActivationTarget ?? plan.Target, action) is { } blocker)
                 throw new InvalidOperationException(blocker.Message);
+            if (!heldButton && heldKey is null && RecheckQueryTarget(plan.TopLevel, target) is { } queryError)
+                throw new InvalidOperationException(queryError.Message);
             if (plan.ActivationPoint is not null && (dispatched == 0 || action == InputActions.Click && !heldButton))
             {
                 var intended = plan.ActivationTarget!;

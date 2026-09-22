@@ -1643,6 +1643,23 @@ internal static class Program
             return 2;
         }
 
+        if (options.Values.ContainsKey("request"))
+        {
+            if (!ValidateOptions(options.Values, GetFindNodesUsage(), "request", "manifest-dir")
+                || !TryReadRequiredOption(options.Values, "request", GetFindNodesUsage(), out var path)) return 2;
+            try
+            {
+                if (new FileInfo(path!).Length > 65536) throw new ArgumentException("Query request exceeds 64 KiB.");
+                var request = JsonSerializer.Deserialize<RuntimeQueryRequest>(File.ReadAllText(Path.GetFullPath(path!)), JsonOptions)
+                    ?? throw new ArgumentException("A query object is required.");
+                var queried = await CreateBridgeClient(options.Values).QueryNodesAsync(request);
+                WriteResult(queried);
+                return queried.Success ? 0 : 1;
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException or JsonException or NotSupportedException)
+            { WriteFailure<FindNodesResponse>(InvalidCliArguments, exception.Message); return 2; }
+        }
+
         if (!ValidateOptions(
                 options.Values,
                 GetFindNodesUsage(),
@@ -4642,7 +4659,7 @@ internal static class Program
 
     private static string GetFindNodesUsage()
     {
-        return "Usage: avascope find-nodes --session <session-id> --top-level <top-level-id> [--tree-kind visual|logical] [--type <type>] [--name <name>] [--automation-id <id>] [--text <text>] [--visible true|false] [--enabled true|false] [--rendered true|false] [--actionable true|false] [--max-depth <n>] [--max-results <n>] [--include-children true|false] [--include-bounds true|false] [--include-accessibility true|false] [--include-bindings true|false] [--max-response-depth <n>] [--manifest-dir <dir>]";
+        return "Usage: avascope find-nodes --request <query.json> [--manifest-dir <dir>] OR avascope find-nodes --session <session-id> --top-level <top-level-id> [--tree-kind visual|logical] [--type <type>] [--name <name>] [--automation-id <id>] [--text <text>] [--visible true|false] [--enabled true|false] [--rendered true|false] [--actionable true|false] [--max-depth <n>] [--max-results <n>] [--include-children true|false] [--include-bounds true|false] [--include-accessibility true|false] [--include-bindings true|false] [--max-response-depth <n>] [--manifest-dir <dir>]";
     }
 
     private static string GetAuditUiUsage()

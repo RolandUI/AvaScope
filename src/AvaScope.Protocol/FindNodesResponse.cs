@@ -12,7 +12,10 @@ public sealed record FindNodesResponse
         int depthLimit,
         IReadOnlyList<FindNodeMatch>? matches = null,
         RuntimeTargetContext? target = null,
-        ResponseBudgetInfo? responseBudget = null)
+        ResponseBudgetInfo? responseBudget = null,
+        IReadOnlyList<RuntimeQueryProjection>? projections = null,
+        RuntimeQueryCoverage? coverage = null,
+        IReadOnlyList<RuntimeQueryCandidate>? candidates = null)
     {
         SessionId = sessionId ?? throw new ArgumentNullException(nameof(sessionId));
 
@@ -37,6 +40,9 @@ public sealed record FindNodesResponse
         Matches = matches ?? Array.Empty<FindNodeMatch>();
         Target = target ?? new RuntimeTargetContext(sessionId, topLevelId, treeKind);
         ResponseBudget = responseBudget;
+        Projections = projections ?? [];
+        Coverage = coverage;
+        Candidates = candidates ?? [];
     }
 
     [JsonPropertyName("sessionId")]
@@ -60,4 +66,13 @@ public sealed record FindNodesResponse
     [JsonPropertyName("responseBudget")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public ResponseBudgetInfo? ResponseBudget { get; }
+
+    [JsonPropertyName("projections")]
+    public IReadOnlyList<RuntimeQueryProjection> Projections { get; }
+
+    [JsonPropertyName("coverage"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public RuntimeQueryCoverage? Coverage { get; }
+
+    [JsonPropertyName("candidates")]
+    public IReadOnlyList<RuntimeQueryCandidate> Candidates { get; }
 }

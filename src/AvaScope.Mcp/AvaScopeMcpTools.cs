@@ -457,7 +457,7 @@ public sealed class AvaScopeMcpTools
         Destructive = false,
         OpenWorld = false,
         UseStructuredContent = true)]
-    [Description("Finds nodes in a bounded visual or logical tree by identity and visible, enabled, rendered, or actionable interaction state.")]
+    [Description("Finds nodes by identity/state or a bounded relationship selector. Optional attributes project typed values instead of nodes, with explicit partial coverage. Use selector for parent/ancestor/descendant/labeled_by relationships; do not mix it with flat filters.")]
     public static async Task<ToolResult<FindNodesResponse>> FindNodes(
         LocalBridgeClient bridgeClient,
         string sessionId,
@@ -479,7 +479,11 @@ public sealed class AvaScopeMcpTools
         bool includeBindings = false,
         int? maxResponseDepth = null,
         string? manifestDirectory = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        SemanticWorkflowSelector? selector = null,
+        IReadOnlyList<string>? attributes = null,
+        int? maxNodes = null,
+        RuntimeEvidencePolicy? policy = null)
     {
         ArgumentNullException.ThrowIfNull(bridgeClient);
 
@@ -507,7 +511,8 @@ public sealed class AvaScopeMcpTools
             visible: visible,
             enabled: enabled,
             rendered: rendered,
-            actionable: actionable));
+            actionable: actionable,
+            selector: selector, attributes: attributes, maxNodes: maxNodes, policy: policy));
     }
 
     [McpServerTool(
