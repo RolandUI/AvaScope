@@ -60,6 +60,7 @@ The stable CLI command name set is:
 - `capabilities`
 - `mcp`
 - `doctor`
+- `verify-provider`
 - `diagnostics`
 - `attach`
 - `session-capabilities`
@@ -122,6 +123,7 @@ The stable MCP tool name set is:
 - `list_sessions`
 - `attach_to_app`
 - `session_capabilities`
+- `verify_provider`
 - `launch_app`
 - `list_top_levels`
 - `screenshot`
