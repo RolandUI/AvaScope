@@ -119,6 +119,13 @@ bounded, and must exist for open/folder selection. Save parent directories must
 exist. Selecting/confirming is a real UI side effect; a timeout may mean an effect
 occurred without confirmed closure, so inspect before retrying.
 
+GTK work is queued at GLib's normal priority on its owning context, so continuously
+ready native event sources cannot starve it as an idle-priority callback. Deadlines,
+cancellation and selected-window ownership checks still apply. See GLib's public
+[source priority](https://docs.gtk.org/glib/method.Source.set_priority.html) and
+[idle-source defaults](https://docs.gtk.org/glib/func.idle_source_new.html). The native
+gate includes a continuously ready normal-priority source regression.
+
 The host can explicitly integrate prepared results without referencing an AvaScope
 assembly at compile time. After its authorized `Bootstrap.Start`, reflect
 `AvaScope.Bridge.Bootstrap.TakePreparedPickerResult(string correlationId)`. It returns

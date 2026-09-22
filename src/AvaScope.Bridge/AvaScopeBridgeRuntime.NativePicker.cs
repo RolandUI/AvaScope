@@ -80,7 +80,9 @@ public sealed partial class AvaScopeBridgeRuntime
             or DllNotFoundException or EntryPointNotFoundException or IOException or UnauthorizedAccessException)
         {
             return Fail(exception is OperationCanceledException
-                ? "Native picker operation timed out, was cancelled, or its owner closed. An already dispatched selection/confirmation may have taken effect; observe before retrying."
+                ? request.Operation == NativePickerOperations.Detect
+                    ? "Native picker observation timed out, was cancelled, or its owner closed. No selection or confirmation was dispatched."
+                    : "Native picker operation timed out, was cancelled, or its owner closed. An already dispatched selection/confirmation may have taken effect; observe before retrying."
                 : exception.Message);
         }
         finally
@@ -166,6 +168,10 @@ public sealed partial class AvaScopeBridgeRuntime
             var state = GCHandle.Alloc(work);
             try
             {
+                // An idle-priority source can starve behind GTK initialization and
+                // continuously ready normal-priority sources. Queue this bounded
+                // operation at normal priority while preserving the GLib thread.
+                g_source_set_priority(source, 0);
                 g_source_set_callback(source, Callback, GCHandle.ToIntPtr(state), Destroy);
                 g_source_attach(source, 0);
                 return await work.Completion.Task.WaitAsync(token);
@@ -237,6 +243,7 @@ public sealed partial class AvaScopeBridgeRuntime
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate int SourceCallback(nint data);
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate void DestroyCallback(nint data);
         [DllImport(Glib)] private static extern nint g_idle_source_new();
+        [DllImport(Glib)] private static extern void g_source_set_priority(nint source, int priority);
         [DllImport(Glib)] private static extern void g_source_set_callback(nint source, SourceCallback callback, nint data, DestroyCallback destroy);
         [DllImport(Glib)] private static extern uint g_source_attach(nint source, nint context);
         [DllImport(Glib)] private static extern void g_source_destroy(nint source);
