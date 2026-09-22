@@ -14,6 +14,12 @@ Implementation sources for the lifecycle hooks: [Avalonia 12.1 Window events](ht
 
 ## Host loader example
 
+Before editing a host, run `avascope integration-guide --project <absolute.csproj>` or MCP `integration_guide(projectPath, framework?)`. Both use the same bounded read-only analyzer. It reports target frameworks, resolved engine version, existing activation sites and file/line/SHA-256 guidance for **both** package and standalone modes. Choose one mode and review the source hash before applying its snippets. Analysis never evaluates MSBuild, builds the app, activates the bridge or changes source.
+
+Conventional `Application.OnFrameworkInitializationCompleted` startup with a unique base call and a desktop/single-view lifetime receives concrete insertion guidance after window/view assignment. Existing activation receives no duplicate proposal. Unknown startup, unresolved/conditional frameworks, incompatible versions and AOT/trimmed configurations return `needs_review` diagnostics. Literal properties in the nearest `Directory.Build.props`, central package versions and `$(AvaloniaVersion)` are recognized; custom imports/conditions need an explicit review. Source scanning excludes generated/output/hidden directories and symlinks, with limits of 512 directories/files, depth 12, 1 MiB per file and 8 MiB total. Guidance is intentionally conservative and does not claim full C# or MSBuild semantic evaluation.
+
+The `EnableUiInspection` property is host-owned and unset by default. Package guidance guards both the reference and call; standalone guidance guards the loader call and excludes its copied helper from normal compilation. Existing references require a reviewed migration before claiming dependency-free production output. Run the integration verification after applying a chosen mode, including its independent disabled-build lane.
+
 Copy [OptionalProviderLoader.cs](examples/OptionalProviderLoader.cs) into the host. It uses only the .NET BCL and can be excluded from normal builds. The [StandaloneHost sample](../samples/AvaScope.StandaloneHost) links this source only when `EnableUiInspection=true`; it has no AvaScope package/project reference. Its normal output contains no AvaScope assemblies.
 
 ```csharp

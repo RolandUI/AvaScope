@@ -86,6 +86,12 @@ public static class AvaScopeCapabilityCatalog
                     ["activation"] = "explicit_host_call_only"
                 }),
             Capability(
+                AvaScopeCapabilityIds.RuntimeIntegrationGuidance,
+                "runtime",
+                "Read-only project-aware guidance for host-owned compile-time activation with package or external provider integration.",
+                ["integration-guide", "integration_guide"],
+                requires: [AvaScopeCapabilityIds.RuntimeStandaloneProvider]),
+            Capability(
                 AvaScopeCapabilityIds.RuntimeEffectiveCapabilities,
                 "runtime",
                 "Negotiate the effective protocol, bridge methods, input actions, automation patterns, mutation support, and native picker mode of one attached session.",
@@ -526,6 +532,8 @@ public static class AvaScopeCapabilityCatalog
             Cli("doctor", AvaScopeCapabilityIds.DiagnosticsSummary, AvaScopeCapabilityIds.SafetyLocalOnly),
             Cli("verify-provider", AvaScopeCapabilityIds.RuntimeStandaloneProvider),
             Mcp("verify_provider", AvaScopeCapabilityIds.RuntimeStandaloneProvider),
+            Cli("integration-guide", AvaScopeCapabilityIds.RuntimeIntegrationGuidance),
+            Mcp("integration_guide", AvaScopeCapabilityIds.RuntimeIntegrationGuidance),
             Cli("diagnostics", AvaScopeCapabilityIds.DiagnosticsSummary, AvaScopeCapabilityIds.SafetyLocalOnly),
             Mcp("diagnostics", AvaScopeCapabilityIds.DiagnosticsSummary, AvaScopeCapabilityIds.SafetyLocalOnly),
             Cli("attach", AvaScopeCapabilityIds.RuntimeAttach),

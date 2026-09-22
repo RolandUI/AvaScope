@@ -11,6 +11,7 @@ public static class AvaScopeCapabilityIds
 
     public const string RuntimeAttach = "runtime.attach";
     public const string RuntimeStandaloneProvider = "runtime.standalone_provider";
+    public const string RuntimeIntegrationGuidance = "runtime.integration_guidance";
     public const string RuntimeSessionLifecycle = "runtime.session_lifecycle";
     public const string RuntimeTrees = "runtime.trees";
     public const string RuntimeInspect = "runtime.inspect";

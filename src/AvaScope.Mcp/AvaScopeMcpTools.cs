@@ -9,6 +9,12 @@ namespace AvaScope.Mcp;
 [McpServerToolType]
 public sealed class AvaScopeMcpTools
 {
+    [McpServerTool(Name = "integration_guide", Title = "Bridge integration guidance", ReadOnly = true,
+        Idempotent = true, Destructive = false, OpenWorld = false, UseStructuredContent = true)]
+    [Description("Read-only, bounded analysis of an explicitly selected .csproj. Returns file/line/hash guidance for guarded package or external-provider integration, existing call sites, and unresolved startup/framework diagnostics. Does not build, evaluate MSBuild or edit source.")]
+    public static ToolResult<BridgeIntegrationGuidanceResponse> IntegrationGuide(string projectPath, string? framework = null)
+        => ToToolResult(BridgeIntegrationAdvisor.Analyze(projectPath, framework));
+
     [McpServerTool(Name = "verify_provider", Title = "Verify standalone provider", ReadOnly = true,
         Idempotent = true, Destructive = false, OpenWorld = false, UseStructuredContent = true)]
     [Description("Verifies an explicit external provider directory and optional exact version/manifest SHA-256 pins without loading or activating the bridge. Host Avalonia compatibility is checked at explicit activation.")]

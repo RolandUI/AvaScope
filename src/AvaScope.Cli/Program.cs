@@ -28,6 +28,7 @@ internal static class Program
         {
             "capabilities" => Capabilities(args[1..]),
             "verify-provider" => VerifyProvider(args[1..]),
+            "integration-guide" => IntegrationGuide(args[1..]),
             "preview" => await Preview(args[1..]),
             "preview-animation" => await PreviewAnimation(args[1..]),
             "attach" => await Attach(args[1..]),
@@ -81,6 +82,28 @@ internal static class Program
     {
         Console.WriteLine(AvaScopeProduct.Version);
         return 0;
+    }
+
+    private static int IntegrationGuide(string[] args)
+    {
+        const string usage = "Usage: avascope integration-guide --project <absolute-csproj> [--framework <declared-tfm>]";
+        var options = ParseOptions(args, usage);
+        if (!options.Success)
+        {
+            WriteFailure<BridgeIntegrationGuidanceResponse>(InvalidCliArguments, options.Error!);
+            return 2;
+        }
+
+        if (!ValidateOptions(options.Values, usage, "project", "framework")) return 2;
+        if (!options.Values.TryGetValue("project", out var project))
+        {
+            WriteFailure<BridgeIntegrationGuidanceResponse>(InvalidCliArguments, usage);
+            return 2;
+        }
+
+        var result = BridgeIntegrationAdvisor.Analyze(project, options.Values.GetValueOrDefault("framework"));
+        WriteResult(result);
+        return result.Success ? 0 : 1;
     }
 
     private static int VerifyProvider(string[] args)
