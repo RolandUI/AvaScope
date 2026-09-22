@@ -114,6 +114,7 @@ Long-term target:
 - Keep protocols stable and versioned.
 - Keep the bridge opt-in, local-only, and disabled by default in production builds.
 - Do not couple MCP schemas directly to Avalonia internals.
+- Do not add Robot Framework/PlatynUI interoperability, foreign workflow import or a Python/Robot compatibility adapter distribution. Useful individual features may inspire AvaScope capabilities through its own Core/CLI/MCP contracts. Issue #154 was explicitly cancelled for this reason.
 - Do not make assumptions from one sample app that break normal Avalonia project usage.
 
 ## Security and Safety

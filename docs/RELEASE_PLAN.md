@@ -61,14 +61,14 @@ The roadmap below records the release-shaped plan through `v1.0.0`. It is intent
 - Scope Lock: `2026-09-22`
 - GitHub Milestone: `v1.5.0`
 - Release Tracker: #156
-- Implementation Scope: #117 through #155, including the PlatynUI `new_core` refinements to #132, #136, #137 and #143
+- Implementation Scope: #117–#153 and #155 (38 issues), including the PlatynUI `new_core` feature refinements to #132, #136, #137 and #143
 - Previous Release: `v1.4.2`
 
-The user authorized implementation of all 39 accepted issues followed by publication. Execute dependencies in coherent batches: standalone provider/integration; reproducible environments and observations; semantic agent controls; native evidence and cross-language clients; consolidated platform/release validation. Preserve opt-in local activation, session ownership, bounded operations, compatible contracts and thin CLI/MCP adapters.
+The user authorized implementation followed by publication, then explicitly cancelled #154 on `2026-09-22`. AvaScope will not maintain Python/Robot Framework adapters, PlatynUI interoperability or import/interpretation of their workflows. Independent useful features inspired by other tools remain in scope through AvaScope's own contracts. Execute the remaining 38 issues in coherent batches: standalone provider/integration; reproducible environments and observations; semantic agent controls; native evidence; consolidated platform/release validation. Preserve opt-in local activation, session ownership, bounded operations, compatible contracts and thin CLI/MCP adapters.
 
 Keep one implementation issue in progress. Completed implementations can enter review until a shared batch gate passes. The requested validation cadence is focused tests at meaningful checkpoints, corrective commits when needed, and a full final release gate; do not rerun unchanged suites after each edit. Cross-platform acceptance remains required, and unsupported behavior must be explicit rather than silently emulated. No scope is deferred by this plan.
 
-Release requires all #117–#155 acceptance criteria, consolidated Debug/Release tests, hosted Windows/Linux X11/native macOS validation, documented Wayland coverage, packaged CLI/MCP workflows, standalone-provider and standard artifact verification, exact-version packaging and publish dry-runs. Publish only with the final `Release 1.5.0` commit, then verify remote tag, assets and package contents before closing #156 and the milestone.
+Release requires all #117–#153 and #155 acceptance criteria, consolidated Debug/Release tests, hosted Windows/Linux X11/native macOS validation, documented Wayland coverage, packaged CLI/MCP workflows, standalone-provider and standard artifact verification, exact-version packaging and publish dry-runs. Publish only with the final `Release 1.5.0` commit, then verify remote tag, assets and package contents before closing #156 and the milestone.
 
 ## Released Target: v1.4.2
 
