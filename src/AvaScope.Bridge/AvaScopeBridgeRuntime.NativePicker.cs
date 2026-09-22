@@ -119,12 +119,13 @@ public sealed partial class AvaScopeBridgeRuntime
         var panelClass = NativeWindowInput.Mac.Class("NSSavePanel");
         if (sheet == 0 || NativeWindowInput.Mac.SendArg(sheet, NativeWindowInput.Mac.Selector("isKindOfClass:"), panelClass) == 0)
             return new(false);
+        var isOpen = NativeWindowInput.Mac.SendArg(sheet, NativeWindowInput.Mac.Selector("isKindOfClass:"), NativeWindowInput.Mac.Class("NSOpenPanel")) != 0;
         if (operation == NativePickerOperations.Cancel) NativeWindowInput.Mac.SendArg(sheet, NativeWindowInput.Mac.Selector("cancel:"), 0);
         if (operation == NativePickerOperations.Confirm)
             throw new NotSupportedException("macOS hosts file panels out of process and does not permit programmatic confirmation through NSSavePanel.ok:. Cancel the native panel and use the explicit host-authorized predefined-result hook for deterministic app-logic coverage. No confirmation or global input was dispatched.");
         if (operation == NativePickerOperations.SelectPath)
         {
-            if (NativeWindowInput.Mac.SendArg(sheet, NativeWindowInput.Mac.Selector("isKindOfClass:"), NativeWindowInput.Mac.Class("NSOpenPanel")) != 0)
+            if (isOpen)
                 throw new NotSupportedException("AppKit open/folder panels support detect/cancel. Programmatic select_path is supported for save panels only; use the explicit predefined-result hook for deterministic open/folder selection.");
             var directory = Path.GetDirectoryName(path!);
             if (!Directory.Exists(directory)) throw new InvalidOperationException("The save panel's requested parent directory does not exist.");
@@ -133,8 +134,21 @@ public sealed partial class AvaScopeBridgeRuntime
             NativeWindowInput.Mac.SendArg(sheet, NativeWindowInput.Mac.Selector("setNameFieldStringValue:"), NativeWindowInput.Mac.String(Path.GetFileName(path!)));
         }
         var selected = NativeWindowInput.Mac.Send(NativeWindowInput.Mac.Send(sheet, "URL"), "path");
+        if (!isOpen)
+        {
+            // Remote panels may not publish URL until user confirmation. Verify
+            // the public editable directory/name configuration before that point.
+            var directory = ReadMacString(NativeWindowInput.Mac.Send(NativeWindowInput.Mac.Send(sheet, "directoryURL"), "path"));
+            var name = ReadMacString(NativeWindowInput.Mac.Send(sheet, "nameFieldStringValue"));
+            return new(true, directory is not null && name is not null ? Path.Combine(directory, name) : null);
+        }
+        return new(true, ReadMacString(selected));
+    }
+
+    private static string? ReadMacString(nint selected)
+    {
         var utf8 = selected == 0 ? 0 : NativeWindowInput.Mac.Send(selected, "UTF8String");
-        return new(true, utf8 == 0 ? null : Marshal.PtrToStringUTF8(utf8));
+        return utf8 == 0 ? null : Marshal.PtrToStringUTF8(utf8);
     }
 
     private static class GtkPicker
