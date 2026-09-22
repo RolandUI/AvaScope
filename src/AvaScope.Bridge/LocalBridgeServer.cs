@@ -325,6 +325,7 @@ internal sealed class LocalBridgeServer : IDisposable
             BridgeIpcMethods.Readiness => Respond(await ReadinessAsync(request, cancellationToken)),
             BridgeIpcMethods.Observe => Respond(await ObserveAsync(request, cancellationToken)),
             BridgeIpcMethods.ObserveChanges => Respond(await ObserveChangesAsync(request, cancellationToken)),
+            BridgeIpcMethods.VirtualItem => Respond(await VirtualItemAsync(request, cancellationToken)),
             BridgeIpcMethods.VisualTree => Respond(await GetTreeAsync(request, TreeKinds.Visual, cancellationToken)),
             BridgeIpcMethods.LogicalTree => Respond(await GetTreeAsync(request, TreeKinds.Logical, cancellationToken)),
             BridgeIpcMethods.InspectNode => Respond(await InspectNodeAsync(request, cancellationToken)),
@@ -403,6 +404,15 @@ internal sealed class LocalBridgeServer : IDisposable
         if (request.ObservationChanges is null)
             return BridgeIpcResponse.Fail(request.RequestId, new ProtocolError("missing_observation_changes_request", "Change observation options are required."));
         var result = await _runtime.ObserveChangesAsync(request.ObservationChanges, cancellationToken);
+        return result.Success ? BridgeIpcResponse.Ok(request.RequestId, result.Value)
+            : BridgeIpcResponse.Fail(request.RequestId, ToProtocolError(result.Error!));
+    }
+
+    private async Task<BridgeIpcResponse> VirtualItemAsync(BridgeIpcRequest request, CancellationToken cancellationToken)
+    {
+        if (request.VirtualItem is null)
+            return BridgeIpcResponse.Fail(request.RequestId, new ProtocolError("missing_virtual_item_request", "Virtual item options are required."));
+        var result = await _runtime.VirtualItemAsync(request.VirtualItem, cancellationToken);
         return result.Success ? BridgeIpcResponse.Ok(request.RequestId, result.Value)
             : BridgeIpcResponse.Fail(request.RequestId, ToProtocolError(result.Error!));
     }

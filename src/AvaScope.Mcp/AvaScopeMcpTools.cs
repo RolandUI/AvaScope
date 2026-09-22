@@ -9,6 +9,13 @@ namespace AvaScope.Mcp;
 [McpServerToolType]
 public sealed class AvaScopeMcpTools
 {
+    [McpServerTool(Name = "virtual_item", Title = "Resolve virtualized logical item", ReadOnly = false, Idempotent = false,
+        Destructive = false, OpenWorld = false, UseStructuredContent = true)]
+    [Description("Finds, reveals or selects one logical ItemsControl item using an explicitly chosen public stable scalar key property. Verifies uniqueness across a bounded complete ItemsView and re-resolves after realization. Duplicate keys, unsupported models, stale collections and limits fail explicitly; container ids and indices are diagnostic evidence, never persisted item identity. Host key getters must be fast and side-effect free; selection handlers may run application code.")]
+    public static async Task<ToolResult<RuntimeVirtualItemResponse>> VirtualItem(LocalBridgeClient bridgeClient,
+        RuntimeVirtualItemRequest request, string? manifestDirectory = null, CancellationToken cancellationToken = default)
+        => ToToolResult(await CreateBridgeClient(bridgeClient, manifestDirectory).VirtualItemAsync(request, cancellationToken));
+
     [McpServerTool(Name = "observe_changes", Title = "Observe runtime changes", ReadOnly = true, Idempotent = true,
         Destructive = false, OpenWorld = false, UseStructuredContent = true)]
     [Description("Returns ordered bounded changes from an explicit observation cursor, or a baseline for initialization/resynchronization. Cursor scope includes session, filters and policy; expiry, eviction, restart, overflow and invalid scope never claim complete history. Optional bounded polling samples current state; intermediate states may be coalesced. Read a required response artifact before advancing its cursor.")]

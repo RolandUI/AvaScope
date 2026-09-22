@@ -14,6 +14,8 @@ Use [`observe`](RUNTIME_OBSERVATIONS.md) for one bounded request containing sele
 
 Use [`observe_changes`](RUNTIME_OBSERVATION_CHANGES.md) to continue a scoped cursor with bounded changes and compact unchanged results. Check resynchronization and artifact requirements before advancing the cursor; intermediate states between samples may coalesce.
 
+Use the [testability audit and virtual item workflow](TESTABILITY_AND_VIRTUAL_ITEMS.md) when selectors are ambiguous or list/table rows are unrealized. Prefer verified scoped recommendations and explicit stable logical keys.
+
 ## 1. Create And Install A Local Release
 
 ```powershell

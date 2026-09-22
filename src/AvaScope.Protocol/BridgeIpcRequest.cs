@@ -44,7 +44,8 @@ public sealed record BridgeIpcRequest
         RuntimeTargetContext? gestureDestinationTarget = null,
         RuntimeReadinessProbeOptions? readiness = null,
         RuntimeObservationRequest? observation = null,
-        RuntimeObservationChangesRequest? observationChanges = null)
+        RuntimeObservationChangesRequest? observationChanges = null,
+        RuntimeVirtualItemRequest? virtualItem = null)
     {
         if (string.IsNullOrWhiteSpace(requestId))
         {
@@ -95,6 +96,7 @@ public sealed record BridgeIpcRequest
         Readiness = readiness;
         Observation = observation;
         ObservationChanges = observationChanges;
+        VirtualItem = virtualItem;
     }
 
     [JsonPropertyName("requestId")]
@@ -111,6 +113,10 @@ public sealed record BridgeIpcRequest
     [JsonPropertyName("observationChanges")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public RuntimeObservationChangesRequest? ObservationChanges { get; }
+
+    [JsonPropertyName("virtualItem")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public RuntimeVirtualItemRequest? VirtualItem { get; }
 
     [JsonPropertyName("method")]
     public string Method { get; }

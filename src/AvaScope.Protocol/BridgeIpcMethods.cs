@@ -7,6 +7,7 @@ public static class BridgeIpcMethods
     public const string Readiness = "readiness";
     public const string Observe = "observe";
     public const string ObserveChanges = "observe_changes";
+    public const string VirtualItem = "virtual_item";
     public const string ListTopLevels = "list_top_levels";
     public const string Screenshot = "screenshot";
     public const string VisualTree = "visual_tree";
@@ -30,6 +31,7 @@ public static class BridgeIpcMethods
         Readiness,
         Observe,
         ObserveChanges,
+        VirtualItem,
         ListTopLevels,
         Screenshot,
         VisualTree,

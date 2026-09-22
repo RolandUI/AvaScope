@@ -60,8 +60,9 @@ public sealed class UiAuditBuilder
 
         var nodes = Flatten(tree.Root).ToArray();
         var actionableNodes = nodes.Where(static node => IsActionable(node.Node)).ToArray();
-        var issues = CreateIssues(actionableNodes).ToArray();
+        var issues = CreateIssues(actionableNodes, nodes).ToArray();
         var inventory = CreateInventory(nodes).ToArray();
+        var recommendations = CreateSelectorRecommendations(tree, nodes).Take(inventoryLimit.Value + 1).ToArray();
         var validationMetadataCount = nodes.Count(static node => node.Node.ValidationState is not null);
         var validationErrorCount = nodes.Count(static node => node.Node.ValidationState?.HasErrors == true);
         var focusKnownCount = actionableNodes.Count(static node =>
@@ -82,7 +83,7 @@ public sealed class UiAuditBuilder
             issues.Any(static issue => issue.Category == "accessibility") ? "issues_found" : "available",
             validationMetadataCount == 0 ? "not_available" : validationErrorCount > 0 ? "errors_found" : "clean",
             actionableNodes.Length == 0 ? "not_available" : focusKnownCount == 0 ? "not_available" : focusKnownCount == actionableNodes.Length ? "available" : "partial",
-            truncated: issues.Length > issueLimit.Value || inventory.Length > inventoryLimit.Value);
+            truncated: issues.Length > issueLimit.Value || inventory.Length > inventoryLimit.Value || recommendations.Length > inventoryLimit.Value);
 
         return CoreResult<UiAuditResponse>.Ok(new UiAuditResponse(
             tree.SessionId,
@@ -93,7 +94,8 @@ public sealed class UiAuditBuilder
             summary,
             issues.Take(issueLimit.Value).ToArray(),
             inventory.Take(inventoryLimit.Value).ToArray(),
-            tree.Target));
+            tree.Target,
+            selectorRecommendations: recommendations.Take(inventoryLimit.Value).ToArray()));
     }
 
     private static CoreResult<int> NormalizeLimit(int? value, int maximum, string optionName)
@@ -108,7 +110,7 @@ public sealed class UiAuditBuilder
         return CoreResult<int>.Ok(Math.Min(value ?? maximum, maximum));
     }
 
-    private static IEnumerable<UiAuditIssue> CreateIssues(IReadOnlyList<NodeWithDepth> actionableNodes)
+    private static IEnumerable<UiAuditIssue> CreateIssues(IReadOnlyList<NodeWithDepth> actionableNodes, IReadOnlyList<NodeWithDepth> nodes)
     {
         var sequence = 1;
         foreach (var item in actionableNodes)
@@ -183,6 +185,55 @@ public sealed class UiAuditBuilder
                         ["errors"] = string.Join(" | ", node.ValidationState.Errors)
                     });
             }
+        }
+        foreach (var group in nodes.Where(item => !string.IsNullOrWhiteSpace(item.Node.AutomationId))
+            .GroupBy(item => item.Node.AutomationId!, StringComparer.OrdinalIgnoreCase).Where(group => group.Count() > 1))
+        {
+            yield return CreateIssue(sequence++, "testability", "warning", "testability.duplicate_automation_id",
+                "AutomationId matches multiple nodes in the audited snapshot.", group.First().Node,
+                "Assign distinct stable AutomationProperties.AutomationId values in the host source; re-run this scoped audit before relying on the selector.",
+                new Dictionary<string, string>
+                {
+                    ["matchCount"] = group.Count().ToString(CultureInfo.InvariantCulture),
+                    ["scope"] = "returned_tree_snapshot",
+                    ["sampleNodeIds"] = string.Join(",", group.Take(8).Select(item => item.Node.NodeId))
+                });
+        }
+    }
+
+    private static IEnumerable<UiSelectorRecommendation> CreateSelectorRecommendations(TreeResponse tree, IReadOnlyList<NodeWithDepth> nodes)
+    {
+        foreach (var item in nodes.Where(item => IsActionable(item.Node)
+            || ShortTypeName(item.Node.NodeType) is "ListBox" or "TreeView" or "DataGrid" or "ItemsControl"))
+        {
+            var node = item.Node;
+            SemanticWorkflowSelector? selector = null;
+            var count = 0;
+            var stability = "unavailable";
+            if (!string.IsNullOrWhiteSpace(node.AutomationId))
+            {
+                count = nodes.Count(candidate => string.Equals(candidate.Node.AutomationId, node.AutomationId, StringComparison.OrdinalIgnoreCase));
+                if (count == 1)
+                {
+                    selector = new SemanticWorkflowSelector(treeKind: tree.TreeKind, automationId: node.AutomationId, maxDepth: tree.DepthLimit);
+                    stability = "automation_id_host_contract";
+                }
+            }
+            if (selector is null && !string.IsNullOrWhiteSpace(node.Name))
+            {
+                count = nodes.Count(candidate => string.Equals(candidate.Node.Name, node.Name, StringComparison.OrdinalIgnoreCase)
+                    && candidate.Node.NodeType.Contains(node.NodeType, StringComparison.OrdinalIgnoreCase));
+                if (count == 1)
+                {
+                    selector = new SemanticWorkflowSelector(treeKind: tree.TreeKind, name: node.Name, nodeType: node.NodeType, maxDepth: tree.DepthLimit);
+                    stability = "name_and_type_may_change_with_templates";
+                }
+            }
+            yield return new UiSelectorRecommendation(node.NodeId, selector, count,
+                selector is not null ? "unique_in_snapshot" : count > 1 ? "ambiguous" : "unavailable", stability,
+                selector is not null
+                    ? "Verified against all nodes returned in this tree snapshot. Unseen depth/virtualized nodes and later changes are not covered; re-resolve before dispatch."
+                    : "Add a unique AutomationProperties.AutomationId in the host source. Localized text, runtime ids and list indexes are not stable selector recommendations.");
         }
     }
 

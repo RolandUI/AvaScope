@@ -19,7 +19,8 @@ public sealed record UiAuditResponse
         IReadOnlyList<UiAuditIssue>? issues = null,
         IReadOnlyList<UiInventoryItem>? inventory = null,
         RuntimeTargetContext? target = null,
-        ArtifactRunIndexResponse? runIndex = null)
+        ArtifactRunIndexResponse? runIndex = null,
+        IReadOnlyList<UiSelectorRecommendation>? selectorRecommendations = null)
     {
         SessionId = sessionId ?? throw new ArgumentNullException(nameof(sessionId));
 
@@ -47,6 +48,7 @@ public sealed record UiAuditResponse
         Inventory = (inventory ?? []).Take(MaximumInventoryItems).ToArray();
         Target = target ?? new RuntimeTargetContext(sessionId, topLevelId, treeKind);
         RunIndex = runIndex;
+        SelectorRecommendations = (selectorRecommendations ?? []).Take(MaximumInventoryItems).ToArray();
     }
 
     [JsonPropertyName("sessionId")]
@@ -79,6 +81,12 @@ public sealed record UiAuditResponse
     [JsonPropertyName("runIndex")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public ArtifactRunIndexResponse? RunIndex { get; }
+
+    [JsonPropertyName("selectorRecommendations")]
+    public IReadOnlyList<UiSelectorRecommendation> SelectorRecommendations { get; }
+
+    [JsonPropertyName("selectorVerificationScope")]
+    public string SelectorVerificationScope => "returned_tree_snapshot_at_depth_limit_revalidate_live_before_action";
 
     [JsonPropertyName("agentReview")]
     public AgentReviewSurface AgentReview => CreateAgentReview();

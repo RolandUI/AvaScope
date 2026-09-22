@@ -99,6 +99,39 @@ public sealed class UiAuditBuilderTests
         Assert.True(result.Value.Summary.InventoryItemCount > result.Value.Inventory.Count);
     }
 
+    [Fact]
+    public void SelectorRecommendationsVerifyUniquenessUsingActualSearchSemanticsAndAvoidLocalizedText()
+    {
+        var tree = new TreeResponse(new SessionId("audit"), "window", TreeKinds.Visual, 4,
+            new TreeNodeSummary("root", "Window", children:
+            [
+                new("one", "Avalonia.Controls.Button", automationId: "Save", text: "Save"),
+                new("two", "Avalonia.Controls.Button", name: "Localized", automationId: "save", text: "Mentés"),
+                new("three", "Avalonia.Controls.Button", automationId: "Cancel", text: "Mégse"),
+                new("four", "Avalonia.Controls.Button", text: "Save"),
+                new("five", "Avalonia.Controls.Button", name: "Shared"),
+                new("six", "App.Avalonia.Controls.ButtonVariant", name: "shared")
+            ]));
+        var result = new UiAuditBuilder().Create(tree).Value!;
+        var duplicate = Assert.Single(result.Issues, item => item.Code == "testability.duplicate_automation_id");
+        Assert.Equal("2", duplicate.Details["matchCount"]);
+        Assert.Contains("returned_tree_snapshot", result.SelectorVerificationScope, StringComparison.Ordinal);
+        var ambiguous = Assert.Single(result.SelectorRecommendations, item => item.NodeId == "one");
+        Assert.Equal("ambiguous", ambiguous.Status);
+        Assert.Null(ambiguous.Selector);
+        var localized = Assert.Single(result.SelectorRecommendations, item => item.NodeId == "two");
+        Assert.Equal("Localized", localized.Selector!.Name);
+        Assert.Equal(1, localized.MatchCount);
+        Assert.Null(localized.Selector.Text);
+        var unique = Assert.Single(result.SelectorRecommendations, item => item.NodeId == "three");
+        Assert.Equal("Cancel", unique.Selector!.AutomationId);
+        Assert.Equal(tree.DepthLimit, unique.Selector.MaxDepth);
+        Assert.Null(Assert.Single(result.SelectorRecommendations, item => item.NodeId == "four").Selector);
+        Assert.Null(Assert.Single(result.SelectorRecommendations, item => item.NodeId == "five").Selector);
+        Assert.All(result.SelectorRecommendations, item => Assert.Null(item.Selector?.NodeId));
+        Assert.Single(new UiAuditBuilder().Create(tree, maxInventoryItems: 1).Value!.SelectorRecommendations);
+    }
+
     private static TreeNodeSummary CreateButton(SessionId sessionId, string nodeId)
     {
         return new TreeNodeSummary(

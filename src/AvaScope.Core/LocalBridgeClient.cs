@@ -751,6 +751,16 @@ public sealed class LocalBridgeClient
             cancellationToken);
     }
 
+    public async Task<CoreResult<RuntimeVirtualItemResponse>> VirtualItemAsync(RuntimeVirtualItemRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var manifest = FindSingleManifest(null, request.Collection.SessionId);
+        if (!manifest.Success) return CoreResult<RuntimeVirtualItemResponse>.Fail(manifest.Error!);
+        return await SendAsync<RuntimeVirtualItemResponse>(manifest.Value!,
+            new BridgeIpcRequest(NewRequestId(), BridgeIpcMethods.VirtualItem, virtualItem: request), cancellationToken);
+    }
+
     internal async Task<CoreResult<RuntimeObservationChangesResponse>> ReadObservationChangesAsync(RuntimeObservationChangesRequest request,
         CancellationToken cancellationToken)
     {
