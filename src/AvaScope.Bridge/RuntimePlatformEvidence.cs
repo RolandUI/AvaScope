@@ -40,7 +40,11 @@ internal static class RuntimePlatformEvidence
             restrictions.Add("native_input_targets_owned_windows_only_not_global_hardware_input");
             restrictions.Add("native_input_requires_active_window;ime_clipboard_external_dragdrop_unavailable");
             if (backend == "x11") restrictions.Add("native_literal_unicode_unavailable;keys_require_base_group_mapping");
-            if (backend == "macos") restrictions.Add("native_key_sequence_navigation_only;native_drag_unavailable;use_literal_text_or_explicit_synthetic_input");
+            if (backend == "macos")
+            {
+                restrictions.Add("native_key_sequence_navigation_only;native_drag_unavailable;use_literal_text_or_explicit_synthetic_input");
+                restrictions.Add("native_picker_confirm_unavailable;appkit_remote_panels_require_user_confirmation;use_explicit_predefined_results_for_app_logic");
+            }
         }
         catch (NotSupportedException) { restrictions.Add("native_os_input_unavailable"); }
         if (backend == "headless")

@@ -120,11 +120,12 @@ public sealed partial class AvaScopeBridgeRuntime
         if (sheet == 0 || NativeWindowInput.Mac.SendArg(sheet, NativeWindowInput.Mac.Selector("isKindOfClass:"), panelClass) == 0)
             return new(false);
         if (operation == NativePickerOperations.Cancel) NativeWindowInput.Mac.SendArg(sheet, NativeWindowInput.Mac.Selector("cancel:"), 0);
-        if (operation == NativePickerOperations.Confirm) NativeWindowInput.Mac.SendArg(sheet, NativeWindowInput.Mac.Selector("ok:"), 0);
+        if (operation == NativePickerOperations.Confirm)
+            throw new NotSupportedException("macOS hosts file panels out of process and does not permit programmatic confirmation through NSSavePanel.ok:. Cancel the native panel and use the explicit host-authorized predefined-result hook for deterministic app-logic coverage. No confirmation or global input was dispatched.");
         if (operation == NativePickerOperations.SelectPath)
         {
             if (NativeWindowInput.Mac.SendArg(sheet, NativeWindowInput.Mac.Selector("isKindOfClass:"), NativeWindowInput.Mac.Class("NSOpenPanel")) != 0)
-                throw new NotSupportedException("AppKit open/folder panels support detect/cancel/confirm of the current selection. Programmatic select_path is supported for save panels only; use the explicit predefined-result hook for deterministic open/folder selection.");
+                throw new NotSupportedException("AppKit open/folder panels support detect/cancel. Programmatic select_path is supported for save panels only; use the explicit predefined-result hook for deterministic open/folder selection.");
             var directory = Path.GetDirectoryName(path!);
             if (!Directory.Exists(directory)) throw new InvalidOperationException("The save panel's requested parent directory does not exist.");
             var url = NativeWindowInput.Mac.SendArg(NativeWindowInput.Mac.Class("NSURL"), NativeWindowInput.Mac.Selector("fileURLWithPath:"), NativeWindowInput.Mac.String(directory!));

@@ -101,7 +101,7 @@ No native operation substitutes a prepared result.
 | --- | --- |
 | Windows common picker | Existing process/owner-chain check, bounded select/confirm/cancel. Legacy request without topLevelId remains available. |
 | X11 GTK3 chooser | In-process GTK list, matching X11 transient owner equals the explicitly selected window; all GTK calls execute on GLib. Existing file/folder and save paths, confirm/cancel. |
-| macOS AppKit sheet | Native NSSavePanel/NSOpenPanel sheet attached to the explicitly selected NSWindow. Detect/cancel/confirm; select_path on save panels. Open/folder programmatic path selection explicitly unsupported. |
+| macOS AppKit sheet | Native NSSavePanel/NSOpenPanel sheet attached to the explicitly selected NSWindow. Detect/cancel; select_path on save panels. Open/folder programmatic selection and all programmatic confirmation explicitly unsupported. |
 | Portal-hosted / unrelated dialog | Unsupported without validated request ownership/correlation; no process search or desktop-wide automation. |
 | Prepared result | App logic only. Session/correlation scoped, one shot, TTL bounded. Works on every platform, independently of native dialogs. |
 
@@ -143,3 +143,11 @@ Public API references: [Avalonia 12.1 pointer events](https://github.com/Avaloni
 [GTK3 chooser selection](https://docs.gtk.org/gtk3/method.FileChooser.set_filename.html),
 [AppKit NSSavePanel](https://developer.apple.com/documentation/appkit/nssavepanel).
 The macOS motion limitation follows [Avalonia.Native modifier conversion](https://github.com/AvaloniaUI/Avalonia/blob/12.1.0/native/Avalonia.Native/src/OSX/AvnView.mm).
+
+macOS file panels are hosted out of process. Apple explicitly excludes calling
+`ok:` to confirm them; AvaScope reports that capability as unsupported before
+sending any confirmation. The native gate validates path selection, cancellation
+and this negative case; only the explicit predefined-result host hook covers
+successful app-level selection. It never substitutes a native-confirm success.
+See [Apple WWDC19: Advances in macOS Security](https://developer.apple.com/videos/play/wwdc2019/701/)
+and [NSSavePanel](https://developer.apple.com/documentation/appkit/nssavepanel).

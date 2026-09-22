@@ -162,8 +162,20 @@ public sealed class NativeInputIntegrationTests
             Assert.True((await Picker("detect")).DialogDetected);
             var selectedPath = backend == "macos" ? Path.Combine(output, "native-save.txt") : file;
             Assert.Equal("path_selected", (await Picker("select_path", selectedPath)).Status);
-            Assert.Equal("confirmed", (await Picker("confirm")).Status);
-            await WaitText("PickerState", "selected:" + Path.GetFileName(selectedPath));
+            if (backend == "macos")
+            {
+                var confirm = client.NativePicker(sessionId, "confirm", topLevelId: top.Id, timeoutMs: 1000);
+                Assert.False(confirm.Success);
+                Assert.Contains("does not permit programmatic confirmation", confirm.Error!.Message);
+                Assert.True((await Picker("detect")).DialogDetected);
+                Assert.Equal("cancelled", (await Picker("cancel")).Status);
+                await WaitText("PickerState", "cancelled");
+            }
+            else
+            {
+                Assert.Equal("confirmed", (await Picker("confirm")).Status);
+                await WaitText("PickerState", "selected:" + Path.GetFileName(selectedPath));
+            }
 
             await File.WriteAllTextAsync(Path.Combine(output, "validation.json"), JsonSerializer.Serialize(new
             {
