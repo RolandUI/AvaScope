@@ -39,7 +39,13 @@ use a paired request, or the documented legacy synthetic API.
 
 `pointer_move` and `drag` accept `destinationX/Y` in the selected top-level's DIP
 coordinates. Drag requires a destination. Start with explicit x/y or the current
-visual target center. All points stay within that window. `durationMs` defaults to
+application-declared local activation point, falling back explicitly to the visual
+target center. [Action explanations](ACTION_EXPLANATIONS.md) expose its coordinate
+source, clipping/hit-test evidence and geometry revision. Set
+`execution.expectedGeometryRevision` with the same explicit target node for
+synthetic/native pointer input to reject stale observations; do not copy a
+provider-derived point into explicit x/y unless intentionally choosing that point.
+All points stay within that window. `durationMs` defaults to
 250 (0–3000), `motionSteps` to 10 (1–120), and `motionProfile` to `linear` or
 `ease_in_out` (smoothstep). A fixed request produces the same points; scheduling
 latency can lengthen actual timing. Only one compound request runs at a time.

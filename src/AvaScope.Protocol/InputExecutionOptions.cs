@@ -15,9 +15,13 @@ public sealed record InputExecutionOptions
     [JsonPropertyName("destinationX")] public double? DestinationX { get; init; }
     [JsonPropertyName("destinationY")] public double? DestinationY { get; init; }
     [JsonPropertyName("keys")] public IReadOnlyList<InputKeyStroke> Keys { get; init; } = [];
+    [JsonPropertyName("expectedGeometryRevision")] public string? ExpectedGeometryRevision { get; init; }
 
     public string? GetValidationError(string action)
     {
+        if (ExpectedGeometryRevision is { } revision && (revision.Length != 64 || !revision.All(Uri.IsHexDigit)
+            || action is not (InputActions.Click or InputActions.PointerMove or InputActions.Drag) || Strategy == "semantic"))
+            return "expectedGeometryRevision requires a 64-character SHA-256 from explain_action and synthetic/native pointer input.";
         if (Strategy is not ("semantic" or "synthetic" or "native") || Button is not ("left" or "right" or "middle")
             || ClickCount is < 1 or > 3 || IntervalMs is < 0 or > 250 || DurationMs is < 0 or > 3000
             || MotionSteps is < 1 or > 120 || MotionProfile is not ("linear" or "ease_in_out")

@@ -10,6 +10,7 @@ public static class AvaScopeCapabilityIds
     public const string SafetyLocalOnly = "safety.local_only";
 
     public const string RuntimeAttach = "runtime.attach";
+    public const string RuntimeActionExplanation = "runtime.action_explanation";
     public const string RuntimeStandaloneProvider = "runtime.standalone_provider";
     public const string RuntimeIntegrationGuidance = "runtime.integration_guidance";
     public const string RuntimeIntegrationVerification = "runtime.integration_verification";

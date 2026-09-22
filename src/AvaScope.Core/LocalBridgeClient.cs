@@ -784,6 +784,28 @@ public sealed partial class LocalBridgeClient
             new BridgeIpcRequest(NewRequestId(), BridgeIpcMethods.Observe, observation: request), cancellationToken);
     }
 
+    public async Task<CoreResult<RuntimeActionExplanation>> ExplainActionAsync(RuntimeActionExplanationRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var policy = request.Policy is null ? null : new RuntimeEvidencePolicyEnforcer(request.Policy);
+        if (policy is not null)
+        {
+            var authorization = policy.AuthorizeSession(this, request.SessionId);
+            if (!authorization.Success) return CoreResult<RuntimeActionExplanation>.Fail(authorization.Error!);
+            var action = policy.AuthorizeAction(SemanticWorkflowActions.Inspect, null);
+            if (!action.Success) return CoreResult<RuntimeActionExplanation>.Fail(action.Error!);
+        }
+        var manifest = FindSingleManifest(null, request.SessionId);
+        if (!manifest.Success) return CoreResult<RuntimeActionExplanation>.Fail(manifest.Error!);
+        var result = await SendAsync<RuntimeActionExplanation>(manifest.Value!,
+            new BridgeIpcRequest(NewRequestId(), BridgeIpcMethods.ExplainAction, actionExplanation: request), cancellationToken);
+        if (policy is null) return result;
+        if (result.Success) return policy.Sanitize(result.Value!);
+        var error = policy.Sanitize(result.Error!);
+        return CoreResult<RuntimeActionExplanation>.Fail(error.Success ? error.Value! : error.Error!);
+    }
+
     public async Task<CoreResult<RuntimeReadinessSnapshot>> ReadinessAsync(
         SessionId sessionId, string topLevelId, string? nodeId = null,
         RuntimeReadinessProbeOptions? options = null, CancellationToken cancellationToken = default)

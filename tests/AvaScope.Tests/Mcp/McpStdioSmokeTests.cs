@@ -41,6 +41,7 @@ public sealed class McpStdioSmokeTests
         Assert.Contains("session_capabilities", toolNames);
         Assert.Contains("list_sessions", toolNames);
         Assert.Contains("observe", toolNames);
+        Assert.Contains("explain_action", toolNames);
         Assert.Contains("observe_changes", toolNames);
         Assert.Contains("virtual_item", toolNames);
         Assert.Contains("close_session", toolNames);

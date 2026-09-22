@@ -165,8 +165,16 @@ public static class WorkflowExporter
                     if (action == SemanticWorkflowActions.Wait) Review("fixed_sleep", id, "Replace this recorded fixed delay with an explicit state wait; no condition was invented.");
                     if (action is SemanticWorkflowActions.KeyDown or SemanticWorkflowActions.KeyUp or SemanticWorkflowActions.PressAndHold)
                         Review("unpaired_input", id, "A held-key/button operation is not a self-contained replay step. Use a paired action.", true);
-                    if (step["inputExecution"] is JsonObject execution && (execution["destinationX"] is not null || execution["destinationY"] is not null))
-                        Review("coordinate_input", id, "Recorded coordinates require review on a fresh layout; prefer a semantic destination selector.");
+                    if (step["inputExecution"] is JsonObject execution)
+                    {
+                        if (execution["destinationX"] is not null || execution["destinationY"] is not null)
+                            Review("coordinate_input", id, "Recorded coordinates require review on a fresh layout; prefer a semantic destination selector.");
+                        if (execution["expectedGeometryRevision"] is JsonValue geometry)
+                        {
+                            AddValue(geometry.GetValue<string>(), "Fresh activation geometry for " + id);
+                            Review("activation_geometry_rebind", id, "Bind the geometry revision returned by explain_action for the replay session and current target layout.");
+                        }
+                    }
                     if (step["text"] is JsonValue literal && !Tokens.IsMatch(literal.GetValue<string>()))
                         AddValue(literal.GetValue<string>(), "Literal text at " + id);
                     if (step["topLevelAlias"] is null && defaultAlias is not null) step["topLevelAlias"] = defaultAlias.Alias;

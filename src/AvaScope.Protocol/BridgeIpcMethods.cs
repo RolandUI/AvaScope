@@ -6,6 +6,7 @@ public static class BridgeIpcMethods
     public const string Capabilities = "capabilities";
     public const string Readiness = "readiness";
     public const string Observe = "observe";
+    public const string ExplainAction = "explain_action";
     public const string ObserveChanges = "observe_changes";
     public const string VirtualItem = "virtual_item";
     public const string NativePicker = "native_picker";
@@ -32,6 +33,7 @@ public static class BridgeIpcMethods
         Capabilities,
         Readiness,
         Observe,
+        ExplainAction,
         ObserveChanges,
         VirtualItem,
         NativePicker,

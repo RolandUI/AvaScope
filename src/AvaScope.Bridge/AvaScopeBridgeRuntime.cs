@@ -1409,6 +1409,11 @@ public sealed partial class AvaScopeBridgeRuntime
 
         targetNodeId = currentTarget.Value!.NodeId;
 
+        if (action is not (InputActions.PointerUp or InputActions.KeyUp)
+            && (targetNodeId is not null ? FindNodeById(topLevel, targetNodeId) as Visual : topLevel) is { } guarded
+            && InputBlocker(topLevel, topLevelId, guarded, action) is { } blocker)
+            return CoreResult<InputResponse>.Fail(blocker);
+
         return action switch
         {
             InputActions.PointerMove => PointerMove(topLevel, topLevelId, x, y),
@@ -1468,6 +1473,10 @@ public sealed partial class AvaScopeBridgeRuntime
 
         targetNodeId = currentTarget.Value!.NodeId;
         var destinationNodeId = gesture?.DestinationTargetNodeId;
+        if (action is not (InputActions.PointerUp or InputActions.KeyUp)
+            && (targetNodeId is not null ? FindNodeById(topLevel, targetNodeId) as Visual : topLevel) is { } guarded
+            && InputBlocker(topLevel, topLevelId, guarded, action) is { } blocker)
+            return CoreResult<InputResponse>.Fail(blocker);
         var currentDestination = ResolveInputGenerationTarget(
             topLevel, topLevelId, destinationNodeId, gestureDestinationTarget, "gestureDestinationTarget");
         if (!currentDestination.Success)
@@ -3579,6 +3588,9 @@ public sealed partial class AvaScopeBridgeRuntime
         targetNodeId = currentTarget.Value!.NodeId;
 
         options ??= new InputGestureOptions();
+        if (FindNodeById(topLevel, targetNodeId!) is Visual guarded
+            && InputBlocker(topLevel, topLevelId, guarded, action) is { } blocker)
+            return CoreResult<GesturePlan>.Fail(blocker);
         var currentDestination = ResolveInputGenerationTarget(
             topLevel,
             topLevelId,
@@ -3919,6 +3931,8 @@ public sealed partial class AvaScopeBridgeRuntime
     private CoreResult<InputResponse> ExecuteRangeGesture(GesturePlan plan)
     {
         Dispatcher.UIThread.VerifyAccess();
+        if (InputBlocker(plan.TopLevel, plan.TopLevelId, plan.Source.Visual, plan.Action) is { } blocker)
+            return CoreResult<InputResponse>.Fail(blocker);
         try
         {
             plan.RangeProvider!.SetValue(plan.NextRangeValue!.Value);
@@ -3967,6 +3981,8 @@ public sealed partial class AvaScopeBridgeRuntime
             switch (pointerEvent)
             {
                 case GesturePointerEvent.Pressed:
+                    if (InputBlocker(plan.TopLevel, plan.TopLevelId, plan.Source.Visual, plan.Action) is { } blocker)
+                        throw new InvalidOperationException(blocker.Message);
                     _activePointers[plan.TopLevelId] = new ActivePointerState(pointer, target);
                     target.RaiseEvent(new PointerPressedEventArgs(
                         target,
@@ -4366,56 +4382,29 @@ public sealed partial class AvaScopeBridgeRuntime
         }
 
         var coordinateSource = x is not null ? "explicit" : "target_center";
+        RuntimeActivationPoint? activationPoint = null;
         Point point;
-        if (x is not null && y is not null)
+        if (requestedVisual is not null)
+        {
+            var (context, failed) = ReadActionContext(requestedVisual, InputActions.Click);
+            activationPoint = ResolveActivationPoint(topLevel, topLevelId, requestedVisual, x, y, context, failed);
+            if (activationPoint.Status != "valid")
+                return InvalidClickTarget(normalizedTargetNodeId!, requestedVisual.GetType().FullName!,
+                    activationPoint.Reason ?? "Activation point is unavailable.", requestedBounds);
+            point = new Point(activationPoint.X!.Value, activationPoint.Y!.Value);
+            if (activationPoint.Source == "app_declared_local_dip") coordinateSource = activationPoint.Source;
+        }
+        else if (x is not null && y is not null && double.IsFinite(x.Value) && double.IsFinite(y.Value))
         {
             point = new Point(x.Value, y.Value);
         }
         else
         {
-            if (normalizedTargetNodeId is null)
-            {
-                return CoreResult<InputResponse>.Fail(new CoreError(
-                    BridgeErrorCodes.InvalidInputRequest,
-                    "Click input requires x and y coordinates or a target node id."));
-            }
-
-            if (!requestedVisual!.IsEffectivelyVisible)
-            {
-                return InvalidClickTarget(
-                    normalizedTargetNodeId,
-                    requestedVisual.GetType().FullName ?? requestedVisual.GetType().Name,
-                    "Click target is not effectively visible.");
-            }
-
-            if (requestedBounds is null
-                || requestedBounds.Value.Width <= 0
-                || requestedBounds.Value.Height <= 0
-                || !double.IsFinite(requestedBounds.Value.X)
-                || !double.IsFinite(requestedBounds.Value.Y)
-                || !double.IsFinite(requestedBounds.Value.Width)
-                || !double.IsFinite(requestedBounds.Value.Height))
-            {
-                return InvalidClickTarget(
-                    normalizedTargetNodeId,
-                    requestedVisual.GetType().FullName ?? requestedVisual.GetType().Name,
-                    "Click target does not have finite, positive arranged bounds.",
-                    requestedBounds);
-            }
-
-            point = requestedBounds.Value.Center;
-            var topLevelBounds = new Rect(topLevel.Bounds.Size);
-            if (!topLevelBounds.Contains(point))
-            {
-                return InvalidClickTarget(
-                    normalizedTargetNodeId,
-                    requestedVisual.GetType().FullName ?? requestedVisual.GetType().Name,
-                    "Click target center is clipped outside the top-level bounds.",
-                    requestedBounds);
-            }
+            return CoreResult<InputResponse>.Fail(new CoreError(BridgeErrorCodes.InvalidInputRequest,
+                "Click input requires both finite x/y coordinates or a target node id."));
         }
 
-        var hitTarget = topLevel.GetVisualAt(point);
+        var hitTarget = topLevel.InputHitTest(point, enabledElementsOnly: false) as Visual;
         var button = hitTarget as Button ?? hitTarget?.FindAncestorOfType<Button>();
         if (button is null)
         {
@@ -4447,9 +4436,28 @@ public sealed partial class AvaScopeBridgeRuntime
                 hitTarget);
         }
 
+        if (InputBlocker(topLevel, topLevelId, button, InputActions.Click) is { } blocker)
+            return CoreResult<InputResponse>.Fail(blocker);
+
         if (!validateOnly)
         {
             button.Focus(NavigationMethod.Pointer);
+            if (TopLevel.GetTopLevel(button) != topLevel)
+                return CoreResult<InputResponse>.Fail(new(BridgeErrorCodes.InvalidInputRequest, "The click target detached while receiving focus; inspect current state before retrying."));
+            if (InputBlocker(topLevel, topLevelId, button, InputActions.Click) is { } focusedBlocker)
+                return CoreResult<InputResponse>.Fail(focusedBlocker);
+            if (activationPoint is not null)
+            {
+                var (context, failed) = ReadActionContext(requestedVisual!, InputActions.Click);
+                var currentPoint = ResolveActivationPoint(topLevel, topLevelId, requestedVisual!, x, y, context, failed);
+                if (currentPoint.Status != "valid" || currentPoint.GeometryRevision != activationPoint.GeometryRevision)
+                    return CoreResult<InputResponse>.Fail(new(BridgeErrorCodes.InvalidInputRequest,
+                        "The activation point changed while receiving focus; no click was dispatched. Inspect current state before retrying."));
+            }
+            else if (topLevel.InputHitTest(point, enabledElementsOnly: false) is not Visual currentHit
+                || currentHit != button && !currentHit.GetVisualAncestors().Contains(button))
+                return CoreResult<InputResponse>.Fail(new(BridgeErrorCodes.InvalidInputRequest,
+                    "The click point became obstructed while receiving focus; inspect current state before retrying."));
             button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, button));
         }
 
@@ -4483,7 +4491,7 @@ public sealed partial class AvaScopeBridgeRuntime
             CreateNodeTarget(topLevelId, TreeKinds.Visual, topLevel, button),
             pointerButton: "left",
             metadata: metadata,
-            provenance: provenance));
+            provenance: provenance, activationPoint: activationPoint));
     }
 
     private CoreResult<InputResponse> InvalidClickTarget(

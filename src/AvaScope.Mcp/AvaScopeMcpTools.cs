@@ -9,6 +9,13 @@ namespace AvaScope.Mcp;
 [McpServerToolType]
 public sealed class AvaScopeMcpTools
 {
+    [McpServerTool(Name = "explain_action", Title = "Explain runtime action blockers", ReadOnly = true, Idempotent = true,
+        Destructive = false, OpenWorld = false, UseStructuredContent = true)]
+    [Description("Explains bounded observable blockers, related validation and separately labeled app-declared reasons for an explicit live target. Resolves an application-declared local activation point or bounds center and validates current clipping and Avalonia input hit testing. Native OS visibility remains unknown. No input, reveal, focus, mutation or recovery is executed. Reuse the geometryRevision with explicit input execution.expectedGeometryRevision to reject stale geometry before dispatch; validation is still required at dispatch.")]
+    public static async Task<ToolResult<RuntimeActionExplanation>> ExplainAction(LocalBridgeClient bridgeClient,
+        RuntimeActionExplanationRequest request, string? manifestDirectory = null, CancellationToken cancellationToken = default)
+        => ToToolResult(await CreateBridgeClient(bridgeClient, manifestDirectory).ExplainActionAsync(request, cancellationToken));
+
     [McpServerTool(Name = "export_workflow", Title = "Export recorded AvaScope workflow", ReadOnly = false, Idempotent = false,
         Destructive = false, OpenWorld = false, UseStructuredContent = true)]
     [Description("Exports an original AvaScope workflow request and its matching complete execution response to a parameterized native workflow and review document. Preserves actual assertions, action/redaction policy and idempotency; marks missing verification or unstable targets. Parameter values are never persisted as defaults. No foreign framework import or screenshot baseline acceptance. Does not replay actions.")]

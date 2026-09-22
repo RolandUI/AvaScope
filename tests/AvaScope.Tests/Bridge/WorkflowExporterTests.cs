@@ -230,6 +230,35 @@ public sealed class WorkflowExporterTests : IDisposable
         Assert.Equal("workflow_replay_invalid", (await WorkflowExporter.ReplayAsync(new(), replay with { SessionId = null! })).Error!.Code);
     }
 
+    [Fact]
+    public async Task ExportRebindsActivationGeometryWithoutDiscardingTheDispatchGuard()
+    {
+        var oldRevision = new string('a', 64);
+        var source = Source(new SemanticWorkflowStep(SemanticWorkflowActions.Click, "save", new(name: "Save"), topLevelAlias: "main",
+            inputExecution: new() { ExpectedGeometryRevision = oldRevision }));
+        var exported = WorkflowExporter.Export(new(source, Recording(source), _root));
+        Assert.True(exported.Success, exported.Error?.Message);
+        Assert.True(exported.Value!.Validated);
+        Assert.Contains(exported.Value.ReviewItems, item => item.Code == "activation_geometry_rebind");
+        Assert.DoesNotContain(oldRevision, File.ReadAllText(exported.Value.ExportPath));
+        Assert.Contains("expectedGeometryRevision", File.ReadAllText(exported.Value.WorkflowPath));
+        var parameter = Assert.Single(exported.Value.Parameters);
+        var replay = new WorkflowReplayRequest(exported.Value.ExportPath, new("fresh"), _root, AcknowledgeReview: true);
+        Assert.Equal("workflow_export_parameters_required", (await WorkflowExporter.ReplayAsync(new(), replay)).Error!.Code);
+        var valid = await WorkflowExporter.ReplayAsync(new(), replay with
+        {
+            Parameters = new Dictionary<string, string> { [parameter.Name] = new string('b', 64) }
+        });
+        Assert.True(valid.Success, valid.Error?.Message);
+        Assert.Equal("validated", valid.Value!.Status);
+        var invalid = await WorkflowExporter.ReplayAsync(new(), replay with
+        {
+            Parameters = new Dictionary<string, string> { [parameter.Name] = "invalid" }
+        });
+        Assert.False(invalid.Value!.Plan!.Valid);
+        Assert.Contains(invalid.Value.Diagnostics, error => error.Code == "semantic_workflow_input_execution_invalid");
+    }
+
     private static SemanticWorkflowRequest Source(params SemanticWorkflowStep[] steps) => new(new("recorded"), null, steps,
         requestId: "recorded", topLevelAliases: [MainAlias]);
 

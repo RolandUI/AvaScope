@@ -66,7 +66,7 @@ public sealed partial class AvaScopeBridgeRuntime
                 var value = semantic.Value!;
                 return CoreResult<InputResponse>.Ok(new(value.SessionId, value.TopLevelId, value.Action, value.Handled, value.ExecutedAt,
                     value.TargetNodeId, value.Target, value.InputKey, value.KeyModifiers, value.PointerButton, value.WheelDeltaX, value.WheelDeltaY,
-                    new Dictionary<string, string>(value.Metadata) { ["requestedStrategy"] = "semantic" }, value.Gesture, value.Provenance));
+                    new Dictionary<string, string>(value.Metadata) { ["requestedStrategy"] = "semantic" }, value.Gesture, value.Provenance, value.ActivationPoint));
             }
 
             await Dispatcher.UIThread.InvokeAsync(() =>
@@ -193,6 +193,16 @@ public sealed partial class AvaScopeBridgeRuntime
             if (plan is null || FindTopLevel(topLevelId) != plan.TopLevel || TopLevel.GetTopLevel(plan.Target) != plan.TopLevel
                 || !plan.Target.IsEffectivelyVisible || !plan.Target.IsEffectivelyEnabled)
                 throw new InvalidOperationException("The selected input target closed, detached or became unavailable.");
+            if (InputBlocker(plan.TopLevel, topLevelId, plan.ActivationTarget ?? plan.Target, action) is { } blocker)
+                throw new InvalidOperationException(blocker.Message);
+            if (plan.ActivationPoint is not null && (dispatched == 0 || action == InputActions.Click && !heldButton))
+            {
+                var intended = plan.ActivationTarget!;
+                var (context, failed) = ReadActionContext(intended, action);
+                var current = ResolveActivationPoint(plan.TopLevel, topLevelId, intended, x, y, context, failed);
+                if (current.Status != "valid" || current.GeometryRevision != plan.ActivationPoint.GeometryRevision)
+                    throw new InvalidOperationException("The activation point became stale, clipped or obstructed before pointer dispatch; observe again before retrying.");
+            }
             if (options.Strategy == "native") NativeWindowInput.ValidateOwnership(plan.TopLevel, requireFocus: true);
             if (dispatched > 0 && action is InputActions.KeyText or InputActions.KeySequence && !plan.Target.IsFocused)
                 throw new InvalidOperationException("Keyboard focus changed during the request; remaining input was not dispatched.");
@@ -219,7 +229,7 @@ public sealed partial class AvaScopeBridgeRuntime
             var recipient = pointer.Captured as InputElement ?? pressedTarget ?? plan.Target;
             if (phase == "move" && !heldButton && pointer.Captured is null)
             {
-                var hit = plan.TopLevel.GetVisualAt(point);
+                var hit = plan.TopLevel.InputHitTest(point, enabledElementsOnly: false) as Visual;
                 recipient = hit as InputElement ?? hit?.FindAncestorOfType<InputElement>() ?? plan.TopLevel;
             }
             var rawButton = plan.Button switch
@@ -266,7 +276,8 @@ public sealed partial class AvaScopeBridgeRuntime
                 ["motionSteps"] = options.MotionSteps.ToString(CultureInfo.InvariantCulture), ["elapsedMs"] = elapsed.ElapsedMilliseconds.ToString(CultureInfo.InvariantCulture),
                 ["permission"] = options.Strategy == "native" ? "in_process_owned_native_window;no_global_injection" : "activated_bridge",
                 ["coverage"] = options.Strategy == "native" ? "native_window_event_dispatch;not_hardware_injection_or_ime_composition" : "avalonia_app_logic"
-            }, provenance: RuntimePlatformEvidence.Operation(plan.TopLevel, plan.Route, handled, coordinateSpace: "top_level_dip"));
+            }, provenance: RuntimePlatformEvidence.Operation(plan.TopLevel, plan.Route, handled, coordinateSpace: "top_level_dip"),
+            activationPoint: plan.ActivationPoint);
     }
 
     private CoreResult<ExplicitInputPlan> PrepareExplicitInput(string topLevelId, string action, double? x, double? y,
@@ -325,17 +336,39 @@ public sealed partial class AvaScopeBridgeRuntime
         if (nodeId is not null && recipient is null) return Fail("The requested visual input node is absent or is not an input element; no focused-node substitution was attempted.");
         if (keyboard) recipient ??= top.FocusManager?.GetFocusedElement() as InputElement;
         if ((x is null) != (y is null)) return Fail("Both x and y must be supplied together.");
+        if (options.ExpectedGeometryRevision is not null && nodeId is null) return Fail("A geometry revision requires its explicit target node id.");
+        var intended = recipient;
+        RuntimeActivationPoint? activationPoint = null;
         var start = x is not null ? new Point(x.Value, y!.Value) : recipient is null ? default : GetGlobalBounds(recipient, top)?.Center ?? default;
         if (!keyboard)
         {
             if (x is null && recipient is null) return Fail("Pointer input requires a current visual target or explicit x/y.");
-            var hit = top.GetVisualAt(start);
+            if (intended is not null)
+            {
+                var (context, failed) = ReadActionContext(intended, action);
+                activationPoint = ResolveActivationPoint(top, topLevelId, intended, x, y, context, failed);
+                if (activationPoint.Status != "valid") return Fail(activationPoint.Reason ?? "The activation point is unavailable.");
+                start = new Point(activationPoint.X!.Value, activationPoint.Y!.Value);
+            }
+            if (!double.IsFinite(start.X) || !double.IsFinite(start.Y)) return Fail("The pointer point must be finite.");
+            var hit = top.InputHitTest(start, enabledElementsOnly: false) as Visual;
             if (recipient is not null && hit != recipient && hit?.GetVisualAncestors().Contains(recipient) != true)
                 return Fail("The selected target is covered or its point hits a different control; inspect current bounds and overlays.");
             recipient = hit as InputElement ?? hit?.FindAncestorOfType<InputElement>();
+            intended ??= recipient;
+            if (activationPoint is null && intended is not null)
+            {
+                var (context, failed) = ReadActionContext(intended, action);
+                activationPoint = ResolveActivationPoint(top, topLevelId, intended, x, y, context, failed);
+                if (activationPoint.Status != "valid") return Fail(activationPoint.Reason ?? "The activation point is unavailable.");
+            }
+            if (options.ExpectedGeometryRevision is { } expected && !string.Equals(expected, activationPoint?.GeometryRevision, StringComparison.OrdinalIgnoreCase))
+                return Fail("The activation geometry revision is stale; no pointer event was dispatched. Observe the target again.");
         }
         if (recipient is null || TopLevel.GetTopLevel(recipient) != top || !recipient.IsEffectivelyVisible || !recipient.IsEffectivelyEnabled)
             return Fail("The selected input target is absent, hidden, disabled or detached.");
+        if (InputBlocker(top, topLevelId, intended ?? recipient, action) is { } blocker)
+            return CoreResult<ExplicitInputPlan>.Fail(blocker);
         if ((options.DestinationX is null) != (options.DestinationY is null)) return Fail("Both destinationX and destinationY are required together.");
         if (action == InputActions.Drag && options.DestinationX is null) return Fail("Explicit drag requires destinationX/Y in the selected top-level's DIP coordinates.");
         if (action is not (InputActions.PointerMove or InputActions.Drag) && options.DestinationX is not null)
@@ -366,7 +399,7 @@ public sealed partial class AvaScopeBridgeRuntime
         }
         return CoreResult<ExplicitInputPlan>.Ok(new(top, recipient, start, end,
             options.Button == "right" ? MouseButton.Right : options.Button == "middle" ? MouseButton.Middle : MouseButton.Left,
-            parsedModifiers.Value, keys, routeName, groupDelay));
+            parsedModifiers.Value, keys, routeName, groupDelay, intended, activationPoint));
     }
 
     private static CoreResult<InputResponse> ExplicitInputFailure(string message, InputExecutionOptions options, int dispatched, string cleanup) =>
@@ -377,5 +410,6 @@ public sealed partial class AvaScopeBridgeRuntime
         }));
 
     private sealed record ExplicitInputPlan(TopLevel TopLevel, InputElement Target, Point Start, Point End,
-        MouseButton Button, KeyModifiers Modifiers, IReadOnlyList<(Key Key, KeyModifiers Modifiers)> Keys, string Route, int ClickGroupDelayMs = 0);
+        MouseButton Button, KeyModifiers Modifiers, IReadOnlyList<(Key Key, KeyModifiers Modifiers)> Keys, string Route, int ClickGroupDelayMs = 0,
+        Visual? ActivationTarget = null, RuntimeActivationPoint? ActivationPoint = null);
 }
