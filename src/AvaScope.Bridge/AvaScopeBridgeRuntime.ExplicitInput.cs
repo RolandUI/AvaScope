@@ -140,11 +140,11 @@ public sealed partial class AvaScopeBridgeRuntime
             }
             response = await Dispatcher.UIThread.InvokeAsync(() => MakeResponse(true), DispatcherPriority.Background, token);
         }
-        catch (Exception exception) when (exception is OperationCanceledException or InvalidOperationException
-            or NotSupportedException or System.Runtime.InteropServices.ExternalException or DllNotFoundException or EntryPointNotFoundException)
+        catch (Exception exception) when (exception is not OutOfMemoryException and not AccessViolationException)
         {
             error = new CoreError(BridgeErrorCodes.InvalidInputRequest,
-                exception is OperationCanceledException ? "Input was cancelled or reached its five-second deadline; inspect state before retrying." : exception.Message);
+                exception is OperationCanceledException ? "Input was cancelled or reached its five-second deadline; inspect state before retrying."
+                    : exception.GetType().Name + ": " + exception.Message);
         }
         finally
         {
@@ -167,8 +167,7 @@ public sealed partial class AvaScopeBridgeRuntime
                 }, DispatcherPriority.Send);
                 await release.GetTask().WaitAsync(TimeSpan.FromSeconds(1));
             }
-            catch (Exception exception) when (exception is TimeoutException or InvalidOperationException or NotSupportedException
-                or System.Runtime.InteropServices.ExternalException or DllNotFoundException or EntryPointNotFoundException)
+            catch (Exception exception) when (exception is not OutOfMemoryException and not AccessViolationException)
             {
                 cleanup = "failed_or_pending";
                 error ??= new CoreError(BridgeErrorCodes.InvalidInputRequest, "Input cleanup did not complete; inspect the selected app before continuing.");

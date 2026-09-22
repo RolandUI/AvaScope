@@ -225,6 +225,8 @@ public sealed class NativeInputIntegrationTests
         }
         finally
         {
+            await File.WriteAllTextAsync(Path.Combine(output, "host-state-before-cleanup.log"),
+                process.HasExited ? "Exited: " + process.ExitCode : "Still running");
             if (manifest is not null && !process.HasExited)
                 await client.CloseSessionAsync(manifest.SessionId);
             if (!process.HasExited) process.Kill(entireProcessTree: true);
