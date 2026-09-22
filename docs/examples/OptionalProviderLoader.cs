@@ -60,6 +60,12 @@ public static class OptionalProviderLoader
                 }
                 else
                 {
+                    if (!Loaded.IsEmpty || AssemblyLoadContext.Default.Assemblies.Any(assembly => assembly.GetName().Name == "AvaScope.Bridge"))
+                    {
+                        throw new InvalidOperationException(
+                            "AVASCOPE_PROVIDER_ALREADY_LOADED: This host already loaded a bridge. Reuse its bootstrap or restart the host before selecting another provider.");
+                    }
+
                     var context = new ProviderLoadContext(provider);
                     var assembly = context.LoadFromAssemblyPath(Path.Combine(provider.Directory, "AvaScope.Bridge.dll"));
                     var bootstrap = assembly.GetType("AvaScope.Bridge.Bootstrap", throwOnError: true)!;
@@ -122,7 +128,9 @@ public static class OptionalProviderLoader
             || manifest.DotnetMajor != 10 || manifest.BootstrapAssembly != "AvaScope.Bridge.dll"
             || manifest.BootstrapType != "AvaScope.Bridge.Bootstrap" || manifest.BootstrapMethod != "Start"
             || manifest.Files is not { Length: > 0 and <= 512 }
-            || manifest.HostSharedAssemblies is not { Length: > 0 and <= 64 })
+            || manifest.HostSharedAssemblies is not { Length: > 0 and <= 64 }
+            || manifest.HostSharedAssemblyIdentities is null
+            || manifest.HostSharedAssemblyIdentities.Count != manifest.HostSharedAssemblies.Length)
         {
             throw new InvalidDataException("AVASCOPE_PROVIDER_MANIFEST_INVALID: Unsupported schema, entry point, runtime or dependency inventory.");
         }
@@ -149,6 +157,17 @@ public static class OptionalProviderLoader
 
         foreach (var name in manifest.HostSharedAssemblies)
         {
+            if (!manifest.HostSharedAssemblyIdentities.TryGetValue(name, out var referenceIdentity))
+            {
+                throw new InvalidDataException($"AVASCOPE_PROVIDER_MANIFEST_INVALID: Missing host-shared identity for {name}.");
+            }
+
+            var reference = new AssemblyName(referenceIdentity);
+            if (reference.Name != name || reference.Version is null)
+            {
+                throw new InvalidDataException("AVASCOPE_PROVIDER_MANIFEST_INVALID: Invalid host-shared assembly identity.");
+            }
+
             if (!verifyHost)
             {
                 continue;
@@ -156,8 +175,15 @@ public static class OptionalProviderLoader
 
             // Resolve only through the host. Never satisfy Avalonia from provider-private files.
             var assembly = AssemblyLoadContext.Default.LoadFromAssemblyName(new AssemblyName(name));
+            var actual = assembly.GetName();
             var versionText = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
-            if (!Version.TryParse(versionText?.Split('+', '-')[0], out var version) || version < minimum || version >= maximum)
+            // Auxiliary Avalonia assemblies (for example DesignerSupport) have independent versions.
+            // Check their referenced identity; the Avalonia product range applies to the two engine assemblies.
+            if (actual.Version is null || actual.Version < reference.Version
+                || actual.Version.Major != reference.Version.Major || actual.Version.Minor != reference.Version.Minor
+                || !(actual.GetPublicKeyToken() ?? []).SequenceEqual(reference.GetPublicKeyToken() ?? [])
+                || (name is "Avalonia.Base" or "Avalonia.Controls"
+                    && (!Version.TryParse(versionText?.Split('+', '-')[0], out var version) || version < minimum || version >= maximum)))
             {
                 throw new NotSupportedException($"AVASCOPE_AVALONIA_INCOMPATIBLE: Host {name} reports '{versionText ?? "unknown"}'; requires [{minimum}, {maximum}).");
             }
@@ -202,16 +228,22 @@ public static class OptionalProviderLoader
             }
         }
 
-        var bootstrapName = AssemblyName.GetAssemblyName(Path.Combine(directory, "AvaScope.Bridge.dll"));
-        if (bootstrapName.Name != "AvaScope.Bridge")
+        var providerVersion = Version.Parse(manifest.ProviderVersion);
+        foreach (var name in new[] { "AvaScope.Bridge", "AvaScope.Core", "AvaScope.Protocol" })
         {
-            throw new BadImageFormatException("AVASCOPE_PROVIDER_ASSEMBLY_INVALID: The selected bootstrap assembly has the wrong identity.");
+            var identity = AssemblyName.GetAssemblyName(Path.Combine(directory, name + ".dll"));
+            if (identity.Name != name || identity.Version is not { } assemblyVersion
+                || assemblyVersion.Major != providerVersion.Major || assemblyVersion.Minor != providerVersion.Minor
+                || assemblyVersion.Build != providerVersion.Build)
+            {
+                throw new BadImageFormatException($"AVASCOPE_PROVIDER_ASSEMBLY_INVALID: {name} does not match provider {manifest.ProviderVersion}.");
+            }
         }
 
         return new(directory, manifest, hash, verifiedFiles);
     }
 
-    private static bool IsProviderFailure(Exception exception) => exception is IOException or UnauthorizedAccessException
+    private static bool IsProviderFailure(Exception exception) => exception is IOException or InvalidDataException or UnauthorizedAccessException
         or ArgumentException or NotSupportedException or InvalidOperationException or JsonException or BadImageFormatException
         or TypeLoadException or MissingMemberException or TargetInvocationException;
 
@@ -221,7 +253,13 @@ public static class OptionalProviderLoader
         var message = cause.Message;
         var separator = message.IndexOf(':');
         var code = message.StartsWith("AVASCOPE_", StringComparison.Ordinal) && separator > 0
-            ? message[..separator] : "AVASCOPE_PROVIDER_LOAD_FAILED";
+            ? message[..separator] : cause switch
+            {
+                BadImageFormatException => "AVASCOPE_PROVIDER_ASSEMBLY_INVALID",
+                FileNotFoundException or DirectoryNotFoundException => "AVASCOPE_PROVIDER_DEPENDENCY_MISSING",
+                MissingMemberException or TypeLoadException => "AVASCOPE_BOOTSTRAP_INCOMPATIBLE",
+                _ => "AVASCOPE_PROVIDER_LOAD_FAILED"
+            };
         return new(false, false, code, message);
     }
 
@@ -259,7 +297,8 @@ public static class OptionalProviderLoader
     private sealed record VerifiedProvider(string Directory, ProviderManifest Manifest, string ManifestHash, HashSet<string> Files);
     private sealed record ProviderManifest(int SchemaVersion, string ProviderVersion, int DotnetMajor,
         string AvaloniaMinimumVersion, string AvaloniaMaximumExclusiveVersion, string[]? RuntimeIdentifiers,
-        string BootstrapAssembly, string BootstrapType, string BootstrapMethod, string[] HostSharedAssemblies, ProviderFile[] Files);
+        string BootstrapAssembly, string BootstrapType, string BootstrapMethod, string[] HostSharedAssemblies,
+        IReadOnlyDictionary<string, string> HostSharedAssemblyIdentities, ProviderFile[] Files);
     private sealed record ProviderFile(string Path, long Length, string Sha256);
 }
 

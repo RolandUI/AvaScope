@@ -29,22 +29,13 @@ public sealed class BootstrapTests : IDisposable
     [Fact]
     public async Task BootstrapRejectsMissingLifetimeBeforeCreatingSession()
     {
-        using var session = HeadlessUnitTestSession.StartNew(typeof(BootstrapTestApplication));
+        using var session = HeadlessUnitTestSession.StartNew(typeof(BootstrapWithoutLifetimeTestApplication));
         await session.Dispatch(() =>
         {
-            var application = Application.Current!;
-            var previous = application.ApplicationLifetime;
-            application.ApplicationLifetime = null;
-            try
-            {
-                var exception = Assert.Throws<NotSupportedException>(() => Bootstrap.Start());
-                Assert.Contains("AVASCOPE_LIFETIME_UNAVAILABLE", exception.Message);
-                Assert.False(AvaScopeBridge.IsActive);
-            }
-            finally
-            {
-                application.ApplicationLifetime = previous;
-            }
+            Assert.Null(Application.Current!.ApplicationLifetime);
+            var exception = Assert.Throws<NotSupportedException>(() => Bootstrap.Start());
+            Assert.Contains("AVASCOPE_LIFETIME_UNAVAILABLE", exception.Message);
+            Assert.False(AvaScopeBridge.IsActive);
         }, CancellationToken.None);
     }
 
@@ -54,10 +45,7 @@ public sealed class BootstrapTests : IDisposable
         using var session = HeadlessUnitTestSession.StartNew(typeof(BootstrapTestApplication));
         await session.Dispatch(async () =>
         {
-            var application = Application.Current!;
-            var previous = application.ApplicationLifetime;
-            using var lifetime = new ClassicDesktopStyleApplicationLifetime { ShutdownMode = ShutdownMode.OnExplicitShutdown };
-            application.ApplicationLifetime = lifetime;
+            using var lifetime = (ClassicDesktopStyleApplicationLifetime)Application.Current!.ApplicationLifetime!;
             var existing = new Window { Width = 200, Height = 100, Content = new TextBox { Text = "before" } };
             var added = new Window { Width = 200, Height = 100, Content = new Button { Content = "Added" } };
             existing.Show();
@@ -94,8 +82,9 @@ public sealed class BootstrapTests : IDisposable
                 Bootstrap.Stop();
                 added.Close();
                 existing.Close();
-                application.ApplicationLifetime = previous;
             }
+
+            return true;
         }, CancellationToken.None);
     }
 
@@ -127,5 +116,17 @@ public sealed class BootstrapTests : IDisposable
             .UseSkia().UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false });
 
         public override void Initialize() => Styles.Add(new FluentTheme());
+
+        public override void RegisterServices()
+        {
+            ApplicationLifetime = new ClassicDesktopStyleApplicationLifetime { ShutdownMode = ShutdownMode.OnExplicitShutdown };
+            base.RegisterServices();
+        }
+    }
+
+    private sealed class BootstrapWithoutLifetimeTestApplication : Application
+    {
+        public static AppBuilder BuildAvaloniaApp() => AppBuilder.Configure<BootstrapWithoutLifetimeTestApplication>()
+            .UseSkia().UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false });
     }
 }
