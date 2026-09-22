@@ -27,7 +27,7 @@ using System.Text.RegularExpressions;
 
 namespace AvaScope.Bridge;
 
-public sealed class AvaScopeBridgeRuntime
+public sealed partial class AvaScopeBridgeRuntime
 {
     private const int DefaultTreeDepth = 10;
     private const int DefaultFindResultLimit = 100;
@@ -190,7 +190,8 @@ public sealed class AvaScopeBridgeRuntime
     public Task<CoreResult<ScreenshotResponse>> CaptureScreenshotAsync(
         string topLevelId,
         string outputPath,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        bool captureAfterRender = false)
     {
         if (string.IsNullOrWhiteSpace(topLevelId))
         {
@@ -202,6 +203,9 @@ public sealed class AvaScopeBridgeRuntime
             return Task.FromResult(CoreResult<ScreenshotResponse>.Fail(
                 new CoreError(BridgeErrorCodes.InvalidScreenshotPath, "Screenshot output path cannot be empty.")));
         }
+
+        if (captureAfterRender)
+            return CaptureAfterRenderAsync(topLevelId, outputPath, cancellationToken);
 
         if (Dispatcher.UIThread.CheckAccess())
         {

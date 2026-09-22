@@ -28,6 +28,11 @@ public static class Bootstrap
     /// <summary>Closes the active bridge and removes its owned registrations and local resources.</summary>
     public static void Stop() => AvaScopeBridge.Deactivate();
 
+    /// <summary>Optionally declares host-owned starting, busy, ready or failed state on the UI thread.</summary>
+    public static void SetReadiness(string state, string? reason) =>
+        (AvaScopeBridge.Current ?? throw new InvalidOperationException("AVASCOPE_NOT_ACTIVE: Start the bridge explicitly before declaring readiness."))
+            .SetReadiness(state, reason);
+
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static string StartAvalonia()
     {

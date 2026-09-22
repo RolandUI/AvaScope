@@ -322,6 +322,7 @@ internal sealed class LocalBridgeServer : IDisposable
                 request.RequestId,
                 await _runtime.ListTopLevelsAsync(cancellationToken))),
             BridgeIpcMethods.Screenshot => Respond(await CaptureScreenshotAsync(request, cancellationToken)),
+            BridgeIpcMethods.Readiness => Respond(await ReadinessAsync(request, cancellationToken)),
             BridgeIpcMethods.VisualTree => Respond(await GetTreeAsync(request, TreeKinds.Visual, cancellationToken)),
             BridgeIpcMethods.LogicalTree => Respond(await GetTreeAsync(request, TreeKinds.Logical, cancellationToken)),
             BridgeIpcMethods.InspectNode => Respond(await InspectNodeAsync(request, cancellationToken)),
@@ -376,13 +377,23 @@ internal sealed class LocalBridgeServer : IDisposable
                 new ProtocolError(BridgeErrorCodes.InvalidScreenshotPath, "Screenshot requests require an output path."));
         }
 
-        var result = await _runtime.CaptureScreenshotAsync(request.TopLevelId, request.OutputPath, cancellationToken);
+        var result = await _runtime.CaptureScreenshotAsync(request.TopLevelId, request.OutputPath, cancellationToken,
+            captureAfterRender: request.Readiness?.WaitForFrame == true);
 
         return result.Success
             ? BridgeIpcResponse.Ok(request.RequestId, result.Value)
             : BridgeIpcResponse.Fail(
                 request.RequestId,
                 ToProtocolError(result.Error!));
+    }
+
+    private async Task<BridgeIpcResponse> ReadinessAsync(BridgeIpcRequest request, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.TopLevelId))
+            return BridgeIpcResponse.Fail(request.RequestId, new ProtocolError("missing_top_level_id", "Readiness requires an explicit top-level id."));
+        var result = await _runtime.ReadinessAsync(request.TopLevelId, request.NodeId, request.Readiness, cancellationToken);
+        return result.Success ? BridgeIpcResponse.Ok(request.RequestId, result.Value)
+            : BridgeIpcResponse.Fail(request.RequestId, ToProtocolError(result.Error!));
     }
 
     private async Task<BridgeIpcResponse> GetTreeAsync(

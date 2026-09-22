@@ -126,6 +126,19 @@ internal sealed class SampleApplication : Application
                     {
                         throw new InvalidOperationException("Repeated provider activation changed the session.");
                     }
+                    if (desktop.Args?.Contains("--declare-readiness", StringComparer.Ordinal) == true)
+                    {
+                        // This optional host-owned hook still has no AvaScope type reference.
+                        var bootstrap = AppDomain.CurrentDomain.GetAssemblies().Single(assembly => assembly.GetName().Name == "AvaScope.Bridge")
+                            .GetType("AvaScope.Bridge.Bootstrap", throwOnError: true)!;
+                        var declare = bootstrap.GetMethod("SetReadiness", [typeof(string), typeof(string)])!;
+                        declare.Invoke(null, ["starting", "Loading fixture data"]);
+                        DispatcherTimer.RunOnce(() =>
+                        {
+                            editor.Width = 300;
+                            declare.Invoke(null, ["ready", "Fixture data loaded"]);
+                        }, TimeSpan.FromMilliseconds(250));
+                    }
                 }
             }
 #endif

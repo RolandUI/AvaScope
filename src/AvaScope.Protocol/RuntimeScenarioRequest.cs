@@ -28,7 +28,8 @@ public sealed record RuntimeScenarioRequest
         RuntimeScenarioBuildOptions? build = null,
         bool terminateLaunchedProcess = false,
         bool captureVisualTree = false,
-        X11EnvironmentOptions? x11Environment = null)
+        X11EnvironmentOptions? x11Environment = null,
+        RuntimeStartupReadinessOptions? startupReadiness = null)
     {
         if (steps is null || steps.Count == 0)
         {
@@ -78,6 +79,7 @@ public sealed record RuntimeScenarioRequest
         TerminateLaunchedProcess = terminateLaunchedProcess;
         CaptureVisualTree = captureVisualTree;
         X11Environment = x11Environment;
+        StartupReadiness = startupReadiness;
     }
 
     [JsonPropertyName("requestId")]
@@ -159,6 +161,10 @@ public sealed record RuntimeScenarioRequest
     [JsonPropertyName("x11Environment")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public X11EnvironmentOptions? X11Environment { get; }
+
+    [JsonPropertyName("startupReadiness")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public RuntimeStartupReadinessOptions? StartupReadiness { get; }
 }
 
 public sealed record RuntimeScenarioPickerResult

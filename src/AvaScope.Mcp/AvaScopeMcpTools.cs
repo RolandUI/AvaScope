@@ -192,14 +192,15 @@ public sealed class AvaScopeMcpTools
         Destructive = false,
         OpenWorld = false,
         UseStructuredContent = true)]
-    [Description("Captures a screenshot from an attached local AvaScope bridge session to a local output file.")]
+    [Description("Captures a screenshot from an attached local AvaScope bridge session to a local output file. Optional captureAfterRender waits for a bounded composition frame and valid layout, returning readiness evidence.")]
     public static async Task<ToolResult<ScreenshotResponse>> Screenshot(
         LocalBridgeClient bridgeClient,
         string sessionId,
         string topLevelId,
         string outputPath,
         string? manifestDirectory = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        bool captureAfterRender = false)
     {
         ArgumentNullException.ThrowIfNull(bridgeClient);
 
@@ -212,7 +213,8 @@ public sealed class AvaScopeMcpTools
             parsedSessionId!,
             topLevelId,
             outputPath,
-            cancellationToken));
+            cancellationToken,
+            captureAfterRender));
     }
 
     [McpServerTool(
@@ -733,7 +735,7 @@ public sealed class AvaScopeMcpTools
         Destructive = false,
         OpenWorld = false,
         UseStructuredContent = true)]
-    [Description("Runs or statically validates a bounded semantic local workflow with typed if/else branches, optional leaf steps, idempotent retry_until, variables, reusable acyclic fragments, workflow-scoped top-level aliases, rendered/command/binding/selection/value/lifecycle waits, and validate_action/validate_mutation dry runs. Semantic actions may declare verify to capture pre-state, execute once, and wait for a typed postcondition. Evidence can collect bounded failure context and export aligned JSON, Markdown, and JUnit reports; its optional explicit local policy adds redaction, screenshot masking, owned retention, local action audit, action allowlists, and session/process authorization, with network upload unavailable. validateOnly returns the fully expanded plan and all bounded static diagnostics without bridge dispatch.")]
+    [Description("Runs or statically validates a bounded semantic local workflow with typed if/else branches, optional leaf steps, idempotent retry_until, variables, reusable acyclic fragments, workflow-scoped top-level aliases, rendered/command/binding/selection/value/lifecycle waits, and validate_action/validate_mutation dry runs. Readiness waits distinguish bridge, frame and application state; layout_stable/frame_stable sample a bounded optional selector scope. Semantic actions may declare verify to capture pre-state, execute once, and wait for a typed postcondition. Evidence can collect bounded failure context and export aligned JSON, Markdown, and JUnit reports; its optional explicit local policy adds redaction, screenshot masking, owned retention, local action audit, action allowlists, and session/process authorization, with network upload unavailable. validateOnly returns the fully expanded plan and all bounded static diagnostics without bridge dispatch.")]
     public static async Task<ToolResult<SemanticWorkflowResponse>> RunWorkflow(
         LocalBridgeClient bridgeClient,
         SemanticWorkflowRequest request,

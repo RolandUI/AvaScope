@@ -41,7 +41,8 @@ public sealed record BridgeIpcRequest
         bool? rendered = null,
         bool? actionable = null,
         RuntimeTargetContext? inputTarget = null,
-        RuntimeTargetContext? gestureDestinationTarget = null)
+        RuntimeTargetContext? gestureDestinationTarget = null,
+        RuntimeReadinessProbeOptions? readiness = null)
     {
         if (string.IsNullOrWhiteSpace(requestId))
         {
@@ -89,10 +90,15 @@ public sealed record BridgeIpcRequest
         Actionable = actionable;
         InputTarget = inputTarget;
         GestureDestinationTarget = gestureDestinationTarget;
+        Readiness = readiness;
     }
 
     [JsonPropertyName("requestId")]
     public string RequestId { get; }
+
+    [JsonPropertyName("readiness")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public RuntimeReadinessProbeOptions? Readiness { get; }
 
     [JsonPropertyName("method")]
     public string Method { get; }

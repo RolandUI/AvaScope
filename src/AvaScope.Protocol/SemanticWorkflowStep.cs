@@ -38,7 +38,8 @@ public sealed record SemanticWorkflowStep
         int? retryDelayMs = null,
         string? fragment = null,
         IReadOnlyDictionary<string, string>? arguments = null,
-        SemanticWorkflowVerification? verify = null)
+        SemanticWorkflowVerification? verify = null,
+        bool captureAfterRender = false)
     {
         if (string.IsNullOrWhiteSpace(action))
         {
@@ -112,6 +113,7 @@ public sealed record SemanticWorkflowStep
             arguments ?? new Dictionary<string, string>(),
             StringComparer.Ordinal);
         Verify = verify;
+        CaptureAfterRender = captureAfterRender;
     }
 
     [JsonPropertyName("id")]
@@ -237,4 +239,7 @@ public sealed record SemanticWorkflowStep
     [JsonPropertyName("verify")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public SemanticWorkflowVerification? Verify { get; }
+
+    [JsonPropertyName("captureAfterRender")]
+    public bool CaptureAfterRender { get; }
 }

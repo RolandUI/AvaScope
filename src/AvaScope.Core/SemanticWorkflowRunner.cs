@@ -1767,8 +1767,7 @@ public sealed class SemanticWorkflowRunner
             SemanticWaitConditionKinds.Value,
             step.Expected,
             propertyName: step.AssertProperty);
-        var topLevelCondition = condition.Kind is SemanticWaitConditionKinds.TopLevelOpened
-            or SemanticWaitConditionKinds.TopLevelClosed;
+        var topLevelCondition = SemanticWaitConditionKinds.IsTopLevelCondition(condition.Kind);
         if (!topLevelCondition && (step.Selector is null || !step.Selector.HasSearchCriteria))
         {
             return Fail(step, "semantic_workflow_selector_required", "wait_for_state requires a selector.");
@@ -1797,6 +1796,8 @@ public sealed class SemanticWorkflowRunner
         var baselineCaptured = condition.Baseline is not null;
         var sawAvailable = false;
         string? lastResolvedTopLevelId = null;
+        string? lastFingerprint = null;
+        var stableSamples = 0;
 
         while (true)
         {
@@ -1904,6 +1905,89 @@ public sealed class SemanticWorkflowRunner
                         baseline: baseline,
                         source: "top_level_alias",
                         message: aliasResolution.Error?.Message);
+                }
+                else if (SemanticWaitConditionKinds.IsReadiness(condition.Kind))
+                {
+                    if (condition.Kind == SemanticWaitConditionKinds.BridgeReady)
+                    {
+                        var online = await bridgeClient.SessionCapabilitiesAsync(request.SessionId, attemptCancellation.Token);
+                        lastError = online.Error;
+                        var compared = CompareObservation(new ObservedWaitValue(online.Success,
+                            online.Success ? "true" : null, typeof(bool).FullName!, "bridge_capabilities", online.Error?.Message),
+                            condition, baseline, baselineCaptured);
+                        lastObservation = new RuntimeWaitObservation(condition.Kind, online.Success ? "available" : "unavailable",
+                            compared.Matched, DateTimeOffset.UtcNow, online.Success ? "true" : null, typeof(bool).FullName!,
+                            condition.Comparison, GetExpectedValue(condition), source: "bridge_capabilities", message: compared.Message);
+                        sawAvailable |= online.Success;
+                    }
+                    else
+                    {
+                        CoreResult<ResolvedWorkflowTarget>? scope = step.Selector?.HasSearchCriteria == true
+                            ? await ResolveTargetAsync(bridgeClient, pollRequest, step, attemptCancellation.Token) : null;
+                        if (scope is { Success: false })
+                        {
+                            lastError = scope.Error;
+                            lastObservation = MissingObservation(condition, scope.Error?.Message);
+                            stableSamples = 0;
+                            lastFingerprint = null;
+                        }
+                        else
+                        {
+                            var remaining = Math.Clamp(timeoutMs - (int)stopwatch.ElapsedMilliseconds, 1, 1000);
+                            var observed = await bridgeClient.ReadinessAsync(pollRequest.SessionId, pollRequest.TopLevelId!,
+                                scope?.Value?.Target.NodeId,
+                                new RuntimeReadinessProbeOptions(
+                                    waitForFrame: condition.Kind is SemanticWaitConditionKinds.FrameReady or SemanticWaitConditionKinds.FrameStable or SemanticWaitConditionKinds.LayoutStable,
+                                    includeFrameHash: condition.Kind == SemanticWaitConditionKinds.FrameStable, timeoutMs: remaining), attemptCancellation.Token);
+                            if (!observed.Success)
+                            {
+                                lastError = observed.Error;
+                                lastObservation = MissingObservation(condition, observed.Error?.Message);
+                                sawAvailable |= observed.Error?.Code == "runtime_readiness_probe_timeout";
+                                stableSamples = 0;
+                                lastFingerprint = null;
+                            }
+                            else
+                            {
+                                var snapshot = observed.Value!;
+                                lastError = null;
+                                lastTarget = snapshot.Target;
+                                var available = true;
+                                bool value;
+                                string? reason;
+                                if (SemanticWaitConditionKinds.IsStability(condition.Kind))
+                                {
+                                    var hash = condition.Kind == SemanticWaitConditionKinds.FrameStable ? snapshot.FrameFingerprint : snapshot.LayoutFingerprint;
+                                    available = !snapshot.Truncated && snapshot.SampleReason is null && snapshot.Frame.Status != "unavailable";
+                                    var fingerprint = $"{snapshot.Target?.TopLevelId}/{snapshot.Target?.NodeId}/{hash}";
+                                    stableSamples = available && snapshot.LayoutValid && hash is not null
+                                        ? fingerprint == lastFingerprint ? stableSamples + 1 : 1 : 0;
+                                    lastFingerprint = stableSamples > 0 ? fingerprint : null;
+                                    value = stableSamples >= condition.StableSamples;
+                                    reason = snapshot.SampleReason ?? snapshot.Frame.Reason ?? $"Consecutive stable samples: {stableSamples}/{condition.StableSamples}.";
+                                }
+                                else if (condition.Kind == SemanticWaitConditionKinds.FrameReady)
+                                {
+                                    available = snapshot.Frame.Status != "unavailable";
+                                    value = snapshot.Frame.Status == "rendered" && snapshot.LayoutValid;
+                                    reason = snapshot.Frame.Reason;
+                                }
+                                else
+                                {
+                                    available = snapshot.Application.Status != "unavailable";
+                                    value = snapshot.Application.Status == (condition.Kind == SemanticWaitConditionKinds.ApplicationReady ? "ready" : "busy");
+                                    reason = snapshot.Application.Reason ?? snapshot.Application.Status;
+                                }
+                                var compared = CompareObservation(new ObservedWaitValue(available,
+                                    value.ToString().ToLowerInvariant(), typeof(bool).FullName!, "runtime_readiness", reason), condition, baseline, baselineCaptured);
+                                lastObservation = new RuntimeWaitObservation(condition.Kind, compared.Available ? "available" : "unavailable",
+                                    compared.Matched, DateTimeOffset.UtcNow, value.ToString().ToLowerInvariant(), typeof(bool).FullName!,
+                                    condition.Comparison, GetExpectedValue(condition), source: "runtime_readiness",
+                                    message: compared.Message ?? reason, readiness: snapshot);
+                                sawAvailable |= compared.Available;
+                            }
+                        }
+                    }
                 }
                 else
                 {
@@ -2019,7 +2103,7 @@ public sealed class SemanticWorkflowRunner
                     waitObservation: lastObservation), step.TopLevelAlias, lastResolvedTopLevelId);
             }
 
-            if (singleObservation)
+            if (singleObservation && (!SemanticWaitConditionKinds.IsStability(condition.Kind) || attempts >= condition.StableSamples))
             {
                 return WithTopLevelEvidence(WaitConditionFailure(
                     step,
@@ -2492,6 +2576,7 @@ public sealed class SemanticWorkflowRunner
 
     private static string? GetExpectedValue(SemanticWaitCondition condition)
     {
+        if (SemanticWaitConditionKinds.IsReadiness(condition.Kind)) return condition.Expected ?? "true";
         return condition.Kind switch
         {
             SemanticWaitConditionKinds.Visible
@@ -3018,7 +3103,8 @@ public sealed class SemanticWorkflowRunner
             request.SessionId,
             request.TopLevelId!,
             path,
-            cancellationToken);
+            cancellationToken,
+            captureAfterRender: step.CaptureAfterRender);
 
         if (!result.Success)
         {
@@ -3051,7 +3137,8 @@ public sealed class SemanticWorkflowRunner
             SemanticWorkflowActions.Screenshot,
             $"{step.Id}:screenshot",
             screenshotPath: ResolveScreenshotPath(request, step, stepIndex),
-            topLevelAlias: step.TopLevelAlias);
+            topLevelAlias: step.TopLevelAlias,
+            captureAfterRender: step.CaptureAfterRender);
         return ExecuteStepAsync(bridgeClient, request, screenshotStep, stepIndex, policy, cancellationToken);
     }
 

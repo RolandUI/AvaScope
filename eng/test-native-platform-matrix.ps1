@@ -27,6 +27,7 @@ function Assert-Condition([bool]$Condition, [string]$Message) { if (-not $Condit
 function Step([string]$Id,[string]$Action,[string]$Name,[string]$Alias='main') {
     $step=@{id=$Id;action=$Action;topLevelAlias=$Alias}
     if ($Name) { $step.selector=@{name=$Name} }
+    if ($Action -eq 'screenshot') { $step.captureAfterRender=$true }
     return $step
 }
 function Wait-Text([string]$Id,[string]$Name,[string]$Text,[string]$Alias='main') {
@@ -45,10 +46,11 @@ try {
             $case = "$adapter-$(if ($failure) {'failure'} else {'success'})"
             $run = Join-Path $evidenceRoot $case
             $secret = 'matrix-private-' + [Guid]::NewGuid().ToString('N')
-            $arguments=@((Join-Path $hostOutput 'StandaloneInspectionHost.dll'),'--exit-after-ms=120000')
+            $arguments=@((Join-Path $hostOutput 'StandaloneInspectionHost.dll'),'--exit-after-ms=120000','--declare-readiness')
             if ($Backend -eq 'headless') { $arguments += '--headless' }
             $steps=@(
                 (Step 'environment' 'inspect' 'EnvironmentState'),
+                (@{id='layout-ready';action='wait_for_state';topLevelAlias='main';selector=@{name='EnvironmentState'};waitCondition=@{kind='layout_stable'}}),
                 (Step 'focus' 'focus' 'NameField'),
                 (Wait-Text 'focused' 'FocusState' 'NameField focused'),
                 (@{id='key';action='key_down';topLevelAlias='main';selector=@{name='NameField'};key='Left'}),
@@ -75,6 +77,7 @@ try {
             if ($failure) { $steps=@((Step 'environment' 'inspect' 'EnvironmentState'),(Wait-Text 'intentional-failure' 'Status' 'Impossible expected state')); $steps[1].timeoutMs=300 }
             $request=@{
                 requestId=$case;outputDirectory=$run;terminateLaunchedProcess=$true;captureVisualTree=$true;workflowTimeoutMs=30000;allowDestructive=$true
+                startupReadiness=@{waitForFrame=$true;waitForApplication=$true;timeoutMs=10000}
                 launch=@{
                     command='dotnet';argumentList=$arguments;manifestDirectory=(Join-Path $run 'manifests');outputDirectory=(Join-Path $run 'launch');timeoutMs=20000
                     environment=@{UI_INSPECTION_PROVIDER_PATH=$provider;AVASCOPE_PROFILE_TEST_SECRET=$secret}
@@ -103,6 +106,9 @@ try {
             $report.runs += @{adapter=$adapter;deliberateFailure=$failure;status=$result.status;topLevels=$result.topLevels;cleanup=$result.cleanup;environment=$result.environment}
             Save-Report
             Assert-Condition ($exitCode -eq $(if ($failure) {1} else {0})) "$case exit code $exitCode; see result JSON."
+            Assert-Condition ($result.readiness.status -eq 'ready') "$case did not reach declared application/frame readiness."
+            Assert-Condition (@($result.readiness.observations | Where-Object { $_.condition -eq 'application_ready' -and $_.readiness.application.status -eq 'ready' }).Count -eq 1) "$case has no declared readiness observation."
+            Assert-Condition (@($result.readiness.observations | Where-Object { $_.condition -eq 'frame_ready' -and $_.readiness.frame.status -eq 'rendered' }).Count -eq 1) "$case has no completed frame observation."
             Assert-Condition ($result.status -eq $(if ($failure) {'failed'} else {'passed'})) "$case scenario did not reach its expected result."
             Assert-Condition ($result.topLevels[0].backend.backend -eq $Backend) "$case ran a different backend."
             Assert-Condition (-not (Get-Process -Id $result.launch.processId -ErrorAction SilentlyContinue)) "$case leaked the owned app."

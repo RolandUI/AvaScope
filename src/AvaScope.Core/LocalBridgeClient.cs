@@ -135,7 +135,8 @@ public sealed class LocalBridgeClient
         SessionId sessionId,
         string topLevelId,
         string outputPath,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        bool captureAfterRender = false)
     {
         ArgumentNullException.ThrowIfNull(sessionId);
 
@@ -159,7 +160,8 @@ public sealed class LocalBridgeClient
 
         return await SendAsync<ScreenshotResponse>(
             manifestResult.Value!,
-            new BridgeIpcRequest(NewRequestId(), BridgeIpcMethods.Screenshot, topLevelId, outputPath),
+            new BridgeIpcRequest(NewRequestId(), BridgeIpcMethods.Screenshot, topLevelId, outputPath,
+                readiness: captureAfterRender ? new RuntimeReadinessProbeOptions(waitForFrame: true) : null),
             cancellationToken);
     }
 
@@ -747,6 +749,20 @@ public sealed class LocalBridgeClient
             manifestResult.Value!,
             new BridgeIpcRequest(NewRequestId(), BridgeIpcMethods.Capabilities),
             cancellationToken);
+    }
+
+    public async Task<CoreResult<RuntimeReadinessSnapshot>> ReadinessAsync(
+        SessionId sessionId, string topLevelId, string? nodeId = null,
+        RuntimeReadinessProbeOptions? options = null, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(sessionId);
+        if (string.IsNullOrWhiteSpace(topLevelId))
+            return CoreResult<RuntimeReadinessSnapshot>.Fail(new CoreError(CoreErrorCodes.InvalidBridgeRequest, "Readiness requires an explicit top-level id."));
+        var manifest = FindSingleManifest(null, sessionId);
+        if (!manifest.Success) return CoreResult<RuntimeReadinessSnapshot>.Fail(manifest.Error!);
+        return await SendAsync<RuntimeReadinessSnapshot>(manifest.Value!,
+            new BridgeIpcRequest(NewRequestId(), BridgeIpcMethods.Readiness, topLevelId,
+                nodeId: nodeId, readiness: options), cancellationToken);
     }
 
     public CoreResult<NativePickerResponse> NativePicker(

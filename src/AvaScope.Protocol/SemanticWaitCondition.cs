@@ -14,7 +14,8 @@ public sealed record SemanticWaitCondition
         string? bindingPath = null,
         string? baseline = null,
         string? topLevelId = null,
-        string? topLevelTitle = null)
+        string? topLevelTitle = null,
+        int stableSamples = 3)
     {
         if (!SemanticWaitConditionKinds.All.Contains(kind, StringComparer.Ordinal))
         {
@@ -32,6 +33,9 @@ public sealed record SemanticWaitCondition
         }
 
         Kind = kind;
+        if (stableSamples is < 2 or > 10)
+            throw new ArgumentOutOfRangeException(nameof(stableSamples), "Stable samples must be between 2 and 10.");
+        StableSamples = stableSamples;
         Expected = expected;
         Comparison = effectiveComparison;
         ValueType = string.IsNullOrWhiteSpace(valueType) ? "auto" : valueType.Trim();
@@ -44,6 +48,9 @@ public sealed record SemanticWaitCondition
 
     [JsonPropertyName("kind")]
     public string Kind { get; }
+
+    [JsonPropertyName("stableSamples")]
+    public int StableSamples { get; }
 
     [JsonPropertyName("expected")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

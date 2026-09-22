@@ -2977,15 +2977,17 @@ internal static class Program
             return 2;
         }
 
-        if (!ValidateOptions(options.Values, GetScreenshotUsage(), "session", "top-level", "out", "manifest-dir")
+        if (!ValidateOptions(options.Values, GetScreenshotUsage(), "session", "top-level", "out", "manifest-dir", "capture-after-render")
             || !TryReadRequiredSessionId(options.Values, GetScreenshotUsage(), out var sessionId)
             || !TryReadRequiredOption(options.Values, "top-level", GetScreenshotUsage(), out var topLevelId)
-            || !TryReadRequiredOption(options.Values, "out", GetScreenshotUsage(), out var outputPath))
+            || !TryReadRequiredOption(options.Values, "out", GetScreenshotUsage(), out var outputPath)
+            || !TryReadOptionalBoolean(options.Values, "capture-after-render", out var captureAfterRender))
         {
             return 2;
         }
 
-        var result = await CreateBridgeClient(options.Values).CaptureScreenshotAsync(sessionId!, topLevelId!, outputPath!);
+        var result = await CreateBridgeClient(options.Values).CaptureScreenshotAsync(sessionId!, topLevelId!, outputPath!,
+            captureAfterRender: captureAfterRender == true);
         WriteResult(result);
 
         return result.Success ? 0 : 1;
@@ -4571,7 +4573,7 @@ internal static class Program
 
     private static string GetScreenshotUsage()
     {
-        return "Usage: avascope screenshot --session <session-id> --top-level <top-level-id> --out <screenshot.png> [--manifest-dir <dir>]";
+        return "Usage: avascope screenshot --session <session-id> --top-level <top-level-id> --out <screenshot.png> [--manifest-dir <dir>] [--capture-after-render <true|false>]";
     }
 
     private static void WriteFailure(string code, string message)

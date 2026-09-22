@@ -53,6 +53,12 @@ public sealed class RuntimeScenarioRunner
         var policyValidationDiagnostics = new List<ProtocolError>();
         if (evidencePolicy is not null)
         {
+            if (request.StartupReadiness is not null)
+            {
+                var authorization = evidencePolicy.AuthorizeAction(SemanticWorkflowActions.WaitForState, customActionName: null);
+                if (!authorization.Success) policyValidationDiagnostics.Add(ToProtocolError(authorization.Error!));
+            }
+
             if (request.CaptureVisualTree)
             {
                 var authorization = evidencePolicy.AuthorizeAction(SemanticWorkflowActions.Inspect, customActionName: null);
@@ -469,6 +475,64 @@ public sealed class RuntimeScenarioRunner
                         ["readinessChecks"] = topLevelCheckCount.ToString(CultureInfo.InvariantCulture)
                     }));
                 return await CompleteAsync(Failed, RuntimeScenarioFailureStages.TopLevels);
+            }
+
+            if (request.StartupReadiness is { } startup)
+            {
+                currentStage = "ui_readiness";
+                var checks = new List<SemanticWorkflowStep>();
+                foreach (var (enabled, kind) in new[]
+                {
+                    (true, SemanticWaitConditionKinds.BridgeReady),
+                    (startup.WaitForApplication, SemanticWaitConditionKinds.ApplicationReady),
+                    (startup.WaitForFrame, SemanticWaitConditionKinds.FrameReady),
+                    (startup.WaitForStableLayout, SemanticWaitConditionKinds.LayoutStable)
+                })
+                {
+                    if (enabled) checks.Add(new SemanticWorkflowStep(SemanticWorkflowActions.WaitForState,
+                        id: $"startup-{kind}", waitCondition: new SemanticWaitCondition(kind), timeoutMs: startup.TimeoutMs));
+                }
+                var probeStarted = DateTimeOffset.UtcNow;
+                var probeWatch = System.Diagnostics.Stopwatch.StartNew();
+                var observations = new List<RuntimeWaitObservation>();
+                var probeDiagnostics = new List<ProtocolError>();
+                foreach (var check in checks)
+                {
+                    var remaining = startup.TimeoutMs - (int)probeWatch.ElapsedMilliseconds;
+                    if (remaining <= 0)
+                    {
+                        probeDiagnostics.Add(new ProtocolError("runtime_startup_readiness_timeout", "The shared startup readiness deadline expired."));
+                        break;
+                    }
+                    var probe = await new SemanticWorkflowRunner().RunAsync(workflowClient,
+                        new SemanticWorkflowRequest(sessionId, topLevelId,
+                            [new SemanticWorkflowStep(check.Action, check.Id, waitCondition: check.WaitCondition, timeoutMs: remaining)],
+                            request.RequestId, outputDirectory: outputDirectory, timeoutMs: remaining + 100,
+                            evidence: new SemanticWorkflowEvidenceOptions(captureOnFailure: false, exportReports: false,
+                                policy: request.Evidence?.Policy)), executionToken);
+                    if (!probe.Success)
+                    {
+                        probeDiagnostics.Add(ToProtocolError(probe.Error!));
+                        break;
+                    }
+                    observations.AddRange(probe.Value!.Steps.Where(static step => step.WaitObservation is not null)
+                        .Select(static step => step.WaitObservation!));
+                    probeDiagnostics.AddRange(probe.Value.Diagnostics);
+                    if (probe.Value.Status != Passed) break;
+                }
+                var passed = probeDiagnostics.Count == 0 && observations.Count == checks.Count && observations.All(static value => value.Matched);
+                readiness = new RuntimeScenarioReadinessEvidence(passed ? "ready" : "failed",
+                    readiness?.StartedAt ?? probeStarted, DateTimeOffset.UtcNow,
+                    (readiness?.CheckCount ?? 0) + observations.Count,
+                    launch?.ProcessId ?? attach?.ProcessId, sessionId, launch?.ManifestPath ?? attach?.ManifestPath,
+                    launch?.StdoutPath, launch?.StderrPath, topLevels,
+                    diagnostic: probeDiagnostics.FirstOrDefault(), metadata: readiness?.Metadata,
+                    observations: observations);
+                if (!passed)
+                {
+                    diagnostics.AddRange(probeDiagnostics);
+                    return await CompleteAsync(Failed, currentStage);
+                }
             }
 
             if (request.CaptureVisualTree)

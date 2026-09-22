@@ -546,8 +546,7 @@ internal static partial class SemanticWorkflowCompiler
                         path);
                 }
 
-                var topLevelCondition = step.Verify.Condition.Kind is SemanticWaitConditionKinds.TopLevelOpened
-                    or SemanticWaitConditionKinds.TopLevelClosed;
+                var topLevelCondition = SemanticWaitConditionKinds.IsTopLevelCondition(step.Verify.Condition.Kind);
                 var verificationSelector = step.Verify.Selector ?? step.Selector;
                 if (!topLevelCondition && (verificationSelector is null || !verificationSelector.HasSearchCriteria))
                 {
@@ -632,8 +631,7 @@ internal static partial class SemanticWorkflowCompiler
                         path);
                 }
 
-                var topLevelCondition = condition?.Kind is SemanticWaitConditionKinds.TopLevelOpened
-                    or SemanticWaitConditionKinds.TopLevelClosed;
+                var topLevelCondition = SemanticWaitConditionKinds.IsTopLevelCondition(condition?.Kind);
                 if (!topLevelCondition && (step.Selector is null || !step.Selector.HasSearchCriteria))
                 {
                     AddDiagnostic(
@@ -737,8 +735,7 @@ internal static partial class SemanticWorkflowCompiler
                 return;
             }
 
-            var topLevelCondition = step.WaitCondition.Kind is SemanticWaitConditionKinds.TopLevelOpened
-                or SemanticWaitConditionKinds.TopLevelClosed;
+            var topLevelCondition = SemanticWaitConditionKinds.IsTopLevelCondition(step.WaitCondition.Kind);
             if (!topLevelCondition && (step.Selector is null || !step.Selector.HasSearchCriteria))
             {
                 AddDiagnostic(
@@ -792,7 +789,8 @@ internal static partial class SemanticWorkflowCompiler
                     static pair => pair.Key,
                     pair => ResolveText(pair.Value, variables, $"{path}.arguments.{pair.Key}") ?? pair.Value,
                     StringComparer.Ordinal),
-                ResolveVerification(step.Verify, variables, path));
+                ResolveVerification(step.Verify, variables, path),
+                step.CaptureAfterRender);
         }
 
         private SemanticWorkflowVerification? ResolveVerification(
@@ -853,7 +851,8 @@ internal static partial class SemanticWorkflowCompiler
                     ResolveText(condition.BindingPath, variables, $"{path}.waitCondition.bindingPath"),
                     ResolveText(condition.Baseline, variables, $"{path}.waitCondition.baseline"),
                     ResolveText(condition.TopLevelId, variables, $"{path}.waitCondition.topLevelId"),
-                    ResolveText(condition.TopLevelTitle, variables, $"{path}.waitCondition.topLevelTitle"));
+                    ResolveText(condition.TopLevelTitle, variables, $"{path}.waitCondition.topLevelTitle"),
+                    condition.StableSamples);
         }
 
         private RuntimeMutationOperation? ResolveMutation(

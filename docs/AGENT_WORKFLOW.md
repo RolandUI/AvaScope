@@ -8,6 +8,8 @@ Use the session's observed backends and each input/screenshot's [runtime provena
 
 The [native platform matrix](NATIVE_PLATFORM_MATRIX.md) provides repeatable packaged CLI/MCP lifecycle, modal, popup, focus, resize, failure-evidence and cleanup checks for Headless, Windows, Linux X11 and macOS.
 
+Use [runtime readiness](RUNTIME_READINESS.md) to distinguish bridge availability, window creation, a completed frame and optional application readiness. Scoped stability waits and capture-after-render are bounded and do not require global application idleness.
+
 ## 1. Create And Install A Local Release
 
 ```powershell

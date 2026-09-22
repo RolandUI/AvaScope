@@ -13,7 +13,8 @@ public sealed record ScreenshotResponse
         int pixelHeight,
         DateTimeOffset capturedAt,
         RuntimeTargetContext? target = null,
-        RuntimeOperationProvenance? provenance = null)
+        RuntimeOperationProvenance? provenance = null,
+        RuntimeReadinessSnapshot? readiness = null)
     {
         ArgumentNullException.ThrowIfNull(sessionId);
 
@@ -45,6 +46,7 @@ public sealed record ScreenshotResponse
         CapturedAt = capturedAt;
         Target = target ?? new RuntimeTargetContext(sessionId, topLevelId);
         Provenance = provenance;
+        Readiness = readiness;
     }
 
     [JsonPropertyName("sessionId")]
@@ -71,4 +73,8 @@ public sealed record ScreenshotResponse
     [JsonPropertyName("provenance")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public RuntimeOperationProvenance? Provenance { get; }
+
+    [JsonPropertyName("readiness")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public RuntimeReadinessSnapshot? Readiness { get; }
 }

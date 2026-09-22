@@ -16,7 +16,8 @@ public sealed record RuntimeWaitObservation
         string? expected = null,
         string? baseline = null,
         string? source = null,
-        string? message = null)
+        string? message = null,
+        RuntimeReadinessSnapshot? readiness = null)
     {
         if (string.IsNullOrWhiteSpace(condition))
         {
@@ -39,6 +40,7 @@ public sealed record RuntimeWaitObservation
         Baseline = baseline;
         Source = string.IsNullOrWhiteSpace(source) ? null : source;
         Message = string.IsNullOrWhiteSpace(message) ? null : message;
+        Readiness = readiness;
     }
 
     [JsonPropertyName("condition")]
@@ -78,4 +80,8 @@ public sealed record RuntimeWaitObservation
     [JsonPropertyName("message")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Message { get; }
+
+    [JsonPropertyName("readiness")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public RuntimeReadinessSnapshot? Readiness { get; }
 }

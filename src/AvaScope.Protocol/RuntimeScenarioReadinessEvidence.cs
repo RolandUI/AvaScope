@@ -17,7 +17,8 @@ public sealed record RuntimeScenarioReadinessEvidence
         string? stderrPath = null,
         IReadOnlyList<TopLevelSummary>? topLevels = null,
         ProtocolError? diagnostic = null,
-        IReadOnlyDictionary<string, string>? metadata = null)
+        IReadOnlyDictionary<string, string>? metadata = null,
+        IReadOnlyList<RuntimeWaitObservation>? observations = null)
     {
         if (string.IsNullOrWhiteSpace(status))
         {
@@ -41,6 +42,7 @@ public sealed record RuntimeScenarioReadinessEvidence
         TopLevels = topLevels ?? [];
         Diagnostic = diagnostic;
         Metadata = metadata ?? new Dictionary<string, string>();
+        Observations = observations ?? [];
     }
 
     [JsonPropertyName("status")]
@@ -84,4 +86,7 @@ public sealed record RuntimeScenarioReadinessEvidence
 
     [JsonPropertyName("metadata")]
     public IReadOnlyDictionary<string, string> Metadata { get; }
+
+    [JsonPropertyName("observations")]
+    public IReadOnlyList<RuntimeWaitObservation> Observations { get; }
 }
