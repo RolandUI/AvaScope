@@ -61,6 +61,22 @@ public sealed class RuntimeEvidencePolicyEnforcerTests : IDisposable
     }
 
     [Fact]
+    public void ExcludedRuntimeTreeTargetsRemainReadableWithoutOriginalTimestamps()
+    {
+        var enforcer = new RuntimeEvidencePolicyEnforcer(CreatePolicy(excludedControlAutomationIds: ["private-control"]));
+        var at = DateTimeOffset.UtcNow;
+        var target = new RuntimeTargetContext(new SessionId("session"), "top", TreeKinds.Visual, "node", capturedAt: at);
+        var node = new TreeNodeSummary("node", "TextBox", automationId: "private-control", text: "private text", target: target);
+        var result = enforcer.Sanitize(node);
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(DateTimeOffset.MinValue, result.Value!.Target!.CapturedAt);
+        var json = JsonSerializer.Serialize(result.Value);
+        Assert.DoesNotContain("private-control", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("private text", json, StringComparison.Ordinal);
+        Assert.Contains("[EXCLUDED]", json, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void SanitizedResponseKeepsJsonMarkdownAndJUnitFreeOfSecrets()
     {
         var run = Path.Combine(_directory, "root", "run");

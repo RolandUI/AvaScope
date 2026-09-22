@@ -187,6 +187,8 @@ jobs:
           pwsh -NoProfile -File .\eng\test-standalone-provider.ps1 -Native -SkipBuild
           pwsh -NoProfile -File .\eng\test-integration-onboarding.ps1 -Native -SkipBuild
           pwsh -NoProfile -File .\eng\test-target-readiness.ps1
+          pwsh -NoProfile -File .\eng\test-native-platform-matrix.ps1 -Backend headless -CliAssembly ./artifacts/executables/avascope-win-x64-framework-dependent/avascope.dll -McpAssembly ./artifacts/executables/avascope-win-x64-framework-dependent/AvaScope.Mcp.dll
+          pwsh -NoProfile -File .\eng\test-native-platform-matrix.ps1 -Backend win32 -CliAssembly ./artifacts/executables/avascope-win-x64-framework-dependent/avascope.dll -McpAssembly ./artifacts/executables/avascope-win-x64-framework-dependent/AvaScope.Mcp.dll
           powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\verify-artifacts.ps1
           Get-Content artifacts\release-manifest.json
 
@@ -209,6 +211,13 @@ jobs:
             artifacts/onboarding-validation/**/*.log
             artifacts/onboarding-validation/**/validation.json
             artifacts/readiness-validation/**/*.json
+            artifacts/platform-matrix/**/validation.json
+            artifacts/platform-matrix/**/*-result.json
+            artifacts/platform-matrix/**/*.log
+            artifacts/platform-matrix/**/evidence/**/*.json
+            artifacts/platform-matrix/**/evidence/**/*.md
+            artifacts/platform-matrix/**/evidence/**/*.xml
+            artifacts/platform-matrix/**/evidence/**/*.png
 
   installer-linux:
     name: Linux Installer
@@ -249,6 +258,7 @@ jobs:
           AVASCOPE_VALIDATION_EVIDENCE_ROOT="$GITHUB_WORKSPACE/artifacts/x11-unit" dotnet test AvaScope.slnx -c Release --no-build --filter FullyQualifiedName~X11TestEnvironmentTests
           pwsh -NoProfile -File ./eng/package-provider.ps1
           pwsh -NoProfile -File ./eng/test-managed-x11.ps1
+          pwsh -NoProfile -File ./eng/test-native-platform-matrix.ps1 -Backend x11 -CliAssembly ./artifacts/executables/avascope-linux-x64-framework-dependent/avascope.dll -McpAssembly ./artifacts/executables/avascope-linux-x64-framework-dependent/AvaScope.Mcp.dll
           xvfb-run -a -s "-screen 0 1280x900x24 -nolisten tcp" pwsh -NoProfile -File ./eng/test-standalone-provider.ps1 -Native -SkipBuild
           xvfb-run -a -s "-screen 0 1280x900x24 -nolisten tcp" pwsh -NoProfile -File ./eng/test-integration-onboarding.ps1 -Native -SkipBuild
           xvfb-run -a -s "-screen 0 1280x900x24 -nolisten tcp" pwsh -NoProfile -File ./eng/test-target-readiness.ps1
@@ -295,6 +305,13 @@ jobs:
             artifacts/onboarding-validation/**/*.log
             artifacts/onboarding-validation/**/validation.json
             artifacts/readiness-validation/**/*.json
+            artifacts/platform-matrix/**/validation.json
+            artifacts/platform-matrix/**/*-result.json
+            artifacts/platform-matrix/**/*.log
+            artifacts/platform-matrix/**/evidence/**/*.json
+            artifacts/platform-matrix/**/evidence/**/*.md
+            artifacts/platform-matrix/**/evidence/**/*.xml
+            artifacts/platform-matrix/**/evidence/**/*.png
             artifacts/x11-validation/**/*.log
             artifacts/x11-validation/**/environment.json
             artifacts/x11-validation/**/validation.json
@@ -366,6 +383,7 @@ jobs:
           pwsh -NoProfile -File ./eng/test-standalone-provider.ps1 -Native -SkipBuild
           pwsh -NoProfile -File ./eng/test-integration-onboarding.ps1 -Native -SkipBuild
           pwsh -NoProfile -File ./eng/test-target-readiness.ps1
+          pwsh -NoProfile -File ./eng/test-native-platform-matrix.ps1 -Backend macos -CliAssembly "./artifacts/executables/avascope-$runtime_identifier-framework-dependent/avascope.dll" -McpAssembly "./artifacts/executables/avascope-$runtime_identifier-framework-dependent/AvaScope.Mcp.dll"
           pwsh -NoProfile -File ./eng/verify-artifacts.ps1 \
             -ExecutableRuntimeIdentifiers "$runtime_identifier" \
             -InstallerRuntimeIdentifiers "$runtime_identifier"
@@ -398,3 +416,10 @@ jobs:
             artifacts/onboarding-validation/**/*.log
             artifacts/onboarding-validation/**/validation.json
             artifacts/readiness-validation/**/*.json
+            artifacts/platform-matrix/**/validation.json
+            artifacts/platform-matrix/**/*-result.json
+            artifacts/platform-matrix/**/*.log
+            artifacts/platform-matrix/**/evidence/**/*.json
+            artifacts/platform-matrix/**/evidence/**/*.md
+            artifacts/platform-matrix/**/evidence/**/*.xml
+            artifacts/platform-matrix/**/evidence/**/*.png

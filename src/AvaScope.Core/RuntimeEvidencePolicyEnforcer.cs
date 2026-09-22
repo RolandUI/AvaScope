@@ -610,7 +610,14 @@ public sealed class RuntimeEvidencePolicyEnforcer
                 {
                     if (property.Value is JsonValue value && value.TryGetValue<string>(out var text))
                     {
-                        obj[property.Key] = SanitizeScalar(text, excludesObject);
+                        // Excluded subtrees can contain typed target timestamps. A textual
+                        // placeholder makes the sanitized protocol DTO unreadable; retain no
+                        // timestamp information while preserving its JSON date representation.
+                        obj[property.Key] = excludesObject
+                            && property.Key is "capturedAt" or "executedAt" or "evaluatedAt"
+                            && value.TryGetValue<DateTimeOffset>(out _)
+                                ? JsonValue.Create(DateTimeOffset.MinValue)
+                                : JsonValue.Create(SanitizeScalar(text, excludesObject));
                     }
                     else if (property.Value is not null)
                     {

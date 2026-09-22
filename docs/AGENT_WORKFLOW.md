@@ -6,6 +6,8 @@ The intended agent loop is: check readiness, preview the UI, inspect a running a
 
 Use the session's observed backends and each input/screenshot's [runtime provenance](RUNTIME_PROVENANCE.md) when assessing test coverage. Headless, automation-provider, synthetic input, and control rendering have different guarantees; missing or unknown evidence does not establish native desktop coverage.
 
+The [native platform matrix](NATIVE_PLATFORM_MATRIX.md) provides repeatable packaged CLI/MCP lifecycle, modal, popup, focus, resize, failure-evidence and cleanup checks for Headless, Windows, Linux X11 and macOS.
+
 ## 1. Create And Install A Local Release
 
 ```powershell

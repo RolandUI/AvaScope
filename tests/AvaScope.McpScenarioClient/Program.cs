@@ -21,7 +21,7 @@ using var cancellation = new CancellationTokenSource(TimeSpan.FromMinutes(3));
 var environment = StdioClientTransportOptions.GetDefaultEnvironmentVariables();
 // Unix NamedPipeStream resolves its socket beneath TMPDIR. Preserve that transport
 // environment when connecting to an app launched outside this sanitized MCP child.
-foreach (var name in new[] { "TMPDIR", "DISPLAY", "XAUTHORITY", "WAYLAND_DISPLAY", "XDG_RUNTIME_DIR", "XDG_DATA_DIRS", "LD_LIBRARY_PATH", "DBUS_SESSION_BUS_ADDRESS", "LANG", "LC_ALL", "AVASCOPE_PROFILE_TEST_SECRET" })
+foreach (var name in new[] { "TMPDIR", "DISPLAY", "XAUTHORITY", "WAYLAND_DISPLAY", "XDG_RUNTIME_DIR", "XDG_DATA_DIRS", "LD_LIBRARY_PATH", "DBUS_SESSION_BUS_ADDRESS", "LANG", "LC_ALL", "AVASCOPE_PROFILE_TEST_SECRET", "AVASCOPE_RESPONSE_ARTIFACT_DIR" })
 {
     if (Environment.GetEnvironmentVariable(name) is { } value) environment[name] = value;
 }
