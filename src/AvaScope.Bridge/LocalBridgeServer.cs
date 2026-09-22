@@ -326,6 +326,7 @@ internal sealed class LocalBridgeServer : IDisposable
             BridgeIpcMethods.Observe => Respond(await ObserveAsync(request, cancellationToken)),
             BridgeIpcMethods.ObserveChanges => Respond(await ObserveChangesAsync(request, cancellationToken)),
             BridgeIpcMethods.VirtualItem => Respond(await VirtualItemAsync(request, cancellationToken)),
+            BridgeIpcMethods.NativePicker => Respond(await NativePickerAsync(request, cancellationToken)),
             BridgeIpcMethods.VisualTree => Respond(await GetTreeAsync(request, TreeKinds.Visual, cancellationToken)),
             BridgeIpcMethods.LogicalTree => Respond(await GetTreeAsync(request, TreeKinds.Logical, cancellationToken)),
             BridgeIpcMethods.InspectNode => Respond(await InspectNodeAsync(request, cancellationToken)),
@@ -579,6 +580,15 @@ internal sealed class LocalBridgeServer : IDisposable
                 ToProtocolError(result.Error!));
     }
 
+    private async Task<BridgeIpcResponse> NativePickerAsync(BridgeIpcRequest request, CancellationToken cancellationToken)
+    {
+        if (request.NativePicker is null)
+            return BridgeIpcResponse.Fail(request.RequestId, new ProtocolError(CoreErrorCodes.InvalidBridgeRequest, "nativePicker payload is required."));
+        var result = await _runtime.NativePickerAsync(request.NativePicker, cancellationToken);
+        return result.Success ? BridgeIpcResponse.Ok(request.RequestId, result.Value)
+            : BridgeIpcResponse.Fail(request.RequestId, ToProtocolError(result.Error!));
+    }
+
     private async Task<BridgeIpcResponse> InputAsync(
         BridgeIpcRequest request,
         CancellationToken cancellationToken,
@@ -611,7 +621,8 @@ internal sealed class LocalBridgeServer : IDisposable
                 request.Gesture,
                 cancellationToken,
                 request.InputTarget,
-                request.GestureDestinationTarget)
+                request.GestureDestinationTarget,
+                request.InputExecution)
             : await _runtime.InputAsync(
                 request.TopLevelId,
                 request.Action,
@@ -624,7 +635,8 @@ internal sealed class LocalBridgeServer : IDisposable
                 request.Gesture,
                 cancellationToken,
                 request.InputTarget,
-                request.GestureDestinationTarget);
+                request.GestureDestinationTarget,
+                request.InputExecution);
 
         return result.Success
             ? BridgeIpcResponse.Ok(request.RequestId, result.Value)

@@ -8,6 +8,7 @@ public static class BridgeIpcMethods
     public const string Observe = "observe";
     public const string ObserveChanges = "observe_changes";
     public const string VirtualItem = "virtual_item";
+    public const string NativePicker = "native_picker";
     public const string ListTopLevels = "list_top_levels";
     public const string Screenshot = "screenshot";
     public const string VisualTree = "visual_tree";
@@ -32,6 +33,7 @@ public static class BridgeIpcMethods
         Observe,
         ObserveChanges,
         VirtualItem,
+        NativePicker,
         ListTopLevels,
         Screenshot,
         VisualTree,

@@ -373,7 +373,8 @@ public sealed class LocalBridgeClient
         InputGestureOptions? gesture = null,
         CancellationToken cancellationToken = default,
         RuntimeTargetContext? inputTarget = null,
-        RuntimeTargetContext? gestureDestinationTarget = null)
+        RuntimeTargetContext? gestureDestinationTarget = null,
+        InputExecutionOptions? execution = null)
     {
         ArgumentNullException.ThrowIfNull(sessionId);
 
@@ -410,7 +411,8 @@ public sealed class LocalBridgeClient
                 keyModifiers: keyModifiers,
                 gesture: gesture,
                 inputTarget: inputTarget,
-                gestureDestinationTarget: gestureDestinationTarget),
+                gestureDestinationTarget: gestureDestinationTarget,
+                inputExecution: execution),
             cancellationToken);
     }
 
@@ -483,7 +485,8 @@ public sealed class LocalBridgeClient
         InputGestureOptions? gesture = null,
         CancellationToken cancellationToken = default,
         RuntimeTargetContext? inputTarget = null,
-        RuntimeTargetContext? gestureDestinationTarget = null)
+        RuntimeTargetContext? gestureDestinationTarget = null,
+        InputExecutionOptions? execution = null)
     {
         ArgumentNullException.ThrowIfNull(sessionId);
 
@@ -515,7 +518,8 @@ public sealed class LocalBridgeClient
                 keyModifiers: keyModifiers,
                 gesture: gesture,
                 inputTarget: inputTarget,
-                gestureDestinationTarget: gestureDestinationTarget),
+                gestureDestinationTarget: gestureDestinationTarget,
+                inputExecution: execution),
             cancellationToken);
     }
 
@@ -801,10 +805,16 @@ public sealed class LocalBridgeClient
         string? correlationId = null,
         int ttlMs = 30000,
         int timeoutMs = 1000,
-        bool redactPath = true)
+        bool redactPath = true,
+        string? topLevelId = null)
     {
         ArgumentNullException.ThrowIfNull(sessionId);
         var manifest = FindSingleManifest(null, sessionId);
+        if (manifest.Success && topLevelId is not null
+            && operation is not (NativePickerOperations.PredefineResult or NativePickerOperations.ConsumePredefinedResult))
+            return SendAsync<NativePickerResponse>(manifest.Value!, new BridgeIpcRequest(NewRequestId(), BridgeIpcMethods.NativePicker,
+                nativePicker: new RuntimeNativePickerRequest(topLevelId, operation, path, timeoutMs, redactPath)), CancellationToken.None)
+                .GetAwaiter().GetResult();
         return manifest.Success
             ? NativePickerAutomation.Execute(
                 manifest.Value!,

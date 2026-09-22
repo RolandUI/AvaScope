@@ -1680,6 +1680,7 @@ public sealed class SemanticWorkflowRunner
                 SemanticWorkflowActions.Expand => await InputAsync(bridgeClient, effectiveRequest, step, InputActions.Expand, policy, cancellationToken),
                 SemanticWorkflowActions.Collapse => await InputAsync(bridgeClient, effectiveRequest, step, InputActions.Collapse, policy, cancellationToken),
                 SemanticWorkflowActions.KeyDown => await InputAsync(bridgeClient, effectiveRequest, step, InputActions.KeyDown, policy, cancellationToken),
+                SemanticWorkflowActions.KeySequence => await InputAsync(bridgeClient, effectiveRequest, step, InputActions.KeySequence, policy, cancellationToken),
                 SemanticWorkflowActions.KeyUp => await InputAsync(bridgeClient, effectiveRequest, step, InputActions.KeyUp, policy, cancellationToken),
                 SemanticWorkflowActions.Drag => await InputAsync(bridgeClient, effectiveRequest, step, InputActions.Drag, policy, cancellationToken),
                 SemanticWorkflowActions.Swipe => await InputAsync(bridgeClient, effectiveRequest, step, InputActions.Swipe, policy, cancellationToken),
@@ -2242,10 +2243,10 @@ public sealed class SemanticWorkflowRunner
             targetNodeId: target.Value!.Target.NodeId,
             inputKey: step.Key,
             keyModifiers: step.Modifiers,
-            gesture: CreateGestureOptions(step, destination.Value),
+            gesture: step.InputExecution is null ? CreateGestureOptions(step, destination.Value) : null,
             cancellationToken: cancellationToken,
             inputTarget: target.Value.Target,
-            gestureDestinationTarget: destination.Value?.Target);
+            gestureDestinationTarget: destination.Value?.Target, execution: step.InputExecution);
         if (!validation.Success && IsPreDispatchStale(validation.Error!))
         {
             target = await ResolveTargetAsync(bridgeClient, request, step, cancellationToken);
@@ -2268,10 +2269,10 @@ public sealed class SemanticWorkflowRunner
                 targetNodeId: target.Value!.Target.NodeId,
                 inputKey: step.Key,
                 keyModifiers: step.Modifiers,
-                gesture: CreateGestureOptions(step, destination.Value),
+                gesture: step.InputExecution is null ? CreateGestureOptions(step, destination.Value) : null,
                 cancellationToken: cancellationToken,
                 inputTarget: target.Value.Target,
-                gestureDestinationTarget: destination.Value?.Target);
+                gestureDestinationTarget: destination.Value?.Target, execution: step.InputExecution);
         }
         return validation.Success
             ? Pass(
@@ -2951,10 +2952,10 @@ public sealed class SemanticWorkflowRunner
             targetNodeId: resolvedTarget.Target.NodeId,
             inputKey: step.Key,
             keyModifiers: step.Modifiers,
-            gesture: CreateGestureOptions(step, destination.Value),
+            gesture: step.InputExecution is null ? CreateGestureOptions(step, destination.Value) : null,
             cancellationToken: cancellationToken,
             inputTarget: resolvedTarget.Target,
-            gestureDestinationTarget: destination.Value?.Target);
+            gestureDestinationTarget: destination.Value?.Target, execution: step.InputExecution);
 
         if (!result.Success && IsPreDispatchStale(result.Error!))
         {
@@ -2991,10 +2992,10 @@ public sealed class SemanticWorkflowRunner
                 targetNodeId: resolvedTarget.Target.NodeId,
                 inputKey: step.Key,
                 keyModifiers: step.Modifiers,
-                gesture: CreateGestureOptions(step, destination.Value),
+                gesture: step.InputExecution is null ? CreateGestureOptions(step, destination.Value) : null,
                 cancellationToken: cancellationToken,
                 inputTarget: resolvedTarget.Target,
-                gestureDestinationTarget: destination.Value?.Target);
+                gestureDestinationTarget: destination.Value?.Target, execution: step.InputExecution);
         }
 
         return result.Success

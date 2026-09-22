@@ -1190,6 +1190,12 @@ inline byte, item, and depth budgets. When a budget is exceeded,
 budget, and `artifactPath` points to the complete local JSON payload. The
 inline result remains a deterministic bounded summary.
 
+For explicit `semantic`, `synthetic` or `native` input, compound clicks, paired
+keyboard sequences, motion profiles, and platform-specific dialog support, see
+[Input strategies and native dialogs](INPUT_STRATEGIES.md). CLI `input --execution`
+loads a bounded JSON options file; MCP uses the `execution` object. Native picker
+requests use `topLevelId` (`--top-level`) for GTK3 X11 and AppKit paths.
+
 `native_picker` is local-only and process-scoped. On Windows it detects and
 controls only a picker whose window and owner chain belong to the selected
 session process. Detection and commands use bounded timeouts, and selected

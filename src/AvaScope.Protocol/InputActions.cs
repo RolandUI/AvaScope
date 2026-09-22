@@ -11,6 +11,7 @@ public static class InputActions
     public const string Focus = "focus";
     public const string KeyDown = "key_down";
     public const string KeyUp = "key_up";
+    public const string KeySequence = "key_sequence";
     public const string Invoke = "invoke";
     public const string Select = "select";
     public const string Toggle = "toggle";
@@ -25,7 +26,7 @@ public static class InputActions
     public static IReadOnlyList<string> All { get; } =
     [
         PointerMove, PointerDown, PointerUp, Click, KeyText, ClearText, Focus,
-        KeyDown, KeyUp, Invoke, Select, Toggle, Expand, Collapse, Scroll,
+        KeyDown, KeyUp, KeySequence, Invoke, Select, Toggle, Expand, Collapse, Scroll,
         Drag, Swipe, LongPress, PressAndHold
     ];
 

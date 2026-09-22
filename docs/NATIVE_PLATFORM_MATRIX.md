@@ -17,6 +17,8 @@ The fixture requests Light theme and records the default font family resolved by
 
 Provider invocation, routed keyboard events and Avalonia focus operations are labeled by their actual route. They do not establish native mouse/keyboard, OS accessibility, IME, or desktop-capture coverage. Screenshots use RenderTargetBitmap; native capture remains a separate capability.
 
+The separate `eng/test-native-input.ps1` gate validates owned native window input and real native pickers through CLI/MCP on Windows, Linux X11 and macOS. See [input strategies](INPUT_STRATEGIES.md) for exact platform capabilities and negative cases, including unsupported native AppKit drag and X11 literal Unicode. Its results are separate from this matrix's provider/routed-event coverage.
+
 Local commands after a Release solution build and `pwsh -File eng/package-provider.ps1`:
 
 ```powershell

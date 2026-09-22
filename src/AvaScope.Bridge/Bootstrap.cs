@@ -33,6 +33,22 @@ public static class Bootstrap
         (AvaScopeBridge.Current ?? throw new InvalidOperationException("AVASCOPE_NOT_ACTIVE: Start the bridge explicitly before declaring readiness."))
             .SetReadiness(state, reason);
 
+    /// <summary>
+    /// Explicit host opt-in for a one-shot, correlated picker result. Returns JSON using only BCL types.
+    /// The host decides how to apply the result or open its real picker when status is not_prepared.
+    /// </summary>
+    public static string TakePreparedPickerResult(string correlationId)
+    {
+        if (string.IsNullOrWhiteSpace(correlationId) || correlationId.Length > 128)
+            throw new ArgumentException("A nonempty picker correlation id of at most 128 characters is required.", nameof(correlationId));
+        var runtime = AvaScopeBridge.Current ?? throw new InvalidOperationException("AVASCOPE_NOT_ACTIVE: Start the bridge explicitly before consuming a picker result.");
+        var result = new AvaScope.Core.LocalBridgeClient(Path.GetDirectoryName(runtime.SessionManifestPath)!)
+            .NativePicker(runtime.SessionId, AvaScope.Protocol.NativePickerOperations.ConsumePredefinedResult,
+                correlationId: correlationId, redactPath: false);
+        if (!result.Success) throw new InvalidOperationException(result.Error!.Message);
+        return System.Text.Json.JsonSerializer.Serialize(result.Value);
+    }
+
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static string StartAvalonia()
     {

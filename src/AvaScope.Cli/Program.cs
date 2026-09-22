@@ -2122,7 +2122,7 @@ internal static class Program
                 "distance-percent",
                 "duration-ms",
                 "destination-target-node",
-                "manifest-dir")
+                "manifest-dir", "execution")
             || !TryReadRequiredSessionId(options.Values, GetInputUsage(), out var sessionId)
             || !TryReadRequiredOption(options.Values, "top-level", GetInputUsage(), out var topLevelId)
             || !TryReadRequiredOption(options.Values, "action", GetInputUsage(), out var action)
@@ -2141,7 +2141,27 @@ internal static class Program
         var keyModifiers = options.Values.GetValueOrDefault("modifiers");
         var direction = options.Values.GetValueOrDefault("direction");
         var destinationTargetNodeId = options.Values.GetValueOrDefault("destination-target-node");
-        if (!ValidateInputActionArguments(
+        InputExecutionOptions? execution = null;
+        if (options.Values.TryGetValue("execution", out var executionPath))
+        {
+            try
+            {
+                if (new FileInfo(executionPath).Length > 32768) throw new InvalidDataException("Input execution JSON exceeds 32 KiB.");
+                execution = JsonSerializer.Deserialize<InputExecutionOptions>(File.ReadAllText(executionPath), JsonOptions)
+                    ?? throw new JsonException("Input execution JSON is null.");
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException or ArgumentException)
+            {
+                WriteFailure(InvalidCliArguments, exception.Message);
+                return 2;
+            }
+        }
+        if (execution is null && action == InputActions.KeySequence)
+        {
+            WriteFailure(InvalidCliArguments, "key_sequence requires --execution path/to/options.json.");
+            return 2;
+        }
+        if (execution is null && !ValidateInputActionArguments(
             action!,
             x,
             y,
@@ -2157,7 +2177,7 @@ internal static class Program
         }
 
         InputGestureOptions? gesture = null;
-        if (InputActions.IsGesture(action!))
+        if (execution is null && InputActions.IsGesture(action!))
         {
             try
             {
@@ -2180,7 +2200,7 @@ internal static class Program
             targetNodeId,
             inputKey,
             keyModifiers,
-            gesture);
+            gesture, execution: execution);
         WriteResult(result);
 
         return result.Success ? 0 : 1;
@@ -4289,7 +4309,7 @@ internal static class Program
         var usage = "Usage: avascope native-picker --session <session-id> --operation detect|select_path|confirm|cancel|predefine_result|consume_predefined_result [--path <path>] [--predefined-result success|cancelled|unavailable_path|deleted_path] [--correlation-id <id>] [--ttl-ms <100-300000>] [--timeout-ms <0-30000>] [--redact-path <true|false>] [--manifest-dir <dir>]";
         var options = ParseOptions(args, usage);
         if (!options.Success
-            || !ValidateOptions(options.Values, usage, "session", "operation", "path", "predefined-result", "correlation-id", "ttl-ms", "timeout-ms", "redact-path", "manifest-dir")
+            || !ValidateOptions(options.Values, usage, "session", "operation", "path", "predefined-result", "correlation-id", "ttl-ms", "timeout-ms", "redact-path", "manifest-dir", "top-level")
             || !TryReadRequiredSessionId(options.Values, usage, out var sessionId)
             || !TryReadRequiredOption(options.Values, "operation", usage, out var operation)
             || !TryNormalizeNativePickerOperation(operation!, out operation)
@@ -4309,7 +4329,8 @@ internal static class Program
             options.Values.GetValueOrDefault("correlation-id"),
             ttlMs ?? 30000,
             timeoutMs ?? 1000,
-            options.Values.ContainsKey("redact-path") ? redactPath : true);
+            options.Values.ContainsKey("redact-path") ? redactPath : true,
+            options.Values.GetValueOrDefault("top-level"));
         WriteResult(result);
         return result.Success ? 0 : 1;
     }
@@ -4558,7 +4579,7 @@ internal static class Program
 
     private static string GetInputUsage()
     {
-        return "Usage: avascope input --session <session-id> --top-level <top-level-id> --action <action> [--x <x>] [--y <y>] [--text <text>] [--target-node <node-id>] [--key <key>] [--modifiers <modifiers>] [--direction left|right|up|down|start|end] [--distance-percent <0-100>] [--duration-ms <50-5000>] [--destination-target-node <node-id>] [--manifest-dir <dir>]";
+        return "Usage: avascope input --session <session-id> --top-level <top-level-id> --action <action> [--x <x>] [--y <y>] [--text <text>] [--target-node <node-id>] [--key <key>] [--modifiers <modifiers>] [--direction left|right|up|down|start|end] [--distance-percent <0-100>] [--duration-ms <50-5000>] [--destination-target-node <node-id>] [--execution <options.json>] [--manifest-dir <dir>]";
     }
 
     private static string GetCustomActionsUsage()

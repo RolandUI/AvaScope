@@ -45,7 +45,9 @@ public sealed record BridgeIpcRequest
         RuntimeReadinessProbeOptions? readiness = null,
         RuntimeObservationRequest? observation = null,
         RuntimeObservationChangesRequest? observationChanges = null,
-        RuntimeVirtualItemRequest? virtualItem = null)
+        RuntimeVirtualItemRequest? virtualItem = null,
+        InputExecutionOptions? inputExecution = null,
+        RuntimeNativePickerRequest? nativePicker = null)
     {
         if (string.IsNullOrWhiteSpace(requestId))
         {
@@ -97,10 +99,20 @@ public sealed record BridgeIpcRequest
         Observation = observation;
         ObservationChanges = observationChanges;
         VirtualItem = virtualItem;
+        InputExecution = inputExecution;
+        NativePicker = nativePicker;
     }
 
     [JsonPropertyName("requestId")]
     public string RequestId { get; }
+
+    [JsonPropertyName("inputExecution")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public InputExecutionOptions? InputExecution { get; }
+
+    [JsonPropertyName("nativePicker")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public RuntimeNativePickerRequest? NativePicker { get; }
 
     [JsonPropertyName("readiness")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

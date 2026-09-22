@@ -570,7 +570,8 @@ public sealed class AvaScopeMcpTools
         [Description("Current visual node id used as a destination for a source-to-target drag or swipe.")]
         string? destinationTargetNodeId = null,
         string? manifestDirectory = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        InputExecutionOptions? execution = null)
     {
         ArgumentNullException.ThrowIfNull(bridgeClient);
 
@@ -600,7 +601,7 @@ public sealed class AvaScopeMcpTools
             inputKey,
             keyModifiers,
             gesture,
-            cancellationToken));
+            cancellationToken, execution: execution));
     }
 
     public static async Task<ToolResult<InputResponse>> Input(
@@ -623,7 +624,8 @@ public sealed class AvaScopeMcpTools
         [Description("Current visual node id used as a destination for a source-to-target drag or swipe.")]
         string? destinationTargetNodeId = null,
         string? manifestDirectory = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        InputExecutionOptions? execution = null)
     {
         ArgumentNullException.ThrowIfNull(bridgeClient);
         if (!TryParseRequiredSessionId(sessionId, out var parsedSessionId, out var error))
@@ -652,7 +654,7 @@ public sealed class AvaScopeMcpTools
             inputKey,
             keyModifiers,
             gesture,
-            cancellationToken));
+            cancellationToken, execution: execution));
     }
 
     [McpServerTool(
@@ -1322,7 +1324,7 @@ public sealed class AvaScopeMcpTools
         Destructive = false,
         OpenWorld = false,
         UseStructuredContent = true)]
-    [Description("Detects and controls a Windows file/folder picker only when it belongs to the selected AvaScope session process, or prepares a deterministic isolated-scenario picker result.")]
+    [Description("Controls an owned Windows picker, or with topLevelId an X11 GTK3/macOS AppKit picker. Predefined results are separate app-logic coverage consumed only through the explicit host hook. Portal and unsupported selection paths fail without fallback.")]
     public static ToolResult<NativePickerResponse> NativePicker(
         LocalBridgeClient bridgeClient,
         string sessionId,
@@ -1333,7 +1335,8 @@ public sealed class AvaScopeMcpTools
         int ttlMs = 30000,
         int timeoutMs = 1000,
         bool redactPath = true,
-        string? manifestDirectory = null)
+        string? manifestDirectory = null,
+        string? topLevelId = null)
     {
         if (!TryParseRequiredSessionId(sessionId, out var parsedSessionId, out var error))
         {
@@ -1348,7 +1351,7 @@ public sealed class AvaScopeMcpTools
             correlationId,
             ttlMs,
             timeoutMs,
-            redactPath));
+            redactPath, topLevelId));
     }
 
     [McpServerTool(

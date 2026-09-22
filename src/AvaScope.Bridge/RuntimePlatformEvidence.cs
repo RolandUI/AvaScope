@@ -23,12 +23,26 @@ internal static class RuntimePlatformEvidence
         };
         var restrictions = new List<string>
         {
-            "native_os_input_unavailable",
             "native_screen_capture_unavailable",
             "render_mode_unknown",
             "automation_provider_support_depends_on_target",
             "render_target_bitmap_excludes_native_chrome_and_external_surfaces"
         };
+        var inputRoutes = new List<string>
+        {
+            RuntimeOperationRoutes.AutomationProvider, RuntimeOperationRoutes.SyntheticPointer,
+            RuntimeOperationRoutes.SyntheticKey, RuntimeOperationRoutes.RoutedEvent,
+            RuntimeOperationRoutes.ControlProperty, RuntimeOperationRoutes.Focus
+        };
+        try
+        {
+            inputRoutes.Add(NativeWindowInput.Route(topLevel));
+            restrictions.Add("native_input_targets_owned_windows_only_not_global_hardware_input");
+            restrictions.Add("native_input_requires_active_window;ime_clipboard_external_dragdrop_unavailable");
+            if (backend == "x11") restrictions.Add("native_literal_unicode_unavailable;keys_require_base_group_mapping");
+            if (backend == "macos") restrictions.Add("native_key_sequence_navigation_only;native_drag_unavailable;use_literal_text_or_explicit_synthetic_input");
+        }
+        catch (NotSupportedException) { restrictions.Add("native_os_input_unavailable"); }
         if (backend == "headless")
         {
             restrictions.Add("headless_does_not_validate_native_desktop_integration");
@@ -46,9 +60,7 @@ internal static class RuntimePlatformEvidence
             implementation?.FullName,
             descriptor,
             "unknown",
-            [RuntimeOperationRoutes.AutomationProvider, RuntimeOperationRoutes.SyntheticPointer,
-                RuntimeOperationRoutes.SyntheticKey, RuntimeOperationRoutes.RoutedEvent,
-                RuntimeOperationRoutes.ControlProperty, RuntimeOperationRoutes.Focus],
+            inputRoutes,
             [RuntimeOperationRoutes.RenderTargetBitmap],
             restrictions);
     }

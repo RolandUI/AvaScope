@@ -4,7 +4,9 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
+using Avalonia.Input;
 using Avalonia.Media;
+using Avalonia.Platform.Storage;
 using Avalonia.Styling;
 using Avalonia.Themes.Fluent;
 using Avalonia.Threading;
@@ -24,6 +26,8 @@ internal static class Program
         else
         {
             builder.UsePlatformDetect();
+            if (args.Contains("--gtk-picker", StringComparer.Ordinal))
+                builder.With(new X11PlatformOptions { UseDBusFilePicker = false });
         }
 
         builder.StartWithClassicDesktopLifetime(args);
@@ -101,6 +105,8 @@ internal sealed class SampleApplication : Application
             };
             desktop.MainWindow.SizeChanged += (_, _) => layoutState.Text = FormattableString.Invariant(
                 $"{desktop.MainWindow.ClientSize.Width:0}x{desktop.MainWindow.ClientSize.Height:0}");
+            if (desktop.Args?.Contains("--input-fixture", StringComparer.Ordinal) == true)
+                ConfigureInputFixture(desktop.MainWindow);
 
             // The host owns this compile-time authorization. Merely supplying files or an
             // environment variable cannot enable inspection in the normal build.
@@ -151,5 +157,72 @@ internal sealed class SampleApplication : Application
         }
 
         base.OnFrameworkInitializationCompleted();
+    }
+
+    private static void ConfigureInputFixture(Window window)
+    {
+        var state = new TextBlock { Name = "InputState", Text = "idle" };
+        var release = new TextBlock { Name = "ReleaseState", Text = "idle" };
+        var keys = new TextBlock { Name = "KeyState", Text = "idle" };
+        var result = new TextBlock { Name = "PickerState", Text = "idle" };
+        var motion = new TextBlock { Name = "MotionState", Text = "idle" };
+        var interruptDrag = false;
+        var editor = new TextBox { Name = "NativeEditor", Text = "" };
+        editor.KeyDown += (_, args) => keys.Text = $"{args.Key}:{args.KeyModifiers}";
+        var pad = new Border { Name = "NativePad", Height = 100, Background = Brushes.LightGray };
+        pad.PointerPressed += (_, args) =>
+        {
+            state.Text = $"{args.GetCurrentPoint(pad).Properties.PointerUpdateKind}:{args.ClickCount}:{args.KeyModifiers}";
+            args.Pointer.Capture(pad);
+            if (interruptDrag) { interruptDrag = false; OpenOtherWindow(); }
+        };
+        pad.AddHandler(InputElement.PointerReleasedEvent, (_, args) =>
+            { release.Text = args.InitialPressMouseButton.ToString(); args.Pointer.Capture(null); }, handledEventsToo: true);
+        pad.PointerMoved += (_, args) =>
+        {
+            var properties = args.GetCurrentPoint(pad).Properties;
+            motion.Text = $"{properties.IsLeftButtonPressed}:{properties.IsMiddleButtonPressed}:{properties.IsRightButtonPressed}";
+        };
+        var other = new Button { Name = "OtherWindow", Content = "Open another window" };
+        other.Click += (_, _) => OpenOtherWindow();
+        void OpenOtherWindow()
+        {
+            var back = new Button { Name = "ReturnToMain", Content = "Return" };
+            var child = new Window { Title = "Input ownership fixture", Width = 280, Height = 160, Content = back };
+            back.Click += (_, _) => { child.Close(); window.Activate(); };
+            child.Show();
+            child.Activate();
+        }
+        var interrupt = new Button { Name = "ArmInterruptedDrag", Content = "Interrupt next drag with another window" };
+        interrupt.Click += (_, _) => interruptDrag = true;
+        var open = new Button { Name = "OpenFilePicker", Content = "Open file" };
+        open.Click += async (_, _) =>
+        {
+            result.Text = "open";
+            var files = await window.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions { Title = "Owned native file picker", AllowMultiple = false });
+            result.Text = files.Count == 0 ? "cancelled" : "selected:" + files[0].Name;
+        };
+        var save = new Button { Name = "SaveFilePicker", Content = "Save file" };
+        save.Click += async (_, _) =>
+        {
+            result.Text = "open";
+            var file = await window.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions { Title = "Owned native save picker", SuggestedFileName = "native-save.txt" });
+            result.Text = file is null ? "cancelled" : "selected:" + file.Name;
+        };
+        var prepared = new Button { Name = "PreparedPicker", Content = "Consume host-authorized test result" };
+        prepared.Click += (_, _) =>
+        {
+#if ENABLE_UI_INSPECTION
+            var bootstrap = AppDomain.CurrentDomain.GetAssemblies().Single(assembly => assembly.GetName().Name == "AvaScope.Bridge").GetType("AvaScope.Bridge.Bootstrap", true)!;
+            var json = (string)bootstrap.GetMethod("TakePreparedPickerResult", [typeof(string)])!.Invoke(null, ["open-document"])!;
+            using var response = System.Text.Json.JsonDocument.Parse(json);
+            var status = response.RootElement.GetProperty("status").GetString();
+            result.Text = status == "success" ? "predefined:" + Path.GetFileName(response.RootElement.GetProperty("selectedPath").GetString()) : "predefined:" + status;
+#endif
+        };
+        window.Width = 520;
+        window.Height = 580;
+        window.Content = new StackPanel { Margin = new Thickness(16), Spacing = 6, Children = { state, release, keys, result, motion, pad, editor, other, interrupt, open, save, prepared } };
+        window.Opened += (_, _) => window.Activate();
     }
 }

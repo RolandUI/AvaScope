@@ -18,7 +18,7 @@ $hostOutput = Join-Path $root 'host'
 $previousResponseArtifacts = $env:AVASCOPE_RESPONSE_ARTIFACT_DIR
 $report = [ordered]@{
     requestedBackend=$Backend; status='running'; runtime=[System.Runtime.InteropServices.RuntimeInformation]::RuntimeIdentifier
-    nativeOsInput='unsupported'; nativeScreenCapture='unsupported'; renderMode='unknown'
+    nativeOsInput='validated_separately_by_test_native_input'; nativeScreenCapture='unsupported'; renderMode='unknown'
     extensionLanes=@{xwayland='unsupported_until_separately_validated';wayland='unsupported_until_separately_validated'}
     runs=@(); diagnostics=@()
 }

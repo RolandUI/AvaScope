@@ -423,7 +423,8 @@ public sealed partial class AvaScopeBridgeRuntime
         InputGestureOptions? gesture = null,
         CancellationToken cancellationToken = default,
         RuntimeTargetContext? inputTarget = null,
-        RuntimeTargetContext? gestureDestinationTarget = null)
+        RuntimeTargetContext? gestureDestinationTarget = null,
+        InputExecutionOptions? execution = null)
     {
         if (string.IsNullOrWhiteSpace(topLevelId))
         {
@@ -433,6 +434,12 @@ public sealed partial class AvaScopeBridgeRuntime
         if (string.IsNullOrWhiteSpace(action))
         {
             throw new ArgumentException("Input action cannot be empty.", nameof(action));
+        }
+
+        if (execution is not null || action == InputActions.KeySequence)
+        {
+            return await ExecuteExplicitInputAsync(topLevelId, action, x, y, inputText, targetNodeId,
+                inputKey, keyModifiers, gesture, inputTarget, execution ?? new(), false, cancellationToken);
         }
 
         if (gesture is not null && !InputActions.IsGesture(action))
@@ -473,7 +480,8 @@ public sealed partial class AvaScopeBridgeRuntime
         InputGestureOptions? gesture = null,
         CancellationToken cancellationToken = default,
         RuntimeTargetContext? inputTarget = null,
-        RuntimeTargetContext? gestureDestinationTarget = null)
+        RuntimeTargetContext? gestureDestinationTarget = null,
+        InputExecutionOptions? execution = null)
     {
         if (string.IsNullOrWhiteSpace(topLevelId))
         {
@@ -483,6 +491,12 @@ public sealed partial class AvaScopeBridgeRuntime
         if (string.IsNullOrWhiteSpace(action))
         {
             throw new ArgumentException("Input action cannot be empty.", nameof(action));
+        }
+
+        if (execution is not null || action == InputActions.KeySequence)
+        {
+            return ExecuteExplicitInputAsync(topLevelId, action, x, y, inputText, targetNodeId,
+                inputKey, keyModifiers, gesture, inputTarget, execution ?? new(), true, cancellationToken);
         }
 
         if (Dispatcher.UIThread.CheckAccess())

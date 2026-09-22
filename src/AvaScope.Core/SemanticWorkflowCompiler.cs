@@ -150,6 +150,7 @@ internal static partial class SemanticWorkflowCompiler
         or SemanticWorkflowActions.Collapse
         or SemanticWorkflowActions.KeyDown
         or SemanticWorkflowActions.KeyUp
+        or SemanticWorkflowActions.KeySequence
         or SemanticWorkflowActions.Drag
         or SemanticWorkflowActions.Swipe
         or SemanticWorkflowActions.LongPress
@@ -169,6 +170,7 @@ internal static partial class SemanticWorkflowCompiler
         or SemanticWorkflowActions.Collapse
         or SemanticWorkflowActions.KeyDown
         or SemanticWorkflowActions.KeyUp
+        or SemanticWorkflowActions.KeySequence
         or SemanticWorkflowActions.Drag
         or SemanticWorkflowActions.Swipe
         or SemanticWorkflowActions.LongPress
@@ -463,6 +465,16 @@ internal static partial class SemanticWorkflowCompiler
 
         private void ValidateStepShape(SemanticWorkflowStep step, string path, bool insideRetry)
         {
+            if (step.InputExecution is { } execution)
+            {
+                var inputAction = step.Action == SemanticWorkflowActions.TypeText ? InputActions.KeyText
+                    : step.Action == SemanticWorkflowActions.ValidateAction ? step.InputAction ?? "" : step.Action;
+                if (execution.GetValidationError(inputAction) is { } inputError)
+                    AddDiagnostic("semantic_workflow_input_execution_invalid", inputError, path);
+            }
+            else if (step.Action == SemanticWorkflowActions.KeySequence)
+                AddDiagnostic("semantic_workflow_input_execution_required", "key_sequence requires inputExecution.keys.", path);
+
             if (!SemanticWorkflowActions.All.Contains(step.Action, StringComparer.Ordinal))
             {
                 AddDiagnostic(
@@ -790,7 +802,8 @@ internal static partial class SemanticWorkflowCompiler
                     pair => ResolveText(pair.Value, variables, $"{path}.arguments.{pair.Key}") ?? pair.Value,
                     StringComparer.Ordinal),
                 ResolveVerification(step.Verify, variables, path),
-                step.CaptureAfterRender);
+                step.CaptureAfterRender,
+                step.InputExecution);
         }
 
         private SemanticWorkflowVerification? ResolveVerification(

@@ -81,10 +81,10 @@ public sealed record SessionCapabilitiesResponse
         var patterns = global::AvaScope.Protocol.AutomationPatterns.All;
         var mutations = RuntimeMutationCapabilityCatalog.CurrentBridgeCapabilities();
         backends ??= [];
-        var nativePickerSupported = OperatingSystem.IsWindows()
-            && backends.Any(static backend => backend.Backend == "win32");
-        var pickerMode = nativePickerSupported
-            ? "windows_live_and_injected"
+        var nativePickerSupported = backends.Any(static backend => backend.Backend is "win32" or "x11" or "macos");
+        var pickerMode = backends.Any(static backend => backend.Backend == "win32") ? "windows_live_and_injected"
+            : backends.Any(static backend => backend.Backend == "x11") ? "gtk3_owned_window_and_injected;portal_unsupported"
+            : backends.Any(static backend => backend.Backend == "macos") ? "appkit_owned_panel_and_injected;open_path_selection_unsupported"
             : "injected_only";
         var revisionSource = string.Join(
             "\n",

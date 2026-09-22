@@ -219,6 +219,11 @@ public static class AvaScopeCapabilityCatalog
                     ["clear_text"] = """{"required":["targetNodeId"],"targets":["TextBox"],"example":{"action":"clear_text","targetNodeId":"visual:1"}}""",
                     ["focus"] = """{"requiredAny":[["targetNodeId"],["x","y"]],"targets":["Control"],"example":{"action":"focus","targetNodeId":"visual:1"}}""",
                     ["key_down"] = """{"required":["inputKey"],"optional":["targetNodeId","keyModifiers"],"targets":["Control"],"example":{"action":"key_down","inputKey":"Enter"}}""",
+                    ["key_sequence"] = """{"required":["execution.keys"],"optional":["targetNodeId"],"example":{"action":"key_sequence","execution":{"strategy":"synthetic","keys":[{"key":"A","modifiers":"Control"}]}}}""",
+                    ["inputStrategies"] = "semantic,synthetic,native; explicit execution never silently downgrades; omission preserves legacy routing",
+                    ["nativeInputCoverage"] = "owned native window messages/events only; no global device injection, clipboard, IME composition, external drag/drop or unrelated process control",
+                    ["nativeInputLimits"] = "macOS: navigation keys only, native drag unavailable; X11: base-group keys and standard modifier groups, literal Unicode unavailable; unsupported routes require an explicit strategy change",
+                    ["compoundInput"] = "execution: left/right/middle, clickCount 1..3, keys <=32, intervalMs 0..250, durationMs 0..3000, motionSteps 1..120, linear/ease_in_out",
                     ["key_up"] = """{"required":["inputKey"],"optional":["targetNodeId","keyModifiers"],"targets":["Control"],"example":{"action":"key_up","inputKey":"Enter"}}""",
                     ["invoke"] = """{"required":["targetNodeId"],"patterns":["Invoke"],"example":{"action":"invoke","targetNodeId":"visual:1"}}""",
                     ["select"] = """{"required":["targetNodeId"],"optional":["inputText"],"patterns":["SelectionItem"],"example":{"action":"select","targetNodeId":"visual:1"}}""",
@@ -331,18 +336,20 @@ public static class AvaScopeCapabilityCatalog
             Capability(
                 AvaScopeCapabilityIds.RuntimeNativePicker,
                 "runtime",
-                "Control Windows file/folder pickers owned by the selected session process or prepare deterministic isolated-scenario picker outcomes.",
+                "Control owned Windows, GTK3 X11 and AppKit dialogs with explicit route evidence; consume predefined results only through an explicit host hook.",
                 ["native_picker"],
                 requires: [AvaScopeCapabilityIds.RuntimeAttach, AvaScopeCapabilityIds.SafetyLocalOnly],
                 metadata: new Dictionary<string, string>
                 {
-                    ["platform"] = "windows",
+                    ["platform"] = "windows,x11_gtk3,macos_appkit;topLevelId_required_for_bridge_native_routes",
                     ["operations"] = string.Join(",", NativePickerOperations.All),
                     ["predefinedResults"] = string.Join(",", NativePickerResultStates.Preparable),
                     ["processScope"] = "selected_session_process_only",
                     ["scenarioSemantics"] = "session_scoped_one_shot_ttl_request_correlated",
                     ["defaultPathRedaction"] = "true",
-                    ["maximumTimeoutMs"] = "30000"
+                    ["maximumTimeoutMs"] = "3000_bridge;30000_legacy_windows",
+                    ["unsupported"] = "uncorrelated_portals;appkit_open_panel_path_selection",
+                    ["hostHook"] = "AvaScope.Bridge.Bootstrap.TakePreparedPickerResult(correlationId)"
                 }),
             Capability(
                 AvaScopeCapabilityIds.RuntimePointerDiagnostics,

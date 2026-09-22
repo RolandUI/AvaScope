@@ -15,6 +15,7 @@ public enum McpInputAction
     [JsonStringEnumMemberName(InputActions.Focus)] Focus,
     [JsonStringEnumMemberName(InputActions.KeyDown)] KeyDown,
     [JsonStringEnumMemberName(InputActions.KeyUp)] KeyUp,
+    [JsonStringEnumMemberName(InputActions.KeySequence)] KeySequence,
     [JsonStringEnumMemberName(InputActions.Invoke)] Invoke,
     [JsonStringEnumMemberName(InputActions.Select)] Select,
     [JsonStringEnumMemberName(InputActions.Toggle)] Toggle,

@@ -39,7 +39,8 @@ public sealed record SemanticWorkflowStep
         string? fragment = null,
         IReadOnlyDictionary<string, string>? arguments = null,
         SemanticWorkflowVerification? verify = null,
-        bool captureAfterRender = false)
+        bool captureAfterRender = false,
+        InputExecutionOptions? inputExecution = null)
     {
         if (string.IsNullOrWhiteSpace(action))
         {
@@ -114,7 +115,12 @@ public sealed record SemanticWorkflowStep
             StringComparer.Ordinal);
         Verify = verify;
         CaptureAfterRender = captureAfterRender;
+        InputExecution = inputExecution;
     }
+
+    [JsonPropertyName("inputExecution")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public InputExecutionOptions? InputExecution { get; }
 
     [JsonPropertyName("id")]
     public string Id { get; }

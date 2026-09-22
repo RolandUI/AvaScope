@@ -16,7 +16,8 @@ public sealed record NativePickerResponse
         string? correlationId = null,
         DateTimeOffset? expiresAt = null,
         DateTimeOffset? consumedAt = null,
-        bool pathRedacted = false)
+        bool pathRedacted = false,
+        string? route = null)
     {
         SessionId = sessionId;
         ProcessId = processId;
@@ -29,6 +30,8 @@ public sealed record NativePickerResponse
         ExpiresAt = expiresAt;
         ConsumedAt = consumedAt;
         PathRedacted = pathRedacted;
+        Route = route ?? (operation is NativePickerOperations.PredefineResult or NativePickerOperations.ConsumePredefinedResult
+            ? "app_predefined_result" : "win32_process_owned_dialog");
     }
 
     [JsonPropertyName("sessionId")] public SessionId SessionId { get; }
@@ -42,6 +45,7 @@ public sealed record NativePickerResponse
     [JsonPropertyName("expiresAt")] public DateTimeOffset? ExpiresAt { get; }
     [JsonPropertyName("consumedAt")] public DateTimeOffset? ConsumedAt { get; }
     [JsonPropertyName("pathRedacted")] public bool PathRedacted { get; }
+    [JsonPropertyName("route")] public string Route { get; }
 }
 
 public static class NativePickerOperations

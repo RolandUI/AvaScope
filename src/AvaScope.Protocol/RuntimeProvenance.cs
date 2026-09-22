@@ -32,6 +32,9 @@ public static class RuntimeOperationRoutes
     public const string RoutedEvent = "avalonia_routed_event";
     public const string ControlProperty = "avalonia_control_property";
     public const string Focus = "avalonia_focus_api";
+    public const string Win32WindowMessage = "win32_owned_window_message";
+    public const string X11WindowEvent = "x11_owned_window_event";
+    public const string AppKitWindowEvent = "appkit_owned_window_event";
     public const string RenderTargetBitmap = "avalonia_render_target_bitmap";
     public const string NotDispatched = "not_dispatched";
 }
