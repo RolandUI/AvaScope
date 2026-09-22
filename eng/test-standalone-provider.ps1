@@ -107,7 +107,7 @@ try {
         $hostPath = Join-Path $root "host-$variant"
         $enabled = if ($variant -eq 'disabled') { 'false' } else { 'true' }
         $avaloniaVersion = if ($variant -eq 'incompatible') { '12.0.0' } else { '12.1.0' }
-        & dotnet publish $project -c $Configuration -o $hostPath "-p:EnableUiInspection=$enabled" "-p:AvaloniaVersion=$avaloniaVersion" --nologo *> (Join-Path $root "build-$variant.log")
+        & dotnet publish $project -c $Configuration -o $hostPath --artifacts-path (Join-Path $root "build-$variant") "-p:EnableUiInspection=$enabled" "-p:AvaloniaVersion=$avaloniaVersion" --nologo *> (Join-Path $root "build-$variant.log")
         if ($LASTEXITCODE -ne 0) { throw "Host $variant build failed; see $root/build-$variant.log" }
         if (@(Get-ChildItem -LiteralPath $hostPath -Recurse -File -Filter 'AvaScope.*.dll').Count -gt 0) { throw 'Host output contains an AvaScope assembly.' }
     }

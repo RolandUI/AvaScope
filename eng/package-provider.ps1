@@ -75,7 +75,16 @@ $manifestPath = Join-Path $stage 'provider-manifest.json'
 [IO.File]::WriteAllText($manifestPath, ($manifest | ConvertTo-Json -Depth 6), [Text.UTF8Encoding]::new($false))
 if (Test-Path -LiteralPath $archive) { Remove-Item -LiteralPath $archive -Force }
 Add-Type -AssemblyName System.IO.Compression.FileSystem
-[IO.Compression.ZipFile]::CreateFromDirectory($stage, $archive)
+Add-Type -AssemblyName System.IO.Compression
+$zip = [IO.Compression.ZipFile]::Open($archive, [IO.Compression.ZipArchiveMode]::Create)
+try {
+    foreach ($file in Get-ChildItem -LiteralPath $stage -File -Recurse | Sort-Object FullName) {
+        # Windows PowerShell/.NET Framework otherwise emits backslashes in ZIP entry names.
+        $entryName = $file.FullName.Substring($stage.Length + 1).Replace('\','/')
+        [IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip, $file.FullName, $entryName, [IO.Compression.CompressionLevel]::Optimal) | Out-Null
+    }
+}
+finally { $zip.Dispose() }
 $archiveHash = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()
 [IO.File]::WriteAllText("$archive.sha256", "$archiveHash  avascope-bridge-provider.zip" + [Environment]::NewLine, [Text.UTF8Encoding]::new($false))
 & (Join-Path $PSScriptRoot 'verify-provider.ps1') -Archive $archive -ExpectedVersion $version
