@@ -63,6 +63,7 @@ The stable CLI command name set is:
 - `verify-provider`
 - `integration-guide`
 - `verify-integration`
+- `resolve-test-profile`
 - `diagnostics`
 - `attach`
 - `session-capabilities`
@@ -128,6 +129,7 @@ The stable MCP tool name set is:
 - `verify_provider`
 - `integration_guide`
 - `verify_integration`
+- `resolve_test_profile`
 - `launch_app`
 - `list_top_levels`
 - `screenshot`

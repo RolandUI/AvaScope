@@ -9,6 +9,12 @@ namespace AvaScope.Mcp;
 [McpServerToolType]
 public sealed class AvaScopeMcpTools
 {
+    [McpServerTool(Name = "resolve_test_profile", Title = "Resolve agent test profile", ReadOnly = true,
+        Idempotent = true, Destructive = false, OpenWorld = false, UseStructuredContent = true)]
+    [Description("Validates a named schemaVersion 1 test profile and returns redacted effective scenario settings, platform override precedence, profile-relative paths, provider identity and environment reference names. Does not build, launch or activate. Optional platform is for read-only preview; execution uses the actual platform.")]
+    public static ToolResult<AgentTestProfileResponse> ResolveTestProfile(string profileFile, string profileName, string? platform = null)
+        => ToToolResult(AgentTestProfiles.Resolve(profileFile, profileName, platform));
+
     [McpServerTool(Name = "verify_integration", Title = "Verify bridge integration", ReadOnly = false,
         Idempotent = false, Destructive = false, OpenWorld = false, UseStructuredContent = true)]
     [Description("Verifies one explicitly launched local host: optional build/provider checks, owned session discovery, window readiness, tree, screenshot, declared safe focus probe and shutdown cleanup. bootstrapDisabled selects the independent production-output and bounded no-manifest/no-listener lane. Produces a local stage report; never attaches to unrelated processes.")]
@@ -748,12 +754,20 @@ public sealed class AvaScopeMcpTools
     [Description("Runs a safe local runtime scenario by validating the workflow and optional local evidence/action policy before side effects; optionally building before launch for an executable or project; waiting for bridge readiness, attach, and registered top levels; executing observe-act-verify steps across bounded execution paths; preserving policy-redacted logs and failure evidence; and optionally terminating only the exact AvaScope-owned process tree.")]
     public static async Task<ToolResult<RuntimeScenarioResponse>> RunScenario(
         LocalBridgeClient bridgeClient,
-        RuntimeScenarioRequest request,
+        RuntimeScenarioRequest? request = null,
         string? manifestDirectory = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string? profileFile = null,
+        string? profileName = null)
     {
         ArgumentNullException.ThrowIfNull(bridgeClient);
-        ArgumentNullException.ThrowIfNull(request);
+        if (profileFile is not null || profileName is not null)
+        {
+            if (request is not null || profileFile is null || profileName is null)
+                return ToolResult<RuntimeScenarioResponse>.Fail(new ProtocolError("test_profile_selection_invalid", "Select either request or both profileFile and profileName."));
+            return ToToolResult(await AgentTestProfiles.RunAsync(CreateBridgeClient(bridgeClient, manifestDirectory), profileFile, profileName, cancellationToken));
+        }
+        if (request is null) return ToolResult<RuntimeScenarioResponse>.Fail(new ProtocolError("runtime_scenario_request_required", "Provide request or a named test profile."));
 
         return ToToolResult(await new RuntimeScenarioRunner().RunAsync(
             CreateBridgeClient(bridgeClient, manifestDirectory),

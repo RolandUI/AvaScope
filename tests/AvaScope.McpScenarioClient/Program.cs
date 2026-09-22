@@ -19,6 +19,10 @@ if (!File.Exists(serverAssembly) || !File.Exists(requestPath))
 var request = JsonSerializer.Deserialize<JsonElement>(await File.ReadAllTextAsync(requestPath));
 using var cancellation = new CancellationTokenSource(TimeSpan.FromMinutes(3));
 var environment = StdioClientTransportOptions.GetDefaultEnvironmentVariables();
+foreach (var name in new[] { "DISPLAY", "XAUTHORITY", "WAYLAND_DISPLAY", "XDG_RUNTIME_DIR", "DBUS_SESSION_BUS_ADDRESS", "LANG", "LC_ALL", "AVASCOPE_PROFILE_TEST_SECRET" })
+{
+    if (Environment.GetEnvironmentVariable(name) is { } value) environment[name] = value;
+}
 await using var client = await McpClient.CreateAsync(
     new StdioClientTransport(new StdioClientTransportOptions
     {

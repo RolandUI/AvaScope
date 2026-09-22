@@ -98,6 +98,12 @@ public static class AvaScopeCapabilityCatalog
                 ["verify-integration", "verify_integration"],
                 requires: [AvaScopeCapabilityIds.RuntimeStandaloneProvider]),
             Capability(
+                AvaScopeCapabilityIds.RuntimeAgentTestProfiles,
+                "runtime",
+                "Resolve versioned named test profiles with platform overrides, explicit providers and redacted environment references into existing scenarios.",
+                ["resolve-test-profile", "resolve_test_profile", "run-scenario", "run_scenario"],
+                requires: [AvaScopeCapabilityIds.RuntimeStandaloneProvider]),
+            Capability(
                 AvaScopeCapabilityIds.RuntimeEffectiveCapabilities,
                 "runtime",
                 "Negotiate the effective protocol, bridge methods, input actions, automation patterns, mutation support, and native picker mode of one attached session.",
@@ -542,6 +548,8 @@ public static class AvaScopeCapabilityCatalog
             Mcp("integration_guide", AvaScopeCapabilityIds.RuntimeIntegrationGuidance),
             Cli("verify-integration", AvaScopeCapabilityIds.RuntimeIntegrationVerification),
             Mcp("verify_integration", AvaScopeCapabilityIds.RuntimeIntegrationVerification),
+            Cli("resolve-test-profile", AvaScopeCapabilityIds.RuntimeAgentTestProfiles),
+            Mcp("resolve_test_profile", AvaScopeCapabilityIds.RuntimeAgentTestProfiles),
             Cli("diagnostics", AvaScopeCapabilityIds.DiagnosticsSummary, AvaScopeCapabilityIds.SafetyLocalOnly),
             Mcp("diagnostics", AvaScopeCapabilityIds.DiagnosticsSummary, AvaScopeCapabilityIds.SafetyLocalOnly),
             Cli("attach", AvaScopeCapabilityIds.RuntimeAttach),

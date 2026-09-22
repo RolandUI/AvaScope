@@ -52,6 +52,8 @@ class App : Application
     public override void Initialize() => Styles.Add(new FluentTheme());
     public override void OnFrameworkInitializationCompleted()
     {
+        if (System.Environment.GetEnvironmentVariable("AVASCOPE_PROFILE_TEST_SECRET") is { } secret)
+            System.Console.WriteLine($"Profile fixture secret: {secret}");
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
             desktop.MainWindow = new Window { Title = "Generated integration", Width = 400, Height = 200, Content = new TextBox { Name = "SafeField", Text = "Inspection ready" } };
         base.OnFrameworkInitializationCompleted();
@@ -122,7 +124,49 @@ foreach ($mode in @('standalone','package')) {
         $response = ($json -join [Environment]::NewLine | ConvertFrom-Json).value
         if ($exitCode -ne 0 -or $response.status -ne 'passed') { throw "Generated $mode/$variant MCP verification failed: $json" }
         $results += @{ mode=$mode; variant=$variant; adapter='mcp'; report=$response.reportPath }
+        if ($variant -eq 'enabled') {
+            $profilePath = Join-Path $projectRoot 'agent-test-profiles.json'
+            $referenceMap = @{}
+            foreach ($name in $launchEnvironment.Keys) { $referenceMap[$name] = @{ name=$name; secret=$false; required=$false } }
+            $referenceMap['AVASCOPE_PROFILE_TEST_SECRET'] = @{ name='AVASCOPE_PROFILE_TEST_SECRET' }
+            $profileArguments = @('{profileDir}/output-enabled/InspectionHost.dll')
+            if (-not $Native) { $profileArguments += '--headless' }
+            $profile = @{
+                scenario = @{
+                    launch = @{ command='dotnet'; argumentList=$profileArguments; timeoutMs=20000 }
+                    outputDirectory = 'profile-evidence/{runId}'
+                    steps = @(@{ action='inspect'; selector=@{name='SafeField'} }, @{action='screenshot'})
+                    captureVisualTree = $true
+                }
+                environmentReferences = @{launch=$referenceMap}
+            }
+            if ($mode -eq 'standalone') { $profile.provider = @{directory=$provider} }
+            [IO.File]::WriteAllText($profilePath, (@{schemaVersion=1; profiles=@{smoke=$profile}} | ConvertTo-Json -Depth 20))
+            $oldSecret = $env:AVASCOPE_PROFILE_TEST_SECRET
+            $fixtureSecret = 'profile-fixture-' + [Guid]::NewGuid().ToString('N')
+            try {
+                $env:AVASCOPE_PROFILE_TEST_SECRET = $fixtureSecret
+                $resolved = & dotnet $cli resolve-test-profile --profile-file $profilePath --profile smoke
+                if ($LASTEXITCODE -ne 0 -or ($resolved -join '').Contains($fixtureSecret)) { throw 'Profile resolution failed or exposed a referenced secret.' }
+                foreach ($adapter in @('cli','mcp')) {
+                    if ($adapter -eq 'cli') { $json = & dotnet $cli run-scenario --profile-file $profilePath --profile smoke }
+                    else {
+                        $profileRequest = Join-Path $projectRoot 'profile-mcp-request.json'
+                        [IO.File]::WriteAllText($profileRequest, (@{profileFile=$profilePath;profileName='smoke'} | ConvertTo-Json))
+                        $json = & dotnet $client $mcp $profileRequest $projectRoot run_scenario
+                    }
+                    $exitCode = $LASTEXITCODE
+                    [IO.File]::WriteAllText((Join-Path $projectRoot "profile-$adapter.json"), ($json -join [Environment]::NewLine))
+                    $response = ($json -join [Environment]::NewLine | ConvertFrom-Json).value
+                    if ($exitCode -ne 0 -or $response.status -ne 'passed' -or ($json -join '').Contains($fixtureSecret)) { throw "Profile $mode/$adapter failed or exposed a secret: $json" }
+                    $stdout = Get-Content -Raw -LiteralPath $response.launch.stdoutPath
+                    if ($stdout.Contains($fixtureSecret) -or -not $stdout.Contains('[REDACTED]')) { throw 'Profile launch log redaction failed.' }
+                    $results += @{mode=$mode;variant='profile';adapter=$adapter;report=$response.timelinePath}
+                }
+            }
+            finally { $env:AVASCOPE_PROFILE_TEST_SECRET = $oldSecret }
+        }
     }
 }
 [IO.File]::WriteAllText((Join-Path $root 'validation.json'), (@{success=$true; runs=$results; native=$Native.IsPresent} | ConvertTo-Json -Depth 15))
-Write-Output "Generated both integration modes, built enabled/disabled outputs, rejected duplicate guidance and passed all 8 CLI/MCP lifecycle runs: $root"
+Write-Output "Generated both integration modes, built enabled/disabled outputs, rejected duplicate guidance and passed all 8 lifecycle plus 4 shared-profile CLI/MCP runs: $root"
