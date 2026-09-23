@@ -354,6 +354,7 @@ internal sealed class LocalBridgeServer : IDisposable
             BridgeIpcMethods.CaptureScreen => Respond(await CaptureScreenAsync(request, cancellationToken)),
             BridgeIpcMethods.PickNode => Respond(await PickNodeAsync(request, cancellationToken)),
             BridgeIpcMethods.Highlight => Respond(await HighlightAsync(request, cancellationToken)),
+            BridgeIpcMethods.AuditNativeAccessibility => Respond(await AuditNativeAccessibilityAsync(request, cancellationToken)),
             BridgeIpcMethods.EnsureState => Respond(await EnsureStateAsync(request, cancellationToken)),
             BridgeIpcMethods.InspectForm => Respond(await InspectFormAsync(request, cancellationToken)),
             BridgeIpcMethods.FillForm => Respond(await FillFormAsync(request, cancellationToken)),
@@ -542,6 +543,13 @@ internal sealed class LocalBridgeServer : IDisposable
     {
         if (request.Highlight is null) return BridgeIpcResponse.Fail(request.RequestId, new("highlight_request_required", "A structured highlight request is required."));
         var result = await _runtime.HighlightAsync(request.Highlight, cancellationToken);
+        return result.Success ? BridgeIpcResponse.Ok(request.RequestId, result.Value) : BridgeIpcResponse.Fail(request.RequestId, ToProtocolError(result.Error!));
+    }
+
+    private async Task<BridgeIpcResponse> AuditNativeAccessibilityAsync(BridgeIpcRequest request, CancellationToken cancellationToken)
+    {
+        if (request.NativeAccessibility is null) return BridgeIpcResponse.Fail(request.RequestId, new("native_accessibility_request_required", "A structured audit request is required."));
+        var result = await _runtime.AuditNativeAccessibilityAsync(request.NativeAccessibility, cancellationToken);
         return result.Success ? BridgeIpcResponse.Ok(request.RequestId, result.Value) : BridgeIpcResponse.Fail(request.RequestId, ToProtocolError(result.Error!));
     }
 

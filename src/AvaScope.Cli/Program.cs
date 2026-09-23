@@ -55,6 +55,7 @@ internal static class Program
             "window" => await WindowCommand(args[1..]),
             "capture-screen" => await CaptureScreenCommand(args[1..]),
             "pick-node" => await PickNodeCommand(args[1..]),
+            "audit-native-accessibility" => await AuditNativeAccessibilityCommand(args[1..]),
             "highlight" => await HighlightCommand(args[1..]),
             "ensure-state" => await EnsureState(args[1..]),
             "inspect-form" => await InspectForm(args[1..]),
@@ -3268,6 +3269,22 @@ internal static class Program
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException or JsonException or NotSupportedException)
         { WriteFailure<RuntimePickResponse>(InvalidCliArguments, exception.Message); return 2; }
+    }
+
+    private static async Task<int> AuditNativeAccessibilityCommand(string[] args)
+    {
+        const string usage = "Usage: avascope audit-native-accessibility --request <audit.json> [--manifest-dir <dir>]";
+        var options = ParseOptions(args, usage);
+        if (!options.Success) { WriteFailure<NativeAccessibilityAuditResponse>(InvalidCliArguments, options.Error!); return 2; }
+        if (!ValidateOptions(options.Values, usage, "request", "manifest-dir") || !TryReadRequiredOption(options.Values, "request", usage, out var path)) return 2;
+        try
+        {
+            if (new FileInfo(path!).Length > 64 * 1024) throw new ArgumentException("Audit request exceeds 64 KiB.");
+            var request = JsonSerializer.Deserialize<NativeAccessibilityAuditRequest>(File.ReadAllText(Path.GetFullPath(path!)), JsonOptions) ?? throw new ArgumentException("A structured audit request is required.");
+            return WriteResult(await CreateBridgeClient(options.Values).AuditNativeAccessibilityAsync(request)).Success ? 0 : 1;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException or JsonException or NotSupportedException)
+        { WriteFailure<NativeAccessibilityAuditResponse>(InvalidCliArguments, exception.Message); return 2; }
     }
 
     private static async Task<int> HighlightCommand(string[] args)

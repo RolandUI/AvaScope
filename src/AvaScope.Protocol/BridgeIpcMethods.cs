@@ -20,6 +20,7 @@ public static class BridgeIpcMethods
     public const string CaptureScreen = "capture_screen";
     public const string PickNode = "pick_node";
     public const string Highlight = "highlight";
+    public const string AuditNativeAccessibility = "audit_native_accessibility";
     public const string EnsureState = "ensure_state";
     public const string InspectForm = "inspect_form";
     public const string FillForm = "fill_form";
@@ -65,6 +66,7 @@ public static class BridgeIpcMethods
         CaptureScreen,
         PickNode,
         Highlight,
+        AuditNativeAccessibility,
         EnsureState,
         InspectForm,
         FillForm,

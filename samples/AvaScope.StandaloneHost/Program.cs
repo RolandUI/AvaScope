@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Automation;
+using Avalonia.Automation.Peers;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Controls.Primitives;
@@ -109,6 +110,8 @@ internal sealed class SampleApplication : Application
                 ConfigureInputFixture(desktop.MainWindow);
             if (desktop.Args?.Contains("--screen-fixture", StringComparer.Ordinal) == true)
                 ConfigureScreenFixture(desktop.MainWindow);
+            if (desktop.Args?.Contains("--accessibility-fixture", StringComparer.Ordinal) == true)
+                ConfigureAccessibilityFixture(desktop.MainWindow);
 
             // The host owns this compile-time authorization. Merely supplying files or an
             // environment variable cannot enable inspection in the normal build.
@@ -166,6 +169,35 @@ internal sealed class SampleApplication : Application
         }
 
         base.OnFrameworkInitializationCompleted();
+    }
+
+    private static void ConfigureAccessibilityFixture(Window window)
+    {
+        window.Width = 420; window.Height = 360;
+        var good = new Button { Name = "AuditGood", Content = "Save private-document", Width = 220, Height = 40 };
+        var unnamed = new Button { Name = "AuditUnnamed", Width = 220, Height = 40 };
+        var wrongRole = new WrongRoleAuditButton { Name = "AuditWrongRole", Content = "Run", Width = 220, Height = 40 };
+        var absent = new AbsentAuditButton { Name = "AuditAbsent", Width = 220, Height = 40 };
+        foreach (var control in new Control[] { good, unnamed, wrongRole, absent }) AutomationProperties.SetAutomationId(control, control.Name);
+        AutomationProperties.SetName(good, "Save private-document");
+        window.Content = new StackPanel { Spacing = 8, Children = { good, unnamed, wrongRole, absent,
+            new Border { Name = "AuditDecoration", Background = Brushes.Blue, Height = 12 }, new TextBlock { Text = "Grouped decorative label" } } };
+    }
+
+    private sealed class WrongRoleAuditButton : Button
+    {
+        protected override AutomationPeer OnCreateAutomationPeer() => new Peer(this);
+        private sealed class Peer(Button owner) : ButtonAutomationPeer(owner)
+        { protected override AutomationControlType GetAutomationControlTypeCore() => AutomationControlType.Image; }
+    }
+    private sealed class AbsentAuditButton : Button
+    {
+        protected override AutomationPeer OnCreateAutomationPeer() => new Peer(this);
+        private sealed class Peer(Button owner) : ButtonAutomationPeer(owner)
+        {
+            protected override bool IsControlElementCore() => false;
+            protected override bool IsContentElementCore() => false;
+        }
     }
 
     private static void ConfigureScreenFixture(Window window)

@@ -68,7 +68,7 @@ public sealed record BridgeIpcRequest
         RuntimeNavigationRequest? navigation = null,
         RuntimeWindowRequest? window = null,
         RuntimeScreenCaptureRequest? screenCapture = null,
-        RuntimePickRequest? pick = null, RuntimeHighlightRequest? highlight = null)
+        RuntimePickRequest? pick = null, RuntimeHighlightRequest? highlight = null, NativeAccessibilityAuditRequest? nativeAccessibility = null)
     {
         if (string.IsNullOrWhiteSpace(requestId))
         {
@@ -92,7 +92,7 @@ public sealed record BridgeIpcRequest
         Navigation = navigation;
         Window = window;
         ScreenCapture = screenCapture;
-        Pick = pick; Highlight = highlight;
+        Pick = pick; Highlight = highlight; NativeAccessibility = nativeAccessibility;
         Method = method;
         TopLevelId = topLevelId;
         OutputPath = outputPath;
@@ -177,6 +177,9 @@ public sealed record BridgeIpcRequest
 
     [JsonPropertyName("pick"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public RuntimePickRequest? Pick { get; }
+
+    [JsonPropertyName("nativeAccessibility"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public NativeAccessibilityAuditRequest? NativeAccessibility { get; }
     [JsonPropertyName("highlight"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public RuntimeHighlightRequest? Highlight { get; }
 

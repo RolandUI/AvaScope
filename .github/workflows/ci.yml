@@ -263,7 +263,7 @@ jobs:
         shell: bash
         run: |
           sudo apt-get update
-          sudo apt-get install -y xvfb x11-utils openbox dbus libx11-6 libice6 libsm6 libfontconfig1 fonts-dejavu-core libgtk-3-0
+          sudo apt-get install -y xvfb x11-utils openbox dbus at-spi2-core libx11-6 libice6 libsm6 libfontconfig1 fonts-dejavu-core libgtk-3-0
           AVASCOPE_RECOVERY_MANAGED_X11=1 AVASCOPE_VALIDATION_EVIDENCE_ROOT="$GITHUB_WORKSPACE/artifacts/x11-unit" dotnet test AvaScope.slnx -c Release --no-build --filter 'FullyQualifiedName~X11TestEnvironmentTests|FullyQualifiedName~AgentRunRecoveryTests|FullyQualifiedName~SessionControlTests|FullyQualifiedName~RuntimeScenarioLifecycleTests'
           pwsh -NoProfile -File ./eng/package-provider.ps1
           pwsh -NoProfile -File ./eng/test-managed-x11.ps1

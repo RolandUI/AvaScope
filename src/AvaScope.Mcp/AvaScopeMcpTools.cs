@@ -9,6 +9,13 @@ namespace AvaScope.Mcp;
 [McpServerToolType]
 public sealed class AvaScopeMcpTools
 {
+    [McpServerTool(Name = "audit_native_accessibility", Title = "Compare bridge and OS accessibility evidence", ReadOnly = true, Idempotent = true,
+        Destructive = false, OpenWorld = false, UseStructuredContent = true)]
+    [Description("Opt-in bounded native accessibility audit of one generation-pinned registered window. Compares public bridge peers with Windows UI Automation or Linux X11 AT-SPI2 data after process ownership checks. Returns both sources, mapping confidence and missing-name/role/state evidence; decorations, grouping, virtualization and native children can legitimately differ. Explicit pinned expectations may require a name/role/exposure. Unavailable services, unsupported backends, ambiguous mappings and partial trees never mean healthy. No native actions, text values, unrelated application trees, service activation or framework adapters. Optional scalar redaction applies before IPC; AutomationId subtree exclusion policies conservatively refuse native audit.")]
+    public static async Task<ToolResult<NativeAccessibilityAuditResponse>> AuditNativeAccessibility(LocalBridgeClient bridgeClient,
+        NativeAccessibilityAuditRequest request, string? manifestDirectory = null, CancellationToken cancellationToken = default)
+        => ToToolResult(await CreateBridgeClient(bridgeClient, manifestDirectory).AuditNativeAccessibilityAsync(request, cancellationToken));
+
     [McpServerTool(Name = "pick_node", Title = "Pick a current node by point", ReadOnly = true, Idempotent = true,
         Destructive = false, OpenWorld = false, UseStructuredContent = true)]
     [Description("Queries geometry without x/y, then resolves a point with that expectedGeometryRevision inside one pinned top-level. Coordinates: top_level_dip, top_level_pixel or validated desktop units (physical pixels on Windows/X11, Cocoa points on macOS). Returns current generation-pinned hit path, bounded related-window/modal/popup evidence and explicit native occlusion uncertainty. Window movement/scale/size reject stale revisions; old screenshot content is not verified. No pointer motion, application input or global desktop picking.")]

@@ -594,6 +594,7 @@ public sealed partial class AvaScopeBridgeRuntime
         CloseScenes();
         CloseNavigation();
         ClearHighlights();
+        _nativeAccessibilityClosed.Cancel();
         _registeredTopLevels.Clear();
         Volatile.Write(ref _nativeScreenScope, null);
         Interlocked.Increment(ref _nativeScreenScopeRevision);

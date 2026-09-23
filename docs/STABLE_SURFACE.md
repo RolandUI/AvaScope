@@ -465,3 +465,8 @@ see [paired screen evidence, privacy and platform limits](SCREEN_EVIDENCE.md).
 
 The additive `runtime.picking` capability exposes CLI `pick-node`, MCP `pick_node`
 and CLI/MCP `highlight`. See [scoped picking and temporary highlighting](PICKING_AND_HIGHLIGHTS.md).
+
+The additive `runtime.native_accessibility` capability exposes CLI
+`audit-native-accessibility` and MCP `audit_native_accessibility`. Native evidence
+and bridge observations remain distinct, with explicit mapping confidence and
+unsupported/unavailable service results. See [native accessibility comparison](NATIVE_ACCESSIBILITY.md).
