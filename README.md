@@ -12,6 +12,10 @@ AvaScope is a local-first agent tool for understanding, validating, and controll
 
 AvaScope targets Avalonia 12 and `net10.0`.
 
+The [1.5.0 feature guide](docs/RELEASE_NOTES_1_5_0.md) covers standalone provider
+loading, automatic window registration, reproducible X11/Wayland environments,
+and the expanded tools for connected agents.
+
 For paired Avalonia/native desktop screenshots, see [screen evidence, host authorization and platform limits](docs/SCREEN_EVIDENCE.md).
 
 ## What It Provides
@@ -28,13 +32,17 @@ For paired Avalonia/native desktop screenshots, see [screen evidence, host autho
 
 - `avascope` CLI: local commands for previewing, diagnostics, runtime attach, tree inspection, screenshots, input, diffs, baselines, and agent evidence workflows.
 - `AvaScope.Mcp`: a stdio MCP server for agent clients such as Codex, Claude, Cursor, Rider, VS Code, and Visual Studio.
-- `AvaScope.Bridge`: an opt-in package that a local Avalonia app can load to expose inspectable top-levels and local runtime control.
+- `AvaScope.Bridge`: an opt-in package or [external provider](docs/STANDALONE_PROVIDER.md) with a stable reflection bootstrap and automatic window registration.
 - `AvaScope.PreviewHost`: an isolated child process that builds/loads project views and renders previews without loading user code into the CLI or MCP server.
 - `AvaScope.Protocol` and `AvaScope.Core`: shared contracts and reusable runtime/preview plumbing.
 
 ## Install From a Release
 
 Download the current stable artifacts from the [latest AvaScope release](https://github.com/RolandUI/AvaScope/releases/latest). AvaScope currently requires a compatible [.NET 10 runtime](https://dotnet.microsoft.com/download/dotnet/10.0).
+
+For a diagnostics host with no AvaScope package dependency, use the separate
+`avascope-bridge-provider.zip` from the same release. Keep it outside normal app
+output and follow the [verified loader instructions](docs/STANDALONE_PROVIDER.md).
 
 - Windows: download and run [AvaScopeSetup.exe](https://github.com/RolandUI/AvaScope/releases/latest/download/AvaScopeSetup.exe). The graphical installer is per-user and does not require administrator access.
 - Linux x64: download [avascope-linux-x64-installer](https://github.com/RolandUI/AvaScope/releases/latest/download/avascope-linux-x64-installer), then run:

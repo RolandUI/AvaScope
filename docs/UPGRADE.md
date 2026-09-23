@@ -19,6 +19,14 @@ Use this guide when moving an Avalonia project, CLI workflow, or MCP client betw
 
 ## Upgrading A Bridge-Enabled App
 
+For the external-provider integration introduced in 1.5.0, stop the old bridge,
+replace the entire verified provider directory, and restart the diagnostics host.
+Keep its loader's optional exact version/manifest hash pins aligned with that
+directory. Do not add provider DLLs to normal application output. Existing package
+integration can stay as-is; adopting automatic registration is an explicit call
+to `Bootstrap.Start()`. See [provider compatibility](STANDALONE_PROVIDER.md) and
+the [1.5.0 feature guide](RELEASE_NOTES_1_5_0.md).
+
 1. Update the app's `AvaScope.Bridge` package to the intended release version.
 2. Rebuild the application.
 3. Run the app with bridge activation explicitly enabled for the environment being tested.

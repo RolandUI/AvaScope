@@ -79,15 +79,15 @@ GitHub Issues and Milestones are the primary project-management source for auton
 ## Current Focus
 
 - `Release v1.5.0`
-- GitHub Issue: `#155`
+- GitHub Issue: `#156`
 - GitHub Milestone: `v1.5.0`
 - Status: `In Progress`
 - Owner: autonomous agent
-- Goal: controlled Weston headless profiles with verified native Avalonia Wayland backend, output geometry, bounded lifecycle and owned cleanup.
+- Goal: validate all accepted slices together, verify exact-version artifacts and publish v1.5.0 with remote asset/package verification.
 
 ## Next Action
 
-Complete combined validation for #149-#152 (CI 35821036688), validate #153 (bc48c3e) and implement #155, then run the #156 release gate.
+Finish CI 35821036688, run combined CI including #153/#155 at b231af4 or later, complete Debug/Release and exact-version packaging/dry-runs, close validated implementation issues, then publish and verify Release 1.5.0.
 
 ## Latest Validation
 
