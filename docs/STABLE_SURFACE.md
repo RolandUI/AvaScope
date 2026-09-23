@@ -458,3 +458,7 @@ bounded per-run visit evidence, known routes and uncertain revisit loops. See
 
 The additive `runtime.windows` capability exposes CLI/MCP `window` and evidence
 policy `allowedWindowActions`. See [owned-window operations and coordinates](WINDOW_MANAGEMENT.md).
+
+The additive `runtime.screen_capture` capability exposes CLI `capture-screen` and
+MCP `capture_screen`. Native evidence requires a separate host-only desktop scope;
+see [paired screen evidence, privacy and platform limits](SCREEN_EVIDENCE.md).

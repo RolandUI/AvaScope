@@ -66,7 +66,8 @@ public sealed record BridgeIpcRequest
         RuntimeTextEditRequest? textEdit = null,
         RuntimeSceneRequest? scene = null,
         RuntimeNavigationRequest? navigation = null,
-        RuntimeWindowRequest? window = null)
+        RuntimeWindowRequest? window = null,
+        RuntimeScreenCaptureRequest? screenCapture = null)
     {
         if (string.IsNullOrWhiteSpace(requestId))
         {
@@ -89,6 +90,7 @@ public sealed record BridgeIpcRequest
         Scene = scene;
         Navigation = navigation;
         Window = window;
+        ScreenCapture = screenCapture;
         Method = method;
         TopLevelId = topLevelId;
         OutputPath = outputPath;
@@ -167,6 +169,9 @@ public sealed record BridgeIpcRequest
 
     [JsonPropertyName("window"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public RuntimeWindowRequest? Window { get; }
+
+    [JsonPropertyName("screenCapture"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public RuntimeScreenCaptureRequest? ScreenCapture { get; }
 
     [JsonPropertyName("requestId")]
     public string RequestId { get; }

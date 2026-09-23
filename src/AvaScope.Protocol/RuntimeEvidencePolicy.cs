@@ -45,7 +45,8 @@ public sealed record RuntimeEvidencePolicy
         bool networkUpload = false,
         IReadOnlyList<string>? allowedDesiredStates = null,
         IReadOnlyList<string>? allowedTableActions = null,
-        IReadOnlyList<string>? allowedWindowActions = null)
+        IReadOnlyList<string>? allowedWindowActions = null,
+        bool allowNativeScreenCapture = false)
     {
         if (string.IsNullOrWhiteSpace(ownedEvidenceRoot))
         {
@@ -71,6 +72,7 @@ public sealed record RuntimeEvidencePolicy
         AllowedDesiredStates = Normalize(allowedDesiredStates ?? [], nameof(allowedDesiredStates));
         AllowedTableActions = Normalize(allowedTableActions ?? [], nameof(allowedTableActions));
         AllowedWindowActions = Normalize(allowedWindowActions ?? [], nameof(allowedWindowActions));
+        AllowNativeScreenCapture = allowNativeScreenCapture;
         if (AllowedWindowActions.Any(action => action == "inspect" || !RuntimeWindowRequest.Actions.Contains(action, StringComparer.Ordinal)))
             throw new ArgumentException("Unsupported window action permission.", nameof(allowedWindowActions));
         if (AllowedTableActions.Any(action => action is not ("select_row" or "edit_cell" or "sort")))
@@ -126,6 +128,9 @@ public sealed record RuntimeEvidencePolicy
 
     [JsonPropertyName("allowedWindowActions")]
     public IReadOnlyList<string> AllowedWindowActions { get; }
+
+    [JsonPropertyName("allowNativeScreenCapture")]
+    public bool AllowNativeScreenCapture { get; }
 
     [JsonPropertyName("redactedText")]
     public IReadOnlyList<string> RedactedText { get; }

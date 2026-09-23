@@ -107,6 +107,8 @@ internal sealed class SampleApplication : Application
                 $"{desktop.MainWindow.ClientSize.Width:0}x{desktop.MainWindow.ClientSize.Height:0}");
             if (desktop.Args?.Contains("--input-fixture", StringComparer.Ordinal) == true)
                 ConfigureInputFixture(desktop.MainWindow);
+            if (desktop.Args?.Contains("--screen-fixture", StringComparer.Ordinal) == true)
+                ConfigureScreenFixture(desktop.MainWindow);
 
             // The host owns this compile-time authorization. Merely supplying files or an
             // environment variable cannot enable inspection in the normal build.
@@ -126,6 +128,13 @@ internal sealed class SampleApplication : Application
                 Console.Error.WriteLine(System.Text.Json.JsonSerializer.Serialize(result));
                 if (result.Activated)
                 {
+                    if (desktop.Args?.Contains("--authorize-screen-capture", StringComparer.Ordinal) == true)
+                    {
+                        // Explicit test-host authorization, not an agent-controlled environment switch in the bridge.
+                        AppDomain.CurrentDomain.GetAssemblies().Single(assembly => assembly.GetName().Name == "AvaScope.Bridge")
+                            .GetType("AvaScope.Bridge.Bootstrap", throwOnError: true)!.GetMethod("SetNativeScreenCaptureScope")!
+                            .Invoke(null, ["declared_test_desktop"]);
+                    }
                     // Exercise idempotent reflection activation without any host registration.
                     var repeated = OptionalDiagnostics.OptionalProviderLoader.TryStartFromEnvironment();
                     if (!repeated.Success || repeated.SessionId != result.SessionId)
@@ -157,6 +166,42 @@ internal sealed class SampleApplication : Application
         }
 
         base.OnFrameworkInitializationCompleted();
+    }
+
+    private static void ConfigureScreenFixture(Window window)
+    {
+        window.Width = 400; window.Height = 300; window.Topmost = true;
+        Window? occluder = null;
+        var open = new Button { Name = "ScreenOcclude", Content = "Occlude" };
+        var close = new Button { Name = "ScreenUncover", Content = "Uncover" };
+        var move = new Button { Name = "ScreenOffscreen", Content = "Offscreen" };
+        var popupButton = new Button { Name = "ScreenPopup", Content = "Popup" };
+        var popup = new Popup { PlacementTarget = popupButton, IsLightDismissEnabled = false, HorizontalOffset = 140, VerticalOffset = -180,
+            Child = new Border { Width = 140, Height = 80, Background = Brushes.Lime } };
+        popupButton.Click += (_, _) => popup.IsOpen = !popup.IsOpen;
+        window.Content = new Border { Background = Brushes.Blue, Child = new StackPanel
+        { HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left, VerticalAlignment = Avalonia.Layout.VerticalAlignment.Bottom,
+            Children = { open, close, move, popupButton, popup } } };
+        open.Click += (_, _) =>
+        {
+            occluder?.Close();
+            occluder = new Window { Width = 160, Height = 120, WindowDecorations = WindowDecorations.None,
+                ShowInTaskbar = false, Topmost = true, Background = Brushes.Red, Content = new Border { Background = Brushes.Red },
+                Position = window.PointToScreen(new(180, 20)) };
+            occluder.Show(window);
+        };
+        close.Click += (_, _) => { occluder?.Close(); occluder = null; };
+        move.Click += (_, _) =>
+        {
+            var screen = window.Screens.ScreenFromWindow(window) ?? window.Screens.Primary;
+            if (screen is not null) window.Position = new(screen.Bounds.Right - (int)(window.ClientSize.Width * window.DesktopScaling / 2), screen.Bounds.Y + 60);
+        };
+        window.Closed += (_, _) => { occluder?.Close(); popup.IsOpen = false; };
+        window.Opened += (_, _) =>
+        {
+            var screen = window.Screens.Primary;
+            if (screen is not null) window.Position = new(screen.WorkingArea.X + 40, screen.WorkingArea.Y + 60);
+        };
     }
 
     private static void ConfigureInputFixture(Window window)

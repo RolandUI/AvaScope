@@ -12,6 +12,8 @@ AvaScope is a local-first agent tool for understanding, validating, and controll
 
 AvaScope targets Avalonia 12 and `net10.0`.
 
+For paired Avalonia/native desktop screenshots, see [screen evidence, host authorization and platform limits](docs/SCREEN_EVIDENCE.md).
+
 ## What It Provides
 
 - Agent-oriented control loops: inspect UI state, preview variants, act through local runtime commands, capture evidence, and decide the next step from structured results.

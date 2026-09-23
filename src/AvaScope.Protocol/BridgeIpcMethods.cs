@@ -17,6 +17,7 @@ public static class BridgeIpcMethods
     public const string Scene = "scene";
     public const string Navigation = "navigation";
     public const string Window = "window";
+    public const string CaptureScreen = "capture_screen";
     public const string EnsureState = "ensure_state";
     public const string InspectForm = "inspect_form";
     public const string FillForm = "fill_form";
@@ -59,6 +60,7 @@ public static class BridgeIpcMethods
         Scene,
         Navigation,
         Window,
+        CaptureScreen,
         EnsureState,
         InspectForm,
         FillForm,

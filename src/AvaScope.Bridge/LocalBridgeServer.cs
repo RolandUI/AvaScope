@@ -351,6 +351,7 @@ internal sealed class LocalBridgeServer : IDisposable
             BridgeIpcMethods.Scene => Respond(await SceneAsync(request, cancellationToken)),
             BridgeIpcMethods.Navigation => Respond(await NavigationAsync(request, cancellationToken)),
             BridgeIpcMethods.Window => Respond(await WindowAsync(request, cancellationToken)),
+            BridgeIpcMethods.CaptureScreen => Respond(await CaptureScreenAsync(request, cancellationToken)),
             BridgeIpcMethods.EnsureState => Respond(await EnsureStateAsync(request, cancellationToken)),
             BridgeIpcMethods.InspectForm => Respond(await InspectFormAsync(request, cancellationToken)),
             BridgeIpcMethods.FillForm => Respond(await FillFormAsync(request, cancellationToken)),
@@ -518,6 +519,13 @@ internal sealed class LocalBridgeServer : IDisposable
     {
         if (request.Window is null) return BridgeIpcResponse.Fail(request.RequestId, new("window_request_required", "A structured window request is required."));
         var result = await _runtime.WindowAsync(request.Window, cancellationToken);
+        return result.Success ? BridgeIpcResponse.Ok(request.RequestId, result.Value) : BridgeIpcResponse.Fail(request.RequestId, ToProtocolError(result.Error!));
+    }
+
+    private async Task<BridgeIpcResponse> CaptureScreenAsync(BridgeIpcRequest request, CancellationToken cancellationToken)
+    {
+        if (request.ScreenCapture is null) return BridgeIpcResponse.Fail(request.RequestId, new("screen_capture_request_required", "A structured capture request is required."));
+        var result = await _runtime.CaptureScreenAsync(request.ScreenCapture, cancellationToken);
         return result.Success ? BridgeIpcResponse.Ok(request.RequestId, result.Value) : BridgeIpcResponse.Fail(request.RequestId, ToProtocolError(result.Error!));
     }
 

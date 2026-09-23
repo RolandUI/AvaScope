@@ -28,6 +28,15 @@ public static class Bootstrap
     /// <summary>Closes the active bridge and removes its owned registrations and local resources.</summary>
     public static void Stop() => AvaScopeBridge.Deactivate();
 
+    /// <summary>
+    /// Host-only opt-in for pixels on a declared test desktop. Pass null to revoke.
+    /// The host authorizes all content within its window's screen rectangle, including occlusion.
+    /// Prefer an isolated test display; this hook is deliberately absent from IPC/MCP.
+    /// </summary>
+    public static void SetNativeScreenCaptureScope(string? scope) =>
+        (AvaScopeBridge.Current ?? throw new InvalidOperationException("AVASCOPE_NOT_ACTIVE: Start explicitly before authorizing desktop pixels."))
+            .SetNativeScreenCaptureScope(scope);
+
     /// <summary>Optionally declares host-owned starting, busy, ready or failed state on the UI thread.</summary>
     public static void SetReadiness(string state, string? reason) =>
         (AvaScopeBridge.Current ?? throw new InvalidOperationException("AVASCOPE_NOT_ACTIVE: Start the bridge explicitly before declaring readiness."))

@@ -30,7 +30,7 @@ public sealed class RuntimeObserver
                     var parts = new Dictionary<string, string>(current.Parts);
                     if (policy is not null)
                     {
-                        var masked = policy.MaskObservationPng(png, screenshot);
+                        var masked = policy.MaskScreenshotPng(png, screenshot);
                         png = masked.Png;
                         parts["screenshotMasking"] = masked.Masking;
                     }

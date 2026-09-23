@@ -23,7 +23,7 @@ internal static class RuntimePlatformEvidence
         };
         var restrictions = new List<string>
         {
-            "native_screen_capture_unavailable",
+            "native_screen_capture_requires_host_declared_test_desktop_scope_and_request_authorization",
             "render_mode_unknown",
             "automation_provider_support_depends_on_target",
             "render_target_bitmap_excludes_native_chrome_and_external_surfaces"
@@ -65,7 +65,8 @@ internal static class RuntimePlatformEvidence
             descriptor,
             "unknown",
             inputRoutes,
-            [RuntimeOperationRoutes.RenderTargetBitmap],
+            backend is "win32" or "x11" or "macos" && AvaScopeBridge.Current?.NativeScreenCaptureScope == "declared_test_desktop"
+                ? [RuntimeOperationRoutes.RenderTargetBitmap, NativeScreenCapture.Route(backend)] : [RuntimeOperationRoutes.RenderTargetBitmap],
             restrictions);
     }
 

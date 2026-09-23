@@ -9,6 +9,13 @@ namespace AvaScope.Mcp;
 [McpServerToolType]
 public sealed class AvaScopeMcpTools
 {
+    [McpServerTool(Name = "capture_screen", Title = "Capture paired render and native screen evidence", ReadOnly = true, Idempotent = false,
+        Destructive = false, OpenWorld = false, UseStructuredContent = true)]
+    [Description("Captures rendered, native or paired screenshot evidence for an observed session top-level generation. Native pixels require the host-only Bootstrap.SetNativeScreenCaptureScope(\"declared_test_desktop\") opt-in and request desktopScope; evidence policy additionally requires allowNativeScreenCapture. Captures only the client's desktop rectangle, including authorized occlusion; use an isolated test desktop. Masks before IPC/artifacts. Returns separate source/timestamps, desktop units, region transforms, missing off-screen pixels, local PNG paths and descriptive pixel comparison. Sequential samples are not atomic and differences are not defect proof. Native Win32/X11 and macOS 15.2+ ScreenCaptureKit; permission denial/unsupported backends are explicit, never replaced with a rendered image.")]
+    public static async Task<ToolResult<RuntimeScreenCaptureResponse>> CaptureScreen(LocalBridgeClient bridgeClient,
+        RuntimeScreenCaptureRequest request, string? manifestDirectory = null, CancellationToken cancellationToken = default)
+        => ToToolResult(await CreateBridgeClient(bridgeClient, manifestDirectory).CaptureScreenAsync(request, cancellationToken));
+
     [McpServerTool(Name = "window", Title = "Inspect or manage an owned application window", ReadOnly = false, Idempotent = false,
         Destructive = false, OpenWorld = false, UseStructuredContent = true)]
     [Description("Inspects an explicit session top-level and its monitors, coordinate units, generation and revision. Actions activate, bring_to_front, minimize, maximize, restore, move and resize require that fresh target/revision, policy allowedWindowActions and the session control lease. Returns observed before/after state and verified, refused or partial outcome. Desktop coordinates are physical pixels on Windows/X11 and points on macOS; clientSize uses DIPs. bring_to_front verifies native focus and registered-window order only. Headless/unknown/fullscreen operations are unsupported. Never closes windows or controls unrelated processes; no automatic replay.")]

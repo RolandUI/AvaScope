@@ -594,6 +594,8 @@ public sealed partial class AvaScopeBridgeRuntime
         CloseScenes();
         CloseNavigation();
         _registeredTopLevels.Clear();
+        Volatile.Write(ref _nativeScreenScope, null);
+        Interlocked.Increment(ref _nativeScreenScopeRevision);
         _observedBackends.Clear();
         return _sessionRegistry.Close(SessionId);
     }

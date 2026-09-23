@@ -763,7 +763,7 @@ public sealed class RuntimeEvidencePolicyEnforcer
         return new ScreenshotRegion(x, y, right - x, bottom - y, "excluded-control");
     }
 
-    internal (byte[] Png, string Masking) MaskObservationPng(byte[] png, ScreenshotResponse screenshot)
+    public (byte[] Png, string Masking) MaskScreenshotPng(byte[] png, ScreenshotResponse screenshot)
     {
         var masks = _policy.ScreenshotMaskRegions.ToList();
         var sensitive = _policy.ExcludedControlAutomationIds.Count > 0 || _policy.RedactedAutomationIds.Count > 0 || _policy.RedactedText.Count > 0;

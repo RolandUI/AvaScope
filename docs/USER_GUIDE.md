@@ -1350,6 +1350,10 @@ Current preview limitations:
 
 ## Safety Boundaries
 
+For an agent that needs to distinguish rendered content from visible desktop
+presentation, use [paired screen evidence](SCREEN_EVIDENCE.md). Native capture
+requires a separate host-only test-desktop grant and applies evidence masks before export.
+
 - Bridge control is local-only and opt-in.
 - Preview project build and view loading happen in `AvaScope.PreviewHost`, not inside the MCP server process.
 - The MCP server is a thin adapter over Core.

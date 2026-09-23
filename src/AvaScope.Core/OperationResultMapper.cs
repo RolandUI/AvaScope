@@ -45,6 +45,8 @@ public static class OperationResultMapper
                 => OutcomeError("scene_operation_failed", response.Status, response.Diagnostics),
             RuntimeWindowResponse response when response.Status is not ("observed" or "executed" or "already_satisfied")
                 => OutcomeError("window_operation_not_verified", response.Status, response.Diagnostics),
+            RuntimeScreenCaptureResponse response when response.Status != "captured"
+                => OutcomeError("screen_capture_partial", response.Status, (response.Rendered?.Diagnostics ?? []).Concat(response.Native?.Diagnostics ?? [])),
             SemanticWorkflowResponse response when response.Status is not ("passed" or "validated")
                 => OutcomeError("workflow_failed", response.Status, response.Diagnostics),
             RuntimeScenarioResponse response when response.Status != "passed"
