@@ -445,3 +445,6 @@ When practical, deprecate before removal, keep aliases for at least one minor re
 The additive `runtime.operations` capability exposes CLI/MCP `operation` (structured status/wait/cancel requests), optional custom-action operation/cancellation declarations and response snapshots. See [operation lifecycle and bounds](RUNTIME_OPERATIONS.md).
 
 The additive `runtime.traces` capability exposes CLI/MCP `trace` and optional input `correlationId`. See [diagnostic trace sources, correlation and privacy](RUNTIME_TRACES.md).
+
+The additive `runtime.text_editing` capability exposes CLI `edit-text` and MCP
+`edit_text`. See [bounded text/caret state and precise range editing](TEXT_RANGE_EDITING.md).

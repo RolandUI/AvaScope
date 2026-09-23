@@ -347,6 +347,7 @@ internal sealed class LocalBridgeServer : IDisposable
             BridgeIpcMethods.EvaluateRuntime => Respond(await EvaluateRuntimeAsync(request, cancellationToken)),
             BridgeIpcMethods.Operation => Respond(await OperationAsync(request, cancellationToken)),
             BridgeIpcMethods.Trace => Respond(await TraceAsync(request, cancellationToken)),
+            BridgeIpcMethods.EditText => Respond(await EditTextAsync(request, cancellationToken)),
             BridgeIpcMethods.EnsureState => Respond(await EnsureStateAsync(request, cancellationToken)),
             BridgeIpcMethods.InspectForm => Respond(await InspectFormAsync(request, cancellationToken)),
             BridgeIpcMethods.FillForm => Respond(await FillFormAsync(request, cancellationToken)),
@@ -492,6 +493,15 @@ internal sealed class LocalBridgeServer : IDisposable
         if (request.FormFill is null)
             return BridgeIpcResponse.Fail(request.RequestId, new("form_request_required", "A form fill request is required."));
         var result = await _runtime.FillFormAsync(request.FormFill, cancellationToken);
+        return result.Success ? BridgeIpcResponse.Ok(request.RequestId, result.Value)
+            : BridgeIpcResponse.Fail(request.RequestId, ToProtocolError(result.Error!));
+    }
+
+    private async Task<BridgeIpcResponse> EditTextAsync(BridgeIpcRequest request, CancellationToken cancellationToken)
+    {
+        if (request.TextEdit is null)
+            return BridgeIpcResponse.Fail(request.RequestId, new("text_edit_request_required", "A structured text edit request is required."));
+        var result = await _runtime.EditTextAsync(request.TextEdit, cancellationToken);
         return result.Success ? BridgeIpcResponse.Ok(request.RequestId, result.Value)
             : BridgeIpcResponse.Fail(request.RequestId, ToProtocolError(result.Error!));
     }

@@ -39,6 +39,8 @@ public static class OperationResultMapper
                 => OutcomeError("form_fill_not_verified", response.Status, response.Diagnostics.Concat(response.Fields.SelectMany(field => field.Diagnostics))),
             RuntimeDesiredStateResponse response when !response.Verified
                 => OutcomeError("desired_state_not_verified", response.Status, response.Diagnostics),
+            RuntimeTextEditResponse response when !response.Verified
+                => OutcomeError("text_edit_not_verified", response.Status, response.Diagnostics),
             SemanticWorkflowResponse response when response.Status is not ("passed" or "validated")
                 => OutcomeError("workflow_failed", response.Status, response.Diagnostics),
             RuntimeScenarioResponse response when response.Status != "passed"

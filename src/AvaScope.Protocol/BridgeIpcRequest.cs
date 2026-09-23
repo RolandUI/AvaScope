@@ -62,7 +62,8 @@ public sealed record BridgeIpcRequest
         RuntimeFocusProbeRequest? focusProbe = null,
         RuntimeExpressionRequest? expression = null,
         RuntimeOperationRequest? operation = null,
-        RuntimeTraceRequest? trace = null)
+        RuntimeTraceRequest? trace = null,
+        RuntimeTextEditRequest? textEdit = null)
     {
         if (string.IsNullOrWhiteSpace(requestId))
         {
@@ -81,6 +82,7 @@ public sealed record BridgeIpcRequest
         Expression = expression;
         Operation = operation;
         Trace = trace;
+        TextEdit = textEdit;
         Method = method;
         TopLevelId = topLevelId;
         OutputPath = outputPath;
@@ -147,6 +149,9 @@ public sealed record BridgeIpcRequest
     public RuntimeOperationRequest? Operation { get; }
     [JsonPropertyName("trace"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public RuntimeTraceRequest? Trace { get; }
+
+    [JsonPropertyName("textEdit"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public RuntimeTextEditRequest? TextEdit { get; }
 
     [JsonPropertyName("requestId")]
     public string RequestId { get; }

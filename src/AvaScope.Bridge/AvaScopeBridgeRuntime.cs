@@ -590,6 +590,7 @@ public sealed partial class AvaScopeBridgeRuntime
         _customActions.Clear();
         CloseOperations();
         CloseTraces();
+        CloseTextEditing();
         _registeredTopLevels.Clear();
         _observedBackends.Clear();
         return _sessionRegistry.Close(SessionId);

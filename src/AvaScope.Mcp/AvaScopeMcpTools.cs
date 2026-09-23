@@ -9,6 +9,13 @@ namespace AvaScope.Mcp;
 [McpServerToolType]
 public sealed class AvaScopeMcpTools
 {
+    [McpServerTool(Name = "edit_text", Title = "Read or edit an exact text range", ReadOnly = false, Idempotent = false,
+        Destructive = false, OpenWorld = false, UseStructuredContent = true)]
+    [Description("Read bounded TextBox text/caret/selection, then select_range, replace_range, replace_selection or insert with the exact observed expectedRevision and a unique requestId. UTF-16 start-inclusive/end-exclusive offsets; surrogate pairs and CRLF cannot be split. Password/protected fields and unsupported rich editors fail closed. Public routed editing preserves validation and undo; verify the returned text and caret. Identical edit ids retrieve retained outcomes without redispatch. Policy must allow inspect and desired state text for changes.")]
+    public static async Task<ToolResult<RuntimeTextEditResponse>> EditText(LocalBridgeClient bridgeClient,
+        RuntimeTextEditRequest request, string? manifestDirectory = null, CancellationToken cancellationToken = default)
+        => ToToolResult(await CreateBridgeClient(bridgeClient, manifestDirectory).EditTextAsync(request, cancellationToken));
+
     [McpServerTool(Name = "trace", Title = "Collect bounded correlated runtime diagnostics", ReadOnly = false, Idempotent = false,
         Destructive = false, OpenWorld = false, UseStructuredContent = true)]
     [Description("Start/read/stop an explicit-window trace. Start requires an evidence policy applied before retention. Captures bridge request boundaries, app-reported operation transitions and opted-in host validation/binding/event/log adapters; optional validation samples are temporal evidence only. Input correlationId and custom-action requestId link workflow evidence. Query requestId/operationId labels matched, different and uncorrelated events without claiming root cause. Four traces, 128 events/96 KiB each, at most 60 seconds collection. Optional outputDirectory exports bounded sanitized trace.json under the policy-owned root.")]
