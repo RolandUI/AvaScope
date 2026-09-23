@@ -110,6 +110,7 @@ jobs:
         if: ${{ steps.changes.outputs.requires_validation == 'true' }}
         shell: pwsh
         run: |
+          $PSNativeCommandUseErrorActionPreference = $true
           pwsh -NoProfile -File ./eng/test-complex-workflow.ps1 `
             -CliAssembly ./src/AvaScope.Cli/bin/Release/net10.0/avascope.dll `
             -Surface Cli `
@@ -125,6 +126,7 @@ jobs:
         if: ${{ steps.changes.outputs.requires_validation == 'true' }}
         shell: pwsh
         run: |
+          $PSNativeCommandUseErrorActionPreference = $true
           dotnet pack src\AvaScope.Protocol\AvaScope.Protocol.csproj -c Release --no-build --output artifacts\packages
           dotnet pack src\AvaScope.Core\AvaScope.Core.csproj -c Release --no-build --output artifacts\packages
           dotnet pack src\AvaScope.Bridge\AvaScope.Bridge.csproj -c Release --no-build --output artifacts\packages
@@ -134,6 +136,7 @@ jobs:
         if: ${{ steps.changes.outputs.requires_validation == 'true' }}
         shell: pwsh
         run: |
+          $PSNativeCommandUseErrorActionPreference = $true
           powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\package-executables.ps1
           Get-ChildItem artifacts\executables
 
@@ -146,6 +149,7 @@ jobs:
         if: ${{ steps.changes.outputs.requires_validation == 'true' }}
         shell: pwsh
         run: |
+          $PSNativeCommandUseErrorActionPreference = $true
           pwsh -NoProfile -File ./eng/test-complex-workflow.ps1 `
             -CliAssembly ./artifacts/executables/avascope-win-x64-framework-dependent/avascope.dll `
             -Surface Cli `
@@ -166,6 +170,7 @@ jobs:
         if: ${{ steps.changes.outputs.requires_validation == 'true' }}
         shell: pwsh
         run: |
+          $PSNativeCommandUseErrorActionPreference = $true
           powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\package-installers.ps1
           Get-Item artifacts\executables\AvaScopeSetup.exe
           Get-Item artifacts\executables\avascope-linux-x64-installer
@@ -183,6 +188,7 @@ jobs:
         if: ${{ steps.changes.outputs.requires_validation == 'true' }}
         shell: pwsh
         run: |
+          $PSNativeCommandUseErrorActionPreference = $true
           powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\package-provider.ps1
           pwsh -NoProfile -File .\eng\test-standalone-provider.ps1 -Native -SkipBuild
           pwsh -NoProfile -File .\eng\test-integration-onboarding.ps1 -Native -SkipBuild -SummaryPath artifacts/onboarding-validation/recipe-source.json
@@ -283,6 +289,7 @@ jobs:
       - name: Test packaged Linux complex workflows through CLI and MCP
         shell: pwsh
         run: |
+          $PSNativeCommandUseErrorActionPreference = $true
           pwsh -NoProfile -File ./eng/test-complex-workflow.ps1 `
             -CliAssembly ./artifacts/executables/avascope-linux-x64-framework-dependent/avascope.dll `
             -Surface Cli `

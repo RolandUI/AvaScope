@@ -299,12 +299,15 @@ public sealed class NativeInputIntegrationTests
 
             // A real native cancel is validated independently from the predefined-result path.
             await Invoke("OpenFilePicker");
-            var detected = await Picker("detect");
-            Assert.True(detected.DialogDetected);
+            // Cold native dialog initialization can outlast one bounded picker request on CI.
+            // Observe readiness without invoking the button again or extending an action deadline.
             var dialogWait = await new SemanticWorkflowRunner().RunAsync(client, new(sessionId, top.Id,
-                [new(SemanticWorkflowActions.WaitForDialog, timeoutMs: 2000)]), token);
+                [new(SemanticWorkflowActions.WaitForDialog, timeoutMs: 10000)]), token);
+            await File.WriteAllTextAsync(Path.Combine(output, "picker-readiness.json"), JsonSerializer.Serialize(dialogWait), token);
             Assert.True(OperationResultMapper.IsSuccessful(dialogWait), JsonSerializer.Serialize(dialogWait));
             Assert.True(Assert.Single(dialogWait.Value!.Steps).Picker!.DialogDetected);
+            var detected = await Picker("detect");
+            Assert.True(detected.DialogDetected, JsonSerializer.Serialize(detected));
             var wrongOwner = client.NativePicker(sessionId, "cancel", topLevelId: "unrelated-window", timeoutMs: 500);
             Assert.False(wrongOwner.Success);
             Assert.Equal("cancelled", (await Picker("cancel")).Status);
