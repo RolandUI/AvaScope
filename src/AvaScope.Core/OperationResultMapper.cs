@@ -47,6 +47,8 @@ public static class OperationResultMapper
                 => OutcomeError("window_operation_not_verified", response.Status, response.Diagnostics),
             RuntimeScreenCaptureResponse response when response.Status != "captured"
                 => OutcomeError("screen_capture_partial", response.Status, (response.Rendered?.Diagnostics ?? []).Concat(response.Native?.Diagnostics ?? [])),
+            RuntimePickResponse response when response.Status is not ("geometry" or "picked")
+                => OutcomeError("pick_no_target", response.Status, response.Diagnostics),
             SemanticWorkflowResponse response when response.Status is not ("passed" or "validated")
                 => OutcomeError("workflow_failed", response.Status, response.Diagnostics),
             RuntimeScenarioResponse response when response.Status != "passed"

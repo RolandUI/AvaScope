@@ -85,6 +85,7 @@ public sealed partial class AvaScopeBridgeRuntime
         string path, int maximumBytes, RuntimeReadinessSnapshot readiness)
     {
         Dispatcher.UIThread.VerifyAccess();
+        ClearHighlights(topLevelId);
         var topLevel = FindTopLevel(topLevelId);
         if (topLevel is null || readiness.Frame.Status != "rendered" || !readiness.LayoutValid)
             return CoreResult<(ScreenshotResponse, byte[])>.Fail(new CoreError("observation_frame_unavailable", "The selected window has no usable rendered frame."));

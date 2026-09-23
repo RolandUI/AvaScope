@@ -9,6 +9,20 @@ namespace AvaScope.Mcp;
 [McpServerToolType]
 public sealed class AvaScopeMcpTools
 {
+    [McpServerTool(Name = "pick_node", Title = "Pick a current node by point", ReadOnly = true, Idempotent = true,
+        Destructive = false, OpenWorld = false, UseStructuredContent = true)]
+    [Description("Queries geometry without x/y, then resolves a point with that expectedGeometryRevision inside one pinned top-level. Coordinates: top_level_dip, top_level_pixel or validated desktop units (physical pixels on Windows/X11, Cocoa points on macOS). Returns current generation-pinned hit path, bounded related-window/modal/popup evidence and explicit native occlusion uncertainty. Window movement/scale/size reject stale revisions; old screenshot content is not verified. No pointer motion, application input or global desktop picking.")]
+    public static async Task<ToolResult<RuntimePickResponse>> PickNode(LocalBridgeClient bridgeClient,
+        RuntimePickRequest request, string? manifestDirectory = null, CancellationToken cancellationToken = default)
+        => ToToolResult(await CreateBridgeClient(bridgeClient, manifestDirectory).PickNodeAsync(request, cancellationToken));
+
+    [McpServerTool(Name = "highlight", Title = "Temporarily highlight a selected node", ReadOnly = false, Idempotent = false,
+        Destructive = false, OpenWorld = false, UseStructuredContent = true)]
+    [Description("Shows, inspects or clears a bounded temporary Avalonia adorner on a pinned visual target. Show/clear respect the control lease; inspect is read-only. Opaque #RRGGBB border, 100..5000 ms lifetime, one per top-level/eight per session. Never focuses, dispatches input, reparents app content or writes target properties. The adorner is input-transparent, follows current transforms and is removed on expiry, detachment, close or any ordinary screenshot capture. Active means registered on the Avalonia adorner layer, not proof of native visibility. Missing layers are unsupported rather than changing host layout.")]
+    public static async Task<ToolResult<RuntimeHighlightResponse>> Highlight(LocalBridgeClient bridgeClient,
+        RuntimeHighlightRequest request, string? manifestDirectory = null, CancellationToken cancellationToken = default)
+        => ToToolResult(await CreateBridgeClient(bridgeClient, manifestDirectory).HighlightAsync(request, cancellationToken));
+
     [McpServerTool(Name = "capture_screen", Title = "Capture paired render and native screen evidence", ReadOnly = true, Idempotent = false,
         Destructive = false, OpenWorld = false, UseStructuredContent = true)]
     [Description("Captures rendered, native or paired screenshot evidence for an observed session top-level generation. Native pixels require the host-only Bootstrap.SetNativeScreenCaptureScope(\"declared_test_desktop\") opt-in and request desktopScope; evidence policy additionally requires allowNativeScreenCapture. Captures only the client's desktop rectangle, including authorized occlusion; use an isolated test desktop. Masks before IPC/artifacts. Returns separate source/timestamps, desktop units, region transforms, missing off-screen pixels, local PNG paths and descriptive pixel comparison. Sequential samples are not atomic and differences are not defect proof. Native Win32/X11 and macOS 15.2+ ScreenCaptureKit; permission denial/unsupported backends are explicit, never replaced with a rendered image.")]

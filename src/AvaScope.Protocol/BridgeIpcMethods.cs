@@ -18,6 +18,8 @@ public static class BridgeIpcMethods
     public const string Navigation = "navigation";
     public const string Window = "window";
     public const string CaptureScreen = "capture_screen";
+    public const string PickNode = "pick_node";
+    public const string Highlight = "highlight";
     public const string EnsureState = "ensure_state";
     public const string InspectForm = "inspect_form";
     public const string FillForm = "fill_form";
@@ -61,6 +63,8 @@ public static class BridgeIpcMethods
         Navigation,
         Window,
         CaptureScreen,
+        PickNode,
+        Highlight,
         EnsureState,
         InspectForm,
         FillForm,
@@ -93,6 +97,7 @@ public static class BridgeIpcMethods
         || request.Method == EditText && request.TextEdit?.Action != "read"
         || request.Method == Scene && request.Scene?.Action != "inspect"
         || request.Method == Window && request.Window?.Action != "inspect"
+        || request.Method == Highlight && request.Highlight?.Action != "inspect"
         || request.Method == VirtualItem && request.VirtualItem?.Action != "find"
         || request.Method == NativePicker && request.NativePicker?.Operation != "detect";
 }

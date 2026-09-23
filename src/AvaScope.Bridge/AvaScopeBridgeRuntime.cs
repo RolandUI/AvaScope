@@ -593,6 +593,7 @@ public sealed partial class AvaScopeBridgeRuntime
         CloseTextEditing();
         CloseScenes();
         CloseNavigation();
+        ClearHighlights();
         _registeredTopLevels.Clear();
         Volatile.Write(ref _nativeScreenScope, null);
         Interlocked.Increment(ref _nativeScreenScopeRevision);
@@ -1100,6 +1101,7 @@ public sealed partial class AvaScopeBridgeRuntime
 
     private CoreResult<ScreenshotResponse> CaptureScreenshot(string topLevelId, string outputPath)
     {
+        ClearHighlights(topLevelId);
         Dispatcher.UIThread.VerifyAccess();
 
         var topLevel = FindTopLevel(topLevelId);
@@ -2349,6 +2351,7 @@ public sealed partial class AvaScopeBridgeRuntime
 
     private void UnregisterTopLevel(int key, string topLevelId)
     {
+        ClearHighlights(topLevelId);
         StopTopLevelTraces(topLevelId);
         StopTopLevelScenes(topLevelId);
         _registeredTopLevels.TryRemove(key, out _);

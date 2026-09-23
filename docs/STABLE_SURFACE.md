@@ -462,3 +462,6 @@ policy `allowedWindowActions`. See [owned-window operations and coordinates](WIN
 The additive `runtime.screen_capture` capability exposes CLI `capture-screen` and
 MCP `capture_screen`. Native evidence requires a separate host-only desktop scope;
 see [paired screen evidence, privacy and platform limits](SCREEN_EVIDENCE.md).
+
+The additive `runtime.picking` capability exposes CLI `pick-node`, MCP `pick_node`
+and CLI/MCP `highlight`. See [scoped picking and temporary highlighting](PICKING_AND_HIGHLIGHTS.md).

@@ -352,6 +352,8 @@ internal sealed class LocalBridgeServer : IDisposable
             BridgeIpcMethods.Navigation => Respond(await NavigationAsync(request, cancellationToken)),
             BridgeIpcMethods.Window => Respond(await WindowAsync(request, cancellationToken)),
             BridgeIpcMethods.CaptureScreen => Respond(await CaptureScreenAsync(request, cancellationToken)),
+            BridgeIpcMethods.PickNode => Respond(await PickNodeAsync(request, cancellationToken)),
+            BridgeIpcMethods.Highlight => Respond(await HighlightAsync(request, cancellationToken)),
             BridgeIpcMethods.EnsureState => Respond(await EnsureStateAsync(request, cancellationToken)),
             BridgeIpcMethods.InspectForm => Respond(await InspectFormAsync(request, cancellationToken)),
             BridgeIpcMethods.FillForm => Respond(await FillFormAsync(request, cancellationToken)),
@@ -526,6 +528,20 @@ internal sealed class LocalBridgeServer : IDisposable
     {
         if (request.ScreenCapture is null) return BridgeIpcResponse.Fail(request.RequestId, new("screen_capture_request_required", "A structured capture request is required."));
         var result = await _runtime.CaptureScreenAsync(request.ScreenCapture, cancellationToken);
+        return result.Success ? BridgeIpcResponse.Ok(request.RequestId, result.Value) : BridgeIpcResponse.Fail(request.RequestId, ToProtocolError(result.Error!));
+    }
+
+    private async Task<BridgeIpcResponse> PickNodeAsync(BridgeIpcRequest request, CancellationToken cancellationToken)
+    {
+        if (request.Pick is null) return BridgeIpcResponse.Fail(request.RequestId, new("pick_request_required", "A structured pick request is required."));
+        var result = await _runtime.PickNodeAsync(request.Pick, cancellationToken);
+        return result.Success ? BridgeIpcResponse.Ok(request.RequestId, result.Value) : BridgeIpcResponse.Fail(request.RequestId, ToProtocolError(result.Error!));
+    }
+
+    private async Task<BridgeIpcResponse> HighlightAsync(BridgeIpcRequest request, CancellationToken cancellationToken)
+    {
+        if (request.Highlight is null) return BridgeIpcResponse.Fail(request.RequestId, new("highlight_request_required", "A structured highlight request is required."));
+        var result = await _runtime.HighlightAsync(request.Highlight, cancellationToken);
         return result.Success ? BridgeIpcResponse.Ok(request.RequestId, result.Value) : BridgeIpcResponse.Fail(request.RequestId, ToProtocolError(result.Error!));
     }
 

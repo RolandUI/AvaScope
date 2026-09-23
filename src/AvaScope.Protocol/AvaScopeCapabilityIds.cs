@@ -25,6 +25,7 @@ public static class AvaScopeCapabilityIds
     public const string RuntimeNavigation = "runtime.navigation";
     public const string RuntimeWindows = "runtime.windows";
     public const string RuntimeScreenCapture = "runtime.screen_capture";
+    public const string RuntimePicking = "runtime.picking";
     public const string RuntimeStandaloneProvider = "runtime.standalone_provider";
     public const string RuntimeIntegrationGuidance = "runtime.integration_guidance";
     public const string RuntimeIntegrationVerification = "runtime.integration_verification";

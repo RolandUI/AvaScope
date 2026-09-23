@@ -2,7 +2,7 @@
 
 GitHub Issues and Milestones are the primary project-management source for autonomous agents working on AvaScope. This document is the compact local handoff and validation log. Update it whenever meaningful implementation, validation, or planning changes the active GitHub issue or release state.
 
-- `2026-09-23`: Release v1.5.0 / #156 covers #117-#153 and #155; #154 is cancelled (no foreign framework interoperability). #117-#148 are closed after acceptance validation; CI 35812554596 at 5136dba passed Windows/Linux/macOS. #149/#150 are in review: their combined CI 35815282389 had 715 passed/1 failed/3 native-only skipped due to a Windows recovery-record replace denial, fixed with bounded retry and deterministic regression in 589865c. #150 native Windows/X11 window gates passed 3/3. Active #151 adds paired rendered/native client-region evidence, separate host-only declared_test_desktop authorization, pre-IPC/export masks, per-source timing/coordinate/region provenance, missing off-screen pixels and descriptive comparison. Windows checkpoint 45/45, Linux checkpoint 47/47, zero warnings/errors; native X11 4/4 including actual occlusion/popups/off-screen/MCP masking (artifacts/native-input/f20a84d77ba34a3c92c8d09cb4fa6eea in WSL). The local Windows desktop returned OS access denied: recorded as native_screen_permission_denied, not a successful native capture. Final Windows native capture denial regression passed 1/1 (artifacts/native-input/screen-950339c0cdaf4cd7b1c73a7c01f341c9); refreshed X11/native checks and combined CI remain pending. Earlier unawaited headless results are not release evidence. Avalonia runtime/sample 12.1.3, Bridge standalone baseline 12.1.0; product version stays 1.4.2 until the validated release commit.
+- `2026-09-23`: Release v1.5.0 / #156 covers #117-#153 and #155; #154 is cancelled (no foreign framework interoperability). #117-#148 are closed after acceptance validation and successful Windows/Linux/macOS CI 35812554596. #149-#152 await combined CI. Two later full-suite failures were corrected: bounded Windows recovery snapshot replacement (589865c) and safe final text-state observation after slow callbacks (3932265; deterministic timeout/privacy/replay regression). #151 adds host-authorized paired native/rendered evidence; actual X11 occlusion/popups/off-screen/masking passed; this Windows desktop correctly reports native screen access denied. #152 adds geometry/generation-checked point picking and temporary input-transparent highlighting, expiry/detach/close cleanup and screenshot exclusion. Windows checkpoint 27/27, Linux 63/63, both Release builds zero warnings/errors; standalone provider verification and native Windows/X11 gates passed 4/4 each (ab27470a5e3b47da98a5577b4fee5b3c Windows; cde8ddcb4ee54985bf9223d08172c74a WSL), including desktop-coordinate MCP picking, moved-window refusal and native-popup scope diagnostics. Final multi-window highlight cleanup checkpoint passed 11/11; combined CI is pending. Earlier unawaited headless results are not release evidence. Runtime/sample Avalonia 12.1.3; standalone Bridge baseline 12.1.0; product version remains 1.4.2 until the validated release commit.
 
 - `2026-09-03`: Published `v1.4.2` from exact release commit `66d23c040e4bf16ed66b0b43e7021507966347a9` through successful Release workflow `33732182248`. The remote tag matches; the public, non-prerelease GitHub Release has 12/12 assets; and fresh downloads verified all 11 manifest entries by exact name, size, and SHA-256 plus every package metadata version. NuGet.org exposes Protocol/Core/Bridge `1.4.2` as latest; all three CDN packages pass repository-signature verification and their unsigned entries match the release packages. GitHub Packages publication succeeded for all three packages. Release tracker #114 and milestone `v1.4.2` are closed.
 - `2026-09-03`: The v1.4.2 release-candidate gate passed through `59bb5e0` with exact version `1.4.2` staged. The consolidated local Release suite passed `505/505` once, hosted CI `33729834402` passed Windows/Linux/native macOS, and exact-version packaging rebuilt with `0` warnings/errors. Three NuGet packages, four framework-dependent ZIPs, four installers, the 11-entry manifest, Windows installer, packaged doctor/preview/lifecycle, packaged complex CLI/MCP repeat-plus-failure gates, and both publish dry-runs passed. Next: commit exactly `Release 1.4.2`, publish, and verify every remote surface.
@@ -79,15 +79,15 @@ GitHub Issues and Milestones are the primary project-management source for auton
 ## Current Focus
 
 - `Release v1.5.0`
-- GitHub Issue: `#151`
+- GitHub Issue: `#152`
 - GitHub Milestone: `v1.5.0`
 - Status: `In Progress`
 - Owner: autonomous agent
-- Goal: paired rendered/native screen-region evidence with explicit host scope, pre-export masking and honest alignment/timing limits.
+- Goal: bounded point-to-node picking and temporary input-transparent highlighting with generation/coordinate checks and capture/close/expiry cleanup.
 
 ## Next Action
 
-Complete combined validation for #149-#150, then implement #151-#153 and #155 before the #156 release gate.
+Complete combined validation for #149-#151, implement #152/#153/#155, then run the #156 release gate.
 
 ## Latest Validation
 

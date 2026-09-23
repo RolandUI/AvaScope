@@ -67,7 +67,8 @@ public sealed record BridgeIpcRequest
         RuntimeSceneRequest? scene = null,
         RuntimeNavigationRequest? navigation = null,
         RuntimeWindowRequest? window = null,
-        RuntimeScreenCaptureRequest? screenCapture = null)
+        RuntimeScreenCaptureRequest? screenCapture = null,
+        RuntimePickRequest? pick = null, RuntimeHighlightRequest? highlight = null)
     {
         if (string.IsNullOrWhiteSpace(requestId))
         {
@@ -91,6 +92,7 @@ public sealed record BridgeIpcRequest
         Navigation = navigation;
         Window = window;
         ScreenCapture = screenCapture;
+        Pick = pick; Highlight = highlight;
         Method = method;
         TopLevelId = topLevelId;
         OutputPath = outputPath;
@@ -172,6 +174,11 @@ public sealed record BridgeIpcRequest
 
     [JsonPropertyName("screenCapture"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public RuntimeScreenCaptureRequest? ScreenCapture { get; }
+
+    [JsonPropertyName("pick"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public RuntimePickRequest? Pick { get; }
+    [JsonPropertyName("highlight"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public RuntimeHighlightRequest? Highlight { get; }
 
     [JsonPropertyName("requestId")]
     public string RequestId { get; }

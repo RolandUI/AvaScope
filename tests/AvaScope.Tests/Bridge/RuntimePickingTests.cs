@@ -1,0 +1,243 @@
+using System.Diagnostics;
+using System.Text.Json;
+using Avalonia;
+using Avalonia.Automation;
+using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
+using Avalonia.Headless;
+using Avalonia.Input;
+using Avalonia.Media;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
+using AvaScope.Bridge;
+using AvaScope.Core;
+using AvaScope.Protocol;
+using ModelContextProtocol.Client;
+
+namespace AvaScope.Tests.Bridge;
+
+[Collection(BridgeCollectionDefinition.Name)]
+public sealed class RuntimePickingTests
+{
+    [Fact]
+    public async Task CurrentHitPathUsesExplicitGeometryWithoutDispatchingInputOrFocus()
+    {
+        await WithWindow(async (runtime, window, button, top, node, client, output) =>
+        {
+            var clicks = 0; var moves = 0; button.Click += (_, _) => clicks++; window.PointerMoved += (_, _) => moves++;
+            var focused = window.FocusManager?.GetFocusedElement();
+            var geometry = Pick(await client.PickNodeAsync(new(top))).Geometry;
+            var point = button.TranslatePoint(new(button.Bounds.Width / 2, button.Bounds.Height / 2), window)!.Value;
+            foreach (var space in new[] { "top_level_dip", "top_level_pixel" })
+            {
+                var scale = space == "top_level_pixel" ? geometry.RenderScaling : 1;
+                var result = Pick(await client.PickNodeAsync(new(top, point.X * scale, point.Y * scale, space, geometry.Revision)));
+                Assert.Equal("picked", result.Status); Assert.Contains(result.HitPath, item => item.Target.NodeId == node.NodeId);
+                Assert.Equal(point.X, result.TopLevelPoint!.X, 6); Assert.Equal(point.Y, result.TopLevelPoint.Y, 6);
+                Assert.All(result.HitPath, item => Assert.NotNull(item.Target.NodeGeneration));
+                Assert.Contains("unverified", result.Occlusion);
+            }
+            var outside = Pick(await client.PickNodeAsync(new(top, -2, -2, expectedGeometryRevision: geometry.Revision)));
+            Assert.Equal("outside", outside.Status); Assert.Empty(outside.HitPath);
+            Assert.False(OperationResultMapper.IsSuccessful(CoreResult<RuntimePickResponse>.Ok(outside)));
+            var desktop = await client.PickNodeAsync(new(top, 50, 50, "desktop", geometry.Revision));
+            Assert.Equal("pick_coordinates_unsupported", desktop.Error!.Code);
+            Assert.Equal(focused, window.FocusManager?.GetFocusedElement()); Assert.Equal(0, clicks); Assert.Equal(0, moves);
+        });
+    }
+
+    [Fact]
+    public async Task ChangedGeometryGenerationAndProtectedAncestorsCannotSelectStaleContent()
+    {
+        await WithWindow(async (runtime, window, button, top, node, client, output) =>
+        {
+            var old = Pick(await client.PickNodeAsync(new(top))).Geometry;
+            window.Width += 20; window.UpdateLayout();
+            Assert.Equal("pick_geometry_changed", (await client.PickNodeAsync(new(top, 20, 20, expectedGeometryRevision: old.Revision))).Error!.Code);
+            var stale = new RuntimeTargetContext(top.SessionId, top.TopLevelId, topLevelGeneration: "old");
+            Assert.Equal("pick_stale", (await client.PickNodeAsync(new(stale))).Error!.Code);
+            await runtime.ReadinessAsync(top.TopLevelId, options: new(waitForFrame: true));
+            var geometry = Pick(await client.PickNodeAsync(new(top))).Geometry;
+            var center = button.TranslatePoint(new(button.Bounds.Width / 2, button.Bounds.Height / 2), window)!.Value;
+            var policy = new RuntimeEvidencePolicy(output, excludedControlAutomationIds: ["protected-group"]);
+            var excluded = Pick(await client.PickNodeAsync(new(top, center.X, center.Y, "top_level_dip", geometry.Revision, policy: policy)));
+            Assert.Equal("excluded", excluded.Status); Assert.Empty(excluded.HitPath); Assert.DoesNotContain("Sensitive button", JsonSerializer.Serialize(excluded));
+            Assert.Equal("highlight_excluded", (await client.HighlightAsync(new(node, policy: policy))).Error!.Code);
+            var truncated = Pick(await client.PickNodeAsync(new(top, center.X, center.Y, "top_level_dip", geometry.Revision, maxPath: 1)));
+            Assert.True(truncated.Truncated); Assert.Single(truncated.HitPath);
+            Assert.Equal("inspection_policy_denied", (await runtime.PickNodeAsync(new(top, policy: new(output, authorizedProcessIds: [int.MaxValue])))).Error!.Code);
+        });
+    }
+
+    [Fact]
+    public async Task HighlightIsInputTransparentFollowsBoundsAndScreenshotsClearIt()
+    {
+        await WithWindow(async (runtime, window, button, top, node, client, output) =>
+        {
+            var layer = AdornerLayer.GetAdornerLayer(button)!; Assert.NotNull(layer); var before = layer.Children.Count;
+            var baseline = await client.CaptureScreenshotAsync(runtime.SessionId, top.TopLevelId, Path.Combine(output, "before.png")); Assert.True(baseline.Success);
+            var focused = window.FocusManager?.GetFocusedElement();
+            var show = Highlight(await client.HighlightAsync(new(node, lifetimeMs: 5000)));
+            Assert.Equal("active", show.Status); Assert.True(show.InputTransparent); Assert.True(show.ClearedByScreenshot);
+            Assert.Equal(before + 1, layer.Children.Count);
+            var overlay = layer.Children.Last(); Assert.False(overlay.IsHitTestVisible); Assert.False(overlay.Focusable);
+            window.UpdateLayout(); await runtime.ReadinessAsync(top.TopLevelId, options: new(waitForFrame: true));
+            var center = button.TranslatePoint(new(button.Bounds.Width / 2, button.Bounds.Height / 2), window)!.Value;
+            Assert.NotEqual(overlay, window.InputHitTest(center)); Assert.Equal(focused, window.FocusManager?.GetFocusedElement());
+            button.Margin = new Thickness(20, 10, 0, 0); window.UpdateLayout();
+            var moved = Highlight(await client.HighlightAsync(new(top, "inspect")));
+            Assert.NotEqual(show.Bounds, moved.Bounds);
+            button.Margin = default; window.UpdateLayout();
+            var after = await client.CaptureScreenshotAsync(runtime.SessionId, top.TopLevelId, Path.Combine(output, "after.png")); Assert.True(after.Success);
+            Assert.Equal("absent", Highlight(await client.HighlightAsync(new(top, "inspect"))).Status); Assert.Equal(before, layer.Children.Count);
+            Assert.Equal(File.ReadAllBytes(baseline.Value!.FilePath), File.ReadAllBytes(after.Value!.FilePath));
+            Highlight(await client.HighlightAsync(new(node, lifetimeMs: 5000)));
+            var observation = await new RuntimeObserver().ObserveAsync(client, new(runtime.SessionId, [top.TopLevelId], includeScreenshot: true, outputDirectory: output));
+            Assert.True(observation.Success); Assert.Equal(before, layer.Children.Count);
+            Highlight(await client.HighlightAsync(new(node, lifetimeMs: 5000)));
+            var pair = await client.CaptureScreenAsync(new(top, output, "rendered")); Assert.True(pair.Success); Assert.Equal(before, layer.Children.Count);
+            var otherButton = new Button { Name = "OtherButton", Content = "Other", Width = 100, Height = 40 };
+            var other = new Window { Width = 200, Height = 120, Content = otherButton }; other.Show();
+            try
+            {
+                using var registration = runtime.RegisterTopLevel(other); Dispatcher.UIThread.RunJobs();
+                var otherId = (await runtime.ListTopLevelsAsync()).Single(item => item.Id != top.TopLevelId).Id;
+                var otherNode = Assert.Single((await client.FindNodesAsync(runtime.SessionId, otherId, TreeKinds.Visual, name: "OtherButton")).Value!.Matches).Node.Target!;
+                var otherLayer = AdornerLayer.GetAdornerLayer(otherButton)!; var otherBefore = otherLayer.Children.Count;
+                Highlight(await client.HighlightAsync(new(otherNode, lifetimeMs: 5000)));
+                Highlight(await client.HighlightAsync(new(node, lifetimeMs: 5000)));
+                var paired = await client.CaptureScreenAsync(new(top, output)); Assert.True(paired.Success);
+                Assert.Equal("captured", paired.Value!.Rendered!.Status);
+                Assert.Equal("native_screen_scope_denied", Assert.Single(paired.Value.Native!.Diagnostics).Code);
+                Assert.Equal(before, layer.Children.Count); Assert.Equal(otherBefore, otherLayer.Children.Count);
+            }
+            finally { other.Close(); }
+        });
+    }
+
+    [Fact]
+    public async Task OverlayPopupPickingUsesTheOwnersActualHitRoot()
+    {
+        await WithWindow(async (runtime, window, button, top, node, client, output) =>
+        {
+            var content = (Border)window.Content!; content.Child = null;
+            var popupButton = new Button { Name = "PopupButton", Content = "Popup target", Width = 100, Height = 30 };
+            var popup = new Popup { Child = popupButton, PlacementTarget = button, Placement = PlacementMode.Center, ShouldUseOverlayLayer = true };
+            content.Child = new Grid { Children = { button, popup } };
+            popup.IsOpen = true; Dispatcher.UIThread.RunJobs();
+            try
+            {
+                Assert.True(popup.IsUsingOverlayLayer);
+                var root = TopLevel.GetTopLevel(popupButton)!; Assert.NotNull(root);
+                Assert.Same(window, root);
+                var id = top.TopLevelId;
+                await runtime.ReadinessAsync(id, options: new(waitForFrame: true));
+                var found = Assert.Single((await client.FindNodesAsync(runtime.SessionId, id, TreeKinds.Visual, name: "PopupButton")).Value!.Matches).Node;
+                var selected = new RuntimeTargetContext(runtime.SessionId, id, topLevelGeneration: found.Target!.TopLevelGeneration);
+                var geometry = Pick(await client.PickNodeAsync(new(selected))).Geometry;
+                var point = popupButton.TranslatePoint(new(popupButton.Bounds.Width / 2, popupButton.Bounds.Height / 2), root)!.Value;
+                var picked = Pick(await client.PickNodeAsync(new(selected, point.X, point.Y, "top_level_dip", geometry.Revision)));
+                Assert.Equal("picked", picked.Status); Assert.Contains(picked.HitPath, item => item.Target.NodeId == found.NodeId);
+                Assert.All(picked.HitPath, item => Assert.Equal(id, item.Target.TopLevelId));
+            }
+            finally { popup.IsOpen = false; }
+        });
+    }
+
+    [Fact]
+    public async Task ExpiryClearDetachAndSessionCloseReleaseOwnedAdorners()
+    {
+        await WithWindow(async (runtime, window, button, top, node, client, output) =>
+        {
+            var layer = AdornerLayer.GetAdornerLayer(button)!; var original = layer.Children.Count;
+            var first = Highlight(await client.HighlightAsync(new(node, lifetimeMs: 100)));
+            await Task.Delay(180); Dispatcher.UIThread.RunJobs();
+            Assert.Equal("absent", Highlight(await client.HighlightAsync(new(top, "inspect"))).Status); Assert.Equal(original, layer.Children.Count);
+            var second = Highlight(await client.HighlightAsync(new(node, lifetimeMs: 5000))); Assert.NotEqual(first.HighlightId, second.HighlightId);
+            Highlight(await client.HighlightAsync(new(top, "clear"))); Assert.Equal(original, layer.Children.Count);
+            Highlight(await client.HighlightAsync(new(node, lifetimeMs: 5000)));
+            var originalContent = window.Content;
+            window.Content = new Border(); Dispatcher.UIThread.RunJobs(); Assert.Equal(original, layer.Children.Count);
+            Assert.False((await client.HighlightAsync(new(node))).Success);
+            window.Content = originalContent; window.UpdateLayout(); await runtime.ReadinessAsync(top.TopLevelId, options: new(waitForFrame: true));
+            var found = await client.FindNodesAsync(runtime.SessionId, top.TopLevelId, TreeKinds.Visual, name: "PickButton");
+            var current = Assert.Single(found.Value!.Matches).Node.Target!;
+            Highlight(await client.HighlightAsync(new(current, lifetimeMs: 5000)));
+            AvaScopeBridge.Deactivate(); Assert.Equal(original, layer.Children.Count);
+        });
+    }
+
+    [Fact]
+    public async Task CliPicksAndMcpHighlightsWithLeaseAndModalEvidence()
+    {
+        await WithWindow(async (runtime, window, button, top, node, client, output) =>
+        {
+            var geometry = Pick(await client.PickNodeAsync(new(top))).Geometry;
+            var center = button.TranslatePoint(new(button.Bounds.Width / 2, button.Bounds.Height / 2), window)!.Value;
+            var request = new RuntimePickRequest(top, center.X, center.Y, "top_level_dip", geometry.Revision);
+            Directory.CreateDirectory(output); var path = Path.Combine(output, "pick.json"); File.WriteAllText(path, JsonSerializer.Serialize(request));
+            var start = new ProcessStartInfo("dotnet") { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
+            foreach (var arg in new[] { Path.Combine(AppContext.BaseDirectory, "avascope.dll"), "pick-node", "--request", path, "--manifest-dir", client.ManifestDirectory }) start.ArgumentList.Add(arg);
+            using var process = Process.Start(start)!; var stdout = process.StandardOutput.ReadToEndAsync(); var stderr = process.StandardError.ReadToEndAsync();
+            await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(30));
+            var response = JsonSerializer.Deserialize<ToolResult<RuntimePickResponse>>(await stdout)!;
+            Assert.True(response.Success, await stdout + await stderr); Assert.Equal(0, process.ExitCode);
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            await using var mcp = await McpClient.CreateAsync(new StdioClientTransport(new()
+            { Command = "dotnet", Arguments = [Path.Combine(AppContext.BaseDirectory, "AvaScope.Mcp.dll")], Name = "pick-highlight-test" }), cancellationToken: timeout.Token);
+            var call = await mcp.CallToolAsync("highlight", new Dictionary<string, object?>
+            { ["request"] = JsonSerializer.SerializeToElement(new RuntimeHighlightRequest(node, lifetimeMs: 5000)), ["manifestDirectory"] = client.ManifestDirectory }, cancellationToken: timeout.Token);
+            var highlighted = JsonSerializer.Deserialize<ToolResult<RuntimeHighlightResponse>>(JsonSerializer.Serialize(call.StructuredContent))!;
+            Assert.True(highlighted.Success); Assert.Equal("active", highlighted.Value!.Status);
+            Assert.True((await client.SessionControlAsync(runtime.SessionId, new("acquire", "highlight-owner"))).Success);
+            var observer = new LocalBridgeClient(client.ManifestDirectory);
+            Assert.Equal("session_control_conflict", (await observer.HighlightAsync(new(top, "clear"))).Error!.Code);
+            Assert.True((await observer.HighlightAsync(new(top, "inspect"))).Success);
+            Assert.True((await observer.PickNodeAsync(new(top))).Success);
+            Highlight(await client.HighlightAsync(new(top, "clear")));
+            var modal = new Window { Width = 100, Height = 80 }; var modalTask = modal.ShowDialog(window);
+            try
+            {
+                using var registered = runtime.RegisterTopLevel(modal); Dispatcher.UIThread.RunJobs();
+                await runtime.ReadinessAsync(top.TopLevelId, options: new(waitForFrame: true));
+                geometry = Pick(await client.PickNodeAsync(new(top))).Geometry;
+                var picked = Pick(await client.PickNodeAsync(new(top, center.X, center.Y, "top_level_dip", geometry.Revision)));
+                Assert.Equal("modal_blocks_selected_owner", picked.Occlusion); Assert.Single(picked.RelatedTopLevels);
+            }
+            finally { modal.Close(); await modalTask; }
+        });
+    }
+
+    private static RuntimePickResponse Pick(CoreResult<RuntimePickResponse> result)
+    { Assert.True(result.Success, JsonSerializer.Serialize(result.Error)); return result.Value!; }
+    private static RuntimeHighlightResponse Highlight(CoreResult<RuntimeHighlightResponse> result)
+    { Assert.True(result.Success, JsonSerializer.Serialize(result.Error)); return result.Value!; }
+    private static async Task WithWindow(Func<AvaScopeBridgeRuntime, Window, Button, RuntimeTargetContext, RuntimeTargetContext, LocalBridgeClient, string, Task> test)
+    {
+        var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessSmokeTests.BridgeHeadlessTestApplication));
+        var output = Path.Combine(Path.GetTempPath(), "avascope-picking-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            await BridgeHeadlessSmokeTests.DispatchAsync(session, async () =>
+            {
+                AvaScopeBridge.Deactivate(); var runtime = AvaScopeBridge.Activate();
+                var button = new Button { Name = "PickButton", Content = "Sensitive button", Width = 160, Height = 60 };
+                var border = new Border { Name = "Group", Padding = new Thickness(25), Child = button }; AutomationProperties.SetAutomationId(border, "protected-group");
+                var window = new Window { Width = 300, Height = 220, Content = border };
+                try
+                {
+                    window.Show(); using var registration = runtime.RegisterTopLevel(window); Dispatcher.UIThread.RunJobs();
+                    var client = new LocalBridgeClient(Path.GetDirectoryName(runtime.SessionManifestPath)!);
+                    var top = Assert.Single(await runtime.ListTopLevelsAsync()).Id;
+                    await runtime.ReadinessAsync(top, options: new(waitForFrame: true));
+                    var pinned = (await client.WindowAsync(new(new(runtime.SessionId, top)))).Value!.After!.Target;
+                    var found = await client.FindNodesAsync(runtime.SessionId, top, TreeKinds.Visual, name: "PickButton");
+                    await test(runtime, window, button, pinned, Assert.Single(found.Value!.Matches).Node.Target!, client, output);
+                }
+                finally { window.Close(); AvaScopeBridge.Deactivate(); }
+            }, CancellationToken.None);
+        }
+        finally
+        { BridgeHeadlessSmokeTests.DisposeHeadlessSessionAfterExplicitCleanup(session); if (Directory.Exists(output)) Directory.Delete(output, true); }
+    }
+}

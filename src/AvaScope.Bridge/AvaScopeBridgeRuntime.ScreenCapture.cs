@@ -46,7 +46,7 @@ public sealed partial class AvaScopeBridgeRuntime
         var limitations = new List<string> { "sequential_samples_not_atomic", "pixel_differences_do_not_prove_a_defect_or_occlusion", "native_surfaces_and_popups_may_differ_from_rendered_tree", "cursor_and_protected_video_capture_not_guaranteed", "native_output_resampled_to_top_level_render_pixel_grid", "offscreen_or_monitor_gaps_are_transparent_missing_evidence" };
         Window? window = null; RuntimeBackendInfo? backend = null; RuntimeTargetContext? target = null;
         PixelSize pixels = default; NodeBounds? desktop = null; NodeBounds[] regions = []; string? identity = null, units = null;
-        double scale = 1, desktopScale = 1; long scopeRevision = 0; nint handle = 0;
+        double scale = 1, desktopScale = 1; long scopeRevision = 0; nint handle = 0; string[] clearedHighlightTopLevels = []; var clearFrameConfirmed = false;
         try
         {
             await Dispatcher.UIThread.InvokeAsync(() =>
@@ -56,6 +56,8 @@ public sealed partial class AvaScopeBridgeRuntime
                 if (CreateObjectGeneration(window) != request.Target.TopLevelGeneration) throw Stop("screen_capture_stale", "The selected window generation changed.");
                 if (request.Policy is { } p && (p.ExcludedControlAutomationIds.Contains(GetAutomationId(window), StringComparer.Ordinal)
                     || p.RedactedAutomationIds.Contains(GetAutomationId(window), StringComparer.Ordinal))) throw Stop("screen_capture_excluded", "Evidence policy excludes the selected window.");
+                clearedHighlightTopLevels = _highlights.Keys.ToArray();
+                ClearHighlights();
                 backend = RuntimePlatformEvidence.Observe(window); target = CreateTopLevelTarget(request.Target.TopLevelId, window);
                 pixels = GetPixelSize(window); scale = window.RenderScaling; desktopScale = window.DesktopScaling;
                 if (pixels.Width < 1 || pixels.Height < 1 || (long)pixels.Width * pixels.Height > 4194304) throw Stop("screen_capture_pixel_limit", "Each image is limited to 4194304 pixels.");
@@ -82,6 +84,7 @@ public sealed partial class AvaScopeBridgeRuntime
                     var ready = await ReadinessAsync(request.Target.TopLevelId, options: new(waitForFrame: true), cancellationToken: deadline.Token);
                     if (!ready.Success || ready.Value!.Frame.Status != "rendered" || !ready.Value.LayoutValid)
                         throw Stop("screen_render_not_ready", "No usable completed Avalonia frame was observed.");
+                    clearFrameConfirmed = true;
                     rendered = await Dispatcher.UIThread.InvokeAsync(() =>
                     {
                         Check();
@@ -99,6 +102,12 @@ public sealed partial class AvaScopeBridgeRuntime
                 var started = DateTimeOffset.UtcNow; var route = NativeScreenCapture.Route(backend!.Backend);
                 try
                 {
+                    foreach (var clearedTopLevel in clearedHighlightTopLevels)
+                    {
+                        if (clearedTopLevel == request.Target.TopLevelId && clearFrameConfirmed) continue;
+                        var ready = await ReadinessAsync(clearedTopLevel, options: new(waitForFrame: true), cancellationToken: deadline.Token);
+                        if (!ready.Success || ready.Value!.Frame.Status != "rendered") throw Stop("native_screen_highlight_clear_unconfirmed", "A frame after clearing debug highlights was not confirmed.");
+                    }
                     await Dispatcher.UIThread.InvokeAsync(() =>
                     {
                         Check(); CheckScope();

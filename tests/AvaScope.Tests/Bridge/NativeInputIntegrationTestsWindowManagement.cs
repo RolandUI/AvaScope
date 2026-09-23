@@ -80,6 +80,37 @@ public sealed class NativeInputIntegrationTestsWindowManagement
             var stale = OperationResultMapper.ToToolResult(await client.WindowAsync(resize, token));
             Assert.False(stale.Success); Assert.Equal("window_stale", stale.Error!.Code); Assert.Equal(0, stale.Value!.DispatchedOperations);
 
+            var geometry = await client.PickNodeAsync(new(current.Target), token);
+            // Use the current window target for picking; its geometry is independent of action revisions/focus.
+            Assert.True(geometry.Success, geometry.Error?.Message);
+            var pickTarget = geometry.Value!.Target; var pickGeometry = geometry.Value.Geometry;
+            var openModal = Assert.Single((await client.FindNodesAsync(manifest.SessionId, top.Id, TreeKinds.Visual, name: "OpenModal", cancellationToken: token)).Value!.Matches).Node;
+            var bounds = openModal.Bounds!; var centerX = bounds.X + bounds.Width / 2; var centerY = bounds.Y + bounds.Height / 2;
+            var pickRequest = new RuntimePickRequest(pickTarget, pickGeometry.DesktopBounds!.X + centerX * pickGeometry.DesktopScaling,
+                pickGeometry.DesktopBounds.Y + centerY * pickGeometry.DesktopScaling, "desktop", pickGeometry.Revision);
+            var pickCall = await mcp.CallToolAsync("pick_node", new Dictionary<string, object?>
+            { ["request"] = JsonSerializer.SerializeToElement(pickRequest), ["manifestDirectory"] = manifests }, cancellationToken: token);
+            var picked = JsonSerializer.Deserialize<ToolResult<RuntimePickResponse>>(JsonSerializer.Serialize(pickCall.StructuredContent))!;
+            Assert.True(picked.Success, JsonSerializer.Serialize(picked)); Assert.Contains(picked.Value!.HitPath, item => item.Target.NodeId == openModal.NodeId);
+            var highlight = await client.HighlightAsync(new(openModal.Target!, lifetimeMs: 5000), token);
+            Assert.True(highlight.Success, highlight.Error?.Message); Assert.True(highlight.Value!.InputTransparent);
+            var cleanImage = await client.CaptureScreenshotAsync(manifest.SessionId, top.Id, Path.Combine(output, "without-highlight.png"), token);
+            Assert.True(cleanImage.Success, cleanImage.Error?.Message);
+            Assert.Equal("absent", (await client.HighlightAsync(new(pickTarget, "inspect"), token)).Value!.Status);
+            current = await Inspect();
+            var moveAgain = await client.WindowAsync(new(current.Target, "move", current.Revision,
+                position: new(current.Position.X + 20, current.Position.Y), timeoutMs: 3000), token);
+            Assert.True(OperationResultMapper.IsSuccessful(moveAgain), JsonSerializer.Serialize(moveAgain));
+            Assert.Equal("pick_geometry_changed", (await client.PickNodeAsync(pickRequest, token)).Error!.Code);
+            await Invoke(top.Id, "OpenPopup");
+            var popupGeometry = (await client.PickNodeAsync(new(pickTarget), token)).Value!.Geometry;
+            var popupPick = await client.PickNodeAsync(new(pickTarget, centerX, centerY, "top_level_dip", popupGeometry.Revision), token);
+            Assert.True(popupPick.Success, popupPick.Error?.Message);
+            Assert.Contains(popupPick.Value!.Diagnostics, item => item.Code == "pick_native_popup_present");
+            Assert.Contains("selected_root_only", popupPick.Value.Occlusion);
+            await Invoke(top.Id, "ClosePopup");
+            await File.WriteAllTextAsync(Path.Combine(output, "picking.json"), JsonSerializer.Serialize(new { picked, highlight, cleanImage, moveAgain, popupPick }), token);
+
             // OS foreground policy may deny activation on a noninteractive CI desktop.
             current = await Inspect();
             var front = await client.WindowAsync(new(current.Target, "bring_to_front", current.Revision, timeoutMs: 3000), token);
