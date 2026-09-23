@@ -168,6 +168,7 @@ internal sealed class SampleApplication : Application
         var motion = new TextBlock { Name = "MotionState", Text = "idle" };
         var interruptDrag = false;
         var editor = new TextBox { Name = "NativeEditor", Text = "" };
+        var focusNext = new TextBox { Name = "NativeFocusNext" };
         editor.KeyDown += (_, args) => keys.Text = $"{args.Key}:{args.KeyModifiers}";
         var pad = new Border { Name = "NativePad", Height = 100, Background = Brushes.LightGray };
         pad.PointerPressed += (_, args) =>
@@ -222,7 +223,7 @@ internal sealed class SampleApplication : Application
         };
         window.Width = 520;
         window.Height = 580;
-        window.Content = new StackPanel { Margin = new Thickness(16), Spacing = 6, Children = { state, release, keys, result, motion, pad, editor, other, interrupt, open, save, prepared } };
+        window.Content = new StackPanel { Margin = new Thickness(16), Spacing = 6, Children = { state, release, keys, result, motion, pad, editor, focusNext, other, interrupt, open, save, prepared } };
 #if TABLE_FIXTURE
         var table = new DataGrid { Name = "NativeTable", AutoGenerateColumns = false, Height = 360, Margin = new Thickness(16),
             ItemsSource = Enumerable.Range(0, 80).Select(index => new NativeTableRow("row-" + index, index % 2 == 0 ? "failed" : "passed")).ToArray() };

@@ -27,6 +27,8 @@ public static class OperationResultMapper
     {
         return value switch
         {
+            RuntimeFocusProbeResponse response when response.Status != "observed"
+                => OutcomeError("focus_probe_failed", response.Status, response.Diagnostics),
             RuntimeTableActionResponse response when !response.Verified
                 => OutcomeError("table_action_not_verified", response.Status, response.Diagnostics),
             RuntimeFormFillResponse response when response.Status != "passed"

@@ -1842,6 +1842,7 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
 
                     var client = new LocalBridgeClient(Path.GetDirectoryName(runtime.SessionManifestPath)!);
                     var topLevel = Assert.Single(await runtime.ListTopLevelsAsync());
+                    Assert.True((await runtime.ReadinessAsync(topLevel.Id, options: new(waitForFrame: true))).Success);
                     var tree = await AvaScopeMcpTools.VisualTree(
                         client,
                         runtime.SessionId.Value,
@@ -2175,9 +2176,9 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                         ]);
                     var dialogTimeout = await new SemanticWorkflowRunner().RunAsync(client, dialogTimeoutRequest);
                     Assert.Equal("failed", dialogTimeout.Value!.Status);
-                    Assert.Equal(
-                        "semantic_workflow_wait_timeout",
-                        Assert.Single(Assert.Single(dialogTimeout.Value.Steps).Diagnostics).Code);
+                    var dialogDiagnostic = Assert.Single(Assert.Single(dialogTimeout.Value.Steps).Diagnostics);
+                    Assert.Equal(CoreErrorCodes.InvalidBridgeRequest, dialogDiagnostic.Code);
+                    Assert.Contains("no supported native dialog backend", dialogDiagnostic.Message);
 
                     using var cancellation = new CancellationTokenSource(50);
                     var cancelledRequest = new SemanticWorkflowRequest(
@@ -3483,7 +3484,7 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                     }
 
                     panel.Children[0] = CreateDurableButton(recreateOnClick: true);
-                    Dispatcher.UIThread.RunJobs();
+                    Assert.True((await runtime.ReadinessAsync(topLevel.Id, options: new(waitForFrame: true))).Success);
                     var stale = await client.InputAsync(
                         runtime.SessionId,
                         topLevel.Id,
@@ -3505,6 +3506,12 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                                 new SemanticWorkflowSelector(automationId: "durable-action", actionable: true),
                                 idempotencyKey: "durable-first"),
                             new SemanticWorkflowStep(
+                                SemanticWorkflowActions.WaitForNode,
+                                "wait-recreated-node",
+                                new SemanticWorkflowSelector(automationId: "durable-action", actionable: true),
+                                timeoutMs: 2500,
+                                pollIntervalMs: 25),
+                            new SemanticWorkflowStep(
                                 SemanticWorkflowActions.Invoke,
                                 "invoke-recreated-node",
                                 new SemanticWorkflowSelector(automationId: "durable-action", actionable: true),
@@ -3514,10 +3521,10 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                         maxDepth: 10);
                     var first = await new SemanticWorkflowRunner().RunAsync(client, request);
                     var replay = await new SemanticWorkflowRunner().RunAsync(client, request);
-                    Assert.Equal("passed", first.Value!.Status);
-                    Assert.Equal("passed", replay.Value!.Status);
+                    Assert.True(first.Value!.Status == "passed", JsonSerializer.Serialize(first));
+                    Assert.True(replay.Value!.Status == "passed", JsonSerializer.Serialize(replay));
                     Assert.Equal(2, clicks);
-                    Assert.All(replay.Value.Steps, step => Assert.Equal("true", step.Metadata["idempotencyReplay"]));
+                    Assert.All(replay.Value.Steps.Where(step => step.Action == SemanticWorkflowActions.Invoke), step => Assert.Equal("true", step.Metadata["idempotencyReplay"]));
 
                     var duplicate = CreateDurableButton(recreateOnClick: false);
                     panel.Children.Add(duplicate);

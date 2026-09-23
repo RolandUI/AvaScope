@@ -16,9 +16,12 @@ public sealed record InputExecutionOptions
     [JsonPropertyName("destinationY")] public double? DestinationY { get; init; }
     [JsonPropertyName("keys")] public IReadOnlyList<InputKeyStroke> Keys { get; init; } = [];
     [JsonPropertyName("expectedGeometryRevision")] public string? ExpectedGeometryRevision { get; init; }
+    [JsonPropertyName("requireCurrentFocus")] public bool RequireCurrentFocus { get; init; }
 
     public string? GetValidationError(string action)
     {
+        if (RequireCurrentFocus && (Strategy == "semantic" || action is not (InputActions.KeySequence or InputActions.KeyText)))
+            return "requireCurrentFocus is supported only for explicit keyboard input; it never moves focus to the target.";
         if (ExpectedGeometryRevision is { } revision && (revision.Length != 64 || !revision.All(Uri.IsHexDigit)
             || action is not (InputActions.Click or InputActions.PointerMove or InputActions.Drag) || Strategy == "semantic"))
             return "expectedGeometryRevision requires a 64-character SHA-256 from explain_action and synthetic/native pointer input.";

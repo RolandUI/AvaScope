@@ -68,6 +68,37 @@ internal sealed class NativeWindowInput : IDisposable
         else if (handle.HandleDescriptor != "XID") throw new InvalidOperationException("The selected top-level does not expose an owned X11 XID.");
     }
 
+    internal static RuntimeNativeFocus ObserveFocus(TopLevel top)
+    {
+        Dispatcher.UIThread.VerifyAccess();
+        try
+        {
+            ValidateOwnership(top, false);
+            var handle = top.TryGetPlatformHandle()!.Handle;
+            var route = Route(top);
+            if (route == RuntimeOperationRoutes.Win32WindowMessage)
+            {
+                var foreground = GetForegroundWindow();
+                return new(foreground == 0 ? "unknown" : foreground == handle ? "focused" : "different_native_window",
+                    "win32_GetForegroundWindow", "Exact foreground HWND comparison; no external process/window inspection or activation.");
+            }
+            if (route == RuntimeOperationRoutes.AppKitWindowEvent)
+                return new(Mac.Send(handle, "isKeyWindow") != 0 ? "focused" : "different_native_window", "appkit_isKeyWindow", "Observed on the application's owned NSWindow.");
+            var display = XOpenDisplay(null);
+            if (display == 0) return new("unknown", "x11_XGetInputFocus", "The application's display could not be opened.");
+            try
+            {
+                XGetInputFocus(display, out var focus, out _);
+                return new(focus == handle ? "focused" : focus is 0 or 1 ? "unknown" : "different_native_target",
+                    "x11_XGetInputFocus", "Exact owned XID comparison. None/PointerRoot and native-child focus are not inferred from Avalonia IsActive; no global input or activation.");
+            }
+            finally { XCloseDisplay(display); }
+        }
+        catch (NotSupportedException) { return new("unsupported", "backend_capability", "No validated native focus observer for this top-level backend."); }
+        catch (Exception exception) when (exception is InvalidOperationException or DllNotFoundException or EntryPointNotFoundException)
+        { return new("unknown", "native_focus_observation", "The owned native window or native focus observation is unavailable."); }
+    }
+
     internal static void ValidateOperation(TopLevel top, string action, string? text,
         IReadOnlyList<(Key Key, KeyModifiers Modifiers)> keys, KeyModifiers modifiers)
     {
@@ -336,6 +367,7 @@ internal sealed class NativeWindowInput : IDisposable
     [DllImport("user32.dll", EntryPoint = "MapVirtualKeyW")] private static extern uint MapVirtualKey(uint code, uint mapType);
     [DllImport("libX11.so.6")] private static extern nint XOpenDisplay(string? display);
     [DllImport("libX11.so.6")] private static extern int XCloseDisplay(nint display);
+    [DllImport("libX11.so.6")] private static extern int XGetInputFocus(nint display, out nint focus, out int revertTo);
     [DllImport("libX11.so.6")] private static extern nint XDefaultRootWindow(nint display);
     [DllImport("libX11.so.6")] private static extern int XSendEvent(nint display, nint window, [MarshalAs(UnmanagedType.Bool)] bool propagate, nint mask, ref XEvent value);
     [DllImport("libX11.so.6")] private static extern int XFlush(nint display);

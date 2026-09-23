@@ -337,6 +337,8 @@ internal sealed class LocalBridgeServer : IDisposable
             BridgeIpcMethods.Observe => Respond(await ObserveAsync(request, cancellationToken)),
             BridgeIpcMethods.ExplainAction => Respond(await ExplainActionAsync(request, cancellationToken)),
             BridgeIpcMethods.ActionMap => Respond(await ActionMapAsync(request, cancellationToken)),
+            BridgeIpcMethods.InspectFocus => Respond(await InspectFocusAsync(request, cancellationToken)),
+            BridgeIpcMethods.ProbeFocus => Respond(await ProbeFocusAsync(request, cancellationToken)),
             BridgeIpcMethods.EnsureState => Respond(await EnsureStateAsync(request, cancellationToken)),
             BridgeIpcMethods.InspectForm => Respond(await InspectFormAsync(request, cancellationToken)),
             BridgeIpcMethods.FillForm => Respond(await FillFormAsync(request, cancellationToken)),
@@ -425,6 +427,20 @@ internal sealed class LocalBridgeServer : IDisposable
         var result = await _runtime.ActionMapAsync(request.ActionMap, cancellationToken);
         return result.Success ? BridgeIpcResponse.Ok(request.RequestId, result.Value)
             : BridgeIpcResponse.Fail(request.RequestId, ToProtocolError(result.Error!));
+    }
+
+    private async Task<BridgeIpcResponse> InspectFocusAsync(BridgeIpcRequest request, CancellationToken cancellationToken)
+    {
+        if (request.FocusInspection is null) return BridgeIpcResponse.Fail(request.RequestId, new("focus_request_required", "A focus inspection request is required."));
+        var result = await _runtime.InspectFocusAsync(request.FocusInspection, cancellationToken);
+        return result.Success ? BridgeIpcResponse.Ok(request.RequestId, result.Value) : BridgeIpcResponse.Fail(request.RequestId, ToProtocolError(result.Error!));
+    }
+
+    private async Task<BridgeIpcResponse> ProbeFocusAsync(BridgeIpcRequest request, CancellationToken cancellationToken)
+    {
+        if (request.FocusProbe is null) return BridgeIpcResponse.Fail(request.RequestId, new("focus_probe_required", "A state-changing focus probe request is required."));
+        var result = await _runtime.ProbeFocusAsync(request.FocusProbe, cancellationToken);
+        return result.Success ? BridgeIpcResponse.Ok(request.RequestId, result.Value) : BridgeIpcResponse.Fail(request.RequestId, ToProtocolError(result.Error!));
     }
 
     private async Task<BridgeIpcResponse> QueryTableAsync(BridgeIpcRequest request, CancellationToken cancellationToken)

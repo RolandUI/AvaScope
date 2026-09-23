@@ -184,6 +184,40 @@ public sealed class NativeInputIntegrationTests
             Assert.True(fillReplay.Success); Assert.True(fillReplay.Value!.Replayed);
             await WaitText("NativeEditor", "form árvíz 😀");
 
+            Assert.True((await client.InputAsync(sessionId, top.Id, InputActions.Focus, targetNodeId: editor.NodeId, cancellationToken: token)).Success);
+            var focusCall = await mcp.CallToolAsync("inspect_focus", new Dictionary<string, object?>
+            { ["request"] = JsonSerializer.SerializeToElement(new RuntimeFocusInspectionRequest(sessionId, top.Id, maxNodes: 4096)) }, cancellationToken: token);
+            var focus = JsonSerializer.Deserialize<ToolResult<RuntimeFocusSnapshot>>(JsonSerializer.Serialize(focusCall.StructuredContent))!;
+            Assert.True(focus.Success, focus.Error?.Message); Assert.Equal(editor.NodeId, focus.Value!.Focused!.Target.NodeId);
+            Assert.Equal(backend, focus.Value.Backend.Backend);
+            var focusStrategy = focus.Value.NativeFocus.State == "focused" ? "native" : "synthetic";
+            if (focusStrategy == "synthetic")
+            {
+                var unconfirmed = await client.ProbeFocusAsync(new(focus.Value.Focused.Target, strategy: "native"), token);
+                Assert.False(unconfirmed.Success); Assert.Equal("focus_probe_native_unconfirmed", unconfirmed.Error!.Code);
+            }
+            var focusPath = Path.Combine(output, "focus-probe-request.json");
+            await File.WriteAllTextAsync(focusPath, JsonSerializer.Serialize(new RuntimeFocusProbeRequest(focus.Value.Focused.Target, strategy: focusStrategy, settleMs: 300)), token);
+            var focusStart = new ProcessStartInfo("dotnet") { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
+            foreach (var argument in new[] { Path.Combine(AppContext.BaseDirectory, "avascope.dll"), "probe-focus", "--request", focusPath }) focusStart.ArgumentList.Add(argument);
+            RuntimeFocusProbeResponse focusProbe;
+            using (var cli = Process.Start(focusStart)!)
+            {
+                var resultText = cli.StandardOutput.ReadToEndAsync(token); var errorText = cli.StandardError.ReadToEndAsync(token);
+                await cli.WaitForExitAsync(token);
+                var result = JsonSerializer.Deserialize<ToolResult<RuntimeFocusProbeResponse>>(await resultText)!;
+                await File.WriteAllTextAsync(Path.Combine(output, "cli-focus-probe.json"), await resultText, token);
+                Assert.True(result.Success, result.Error?.Message + await errorText + await resultText); Assert.Equal(0, cli.ExitCode);
+                focusProbe = result.Value!;
+                Assert.True(focusProbe.FocusChanged); Assert.Equal("NativeFocusNext", focusProbe.After!.Focused!.Label);
+            }
+            focusCall = await mcp.CallToolAsync("probe_focus", new Dictionary<string, object?>
+            { ["request"] = JsonSerializer.SerializeToElement(new RuntimeFocusProbeRequest(focusProbe.After!.Focused!.Target, "previous", focusStrategy, settleMs: 300)) }, cancellationToken: token);
+            var reverseFocus = JsonSerializer.Deserialize<ToolResult<RuntimeFocusProbeResponse>>(JsonSerializer.Serialize(focusCall.StructuredContent))!;
+            Assert.True(reverseFocus.Success, JsonSerializer.Serialize(reverseFocus));
+            Assert.Equal("NativeEditor", reverseFocus.Value!.After!.Focused!.Label);
+            await File.WriteAllTextAsync(Path.Combine(output, "mcp-focus-probe.json"), JsonSerializer.Serialize(reverseFocus), token);
+
             var tableQuery = new RuntimeTableQueryRequest((await Node("NativeTable")).Target!, "Id", ["binding:Id", "binding:Status"],
                 [new("binding:Status", "equals", JsonSerializer.SerializeToElement("failed"))], limit: 64, maxRows: 128);
             var tableCall = await mcp.CallToolAsync("query_table", new Dictionary<string, object?>
@@ -229,6 +263,9 @@ public sealed class NativeInputIntegrationTests
             var lost = await client.InputAsync(sessionId, top.Id, InputActions.KeySequence, targetNodeId: editor.NodeId,
                 execution: new() { Strategy = "native", Keys = [new("Enter")] }, cancellationToken: token);
             Assert.False(lost.Success);
+            var lostFocus = await client.InspectFocusAsync(new(sessionId, top.Id), token);
+            Assert.True(lostFocus.Success); Assert.False(lostFocus.Value!.FrameworkWindowActive);
+            Assert.NotEqual("focused", lostFocus.Value.NativeFocus.State);
             var returnNode = Assert.Single((await client.FindNodesAsync(sessionId, other.Id, TreeKinds.Visual, name: "ReturnToMain", cancellationToken: token)).Value!.Matches).Node;
             Assert.True((await client.InputAsync(sessionId, other.Id, InputActions.Invoke, targetNodeId: returnNode.NodeId, cancellationToken: token)).Success);
             await Task.Delay(150, token);
@@ -257,6 +294,10 @@ public sealed class NativeInputIntegrationTests
             await Invoke("OpenFilePicker");
             var detected = await Picker("detect");
             Assert.True(detected.DialogDetected);
+            var dialogWait = await new SemanticWorkflowRunner().RunAsync(client, new(sessionId, top.Id,
+                [new(SemanticWorkflowActions.WaitForDialog, timeoutMs: 2000)]), token);
+            Assert.True(OperationResultMapper.IsSuccessful(dialogWait), JsonSerializer.Serialize(dialogWait));
+            Assert.True(Assert.Single(dialogWait.Value!.Steps).Picker!.DialogDetected);
             var wrongOwner = client.NativePicker(sessionId, "cancel", topLevelId: "unrelated-window", timeoutMs: 500);
             Assert.False(wrongOwner.Success);
             Assert.Equal("cancelled", (await Picker("cancel")).Status);
@@ -289,7 +330,7 @@ public sealed class NativeInputIntegrationTests
                     backend == "macos" ? "native drag refused before dispatch; explicit synthetic drag" : "bounded native drag",
                     backend == "macos" ? "interrupted native click cleanup" : "interrupted native drag cleanup",
                     "paired native navigation chord", "literal Unicode capability", "CLI desired text; MCP replay; no-op verification", "MCP form inventory; CLI fill; MCP replay",
-                    "MCP read-only action map with exact target", "MCP typed table query; CLI offscreen cell edit; MCP replay; filtered postcondition", "focus loss", "wrong session", "wrong picker owner", "explicit correlated one-shot host result", "real native cancel", "real native select and confirm" }
+                    "MCP read-only action map with exact target", "MCP focus evidence; CLI Tab and MCP Shift+Tab with " + focusStrategy + " route", "MCP typed table query; CLI offscreen cell edit; MCP replay; filtered postcondition", "focus loss", "wrong session", "wrong picker owner", "explicit correlated one-shot host result", "workflow waits for owned native dialog", "real native cancel", "real native select and confirm" }
             }), token);
 
             async Task<TreeNodeSummary> Node(string name) => Assert.Single((await client.FindNodesAsync(sessionId, top.Id, TreeKinds.Visual,

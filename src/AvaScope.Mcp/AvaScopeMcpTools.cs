@@ -9,6 +9,20 @@ namespace AvaScope.Mcp;
 [McpServerToolType]
 public sealed class AvaScopeMcpTools
 {
+    [McpServerTool(Name = "inspect_focus", Title = "Inspect focus and keyboard navigation", ReadOnly = true, Idempotent = true,
+        Destructive = false, OpenWorld = false, UseStructuredContent = true)]
+    [Description("Observe framework focus with its actual registered window, native focus independently, scope/tab metadata, disabled candidates and bounded public next/previous predictions. Predictions are not observed key routing. Does not focus, activate or press keys; custom/hidden/native-child uncertainty remains explicit.")]
+    public static async Task<ToolResult<RuntimeFocusSnapshot>> InspectFocus(LocalBridgeClient bridgeClient,
+        RuntimeFocusInspectionRequest request, string? manifestDirectory = null, CancellationToken cancellationToken = default)
+        => ToToolResult(await CreateBridgeClient(bridgeClient, manifestDirectory).InspectFocusAsync(request, cancellationToken));
+
+    [McpServerTool(Name = "probe_focus", Title = "Probe one Tab navigation step", ReadOnly = false, Idempotent = false,
+        Destructive = false, OpenWorld = false, UseStructuredContent = true)]
+    [Description("STATE-CHANGING: send one Tab or Shift+Tab pair from a pinned currently focused target, then observe focus. May run application validation/commit/navigation handlers. Never activates a window, steals focus, restores state or automatically replays. Explicit synthetic/native strategy; native requires confirmed window focus. Compare before/after with prior predictions; unchanged focus alone does not prove a trap.")]
+    public static async Task<ToolResult<RuntimeFocusProbeResponse>> ProbeFocus(LocalBridgeClient bridgeClient,
+        RuntimeFocusProbeRequest request, string? manifestDirectory = null, CancellationToken cancellationToken = default)
+        => ToToolResult(await CreateBridgeClient(bridgeClient, manifestDirectory).ProbeFocusAsync(request, cancellationToken));
+
     [McpServerTool(Name = "action_map", Title = "Search available application actions", ReadOnly = true, Idempotent = true,
         Destructive = false, OpenWorld = false, UseStructuredContent = true)]
     [Description("Search bounded menu/button routes, declared hotkeys, display-only gestures, key bindings and allowlisted custom actions in one window. Returns current availability, duplicate labels, target/reveal evidence and explicit unknown lazy/native content. Never opens a menu or invokes a command. Re-observe targets after revealing a route; availability is an observation, not dispatch authorization.")]

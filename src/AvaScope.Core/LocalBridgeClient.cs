@@ -1028,6 +1028,12 @@ public sealed partial class LocalBridgeClient
         int timeoutMs = 1000,
         bool redactPath = true,
         string? topLevelId = null)
+        => NativePickerAsync(sessionId, operation, path, predefinedResult, correlationId, ttlMs, timeoutMs, redactPath, topLevelId).GetAwaiter().GetResult();
+
+    public async Task<CoreResult<NativePickerResponse>> NativePickerAsync(
+        SessionId sessionId, string operation, string? path = null, string? predefinedResult = null,
+        string? correlationId = null, int ttlMs = 30000, int timeoutMs = 1000, bool redactPath = true,
+        string? topLevelId = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(sessionId);
         var manifest = FindSingleManifest(null, sessionId);
@@ -1037,8 +1043,8 @@ public sealed partial class LocalBridgeClient
         // External CLI/MCP clients always pass through the bridge's control lease.
         if (manifest.Value!.ProcessId == Environment.ProcessId && topLevelId is null)
             return ExecuteHostedPicker(sessionId, request);
-        return SendAsync<NativePickerResponse>(manifest.Value!, new BridgeIpcRequest(NewRequestId(), BridgeIpcMethods.NativePicker,
-            nativePicker: request), CancellationToken.None).GetAwaiter().GetResult();
+        return await SendAsync<NativePickerResponse>(manifest.Value!, new BridgeIpcRequest(NewRequestId(), BridgeIpcMethods.NativePicker,
+            nativePicker: request), cancellationToken);
     }
 
     public CoreResult<NativePickerResponse> ExecuteHostedPicker(SessionId sessionId, RuntimeNativePickerRequest request)
@@ -1719,6 +1725,7 @@ public sealed partial class LocalBridgeClient
             or BridgeIpcMethods.InspectNode
             or BridgeIpcMethods.InspectForm
             or BridgeIpcMethods.ActionMap
+            or BridgeIpcMethods.InspectFocus
             or BridgeIpcMethods.QueryTable
             or BridgeIpcMethods.ExplainLayout
             or BridgeIpcMethods.FindNodes

@@ -31,6 +31,13 @@ They are distributed through installers, executable ZIPs, and source, not as pac
 
 ## Protocol Contracts
 
+The additive v1.5 `runtime.focus` capability exposes read-only `inspect-focus` /
+`inspect_focus` and state-changing `probe-focus` / `probe_focus`. Native focus,
+framework focus, public navigation predictions and observed probe outcomes are
+distinct. Probes require a pinned current target and never activate, restore or
+automatically replay. Explicit keyboard execution can use `requireCurrentFocus`.
+See [focus navigation](FOCUS_NAVIGATION.md) for limitations and policy semantics.
+
 The additive v1.5 `runtime.action_map` capability exposes `action-map` / `action_map`
 for bounded read-only action/route/shortcut discovery in one window. Observed and
 app-declared routes remain distinct; lazy/native content and duplicate labels stay

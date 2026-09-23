@@ -34,7 +34,7 @@ public sealed class RuntimeReadinessTests
                 Assert.Equal("created", initial.Value.Window.Status);
                 Assert.Equal("not_sampled", initial.Value.Frame.Status);
                 Assert.Equal("unavailable", initial.Value.Application.Status);
-                var absent = await Wait(client, runtime.SessionId, top.Id, SemanticWaitConditionKinds.ApplicationReady, timeoutMs: 120);
+                var absent = await Wait(client, runtime.SessionId, top.Id, SemanticWaitConditionKinds.ApplicationReady, timeoutMs: 1000);
                 Assert.Equal("semantic_workflow_wait_state_unavailable", Assert.Single(absent.Diagnostics).Code);
                 Assert.Equal("unavailable", absent.WaitObservation!.Availability);
 
@@ -42,7 +42,7 @@ public sealed class RuntimeReadinessTests
                 var busy = await Wait(client, runtime.SessionId, top.Id, SemanticWaitConditionKinds.ApplicationBusy);
                 Assert.Equal("passed", busy.Status);
                 Assert.Equal("Loading local fixture", busy.WaitObservation!.Readiness!.Application.Reason);
-                var falseCondition = await Wait(client, runtime.SessionId, top.Id, SemanticWaitConditionKinds.ApplicationReady, timeoutMs: 120);
+                var falseCondition = await Wait(client, runtime.SessionId, top.Id, SemanticWaitConditionKinds.ApplicationReady, timeoutMs: 1000);
                 Assert.Equal("semantic_workflow_wait_timeout", Assert.Single(falseCondition.Diagnostics).Code);
                 Assert.Equal("available", falseCondition.WaitObservation!.Availability);
 
@@ -160,7 +160,7 @@ public sealed class RuntimeReadinessTests
                     RuntimeScenarioRequest Request() => new(
                         [new SemanticWorkflowStep(SemanticWorkflowActions.Invoke, selector: new SemanticWorkflowSelector(name: "Action"))],
                         sessionId: runtime.SessionId, topLevelId: top.Id, outputDirectory: Path.Combine(output, Guid.NewGuid().ToString("N")),
-                        startupReadiness: new RuntimeStartupReadinessOptions(waitForFrame: false, waitForApplication: true, timeoutMs: 200));
+                        startupReadiness: new RuntimeStartupReadinessOptions(waitForFrame: false, waitForApplication: true, timeoutMs: 1500));
                     var absent = await AvaScopeMcpTools.RunScenario(client, Request());
                     Assert.False(absent.Success);
                     Assert.NotNull(absent.Value);

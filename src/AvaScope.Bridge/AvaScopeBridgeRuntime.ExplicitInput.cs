@@ -76,7 +76,7 @@ public sealed partial class AvaScopeBridgeRuntime
                 else pointer = new Pointer(Pointer.GetNextFreeId(), PointerType.Mouse, true);
                 if (action is InputActions.KeySequence or InputActions.KeyText)
                 {
-                    if (!plan.Target.IsFocused && !plan.Target.Focus(NavigationMethod.Unspecified))
+                    if (!plan.Target.IsFocused && (options.RequireCurrentFocus || !plan.Target.Focus(NavigationMethod.Unspecified)))
                         throw new InvalidOperationException("The selected keyboard target did not accept focus.");
                 }
             }, DispatcherPriority.Background, token);
@@ -99,7 +99,7 @@ public sealed partial class AvaScopeBridgeRuntime
                         heldModifiers = stroke.Modifiers;
                         DispatchKey(stroke.Key, stroke.Modifiers, true);
                     });
-                    await OnUi(() => DispatchKey(stroke.Key, stroke.Modifiers, false));
+                    await OnUi(() => DispatchKey(stroke.Key, stroke.Modifiers, false), releasingKey: true);
                     heldKey = null;
                     if (options.IntervalMs > 0) await Task.Delay(options.IntervalMs, token);
                 }
@@ -178,17 +178,17 @@ public sealed partial class AvaScopeBridgeRuntime
         return error is null ? CoreResult<InputResponse>.Ok(response!)
             : ExplicitInputFailure(error.Message, options, dispatched, cleanup);
 
-        async Task OnUi(Action dispatch)
+        async Task OnUi(Action dispatch, bool releasingKey = false)
         {
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
-                CheckTarget();
+                CheckTarget(releasingKey);
                 dispatched++; // A throwing application callback can already have changed state.
                 dispatch();
             }, DispatcherPriority.Background, token);
         }
 
-        void CheckTarget()
+        void CheckTarget(bool releasingKey = false)
         {
             if (plan is null || FindTopLevel(topLevelId) != plan.TopLevel || TopLevel.GetTopLevel(plan.Target) != plan.TopLevel
                 || !plan.Target.IsEffectivelyVisible || !plan.Target.IsEffectivelyEnabled)
@@ -206,7 +206,9 @@ public sealed partial class AvaScopeBridgeRuntime
                     throw new InvalidOperationException("The activation point became stale, clipped or obstructed before pointer dispatch; observe again before retrying.");
             }
             if (options.Strategy == "native") NativeWindowInput.ValidateOwnership(plan.TopLevel, requireFocus: true);
-            if (dispatched > 0 && action is InputActions.KeyText or InputActions.KeySequence && !plan.Target.IsFocused)
+            if (!releasingKey && (dispatched > 0 || options.RequireCurrentFocus)
+                && action is InputActions.KeyText or InputActions.KeySequence
+                && (!plan.Target.IsFocused || plan.TopLevel.FocusManager?.GetFocusedElement() != plan.Target))
                 throw new InvalidOperationException("Keyboard focus changed during the request; remaining input was not dispatched.");
         }
 
@@ -337,6 +339,8 @@ public sealed partial class AvaScopeBridgeRuntime
         InputElement? recipient = nodeId is null ? null : FindNodeById(top, nodeId) as InputElement;
         if (nodeId is not null && recipient is null) return Fail("The requested visual input node is absent or is not an input element; no focused-node substitution was attempted.");
         if (keyboard) recipient ??= top.FocusManager?.GetFocusedElement() as InputElement;
+        if (options.RequireCurrentFocus && (recipient is null || !recipient.IsFocused || top.FocusManager?.GetFocusedElement() != recipient))
+            return Fail("The requested keyboard target no longer holds focus; no focus or input was dispatched.");
         if ((x is null) != (y is null)) return Fail("Both x and y must be supplied together.");
         if (options.ExpectedGeometryRevision is not null && nodeId is null) return Fail("A geometry revision requires its explicit target node id.");
         var intended = recipient;

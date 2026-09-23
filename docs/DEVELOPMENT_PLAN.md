@@ -2,7 +2,7 @@
 
 GitHub Issues and Milestones are the primary project-management source for autonomous agents working on AvaScope. This document is the compact local handoff and validation log. Update it whenever meaningful implementation, validation, or planning changes the active GitHub issue or release state.
 
-- `2026-09-23`: Active release `v1.5.0` / #156 covers #117-#153 and #155 (38 issues); #154 is cancelled: no foreign framework interoperability, adapters or workflow import. #117-#139 are closed; combined CI 35792577645 passed Windows/Linux/macOS at `df76b5e`. #140 is in review at bd46b49; active #141 adds a bounded read-only action map for menus, buttons, shortcuts and app-declared custom actions. A deterministic failing canary exposed an older headless-test overload bug: async bodies selected `Task<Task>` and escaped assertions after suspension. All affected fixtures now explicitly await their complete bodies; exposed failures are being corrected and earlier headless pass counts are not release evidence. The corrected isolated Windows suite reached 640 passed / 3 failed / 2 skipped; focused fixes passed the three UI timing cases, then all 18 action-map/recovery/stable-contract tests passed. A concurrent Windows recovery-record reader also blocked atomic replacement; readers now share deletion. Full corrected Windows/Linux/macOS suites and native table/action-map gates remain required before release. Runtime/sample packages use Avalonia 12.1.3; Bridge preserves its 12.1.0 standalone baseline. Product version stays `1.4.2` until the final validated release commit.
+- `2026-09-23`: Release `v1.5.0` / #156 covers #117-#153 and #155; #154 is cancelled (no foreign framework interoperability). #117-#139 are closed; #140/#141 await corrected combined platform gates. Active #142 implements framework/native focus inspection and explicit Tab probes. Windows focused validation passed 14/14 and then 15/15; Linux focused validation passed 37/37; standalone provider packaging and real Windows/X11 native-input gates passed, including focus, table/action-map and owned-dialog workflow waits. Windows CI 35800813840 and the prior Linux full suite exposed readiness/frame/dialog-wait regressions, now fixed and covered by the focused gates. A new Linux full suite is running; hosted Windows/Linux/macOS validation remains required. Earlier unawaited headless-test results are not release evidence; all affected fixtures now await complete async bodies. Avalonia runtime/sample 12.1.3, Bridge standalone baseline 12.1.0, product version 1.4.2 until the validated release commit.
 
 - `2026-09-03`: Published `v1.4.2` from exact release commit `66d23c040e4bf16ed66b0b43e7021507966347a9` through successful Release workflow `33732182248`. The remote tag matches; the public, non-prerelease GitHub Release has 12/12 assets; and fresh downloads verified all 11 manifest entries by exact name, size, and SHA-256 plus every package metadata version. NuGet.org exposes Protocol/Core/Bridge `1.4.2` as latest; all three CDN packages pass repository-signature verification and their unsigned entries match the release packages. GitHub Packages publication succeeded for all three packages. Release tracker #114 and milestone `v1.4.2` are closed.
 - `2026-09-03`: The v1.4.2 release-candidate gate passed through `59bb5e0` with exact version `1.4.2` staged. The consolidated local Release suite passed `505/505` once, hosted CI `33729834402` passed Windows/Linux/native macOS, and exact-version packaging rebuilt with `0` warnings/errors. Three NuGet packages, four framework-dependent ZIPs, four installers, the 11-entry manifest, Windows installer, packaged doctor/preview/lifecycle, packaged complex CLI/MCP repeat-plus-failure gates, and both publish dry-runs passed. Next: commit exactly `Release 1.4.2`, publish, and verify every remote surface.
@@ -79,11 +79,11 @@ GitHub Issues and Milestones are the primary project-management source for auton
 ## Current Focus
 
 - `Release v1.5.0`
-- GitHub Issue: `#141`
+- GitHub Issue: `#142`
 - GitHub Milestone: `v1.5.0`
 - Status: `In Progress`
 - Owner: autonomous agent
-- Goal: searchable action discovery and corrected platform validation for #140/#141.
+- Goal: observed focus, native activation and explicit navigation probes, plus combined validation of #140/#141.
 
 ## Next Action
 

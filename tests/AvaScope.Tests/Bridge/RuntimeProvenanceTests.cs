@@ -40,6 +40,7 @@ public sealed class RuntimeProvenanceTests
                     using var registration = runtime.RegisterTopLevel(window);
                     Dispatcher.UIThread.RunJobs();
                     var top = Assert.Single(await runtime.ListTopLevelsAsync());
+                    Assert.True((await runtime.ReadinessAsync(top.Id, options: new(waitForFrame: true))).Success);
                     Assert.Equal("headless", top.Backend!.Backend);
                     Assert.Equal("STUB", top.Backend.HandleDescriptor);
                     Assert.Equal("unknown", top.Backend.RenderMode);

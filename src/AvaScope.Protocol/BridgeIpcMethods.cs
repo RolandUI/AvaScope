@@ -8,6 +8,8 @@ public static class BridgeIpcMethods
     public const string Observe = "observe";
     public const string ExplainAction = "explain_action";
     public const string ActionMap = "action_map";
+    public const string InspectFocus = "inspect_focus";
+    public const string ProbeFocus = "probe_focus";
     public const string EnsureState = "ensure_state";
     public const string InspectForm = "inspect_form";
     public const string FillForm = "fill_form";
@@ -41,6 +43,8 @@ public static class BridgeIpcMethods
         Observe,
         ExplainAction,
         ActionMap,
+        InspectFocus,
+        ProbeFocus,
         EnsureState,
         InspectForm,
         FillForm,
@@ -67,7 +71,7 @@ public static class BridgeIpcMethods
         CloseSession
     ];
 
-    public static bool RequiresControl(BridgeIpcRequest request) => request.Method is Input or MutateNode or InvokeCustomAction or CloseSession or EnsureState or FillForm or TableAction
+    public static bool RequiresControl(BridgeIpcRequest request) => request.Method is Input or MutateNode or InvokeCustomAction or CloseSession or EnsureState or FillForm or TableAction or ProbeFocus
         || request.Method == VirtualItem && request.VirtualItem?.Action != "find"
         || request.Method == NativePicker && request.NativePicker?.Operation != "detect";
 }

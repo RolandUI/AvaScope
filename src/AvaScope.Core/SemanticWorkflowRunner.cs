@@ -1978,8 +1978,11 @@ public sealed class SemanticWorkflowRunner
                             if (!observed.Success)
                             {
                                 lastError = observed.Error;
-                                lastObservation = MissingObservation(condition, observed.Error?.Message);
-                                sawAvailable |= observed.Error?.Code == "runtime_readiness_probe_timeout";
+                                // A final short probe can expire after a real unavailable/busy
+                                // observation. Preserve that last completed evidence; a timeout
+                                // cannot establish that an application readiness hook exists.
+                                if (lastObservation is null || observed.Error?.Code != "runtime_readiness_probe_timeout")
+                                    lastObservation = MissingObservation(condition, observed.Error?.Message);
                                 stableSamples = 0;
                                 lastFingerprint = null;
                             }
@@ -2189,10 +2192,12 @@ public sealed class SemanticWorkflowRunner
         {
             cancellationToken.ThrowIfCancellationRequested();
             attempts++;
-            var picker = bridgeClient.NativePicker(
+            var picker = await bridgeClient.NativePickerAsync(
                 request.SessionId,
                 NativePickerOperations.Detect,
-                timeoutMs: 0);
+                timeoutMs: 0,
+                topLevelId: request.TopLevelId,
+                cancellationToken: cancellationToken);
             if (!picker.Success)
             {
                 return Fail(step, picker.Error!);
