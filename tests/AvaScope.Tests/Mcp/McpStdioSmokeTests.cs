@@ -15,7 +15,7 @@ public sealed class McpStdioSmokeTests
 
         var stderr = new List<string>();
         using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(20));
-        var environment = StdioClientTransportOptions.GetDefaultEnvironmentVariables();
+        var environment = TestEnvironment.McpEnvironment();
 
         await using var client = await McpClient.CreateAsync(
             new StdioClientTransport(new StdioClientTransportOptions
@@ -186,7 +186,7 @@ public sealed class McpStdioSmokeTests
 
         var stderr = new List<string>();
         using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(20));
-        var environment = StdioClientTransportOptions.GetDefaultEnvironmentVariables();
+        var environment = TestEnvironment.McpEnvironment();
 
         await using var client = await McpClient.CreateAsync(
             new StdioClientTransport(new StdioClientTransportOptions

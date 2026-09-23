@@ -31,6 +31,12 @@ They are distributed through installers, executable ZIPs, and source, not as pac
 
 ## Protocol Contracts
 
+The additive v1.5 `runtime.action_map` capability exposes `action-map` / `action_map`
+for bounded read-only action/route/shortcut discovery in one window. Observed and
+app-declared routes remain distinct; lazy/native content and duplicate labels stay
+explicit. Custom action registrations can add an optional bounded `route`.
+See [action maps](ACTION_MAP.md) for target, coverage and shortcut semantics.
+
 The additive v1.5 `runtime.desired_state` capability exposes `ensure-state` and
 `ensure_state` with fresh generation-bearing targets, typed desired values,
 before/after verification, operation provenance and exact-payload request replay.

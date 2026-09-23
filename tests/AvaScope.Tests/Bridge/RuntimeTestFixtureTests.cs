@@ -35,7 +35,7 @@ public sealed class RuntimeTestFixtureTests
             var cli = JsonSerializer.Deserialize<ToolResult<RuntimeScenarioResponse>>(await output)!;
             Assert.Equal("passed", cli.Value!.Status);
             Assert.Equal("cleaned", cli.Value.TestFixture!.CleanupStatus);
-            var environment = StdioClientTransportOptions.GetDefaultEnvironmentVariables();
+            var environment = TestEnvironment.McpEnvironment();
             environment[AgentRunStore.DirectoryEnvironmentVariable] = Environment.GetEnvironmentVariable(AgentRunStore.DirectoryEnvironmentVariable)!;
             if (Environment.GetEnvironmentVariable("TMPDIR") is { } temporary) environment["TMPDIR"] = temporary;
             await using var client = await McpClient.CreateAsync(new StdioClientTransport(new StdioClientTransportOptions

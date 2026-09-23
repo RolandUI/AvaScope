@@ -56,7 +56,8 @@ public sealed record BridgeIpcRequest
         RuntimeFormInspectionRequest? formInspection = null,
         RuntimeFormFillRequest? formFill = null,
         RuntimeTableQueryRequest? tableQuery = null,
-        RuntimeTableActionRequest? tableAction = null)
+        RuntimeTableActionRequest? tableAction = null,
+        RuntimeActionMapRequest? actionMap = null)
     {
         if (string.IsNullOrWhiteSpace(requestId))
         {
@@ -69,6 +70,7 @@ public sealed record BridgeIpcRequest
         }
 
         RequestId = requestId;
+        ActionMap = actionMap;
         Method = method;
         TopLevelId = topLevelId;
         OutputPath = outputPath;
@@ -120,6 +122,10 @@ public sealed record BridgeIpcRequest
         TableAction = tableAction;
         Query = query;
     }
+
+    [JsonPropertyName("actionMap")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public RuntimeActionMapRequest? ActionMap { get; }
 
     [JsonPropertyName("requestId")]
     public string RequestId { get; }

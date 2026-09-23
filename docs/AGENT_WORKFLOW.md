@@ -12,6 +12,8 @@ Use [explicit input strategies](INPUT_STRATEGIES.md) for compound/native actions
 
 Use [action explanations](ACTION_EXPLANATIONS.md) when a target is blocked or its activation point is uncertain. Separate proven blockers from correlated validation and app-declared reasons; revalidate geometry before pointer dispatch.
 
+Use [action maps](ACTION_MAP.md) to find an operation by label, route, description or shortcut before acting. Open lazy routes explicitly, then re-observe their current targets. Distinguish declared key bindings from menu text that only displays a shortcut.
+
 Use [relationship selectors and typed projections](RELATIONSHIP_QUERIES.md) to distinguish repeated controls by their container, row or explicit label, and to request only selected field values. Treat partial coverage and missing/redacted values explicitly before deciding an action.
 
 Use [desired-state actions](DESIRED_STATE_ACTIONS.md) to ensure a check, expansion, value, text or selection state without reversing an already satisfied result. Preserve the exact request ID/payload after a lost response and inspect partial or uncertain outcomes before another intent.

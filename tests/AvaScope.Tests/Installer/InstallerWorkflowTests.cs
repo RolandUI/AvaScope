@@ -193,7 +193,7 @@ public sealed class InstallerWorkflowTests
             var stderr = new List<string>();
             using (var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(20)))
             {
-                var environment = StdioClientTransportOptions.GetDefaultEnvironmentVariables();
+                var environment = TestEnvironment.McpEnvironment();
                 var installedMcpPath = Path.Combine(
                     installRoot,
                     "current",
@@ -360,7 +360,7 @@ public sealed class InstallerWorkflowTests
             var installedMcpPath = Path.Combine(installRoot, "current", "AvaScope.Mcp.exe");
             var stderr = new List<string>();
             using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(20));
-            var environment = StdioClientTransportOptions.GetDefaultEnvironmentVariables();
+            var environment = TestEnvironment.McpEnvironment();
 
             await using var client = await McpClient.CreateAsync(
                 new StdioClientTransport(new StdioClientTransportOptions

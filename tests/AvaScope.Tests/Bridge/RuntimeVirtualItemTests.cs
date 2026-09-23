@@ -113,7 +113,7 @@ public sealed class RuntimeVirtualItemTests
                 Assert.True(string.IsNullOrWhiteSpace(await errors));
                 var cli = JsonSerializer.Deserialize<ToolResult<RuntimeVirtualItemResponse>>(await output)!;
                 Assert.True(cli.Success, cli.Error?.Message);
-                var environment = StdioClientTransportOptions.GetDefaultEnvironmentVariables();
+                var environment = TestEnvironment.McpEnvironment();
                 if (Environment.GetEnvironmentVariable("TMPDIR") is { } temporary) environment["TMPDIR"] = temporary;
                 await using var mcp = await McpClient.CreateAsync(new StdioClientTransport(new StdioClientTransportOptions
                 {

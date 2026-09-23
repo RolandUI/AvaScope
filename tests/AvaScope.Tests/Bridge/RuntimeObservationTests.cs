@@ -186,7 +186,7 @@ public sealed class RuntimeObservationTests
                     Assert.True(string.IsNullOrWhiteSpace(await stderr));
                     var cli = JsonSerializer.Deserialize<ToolResult<RuntimeObservationResponse>>(await stdout)!;
                     Assert.True(cli.Success, cli.Error?.Message);
-                    var environment = StdioClientTransportOptions.GetDefaultEnvironmentVariables();
+                    var environment = TestEnvironment.McpEnvironment();
                     if (Environment.GetEnvironmentVariable("TMPDIR") is { } temporary) environment["TMPDIR"] = temporary;
                     await using var client = await McpClient.CreateAsync(new StdioClientTransport(new StdioClientTransportOptions
                     {

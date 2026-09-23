@@ -336,6 +336,7 @@ internal sealed class LocalBridgeServer : IDisposable
             BridgeIpcMethods.Readiness => Respond(await ReadinessAsync(request, cancellationToken)),
             BridgeIpcMethods.Observe => Respond(await ObserveAsync(request, cancellationToken)),
             BridgeIpcMethods.ExplainAction => Respond(await ExplainActionAsync(request, cancellationToken)),
+            BridgeIpcMethods.ActionMap => Respond(await ActionMapAsync(request, cancellationToken)),
             BridgeIpcMethods.EnsureState => Respond(await EnsureStateAsync(request, cancellationToken)),
             BridgeIpcMethods.InspectForm => Respond(await InspectFormAsync(request, cancellationToken)),
             BridgeIpcMethods.FillForm => Respond(await FillFormAsync(request, cancellationToken)),
@@ -413,6 +414,15 @@ internal sealed class LocalBridgeServer : IDisposable
         if (request.Observation is null)
             return BridgeIpcResponse.Fail(request.RequestId, new ProtocolError("missing_observation_request", "Observation options are required."));
         var result = await _runtime.ObserveAsync(request.Observation, cancellationToken);
+        return result.Success ? BridgeIpcResponse.Ok(request.RequestId, result.Value)
+            : BridgeIpcResponse.Fail(request.RequestId, ToProtocolError(result.Error!));
+    }
+
+    private async Task<BridgeIpcResponse> ActionMapAsync(BridgeIpcRequest request, CancellationToken cancellationToken)
+    {
+        if (request.ActionMap is null)
+            return BridgeIpcResponse.Fail(request.RequestId, new("action_map_request_required", "An action map request is required."));
+        var result = await _runtime.ActionMapAsync(request.ActionMap, cancellationToken);
         return result.Success ? BridgeIpcResponse.Ok(request.RequestId, result.Value)
             : BridgeIpcResponse.Fail(request.RequestId, ToProtocolError(result.Error!));
     }

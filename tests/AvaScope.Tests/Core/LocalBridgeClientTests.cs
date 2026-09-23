@@ -55,6 +55,21 @@ public sealed class LocalBridgeClientTests : IDisposable
             "{",
             Encoding.UTF8);
 
+        if (OperatingSystem.IsWindows())
+        {
+            try
+            {
+                using var system = Process.GetProcessById(4);
+                _ = system.HasExited;
+            }
+            catch (System.ComponentModel.Win32Exception)
+            {
+                // Exercise the actual protected-process failure when Windows denies the query.
+                File.WriteAllText(Path.Combine(_manifestDirectory, "inaccessible.json"),
+                    JsonSerializer.Serialize(new BridgeSessionManifest(new("inaccessible"), 4, "unavailable", createdAt)));
+            }
+        }
+
         var client = new LocalBridgeClient(_manifestDirectory);
 
         var manifests = client.ListSessionManifests();

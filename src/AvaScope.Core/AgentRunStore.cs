@@ -201,10 +201,13 @@ public sealed class AgentRunStore
         var path = Path.Combine(directory, "record.json");
         if (!File.Exists(path)) return null;
         RejectLink(_root); RejectLink(directory); RejectLink(path);
-        if (new FileInfo(path).Length > 65536) return null;
         try
         {
-            var record = JsonSerializer.Deserialize<Record>(File.ReadAllText(path), JsonOptions);
+            // Writers replace an immutable snapshot atomically. A reader must not block
+            // that rename on Windows while a scenario records its process or lease.
+            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete);
+            if (stream.Length > 65536) return null;
+            var record = JsonSerializer.Deserialize<Record>(stream, JsonOptions);
             return record?.RunId == id && record.Paths is { Count: > 0 and <= 256 } && record.Paths.All(Path.IsPathFullyQualified)
                 && record.Processes is { Count: <= 16 } && record.Processes.All(p => p is not null && p.ProcessId > 0 && p.StartedAt > DateTimeOffset.UnixEpoch)
                 && record.RuntimeDirectories is { Count: <= 4 } && record.RuntimeDirectories.All(Path.IsPathFullyQualified)

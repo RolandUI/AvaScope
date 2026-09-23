@@ -7,6 +7,7 @@ public static class BridgeIpcMethods
     public const string Readiness = "readiness";
     public const string Observe = "observe";
     public const string ExplainAction = "explain_action";
+    public const string ActionMap = "action_map";
     public const string EnsureState = "ensure_state";
     public const string InspectForm = "inspect_form";
     public const string FillForm = "fill_form";
@@ -39,6 +40,7 @@ public static class BridgeIpcMethods
         Readiness,
         Observe,
         ExplainAction,
+        ActionMap,
         EnsureState,
         InspectForm,
         FillForm,

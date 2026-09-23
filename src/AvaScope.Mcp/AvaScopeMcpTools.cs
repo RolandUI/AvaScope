@@ -9,6 +9,13 @@ namespace AvaScope.Mcp;
 [McpServerToolType]
 public sealed class AvaScopeMcpTools
 {
+    [McpServerTool(Name = "action_map", Title = "Search available application actions", ReadOnly = true, Idempotent = true,
+        Destructive = false, OpenWorld = false, UseStructuredContent = true)]
+    [Description("Search bounded menu/button routes, declared hotkeys, display-only gestures, key bindings and allowlisted custom actions in one window. Returns current availability, duplicate labels, target/reveal evidence and explicit unknown lazy/native content. Never opens a menu or invokes a command. Re-observe targets after revealing a route; availability is an observation, not dispatch authorization.")]
+    public static async Task<ToolResult<RuntimeActionMapResponse>> ActionMap(LocalBridgeClient bridgeClient,
+        RuntimeActionMapRequest request, string? manifestDirectory = null, CancellationToken cancellationToken = default)
+        => ToToolResult(await CreateBridgeClient(bridgeClient, manifestDirectory).ActionMapAsync(request, cancellationToken));
+
     [McpServerTool(Name = "query_table", Title = "Query structured runtime table data", ReadOnly = true, Idempotent = true,
         Destructive = false, OpenWorld = false, UseStructuredContent = true)]
     [Description("Read typed public DataGrid cell values with stable row keys, selected columns, bounded AND filters and paging. Coverage describes the available public collection view, never the full application dataset. Missing values, unsupported bindings, duplicate keys and truncated scans remain explicit. No scrolling, selection or application-store queries are performed.")]

@@ -13,7 +13,8 @@ public sealed record CustomActionRegistration
         IReadOnlyList<RuntimeCustomActionParameterDescriptor>? parameters = null,
         IReadOnlyDictionary<string, string>? requiredState = null,
         Func<Visual, CustomActionAvailability>? availability = null,
-        RuntimeTestFixtureDescriptor? testFixture = null)
+        RuntimeTestFixtureDescriptor? testFixture = null,
+        IReadOnlyList<string>? route = null)
     {
         if (string.IsNullOrWhiteSpace(name))
         {
@@ -33,6 +34,9 @@ public sealed record CustomActionRegistration
         RequiredState = requiredState ?? new Dictionary<string, string>();
         Availability = availability;
         TestFixture = testFixture;
+        Route = route?.ToArray() ?? [];
+        if (Route.Count > 12 || Route.Any(segment => string.IsNullOrWhiteSpace(segment) || segment.Length > 128))
+            throw new ArgumentException("An optional application-declared route allows up to 12 non-empty segments of at most 128 characters.", nameof(route));
     }
 
     public string Name { get; }
@@ -43,6 +47,7 @@ public sealed record CustomActionRegistration
     public IReadOnlyDictionary<string, string> RequiredState { get; }
     public Func<Visual, CustomActionAvailability>? Availability { get; }
     public RuntimeTestFixtureDescriptor? TestFixture { get; }
+    public IReadOnlyList<string> Route { get; }
 }
 
 public sealed record CustomActionContext(

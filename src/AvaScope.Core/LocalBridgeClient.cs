@@ -827,6 +827,28 @@ public sealed partial class LocalBridgeClient
             new BridgeIpcRequest(NewRequestId(), BridgeIpcMethods.Observe, observation: request), cancellationToken);
     }
 
+    public async Task<CoreResult<RuntimeActionMapResponse>> ActionMapAsync(RuntimeActionMapRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var policy = request.Policy is null ? null : new RuntimeEvidencePolicyEnforcer(request.Policy);
+        if (policy is not null)
+        {
+            var authorization = policy.AuthorizeSession(this, request.SessionId);
+            if (!authorization.Success) return CoreResult<RuntimeActionMapResponse>.Fail(authorization.Error!);
+            var action = policy.AuthorizeAction(SemanticWorkflowActions.Inspect, null);
+            if (!action.Success) return CoreResult<RuntimeActionMapResponse>.Fail(action.Error!);
+        }
+        var manifest = FindSingleManifest(null, request.SessionId);
+        if (!manifest.Success) return CoreResult<RuntimeActionMapResponse>.Fail(manifest.Error!);
+        var result = await SendAsync<RuntimeActionMapResponse>(manifest.Value!,
+            new BridgeIpcRequest(NewRequestId(), BridgeIpcMethods.ActionMap, actionMap: request), cancellationToken);
+        if (policy is null) return result;
+        if (result.Success) return policy.Sanitize(result.Value!);
+        var error = policy.Sanitize(result.Error!);
+        return CoreResult<RuntimeActionMapResponse>.Fail(error.Success ? error.Value! : error.Error!);
+    }
+
     public async Task<CoreResult<RuntimeTableQueryResponse>> QueryTableAsync(RuntimeTableQueryRequest request,
         CancellationToken cancellationToken = default)
     {
@@ -1696,6 +1718,7 @@ public sealed partial class LocalBridgeClient
             or BridgeIpcMethods.LogicalTree
             or BridgeIpcMethods.InspectNode
             or BridgeIpcMethods.InspectForm
+            or BridgeIpcMethods.ActionMap
             or BridgeIpcMethods.QueryTable
             or BridgeIpcMethods.ExplainLayout
             or BridgeIpcMethods.FindNodes
@@ -1891,6 +1914,11 @@ public sealed partial class LocalBridgeClient
         {
             return false;
         }
+        catch (System.ComponentModel.Win32Exception)
+        {
+            // Stale manifests can outlive their PID and now point to an inaccessible process.
+            return false;
+        }
     }
 
     private static string? GetProcessName(int processId)
@@ -1905,6 +1933,10 @@ public sealed partial class LocalBridgeClient
             return null;
         }
         catch (InvalidOperationException)
+        {
+            return null;
+        }
+        catch (System.ComponentModel.Win32Exception)
         {
             return null;
         }

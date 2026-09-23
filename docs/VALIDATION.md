@@ -22,9 +22,9 @@ without a return value can select the synchronous generic overload and produce
 that the shared helper propagates such failures. A green run with unobserved test
 bodies is not release evidence.
 
-The test process and its CLI/MCP children use an isolated recovery registry under
-the test temporary directory. An explicit `AVASCOPE_RUN_STORE_DIR` override is
-honored. Validation must not depend on or add records to a developer's normal run
+The test process and its CLI/MCP children use isolated recovery and bridge session
+registries under the test temporary directory. Explicit `AVASCOPE_RUN_STORE_DIR`
+and `AVASCOPE_BRIDGE_MANIFEST_DIR` overrides are honored. Validation must not depend on or add records to a developer's normal run
 store; accumulated real records can otherwise introduce path conflicts and lock
 contention unrelated to the fixture.
 

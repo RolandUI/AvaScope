@@ -258,7 +258,7 @@ public sealed class RuntimeRelationshipQueryTests
                 Assert.Equal("redacted", projected.Attributes.Single(value => value.Attribute == "text").Status);
                 Assert.Null(projected.Attributes.Single(value => value.Attribute == "text").Value);
                 Assert.Equal("missing", projected.Attributes.Single(value => value.Attribute == "checked").Status);
-                var environment = StdioClientTransportOptions.GetDefaultEnvironmentVariables();
+                var environment = TestEnvironment.McpEnvironment();
                 if (Environment.GetEnvironmentVariable("TMPDIR") is { } temporary) environment["TMPDIR"] = temporary;
                 await using var mcp = await McpClient.CreateAsync(new StdioClientTransport(new StdioClientTransportOptions
                 {

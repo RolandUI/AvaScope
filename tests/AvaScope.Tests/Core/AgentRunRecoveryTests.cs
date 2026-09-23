@@ -190,12 +190,18 @@ public sealed class AgentRunRecoveryTests : IDisposable
                 if (Directory.Exists(StorePath))
                 {
                     var file = Directory.EnumerateFiles(StorePath, "record.json", SearchOption.AllDirectories).SingleOrDefault();
-                    if (file is not null) record = JsonSerializer.Deserialize<AgentRunStore.Record>(File.ReadAllText(file), new JsonSerializerOptions(JsonSerializerDefaults.Web));
+                    if (file is not null)
+                    {
+                        using var stream = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete);
+                        record = JsonSerializer.Deserialize<AgentRunStore.Record>(stream, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+                    }
                 }
                 if (record?.ControlToken is null) await Task.Delay(50);
             }
-            Assert.NotNull(record?.SessionId);
-            Assert.NotNull(record.ControlToken);
+            Assert.True(record?.SessionId is not null, owner.HasExited
+                ? await stdout + await stderr : "The scenario did not register its session within ten seconds.");
+            Assert.True(record.ControlToken is not null, owner.HasExited
+                ? await stdout + await stderr : "The scenario did not persist its control lease within ten seconds.");
             Assert.True((await store.RecoverAsync(new(record.RunId))).Value!.Active);
             var outsider = new LocalBridgeClient(Manifests);
             Assert.Equal("session_control_conflict", (await outsider.SessionControlAsync(record.SessionId!, new("acquire", "other-agent"))).Error!.Code);

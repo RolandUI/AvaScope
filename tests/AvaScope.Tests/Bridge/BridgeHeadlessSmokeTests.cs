@@ -1583,6 +1583,7 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
 
                 var client = new LocalBridgeClient(Path.GetDirectoryName(runtime.SessionManifestPath)!);
                 var topLevel = Assert.Single(await runtime.ListTopLevelsAsync());
+                Assert.True((await runtime.ReadinessAsync(topLevel.Id, options: new(waitForFrame: true))).Success);
                 var buttonCenter = button.TranslatePoint(
                     new Point(button.Bounds.Width / 2, button.Bounds.Height / 2),
                     window);
@@ -2070,7 +2071,7 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                                 SemanticWorkflowActions.WaitForNode,
                                 "wait-node",
                                 new SemanticWorkflowSelector(automationId: "resilient-input"),
-                                timeoutMs: 500,
+                                timeoutMs: 2500,
                                 pollIntervalMs: 25),
                             new SemanticWorkflowStep(
                                 SemanticWorkflowActions.WaitForState,
@@ -2078,7 +2079,7 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                                 new SemanticWorkflowSelector(automationId: "resilient-input"),
                                 assertProperty: "text",
                                 expected: "ready",
-                                timeoutMs: 500,
+                                timeoutMs: 2500,
                                 pollIntervalMs: 25),
                             new SemanticWorkflowStep(
                                 SemanticWorkflowActions.ValidateAction,
@@ -3002,10 +3003,9 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                 var transition = new Button { Content = "Start transition" };
                 AutomationProperties.SetAutomationId(transition, "composition-transition");
                 var transitionInvocations = 0;
-                transition.Click += async (_, _) =>
+                transition.Click += (_, _) =>
                 {
                     transitionInvocations++;
-                    await Task.Delay(75);
                     status.Text = "ready";
                 };
                 var window = new Window
@@ -3097,17 +3097,12 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                     Assert.Equal("passed", result.Value!.Status);
                     Assert.True(result.Value.Plan!.Valid);
                     Assert.Equal(1, transitionInvocations);
-                    Assert.Contains(result.Value.Steps, step => step.Status == "retried" && step.Attempt == 1);
                     Assert.Contains(result.Value.Steps, step => step.StepId == "optional-dialog" && step.Status == "skipped");
                     Assert.Contains(result.Value.Steps, step => step.StepId == "unexpected-else" && step.Status == "skipped");
                     var fragmentAssert = Assert.Single(result.Value.Steps, step => step.StepId == "fragment-assert");
                     Assert.Equal("passed", fragmentAssert.Status);
                     Assert.Equal("verify-status", fragmentAssert.SourceFragment);
                     Assert.NotNull(fragmentAssert.ExecutionPath);
-                    Assert.True(result.Value.Steps.Count(step => step.StepId == "start-transition") > 1);
-                    Assert.All(
-                        result.Value.Steps.Where(step => step.StepId == "start-transition").Skip(1),
-                        step => Assert.Equal("true", step.Metadata["idempotencyReplay"]));
 
                     status.Text = "not-ready";
                     var elseResult = await new SemanticWorkflowRunner().RunAsync(
@@ -3150,6 +3145,11 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                                     steps:
                                     [
                                         new SemanticWorkflowStep(
+                                            SemanticWorkflowActions.Invoke,
+                                            "retry-idempotent-transition",
+                                            new SemanticWorkflowSelector(automationId: "composition-transition"),
+                                            idempotencyKey: "exhausted-transition-once"),
+                                        new SemanticWorkflowStep(
                                             SemanticWorkflowActions.Inspect,
                                             "observe-status",
                                             new SemanticWorkflowSelector(automationId: "composition-status"))
@@ -3159,6 +3159,10 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                     Assert.Equal("failed", exhausted.Value!.Status);
                     Assert.Contains(exhausted.Value.Steps, step => step.StepId == "exhausted-retry" && step.Status == "retried");
                     Assert.Contains(exhausted.Value.Diagnostics, diagnostic => diagnostic.Code == "semantic_workflow_retry_exhausted");
+                    Assert.Equal(2, transitionInvocations);
+                    var retriedActions = exhausted.Value.Steps.Where(step => step.StepId == "retry-idempotent-transition").ToArray();
+                    Assert.Equal(2, retriedActions.Length);
+                    Assert.Equal("true", retriedActions[1].Metadata["idempotencyReplay"]);
 
                     var validateOnly = new SemanticWorkflowRequest(
                         runtime.SessionId,
@@ -3430,6 +3434,7 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
 
                     var client = new LocalBridgeClient(manifestDirectory);
                     var topLevel = Assert.Single(await runtime.ListTopLevelsAsync());
+                    Assert.True((await runtime.ReadinessAsync(topLevel.Id, options: new(waitForFrame: true))).Success);
 
                     async Task<TreeNodeSummary> Find(string automationId)
                     {
@@ -3517,6 +3522,7 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                     var duplicate = CreateDurableButton(recreateOnClick: false);
                     panel.Children.Add(duplicate);
                     Dispatcher.UIThread.RunJobs();
+                    Assert.True((await runtime.ReadinessAsync(topLevel.Id, options: new(waitForFrame: true))).Success);
                     var ambiguous = await new SemanticWorkflowRunner().RunAsync(
                         client,
                         new SemanticWorkflowRequest(

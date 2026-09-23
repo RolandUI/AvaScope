@@ -63,7 +63,7 @@ public sealed class ExplicitInputTests
                 var cli = JsonSerializer.Deserialize<ToolResult<InputResponse>>(await stdout)!;
                 Assert.True(cli.Success, cli.Error?.Message + await stderr);
                 Assert.Equal("middle", cli.Value!.PointerButton);
-                var environment = StdioClientTransportOptions.GetDefaultEnvironmentVariables();
+                var environment = TestEnvironment.McpEnvironment();
                 if (Environment.GetEnvironmentVariable("TMPDIR") is { } temporary) environment["TMPDIR"] = temporary;
                 await using var mcp = await McpClient.CreateAsync(new StdioClientTransport(new StdioClientTransportOptions
                 {

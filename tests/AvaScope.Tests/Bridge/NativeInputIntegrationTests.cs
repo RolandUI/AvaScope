@@ -60,13 +60,27 @@ public sealed class NativeInputIntegrationTests
             var route = backend == "win32" ? RuntimeOperationRoutes.Win32WindowMessage : backend == "x11" ? RuntimeOperationRoutes.X11WindowEvent : RuntimeOperationRoutes.AppKitWindowEvent;
             var pad = await Node("NativePad");
             var editor = await Node("NativeEditor");
-            var environment = StdioClientTransportOptions.GetDefaultEnvironmentVariables();
+            var environment = TestEnvironment.McpEnvironment();
             if (Environment.GetEnvironmentVariable("TMPDIR") is { } temporary) environment["TMPDIR"] = temporary;
             await using var mcp = await McpClient.CreateAsync(new StdioClientTransport(new StdioClientTransportOptions
             {
                 Name = "Native input validation", Command = "dotnet", Arguments = [Path.Combine(AppContext.BaseDirectory, "AvaScope.Mcp.dll")],
                 InheritEnvironmentVariables = false, EnvironmentVariables = environment, ShutdownTimeout = TimeSpan.FromSeconds(3)
             }), cancellationToken: token);
+
+            var mapCall = await mcp.CallToolAsync("action_map", new Dictionary<string, object?>
+            { ["request"] = JsonSerializer.SerializeToElement(new RuntimeActionMapRequest(sessionId, top.Id, "Open another window")) }, cancellationToken: token);
+            var map = JsonSerializer.Deserialize<ToolResult<RuntimeActionMapResponse>>(JsonSerializer.Serialize(mapCall.StructuredContent))!;
+            Assert.True(map.Success, map.Error?.Message);
+            var mappedAction = Assert.Single(map.Value!.Actions);
+            Assert.Equal("available", mappedAction.Availability);
+            var mappedTarget = (await Node("OtherWindow")).Target!;
+            Assert.Equal(mappedTarget.NodeId, mappedAction.Target!.NodeId);
+            Assert.Equal(mappedTarget.NodeGeneration, mappedAction.Target.NodeGeneration);
+            Assert.Equal(mappedTarget.TopLevelGeneration, mappedAction.Target.TopLevelGeneration);
+            Assert.Contains(InputActions.Invoke, mappedAction.Actions);
+            Assert.Single((await client.ListTopLevelsAsync(sessionId, token)).Value!.TopLevels);
+            await File.WriteAllTextAsync(Path.Combine(output, "mcp-action-map.json"), JsonSerializer.Serialize(map), token);
 
             var clickOptions = new InputExecutionOptions { Strategy = "native", Button = "right", ClickCount = 2, IntervalMs = 75 };
             await CliInput(InputActions.Click, pad.NodeId, clickOptions, "Shift");
@@ -141,11 +155,12 @@ public sealed class NativeInputIntegrationTests
             Assert.Equal("already_satisfied", desiredAgain.Value!.Status); Assert.Equal(0, desiredAgain.Value.DispatchedOperations);
             await WaitText("NativeEditor", "desired-state árvíz 😀");
 
-            var form = new RuntimeFormInspectionRequest(sessionId, top.Id, new(name: "NativeEditor"));
+            var form = new RuntimeFormInspectionRequest(sessionId, top.Id, new(name: "NativeEditor"), maxNodes: 2048);
             var formCall = await mcp.CallToolAsync("inspect_form", new Dictionary<string, object?>
             { ["request"] = JsonSerializer.SerializeToElement(form) }, cancellationToken: token);
             var inventory = JsonSerializer.Deserialize<ToolResult<RuntimeFormInspectionResponse>>(JsonSerializer.Serialize(formCall.StructuredContent))!;
-            Assert.True(inventory.Success); Assert.Single(inventory.Value!.Fields);
+            await File.WriteAllTextAsync(Path.Combine(output, "mcp-form-inventory.json"), JsonSerializer.Serialize(inventory), token);
+            Assert.True(inventory.Success, inventory.Error?.Message); Assert.Single(inventory.Value!.Fields);
             var fill = new RuntimeFormFillRequest(form,
                 [new("editor", new(name: "NativeEditor"), JsonSerializer.SerializeToElement("form árvíz 😀"))], "native-form-fill");
             var fillPath = Path.Combine(output, "form-fill-request.json");
@@ -274,7 +289,7 @@ public sealed class NativeInputIntegrationTests
                     backend == "macos" ? "native drag refused before dispatch; explicit synthetic drag" : "bounded native drag",
                     backend == "macos" ? "interrupted native click cleanup" : "interrupted native drag cleanup",
                     "paired native navigation chord", "literal Unicode capability", "CLI desired text; MCP replay; no-op verification", "MCP form inventory; CLI fill; MCP replay",
-                    "MCP typed table query; CLI offscreen cell edit; MCP replay; filtered postcondition", "focus loss", "wrong session", "wrong picker owner", "explicit correlated one-shot host result", "real native cancel", "real native select and confirm" }
+                    "MCP read-only action map with exact target", "MCP typed table query; CLI offscreen cell edit; MCP replay; filtered postcondition", "focus loss", "wrong session", "wrong picker owner", "explicit correlated one-shot host result", "real native cancel", "real native select and confirm" }
             }), token);
 
             async Task<TreeNodeSummary> Node(string name) => Assert.Single((await client.FindNodesAsync(sessionId, top.Id, TreeKinds.Visual,
