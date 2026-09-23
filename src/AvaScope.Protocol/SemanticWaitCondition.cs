@@ -15,7 +15,8 @@ public sealed record SemanticWaitCondition
         string? baseline = null,
         string? topLevelId = null,
         string? topLevelTitle = null,
-        int stableSamples = 3)
+        int stableSamples = 3,
+        RuntimeExpressionDefinition? expression = null)
     {
         if (!SemanticWaitConditionKinds.All.Contains(kind, StringComparer.Ordinal))
         {
@@ -33,6 +34,12 @@ public sealed record SemanticWaitCondition
         }
 
         Kind = kind;
+        if ((kind == SemanticWaitConditionKinds.Expression) != (expression is not null))
+            throw new ArgumentException("Expression conditions require a typed expression definition; other conditions cannot supply one.");
+        if (expression is not null && (expected is not null || comparison is not null && comparison != SemanticWaitComparisons.Equal
+            || propertyName is not null || bindingPath is not null || baseline is not null))
+            throw new ArgumentException("An expression condition requires its own boolean result; put comparisons inside the expression.");
+        Expression = expression;
         if (stableSamples is < 2 or > 10)
             throw new ArgumentOutOfRangeException(nameof(stableSamples), "Stable samples must be between 2 and 10.");
         StableSamples = stableSamples;
@@ -48,6 +55,9 @@ public sealed record SemanticWaitCondition
 
     [JsonPropertyName("kind")]
     public string Kind { get; }
+
+    [JsonPropertyName("expression"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public RuntimeExpressionDefinition? Expression { get; }
 
     [JsonPropertyName("stableSamples")]
     public int StableSamples { get; }

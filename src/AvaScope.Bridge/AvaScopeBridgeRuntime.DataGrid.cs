@@ -191,7 +191,7 @@ public sealed partial class AvaScopeBridgeRuntime
             return member?.GetMethod?.IsPublic == true && member.GetIndexParameters().Length == 0 ? member.GetValue(instance) : null;
         }
 
-        private static Type? FindType(Type? type, string name)
+        public static Type? FindType(Type? type, string name)
         {
             for (; type is not null; type = type.BaseType)
                 if (type.FullName == name && type.Assembly.GetName().Name == AssemblyName) return type;

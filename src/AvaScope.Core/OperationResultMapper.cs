@@ -27,6 +27,8 @@ public static class OperationResultMapper
     {
         return value switch
         {
+            RuntimeExpressionResponse response when response.Status is "failed" or "indeterminate"
+                => OutcomeError("runtime_expression_not_verified", response.Status, response.Diagnostics),
             RuntimeFocusProbeResponse response when response.Status != "observed"
                 => OutcomeError("focus_probe_failed", response.Status, response.Diagnostics),
             RuntimeTableActionResponse response when !response.Verified

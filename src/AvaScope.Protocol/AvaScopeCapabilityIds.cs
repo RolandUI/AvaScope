@@ -16,6 +16,7 @@ public static class AvaScopeCapabilityIds
     public const string RuntimeTables = "runtime.tables";
     public const string RuntimeActionMap = "runtime.action_map";
     public const string RuntimeFocus = "runtime.focus";
+    public const string RuntimeExpressions = "runtime.expressions";
     public const string RuntimeStandaloneProvider = "runtime.standalone_provider";
     public const string RuntimeIntegrationGuidance = "runtime.integration_guidance";
     public const string RuntimeIntegrationVerification = "runtime.integration_verification";

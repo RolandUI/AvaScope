@@ -23,7 +23,7 @@ public sealed partial class AvaScopeBridgeRuntime
         return await Dispatcher.UIThread.InvokeAsync(() => QueryNodes(request), DispatcherPriority.Background, cancellationToken);
     }
 
-    private CoreResult<FindNodesResponse> QueryNodes(RuntimeQueryRequest request)
+    private CoreResult<FindNodesResponse> QueryNodes(RuntimeQueryRequest request, bool requireCollectionCoverage = false)
     {
         Dispatcher.UIThread.VerifyAccess();
         if (request.SessionId != SessionId) return InvalidFindRequest("Query belongs to a different session.");
@@ -48,10 +48,15 @@ public sealed partial class AvaScopeBridgeRuntime
         {
             if (!Budget()) return;
             if (nodes.Count == request.MaxNodes) { reasons.Add("node_limit"); return; }
-            var excluded = parent?.Excluded == true || request.Policy?.ExcludedControlAutomationIds.Contains(GetAutomationId(node), StringComparer.Ordinal) == true;
+            var excluded = parent?.Excluded == true || request.Policy?.ExcludedControlAutomationIds.Contains(GetAutomationId(node), StringComparer.Ordinal) == true
+                || requireCollectionCoverage && request.Policy?.RedactedAutomationIds.Contains(GetAutomationId(node), StringComparer.Ordinal) == true;
             var entry = new QueryNode(node, parent, depth, excluded, QueryIdentity(node));
             nodes.Add(entry);
             if (excluded) { reasons.Add("policy_exclusions"); return; }
+            if (requireCollectionCoverage && request.Selector.NodeId is null && node is ItemsControl items && items.ItemCount > items.GetRealizedContainers().Take(request.MaxNodes + 1).Count())
+                reasons.Add("unrealized_collection_items");
+            if (requireCollectionCoverage && request.Selector.NodeId is null && DataGridTable.FindType(node.GetType(), "Avalonia.Controls.DataGrid") is not null)
+                reasons.Add("table_requires_structured_query");
             if (depth == request.MaxDepth)
             {
                 if (Children(node).Any()) reasons.Add("depth_limit");

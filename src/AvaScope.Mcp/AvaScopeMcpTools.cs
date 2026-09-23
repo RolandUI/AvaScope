@@ -9,6 +9,13 @@ namespace AvaScope.Mcp;
 [McpServerToolType]
 public sealed class AvaScopeMcpTools
 {
+    [McpServerTool(Name = "evaluate_runtime", Title = "Evaluate typed runtime values and assertions", ReadOnly = true, Idempotent = true,
+        Destructive = false, OpenWorld = false, UseStructuredContent = true)]
+    [Description("Evaluate a bounded closed expression over explicitly selected UI projections. Returns typed scalars/counts/sums or compound all/any/not/comparison results with every operand, source scope and coverage. requireTrue asserts the same boolean result. Missing, redacted, partial or changing sources remain indeterminate; never loads/scrolls items or evaluates arbitrary code. Workflow waitCondition kind expression polls the same definition.")]
+    public static async Task<ToolResult<RuntimeExpressionResponse>> EvaluateRuntime(LocalBridgeClient bridgeClient,
+        RuntimeExpressionRequest request, string? manifestDirectory = null, CancellationToken cancellationToken = default)
+        => ToToolResult(await CreateBridgeClient(bridgeClient, manifestDirectory).EvaluateRuntimeAsync(request, cancellationToken));
+
     [McpServerTool(Name = "inspect_focus", Title = "Inspect focus and keyboard navigation", ReadOnly = true, Idempotent = true,
         Destructive = false, OpenWorld = false, UseStructuredContent = true)]
     [Description("Observe framework focus with its actual registered window, native focus independently, scope/tab metadata, disabled candidates and bounded public next/previous predictions. Predictions are not observed key routing. Does not focus, activate or press keys; custom/hidden/native-child uncertainty remains explicit.")]

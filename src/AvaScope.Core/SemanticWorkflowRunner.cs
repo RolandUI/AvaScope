@@ -1942,6 +1942,22 @@ public sealed class SemanticWorkflowRunner
                         source: "top_level_alias",
                         message: aliasResolution.Error?.Message);
                 }
+                else if (condition.Kind == SemanticWaitConditionKinds.Expression)
+                {
+                    var evaluated = await bridgeClient.EvaluateRuntimeAsync(new(pollRequest.SessionId, pollRequest.TopLevelId!,
+                        condition.Expression!, requireTrue: true, policy: request.Evidence?.Policy), attemptCancellation.Token);
+                    if (evaluated.Success)
+                    {
+                        lastError = null;
+                        var expression = evaluated.Value!;
+                        var available = expression.Status is "passed" or "failed";
+                        lastObservation = new(condition.Kind, available ? "available" : "unavailable", expression.Status == "passed",
+                            expression.CompletedAt, expression.Result.Value?.GetRawText(), expression.Result.Type,
+                            expected: "true", source: "runtime_expression", message: expression.Status, expression: expression);
+                        sawAvailable |= available;
+                    }
+                    else { lastError = evaluated.Error; lastObservation = MissingObservation(condition, evaluated.Error?.Message); }
+                }
                 else if (SemanticWaitConditionKinds.IsReadiness(condition.Kind))
                 {
                     if (condition.Kind == SemanticWaitConditionKinds.BridgeReady)
@@ -2699,6 +2715,11 @@ public sealed class SemanticWorkflowRunner
         metadata["valueType"] = observation.ValueType;
         metadata["comparison"] = observation.Comparison;
         metadata["expected"] = observation.Expected ?? "null";
+        if (observation.Expression is { } expression)
+        {
+            metadata["expressionStatus"] = expression.Status;
+            metadata["expressionFindings"] = string.Join("; ", Findings(expression.Result).Take(16));
+        }
         if (observation.Baseline is not null)
         {
             metadata["baseline"] = observation.Baseline;
@@ -2707,6 +2728,14 @@ public sealed class SemanticWorkflowRunner
         if (observation.Message is not null)
         {
             metadata["observationMessage"] = observation.Message;
+        }
+
+        static IEnumerable<string> Findings(RuntimeExpressionResult node)
+        {
+            if (node.Status != "available" || node.Value is { ValueKind: JsonValueKind.False })
+                yield return node.Path + ": " + (node.Reason ?? "false");
+            foreach (var child in node.Operands)
+                foreach (var finding in Findings(child)) yield return finding;
         }
     }
 

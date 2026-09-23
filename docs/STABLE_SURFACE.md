@@ -31,6 +31,11 @@ They are distributed through installers, executable ZIPs, and source, not as pac
 
 ## Protocol Contracts
 
+The additive v1.5 `runtime.expressions` capability exposes read-only
+`evaluate-runtime` / `evaluate_runtime` for typed values, aggregates and compound
+assertions. `waitCondition.kind: expression` uses the same definition and
+evaluator. Incomplete sources remain indeterminate. See [runtime expressions](RUNTIME_EXPRESSIONS.md).
+
 The additive v1.5 `runtime.focus` capability exposes read-only `inspect-focus` /
 `inspect_focus` and state-changing `probe-focus` / `probe_focus`. Native focus,
 framework focus, public navigation predictions and observed probe outcomes are

@@ -339,6 +339,7 @@ internal sealed class LocalBridgeServer : IDisposable
             BridgeIpcMethods.ActionMap => Respond(await ActionMapAsync(request, cancellationToken)),
             BridgeIpcMethods.InspectFocus => Respond(await InspectFocusAsync(request, cancellationToken)),
             BridgeIpcMethods.ProbeFocus => Respond(await ProbeFocusAsync(request, cancellationToken)),
+            BridgeIpcMethods.EvaluateRuntime => Respond(await EvaluateRuntimeAsync(request, cancellationToken)),
             BridgeIpcMethods.EnsureState => Respond(await EnsureStateAsync(request, cancellationToken)),
             BridgeIpcMethods.InspectForm => Respond(await InspectFormAsync(request, cancellationToken)),
             BridgeIpcMethods.FillForm => Respond(await FillFormAsync(request, cancellationToken)),
@@ -427,6 +428,13 @@ internal sealed class LocalBridgeServer : IDisposable
         var result = await _runtime.ActionMapAsync(request.ActionMap, cancellationToken);
         return result.Success ? BridgeIpcResponse.Ok(request.RequestId, result.Value)
             : BridgeIpcResponse.Fail(request.RequestId, ToProtocolError(result.Error!));
+    }
+
+    private async Task<BridgeIpcResponse> EvaluateRuntimeAsync(BridgeIpcRequest request, CancellationToken cancellationToken)
+    {
+        if (request.Expression is null) return BridgeIpcResponse.Fail(request.RequestId, new("expression_request_required", "A typed expression request is required."));
+        var result = await _runtime.EvaluateRuntimeAsync(request.Expression, cancellationToken);
+        return result.Success ? BridgeIpcResponse.Ok(request.RequestId, result.Value) : BridgeIpcResponse.Fail(request.RequestId, ToProtocolError(result.Error!));
     }
 
     private async Task<BridgeIpcResponse> InspectFocusAsync(BridgeIpcRequest request, CancellationToken cancellationToken)

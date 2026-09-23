@@ -18,6 +18,8 @@ Use [focus and navigation evidence](FOCUS_NAVIGATION.md) to explain where keyboa
 
 Use [relationship selectors and typed projections](RELATIONSHIP_QUERIES.md) to distinguish repeated controls by their container, row or explicit label, and to request only selected field values. Treat partial coverage and missing/redacted values explicitly before deciding an action.
 
+Use [typed runtime expressions](RUNTIME_EXPRESSIONS.md) for counts, numeric relationships and compound assertions across controls. Reuse the same definition in a workflow wait or action postcondition; incomplete/redacted observations remain indeterminate.
+
 Use [desired-state actions](DESIRED_STATE_ACTIONS.md) to ensure a check, expansion, value, text or selection state without reversing an already satisfied result. Preserve the exact request ID/payload after a lost response and inspect partial or uncertain outcomes before another intent.
 
 Use [form workflows](FORM_WORKFLOWS.md) to read explicit field labels, values, choices and validation, then fill a bounded plan with per-field verification. Inspect appearing or changing fields before a subsequent plan; submit remains a separate explicit operation.

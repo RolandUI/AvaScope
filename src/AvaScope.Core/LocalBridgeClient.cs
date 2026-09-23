@@ -1726,6 +1726,7 @@ public sealed partial class LocalBridgeClient
             or BridgeIpcMethods.InspectForm
             or BridgeIpcMethods.ActionMap
             or BridgeIpcMethods.InspectFocus
+            or BridgeIpcMethods.EvaluateRuntime
             or BridgeIpcMethods.QueryTable
             or BridgeIpcMethods.ExplainLayout
             or BridgeIpcMethods.FindNodes

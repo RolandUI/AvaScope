@@ -10,6 +10,7 @@ public static class BridgeIpcMethods
     public const string ActionMap = "action_map";
     public const string InspectFocus = "inspect_focus";
     public const string ProbeFocus = "probe_focus";
+    public const string EvaluateRuntime = "evaluate_runtime";
     public const string EnsureState = "ensure_state";
     public const string InspectForm = "inspect_form";
     public const string FillForm = "fill_form";
@@ -45,6 +46,7 @@ public static class BridgeIpcMethods
         ActionMap,
         InspectFocus,
         ProbeFocus,
+        EvaluateRuntime,
         EnsureState,
         InspectForm,
         FillForm,

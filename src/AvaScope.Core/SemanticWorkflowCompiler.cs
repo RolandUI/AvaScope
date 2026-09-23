@@ -873,7 +873,18 @@ internal static partial class SemanticWorkflowCompiler
                     ResolveText(condition.Baseline, variables, $"{path}.waitCondition.baseline"),
                     ResolveText(condition.TopLevelId, variables, $"{path}.waitCondition.topLevelId"),
                     ResolveText(condition.TopLevelTitle, variables, $"{path}.waitCondition.topLevelTitle"),
-                    condition.StableSamples);
+                    condition.StableSamples,
+                    condition.Expression is null ? null : new RuntimeExpressionDefinition(
+                        ResolveExpression(condition.Expression.Expression),
+                        condition.Expression.Sources.Select(source => new RuntimeExpressionSource(source.Id,
+                            ResolveSelector(source.Selector, variables, path + ".expression.sources." + source.Id)!, source.Attribute)).ToArray(),
+                        condition.Expression.MaxNodes, condition.Expression.MaxResults, condition.Expression.MaxDepth));
+
+            RuntimeExpression ResolveExpression(RuntimeExpression expression) => new(expression.Kind, expression.Source,
+                expression.Literal is { ValueKind: System.Text.Json.JsonValueKind.String } literal
+                    ? System.Text.Json.JsonSerializer.SerializeToElement(ResolveText(literal.GetString(), variables, path + ".expression.literal"))
+                    : expression.Literal,
+                expression.Operands.Select(ResolveExpression).ToArray());
         }
 
         private RuntimeMutationOperation? ResolveMutation(
