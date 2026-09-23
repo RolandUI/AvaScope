@@ -49,6 +49,7 @@ The roadmap below records the release-shaped plan through `v1.0.0`. It is intent
 - `v1.4.0` is released.
 - `v1.4.1` is released.
 - `v1.4.2` is released.
+- `v1.5.0` is released.
 - Each release must preserve the current product boundaries: MCP and CLI stay adapters over Core, runtime bridge activation stays opt-in and local-only, PreviewHost stays isolated from the MCP server, and private Avalonia/runtime hooks remain out of the default path.
 - Every release must include targeted tests, full build/test validation, release dry-run validation, documentation updates, and explicit deferrals.
 - A release may be split into a patch release if a P0/P1 regression blocks users or CI, but patch scope must remain defect-focused.
@@ -57,14 +58,17 @@ The roadmap below records the release-shaped plan through `v1.0.0`. It is intent
 
 - Release: `v1.5.0`
 - Target Version: `1.5.0`
-- Release State: `Release Candidate`
+- Release State: `Released`
+- Release Commit: `f5aaa8651e77b14f18982e662c4d23a347206bfb` (`Release 1.5.0`)
+- Published At: `2026-09-23T08:55:22Z`
+- GitHub Release: https://github.com/RolandUI/AvaScope/releases/tag/v1.5.0
 - Scope Lock: `2026-09-22`
-- GitHub Milestone: `v1.5.0`
-- Release Tracker: #156
+- GitHub Milestone: `v1.5.0` (closed)
+- Release Tracker: #156 (completed)
 - Implementation Scope: #117–#153 and #155 (38 issues), including the PlatynUI `new_core` feature refinements to #132, #136, #137 and #143
 - Previous Release: `v1.4.2`
 
-The user authorized implementation followed by publication, then explicitly cancelled #154 on `2026-09-22`. AvaScope will not maintain Python/Robot Framework adapters, PlatynUI interoperability or import/interpretation of their workflows. Independent useful features inspired by other tools remain in scope through AvaScope's own contracts. Execute the remaining 38 issues in coherent batches: standalone provider/integration; reproducible environments and observations; semantic agent controls; native evidence; consolidated platform/release validation. Preserve opt-in local activation, session ownership, bounded operations, compatible contracts and thin CLI/MCP adapters.
+The user authorized implementation followed by publication, then explicitly cancelled #154 on `2026-09-22`. AvaScope will not maintain Python/Robot Framework adapters, PlatynUI interoperability or import/interpretation of their workflows. Independent useful features inspired by other tools use AvaScope's own contracts. All 38 accepted issues were completed in coherent batches: standalone provider/integration; reproducible environments and observations; semantic agent controls; native evidence; consolidated platform/release validation. Opt-in local activation, session ownership, bounded operations, compatible contracts and thin CLI/MCP adapters are preserved.
 
 Keep one implementation issue in progress. Completed implementations can enter review until a shared batch gate passes. The requested validation cadence is focused tests at meaningful checkpoints, corrective commits when needed, and a full final release gate; do not rerun unchanged suites after each edit. Cross-platform acceptance remains required, and unsupported behavior must be explicit rather than silently emulated. No scope is deferred by this plan.
 
@@ -72,7 +76,9 @@ Release requires all #117–#153 and #155 acceptance criteria, consolidated Debu
 
 The implementation gate passed on `2026-09-23`; all 38 accepted implementation issues are closed as completed. Broad Windows/Linux/macOS CI [35832938516](https://github.com/RolandUI/AvaScope/actions/runs/35832938516) passed at `ca0c75d`, including the unchanged Linux retry after an X11 environment startup timeout. Downloaded native, provider, onboarding and platform reports were checked independently. The final build-only correction at `91949f9` passed additional hosted Windows [35836813288](https://github.com/RolandUI/AvaScope/actions/runs/35836813288) and macOS [35836819598](https://github.com/RolandUI/AvaScope/actions/runs/35836819598) gates; Linux [35837679713](https://github.com/RolandUI/AvaScope/actions/runs/35837679713) includes the test-only cold-start diagnostics at `4170beb`. Each focused platform passed 30 transport/build/recovery tests and 5 native tests.
 
-Fresh full Debug and exact-version Release suites each passed 743 tests, with 5 native-only tests validated separately. The exact `1.5.0` gate verified 13 manifest entries (14 release assets including the manifest), provider inventory/hashes, Windows/Linux installers, packaged doctor/preview/lifecycle/complex CLI and MCP, standalone positive/negative/shutdown cases, native Windows operations, and native Wayland through the cross-published Linux CLI/MCP/provider. NuGet and GitHub Release dry-runs passed. Only publication and remote tag/asset/package verification remain; #156 and the milestone stay open until then.
+Fresh full Debug and exact-version Release suites each passed 743 tests, with 5 native-only tests validated separately. The exact `1.5.0` gate verified 13 manifest entries (14 release assets including the manifest), provider inventory/hashes, Windows/Linux installers, packaged doctor/preview/lifecycle/complex CLI and MCP, standalone positive/negative/shutdown cases, native Windows operations, and native Wayland through the cross-published Linux CLI/MCP/provider. NuGet and GitHub Release dry-runs passed.
+
+[Release workflow 35838400133](https://github.com/RolandUI/AvaScope/actions/runs/35838400133) published successfully from the exact release commit, with 743 passing tests and successful installer/artifact gates. The public stable release is latest and its tag matches that commit. Fresh public downloads independently verified all 14 assets and 13 manifest entries by exact name, size and SHA-256, plus the standalone provider inventory. All three nuget.org packages expose `1.5.0` as latest, pass repository-signature verification and contain the same unsigned entries as the GitHub Release packages. Workflow logs confirm all three successful GitHub Packages pushes. Release tracker #156 and milestone v1.5.0 are closed; no accepted implementation scope remains.
 
 ## Released Target: v1.4.2
 
