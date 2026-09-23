@@ -14,6 +14,31 @@ public sealed class AgentRunRecoveryTests : IDisposable
     private string Manifests => Path.Combine(_root, "manifests");
 
     [Fact]
+    public async Task WindowsSnapshotReplacementSurvivesTransientReaderAndCleansTemporaryFiles()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        var store = new AgentRunStore(StorePath);
+        using var registration = store.Begin(Output, null, null, Manifests, null).Value!;
+        var record = Path.Combine(StorePath, registration.RunId, "record.json");
+        Task save;
+        using (var reader = new FileStream(record, FileMode.Open, FileAccess.Read, FileShare.Read))
+        {
+            save = Task.Run(() => registration.Complete("completed", "passed"));
+            await Task.Delay(150);
+            Assert.False(save.IsCompleted); Assert.Contains("running", File.ReadAllText(record));
+        }
+        await save.WaitAsync(TimeSpan.FromSeconds(3));
+        Assert.Equal("completed", store.List().Value!.Single().State);
+        Assert.Empty(Directory.GetFiles(Path.GetDirectoryName(record)!, "*.tmp"));
+        using (var reader = new FileStream(record, FileMode.Open, FileAccess.Read, FileShare.Read))
+        {
+            await Assert.ThrowsAnyAsync<Exception>(() => Task.Run(() => registration.Complete("unwritten")));
+            Assert.Contains("completed", File.ReadAllText(record));
+            Assert.Empty(Directory.GetFiles(Path.GetDirectoryName(record)!, "*.tmp"));
+        }
+    }
+
+    [Fact]
     public void LeaseExpiryDoesNotTransferAnExecutingOperationOrAcceptOldTokens()
     {
         var clock = new Clock();

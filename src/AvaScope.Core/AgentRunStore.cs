@@ -225,9 +225,27 @@ public sealed class AgentRunStore
         if (bytes.Length > 65536) throw new IOException("Recovery record exceeds 64 KiB; no additional resource may be started.");
         var options = new FileStreamOptions { Mode = FileMode.CreateNew, Access = FileAccess.Write };
         if (!OperatingSystem.IsWindows()) options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
-        using (var stream = new FileStream(temporary, options))
-        { stream.Write(bytes); stream.Flush(flushToDisk: true); }
-        File.Move(temporary, path, overwrite: true);
+        try
+        {
+            using (var stream = new FileStream(temporary, options))
+            { stream.Write(bytes); stream.Flush(flushToDisk: true); }
+            var started = Stopwatch.GetTimestamp();
+            while (true)
+            {
+                RejectLink(_root); RejectLink(Path.GetDirectoryName(path)!); RejectLink(path); RejectLink(temporary);
+                try { File.Move(temporary, path, overwrite: true); break; }
+                catch (Exception exception) when (OperatingSystem.IsWindows()
+                    && exception is IOException or UnauthorizedAccessException
+                    && (exception.HResult & 0xffff) is 5 or 32 or 33
+                    && Stopwatch.GetElapsedTime(started) < TimeSpan.FromSeconds(1))
+                {
+                    // Short-lived Windows file handles (including scanners and delete-pending
+                    // readers) can refuse an atomic replace. Keep the prior record intact.
+                    Thread.Sleep(20);
+                }
+            }
+        }
+        finally { if (File.Exists(temporary)) File.Delete(temporary); }
     }
 
     private static bool IsLocked(string directory)
