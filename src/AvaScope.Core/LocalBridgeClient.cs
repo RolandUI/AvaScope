@@ -1753,9 +1753,10 @@ public sealed partial class LocalBridgeClient
     private static async Task<string> ReadLineAsync(PipeStream pipe, CancellationToken cancellationToken)
     {
         var responseBytes = new List<byte>();
-        var buffer = new byte[1];
+        var buffer = new byte[8192];
+        var complete = false;
 
-        while (true)
+        while (!complete)
         {
             var read = await pipe.ReadAsync(buffer, cancellationToken);
             if (read == 0)
@@ -1763,20 +1764,13 @@ public sealed partial class LocalBridgeClient
                 break;
             }
 
-            if (buffer[0] == (byte)'\n')
+            for (var index = 0; index < read; index++)
             {
-                break;
-            }
-
-            if (buffer[0] == (byte)'\r')
-            {
-                continue;
-            }
-
-            responseBytes.Add(buffer[0]);
-            if (responseBytes.Count > MaxMessageBytes)
-            {
-                throw new InvalidOperationException("Bridge IPC response exceeded the maximum allowed size.");
+                if (buffer[index] == (byte)'\n') { complete = true; break; }
+                if (buffer[index] == (byte)'\r') continue;
+                responseBytes.Add(buffer[index]);
+                if (responseBytes.Count > MaxMessageBytes)
+                    throw new InvalidOperationException("Bridge IPC response exceeded the maximum allowed size.");
             }
         }
 

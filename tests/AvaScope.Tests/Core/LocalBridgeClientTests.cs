@@ -246,6 +246,49 @@ public sealed class LocalBridgeClientTests : IDisposable
         Assert.Equal(CoreErrorCodes.InvalidBridgeRequest, result.Error!.Code);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task BufferedResponsesPreserveFragmentedUnicodeFramingAndTheMessageLimit(bool oversized)
+    {
+        Directory.CreateDirectory(_manifestDirectory);
+        var sessionId = SessionId.New();
+        var pipeName = TestPipeNames.New();
+        WriteManifest("buffered.json", new BridgeSessionManifest(sessionId, Environment.ProcessId, pipeName, DateTimeOffset.UtcNow, "Buffered fixture"));
+        var message = "😀東京\r\n" + new string('x', oversized ? 1024 * 1024 : 128 * 1024);
+        using var deadline = new CancellationTokenSource(BridgePipeTestTimeout);
+        var server = Task.Run(async () =>
+        {
+            await using var pipe = new NamedPipeServerStream(pipeName, PipeDirection.InOut, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
+            await pipe.WaitForConnectionAsync(deadline.Token);
+            var request = JsonSerializer.Deserialize<BridgeIpcRequest>(await ReadLineAsync(pipe, deadline.Token))!;
+            // An error payload is sufficient to verify byte preservation without introducing an unbounded DTO.
+            var response = JsonSerializer.Serialize(BridgeIpcResponse.Fail(request.RequestId, new("fixture", message)),
+                new JsonSerializerOptions { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping });
+            var bytes = Encoding.UTF8.GetBytes(response + "\r\nignored second frame\n");
+            var split = Array.IndexOf(bytes, (byte)0xE6) + 1; // Split the UTF-8 sequence for the first CJK character.
+            Assert.True(split > 0);
+            try
+            {
+                await pipe.WriteAsync(bytes.AsMemory(0, split), deadline.Token);
+                await pipe.FlushAsync(deadline.Token);
+                await Task.Delay(10, deadline.Token);
+                await pipe.WriteAsync(bytes.AsMemory(split), deadline.Token);
+                await pipe.FlushAsync(deadline.Token);
+            }
+            catch (IOException) when (oversized) { } // Client closes immediately after enforcing its 1 MiB limit.
+        }, deadline.Token);
+        var result = await new LocalBridgeClient(_manifestDirectory).TraceAsync(new(sessionId, "read", "fixture-trace"), deadline.Token);
+        Assert.False(result.Success);
+        if (oversized)
+        {
+            Assert.Equal(CoreErrorCodes.BridgeIpcUnavailable, result.Error!.Code);
+            Assert.Contains("maximum allowed size", result.Error.Message);
+        }
+        else { Assert.Equal("fixture", result.Error!.Code); Assert.Equal(message, result.Error.Message); }
+        await server;
+    }
+
     [Fact]
     public async Task GuardedInputResponseLossRemainsUnknownAndDoesNotRedispatch()
     {

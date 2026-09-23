@@ -108,7 +108,9 @@ public sealed class RuntimeTraceTests
             var trace = (await client.TraceAsync(new(runtime.SessionId, "start", topLevelId: top, policy: new(root), durationMs: 60000))).Value!;
             for (var index = 0; index < 500; index++) Assert.True(log.Report("info", index + new string('x', 800)));
             Assert.False(log.Report("info", new string('s', 4097)));
-            var read = (await client.TraceAsync(new(runtime.SessionId, "read", trace.TraceId, maxEvents: 128))).Value!;
+            var readResult = await client.TraceAsync(new(runtime.SessionId, "read", trace.TraceId, maxEvents: 128));
+            Assert.True(readResult.Success, JsonSerializer.Serialize(readResult));
+            var read = readResult.Value!;
             Assert.InRange(read.RetainedEvents, 1, 128); Assert.True(read.DroppedEvents > 0); Assert.True(read.SuppressedEvents > 0); Assert.True(read.Truncated);
             Assert.True(JsonSerializer.SerializeToUtf8Bytes(read.Events).Length < 98304);
             Assert.DoesNotContain(read.Events, item => item.Message.StartsWith("0xxx", StringComparison.Ordinal));

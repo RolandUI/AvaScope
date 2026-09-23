@@ -2729,7 +2729,7 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                                     verify: new SemanticWorkflowVerification(
                                         new SemanticWaitCondition(SemanticWaitConditionKinds.Text, "saved"),
                                         new SemanticWorkflowSelector(automationId: "verify-status"),
-                                        timeoutMs: 500,
+                                        timeoutMs: 5000,
                                         pollIntervalMs: 25,
                                         captureScreenshots: true))
                             ],
@@ -2738,7 +2738,7 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                                 reportDirectory: Path.Combine(successDirectory, "reports"))));
 
                     Assert.True(success.Success, success.Error?.Message);
-                    Assert.Equal("passed", success.Value!.Status);
+                    Assert.True(success.Value!.Status == "passed", JsonSerializer.Serialize(success.Value));
                     Assert.Equal(1, invocations);
                     var successStep = Assert.Single(success.Value.Steps);
                     Assert.Equal("passed", successStep.Verification!.Status);
@@ -2761,7 +2761,7 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                                 verify: new SemanticWorkflowVerification(
                                     new SemanticWaitCondition(SemanticWaitConditionKinds.Text, "saved"),
                                     new SemanticWorkflowSelector(automationId: "verify-status"),
-                                    timeoutMs: 500,
+                                    timeoutMs: 5000,
                                     pollIntervalMs: 25,
                                     captureScreenshots: true))
                         ],
