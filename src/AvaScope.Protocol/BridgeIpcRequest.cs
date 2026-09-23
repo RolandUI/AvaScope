@@ -60,7 +60,8 @@ public sealed record BridgeIpcRequest
         RuntimeActionMapRequest? actionMap = null,
         RuntimeFocusInspectionRequest? focusInspection = null,
         RuntimeFocusProbeRequest? focusProbe = null,
-        RuntimeExpressionRequest? expression = null)
+        RuntimeExpressionRequest? expression = null,
+        RuntimeOperationRequest? operation = null)
     {
         if (string.IsNullOrWhiteSpace(requestId))
         {
@@ -77,6 +78,7 @@ public sealed record BridgeIpcRequest
         FocusInspection = focusInspection;
         FocusProbe = focusProbe;
         Expression = expression;
+        Operation = operation;
         Method = method;
         TopLevelId = topLevelId;
         OutputPath = outputPath;
@@ -139,6 +141,8 @@ public sealed record BridgeIpcRequest
     public RuntimeFocusProbeRequest? FocusProbe { get; }
     [JsonPropertyName("expression"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public RuntimeExpressionRequest? Expression { get; }
+    [JsonPropertyName("operation"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public RuntimeOperationRequest? Operation { get; }
 
     [JsonPropertyName("requestId")]
     public string RequestId { get; }

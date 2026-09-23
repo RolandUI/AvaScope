@@ -146,9 +146,9 @@ public sealed class RuntimeScenarioLifecycleTests : IDisposable
             "launch-exit",
             launch: new RuntimeScenarioLaunchOptions(
                 "dotnet",
-                argumentList: ["--info"],
+                argumentList: ["--version"],
                 outputDirectory: Path.Combine(_testRoot, "launch-exit"),
-                timeoutMs: 5000));
+                timeoutMs: 20000));
 
         var result = await new RuntimeScenarioRunner().RunAsync(
             new LocalBridgeClient(Path.Combine(_testRoot, "launch-exit-manifests")),

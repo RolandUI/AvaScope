@@ -14,7 +14,9 @@ public sealed record CustomActionRegistration
         IReadOnlyDictionary<string, string>? requiredState = null,
         Func<Visual, CustomActionAvailability>? availability = null,
         RuntimeTestFixtureDescriptor? testFixture = null,
-        IReadOnlyList<string>? route = null)
+        IReadOnlyList<string>? route = null,
+        bool supportsOperations = false,
+        bool supportsCancellation = false)
     {
         if (string.IsNullOrWhiteSpace(name))
         {
@@ -35,6 +37,10 @@ public sealed record CustomActionRegistration
         Availability = availability;
         TestFixture = testFixture;
         Route = route?.ToArray() ?? [];
+        if (supportsCancellation && !supportsOperations)
+            throw new ArgumentException("Cancellation requires an operation-reporting action.", nameof(supportsCancellation));
+        SupportsOperations = supportsOperations;
+        SupportsCancellation = supportsCancellation;
         if (Route.Count > 12 || Route.Any(segment => string.IsNullOrWhiteSpace(segment) || segment.Length > 128))
             throw new ArgumentException("An optional application-declared route allows up to 12 non-empty segments of at most 128 characters.", nameof(route));
     }
@@ -48,12 +54,20 @@ public sealed record CustomActionRegistration
     public Func<Visual, CustomActionAvailability>? Availability { get; }
     public RuntimeTestFixtureDescriptor? TestFixture { get; }
     public IReadOnlyList<string> Route { get; }
+    public bool SupportsOperations { get; }
+    public bool SupportsCancellation { get; }
 }
 
 public sealed record CustomActionContext(
     string RequestId,
     Visual Target,
-    IReadOnlyDictionary<string, string> Parameters);
+    IReadOnlyDictionary<string, string> Parameters)
+{
+    internal Func<RuntimeOperationHandle>? OperationFactory { get; init; }
+    /// <summary>Begin one operation during this explicitly registered action's synchronous handler.</summary>
+    public RuntimeOperationHandle BeginOperation() => OperationFactory?.Invoke()
+        ?? throw new InvalidOperationException("This action does not declare operation reporting.");
+}
 
 public sealed record CustomActionAvailability(
     bool Executable,

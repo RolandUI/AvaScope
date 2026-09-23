@@ -16,7 +16,8 @@ public sealed record RuntimeCustomActionResponse
         DateTimeOffset evaluatedAt,
         RuntimeCustomActionAuditEntry audit,
         IReadOnlyDictionary<string, string>? metadata = null,
-        IReadOnlyList<ProtocolError>? diagnostics = null)
+        IReadOnlyList<ProtocolError>? diagnostics = null,
+        RuntimeOperationSnapshot? operation = null)
     {
         RequestId = requestId;
         ActionName = actionName;
@@ -30,6 +31,7 @@ public sealed record RuntimeCustomActionResponse
         Metadata = (metadata ?? new Dictionary<string, string>()).Take(32)
             .ToDictionary(static pair => pair.Key, static pair => pair.Value, StringComparer.Ordinal);
         Diagnostics = (diagnostics ?? []).Take(16).ToArray();
+        Operation = operation;
     }
 
     [JsonPropertyName("requestId")] public string RequestId { get; }
@@ -43,4 +45,5 @@ public sealed record RuntimeCustomActionResponse
     [JsonPropertyName("audit")] public RuntimeCustomActionAuditEntry Audit { get; }
     [JsonPropertyName("metadata")] public IReadOnlyDictionary<string, string> Metadata { get; }
     [JsonPropertyName("diagnostics")] public IReadOnlyList<ProtocolError> Diagnostics { get; }
+    [JsonPropertyName("operation")] public RuntimeOperationSnapshot? Operation { get; }
 }

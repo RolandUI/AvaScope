@@ -15,7 +15,9 @@ public sealed record RuntimeCustomActionDescriptor
         string? description = null,
         string? unavailableReason = null,
         string targetScope = "node",
-        RuntimeTestFixtureDescriptor? testFixture = null)
+        RuntimeTestFixtureDescriptor? testFixture = null,
+        bool supportsOperations = false,
+        bool supportsCancellation = false)
     {
         if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(targetScope))
         {
@@ -39,9 +41,13 @@ public sealed record RuntimeCustomActionDescriptor
         UnavailableReason = string.IsNullOrWhiteSpace(unavailableReason) ? null : unavailableReason.Trim();
         TargetScope = targetScope.Trim();
         TestFixture = testFixture;
+        SupportsOperations = supportsOperations;
+        SupportsCancellation = supportsCancellation;
     }
 
     [JsonPropertyName("name")] public string Name { get; }
+    [JsonPropertyName("supportsOperations")] public bool SupportsOperations { get; }
+    [JsonPropertyName("supportsCancellation")] public bool SupportsCancellation { get; }
     [JsonPropertyName("testFixture")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public RuntimeTestFixtureDescriptor? TestFixture { get; }

@@ -332,3 +332,5 @@ Runtime mutations are temporary local overrides. Prefer `reset_mutation` or `res
 ```
 
 `cleanup` removes stale or invalid AvaScope-owned preview-session metadata. `cleanup-bridge-sessions` removes stale or invalid local bridge manifest JSON files. Neither command terminates processes by name.
+
+For app-reported asynchronous work, discover operation-capable custom actions and monitor their returned ids with the [operation lifecycle contract](RUNTIME_OPERATIONS.md). A successful dispatch or cancellation request does not prove completion.

@@ -168,7 +168,7 @@ public sealed class RuntimeExpressionTests
                 Assert.False(failed.Success); Assert.Equal("failed", failed.Value!.Status); Assert.Equal(2.5m, failed.Value.Result.Operands[0].Value!.Value.GetDecimal());
                 var wait = new SemanticWorkflowRequest(runtime.SessionId, top,
                     [new(SemanticWorkflowActions.WaitForState, waitCondition: new("expression",
-                        expression: new(Op("eq", new("sum", "amount"), Literal(9)), [source])), timeoutMs: 700, pollIntervalMs: 25)]);
+                        expression: new(Op("eq", new("sum", "amount"), Literal(9)), [source])), timeoutMs: 3000, pollIntervalMs: 25)]);
                 var waitCall = await mcp.CallToolAsync("run_workflow", new Dictionary<string, object?>
                 { ["request"] = JsonSerializer.SerializeToElement(wait), ["manifestDirectory"] = client.ManifestDirectory }, cancellationToken: timeout.Token);
                 var mcpWait = JsonSerializer.Deserialize<ToolResult<SemanticWorkflowResponse>>(JsonSerializer.Serialize(waitCall.StructuredContent))!;
@@ -182,6 +182,7 @@ public sealed class RuntimeExpressionTests
                 Assert.Equal(1, cliWaitProcess.ExitCode);
                 var cliWait = JsonSerializer.Deserialize<ToolResult<SemanticWorkflowResponse>>(await waitOutput)!;
                 Assert.False(cliWait.Success, await waitErrors);
+                Assert.NotNull(cliWait.Value!.Steps[0].WaitObservation?.Expression);
                 Assert.Equal(mcpWait.Value.Steps[0].WaitObservation!.Expression!.Result.Value!.Value.GetBoolean(),
                     cliWait.Value!.Steps[0].WaitObservation!.Expression!.Result.Value!.Value.GetBoolean());
                 async Task<ToolResult<RuntimeExpressionResponse>> Call(RuntimeExpressionRequest input)

@@ -9,6 +9,13 @@ namespace AvaScope.Mcp;
 [McpServerToolType]
 public sealed class AvaScopeMcpTools
 {
+    [McpServerTool(Name = "operation", Title = "Observe or cancel app-reported operations", ReadOnly = false, Idempotent = false,
+        Destructive = true, OpenWorld = false, UseStructuredContent = true)]
+    [Description("Observe app-reported long work by operation id from a custom-action response. action=status/wait/cancel; wait is bounded to 30 seconds and waits for any terminal outcome, not necessarily success. Cancellation requires a host-declared capability, the original run's current control lease when leased, and action policy authorization. A cancellation request or timeout does not prove app work stopped. Results are session-scoped and retained for at most ten minutes/128 entries; never redispatch an action because its status is unknown.")]
+    public static async Task<ToolResult<RuntimeOperationResponse>> Operation(LocalBridgeClient bridgeClient,
+        RuntimeOperationRequest request, string? manifestDirectory = null, CancellationToken cancellationToken = default)
+        => ToToolResult(await CreateBridgeClient(bridgeClient, manifestDirectory).OperationAsync(request, cancellationToken));
+
     [McpServerTool(Name = "evaluate_runtime", Title = "Evaluate typed runtime values and assertions", ReadOnly = true, Idempotent = true,
         Destructive = false, OpenWorld = false, UseStructuredContent = true)]
     [Description("Evaluate a bounded closed expression over explicitly selected UI projections. Returns typed scalars/counts/sums or compound all/any/not/comparison results with every operand, source scope and coverage. requireTrue asserts the same boolean result. Missing, redacted, partial or changing sources remain indeterminate; never loads/scrolls items or evaluates arbitrary code. Workflow waitCondition kind expression polls the same definition.")]

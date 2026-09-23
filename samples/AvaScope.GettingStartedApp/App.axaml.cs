@@ -32,9 +32,17 @@ public partial class App : Application
                 var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions(
                     "AvaScope Getting Started Sample",
                     enableCustomActions: true,
-                    allowedCustomActions: ["confirm", "reset"],
+                    allowedCustomActions: ["confirm", "reset", "demo_import"],
                     allowDestructiveCustomActions: true));
                 _bridgeRegistrations.Add(runtime.RegisterTopLevel(window));
+                _bridgeRegistrations.Add(runtime.RegisterCustomAction(window.MainContent,
+                    new CustomActionRegistration("demo_import", context =>
+                    {
+                        var operation = context.BeginOperation();
+                        _ = ImportDemoAsync(operation);
+                        return CustomActionOutcome.Succeeded("Demo import accepted; inspect the returned operation for completion.");
+                    }, "Imports ten in-memory demo records with progress; no external files are changed.",
+                        supportsOperations: true, supportsCancellation: true)));
                 _bridgeRegistrations.Add(runtime.RegisterCustomAction(
                     window.MainContent,
                     new CustomActionRegistration(
@@ -76,6 +84,21 @@ public partial class App : Application
         }
 
         base.OnFrameworkInitializationCompleted();
+    }
+
+    private static async Task ImportDemoAsync(RuntimeOperationHandle operation)
+    {
+        try
+        {
+            for (var item = 0; item < 10; item++)
+            {
+                operation.ReportProgress(item / 10d, $"Imported {item} of 10 demo records.");
+                await Task.Delay(200, operation.CancellationToken);
+            }
+            operation.Complete(new Dictionary<string, string> { ["importedRecords"] = "10" });
+        }
+        catch (OperationCanceledException) { operation.ConfirmCancelled(); }
+        catch (Exception) { operation.Fail("demo_import_failed", "The demo import failed."); }
     }
 
     private static bool IsBridgeEnabled()

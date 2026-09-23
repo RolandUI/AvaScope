@@ -340,6 +340,7 @@ internal sealed class LocalBridgeServer : IDisposable
             BridgeIpcMethods.InspectFocus => Respond(await InspectFocusAsync(request, cancellationToken)),
             BridgeIpcMethods.ProbeFocus => Respond(await ProbeFocusAsync(request, cancellationToken)),
             BridgeIpcMethods.EvaluateRuntime => Respond(await EvaluateRuntimeAsync(request, cancellationToken)),
+            BridgeIpcMethods.Operation => Respond(await OperationAsync(request, cancellationToken)),
             BridgeIpcMethods.EnsureState => Respond(await EnsureStateAsync(request, cancellationToken)),
             BridgeIpcMethods.InspectForm => Respond(await InspectFormAsync(request, cancellationToken)),
             BridgeIpcMethods.FillForm => Respond(await FillFormAsync(request, cancellationToken)),
@@ -849,9 +850,17 @@ internal sealed class LocalBridgeServer : IDisposable
                     "Custom action payload requestId must match the IPC requestId."));
         }
 
-        var result = await _runtime.InvokeCustomActionAsync(request.CustomAction, cancellationToken);
+        var result = await _runtime.InvokeCustomActionAsync(request.CustomAction, _control.Execute(new()).Value!.Owner, cancellationToken);
         return result.Success
             ? BridgeIpcResponse.Ok(request.RequestId, result.Value)
+            : BridgeIpcResponse.Fail(request.RequestId, ToProtocolError(result.Error!));
+    }
+
+    private async Task<BridgeIpcResponse> OperationAsync(BridgeIpcRequest request, CancellationToken cancellationToken)
+    {
+        if (request.Operation is null) return BridgeIpcResponse.Fail(request.RequestId, new("operation_request_required", "A structured operation request is required."));
+        var result = await _runtime.OperationAsync(request.Operation, _control.Execute(new()).Value!.Owner, cancellationToken);
+        return result.Success ? BridgeIpcResponse.Ok(request.RequestId, result.Value)
             : BridgeIpcResponse.Fail(request.RequestId, ToProtocolError(result.Error!));
     }
 

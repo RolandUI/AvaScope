@@ -441,3 +441,5 @@ When practical, deprecate before removal, keep aliases for at least one minor re
 - `AvaScope.Core` and `AvaScope.Bridge` expose some public types that exist to support package consumers and tests; not every low-level constructor is an endorsed extension point.
 - Preview diagnostics depend on public Avalonia 12 behavior and source metadata, so diagnostics may become more precise without a breaking version change.
 - Runtime mutation support is stable as a temporary, local, reversible workflow. Supported properties and diagnostics may grow additively; unsupported private runtime hooks remain out of scope.
+
+The additive `runtime.operations` capability exposes CLI/MCP `operation` (structured status/wait/cancel requests), optional custom-action operation/cancellation declarations and response snapshots. See [operation lifecycle and bounds](RUNTIME_OPERATIONS.md).

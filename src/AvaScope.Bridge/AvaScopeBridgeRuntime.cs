@@ -172,15 +172,19 @@ public sealed partial class AvaScopeBridgeRuntime
     public Task<CoreResult<RuntimeCustomActionResponse>> InvokeCustomActionAsync(
         RuntimeCustomActionRequest request,
         CancellationToken cancellationToken = default)
+        => InvokeCustomActionAsync(request, owner: null, cancellationToken);
+
+    internal Task<CoreResult<RuntimeCustomActionResponse>> InvokeCustomActionAsync(
+        RuntimeCustomActionRequest request, string? owner, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
         if (Dispatcher.UIThread.CheckAccess())
         {
-            return Task.FromResult(InvokeCustomAction(request));
+            return Task.FromResult(InvokeCustomAction(request, owner));
         }
 
         return Dispatcher.UIThread
-            .InvokeAsync(() => InvokeCustomAction(request), DispatcherPriority.Background, cancellationToken)
+            .InvokeAsync(() => InvokeCustomAction(request, owner), DispatcherPriority.Background, cancellationToken)
             .GetTask();
     }
 
@@ -584,6 +588,7 @@ public sealed partial class AvaScopeBridgeRuntime
         Interlocked.Exchange(ref _automaticTopLevels, null)?.Dispose();
         ResetActiveMutationsOnUiThread(static _ => true);
         _customActions.Clear();
+        CloseOperations();
         _registeredTopLevels.Clear();
         _observedBackends.Clear();
         return _sessionRegistry.Close(SessionId);
@@ -630,7 +635,7 @@ public sealed partial class AvaScopeBridgeRuntime
             DateTimeOffset.UtcNow));
     }
 
-    private CoreResult<RuntimeCustomActionResponse> InvokeCustomAction(RuntimeCustomActionRequest request)
+    private CoreResult<RuntimeCustomActionResponse> InvokeCustomAction(RuntimeCustomActionRequest request, string? owner)
     {
         Dispatcher.UIThread.VerifyAccess();
         var resolved = ResolveCustomActionTarget(request.Target);
@@ -743,9 +748,20 @@ public sealed partial class AvaScopeBridgeRuntime
                 diagnostic));
         }
 
+        RuntimeOperationHandle? operation = null;
+        var invocationOpen = true;
         try
         {
-            var outcome = registration.Handler(new CustomActionContext(request.RequestId, visual, request.Parameters));
+            var context = new CustomActionContext(request.RequestId, visual, request.Parameters)
+            {
+                OperationFactory = !registration.SupportsOperations ? null : () =>
+                {
+                    Dispatcher.UIThread.VerifyAccess();
+                    if (!invocationOpen) throw new InvalidOperationException("BeginOperation must run during the authorized custom action handler.");
+                    return operation ??= CreateOperation(request, currentTarget, registration, owner);
+                }
+            };
+            var outcome = registration.Handler(context);
             var message = string.IsNullOrWhiteSpace(outcome.Message)
                 ? $"Custom action '{request.ActionName}' completed."
                 : outcome.Message;
@@ -760,7 +776,8 @@ public sealed partial class AvaScopeBridgeRuntime
                 executed: true,
                 message,
                 diagnostic,
-                outcome.Metadata));
+                outcome.Metadata,
+                operation?.Snapshot));
         }
         catch (Exception exception)
         {
@@ -778,8 +795,10 @@ public sealed partial class AvaScopeBridgeRuntime
                 RuntimeCustomActionStatuses.Failed,
                 executed: true,
                 diagnostic.Message,
-                diagnostic));
+                diagnostic,
+                operation: operation?.Snapshot));
         }
+        finally { invocationOpen = false; }
     }
 
     private CoreResult<ResolvedCustomActionTarget> ResolveCustomActionTarget(RuntimeTargetContext target)
@@ -874,7 +893,9 @@ public sealed partial class AvaScopeBridgeRuntime
             registration.RequiredState,
             registration.Description,
             reason,
-            testFixture: registration.TestFixture);
+            testFixture: registration.TestFixture,
+            supportsOperations: registration.SupportsOperations,
+            supportsCancellation: registration.SupportsCancellation);
     }
 
     private static CustomActionAvailability EvaluateCustomActionAvailability(
@@ -955,7 +976,8 @@ public sealed partial class AvaScopeBridgeRuntime
         bool executed,
         string message,
         ProtocolError? diagnostic = null,
-        IReadOnlyDictionary<string, string>? metadata = null)
+        IReadOnlyDictionary<string, string>? metadata = null,
+        RuntimeOperationSnapshot? operation = null)
     {
         var evaluatedAt = DateTimeOffset.UtcNow;
         var audit = new RuntimeCustomActionAuditEntry(
@@ -978,7 +1000,8 @@ public sealed partial class AvaScopeBridgeRuntime
             evaluatedAt,
             audit,
             metadata,
-            diagnostic is null ? [] : [diagnostic]);
+            diagnostic is null ? [] : [diagnostic],
+            operation);
     }
 
     private IReadOnlyList<TopLevelSummary> DiscoverTopLevels()

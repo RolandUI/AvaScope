@@ -27,6 +27,8 @@ public static class OperationResultMapper
     {
         return value switch
         {
+            RuntimeOperationResponse response when response.Status == "timed_out"
+                => new ProtocolError("runtime_operation_wait_timeout", "The operation has not reported a terminal outcome; waiting did not cancel or repeat app work."),
             RuntimeExpressionResponse response when response.Status is "failed" or "indeterminate"
                 => OutcomeError("runtime_expression_not_verified", response.Status, response.Diagnostics),
             RuntimeFocusProbeResponse response when response.Status != "observed"
