@@ -208,6 +208,20 @@ public sealed class RuntimePickingTests
         });
     }
 
+    [Fact]
+    public async Task EmptyHighlightCleanupDoesNotRequireAUiDispatcherTurn()
+    {
+        await WithWindow(async (runtime, window, button, top, node, client, output) =>
+        {
+            window.Close();
+            var closed = Task.Run(AvaScopeBridge.Deactivate);
+            var completedWithoutDispatcher = closed.Wait(TimeSpan.FromSeconds(1));
+            // If this regresses, yielding lets the pending cleanup finish before reporting failure.
+            await closed;
+            Assert.True(completedWithoutDispatcher, "An empty highlight registry waited for UI work during shutdown.");
+        });
+    }
+
     private static RuntimePickResponse Pick(CoreResult<RuntimePickResponse> result)
     { Assert.True(result.Success, JsonSerializer.Serialize(result.Error)); return result.Value!; }
     private static RuntimeHighlightResponse Highlight(CoreResult<RuntimeHighlightResponse> result)

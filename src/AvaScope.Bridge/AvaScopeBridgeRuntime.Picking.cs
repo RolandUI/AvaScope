@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text.Json;
@@ -15,7 +16,7 @@ namespace AvaScope.Bridge;
 
 public sealed partial class AvaScopeBridgeRuntime
 {
-    private readonly Dictionary<string, HighlightState> _highlights = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, HighlightState> _highlights = new(StringComparer.Ordinal);
 
     public async Task<CoreResult<RuntimePickResponse>> PickNodeAsync(RuntimePickRequest request, CancellationToken cancellationToken = default)
     {
@@ -168,7 +169,7 @@ public sealed partial class AvaScopeBridgeRuntime
             layer.Children.Add(overlay);
             var state = new HighlightState(id, request.Target, node, layer, overlay, expiry, timer, Valid,
                 () => { timer.Tick -= tick; node.DetachedFromVisualTree -= detached; });
-            _highlights.Add(request.Target.TopLevelId, state);
+            if (!_highlights.TryAdd(request.Target.TopLevelId, state)) throw new InvalidOperationException("Highlight slot changed.");
             timer.Tick += tick; node.DetachedFromVisualTree += detached; timer.Start();
             return Result("active", state);
         }
@@ -208,11 +209,13 @@ public sealed partial class AvaScopeBridgeRuntime
     }
     private void ClearHighlights(string? topLevelId = null)
     {
+        // Empty sessions must close without a dispatcher: it may already have stopped.
+        if (_highlights.IsEmpty) return;
         if (!Dispatcher.UIThread.CheckAccess())
         { Dispatcher.UIThread.InvokeAsync(() => ClearHighlights(topLevelId), DispatcherPriority.Send).GetTask().GetAwaiter().GetResult(); return; }
         foreach (var entry in _highlights.Where(pair => topLevelId is null || pair.Key == topLevelId).ToArray())
         {
-            _highlights.Remove(entry.Key); var state = entry.Value;
+            if (!_highlights.TryRemove(entry.Key, out var state)) continue;
             state.Timer.Stop(); state.Unsubscribe(); AdornerLayer.SetAdornedElement(state.Overlay, null); state.Layer.Children.Remove(state.Overlay);
         }
     }
