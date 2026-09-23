@@ -162,7 +162,10 @@ public sealed class AgentRunRecoveryTests : IDisposable
         try
         {
             Assert.Equal("failed", value.Status);
-            Assert.Equal("cleanup", value.FailureStage);
+            Assert.True(value.FailureStage == "cleanup", JsonSerializer.Serialize(new
+            {
+                value.FailureStage, value.Diagnostics, value.Environment
+            }));
             Assert.Contains(value.Diagnostics, error => error.Code == "session_control_conflict");
             using var app = Process.GetProcessById(value.Launch!.ProcessId);
             Assert.False(app.HasExited);

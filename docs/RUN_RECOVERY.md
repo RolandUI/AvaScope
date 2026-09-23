@@ -6,6 +6,9 @@ state, launch logs, screenshots, reports and timeline paths are reserved against
 overlapping active or abandoned runs. Existing filesystem links are resolved for
 path comparison; changing paths or links during a run is unsupported.
 
+Scenario builds use `dotnet build --disable-build-servers`, matching preview builds.
+Persistent MSBuild nodes must not keep a completed run's captured output streams open.
+
 The private recovery store defaults to the current user's local application-data
 directory, `AvaScope/agent-runs`. Set `AVASCOPE_RUN_STORE_DIR` explicitly to relocate
 it. Records link the run to its provider version/hash when supplied by a profile,

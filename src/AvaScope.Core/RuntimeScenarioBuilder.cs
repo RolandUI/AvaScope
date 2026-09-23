@@ -57,6 +57,8 @@ internal sealed class RuntimeScenarioBuilder
         };
         startInfo.ArgumentList.Add("build");
         startInfo.ArgumentList.Add(options.ProjectPath);
+        // A persistent build node can outlive this process and retain its redirected output pipes.
+        startInfo.ArgumentList.Add("--disable-build-servers");
         startInfo.ArgumentList.Add("--configuration");
         startInfo.ArgumentList.Add(options.Configuration);
         if (!string.IsNullOrWhiteSpace(options.Framework))
