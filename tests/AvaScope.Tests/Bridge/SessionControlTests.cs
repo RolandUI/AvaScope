@@ -43,7 +43,7 @@ public sealed class SessionControlTests
                     Assert.Equal("session_control_conflict", (await outsider.CloseSessionAsync(runtime.SessionId)).Error!.Code);
                     var manifest = client.ListSessionManifests().Single(m => m.SessionId == runtime.SessionId);
                     foreach (var method in new[] { BridgeIpcMethods.Input, BridgeIpcMethods.MutateNode, BridgeIpcMethods.InvokeCustomAction,
-                        BridgeIpcMethods.VirtualItem, BridgeIpcMethods.NativePicker, BridgeIpcMethods.EnsureState, BridgeIpcMethods.EditText, BridgeIpcMethods.Scene, BridgeIpcMethods.FillForm, BridgeIpcMethods.TableAction })
+                        BridgeIpcMethods.VirtualItem, BridgeIpcMethods.NativePicker, BridgeIpcMethods.EnsureState, BridgeIpcMethods.EditText, BridgeIpcMethods.Scene, BridgeIpcMethods.Window, BridgeIpcMethods.FillForm, BridgeIpcMethods.TableAction })
                     {
                         await using var pipe = new NamedPipeClientStream(".", manifest.PipeName, PipeDirection.InOut, PipeOptions.Asynchronous);
                         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));

@@ -43,7 +43,7 @@ public sealed partial class AvaScopeBridgeRuntime
     internal void TraceDispatch(BridgeIpcRequest request, string stage, ProtocolError? error = null)
     {
         if (request.Method == BridgeIpcMethods.Trace || !(BridgeIpcMethods.RequiresControl(request) || request.Method == BridgeIpcMethods.ValidateInput)) return;
-        var top = request.TopLevelId ?? request.CustomAction?.Target.TopLevelId ?? request.Mutation?.Target.TopLevelId
+        var top = request.TopLevelId ?? request.Window?.Target.TopLevelId ?? request.CustomAction?.Target.TopLevelId ?? request.Mutation?.Target.TopLevelId
             ?? request.Scene?.Canvas.TopLevelId ?? request.TextEdit?.Target.TopLevelId ?? request.DesiredState?.Target.TopLevelId ?? request.FormFill?.Form.TopLevelId ?? request.TableAction?.Query.Table.TopLevelId
             ?? request.FocusProbe?.Target.TopLevelId ?? request.NativePicker?.TopLevelId ?? request.VirtualItem?.Collection.TopLevelId;
         if (top is null) return;

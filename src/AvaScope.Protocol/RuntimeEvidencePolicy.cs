@@ -44,7 +44,8 @@ public sealed record RuntimeEvidencePolicy
         bool writeActionAudit = true,
         bool networkUpload = false,
         IReadOnlyList<string>? allowedDesiredStates = null,
-        IReadOnlyList<string>? allowedTableActions = null)
+        IReadOnlyList<string>? allowedTableActions = null,
+        IReadOnlyList<string>? allowedWindowActions = null)
     {
         if (string.IsNullOrWhiteSpace(ownedEvidenceRoot))
         {
@@ -69,6 +70,9 @@ public sealed record RuntimeEvidencePolicy
         OwnedEvidenceRoot = Path.GetFullPath(ownedEvidenceRoot);
         AllowedDesiredStates = Normalize(allowedDesiredStates ?? [], nameof(allowedDesiredStates));
         AllowedTableActions = Normalize(allowedTableActions ?? [], nameof(allowedTableActions));
+        AllowedWindowActions = Normalize(allowedWindowActions ?? [], nameof(allowedWindowActions));
+        if (AllowedWindowActions.Any(action => action == "inspect" || !RuntimeWindowRequest.Actions.Contains(action, StringComparer.Ordinal)))
+            throw new ArgumentException("Unsupported window action permission.", nameof(allowedWindowActions));
         if (AllowedTableActions.Any(action => action is not ("select_row" or "edit_cell" or "sort")))
             throw new ArgumentException("Unsupported table action permission.", nameof(allowedTableActions));
         if (AllowedDesiredStates.Any(state => !RuntimeDesiredStateRequest.Properties.Contains(state, StringComparer.Ordinal)))
@@ -119,6 +123,9 @@ public sealed record RuntimeEvidencePolicy
 
     [JsonPropertyName("allowedTableActions")]
     public IReadOnlyList<string> AllowedTableActions { get; }
+
+    [JsonPropertyName("allowedWindowActions")]
+    public IReadOnlyList<string> AllowedWindowActions { get; }
 
     [JsonPropertyName("redactedText")]
     public IReadOnlyList<string> RedactedText { get; }

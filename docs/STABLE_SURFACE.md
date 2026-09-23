@@ -455,3 +455,6 @@ The additive `runtime.scenes` capability exposes CLI/MCP `scene` and optional
 The additive `runtime.navigation` capability exposes CLI/MCP `navigation` for
 bounded per-run visit evidence, known routes and uncertain revisit loops. See
 [navigation history, identity and retention](NAVIGATION_HISTORY.md).
+
+The additive `runtime.windows` capability exposes CLI/MCP `window` and evidence
+policy `allowedWindowActions`. See [owned-window operations and coordinates](WINDOW_MANAGEMENT.md).

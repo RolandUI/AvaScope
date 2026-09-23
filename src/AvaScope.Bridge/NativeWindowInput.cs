@@ -99,6 +99,50 @@ internal sealed class NativeWindowInput : IDisposable
         { return new("unknown", "native_focus_observation", "The owned native window or native focus observation is unavailable."); }
     }
 
+    internal static RuntimeNativeWindowState ObserveWindowState(TopLevel top)
+    {
+        try
+        {
+            ValidateOwnership(top, false);
+            var handle = top.TryGetPlatformHandle()!.Handle;
+            var route = Route(top);
+            if (route == RuntimeOperationRoutes.Win32WindowMessage)
+                return new(IsIconic(handle) ? "minimized" : IsZoomed(handle) ? "maximized" : "normal", "win32_IsIconic_IsZoomed");
+            if (route == RuntimeOperationRoutes.AppKitWindowEvent)
+                return new(Mac.Send(handle, "isMiniaturized") != 0 ? "minimized" : Mac.Send(handle, "isZoomed") != 0 ? "maximized" : "normal", "appkit_isMiniaturized_isZoomed");
+            var display = XOpenDisplay(null);
+            if (display == 0) return new("unknown", "x11_display_unavailable");
+            try
+            {
+                var wm = Property("WM_STATE");
+                var states = Property("_NET_WM_STATE");
+                if (wm is null || wm.Length == 0 || states is null) return new("unknown", "x11_window_manager_state_unavailable");
+                bool Has(string name) { var atom = XInternAtom(display, name, true); return atom != 0 && states.Contains(atom); }
+                return new(wm[0] == 3 || Has("_NET_WM_STATE_HIDDEN") ? "minimized"
+                    : Has("_NET_WM_STATE_FULLSCREEN") ? "fullscreen"
+                    : Has("_NET_WM_STATE_MAXIMIZED_VERT") && Has("_NET_WM_STATE_MAXIMIZED_HORZ") ? "maximized" : "normal", "x11_WM_STATE_NET_WM_STATE");
+
+                nint[]? Property(string name)
+                {
+                    var atom = XInternAtom(display, name, true);
+                    if (atom == 0) return [];
+                    var status = XGetWindowProperty(display, handle, atom, 0, 64, false, 0, out var actualType, out var format,
+                        out var count, out var remaining, out var data);
+                    try
+                    {
+                        if (status != 0 || remaining != 0 || count > 64 || count > 0 && (data == 0 || actualType == 0 || format != 32)) return null;
+                        return Enumerable.Range(0, checked((int)count)).Select(index => Marshal.ReadIntPtr(data, index * IntPtr.Size)).ToArray();
+                    }
+                    finally { if (data != 0) XFree(data); }
+                }
+            }
+            finally { XCloseDisplay(display); }
+        }
+        catch (NotSupportedException) { return new("unsupported", "backend_capability"); }
+        catch (Exception exception) when (exception is InvalidOperationException or DllNotFoundException or EntryPointNotFoundException)
+        { return new("unknown", "native_state_unavailable"); }
+    }
+
     internal static void ValidateOperation(TopLevel top, string action, string? text,
         IReadOnlyList<(Key Key, KeyModifiers Modifiers)> keys, KeyModifiers modifiers)
     {
@@ -361,6 +405,8 @@ internal sealed class NativeWindowInput : IDisposable
     [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(nint handle, out uint process);
     [DllImport("kernel32.dll")] private static extern uint GetCurrentThreadId();
     [DllImport("user32.dll")] private static extern nint GetForegroundWindow();
+    [DllImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool IsIconic(nint handle);
+    [DllImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool IsZoomed(nint handle);
     [DllImport("user32.dll", EntryPoint = "SendMessageTimeoutW")] private static extern nint SendMessageTimeout(nint handle, uint message, nint wParam, nint lParam, uint flags, uint timeout, out nint result);
     [DllImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool GetKeyboardState(byte[] state);
     [DllImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool SetKeyboardState(byte[] state);
@@ -376,6 +422,10 @@ internal sealed class NativeWindowInput : IDisposable
     [DllImport("libX11.so.6")] private static extern nuint XkbKeycodeToKeysym(nint display, byte code, int group, int level);
     [DllImport("libX11.so.6")] private static extern nint XGetModifierMapping(nint display);
     [DllImport("libX11.so.6")] private static extern int XFreeModifiermap(nint map);
+    [DllImport("libX11.so.6")] private static extern nint XInternAtom(nint display, string name, [MarshalAs(UnmanagedType.Bool)] bool onlyIfExists);
+    [DllImport("libX11.so.6")] private static extern int XGetWindowProperty(nint display, nint window, nint property, nint offset, nint length,
+        [MarshalAs(UnmanagedType.Bool)] bool delete, nint requestedType, out nint actualType, out int format, out nuint count, out nuint remaining, out nint data);
+    [DllImport("libX11.so.6")] private static extern int XFree(nint data);
 
     internal static class Mac
     {

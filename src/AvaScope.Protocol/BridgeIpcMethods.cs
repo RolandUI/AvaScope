@@ -16,6 +16,7 @@ public static class BridgeIpcMethods
     public const string EditText = "edit_text";
     public const string Scene = "scene";
     public const string Navigation = "navigation";
+    public const string Window = "window";
     public const string EnsureState = "ensure_state";
     public const string InspectForm = "inspect_form";
     public const string FillForm = "fill_form";
@@ -57,6 +58,7 @@ public static class BridgeIpcMethods
         EditText,
         Scene,
         Navigation,
+        Window,
         EnsureState,
         InspectForm,
         FillForm,
@@ -88,6 +90,7 @@ public static class BridgeIpcMethods
         || request.Method == Trace && request.Trace?.Action is "start" or "stop"
         || request.Method == EditText && request.TextEdit?.Action != "read"
         || request.Method == Scene && request.Scene?.Action != "inspect"
+        || request.Method == Window && request.Window?.Action != "inspect"
         || request.Method == VirtualItem && request.VirtualItem?.Action != "find"
         || request.Method == NativePicker && request.NativePicker?.Operation != "detect";
 }

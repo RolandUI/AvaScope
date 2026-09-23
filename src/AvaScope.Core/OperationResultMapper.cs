@@ -43,6 +43,8 @@ public static class OperationResultMapper
                 => OutcomeError("text_edit_not_verified", response.Status, response.Diagnostics),
             RuntimeSceneResponse response when response.Status is not ("observed" or "executed")
                 => OutcomeError("scene_operation_failed", response.Status, response.Diagnostics),
+            RuntimeWindowResponse response when response.Status is not ("observed" or "executed" or "already_satisfied")
+                => OutcomeError("window_operation_not_verified", response.Status, response.Diagnostics),
             SemanticWorkflowResponse response when response.Status is not ("passed" or "validated")
                 => OutcomeError("workflow_failed", response.Status, response.Diagnostics),
             RuntimeScenarioResponse response when response.Status != "passed"

@@ -9,6 +9,13 @@ namespace AvaScope.Mcp;
 [McpServerToolType]
 public sealed class AvaScopeMcpTools
 {
+    [McpServerTool(Name = "window", Title = "Inspect or manage an owned application window", ReadOnly = false, Idempotent = false,
+        Destructive = false, OpenWorld = false, UseStructuredContent = true)]
+    [Description("Inspects an explicit session top-level and its monitors, coordinate units, generation and revision. Actions activate, bring_to_front, minimize, maximize, restore, move and resize require that fresh target/revision, policy allowedWindowActions and the session control lease. Returns observed before/after state and verified, refused or partial outcome. Desktop coordinates are physical pixels on Windows/X11 and points on macOS; clientSize uses DIPs. bring_to_front verifies native focus and registered-window order only. Headless/unknown/fullscreen operations are unsupported. Never closes windows or controls unrelated processes; no automatic replay.")]
+    public static async Task<ToolResult<RuntimeWindowResponse>> Window(LocalBridgeClient bridgeClient,
+        RuntimeWindowRequest request, string? manifestDirectory = null, CancellationToken cancellationToken = default)
+        => ToToolResult(await CreateBridgeClient(bridgeClient, manifestDirectory).WindowAsync(request, cancellationToken));
+
     [McpServerTool(Name = "navigation", Title = "Remember observed navigation routes", ReadOnly = false, Idempotent = false,
         Destructive = false, OpenWorld = false, UseStructuredContent = true)]
     [Description("Starts, records, queries or clears a bounded session/run navigation journal. Captures visits through bridge observations; records explicitly reported action outcomes using previousVisitId without dispatching input. Query visitId, stateKey or fromVisitId/toVisitId for retained evidence and routes; loops may be uncertain sampled matches. Optional identityTarget reads navigation.surface/context/revision from the existing opt-in debug-state provider. Similar trees never merge visits. Runs expire and cannot survive app restart; routes are observations, not guaranteed future plans.")]
