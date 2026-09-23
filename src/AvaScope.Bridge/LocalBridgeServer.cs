@@ -112,46 +112,49 @@ internal sealed class LocalBridgeServer : IDisposable
 
     private async Task RunAsync(CancellationToken cancellationToken)
     {
+        NamedPipeServerStream? pendingPipe = null;
         try
         {
             while (!cancellationToken.IsCancellationRequested)
             {
-                var pipe = CreatePipe();
-                lock (_pipeSyncRoot)
-                {
-                    _activePipes.Add(pipe);
-                }
+                pendingPipe ??= CreatePipe();
 
                 try
                 {
-                    await pipe.WaitForConnectionAsync(cancellationToken);
+                    await pendingPipe.WaitForConnectionAsync(cancellationToken);
                 }
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                 {
-                    await RemoveAndDisposePipeAsync(pipe);
                     break;
                 }
                 catch (ObjectDisposedException) when (cancellationToken.IsCancellationRequested)
                 {
-                    await RemoveAndDisposePipeAsync(pipe);
                     break;
                 }
                 catch (IOException) when (cancellationToken.IsCancellationRequested)
                 {
-                    await RemoveAndDisposePipeAsync(pipe);
                     break;
                 }
                 catch (IOException)
                 {
-                    await RemoveAndDisposePipeAsync(pipe);
+                    await RemoveAndDisposePipeAsync(pendingPipe);
+                    pendingPipe = null;
                     continue;
                 }
 
-                TrackConnection(HandleConnectedPipeAsync(pipe, cancellationToken));
+                var connectedPipe = pendingPipe;
+                // Keep the Unix shared listener alive even if this response completes synchronously.
+                pendingPipe = CreatePipe();
+                TrackConnection(HandleConnectedPipeAsync(connectedPipe, cancellationToken));
             }
         }
         finally
         {
+            if (pendingPipe is not null)
+            {
+                await RemoveAndDisposePipeAsync(pendingPipe);
+            }
+
             Task[] connectionTasks;
             lock (_pipeSyncRoot)
             {
@@ -172,12 +175,18 @@ internal sealed class LocalBridgeServer : IDisposable
 
     private NamedPipeServerStream CreatePipe()
     {
-        return new NamedPipeServerStream(
+        var pipe = new NamedPipeServerStream(
             PipeName,
             PipeDirection.InOut,
             NamedPipeServerStream.MaxAllowedServerInstances,
             PipeTransmissionMode.Byte,
             PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
+        lock (_pipeSyncRoot)
+        {
+            _activePipes.Add(pipe);
+        }
+
+        return pipe;
     }
 
     private void TrackConnection(Task connectionTask)

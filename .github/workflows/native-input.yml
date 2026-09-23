@@ -31,9 +31,12 @@ jobs:
           sudo apt-get install -y xvfb x11-utils openbox dbus at-spi2-core libx11-6 libice6 libsm6 libfontconfig1 fonts-dejavu-core libgtk-3-0
       - name: Build
         run: dotnet build AvaScope.slnx -c Release
+      - name: Validate local transport and session control
+        run: dotnet test tests/AvaScope.Tests/AvaScope.Tests.csproj -c Release --no-build --filter "FullyQualifiedName~AvaScopeBridgeTests|FullyQualifiedName~SessionControlTests"
       - name: Validate external provider input and dialogs
         shell: pwsh
         run: |
+          $PSNativeCommandUseErrorActionPreference = $true
           ./eng/package-provider.ps1
           ./eng/test-native-input.ps1
       - name: Preserve native diagnostics

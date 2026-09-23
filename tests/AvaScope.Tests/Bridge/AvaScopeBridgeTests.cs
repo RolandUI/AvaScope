@@ -148,6 +148,35 @@ public sealed class AvaScopeBridgeTests : IDisposable
     }
 
     [Fact]
+    public async Task LocalPipeServerKeepsFastControlRefusalsConnectedAcrossBatches()
+    {
+        var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Fast response sample app"));
+        var client = new LocalBridgeClient(Path.GetDirectoryName(runtime.SessionManifestPath));
+        Assert.True((await client.SessionControlAsync(runtime.SessionId, new("acquire", "burst-owner"))).Success);
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+
+        // No deliberately stalled connection keeps the Unix shared listener alive here.
+        for (var batch = 0; batch < 128; batch++)
+        {
+            await Task.WhenAll(Enumerable.Range(batch * 4, 4).Select(ExchangeAsync));
+        }
+
+        async Task ExchangeAsync(int index)
+        {
+            var request = new BridgeIpcRequest($"fast-refusal-{index}", BridgeIpcMethods.Input);
+            await using var pipe = new NamedPipeClientStream(".", runtime.LocalPipeName!, PipeDirection.InOut, PipeOptions.Asynchronous);
+            await pipe.ConnectAsync(timeout.Token);
+            await pipe.WriteAsync(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(request) + "\n"), timeout.Token);
+            using var reader = new StreamReader(pipe, leaveOpen: true);
+            var line = await reader.ReadLineAsync(timeout.Token);
+            Assert.False(string.IsNullOrEmpty(line), $"The bridge closed {request.RequestId} without its refusal response.");
+            var response = JsonSerializer.Deserialize<BridgeIpcResponse>(line!)!;
+            Assert.Equal(request.RequestId, response.RequestId);
+            Assert.Equal("session_control_conflict", response.Error!.Code);
+        }
+    }
+
+    [Fact]
     public async Task LocalPipeCloseSessionRespondsThenRemovesManifest()
     {
         var registry = new SessionRegistry();

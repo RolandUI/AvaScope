@@ -51,7 +51,9 @@ public sealed class SessionControlTests
                         var request = new BridgeIpcRequest(Guid.NewGuid().ToString("N"), method);
                         await pipe.WriteAsync(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(request) + "\n"), timeout.Token);
                         using var reader = new StreamReader(pipe, leaveOpen: true);
-                        var refused = JsonSerializer.Deserialize<BridgeIpcResponse>((await reader.ReadLineAsync(timeout.Token))!)!;
+                        var line = await reader.ReadLineAsync(timeout.Token);
+                        Assert.False(string.IsNullOrEmpty(line), $"The bridge closed the raw {method} request without a response.");
+                        var refused = JsonSerializer.Deserialize<BridgeIpcResponse>(line!)!;
                         Assert.Equal("session_control_conflict", refused.Error!.Code);
                     }
                     var selected = client.WithManifestDirectory(client.ManifestDirectory);
