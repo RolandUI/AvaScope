@@ -349,6 +349,7 @@ internal sealed class LocalBridgeServer : IDisposable
             BridgeIpcMethods.Trace => Respond(await TraceAsync(request, cancellationToken)),
             BridgeIpcMethods.EditText => Respond(await EditTextAsync(request, cancellationToken)),
             BridgeIpcMethods.Scene => Respond(await SceneAsync(request, cancellationToken)),
+            BridgeIpcMethods.Navigation => Respond(await NavigationAsync(request, cancellationToken)),
             BridgeIpcMethods.EnsureState => Respond(await EnsureStateAsync(request, cancellationToken)),
             BridgeIpcMethods.InspectForm => Respond(await InspectFormAsync(request, cancellationToken)),
             BridgeIpcMethods.FillForm => Respond(await FillFormAsync(request, cancellationToken)),
@@ -502,6 +503,13 @@ internal sealed class LocalBridgeServer : IDisposable
     {
         if (request.Scene is null) return BridgeIpcResponse.Fail(request.RequestId, new("scene_request_required", "A structured scene request is required."));
         var result = await _runtime.SceneAsync(request.Scene, _control.Execute(new()).Value!.Owner, cancellationToken);
+        return result.Success ? BridgeIpcResponse.Ok(request.RequestId, result.Value) : BridgeIpcResponse.Fail(request.RequestId, ToProtocolError(result.Error!));
+    }
+
+    private async Task<BridgeIpcResponse> NavigationAsync(BridgeIpcRequest request, CancellationToken cancellationToken)
+    {
+        if (request.Navigation is null) return BridgeIpcResponse.Fail(request.RequestId, new("navigation_request_required", "A structured navigation request is required."));
+        var result = await _runtime.NavigationAsync(request.Navigation, cancellationToken);
         return result.Success ? BridgeIpcResponse.Ok(request.RequestId, result.Value) : BridgeIpcResponse.Fail(request.RequestId, ToProtocolError(result.Error!));
     }
 

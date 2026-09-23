@@ -451,3 +451,7 @@ The additive `runtime.text_editing` capability exposes CLI `edit-text` and MCP
 
 The additive `runtime.scenes` capability exposes CLI/MCP `scene` and optional
 `requiresSceneObject` custom-action descriptors. See [semantic canvas objects and guarded actions](SEMANTIC_SCENES.md).
+
+The additive `runtime.navigation` capability exposes CLI/MCP `navigation` for
+bounded per-run visit evidence, known routes and uncertain revisit loops. See
+[navigation history, identity and retention](NAVIGATION_HISTORY.md).

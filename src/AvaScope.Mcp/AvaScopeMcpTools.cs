@@ -9,6 +9,13 @@ namespace AvaScope.Mcp;
 [McpServerToolType]
 public sealed class AvaScopeMcpTools
 {
+    [McpServerTool(Name = "navigation", Title = "Remember observed navigation routes", ReadOnly = false, Idempotent = false,
+        Destructive = false, OpenWorld = false, UseStructuredContent = true)]
+    [Description("Starts, records, queries or clears a bounded session/run navigation journal. Captures visits through bridge observations; records explicitly reported action outcomes using previousVisitId without dispatching input. Query visitId, stateKey or fromVisitId/toVisitId for retained evidence and routes; loops may be uncertain sampled matches. Optional identityTarget reads navigation.surface/context/revision from the existing opt-in debug-state provider. Similar trees never merge visits. Runs expire and cannot survive app restart; routes are observations, not guaranteed future plans.")]
+    public static async Task<ToolResult<RuntimeNavigationResponse>> Navigation(LocalBridgeClient bridgeClient,
+        RuntimeNavigationRequest request, string? manifestDirectory = null, CancellationToken cancellationToken = default)
+        => ToToolResult(await CreateBridgeClient(bridgeClient, manifestDirectory).NavigationAsync(request, cancellationToken));
+
     [McpServerTool(Name = "scene", Title = "Inspect or act on declared canvas objects", ReadOnly = false, Idempotent = false,
         Destructive = false, OpenWorld = false, UseStructuredContent = true)]
     [Description("Inspects an opted-in semantic canvas adapter by exact objectId, objectType or relatedTo identity. Returns bounded declared objects, relationships, selection, transformed DIP bounds, coverage and generation/revision targets. To invoke a registered custom action, send action=invoke with the exact expectedObject, actionName and requestId; the scene is checked again after action availability callbacks. Host activation/allowlists, policy and control leases apply. Never infers hidden objects from pixels or sends coordinate input. Unknown outcomes must be inspected, not replayed.")]

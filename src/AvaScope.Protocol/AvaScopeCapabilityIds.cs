@@ -22,6 +22,7 @@ public static class AvaScopeCapabilityIds
     public const string RuntimeTraces = "runtime.traces";
     public const string RuntimeTextEditing = "runtime.text_editing";
     public const string RuntimeScenes = "runtime.scenes";
+    public const string RuntimeNavigation = "runtime.navigation";
     public const string RuntimeStandaloneProvider = "runtime.standalone_provider";
     public const string RuntimeIntegrationGuidance = "runtime.integration_guidance";
     public const string RuntimeIntegrationVerification = "runtime.integration_verification";

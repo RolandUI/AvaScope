@@ -2,7 +2,7 @@
 
 GitHub Issues and Milestones are the primary project-management source for autonomous agents working on AvaScope. This document is the compact local handoff and validation log. Update it whenever meaningful implementation, validation, or planning changes the active GitHub issue or release state.
 
-- `2026-09-23`: Release v1.5.0 / #156 covers #117-#153 and #155; #154 is cancelled (no foreign framework interoperability). #117-#139 are closed; #140-#148 await combined platform gates. #148 adds opt-in semantic canvas objects, transformed geometry, generation/revision-checked selection through authorized custom actions, and shared CLI/MCP scene inspection. Windows Release build passed with zero warnings/errors and the combined scene/text/action/control checkpoint passed 30/30. The real Windows sample graph was inspected and its A-to-B connection selected through the CLI; the captured rendered image confirms selection (artifacts/semantic-scene/91b5ce3de2f242c7825027052ea9a35b). The larger Linux checkpoint is running. CI 35810739639 at 0023fc4 passed 695 tests but one targeted-click fixture sampled before the first frame; that fixture now waits for a rendered frame and passes in the focused checkpoint. Earlier unawaited headless-test results are not release evidence. Avalonia runtime/sample 12.1.3, Bridge standalone baseline 12.1.0; product version stays 1.4.2 until the validated release commit.
+- `2026-09-23`: Release v1.5.0 / #156 covers #117-#153 and #155; #154 is cancelled (no foreign framework interoperability). #117-#139 are closed; #140-#149 await combined platform gates. #148 is pushed as 5136dba; Windows 30/30, Linux 91/91 and the real Windows graph selection/screenshot passed. #149 adds the bounded session/run navigation journal, individually retained visits, explicit route outcomes, uncertain loop matching, host-declared debug-state identity, fixed policy/expiry and shared CLI/MCP queries. Windows Release build passed with zero warnings/errors and the navigation/observation/control/stable-surface checkpoint passed 21/21. A full Linux Release suite is running. Hosted CI 35812554596 is validating 5136dba. Earlier unawaited headless-test results are not release evidence. Avalonia runtime/sample 12.1.3, Bridge standalone baseline 12.1.0; product version stays 1.4.2 until the validated release commit.
 
 - `2026-09-03`: Published `v1.4.2` from exact release commit `66d23c040e4bf16ed66b0b43e7021507966347a9` through successful Release workflow `33732182248`. The remote tag matches; the public, non-prerelease GitHub Release has 12/12 assets; and fresh downloads verified all 11 manifest entries by exact name, size, and SHA-256 plus every package metadata version. NuGet.org exposes Protocol/Core/Bridge `1.4.2` as latest; all three CDN packages pass repository-signature verification and their unsigned entries match the release packages. GitHub Packages publication succeeded for all three packages. Release tracker #114 and milestone `v1.4.2` are closed.
 - `2026-09-03`: The v1.4.2 release-candidate gate passed through `59bb5e0` with exact version `1.4.2` staged. The consolidated local Release suite passed `505/505` once, hosted CI `33729834402` passed Windows/Linux/native macOS, and exact-version packaging rebuilt with `0` warnings/errors. Three NuGet packages, four framework-dependent ZIPs, four installers, the 11-entry manifest, Windows installer, packaged doctor/preview/lifecycle, packaged complex CLI/MCP repeat-plus-failure gates, and both publish dry-runs passed. Next: commit exactly `Release 1.4.2`, publish, and verify every remote surface.
@@ -79,15 +79,15 @@ GitHub Issues and Milestones are the primary project-management source for auton
 ## Current Focus
 
 - `Release v1.5.0`
-- GitHub Issue: `#148`
+- GitHub Issue: `#149`
 - GitHub Milestone: `v1.5.0`
 - Status: `In Progress`
 - Owner: autonomous agent
-- Goal: bounded opt-in semantic canvas/diagram objects with stale-safe authorized actions.
+- Goal: bounded per-run navigation observations, explicit route outcomes and loop evidence without automatic replay.
 
 ## Next Action
 
-Validate #140-#148 through combined full/native gates, then implement #149-#153 and #155 in issue order before the #156 release gate.
+Validate #140-#149 through combined full/native gates, then implement #150-#153 and #155 in issue order before the #156 release gate.
 
 ## Latest Validation
 

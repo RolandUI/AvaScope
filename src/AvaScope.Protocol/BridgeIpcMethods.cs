@@ -15,6 +15,7 @@ public static class BridgeIpcMethods
     public const string Trace = "trace";
     public const string EditText = "edit_text";
     public const string Scene = "scene";
+    public const string Navigation = "navigation";
     public const string EnsureState = "ensure_state";
     public const string InspectForm = "inspect_form";
     public const string FillForm = "fill_form";
@@ -55,6 +56,7 @@ public static class BridgeIpcMethods
         Trace,
         EditText,
         Scene,
+        Navigation,
         EnsureState,
         InspectForm,
         FillForm,
