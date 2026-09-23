@@ -53,11 +53,11 @@ The roadmap below records the release-shaped plan through `v1.0.0`. It is intent
 - Every release must include targeted tests, full build/test validation, release dry-run validation, documentation updates, and explicit deferrals.
 - A release may be split into a patch release if a P0/P1 regression blocks users or CI, but patch scope must remain defect-focused.
 
-## Active Target: v1.5.0
+## Current Release Target
 
 - Release: `v1.5.0`
-- Target Version: `1.5.0` (version bump remains the final release commit)
-- Release State: `In Progress`
+- Target Version: `1.5.0`
+- Release State: `Release Candidate`
 - Scope Lock: `2026-09-22`
 - GitHub Milestone: `v1.5.0`
 - Release Tracker: #156
@@ -69,6 +69,10 @@ The user authorized implementation followed by publication, then explicitly canc
 Keep one implementation issue in progress. Completed implementations can enter review until a shared batch gate passes. The requested validation cadence is focused tests at meaningful checkpoints, corrective commits when needed, and a full final release gate; do not rerun unchanged suites after each edit. Cross-platform acceptance remains required, and unsupported behavior must be explicit rather than silently emulated. No scope is deferred by this plan.
 
 Release requires all #117–#153 and #155 acceptance criteria, consolidated Debug/Release tests, hosted Windows/Linux X11/native macOS validation, documented Wayland coverage, packaged CLI/MCP workflows, standalone-provider and standard artifact verification, exact-version packaging and publish dry-runs. Publish only with the final `Release 1.5.0` commit, then verify remote tag, assets and package contents before closing #156 and the milestone.
+
+The implementation gate passed on `2026-09-23`; all 38 accepted implementation issues are closed as completed. Broad Windows/Linux/macOS CI [35832938516](https://github.com/RolandUI/AvaScope/actions/runs/35832938516) passed at `ca0c75d`, including the unchanged Linux retry after an X11 environment startup timeout. Downloaded native, provider, onboarding and platform reports were checked independently. The final build-only correction at `91949f9` passed additional hosted Windows [35836813288](https://github.com/RolandUI/AvaScope/actions/runs/35836813288) and macOS [35836819598](https://github.com/RolandUI/AvaScope/actions/runs/35836819598) gates; Linux [35837679713](https://github.com/RolandUI/AvaScope/actions/runs/35837679713) includes the test-only cold-start diagnostics at `4170beb`. Each focused platform passed 30 transport/build/recovery tests and 5 native tests.
+
+Fresh full Debug and exact-version Release suites each passed 743 tests, with 5 native-only tests validated separately. The exact `1.5.0` gate verified 13 manifest entries (14 release assets including the manifest), provider inventory/hashes, Windows/Linux installers, packaged doctor/preview/lifecycle/complex CLI and MCP, standalone positive/negative/shutdown cases, native Windows operations, and native Wayland through the cross-published Linux CLI/MCP/provider. NuGet and GitHub Release dry-runs passed. Only publication and remote tag/asset/package verification remain; #156 and the milestone stay open until then.
 
 ## Released Target: v1.4.2
 
