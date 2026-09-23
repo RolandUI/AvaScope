@@ -22,6 +22,7 @@ public sealed class NativeInputIntegrationTestsWindowManagement
         var start = new ProcessStartInfo("dotnet") { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
         foreach (var argument in new[] { host, "--exit-after-ms=100000" }) start.ArgumentList.Add(argument);
         start.Environment["UI_INSPECTION_PROVIDER_PATH"] = provider; start.Environment[BridgeSessionManifest.DirectoryEnvironmentVariable] = manifests;
+        start.Environment["AVASCOPE_NATIVE_STARTUP_TRACE"] = "1";
         if (desktop is not null) foreach (var pair in desktop.EnvironmentVariables) start.Environment[pair.Key] = pair.Value;
         using var process = Process.Start(start)!;
         var stdout = process.StandardOutput.ReadToEndAsync(); var stderr = process.StandardError.ReadToEndAsync();
@@ -29,9 +30,16 @@ public sealed class NativeInputIntegrationTestsWindowManagement
         var evidence = new List<RuntimeWindowResponse>();
         try
         {
-            for (var attempt = 0; attempt < 200 && manifest is null && !process.HasExited; attempt++)
+            var startup = Stopwatch.StartNew();
+            // The first native Avalonia process on a cold CI runner can outlive the warm 10 s budget.
+            while (startup.Elapsed < TimeSpan.FromSeconds(30) && manifest is null && !process.HasExited)
             { manifest = client.ListSessionManifests().SingleOrDefault(item => item.ProcessId == process.Id); if (manifest is null) await Task.Delay(50, token); }
-            Assert.NotNull(manifest);
+            await File.WriteAllTextAsync(Path.Combine(output, "startup.json"), JsonSerializer.Serialize(new
+            {
+                elapsedMs = startup.ElapsedMilliseconds, processId = process.Id,
+                manifestCreated = manifest is not null, processExited = process.HasExited
+            }), token);
+            Assert.True(manifest is not null, "Native host did not publish a manifest within 30 seconds; inspect startup.json and host.stderr.log.");
             var levels = await client.ListTopLevelsAsync(manifest.SessionId, token); Assert.True(levels.Success, levels.Error?.Message);
             var top = Assert.Single(levels.Value!.TopLevels); var target = new RuntimeTargetContext(manifest.SessionId, top.Id);
             var initial = await Inspect();

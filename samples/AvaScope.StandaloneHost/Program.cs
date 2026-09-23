@@ -19,6 +19,7 @@ internal static class Program
     [STAThread]
     public static void Main(string[] args)
     {
+        TraceStartup("main");
         var builder = AppBuilder.Configure<SampleApplication>();
         if (args.Contains("--headless", StringComparer.Ordinal))
         {
@@ -39,7 +40,14 @@ internal static class Program
                 builder.With(new X11PlatformOptions { UseDBusFilePicker = false });
         }
 
+        TraceStartup("platform_start");
         builder.StartWithClassicDesktopLifetime(args);
+    }
+
+    internal static void TraceStartup(string phase)
+    {
+        if (Environment.GetEnvironmentVariable("AVASCOPE_NATIVE_STARTUP_TRACE") == "1")
+            Console.Error.WriteLine($"AVASCOPE_NATIVE_STARTUP {phase} {Environment.TickCount64}");
     }
 }
 
@@ -47,12 +55,15 @@ internal sealed class SampleApplication : Application
 {
     public override void Initialize()
     {
+        Program.TraceStartup("initialize");
         RequestedThemeVariant = ThemeVariant.Light;
         Styles.Add(new FluentTheme());
+        Program.TraceStartup("initialize_complete");
     }
 
     public override void OnFrameworkInitializationCompleted()
     {
+        Program.TraceStartup("framework_initialization");
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             var state = new TextBlock { Name = "Status", Text = "Ready" };
