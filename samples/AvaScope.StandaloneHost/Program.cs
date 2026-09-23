@@ -24,6 +24,14 @@ internal static class Program
         {
             builder.UseSkia().UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false });
         }
+#if WAYLAND_FIXTURE
+        else if (args.Contains("--wayland", StringComparer.Ordinal))
+        {
+            // Desktop defaults configure Skia/text shaping; UseWayland explicitly replaces
+            // the windowing backend and has no automatic X11 fallback.
+            builder.UsePlatformDetect().UseWayland().With(new WaylandPlatformOptions { EnableReconnects = false, UseDmabufSwapchain = false });
+        }
+#endif
         else
         {
             builder.UsePlatformDetect();

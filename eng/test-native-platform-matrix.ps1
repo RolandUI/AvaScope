@@ -19,7 +19,7 @@ $previousResponseArtifacts = $env:AVASCOPE_RESPONSE_ARTIFACT_DIR
 $report = [ordered]@{
     requestedBackend=$Backend; status='running'; runtime=[System.Runtime.InteropServices.RuntimeInformation]::RuntimeIdentifier
     nativeOsInput='validated_separately_by_test_native_input'; nativeScreenCapture='unsupported'; renderMode='unknown'
-    extensionLanes=@{xwayland='unsupported_until_separately_validated';wayland='unsupported_until_separately_validated'}
+    extensionLanes=@{xwayland='separate_controlled_weston_gate';wayland='separate_controlled_weston_gate'}
     runs=@(); diagnostics=@()
 }
 function Save-Report { [IO.File]::WriteAllText((Join-Path $root 'validation.json'), ($report | ConvertTo-Json -Depth 25)) }

@@ -2,7 +2,7 @@
 
 GitHub Issues and Milestones are the primary project-management source for autonomous agents working on AvaScope. This document is the compact local handoff and validation log. Update it whenever meaningful implementation, validation, or planning changes the active GitHub issue or release state.
 
-- `2026-09-23`: Release v1.5.0 / #156 covers #117-#153 and #155; #154 is cancelled (no foreign framework interoperability). #117-#148 are closed after acceptance validation and Windows/Linux/macOS CI 35812554596. #149-#152 await combined CI 35821036688 at f6b6c84. Corrective commits cover Windows recovery replacement (589865c), slow text callbacks (3932265), and empty highlight cleanup without a live dispatcher (f6b6c84; stalled CI 35819465633 cancelled). #152 is d60374e: Windows 27/27, Linux 63/63, native Windows/X11 4/4; final multi-window capture cleanup 11/11. #153 adds bounded native Windows UIA and Linux X11 AT-SPI audits with ownership, native/bridge provenance, identity/geometry mapping confidence, explicit expectations, privacy and service-unavailable outcomes; other backends are explicitly unsupported. Windows lifecycle/audit/stable checkpoint 28/28 plus one native-only skip; Linux checkpoint 69/69 plus one native-only skip. Native Windows and X11 each passed 5/5 including real CLI/MCP accessibility, missing-name/role evidence, redaction and Linux service loss/owned cleanup (Windows 443fc56c8682413faf941c79a5dd3468; WSL 7925a76bc02842c99c34ea85afad110b). The final Windows audit/stable checkpoint passed 13/13 plus one native-only skip; the final native Windows refresh passed 5/5 (03803581d121473da3c36bc4c532c866). Earlier unawaited headless results are not release evidence. Runtime/sample Avalonia 12.1.3; standalone Bridge baseline 12.1.0; version remains 1.4.2 until the validated release commit.
+- `2026-09-23`: Release v1.5.0 / #156 covers #117-#153 and #155; #154 is cancelled (no foreign framework interoperability). #117-#148 are closed after Windows/Linux/macOS CI 35812554596. #149-#152 await CI 35821036688 (Windows passed, Linux/macOS running); corrections cover recovery replacement (589865c), slow callbacks (3932265) and empty-highlight shutdown (f6b6c84). #153 is bc48c3e: bounded native UIA/AT-SPI audit, Windows 13 focused plus 5 native, Linux 69 focused plus 5 native passed; other backends explicitly unsupported. #155 adds controlled Weston 13 headless profiles, actual native Avalonia Wayland evidence, output/keymap provenance, private sockets and run recovery. Windows 30/30 and final Linux 31/31 environment/profile/recovery/stable tests passed. Real CLI/MCP 1x/2x text and rendered screenshots, failed workflows, wrong backend, missing dependencies and cleanup passed (WSL wayland-validation/eb6afbcd04574fbc81b799b380e4dca5). XWayland is a separately refused optional lane; native desktop input/capture are not claimed. Full local Release validation is running. Earlier unawaited headless tests are not release evidence. Runtime/sample Avalonia 12.1.3; standalone Bridge baseline 12.1.0; version remains 1.4.2 until the validated release commit.
 
 - `2026-09-03`: Published `v1.4.2` from exact release commit `66d23c040e4bf16ed66b0b43e7021507966347a9` through successful Release workflow `33732182248`. The remote tag matches; the public, non-prerelease GitHub Release has 12/12 assets; and fresh downloads verified all 11 manifest entries by exact name, size, and SHA-256 plus every package metadata version. NuGet.org exposes Protocol/Core/Bridge `1.4.2` as latest; all three CDN packages pass repository-signature verification and their unsigned entries match the release packages. GitHub Packages publication succeeded for all three packages. Release tracker #114 and milestone `v1.4.2` are closed.
 - `2026-09-03`: The v1.4.2 release-candidate gate passed through `59bb5e0` with exact version `1.4.2` staged. The consolidated local Release suite passed `505/505` once, hosted CI `33729834402` passed Windows/Linux/native macOS, and exact-version packaging rebuilt with `0` warnings/errors. Three NuGet packages, four framework-dependent ZIPs, four installers, the 11-entry manifest, Windows installer, packaged doctor/preview/lifecycle, packaged complex CLI/MCP repeat-plus-failure gates, and both publish dry-runs passed. Next: commit exactly `Release 1.4.2`, publish, and verify every remote surface.
@@ -79,15 +79,15 @@ GitHub Issues and Milestones are the primary project-management source for auton
 ## Current Focus
 
 - `Release v1.5.0`
-- GitHub Issue: `#153`
+- GitHub Issue: `#155`
 - GitHub Milestone: `v1.5.0`
 - Status: `In Progress`
 - Owner: autonomous agent
-- Goal: compare explicitly selected bridge observations with real native accessibility evidence, with bounded queries, process ownership and truthful mapping confidence.
+- Goal: controlled Weston headless profiles with verified native Avalonia Wayland backend, output geometry, bounded lifecycle and owned cleanup.
 
 ## Next Action
 
-Complete combined validation for #149-#152 (CI 35821036688), commit the validated #153 slice and implement #155, then run the #156 release gate.
+Complete combined validation for #149-#152 (CI 35821036688), validate #153 (bc48c3e) and implement #155, then run the #156 release gate.
 
 ## Latest Validation
 

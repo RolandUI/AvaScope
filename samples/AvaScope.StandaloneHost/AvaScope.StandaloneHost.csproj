@@ -6,9 +6,11 @@
     <AvaloniaVersion Condition="'$(AvaloniaVersion)' == ''">12.1.3</AvaloniaVersion>
     <DefineConstants Condition="'$(EnableUiInspection)' == 'true'">$(DefineConstants);ENABLE_UI_INSPECTION</DefineConstants>
     <DefineConstants Condition="'$(EnableTableFixture)' == 'true'">$(DefineConstants);TABLE_FIXTURE</DefineConstants>
+    <DefineConstants Condition="'$(EnableWaylandFixture)' == 'true'">$(DefineConstants);WAYLAND_FIXTURE</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Avalonia.Desktop" Version="$(AvaloniaVersion)" />
+    <PackageReference Include="Avalonia.Wayland" Version="$(AvaloniaVersion)" Condition="'$(EnableWaylandFixture)' == 'true'" />
     <PackageReference Include="Avalonia.Headless" Version="$(AvaloniaVersion)" />
     <PackageReference Include="Avalonia.Themes.Fluent" Version="$(AvaloniaVersion)" />
     <PackageReference Include="Avalonia.Controls.DataGrid" Version="12.1.2" Condition="'$(EnableTableFixture)' == 'true'" />

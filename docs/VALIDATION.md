@@ -42,6 +42,14 @@ For project guidance, integration verification and shared profiles (#118/#120/#1
 
 For protocol-only work, also run:
 
+For controlled native Wayland (#155), Linux Ubuntu 24.04 CI installs Weston 13,
+wayland-utils, xkb-data and Mesa EGL. Batch `WaylandTestEnvironmentTests` with
+X11/profile/run-recovery tests, then run `eng/test-managed-wayland.ps1` after the
+Release solution build and provider packaging. The gate checks real CLI/MCP
+text/capture at 1x/2x, wrong-backend and dependency failures, and cleanup. Native
+Wayland is separate from X11/XWayland and does not imply native input coverage.
+See [controlled Wayland](MANAGED_WAYLAND.md).
+
 ```powershell
 dotnet test AvaScope.slnx --filter Protocol
 ```

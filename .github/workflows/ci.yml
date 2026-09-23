@@ -232,7 +232,8 @@ jobs:
     name: Linux Installer
     needs: validate
     if: ${{ needs.validate.outputs.requires_validation == 'true' }}
-    runs-on: ubuntu-latest
+    # Weston 13 is the validated controlled Wayland prerequisite on Ubuntu 24.04.
+    runs-on: ubuntu-24.04
 
     env:
       DOTNET_CLI_TELEMETRY_OPTOUT: "1"
@@ -263,10 +264,11 @@ jobs:
         shell: bash
         run: |
           sudo apt-get update
-          sudo apt-get install -y xvfb x11-utils openbox dbus at-spi2-core libx11-6 libice6 libsm6 libfontconfig1 fonts-dejavu-core libgtk-3-0
-          AVASCOPE_RECOVERY_MANAGED_X11=1 AVASCOPE_VALIDATION_EVIDENCE_ROOT="$GITHUB_WORKSPACE/artifacts/x11-unit" dotnet test AvaScope.slnx -c Release --no-build --filter 'FullyQualifiedName~X11TestEnvironmentTests|FullyQualifiedName~AgentRunRecoveryTests|FullyQualifiedName~SessionControlTests|FullyQualifiedName~RuntimeScenarioLifecycleTests'
+          sudo apt-get install -y xvfb x11-utils openbox dbus at-spi2-core weston wayland-utils xkb-data libegl-mesa0 libgl1-mesa-dri libx11-6 libice6 libsm6 libfontconfig1 fonts-dejavu-core libgtk-3-0
+          AVASCOPE_RECOVERY_MANAGED_X11=1 AVASCOPE_VALIDATION_EVIDENCE_ROOT="$GITHUB_WORKSPACE/artifacts/x11-unit" dotnet test AvaScope.slnx -c Release --no-build --filter 'FullyQualifiedName~X11TestEnvironmentTests|FullyQualifiedName~WaylandTestEnvironmentTests|FullyQualifiedName~AgentRunRecoveryTests|FullyQualifiedName~SessionControlTests|FullyQualifiedName~RuntimeScenarioLifecycleTests'
           pwsh -NoProfile -File ./eng/package-provider.ps1
           pwsh -NoProfile -File ./eng/test-managed-x11.ps1
+          pwsh -NoProfile -File ./eng/test-managed-wayland.ps1 -CliAssembly ./artifacts/executables/avascope-linux-x64-framework-dependent/avascope.dll -McpAssembly ./artifacts/executables/avascope-linux-x64-framework-dependent/AvaScope.Mcp.dll
           pwsh -NoProfile -File ./eng/test-native-input.ps1
           pwsh -NoProfile -File ./eng/test-native-platform-matrix.ps1 -Backend x11 -CliAssembly ./artifacts/executables/avascope-linux-x64-framework-dependent/avascope.dll -McpAssembly ./artifacts/executables/avascope-linux-x64-framework-dependent/AvaScope.Mcp.dll
           xvfb-run -a -s "-screen 0 1280x900x24 -nolisten tcp" pwsh -NoProfile -File ./eng/test-standalone-provider.ps1 -Native -SkipBuild
@@ -337,6 +339,12 @@ jobs:
             artifacts/x11-validation/**/mcp.json
             artifacts/x11-unit/**/*.log
             artifacts/x11-unit/**/environment.json
+            artifacts/wayland-validation/**/*.log
+            artifacts/wayland-validation/**/validation.json
+            artifacts/wayland-validation/**/environment.json
+            artifacts/wayland-validation/*/cli-*.json
+            artifacts/wayland-validation/*/mcp-*.json
+            artifacts/wayland-validation/**/workflow/**/*.png
 
   macos-runtime:
     name: macOS Runtime

@@ -24,7 +24,8 @@ public sealed record RuntimeEnvironmentEvidence(
     [property: JsonPropertyName("runtimeDirectoryRemoved")] bool RuntimeDirectoryRemoved,
     [property: JsonPropertyName("helpers")] IReadOnlyList<RuntimeHelperEvidence> Helpers,
     [property: JsonPropertyName("diagnostics")] IReadOnlyList<ProtocolError> Diagnostics,
-    [property: JsonPropertyName("socketTransport")] string SocketTransport = "unknown");
+    [property: JsonPropertyName("socketTransport")] string SocketTransport = "unknown",
+    [property: JsonPropertyName("wayland")] WaylandEnvironmentEvidence? Wayland = null);
 
 public sealed record RuntimeHelperEvidence(
     [property: JsonPropertyName("kind")] string Kind,

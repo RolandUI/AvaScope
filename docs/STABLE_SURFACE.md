@@ -470,3 +470,8 @@ The additive `runtime.native_accessibility` capability exposes CLI
 `audit-native-accessibility` and MCP `audit_native_accessibility`. Native evidence
 and bridge observations remain distinct, with explicit mapping confidence and
 unsupported/unavailable service results. See [native accessibility comparison](NATIVE_ACCESSIBILITY.md).
+
+Controlled Linux Wayland scenarios use optional `waylandEnvironment` on the existing
+CLI/MCP scenario contract and capability `runtime.managed_wayland`. See
+[controlled Wayland](MANAGED_WAYLAND.md) for the experimental backend, validated
+Weston version and explicit operation restrictions.

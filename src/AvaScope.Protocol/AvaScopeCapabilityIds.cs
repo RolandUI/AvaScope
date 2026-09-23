@@ -32,6 +32,7 @@ public static class AvaScopeCapabilityIds
     public const string RuntimeIntegrationVerification = "runtime.integration_verification";
     public const string RuntimeAgentTestProfiles = "runtime.agent_test_profiles";
     public const string RuntimeManagedX11 = "runtime.managed_x11";
+    public const string RuntimeManagedWayland = "runtime.managed_wayland";
     public const string RuntimeReadiness = "runtime.readiness";
     public const string RuntimeObservation = "runtime.observation";
     public const string RuntimeObservationChanges = "runtime.observation_changes";

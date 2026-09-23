@@ -30,7 +30,8 @@ public sealed record RuntimeScenarioRequest
         bool captureVisualTree = false,
         X11EnvironmentOptions? x11Environment = null,
         RuntimeStartupReadinessOptions? startupReadiness = null,
-        RuntimeScenarioFixtureOptions? testFixture = null)
+        RuntimeScenarioFixtureOptions? testFixture = null,
+        WaylandEnvironmentOptions? waylandEnvironment = null)
     {
         if (steps is null || steps.Count == 0)
         {
@@ -82,6 +83,7 @@ public sealed record RuntimeScenarioRequest
         X11Environment = x11Environment;
         StartupReadiness = startupReadiness;
         TestFixture = testFixture;
+        WaylandEnvironment = waylandEnvironment;
     }
 
     [JsonPropertyName("requestId")]
@@ -163,6 +165,10 @@ public sealed record RuntimeScenarioRequest
     [JsonPropertyName("x11Environment")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public X11EnvironmentOptions? X11Environment { get; }
+
+    [JsonPropertyName("waylandEnvironment")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public WaylandEnvironmentOptions? WaylandEnvironment { get; }
 
     [JsonPropertyName("startupReadiness")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

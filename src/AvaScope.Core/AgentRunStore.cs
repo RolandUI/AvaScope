@@ -393,7 +393,8 @@ public sealed class AgentRunStore
     private static void ValidateRuntimeDirectory(string path, string runId)
     {
         if (!PathComparer.Equals(Path.GetDirectoryName(path), Path.TrimEndingDirectorySeparator(Path.GetTempPath()))
-            || !Path.GetFileName(path).StartsWith("avs-x11-", StringComparison.Ordinal)) throw new IOException("Runtime path is outside its fixed temporary parent.");
+            || !(Path.GetFileName(path).StartsWith("avs-x11-", StringComparison.Ordinal)
+                 || Path.GetFileName(path).StartsWith("avs-wayland-", StringComparison.Ordinal))) throw new IOException("Runtime path is outside its fixed temporary parent.");
         RejectLink(path);
         var marker = Path.Combine(path, ".avascope-run");
         RejectLink(marker);

@@ -28,7 +28,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y xvfb x11-utils openbox dbus libx11-6 libice6 libsm6 libfontconfig1 fonts-dejavu-core libgtk-3-0
+          sudo apt-get install -y xvfb x11-utils openbox dbus at-spi2-core libx11-6 libice6 libsm6 libfontconfig1 fonts-dejavu-core libgtk-3-0
       - name: Build
         run: dotnet build AvaScope.slnx -c Release
       - name: Validate external provider input and dialogs

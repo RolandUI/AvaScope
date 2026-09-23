@@ -19,6 +19,14 @@ public sealed class RuntimeScenarioRunner
         ArgumentNullException.ThrowIfNull(bridgeClient);
         ArgumentNullException.ThrowIfNull(request);
 
+        if (request.WaylandEnvironment is { } waylandOptions)
+        {
+            if (WaylandTestEnvironment.Validate(waylandOptions) is { } invalid)
+                return CoreResult<RuntimeScenarioResponse>.Fail(new(invalid.Code, invalid.Message));
+            if (request.X11Environment is not null || request.Launch is null || !request.TerminateLaunchedProcess
+                || request.Launch.Environment.ContainsKey("WAYLAND_SOCKET"))
+                return CoreResult<RuntimeScenarioResponse>.Fail(new("wayland_environment_ownership_required", "Use one owned Wayland environment with an explicit launch, terminateLaunchedProcess and no inherited WAYLAND_SOCKET."));
+        }
         if (request.X11Environment is { } environmentOptions)
         {
             if (X11TestEnvironment.Validate(environmentOptions) is { } invalid)
@@ -204,7 +212,7 @@ public sealed class RuntimeScenarioRunner
                 : RuntimeScenarioFailureStages.Attach
             : RuntimeScenarioFailureStages.Build;
         DateTimeOffset? launchReadinessStartedAt = null;
-        X11TestEnvironment? desktop = null;
+        IRuntimeTestEnvironment? desktop = null;
         var retainDesktop = false;
         CancellationTokenSource? environmentCancellation = null;
         var executionToken = cancellationToken;
@@ -372,10 +380,15 @@ public sealed class RuntimeScenarioRunner
 
         try
         {
-            if (request.X11Environment is not null)
+            if (request.X11Environment is not null || request.WaylandEnvironment is not null)
             {
                 currentStage = "environment";
-                desktop = new X11TestEnvironment(request.X11Environment, Path.Combine(outputDirectory, "environment"),
+                desktop = request.WaylandEnvironment is not null
+                    ? new WaylandTestEnvironment(request.WaylandEnvironment, Path.Combine(outputDirectory, "environment"),
+                        evidencePolicy is null ? null : value => evidencePolicy.SanitizeScalar(value))
+                    { ProcessStarted = runRegistration.ProcessStarted, RuntimeDirectoryCreated = runRegistration.OwnRuntimeDirectory,
+                        EvidenceChanged = runRegistration.EnvironmentChanged }
+                    : new X11TestEnvironment(request.X11Environment!, Path.Combine(outputDirectory, "environment"),
                     evidencePolicy is null ? null : value => evidencePolicy.SanitizeScalar(value))
                 { ProcessStarted = runRegistration.ProcessStarted, RuntimeDirectoryCreated = runRegistration.OwnRuntimeDirectory,
                     EvidenceChanged = runRegistration.EnvironmentChanged };
@@ -544,6 +557,12 @@ public sealed class RuntimeScenarioRunner
 
                 topLevels = topLevelResult.Result.Value!.TopLevels;
                 topLevelId ??= topLevels.FirstOrDefault()?.Id;
+            }
+
+            if (request.WaylandEnvironment is not null && (topLevels.Count == 0 || topLevels.Any(t => t.Backend?.Backend != "wayland")))
+            {
+                diagnostics.Add(new("wayland_host_backend_mismatch", "The launched host did not report native Avalonia Wayland top levels. Build with Avalonia.Wayland and explicitly call UseWayland(); environment variables alone do not select it."));
+                return await CompleteAsync(Failed, "environment");
             }
 
             if (launch is not null)

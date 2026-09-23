@@ -17,6 +17,7 @@ internal static class RuntimePlatformEvidence
         {
             "Avalonia.Headless" => "headless",
             "Avalonia.X11" => "x11",
+            "Avalonia.Wayland" => "wayland",
             "Avalonia.Win32" => "win32",
             "Avalonia.Native" when OperatingSystem.IsMacOS() => "macos",
             _ => "unknown"
@@ -55,6 +56,8 @@ internal static class RuntimePlatformEvidence
         {
             restrictions.Add("platform_implementation_unrecognized_or_unavailable");
         }
+        if (backend == "wayland")
+            restrictions.Add("experimental_wayland;native_input_screen_capture_window_management_and_accessibility_audit_unsupported");
 
         return new RuntimeBackendInfo(
             backend,

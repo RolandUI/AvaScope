@@ -11,7 +11,7 @@ using AvaScope.Protocol;
 namespace AvaScope.Core;
 
 /// <summary>Owns only helpers explicitly created for one Linux X11 scenario.</summary>
-public sealed class X11TestEnvironment : IAsyncDisposable
+public sealed class X11TestEnvironment : IAsyncDisposable, IRuntimeTestEnvironment
 {
     private readonly X11EnvironmentOptions _options;
     private readonly string _outputDirectory;
@@ -310,6 +310,8 @@ public sealed class X11TestEnvironment : IAsyncDisposable
         _status = "retained";
         WriteEvidence();
     }
+
+    void IRuntimeTestEnvironment.RetainForRecovery() => RetainForRecovery();
 
     private void RemoveOwnedXvfbLock()
     {

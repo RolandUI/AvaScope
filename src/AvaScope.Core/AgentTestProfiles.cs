@@ -140,6 +140,12 @@ public static class AgentTestProfiles
                 throw new ArgumentException(environmentError.Message);
             if (request.X11Environment is { Mode: "managed" } && !request.TerminateLaunchedProcess)
                 throw new ArgumentException("Managed X11 profiles require terminateLaunchedProcess so the host exits before its owned desktop.");
+            if (request.WaylandEnvironment is { } waylandOptions)
+            {
+                if (WaylandTestEnvironment.Validate(waylandOptions) is { } waylandError) throw new ArgumentException(waylandError.Message);
+                if (request.X11Environment is not null || !request.TerminateLaunchedProcess || request.Launch!.Environment.ContainsKey("WAYLAND_SOCKET"))
+                    throw new ArgumentException("Wayland profiles require one owned environment, terminateLaunchedProcess and no inherited WAYLAND_SOCKET.");
+            }
             var plan = SemanticWorkflowCompiler.Compile(new SemanticWorkflowRequest(new SessionId("profile-validation"), "topLevel:profile-validation",
                 request.Steps, outputDirectory: output, topLevelAliases: request.TopLevelAliases, variables: request.Variables, fragments: request.Fragments,
                 validateOnly: true, timeoutMs: request.WorkflowTimeoutMs, evidence: request.Evidence));
