@@ -143,7 +143,9 @@ public sealed partial class AvaScopeBridgeRuntime
                 try { operations++; box.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Source = box, Key = Key.Delete }); }
                 finally { operations++; box.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyUpEvent, Source = box, Key = Key.Delete }); }
             }
-            after = Read();
+            // A synchronous application callback cannot be aborted at the cooperative deadline.
+            // Observe its bounded final state even when it completed late; never dispatch again.
+            after = Read(enforceBudget: false);
             var expectedCaret = start + replacement.Length;
             var verified = after.Text == expectedText && after.Caret == expectedCaret
                 && after.SelectionStart == expectedCaret && after.SelectionEnd == expectedCaret && !after.HasValidationErrors;
@@ -153,7 +155,7 @@ public sealed partial class AvaScopeBridgeRuntime
         }
         catch (Exception exception) when (exception is not OutOfMemoryException and not AccessViolationException)
         {
-            try { after = Read(); }
+            try { after = Read(enforceBudget: false); }
             catch (Exception readException) when (readException is not OutOfMemoryException and not AccessViolationException)
             { after = null; if (readException is TextEditStop { Code: "text_edit_sensitive" }) before = null; }
             if (exception is TextEditStop { Code: "text_edit_sensitive" }) before = after = null;
@@ -162,10 +164,10 @@ public sealed partial class AvaScopeBridgeRuntime
                 exception is TextEditStop ? exception.Message : "An application callback failed; text may have changed. Observe before choosing another intent.");
         }
 
-        void Fresh()
+        void Fresh(bool enforceBudget = true)
         {
             if (Volatile.Read(ref _textEditingClosed)) throw new TextEditStop("text_edit_session_closed", "The bridge session closed during editing.");
-            if (Stopwatch.GetElapsedTime(started) > TimeSpan.FromSeconds(2)) throw new TextEditStop("text_edit_budget", "The cooperative two-second editing budget expired.");
+            if (enforceBudget && Stopwatch.GetElapsedTime(started) > TimeSpan.FromSeconds(2)) throw new TextEditStop("text_edit_budget", "The cooperative two-second editing budget expired.");
             if (!ResolveInputGenerationTarget(top, target.TopLevelId, target.NodeId, target).Success
                 || TopLevel.GetTopLevel(box) != top || identity != QueryIdentity(box, false))
                 throw new TextEditStop("text_edit_target_changed", "The target detached or was recycled during preparation or editing.");
@@ -179,9 +181,9 @@ public sealed partial class AvaScopeBridgeRuntime
             }
         }
 
-        RuntimeTextState Read()
+        RuntimeTextState Read(bool enforceBudget = true)
         {
-            Fresh();
+            Fresh(enforceBudget);
             var text = box.Text ?? string.Empty;
             if (text.Length > RuntimeTextEditRequest.MaximumTextLength || !RuntimeTextEditRequest.IsWellFormedUtf16(text)
                 || box.NewLine.Length > 16 || !RuntimeTextEditRequest.IsWellFormedUtf16(box.NewLine))

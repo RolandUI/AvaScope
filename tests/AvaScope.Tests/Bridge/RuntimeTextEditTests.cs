@@ -55,6 +55,32 @@ public sealed class RuntimeTextEditTests
         });
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task SlowDispatchedCallbackRetainsSafeFinalStateWithoutRepeatingInput(bool protectAfterDispatch)
+    {
+        await WithWindow(async (runtime, root, top, client) =>
+        {
+            var box = new TextBox { Name = "Editor", Text = "before" }; root.Children.Add(box); Dispatcher.UIThread.RunJobs();
+            var target = await Target(runtime, top, "Editor");
+            var request = Edit(target, await Read(client, target), "replace_range", 0, 6, "after");
+            var calls = 0;
+            box.AddHandler(InputElement.TextInputEvent, (_, _) =>
+            {
+                calls++;
+                Thread.Sleep(2100); // A synchronous application callback can exceed the preparation deadline.
+                if (protectAfterDispatch) box.PasswordChar = '*';
+            }, RoutingStrategies.Tunnel);
+            var response = await client.EditTextAsync(request);
+            var result = protectAfterDispatch ? Rejected(response, "text_edit_sensitive", 1) : Verified(response);
+            if (protectAfterDispatch) { Assert.Null(result.Before); Assert.Null(result.After); }
+            else { Assert.Equal("after", result.After!.Text); Assert.Equal(5, result.After.Caret); Assert.Equal(1, result.DispatchedOperations); }
+            var replay = (await client.EditTextAsync(request)).Value!;
+            Assert.True(replay.Replayed); Assert.Equal(result.After, replay.After); Assert.Equal(1, calls);
+        });
+    }
+
     [Fact]
     public async Task InvalidBoundariesStaleStateAndReentrantPreparationNeverDispatchOldRanges()
     {

@@ -60,6 +60,11 @@ waits/traces for that. Selection/focus preparation can remain after a rejection;
 Exceptions after dispatch return `uncertain` with whatever safe state is readable.
 No rollback or automatic action retry occurs.
 
+A cooperative two-second deadline stops preparation before another input can be
+dispatched. A synchronous application callback can overrun that deadline. The
+bridge still reads its bounded final state, preserving all identity and privacy
+checks, and retains the result for replay without dispatching the input again.
+
 Reads and edits accept at most 8192 text units, 4096 replacement units, 16 NewLine
 units and 64 KiB requests. Oversized text is refused, never truncated into editable
 ranges. Each session retains 128 edit ids and their results; an identical id and
