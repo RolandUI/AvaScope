@@ -656,7 +656,7 @@ public sealed class AvaScopeMcpTools
         Destructive = false,
         OpenWorld = false,
         UseStructuredContent = true)]
-    [Description("Sends local-only input to an attached AvaScope bridge session. Click accepts explicit coordinates or the current target center; gestures derive coordinates from current target bounds and accept a direction or destination target.")]
+    [Description("Sends local-only input to an attached AvaScope bridge session. Click accepts explicit coordinates or the current target center; gestures derive coordinates from current target bounds and accept a direction or destination target. execution.preconditions accepts a closed typed expected-state expression checked on the UI thread immediately before the first dispatch; false/incomplete state rejects input with checked evidence. Dispatch or response loss can leave an uncertain outcome: inspect or use existing workflow idempotency, never blindly retry. Guards are not transactions across application handlers, subsequent compound events or external state.")]
     public static async Task<ToolResult<InputResponse>> Input(
         LocalBridgeClient bridgeClient,
         string sessionId,

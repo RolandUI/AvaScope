@@ -421,6 +421,8 @@ public sealed partial class LocalBridgeClient
         InputExecutionOptions? execution = null)
     {
         ArgumentNullException.ThrowIfNull(sessionId);
+        if (AuthorizeInputPreconditions(sessionId, action, execution) is { } denied)
+            return CoreResult<InputResponse>.Fail(denied);
 
         if (string.IsNullOrWhiteSpace(topLevelId))
         {
@@ -440,7 +442,7 @@ public sealed partial class LocalBridgeClient
             return CoreResult<InputResponse>.Fail(manifestResult.Error!);
         }
 
-        return await SendAsync<InputResponse>(
+        var result = await SendAsync<InputResponse>(
             manifestResult.Value!,
             new BridgeIpcRequest(
                 NewRequestId(),
@@ -458,6 +460,7 @@ public sealed partial class LocalBridgeClient
                 gestureDestinationTarget: gestureDestinationTarget,
                 inputExecution: execution),
             cancellationToken);
+        return FinishInputPreconditions(result, execution, mayHaveDispatched: true);
     }
 
     public async Task<CoreResult<RuntimeMutationResponse>> MutateNodeAsync(
@@ -533,6 +536,8 @@ public sealed partial class LocalBridgeClient
         InputExecutionOptions? execution = null)
     {
         ArgumentNullException.ThrowIfNull(sessionId);
+        if (AuthorizeInputPreconditions(sessionId, action, execution) is { } denied)
+            return CoreResult<InputResponse>.Fail(denied);
 
         if (string.IsNullOrWhiteSpace(topLevelId) || string.IsNullOrWhiteSpace(action))
         {
@@ -547,7 +552,7 @@ public sealed partial class LocalBridgeClient
             return CoreResult<InputResponse>.Fail(manifestResult.Error!);
         }
 
-        return await SendAsync<InputResponse>(
+        var result = await SendAsync<InputResponse>(
             manifestResult.Value!,
             new BridgeIpcRequest(
                 NewRequestId(),
@@ -565,6 +570,7 @@ public sealed partial class LocalBridgeClient
                 gestureDestinationTarget: gestureDestinationTarget,
                 inputExecution: execution),
             cancellationToken);
+        return FinishInputPreconditions(result, execution, mayHaveDispatched: false);
     }
 
     public async Task<CoreResult<RuntimeMutationResponse>> ValidateMutationAsync(

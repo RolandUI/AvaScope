@@ -247,6 +247,46 @@ public sealed class LocalBridgeClientTests : IDisposable
     }
 
     [Fact]
+    public async Task GuardedInputResponseLossRemainsUnknownAndDoesNotRedispatch()
+    {
+        Directory.CreateDirectory(_manifestDirectory);
+        var sessionId = SessionId.New();
+        var pipeName = TestPipeNames.New();
+        WriteManifest("guard-drop.json", new BridgeSessionManifest(sessionId, Environment.ProcessId, pipeName, DateTimeOffset.UtcNow, "Guard drop app"));
+        var server = Task.Run(async () =>
+        {
+            using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+            var dispatched = 0;
+            await using (var pipe = new NamedPipeServerStream(pipeName, PipeDirection.InOut, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous))
+            {
+                await pipe.WaitForConnectionAsync(deadline.Token);
+                var request = JsonSerializer.Deserialize<BridgeIpcRequest>(await ReadLineAsync(pipe, deadline.Token))!;
+                Assert.Equal(BridgeIpcMethods.Input, request.Method); Assert.NotNull(request.InputExecution!.Preconditions);
+                dispatched++; // Simulate executing and losing the response before the caller receives it.
+            }
+            await using var repeated = new NamedPipeServerStream(pipeName, PipeDirection.InOut, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
+            using var retryWindow = new CancellationTokenSource(TimeSpan.FromMilliseconds(800));
+            try
+            {
+                await repeated.WaitForConnectionAsync(retryWindow.Token);
+                var request = JsonSerializer.Deserialize<BridgeIpcRequest>(await ReadLineAsync(repeated, deadline.Token))!;
+                dispatched++;
+                await repeated.WriteAsync(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(BridgeIpcResponse.Ok(request.RequestId,
+                    new InputResponse(sessionId, "top", InputActions.Invoke, true, DateTimeOffset.UtcNow))) + "\n"), deadline.Token);
+            }
+            catch (OperationCanceledException) when (retryWindow.IsCancellationRequested) { }
+            return dispatched;
+        });
+        var client = new LocalBridgeClient(_manifestDirectory, BridgePipeTestTimeout);
+        var result = await client.InputAsync(sessionId, "top", InputActions.Invoke, execution: new()
+        { Strategy = "semantic", Preconditions = new(new("literal", literal: JsonSerializer.SerializeToElement(true))) });
+        Assert.False(result.Success);
+        Assert.Equal("unknown", result.Error!.Details!["dispatchOutcome"]);
+        Assert.Equal("unknown", result.Error.Details["dispatched"]);
+        Assert.Equal(1, await server);
+    }
+
+    [Fact]
     public async Task FindNodesRetriesOneTransientTransportDisconnect()
     {
         Directory.CreateDirectory(_manifestDirectory);

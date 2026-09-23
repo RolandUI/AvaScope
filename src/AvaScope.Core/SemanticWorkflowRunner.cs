@@ -2302,7 +2302,7 @@ public sealed class SemanticWorkflowRunner
             gesture: step.InputExecution is null ? CreateGestureOptions(step, destination.Value) : null,
             cancellationToken: cancellationToken,
             inputTarget: target.Value.Target,
-            gestureDestinationTarget: destination.Value?.Target, execution: step.InputExecution);
+            gestureDestinationTarget: destination.Value?.Target, execution: step.InputExecution?.Preconditions is not null && request.Evidence?.Policy is not null ? step.InputExecution with { PreconditionPolicy = request.Evidence.Policy } : step.InputExecution);
         if (!validation.Success && IsPreDispatchStale(validation.Error!))
         {
             target = await ResolveTargetAsync(bridgeClient, request, step, cancellationToken);
@@ -2328,7 +2328,7 @@ public sealed class SemanticWorkflowRunner
                 gesture: step.InputExecution is null ? CreateGestureOptions(step, destination.Value) : null,
                 cancellationToken: cancellationToken,
                 inputTarget: target.Value.Target,
-                gestureDestinationTarget: destination.Value?.Target, execution: step.InputExecution);
+                gestureDestinationTarget: destination.Value?.Target, execution: step.InputExecution?.Preconditions is not null && request.Evidence?.Policy is not null ? step.InputExecution with { PreconditionPolicy = request.Evidence.Policy } : step.InputExecution);
         }
         return validation.Success
             ? Pass(
@@ -3024,7 +3024,7 @@ public sealed class SemanticWorkflowRunner
             gesture: step.InputExecution is null ? CreateGestureOptions(step, destination.Value) : null,
             cancellationToken: cancellationToken,
             inputTarget: resolvedTarget.Target,
-            gestureDestinationTarget: destination.Value?.Target, execution: step.InputExecution);
+            gestureDestinationTarget: destination.Value?.Target, execution: step.InputExecution?.Preconditions is not null && request.Evidence?.Policy is not null ? step.InputExecution with { PreconditionPolicy = request.Evidence.Policy } : step.InputExecution);
 
         if (!result.Success && IsPreDispatchStale(result.Error!))
         {
@@ -3064,7 +3064,7 @@ public sealed class SemanticWorkflowRunner
                 gesture: step.InputExecution is null ? CreateGestureOptions(step, destination.Value) : null,
                 cancellationToken: cancellationToken,
                 inputTarget: resolvedTarget.Target,
-                gestureDestinationTarget: destination.Value?.Target, execution: step.InputExecution);
+                gestureDestinationTarget: destination.Value?.Target, execution: step.InputExecution?.Preconditions is not null && request.Evidence?.Policy is not null ? step.InputExecution with { PreconditionPolicy = request.Evidence.Policy } : step.InputExecution);
         }
 
         return result.Success

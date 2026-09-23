@@ -611,11 +611,15 @@ public sealed class RuntimeScenarioRunner
                 var probeWatch = System.Diagnostics.Stopwatch.StartNew();
                 var observations = new List<RuntimeWaitObservation>();
                 var probeDiagnostics = new List<ProtocolError>();
+                void AddUnavailable(SemanticWorkflowStep check, string message) => observations.Add(new(
+                    check.WaitCondition!.Kind, "unavailable", false, DateTimeOffset.UtcNow,
+                    source: "startup_readiness", message: message));
                 foreach (var check in checks)
                 {
                     var remaining = startup.TimeoutMs - (int)probeWatch.ElapsedMilliseconds;
                     if (remaining <= 0)
                     {
+                        AddUnavailable(check, "The shared startup deadline expired before this condition was observed.");
                         probeDiagnostics.Add(new ProtocolError("runtime_startup_readiness_timeout", "The shared startup readiness deadline expired."));
                         break;
                     }
@@ -627,11 +631,15 @@ public sealed class RuntimeScenarioRunner
                                 policy: request.Evidence?.Policy)), executionToken);
                     if (!probe.Success)
                     {
+                        AddUnavailable(check, "The readiness workflow did not return an observation: " + probe.Error!.Code);
                         probeDiagnostics.Add(ToProtocolError(probe.Error!));
                         break;
                     }
-                    observations.AddRange(probe.Value!.Steps.Where(static step => step.WaitObservation is not null)
-                        .Select(static step => step.WaitObservation!));
+                    var completedObservations = probe.Value!.Steps.Where(static step => step.WaitObservation is not null)
+                        .Select(static step => step.WaitObservation!).ToArray();
+                    observations.AddRange(completedObservations);
+                    if (completedObservations.Length == 0)
+                        AddUnavailable(check, "The readiness workflow stopped before this condition returned an observation.");
                     probeDiagnostics.AddRange(probe.Value.Diagnostics);
                     if (probe.Value.Status != Passed) break;
                 }

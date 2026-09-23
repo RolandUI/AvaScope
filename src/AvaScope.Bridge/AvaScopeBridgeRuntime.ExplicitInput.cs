@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Globalization;
+using System.Text.Json;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -34,6 +35,9 @@ public sealed partial class AvaScopeBridgeRuntime
         var point = default(Point);
         var cleanup = "not_needed";
         CoreError? error = null;
+        CoreError? preconditionError = null;
+        RuntimeExpressionResponse? preconditions = null;
+        var preconditionPhase = "not_checked";
         InputResponse? response = null;
         var elapsed = Stopwatch.StartNew();
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -51,22 +55,24 @@ public sealed partial class AvaScopeBridgeRuntime
                 {
                     ["requestedStrategy"] = options.Strategy, ["dispatchedEvents"] = "0", ["cleanup"] = "not_needed"
                 };
-                return CoreResult<InputResponse>.Fail(new CoreError(failure.Code, failure.Message, details));
+                return WithPreconditions(CoreResult<InputResponse>.Fail(new CoreError(failure.Code, failure.Message, details)));
             }
             plan = prepared.Value!;
             point = plan.Start;
+            if (options.Preconditions is not null)
+                await Dispatcher.UIThread.InvokeAsync(() => CheckPreconditions("preparation"), DispatcherPriority.Background, token);
             if (validateOnly)
-                return CoreResult<InputResponse>.Ok(await Dispatcher.UIThread.InvokeAsync(() => MakeResponse(false)));
+                return WithPreconditions(CoreResult<InputResponse>.Ok(await Dispatcher.UIThread.InvokeAsync(() => MakeResponse(false))));
 
             if (options.Strategy == "semantic")
             {
                 var semantic = await Dispatcher.UIThread.InvokeAsync(() => Input(topLevelId, action, x, y, text,
-                    nodeId, key, modifiers, target), DispatcherPriority.Background, token);
-                if (!semantic.Success) return semantic;
+                    nodeId, key, modifiers, target, options.Preconditions is null ? null : BeforeSemanticDispatch), DispatcherPriority.Background, token);
+                if (!semantic.Success) return WithPreconditions(semantic);
                 var value = semantic.Value!;
-                return CoreResult<InputResponse>.Ok(new(value.SessionId, value.TopLevelId, value.Action, value.Handled, value.ExecutedAt,
+                return WithPreconditions(CoreResult<InputResponse>.Ok(new(value.SessionId, value.TopLevelId, value.Action, value.Handled, value.ExecutedAt,
                     value.TargetNodeId, value.Target, value.InputKey, value.KeyModifiers, value.PointerButton, value.WheelDeltaX, value.WheelDeltaY,
-                    new Dictionary<string, string>(value.Metadata) { ["requestedStrategy"] = "semantic" }, value.Gesture, value.Provenance, value.ActivationPoint));
+                    new Dictionary<string, string>(value.Metadata) { ["requestedStrategy"] = "semantic" }, value.Gesture, value.Provenance, value.ActivationPoint)));
             }
 
             await Dispatcher.UIThread.InvokeAsync(() =>
@@ -175,17 +181,96 @@ public sealed partial class AvaScopeBridgeRuntime
             _explicitInputGate.Release();
         }
 
-        return error is null ? CoreResult<InputResponse>.Ok(response!)
-            : ExplicitInputFailure(error.Message, options, dispatched, cleanup);
+        return WithPreconditions(error is null ? CoreResult<InputResponse>.Ok(response!)
+            : ExplicitInputFailure(error.Message, options, dispatched, cleanup));
 
         async Task OnUi(Action dispatch, bool releasingKey = false)
         {
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
                 CheckTarget(releasingKey);
+                if (dispatched == 0) CheckPreconditions("pre_dispatch");
                 dispatched++; // A throwing application callback can already have changed state.
                 dispatch();
             }, DispatcherPriority.Background, token);
+        }
+
+        void BeforeSemanticDispatch()
+        {
+            CheckPreconditions("pre_dispatch");
+            dispatched++; // The provider/event/property invocation may execute before it throws.
+        }
+
+        void CheckPreconditions(string phase)
+        {
+            if (options.Preconditions is null) return;
+            Dispatcher.UIThread.VerifyAccess();
+            preconditionPhase = phase;
+            if (options.PreconditionPolicy is { } policy
+                && new RuntimeEvidencePolicyEnforcer(policy).AuthorizeAction(action == InputActions.KeyText ? SemanticWorkflowActions.TypeText : action, null) is { Success: false } denied)
+                preconditionError = denied.Error;
+            else
+            {
+                var checkedState = EvaluateRuntime(new(SessionId, topLevelId, options.Preconditions, requireTrue: true, policy: options.PreconditionPolicy));
+                preconditions = checkedState.Value;
+                if (!checkedState.Success || checkedState.Value!.Status != "passed")
+                    preconditionError = new("input_precondition_rejected", "The expected runtime state is false, incomplete or unavailable; the guarded input was not dispatched.",
+                        checkedState.Error is null ? null : new Dictionary<string, string> { ["evaluationError"] = checkedState.Error.Code });
+            }
+            // Public observation callbacks can detach or replace the prepared input target.
+            if (preconditionError is null && (plan is null || FindTopLevel(topLevelId) != plan.TopLevel
+                || TopLevel.GetTopLevel(plan.Target) != plan.TopLevel || !plan.Target.IsEffectivelyEnabled || !plan.Target.IsEffectivelyVisible))
+                preconditionError = new("input_precondition_target_changed", "The prepared target changed during the precondition check; input was not dispatched.");
+            if (preconditionError is null && phase == "pre_dispatch" && plan!.ActivationPoint is { } pointEvidence)
+            {
+                var current = ResolveActivationPoint(plan.TopLevel, topLevelId, plan.ActivationTarget!, pointEvidence.X, pointEvidence.Y, null, false);
+                if (current.Status != "valid" || current.GeometryRevision != pointEvidence.GeometryRevision)
+                    preconditionError = new("input_precondition_geometry_changed", "The activation point changed during the precondition check; input was not dispatched.");
+            }
+            if (preconditionError is null && phase == "pre_dispatch" && action is InputActions.KeySequence or InputActions.KeyText
+                && plan!.TopLevel.FocusManager?.GetFocusedElement() != plan.Target)
+                preconditionError = new("input_precondition_focus_changed", "Keyboard focus changed during the precondition check; input was not dispatched.");
+            if (preconditionError is null && phase == "pre_dispatch" && options.Strategy == "native")
+                NativeWindowInput.ValidateOwnership(plan!.TopLevel, requireFocus: true);
+            if (preconditionError is not null) throw new InvalidOperationException(preconditionError.Message);
+        }
+
+        CoreResult<InputResponse> WithPreconditions(CoreResult<InputResponse> result)
+        {
+            if (options.Preconditions is null) return result;
+            var metadata = new Dictionary<string, string>
+            {
+                ["dispatched"] = (dispatched > 0).ToString().ToLowerInvariant(),
+                ["dispatchOutcome"] = dispatched == 0 ? "not_dispatched" : result.Success ? "dispatch_completed" : "unknown_after_dispatch",
+                ["dispatchedEvents"] = dispatched.ToString(CultureInfo.InvariantCulture),
+                ["preconditionPhase"] = preconditionPhase, ["preconditionsStatus"] = preconditions?.Status ?? "not_checked",
+                ["guardBoundary"] = "UI-thread check before first input/provider invocation; preparation callbacks may run; no asynchronous/external-state transaction"
+            };
+            if (result.Success)
+            {
+                var value = result.Value!;
+                var combined = new Dictionary<string, string>(value.Metadata);
+                foreach (var item in metadata) combined[item.Key] = item.Value;
+                result = CoreResult<InputResponse>.Ok(new(value.SessionId, value.TopLevelId, value.Action, value.Handled, value.ExecutedAt,
+                    value.TargetNodeId, value.Target, value.InputKey, value.KeyModifiers, value.PointerButton, value.WheelDeltaX, value.WheelDeltaY,
+                    combined, value.Gesture, value.Provenance, value.ActivationPoint, preconditions));
+            }
+            else
+            {
+                var failure = preconditionError ?? result.Error!;
+                var details = new Dictionary<string, string>(result.Error?.Details ?? new Dictionary<string, string>());
+                foreach (var item in failure.Details ?? new Dictionary<string, string>()) details[item.Key] = item.Value;
+                foreach (var item in metadata) details[item.Key] = item.Value;
+                if (preconditions is not null) details["preconditions"] = JsonSerializer.Serialize(preconditions);
+                details["nextAction"] = dispatched == 0 ? "Observe the changed state and make a new decision; do not automatically remove the precondition."
+                    : "Observe application state or replay the same existing workflow idempotency key; never blindly dispatch again.";
+                result = CoreResult<InputResponse>.Fail(new(failure.Code, failure.Message, details));
+            }
+            if (options.PreconditionPolicy is not { } settings) return result;
+            var enforcer = new RuntimeEvidencePolicyEnforcer(settings);
+            if (result.Success) return enforcer.Sanitize(result.Value!);
+            var safe = enforcer.Sanitize(result.Error!);
+            return CoreResult<InputResponse>.Fail(safe.Success ? safe.Value! : safe.Error!);
         }
 
         void CheckTarget(bool releasingKey = false)
@@ -327,7 +412,10 @@ public sealed partial class AvaScopeBridgeRuntime
                 return Fail("The selected operation has no semantic route; explicitly request synthetic or native input.");
             if (options.Button != "left" || options.ClickCount != 1 || options.DestinationX is not null || options.DestinationY is not null)
                 return Fail("Semantic input does not accept compound pointer options.");
-            return CoreResult<ExplicitInputPlan>.Ok(new(top, top, default, default, MouseButton.Left, parsedModifiers.Value, keys, route));
+            var semanticTarget = validated.Value.TargetNodeId is { } validatedNodeId
+                ? FindNodeById(top, validatedNodeId) as InputElement : null;
+            if (semanticTarget is null) return Fail("The validated semantic target is no longer attached.");
+            return CoreResult<ExplicitInputPlan>.Ok(new(top, semanticTarget, default, default, MouseButton.Left, parsedModifiers.Value, keys, route));
         }
         if (action is not (InputActions.Click or InputActions.PointerMove or InputActions.Drag or InputActions.KeySequence or InputActions.KeyText))
             return Fail("Explicit synthetic/native input supports click, pointer_move, drag, key_sequence and literal key_text. Use paired compound input instead of held key/button requests.");
@@ -412,6 +500,9 @@ public sealed partial class AvaScopeBridgeRuntime
         CoreResult<InputResponse>.Fail(new CoreError(BridgeErrorCodes.InvalidInputRequest, message, new Dictionary<string, string>
         {
             ["requestedStrategy"] = options.Strategy, ["dispatchedEvents"] = dispatched.ToString(CultureInfo.InvariantCulture),
+            ["dispatched"] = (dispatched > 0).ToString().ToLowerInvariant(),
+            ["dispatchOutcome"] = dispatched == 0 ? "not_dispatched" : "unknown_after_dispatch",
+            ["preconditionsStatus"] = options.Preconditions is null ? "not_requested" : "not_checked",
             ["cleanup"] = cleanup, ["nextAction"] = "Observe current application state before retrying; no route downgrade was attempted."
         }));
 

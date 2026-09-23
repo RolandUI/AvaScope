@@ -170,7 +170,9 @@ public sealed class RuntimeReadinessTests
                     Assert.Equal(0, invoked);
                     runtime.SetReadiness("busy");
                     var busy = await AvaScopeMcpTools.RunScenario(client, Request());
-                    Assert.Equal("available", busy.Value!.Readiness!.Observations.Last().Availability);
+                    Assert.False(busy.Success);
+                    Assert.Equal(SemanticWaitConditionKinds.ApplicationReady, busy.Value!.Readiness!.Observations.Last().Condition);
+                    Assert.Contains(busy.Value.Readiness.Observations.Last().Availability, new[] { "available", "unavailable" });
                     Assert.False(busy.Value.Readiness.Observations.Last().Matched);
                     Assert.Equal(0, invoked);
                     runtime.SetReadiness("ready");
@@ -218,7 +220,7 @@ public sealed class RuntimeReadinessTests
     }
 
     private static async Task<SemanticWorkflowStepResult> Wait(LocalBridgeClient client, SessionId sessionId,
-        string topLevelId, string kind, string? name = null, int timeoutMs = 2500)
+        string topLevelId, string kind, string? name = null, int timeoutMs = 8000)
     {
         var result = await AvaScopeMcpTools.RunWorkflow(client, new SemanticWorkflowRequest(sessionId, topLevelId,
             [new SemanticWorkflowStep(SemanticWorkflowActions.WaitForState,

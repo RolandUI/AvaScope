@@ -31,6 +31,11 @@ They are distributed through installers, executable ZIPs, and source, not as pac
 
 ## Protocol Contracts
 
+The additive v1.5 `runtime.dispatch_preconditions` capability adds
+`execution.preconditions` (workflow `inputExecution.preconditions`) to supported
+explicit input. Responses preserve the typed check and dispatch status; a failed
+or unavailable condition prevents dispatch. See [dispatch guards](DISPATCH_PRECONDITIONS.md).
+
 The additive v1.5 `runtime.expressions` capability exposes read-only
 `evaluate-runtime` / `evaluate_runtime` for typed values, aggregates and compound
 assertions. `waitCondition.kind: expression` uses the same definition and

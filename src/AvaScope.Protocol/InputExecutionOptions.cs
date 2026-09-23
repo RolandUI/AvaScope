@@ -17,9 +17,13 @@ public sealed record InputExecutionOptions
     [JsonPropertyName("keys")] public IReadOnlyList<InputKeyStroke> Keys { get; init; } = [];
     [JsonPropertyName("expectedGeometryRevision")] public string? ExpectedGeometryRevision { get; init; }
     [JsonPropertyName("requireCurrentFocus")] public bool RequireCurrentFocus { get; init; }
+    [JsonPropertyName("preconditions")] public RuntimeExpressionDefinition? Preconditions { get; init; }
+    [JsonPropertyName("preconditionPolicy")] public RuntimeEvidencePolicy? PreconditionPolicy { get; init; }
 
     public string? GetValidationError(string action)
     {
+        if (PreconditionPolicy is not null && Preconditions is null)
+            return "preconditionPolicy requires a precondition expression.";
         if (RequireCurrentFocus && (Strategy == "semantic" || action is not (InputActions.KeySequence or InputActions.KeyText)))
             return "requireCurrentFocus is supported only for explicit keyboard input; it never moves focus to the target.";
         if (ExpectedGeometryRevision is { } revision && (revision.Length != 64 || !revision.All(Uri.IsHexDigit)

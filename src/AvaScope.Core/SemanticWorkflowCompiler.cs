@@ -809,7 +809,8 @@ internal static partial class SemanticWorkflowCompiler
                     StringComparer.Ordinal),
                 ResolveVerification(step.Verify, variables, path),
                 step.CaptureAfterRender,
-                step.InputExecution);
+                step.InputExecution?.Preconditions is null ? step.InputExecution : step.InputExecution with
+                { Preconditions = ResolveExpressionDefinition(step.InputExecution.Preconditions, variables, path + ".inputExecution.preconditions") });
         }
 
         private SemanticWorkflowVerification? ResolveVerification(
@@ -874,11 +875,16 @@ internal static partial class SemanticWorkflowCompiler
                     ResolveText(condition.TopLevelId, variables, $"{path}.waitCondition.topLevelId"),
                     ResolveText(condition.TopLevelTitle, variables, $"{path}.waitCondition.topLevelTitle"),
                     condition.StableSamples,
-                    condition.Expression is null ? null : new RuntimeExpressionDefinition(
-                        ResolveExpression(condition.Expression.Expression),
-                        condition.Expression.Sources.Select(source => new RuntimeExpressionSource(source.Id,
-                            ResolveSelector(source.Selector, variables, path + ".expression.sources." + source.Id)!, source.Attribute)).ToArray(),
-                        condition.Expression.MaxNodes, condition.Expression.MaxResults, condition.Expression.MaxDepth));
+                    condition.Expression is null ? null : ResolveExpressionDefinition(condition.Expression, variables, path + ".expression"));
+        }
+
+        private RuntimeExpressionDefinition ResolveExpressionDefinition(RuntimeExpressionDefinition definition,
+            IReadOnlyDictionary<string, string> variables, string path)
+        {
+            return new(ResolveExpression(definition.Expression),
+                definition.Sources.Select(source => new RuntimeExpressionSource(source.Id,
+                    ResolveSelector(source.Selector, variables, path + ".sources." + source.Id)!, source.Attribute)).ToArray(),
+                definition.MaxNodes, definition.MaxResults, definition.MaxDepth);
 
             RuntimeExpression ResolveExpression(RuntimeExpression expression) => new(expression.Kind, expression.Source,
                 expression.Literal is { ValueKind: System.Text.Json.JsonValueKind.String } literal

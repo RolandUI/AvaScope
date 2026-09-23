@@ -21,7 +21,8 @@ public sealed record InputResponse
         IReadOnlyDictionary<string, string>? metadata = null,
         RuntimeGestureResult? gesture = null,
         RuntimeOperationProvenance? provenance = null,
-        RuntimeActivationPoint? activationPoint = null)
+        RuntimeActivationPoint? activationPoint = null,
+        RuntimeExpressionResponse? preconditions = null)
     {
         SessionId = sessionId ?? throw new ArgumentNullException(nameof(sessionId));
 
@@ -50,6 +51,7 @@ public sealed record InputResponse
         Gesture = gesture;
         Provenance = provenance;
         ActivationPoint = activationPoint;
+        Preconditions = preconditions;
     }
 
     [JsonPropertyName("sessionId")]
@@ -108,6 +110,9 @@ public sealed record InputResponse
     [JsonPropertyName("activationPoint")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public RuntimeActivationPoint? ActivationPoint { get; }
+
+    [JsonPropertyName("preconditions"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public RuntimeExpressionResponse? Preconditions { get; }
 
     private static RuntimeTargetContext CreateTarget(
         SessionId sessionId,

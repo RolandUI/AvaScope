@@ -20,6 +20,8 @@ Use [relationship selectors and typed projections](RELATIONSHIP_QUERIES.md) to d
 
 Use [typed runtime expressions](RUNTIME_EXPRESSIONS.md) for counts, numeric relationships and compound assertions across controls. Reuse the same definition in a workflow wait or action postcondition; incomplete/redacted observations remain indeterminate.
 
+Use [dispatch preconditions](DISPATCH_PRECONDITIONS.md) when the selected document, row or expected value matters to an action. Check the returned dispatch status; preserve idempotency and inspect uncertain outcomes before another decision.
+
 Use [desired-state actions](DESIRED_STATE_ACTIONS.md) to ensure a check, expansion, value, text or selection state without reversing an already satisfied result. Preserve the exact request ID/payload after a lost response and inspect partial or uncertain outcomes before another intent.
 
 Use [form workflows](FORM_WORKFLOWS.md) to read explicit field labels, values, choices and validation, then fill a bounded plan with per-field verification. Inspect appearing or changing fields before a subsequent plan; submit remains a separate explicit operation.

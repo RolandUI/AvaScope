@@ -82,7 +82,12 @@ public sealed class NativeInputIntegrationTests
             Assert.Single((await client.ListTopLevelsAsync(sessionId, token)).Value!.TopLevels);
             await File.WriteAllTextAsync(Path.Combine(output, "mcp-action-map.json"), JsonSerializer.Serialize(map), token);
 
-            var clickOptions = new InputExecutionOptions { Strategy = "native", Button = "right", ClickCount = 2, IntervalMs = 75 };
+            var clickOptions = new InputExecutionOptions { Strategy = "native", Button = "right", ClickCount = 2, IntervalMs = 75,
+                Preconditions = new(new("literal", literal: JsonSerializer.SerializeToElement(true))) };
+            var rejectedGuard = await client.InputAsync(sessionId, top.Id, InputActions.Click, targetNodeId: pad.NodeId,
+                execution: clickOptions with { Preconditions = new(new("literal", literal: JsonSerializer.SerializeToElement(false))) }, cancellationToken: token);
+            Assert.False(rejectedGuard.Success); Assert.Equal("input_precondition_rejected", rejectedGuard.Error!.Code);
+            Assert.Equal("false", rejectedGuard.Error.Details!["dispatched"]);
             await CliInput(InputActions.Click, pad.NodeId, clickOptions, "Shift");
             await WaitText("InputState", "RightButtonPressed:2:Shift");
             await WaitText("ReleaseState", "Right");
@@ -94,6 +99,8 @@ public sealed class NativeInputIntegrationTests
             var middleResult = JsonSerializer.Deserialize<ToolResult<InputResponse>>(JsonSerializer.Serialize(middle.StructuredContent))!;
             await File.WriteAllTextAsync(Path.Combine(output, "middle-input-result.json"), JsonSerializer.Serialize(middleResult), token);
             Assert.True(middleResult.Success, middleResult.Error?.Message);
+            Assert.Equal("passed", middleResult.Value!.Preconditions!.Status);
+            Assert.Equal("true", middleResult.Value.Metadata["dispatched"]);
             Assert.Equal(route, middleResult.Value!.Provenance!.Route);
             await WaitText("InputState", "MiddleButtonPressed:3:None");
             await WaitText("ReleaseState", "Middle");
@@ -326,7 +333,7 @@ public sealed class NativeInputIntegrationTests
             await File.WriteAllTextAsync(Path.Combine(output, "validation.json"), JsonSerializer.Serialize(new
             {
                 status = "passed", backend, nativeInputRoute = route, nativeDialog = backend == "x11" ? "gtk3" : backend,
-                checks = new[] { "CLI right double modifier click", "MCP middle triple click",
+                checks = new[] { "rejected native precondition without dispatch", "accepted native precondition evidence", "CLI right double modifier click", "MCP middle triple click",
                     backend == "macos" ? "native drag refused before dispatch; explicit synthetic drag" : "bounded native drag",
                     backend == "macos" ? "interrupted native click cleanup" : "interrupted native drag cleanup",
                     "paired native navigation chord", "literal Unicode capability", "CLI desired text; MCP replay; no-op verification", "MCP form inventory; CLI fill; MCP replay",

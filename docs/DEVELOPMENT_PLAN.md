@@ -2,7 +2,7 @@
 
 GitHub Issues and Milestones are the primary project-management source for autonomous agents working on AvaScope. This document is the compact local handoff and validation log. Update it whenever meaningful implementation, validation, or planning changes the active GitHub issue or release state.
 
-- `2026-09-23`: Release `v1.5.0` / #156 covers #117-#153 and #155; #154 is cancelled (no foreign framework interoperability). #117-#139 are closed; #140/#141 await corrected combined platform gates. #142 is in review at 944337a; active #143 adds compound expressions. Its Windows checkpoint passed 27/27 tests; final Linux build passed without warnings and its expression/query/focus/stable-contract checkpoint passed 32/32, including real CLI/MCP scalar/assertion and timeout parity. Windows focused validation passed 14/14 and then 15/15; Linux focused validation passed 37/37; standalone provider packaging and real Windows/X11 native-input gates passed, including focus, table/action-map and owned-dialog workflow waits. Windows CI 35800813840 and the prior Linux full suite exposed readiness/frame/dialog-wait regressions, now fixed and covered by the focused gates. The corrected full Linux suite passed 654 tests (2 separate native-only skips); hosted CI 35803024251 is running and remains required. Earlier unawaited headless-test results are not release evidence; all affected fixtures now await complete async bodies. Avalonia runtime/sample 12.1.3, Bridge standalone baseline 12.1.0, product version 1.4.2 until the validated release commit.
+- `2026-09-23`: Release v1.5.0 / #156 covers #117-#153 and #155; #154 is cancelled (no foreign framework interoperability). #117-#139 are closed; #140-#143 await combined platform gates. #144 implements typed expected-state checks before input/provider dispatch, checked evidence and explicit unknown outcomes without transport redispatch. Its corrected Windows guard/readiness checkpoint passed 9/9 after fixing semantic target tracking and a truncated test selector; earlier broader checkpoints passed 33/35 Windows and 34/35 Linux, with the remaining readiness timing/fixture failures corrected. Native provider and final Linux gates are running. Hosted CI 35803024251 passed Windows Build/Test/Pack and Linux Installer but failed macOS readiness evidence: an expired startup probe could leave an earlier successful observation last. The fix now records an unavailable, unmatched observation for the unfinished condition; hosted revalidation is required. The prior corrected full Linux suite passed 654 tests with 2 native-only skips. Earlier unawaited headless-test results are not release evidence. Avalonia runtime/sample 12.1.3, Bridge standalone baseline 12.1.0; product version stays 1.4.2 until the validated release commit.
 
 - `2026-09-03`: Published `v1.4.2` from exact release commit `66d23c040e4bf16ed66b0b43e7021507966347a9` through successful Release workflow `33732182248`. The remote tag matches; the public, non-prerelease GitHub Release has 12/12 assets; and fresh downloads verified all 11 manifest entries by exact name, size, and SHA-256 plus every package metadata version. NuGet.org exposes Protocol/Core/Bridge `1.4.2` as latest; all three CDN packages pass repository-signature verification and their unsigned entries match the release packages. GitHub Packages publication succeeded for all three packages. Release tracker #114 and milestone `v1.4.2` are closed.
 - `2026-09-03`: The v1.4.2 release-candidate gate passed through `59bb5e0` with exact version `1.4.2` staged. The consolidated local Release suite passed `505/505` once, hosted CI `33729834402` passed Windows/Linux/native macOS, and exact-version packaging rebuilt with `0` warnings/errors. Three NuGet packages, four framework-dependent ZIPs, four installers, the 11-entry manifest, Windows installer, packaged doctor/preview/lifecycle, packaged complex CLI/MCP repeat-plus-failure gates, and both publish dry-runs passed. Next: commit exactly `Release 1.4.2`, publish, and verify every remote surface.
@@ -79,15 +79,15 @@ GitHub Issues and Milestones are the primary project-management source for auton
 ## Current Focus
 
 - `Release v1.5.0`
-- GitHub Issue: `#143`
+- GitHub Issue: `#144`
 - GitHub Milestone: `v1.5.0`
 - Status: `In Progress`
 - Owner: autonomous agent
-- Goal: compound typed assertions and scalar/aggregate queries over bounded observations.
+- Goal: explicit state preconditions immediately before supported input dispatch, preserving generations and replay/uncertainty semantics.
 
 ## Next Action
 
-Validate #140/#141 through corrected full and native gates, then implement #143-#153 and #155 in issue order before the #156 release gate.
+Validate #140/#141 through corrected full and native gates, then implement #144-#153 and #155 in issue order before the #156 release gate.
 
 ## Latest Validation
 
