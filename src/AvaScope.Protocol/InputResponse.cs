@@ -4,6 +4,7 @@ namespace AvaScope.Protocol;
 
 public sealed record InputResponse
 {
+    [JsonPropertyName("correlationId")] public string? CorrelationId { get; init; }
     [JsonConstructor]
     public InputResponse(
         SessionId sessionId,

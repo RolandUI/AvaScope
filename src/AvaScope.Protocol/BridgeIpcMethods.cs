@@ -12,6 +12,7 @@ public static class BridgeIpcMethods
     public const string ProbeFocus = "probe_focus";
     public const string EvaluateRuntime = "evaluate_runtime";
     public const string Operation = "operation";
+    public const string Trace = "trace";
     public const string EnsureState = "ensure_state";
     public const string InspectForm = "inspect_form";
     public const string FillForm = "fill_form";
@@ -49,6 +50,7 @@ public static class BridgeIpcMethods
         ProbeFocus,
         EvaluateRuntime,
         Operation,
+        Trace,
         EnsureState,
         InspectForm,
         FillForm,
@@ -77,6 +79,7 @@ public static class BridgeIpcMethods
 
     public static bool RequiresControl(BridgeIpcRequest request) => request.Method is Input or MutateNode or InvokeCustomAction or CloseSession or EnsureState or FillForm or TableAction or ProbeFocus
         || request.Method == Operation && request.Operation?.Action == "cancel"
+        || request.Method == Trace && request.Trace?.Action is "start" or "stop"
         || request.Method == VirtualItem && request.VirtualItem?.Action != "find"
         || request.Method == NativePicker && request.NativePicker?.Operation != "detect";
 }

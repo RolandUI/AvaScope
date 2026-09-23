@@ -589,6 +589,7 @@ public sealed partial class AvaScopeBridgeRuntime
         ResetActiveMutationsOnUiThread(static _ => true);
         _customActions.Clear();
         CloseOperations();
+        CloseTraces();
         _registeredTopLevels.Clear();
         _observedBackends.Clear();
         return _sessionRegistry.Close(SessionId);
@@ -758,7 +759,7 @@ public sealed partial class AvaScopeBridgeRuntime
                 {
                     Dispatcher.UIThread.VerifyAccess();
                     if (!invocationOpen) throw new InvalidOperationException("BeginOperation must run during the authorized custom action handler.");
-                    return operation ??= CreateOperation(request, currentTarget, registration, owner);
+                    return operation ??= CreateOperation(request, currentTarget, registration, owner, visual);
                 }
             };
             var outcome = registration.Handler(context);
@@ -2324,6 +2325,7 @@ public sealed partial class AvaScopeBridgeRuntime
 
     private void UnregisterTopLevel(int key, string topLevelId)
     {
+        StopTopLevelTraces(topLevelId);
         _registeredTopLevels.TryRemove(key, out _);
         _observedBackends.TryRemove(topLevelId, out _);
         ResetActiveMutationsOnUiThread(mutation => string.Equals(mutation.TopLevelId, topLevelId, StringComparison.Ordinal));

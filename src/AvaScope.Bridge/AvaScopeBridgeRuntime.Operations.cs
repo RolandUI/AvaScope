@@ -1,4 +1,6 @@
 using Avalonia.Threading;
+using Avalonia.Automation;
+using Avalonia.VisualTree;
 using AvaScope.Core;
 using AvaScope.Protocol;
 
@@ -11,7 +13,7 @@ public sealed partial class AvaScopeBridgeRuntime
     private bool _operationsClosed;
 
     private RuntimeOperationHandle CreateOperation(RuntimeCustomActionRequest request, RuntimeTargetContext target,
-        CustomActionRegistration registration, string? owner)
+        CustomActionRegistration registration, string? owner, Avalonia.Visual visual)
     {
         Dispatcher.UIThread.VerifyAccess();
         lock (_operationsLock)
@@ -25,9 +27,15 @@ public sealed partial class AvaScopeBridgeRuntime
                 var oldest = _operations.Values.Where(operation => operation.Snapshot.IsTerminal).MinBy(operation => operation.Snapshot.UpdatedAt)!;
                 _operations.Remove(oldest.OperationId); oldest.Close();
             }
+            var runtime = new WeakReference<AvaScopeBridgeRuntime>(this);
+            var ancestry = visual.GetVisualAncestors().Prepend(visual).Take(129).ToArray();
+            var scopeComplete = ancestry.Length is > 0 and <= 128;
+            var automationIds = ancestry.Select(AutomationProperties.GetAutomationId).Where(id => id is not null).Cast<string>().ToArray();
             var handle = new RuntimeOperationHandle(SessionId, request.RequestId, request.ActionName, target, owner,
-                registration.SupportsCancellation, registration.SafetyClassification);
+                registration.SupportsCancellation, registration.SafetyClassification, snapshot =>
+                { if (runtime.TryGetTarget(out var current)) current.TraceOperation(snapshot, automationIds, scopeComplete); });
             _operations.Add(handle.OperationId, handle);
+            TraceOperation(handle.Snapshot, automationIds, scopeComplete);
             return handle;
         }
     }

@@ -19,6 +19,7 @@ public static class AvaScopeCapabilityIds
     public const string RuntimeExpressions = "runtime.expressions";
     public const string RuntimeDispatchPreconditions = "runtime.dispatch_preconditions";
     public const string RuntimeOperations = "runtime.operations";
+    public const string RuntimeTraces = "runtime.traces";
     public const string RuntimeStandaloneProvider = "runtime.standalone_provider";
     public const string RuntimeIntegrationGuidance = "runtime.integration_guidance";
     public const string RuntimeIntegrationVerification = "runtime.integration_verification";

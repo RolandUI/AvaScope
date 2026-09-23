@@ -9,6 +9,13 @@ namespace AvaScope.Mcp;
 [McpServerToolType]
 public sealed class AvaScopeMcpTools
 {
+    [McpServerTool(Name = "trace", Title = "Collect bounded correlated runtime diagnostics", ReadOnly = false, Idempotent = false,
+        Destructive = false, OpenWorld = false, UseStructuredContent = true)]
+    [Description("Start/read/stop an explicit-window trace. Start requires an evidence policy applied before retention. Captures bridge request boundaries, app-reported operation transitions and opted-in host validation/binding/event/log adapters; optional validation samples are temporal evidence only. Input correlationId and custom-action requestId link workflow evidence. Query requestId/operationId labels matched, different and uncorrelated events without claiming root cause. Four traces, 128 events/96 KiB each, at most 60 seconds collection. Optional outputDirectory exports bounded sanitized trace.json under the policy-owned root.")]
+    public static async Task<ToolResult<RuntimeTraceResponse>> Trace(LocalBridgeClient bridgeClient,
+        RuntimeTraceRequest request, string? manifestDirectory = null, CancellationToken cancellationToken = default)
+        => ToToolResult(await CreateBridgeClient(bridgeClient, manifestDirectory).TraceAsync(request, cancellationToken));
+
     [McpServerTool(Name = "operation", Title = "Observe or cancel app-reported operations", ReadOnly = false, Idempotent = false,
         Destructive = true, OpenWorld = false, UseStructuredContent = true)]
     [Description("Observe app-reported long work by operation id from a custom-action response. action=status/wait/cancel; wait is bounded to 30 seconds and waits for any terminal outcome, not necessarily success. Cancellation requires a host-declared capability, the original run's current control lease when leased, and action policy authorization. A cancellation request or timeout does not prove app work stopped. Results are session-scoped and retained for at most ten minutes/128 entries; never redispatch an action because its status is unknown.")]

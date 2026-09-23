@@ -319,9 +319,14 @@ internal sealed class LocalBridgeServer : IDisposable
                 : BridgeIpcResponse.Fail(request.RequestId, ToProtocolError(control.Error!)));
         }
         var permit = BridgeIpcMethods.RequiresControl(request) ? _control.Enter(request.ControlToken) : null;
-        if (permit is { Success: false }) return Respond(BridgeIpcResponse.Fail(request.RequestId, ToProtocolError(permit.Error!)));
+        if (permit is { Success: false })
+        {
+            _runtime.TraceDispatch(request, "rejected_before_dispatch", ToProtocolError(permit.Error!));
+            return Respond(BridgeIpcResponse.Fail(request.RequestId, ToProtocolError(permit.Error!)));
+        }
         using var controlPermit = permit?.Value;
-        return request.Method switch
+        _runtime.TraceDispatch(request, "requested");
+        var result = request.Method switch
         {
             BridgeIpcMethods.Health => Respond(BridgeIpcResponse.Ok(
                 request.RequestId,
@@ -341,6 +346,7 @@ internal sealed class LocalBridgeServer : IDisposable
             BridgeIpcMethods.ProbeFocus => Respond(await ProbeFocusAsync(request, cancellationToken)),
             BridgeIpcMethods.EvaluateRuntime => Respond(await EvaluateRuntimeAsync(request, cancellationToken)),
             BridgeIpcMethods.Operation => Respond(await OperationAsync(request, cancellationToken)),
+            BridgeIpcMethods.Trace => Respond(await TraceAsync(request, cancellationToken)),
             BridgeIpcMethods.EnsureState => Respond(await EnsureStateAsync(request, cancellationToken)),
             BridgeIpcMethods.InspectForm => Respond(await InspectFormAsync(request, cancellationToken)),
             BridgeIpcMethods.FillForm => Respond(await FillFormAsync(request, cancellationToken)),
@@ -366,6 +372,8 @@ internal sealed class LocalBridgeServer : IDisposable
                 request.RequestId,
                 new ProtocolError("unknown_method", $"Bridge method '{request.Method}' is not supported.")))
         };
+        _runtime.TraceDispatch(request, "response", result.Response.Error);
+        return result;
     }
 
     private BridgeRequestResult CloseSession(BridgeIpcRequest request)
@@ -860,6 +868,14 @@ internal sealed class LocalBridgeServer : IDisposable
     {
         if (request.Operation is null) return BridgeIpcResponse.Fail(request.RequestId, new("operation_request_required", "A structured operation request is required."));
         var result = await _runtime.OperationAsync(request.Operation, _control.Execute(new()).Value!.Owner, cancellationToken);
+        return result.Success ? BridgeIpcResponse.Ok(request.RequestId, result.Value)
+            : BridgeIpcResponse.Fail(request.RequestId, ToProtocolError(result.Error!));
+    }
+
+    private async Task<BridgeIpcResponse> TraceAsync(BridgeIpcRequest request, CancellationToken cancellationToken)
+    {
+        if (request.Trace is null) return BridgeIpcResponse.Fail(request.RequestId, new("trace_request_required", "A structured trace request is required."));
+        var result = await _runtime.TraceAsync(request.Trace, _control.Execute(new()).Value!.Owner, cancellationToken);
         return result.Success ? BridgeIpcResponse.Ok(request.RequestId, result.Value)
             : BridgeIpcResponse.Fail(request.RequestId, ToProtocolError(result.Error!));
     }

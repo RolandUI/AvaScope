@@ -1689,6 +1689,8 @@ public sealed partial class LocalBridgeClient
                 }
 
                 var value = response.GetValue<T>();
+                if (value is InputResponse inputValue)
+                    value = (T)(object)(inputValue with { CorrelationId = request.RequestId });
                 return value is null
                     ? CoreResult<T>.Fail(new CoreError(
                         CoreErrorCodes.BridgeIpcFailed,

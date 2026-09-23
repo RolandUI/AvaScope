@@ -11,6 +11,7 @@ public sealed class RuntimeOperationHandle
     private readonly TaskCompletionSource _terminal = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private Task _cancellationTask = Task.CompletedTask;
     private RuntimeOperationSnapshot _snapshot;
+    private readonly Action<RuntimeOperationSnapshot>? _report;
     private bool _closed;
     internal string SafetyClassification { get; }
     internal Task Terminal => _terminal.Task;
@@ -18,13 +19,14 @@ public sealed class RuntimeOperationHandle
     public CancellationToken CancellationToken { get; }
 
     internal RuntimeOperationHandle(SessionId sessionId, string requestId, string actionName, RuntimeTargetContext target,
-        string? owner, bool canCancel, string safetyClassification)
+        string? owner, bool canCancel, string safetyClassification, Action<RuntimeOperationSnapshot>? report = null)
     {
         var now = DateTimeOffset.UtcNow;
         _snapshot = new(sessionId, sessionId.Value + ":" + Guid.NewGuid().ToString("N"), requestId, actionName, target,
             owner, "accepted", null, null, canCancel, false, now, now, null, new Dictionary<string, string>(), null);
         SafetyClassification = safetyClassification;
         CancellationToken = _cancellation.Token;
+        _report = report;
     }
 
     internal RuntimeOperationSnapshot Snapshot { get { lock (_sync) return _snapshot; } }
@@ -37,6 +39,7 @@ public sealed class RuntimeOperationHandle
         {
             if (_closed || _snapshot.IsTerminal) return false;
             _snapshot = _snapshot with { Status = "running", Progress = progress, Message = message, UpdatedAt = DateTimeOffset.UtcNow };
+            _report?.Invoke(_snapshot);
             return true;
         }
     }
@@ -61,6 +64,7 @@ public sealed class RuntimeOperationHandle
             if (_closed || _snapshot.IsTerminal) return false;
             var now = DateTimeOffset.UtcNow;
             _snapshot = _snapshot with { Status = status, Result = values, Error = error, UpdatedAt = now, RetainUntil = now.AddMinutes(10) };
+            _report?.Invoke(_snapshot);
             _terminal.TrySetResult();
             return true;
         }
@@ -81,6 +85,7 @@ public sealed class RuntimeOperationHandle
             if (_closed) return new("runtime_operation_session_closed", "The operation's bridge session is closed.");
             if (_snapshot.IsTerminal || _snapshot.CancellationRequested) return null;
             _snapshot = _snapshot with { CancellationRequested = true, UpdatedAt = DateTimeOffset.UtcNow };
+            _report?.Invoke(_snapshot);
             // CancelAsync schedules app callbacks asynchronously; the lock protects its lifetime, not their execution.
             _cancellationTask = SignalCancellationAsync();
         }

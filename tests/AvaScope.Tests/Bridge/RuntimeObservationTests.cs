@@ -39,6 +39,8 @@ public sealed class RuntimeObservationTests
                     Dispatcher.UIThread.RunJobs();
                     editor.Focus();
                     var top = Assert.Single(await runtime.ListTopLevelsAsync());
+                    // Focus can schedule template/layout work after RunJobs; establish the settled fixture before asserting no sampled change.
+                    Assert.True((await runtime.ReadinessAsync(top.Id, options: new(waitForFrame: true, timeoutMs: 5000))).Success);
                     var client = new LocalBridgeClient(Path.GetDirectoryName(runtime.SessionManifestPath)!);
                     var observer = new RuntimeObserver();
                     var stable = await observer.ObserveAsync(client, new RuntimeObservationRequest(runtime.SessionId,
