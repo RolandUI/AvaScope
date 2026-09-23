@@ -54,3 +54,10 @@ dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll invoke-custom-action --
 ```
 
 If diagnostics show stale sample bridge manifests after stopping the app, run `cleanup-bridge-sessions` from the repository root to remove stale local manifest JSON records without terminating processes.
+
+For the semantic graph demo, also set `AVASCOPE_SAMPLE_SCENE=1`. The additional
+window draws two nodes and their connection without child controls. Resolve the
+`SemanticGraph` visual target, call `scene` with `objectType: "connection"` and
+`relatedTo: "a"`, then invoke `scene.select` using the returned `expectedObject`.
+Zoom/pan or remove/recreate the connection with the buttons: an old scene target
+must be refreshed before selecting again. See [scene contracts and guards](../../docs/SEMANTIC_SCENES.md).

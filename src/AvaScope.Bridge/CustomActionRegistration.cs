@@ -16,7 +16,8 @@ public sealed record CustomActionRegistration
         RuntimeTestFixtureDescriptor? testFixture = null,
         IReadOnlyList<string>? route = null,
         bool supportsOperations = false,
-        bool supportsCancellation = false)
+        bool supportsCancellation = false,
+        bool requiresSceneObject = false)
     {
         if (string.IsNullOrWhiteSpace(name))
         {
@@ -41,6 +42,7 @@ public sealed record CustomActionRegistration
             throw new ArgumentException("Cancellation requires an operation-reporting action.", nameof(supportsCancellation));
         SupportsOperations = supportsOperations;
         SupportsCancellation = supportsCancellation;
+        RequiresSceneObject = requiresSceneObject;
         if (Route.Count > 12 || Route.Any(segment => string.IsNullOrWhiteSpace(segment) || segment.Length > 128))
             throw new ArgumentException("An optional application-declared route allows up to 12 non-empty segments of at most 128 characters.", nameof(route));
     }
@@ -56,6 +58,7 @@ public sealed record CustomActionRegistration
     public IReadOnlyList<string> Route { get; }
     public bool SupportsOperations { get; }
     public bool SupportsCancellation { get; }
+    public bool RequiresSceneObject { get; }
 }
 
 public sealed record CustomActionContext(
@@ -64,6 +67,8 @@ public sealed record CustomActionContext(
     IReadOnlyDictionary<string, string> Parameters)
 {
     internal Func<RuntimeOperationHandle>? OperationFactory { get; init; }
+    /// <summary>The current host-declared object validated by a scene invocation, or null for ordinary custom actions.</summary>
+    public RuntimeSceneObject? SceneObject { get; init; }
     /// <summary>Begin one operation during this explicitly registered action's synchronous handler.</summary>
     public RuntimeOperationHandle BeginOperation() => OperationFactory?.Invoke()
         ?? throw new InvalidOperationException("This action does not declare operation reporting.");

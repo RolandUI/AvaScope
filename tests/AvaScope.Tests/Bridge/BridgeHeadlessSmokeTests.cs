@@ -3867,6 +3867,10 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
 
                     var client = new LocalBridgeClient(Path.GetDirectoryName(runtime.SessionManifestPath)!);
                     var topLevel = Assert.Single(await runtime.ListTopLevelsAsync());
+                    // Input hit testing needs the compositor's first frame, not just completed layout jobs.
+                    var ready = await runtime.ReadinessAsync(topLevel.Id, options: new(waitForFrame: true, timeoutMs: 5000));
+                    Assert.True(ready.Success, ready.Error?.Message);
+                    Assert.Equal("rendered", ready.Value!.Frame.Status);
                     var tree = await AvaScopeMcpTools.VisualTree(
                         client,
                         runtime.SessionId.Value,

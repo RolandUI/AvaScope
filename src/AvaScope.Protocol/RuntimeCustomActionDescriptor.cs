@@ -17,7 +17,8 @@ public sealed record RuntimeCustomActionDescriptor
         string targetScope = "node",
         RuntimeTestFixtureDescriptor? testFixture = null,
         bool supportsOperations = false,
-        bool supportsCancellation = false)
+        bool supportsCancellation = false,
+        bool requiresSceneObject = false)
     {
         if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(targetScope))
         {
@@ -43,11 +44,13 @@ public sealed record RuntimeCustomActionDescriptor
         TestFixture = testFixture;
         SupportsOperations = supportsOperations;
         SupportsCancellation = supportsCancellation;
+        RequiresSceneObject = requiresSceneObject;
     }
 
     [JsonPropertyName("name")] public string Name { get; }
     [JsonPropertyName("supportsOperations")] public bool SupportsOperations { get; }
     [JsonPropertyName("supportsCancellation")] public bool SupportsCancellation { get; }
+    [JsonPropertyName("requiresSceneObject")] public bool RequiresSceneObject { get; }
     [JsonPropertyName("testFixture")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public RuntimeTestFixtureDescriptor? TestFixture { get; }

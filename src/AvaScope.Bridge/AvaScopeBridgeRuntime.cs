@@ -591,6 +591,7 @@ public sealed partial class AvaScopeBridgeRuntime
         CloseOperations();
         CloseTraces();
         CloseTextEditing();
+        CloseScenes();
         _registeredTopLevels.Clear();
         _observedBackends.Clear();
         return _sessionRegistry.Close(SessionId);
@@ -637,7 +638,8 @@ public sealed partial class AvaScopeBridgeRuntime
             DateTimeOffset.UtcNow));
     }
 
-    private CoreResult<RuntimeCustomActionResponse> InvokeCustomAction(RuntimeCustomActionRequest request, string? owner)
+    private CoreResult<RuntimeCustomActionResponse> InvokeCustomAction(RuntimeCustomActionRequest request, string? owner,
+        Func<CoreResult<RuntimeSceneObject>>? sceneGuard = null)
     {
         Dispatcher.UIThread.VerifyAccess();
         var resolved = ResolveCustomActionTarget(request.Target);
@@ -690,6 +692,11 @@ public sealed partial class AvaScopeBridgeRuntime
         }
 
         var registration = registered.Registration;
+        if (registration.RequiresSceneObject && sceneGuard is null)
+            return CoreResult<RuntimeCustomActionResponse>.Ok(CreateCustomActionResponse(request, currentTarget,
+                registration.SafetyClassification, RuntimeCustomActionStatuses.Rejected, false,
+                "This action requires a freshly inspected semantic scene object.",
+                new("scene_object_required", "Invoke through the scene tool with the observed object generation and scene revision.")));
         if (request.ExpectedFixtureVersion is { } expectedVersion && registration.TestFixture?.Version != expectedVersion)
             return CoreResult<RuntimeCustomActionResponse>.Ok(CreateCustomActionResponse(request, currentTarget,
                 registration.SafetyClassification, RuntimeCustomActionStatuses.Rejected, executed: false,
@@ -750,12 +757,24 @@ public sealed partial class AvaScopeBridgeRuntime
                 diagnostic));
         }
 
+        RuntimeSceneObject? sceneObject = null;
+        if (sceneGuard is not null)
+        {
+            var guarded = sceneGuard();
+            if (!guarded.Success || !EnumerateCustomActions().Any(entry => ReferenceEquals(entry.Target, visual) && ReferenceEquals(entry.Registration, registration)))
+                return CoreResult<RuntimeCustomActionResponse>.Ok(CreateCustomActionResponse(request, currentTarget,
+                    registration.SafetyClassification, RuntimeCustomActionStatuses.Rejected, false,
+                    guarded.Error?.Message ?? "The custom action registration changed during scene validation.",
+                    guarded.Error is { } error ? new(error.Code, error.Message) : new("scene_action_changed", "Discover the current action and scene again.")));
+            sceneObject = guarded.Value;
+        }
         RuntimeOperationHandle? operation = null;
         var invocationOpen = true;
         try
         {
             var context = new CustomActionContext(request.RequestId, visual, request.Parameters)
             {
+                SceneObject = sceneObject,
                 OperationFactory = !registration.SupportsOperations ? null : () =>
                 {
                     Dispatcher.UIThread.VerifyAccess();
@@ -897,7 +916,8 @@ public sealed partial class AvaScopeBridgeRuntime
             reason,
             testFixture: registration.TestFixture,
             supportsOperations: registration.SupportsOperations,
-            supportsCancellation: registration.SupportsCancellation);
+            supportsCancellation: registration.SupportsCancellation,
+            requiresSceneObject: registration.RequiresSceneObject);
     }
 
     private static CustomActionAvailability EvaluateCustomActionAvailability(
@@ -2327,6 +2347,7 @@ public sealed partial class AvaScopeBridgeRuntime
     private void UnregisterTopLevel(int key, string topLevelId)
     {
         StopTopLevelTraces(topLevelId);
+        StopTopLevelScenes(topLevelId);
         _registeredTopLevels.TryRemove(key, out _);
         _observedBackends.TryRemove(topLevelId, out _);
         ResetActiveMutationsOnUiThread(mutation => string.Equals(mutation.TopLevelId, topLevelId, StringComparison.Ordinal));

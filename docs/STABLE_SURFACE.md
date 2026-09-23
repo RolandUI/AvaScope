@@ -448,3 +448,6 @@ The additive `runtime.traces` capability exposes CLI/MCP `trace` and optional in
 
 The additive `runtime.text_editing` capability exposes CLI `edit-text` and MCP
 `edit_text`. See [bounded text/caret state and precise range editing](TEXT_RANGE_EDITING.md).
+
+The additive `runtime.scenes` capability exposes CLI/MCP `scene` and optional
+`requiresSceneObject` custom-action descriptors. See [semantic canvas objects and guarded actions](SEMANTIC_SCENES.md).

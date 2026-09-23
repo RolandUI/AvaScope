@@ -63,7 +63,8 @@ public sealed record BridgeIpcRequest
         RuntimeExpressionRequest? expression = null,
         RuntimeOperationRequest? operation = null,
         RuntimeTraceRequest? trace = null,
-        RuntimeTextEditRequest? textEdit = null)
+        RuntimeTextEditRequest? textEdit = null,
+        RuntimeSceneRequest? scene = null)
     {
         if (string.IsNullOrWhiteSpace(requestId))
         {
@@ -83,6 +84,7 @@ public sealed record BridgeIpcRequest
         Operation = operation;
         Trace = trace;
         TextEdit = textEdit;
+        Scene = scene;
         Method = method;
         TopLevelId = topLevelId;
         OutputPath = outputPath;
@@ -152,6 +154,9 @@ public sealed record BridgeIpcRequest
 
     [JsonPropertyName("textEdit"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public RuntimeTextEditRequest? TextEdit { get; }
+
+    [JsonPropertyName("scene"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public RuntimeSceneRequest? Scene { get; }
 
     [JsonPropertyName("requestId")]
     public string RequestId { get; }

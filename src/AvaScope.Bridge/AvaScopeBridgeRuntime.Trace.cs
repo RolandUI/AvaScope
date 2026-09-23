@@ -44,7 +44,7 @@ public sealed partial class AvaScopeBridgeRuntime
     {
         if (request.Method == BridgeIpcMethods.Trace || !(BridgeIpcMethods.RequiresControl(request) || request.Method == BridgeIpcMethods.ValidateInput)) return;
         var top = request.TopLevelId ?? request.CustomAction?.Target.TopLevelId ?? request.Mutation?.Target.TopLevelId
-            ?? request.TextEdit?.Target.TopLevelId ?? request.DesiredState?.Target.TopLevelId ?? request.FormFill?.Form.TopLevelId ?? request.TableAction?.Query.Table.TopLevelId
+            ?? request.Scene?.Canvas.TopLevelId ?? request.TextEdit?.Target.TopLevelId ?? request.DesiredState?.Target.TopLevelId ?? request.FormFill?.Form.TopLevelId ?? request.TableAction?.Query.Table.TopLevelId
             ?? request.FocusProbe?.Target.TopLevelId ?? request.NativePicker?.TopLevelId ?? request.VirtualItem?.Collection.TopLevelId;
         if (top is null) return;
         RecordTrace(top, new(0, DateTimeOffset.UtcNow, "bridge", "dispatch", error is null ? "info" : "error",

@@ -9,6 +9,13 @@ namespace AvaScope.Mcp;
 [McpServerToolType]
 public sealed class AvaScopeMcpTools
 {
+    [McpServerTool(Name = "scene", Title = "Inspect or act on declared canvas objects", ReadOnly = false, Idempotent = false,
+        Destructive = false, OpenWorld = false, UseStructuredContent = true)]
+    [Description("Inspects an opted-in semantic canvas adapter by exact objectId, objectType or relatedTo identity. Returns bounded declared objects, relationships, selection, transformed DIP bounds, coverage and generation/revision targets. To invoke a registered custom action, send action=invoke with the exact expectedObject, actionName and requestId; the scene is checked again after action availability callbacks. Host activation/allowlists, policy and control leases apply. Never infers hidden objects from pixels or sends coordinate input. Unknown outcomes must be inspected, not replayed.")]
+    public static async Task<ToolResult<RuntimeSceneResponse>> Scene(LocalBridgeClient bridgeClient,
+        RuntimeSceneRequest request, string? manifestDirectory = null, CancellationToken cancellationToken = default)
+        => ToToolResult(await CreateBridgeClient(bridgeClient, manifestDirectory).SceneAsync(request, cancellationToken));
+
     [McpServerTool(Name = "edit_text", Title = "Read or edit an exact text range", ReadOnly = false, Idempotent = false,
         Destructive = false, OpenWorld = false, UseStructuredContent = true)]
     [Description("Read bounded TextBox text/caret/selection, then select_range, replace_range, replace_selection or insert with the exact observed expectedRevision and a unique requestId. UTF-16 start-inclusive/end-exclusive offsets; surrogate pairs and CRLF cannot be split. Password/protected fields and unsupported rich editors fail closed. Public routed editing preserves validation and undo; verify the returned text and caret. Identical edit ids retrieve retained outcomes without redispatch. Policy must allow inspect and desired state text for changes.")]

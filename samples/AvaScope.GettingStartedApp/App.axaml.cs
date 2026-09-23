@@ -32,7 +32,7 @@ public partial class App : Application
                 var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions(
                     "AvaScope Getting Started Sample",
                     enableCustomActions: true,
-                    allowedCustomActions: ["confirm", "reset", "demo_import"],
+                    allowedCustomActions: ["confirm", "reset", "demo_import", "scene.select"],
                     allowDestructiveCustomActions: true));
                 _bridgeRegistrations.Add(runtime.RegisterTopLevel(window));
                 _bridgeRegistrations.Add(runtime.RegisterCustomAction(window.MainContent,
@@ -80,6 +80,8 @@ public partial class App : Application
                         },
                         "Resets the sample custom control state.",
                         RuntimeCustomActionSafetyClassifications.Destructive)));
+                if (Environment.GetEnvironmentVariable("AVASCOPE_SAMPLE_SCENE") == "1")
+                    new SceneDemoWindow(runtime).Show();
             }
         }
 
