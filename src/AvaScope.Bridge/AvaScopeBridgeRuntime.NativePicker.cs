@@ -22,7 +22,11 @@ public sealed partial class AvaScopeBridgeRuntime
             return Fail("Native picker select_path requires an absolute path of at most 4096 characters without NUL.");
 
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        deadline.CancelAfter(TimeSpan.FromMilliseconds(Math.Max(request.TimeoutMs, 100)));
+        // A zero-wait observation probes once, but must still reach the owning dispatchers.
+        // Do not confuse that scheduling allowance with polling for a dialog or an action timeout.
+        var dispatchBudgetMs = request.Operation == NativePickerOperations.Detect && request.TimeoutMs == 0
+            ? 3000 : Math.Max(request.TimeoutMs, 100);
+        deadline.CancelAfter(TimeSpan.FromMilliseconds(dispatchBudgetMs));
         var token = deadline.Token;
         Window? owner = null;
         nint handle = 0;

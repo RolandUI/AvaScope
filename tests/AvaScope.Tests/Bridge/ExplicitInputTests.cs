@@ -153,6 +153,27 @@ public sealed class ExplicitInputTests
     }
 
     [Fact]
+    public async Task ZeroWaitPickerObservationAllowsQueuedUiDispatchBeforeCheckingBackend()
+    {
+        await WithWindow(async (runtime, _, _, top, _) =>
+        {
+            using var queued = new ManualResetEventSlim();
+            var probe = Task.Run(async () =>
+            {
+                var pending = runtime.NativePickerAsync(new(top, NativePickerOperations.Detect, TimeoutMs: 0));
+                queued.Set();
+                return await pending;
+            });
+            Assert.True(queued.Wait(TimeSpan.FromSeconds(5)));
+            // Hold the UI thread after the observation is queued, like a native dialog opening.
+            Thread.Sleep(250);
+            var result = await probe;
+            Assert.False(result.Success);
+            Assert.Contains("no supported native dialog backend", result.Error!.Message);
+        });
+    }
+
+    [Fact]
     public async Task ExplicitHostPickerHookConsumesOnlyItsOwnCorrelationOnce()
     {
         await WithWindow(async (runtime, _, _, _, client) =>

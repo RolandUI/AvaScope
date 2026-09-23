@@ -103,6 +103,13 @@ Pass `topLevelId` (`--top-level`) for the bridge native route, with a 0–3000 m
 timeout. Native success reports `route`; selected paths are redacted by default.
 No native operation substitutes a prepared result.
 
+A zero-timeout `detect` probes once without polling for a dialog. It allows up to
+3000 ms to reach the owning UI/native dispatchers, including during cold dialog
+initialization; caller cancellation still applies. This scheduling allowance does
+not extend selection/confirmation/cancellation action deadlines. Use
+`wait_for_dialog` for a bounded sequence of readiness observations without
+dispatching the dialog-opening action again.
+
 | Path | Supported operations and ownership |
 | --- | --- |
 | Windows common picker | Existing process/owner-chain check, bounded select/confirm/cancel. Legacy request without topLevelId remains available. |
