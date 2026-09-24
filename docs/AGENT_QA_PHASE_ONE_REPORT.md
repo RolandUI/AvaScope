@@ -133,3 +133,21 @@ states under either parent theme. Release solution build passed without warnings
 or errors; all three fixture tests passed. Fresh native inspection and combined
 CI are pending; the visual correction does not need an implementation-mirroring
 unit test.
+
+Fresh native standalone `campaign-standalone-03`, clean `7d86ab3`, used the newly
+verified provider manifest `abfa258a46f331f0f69a7cdde2feb4bea6b9ee4a91ed5041ac7e523832076cf8`
+on Win32 1×. S301–S306 verified host-declared readiness, delayed load completion,
+load/reset cancellation and ready recovery. Independently viewed native popup
+images in both light and dark parent themes show readable button text; native
+closure works. S307–S314 rechecked complete-target desired state, zero-repeat
+dispatch, safe missing-offset diagnostics and one Unicode insert/exact replay.
+S315–S318 preserved state through appearance/navigation and case-distinct actions;
+viewed native/RTB dark Hungarian complex text, clipping, 1.15× transforms and
+12/18/30-DIP references agree at 1×, and repeated PNGs are byte-identical.
+S319–S322 rejected the replaced editor's stale target and recovered the preserved
+text through a fresh identity. S323–S324 preserved rendered paired evidence while
+explicitly refusing native desktop pixels without the host grant. S325 restored
+seed state (Ready/Ada, zero counters, no children/popup), then owned termination of
+PID 52112 succeeded. No new defect was found in this native rerun; it is not a
+Retina pass. Full Release validation at this source passed 771 tests with five
+explicit native-only skips; full Debug and combined hosted gates are pending.
