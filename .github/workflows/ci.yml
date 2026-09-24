@@ -22,7 +22,8 @@ jobs:
   agent-qa-lab:
     name: Native agent QA lab (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 25
+    # Two native integrations each make 100 individual public MCP calls, then verify lease expiry.
+    timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
