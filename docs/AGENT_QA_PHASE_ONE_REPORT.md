@@ -66,6 +66,7 @@ This initial ledger is historical. Later sections record the remaining appearanc
 | [#167](https://github.com/RolandUI/AvaScope/issues/167) | Structured visual queries returned bounds in the wrong coordinate space. | Fixed `cfa0d3d`, completed; nested/scroll/transform and geometry-pinned picking verified. |
 | [#168](https://github.com/RolandUI/AvaScope/issues/168) | Repeated logical object identity made popup queries fail over IPC. | Fixed `d1028c3`, completed; both integrations on all three native backends verified. |
 | [#169](https://github.com/RolandUI/AvaScope/issues/169) | Oversized privacy rectangle overflow skipped masking while reporting success. | Completed `5bbaad1`; native MCP/workflow/CLI, full Debug/Release and all jobs of CI `36014239916` pass. |
+| [#170](https://github.com/RolandUI/AvaScope/issues/170) | observe omits numeric limits from its public schema and returns only a generic request error when exceeding them. | Ready; O008 rejects maxDepth=20 without a discoverable limit, O008b succeeds with 8 after source inspection. |
 
 No product bug had been fixed in the original campaign evidence above. Subsequent fixes and reruns will be identified by commit/session. A workaround never changes the original failed case to passed.
 
@@ -277,3 +278,29 @@ The final focused rendering/capture/observation/readiness/evidence group passes
 bridge probe also produces the same five correctly sized rows as its isolated
 recorded-visual control (identical SHA-256). New full-suite/native validation
 is pending; the previous successful CI covers the earlier `5bbaad1` baseline.
+
+Native standalone follow-up `campaign-opacity-fixed` ran clean `c8b7dc3`,
+Avalonia 12.1.3.0/Segoe UI, Win32 1×/1120×800, provider manifest
+`451f3b08adad5b83e77a22a430376a3834bee7046764a942065420742a986c44`:
+
+- O002–O007: selected Rendering through public MCP, scrolled with native input,
+  and independently opened native/RTB frames. All five text rows agree in size,
+  placement and spacing; overlap alpha, green clipping and partial viewport
+  clipping also agree after accounting for native window chrome.
+- O008b–O011: observation, rendered capture_screen and packaged CLI produce
+  byte-identical PNGs to screenshot (`ec71ea28b2be429421111d6204395b73c73dfb9548ad39a94ee1c7e909fdccc8`).
+  Observation reports its expected byte/depth truncation explicitly.
+- O012–O014: theme/locale change to Dark/hu-HU and Settings → Rendering
+  navigation preserve text sizes and opacity/clipping. Native and RTB images
+  were both viewed.
+- O015–O017: reset restores Settings, Light/en-US, Ready/Ada, zero counters,
+  no child/popup, and unchanged geometry. Owned termination of PID 11680 is
+  confirmed. An initial occluded-window capture did not show the selected QA
+  content and was discarded; only visibly confirmed QA frames are retained.
+
+O008 also exposed the separate #170 contract defect: a maxDepth=20 request
+passes the published integer-only schema but is rejected without a field/range
+diagnostic. Source inspection established 0..8; the corrected O008b succeeds.
+This negative result is preserved separately from the passing screenshot cases.
+Full local Release→Debug and CI `36019901130` now validate `c8b7dc3`; both are
+still running at this checkpoint. No native Retina success is inferred.
