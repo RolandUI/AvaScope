@@ -4,8 +4,8 @@ Status: **in progress**, 2026-09-24. Tracking issue [#166](https://github.com/Ro
 
 Latest checkpoint: infrastructure #162/#163 and defects #158/#159/#160/#167/#168
 are completed. #169 is implemented at `5bbaad1`, passed a fresh native agent
-round M100–M134 and full Release (792 passed, five native-only skips); updated
-Debug and CI `36014239916` are running. The preceding full CI `36009001380`
+round M100–M134 and full Debug/Release (792 passed each, five native-only skips);
+updated CI `36014239916` is running. The preceding full CI `36009001380`
 passed every job, including native tests 5/5 on each platform and actual X11
 3840×2160 paired CLI/MCP capture. #157 and #161's remaining native 2× acceptance
 are blocked on an accessible Retina environment. The following ledger retains
@@ -219,9 +219,9 @@ Win32 1×, session `6e57c2982afb46ec9abb7f392172ab82`.
   windows/popup, declared readiness ready. Final native image was opened.
 
 No new failure was found in this post-fix native round. Owned termination of
-PID 3488 succeeded. Full Release at `5bbaad1` passed 792 tests with five explicit
-native-only skips; Debug build passed with zero warnings/errors. Updated Debug
-tests and full CI `36014239916` remain in progress.
+PID 3488 succeeded. Full Debug and Release at `5bbaad1` each passed 792 tests with
+five explicit native-only skips and zero build warnings/errors. Updated full CI
+`36014239916` remains in progress; its full unit/integration test step has passed.
 
 The preceding combined CI `36009001380` completed successfully at `7d86ab3`.
 Downloaded native logs confirm 5/5 on Windows, Linux and macOS. Linux's isolated
