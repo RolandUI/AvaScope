@@ -1,5 +1,6 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="using:AvaScope.ComplexWorkflowApp"
         x:Class="AvaScope.ComplexWorkflowApp.QaWindow"
         Title="AvaScope Agent QA" Width="1120" Height="800"
         MinWidth="640" MinHeight="480" AutomationProperties.AutomationId="qa-window">
@@ -94,6 +95,9 @@
             <TextBlock Text="12 DIP reference  ·  Aa Bb 0123456789" FontSize="12" AutomationProperties.AutomationId="qa-font-12" />
             <TextBlock Text="18 DIP reference  ·  Aa Bb 0123456789" FontSize="18" AutomationProperties.AutomationId="qa-font-18" />
             <TextBlock Text="30 DIP reference  ·  Aa Bb 0123456789" FontSize="30" AutomationProperties.AutomationId="qa-font-30" />
+            <TextBlock Text="Opacity and transform reference: all five rows must have the same text size." TextWrapping="Wrap" />
+            <local:QaOpacityTransformControl Width="300" Height="240" HorizontalAlignment="Left"
+                                             AutomationProperties.AutomationId="qa-opacity-transform" />
           </StackPanel>
         </ScrollViewer>
       </TabItem>

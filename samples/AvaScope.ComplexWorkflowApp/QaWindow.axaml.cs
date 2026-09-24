@@ -10,6 +10,31 @@ using Avalonia.Threading;
 
 namespace AvaScope.ComplexWorkflowApp;
 
+// Reproduces AvaloniaUI/Avalonia#20693 without private APIs or external assets.
+public sealed class QaOpacityTransformControl : Control
+{
+    public QaOpacityTransformControl() => RenderOptions.SetRequiresFullOpacityHandling(this, true);
+
+    public override void Render(DrawingContext context)
+    {
+        context.DrawRectangle(Brushes.White, null, new Rect(Bounds.Size));
+        for (var row = 0; row < 5; row++)
+        {
+            using (context.PushOpacity(0.9))
+            using (context.PushTransform(Matrix.CreateScale(1.5, 1.5)))
+                context.DrawText(new FormattedText("MM", CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
+                    Typeface.Default, 12, Brushes.Black), new Point(10, 10 + row * 30));
+        }
+        using (context.PushOpacity(0.5))
+        {
+            context.DrawRectangle(Brushes.Red, null, new Rect(120, 20, 30, 20));
+            context.DrawRectangle(Brushes.Blue, null, new Rect(130, 20, 30, 20));
+        }
+        using (context.PushClip(new Rect(120, 60, 20, 20)))
+            context.DrawRectangle(Brushes.Lime, null, new Rect(110, 50, 40, 40));
+    }
+}
+
 // This fixture is also source-linked into the standalone host. It deliberately has
 // no AvaScope dependency: its state journal is independent of the bridge response.
 public partial class QaWindow : Window

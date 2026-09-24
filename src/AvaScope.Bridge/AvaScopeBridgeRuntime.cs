@@ -1131,7 +1131,7 @@ public sealed partial class AvaScopeBridgeRuntime
             var dpi = new Vector(96 * GetRenderScaling(topLevel), 96 * GetRenderScaling(topLevel));
             using var bitmap = new RenderTargetBitmap(pixelSize, dpi);
             var renderRoot = topLevel.GetPresentationSource()?.RootVisual ?? topLevel;
-            bitmap.Render(renderRoot);
+            RenderRuntimeVisual(bitmap, renderRoot);
 
             using (var stream = File.Create(fullPath))
             {
@@ -1154,6 +1154,20 @@ public sealed partial class AvaScopeBridgeRuntime
             return CoreResult<ScreenshotResponse>.Fail(
                 new CoreError(BridgeErrorCodes.ScreenshotCaptureFailed, exception.Message));
         }
+    }
+
+    private static void RenderRuntimeVisual(RenderTargetBitmap bitmap, Visual visual)
+    {
+        // Record the visual before rasterizing, as the compositor does. Direct RTB traversal
+        // can apply DPI again after opacity/clip restoration (AvaloniaUI/Avalonia#20693).
+        // Keep the bitmap's physical resolution and DPI; do not disable opacity handling.
+        using var context = bitmap.CreateDrawingContext();
+        context.DrawRectangle(new VisualBrush(visual)
+        {
+            Stretch = Stretch.None,
+            AlignmentX = AlignmentX.Left,
+            AlignmentY = AlignmentY.Top
+        }, null, new Rect(visual.Bounds.Size));
     }
 
     private CoreResult<TreeResponse> GetVisualTree(

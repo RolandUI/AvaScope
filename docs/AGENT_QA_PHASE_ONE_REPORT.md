@@ -58,14 +58,14 @@ This initial ledger is historical. Later sections record the remaining appearanc
 
 | Ticket | Confirmed finding / uncertainty | Current state |
 | --- | --- | --- |
-| [#157](https://github.com/RolandUI/AvaScope/issues/157) | Complex native Windows 1× text matches RTB; customer Retina inflation is not reproduced. | Blocked on native 2× access; no speculative product change. |
+| [#157](https://github.com/RolandUI/AvaScope/issues/157) | Repeated opacity/transform inflation reproduced on Avalonia 12.1.0 and 12.1.3, including bridge screenshots. | Active: recorded-visual mitigation and regressions; actual native macOS 2× acceptance remains outstanding. |
 | [#158](https://github.com/RolandUI/AvaScope/issues/158) | Incomplete selector coverage was mislabeled as stale. Customer coverage metadata was absent. | Fixed `e32139f`, completed; complete targets, precise refusal and dispatch counts verified. |
 | [#159](https://github.com/RolandUI/AvaScope/issues/159) | Expected constructor/domain failures became opaque MCP invocation errors. Original customer payload was absent. | Fixed `74c07e6`, completed; structured invalid arguments and supported insert/replay verified. |
 | [#160](https://github.com/RolandUI/AvaScope/issues/160) | Exact AutomationID matching incorrectly ignored case. | Fixed `173b42b`, completed; independent counters and CLI/MCP parity verified. |
 | [#161](https://github.com/RolandUI/AvaScope/issues/161) | 4 Mi-pixel cap rejected Full HD DIP at 2×. | Implemented `295939d`; headless 2× and native X11 4K pass. Native Retina acceptance remains blocked. |
 | [#167](https://github.com/RolandUI/AvaScope/issues/167) | Structured visual queries returned bounds in the wrong coordinate space. | Fixed `cfa0d3d`, completed; nested/scroll/transform and geometry-pinned picking verified. |
 | [#168](https://github.com/RolandUI/AvaScope/issues/168) | Repeated logical object identity made popup queries fail over IPC. | Fixed `d1028c3`, completed; both integrations on all three native backends verified. |
-| [#169](https://github.com/RolandUI/AvaScope/issues/169) | Oversized privacy rectangle overflow skipped masking while reporting success. | Fixed `5bbaad1`; native pixels, CLI/MCP/workflow and Release pass; final gates pending. |
+| [#169](https://github.com/RolandUI/AvaScope/issues/169) | Oversized privacy rectangle overflow skipped masking while reporting success. | Completed `5bbaad1`; native MCP/workflow/CLI, full Debug/Release and all jobs of CI `36014239916` pass. |
 
 No product bug had been fixed in the original campaign evidence above. Subsequent fixes and reruns will be identified by commit/session. A workaround never changes the original failed case to passed.
 
@@ -221,7 +221,11 @@ Win32 1×, session `6e57c2982afb46ec9abb7f392172ab82`.
 No new failure was found in this post-fix native round. Owned termination of
 PID 3488 succeeded. Full Debug and Release at `5bbaad1` each passed 792 tests with
 five explicit native-only skips and zero build warnings/errors. Updated full CI
-`36014239916` remains in progress; its full unit/integration test step has passed.
+`36014239916` completed successfully in every job. Downloaded Windows/Linux/macOS
+foundation evidence and all six native lab summaries were inspected. Windows and
+macOS each passed 792 full-suite tests plus five explicit native skips. Native
+provider/onboarding/platform gates passed, including paired X11 CLI/MCP
+3840×2160 comparison of all 8,294,400 pixels. #169 is completed.
 
 The preceding combined CI `36009001380` completed successfully at `7d86ab3`.
 Downloaded native logs confirm 5/5 on Windows, Linux and macOS. Linux's isolated
@@ -229,3 +233,47 @@ Downloaded native logs confirm 5/5 on Windows, Linux and macOS. Linux's isolated
 both packaged CLI and MCP, each comparing all 8,294,400 pixels while preserving
 requested client geometry. Its observed scale is 1×. Native macOS paired capture
 also passes at 1×; neither substitutes for the remaining #157/#161 Retina case.
+
+### Avalonia 12.1 opacity/transform reproduction (#157)
+
+The supported runtime line is 12.1.x: normal hosts/tests use 12.1.3; the bridge
+compiles against the explicitly declared 12.1.0 minimum. An isolated probe ran
+against both actual loaded assembly versions, 12.1.0.0 and 12.1.3.0. This is not
+an Avalonia 11 compatibility test. The earlier 11.3.12 version appears only in
+the historical upstream report [Avalonia#20693](https://github.com/AvaloniaUI/Avalonia/issues/20693).
+
+With full opacity handling and repeated opacity/transform scopes, a 2× RTB
+draws the first Segoe UI glyph band 26 pixels high and later bands 50 pixels
+high, shifting later rows outside the image. Disabling full opacity handling
+is only a diagnostic control: all five bands are 26 pixels high. Both 12.1
+patches reproduce the same defect. Images were independently opened. Evidence:
+`artifacts/agent-qa/opacity-probe/evidence/measurements.json` and
+`evidence-12.1.0/measurements.json`, plus `visual-*-bridge.png` and experimental
+`visual-*-visualbrush-native-dpi.png` comparisons in those directories.
+
+The redistributable `QaOpacityTransformControl` now appears on the lab's
+Rendering tab. It uses only public Avalonia APIs, five identical 18-DIP text
+rows (12 DIP × 1.5 transform), overlapping group-opacity rectangles and a
+clipped rectangle. The first bridge regression run failed all six 1.5×/2×
+cases while all three 1× controls passed. It exercises screenshot, observe
+and capture_screen through local IPC, using the independently captured
+headless compositor frame as the text-region reference. It also checks
+simple → complex → complex → simple navigation, unchanged live frames/layout,
+repeated bytes and readiness-frame hashes. This is diagnostic compositor
+evidence, not native Retina evidence.
+
+The mitigation records the presentation visual through public VisualBrush
+before rasterizing into the original full-resolution/DPI RenderTargetBitmap.
+It shares this path across screenshot, observation, paired rendered capture
+and readiness hashing. It keeps group opacity and clipping; no hidden DPI
+transform is restored during live visual traversal. Avalonia 12.1.3's
+[VisualBrush source](https://github.com/AvaloniaUI/Avalonia/blob/12.1.3/src/Avalonia.Base/Media/VisualBrush.cs)
+uses the same immediate visual traversal with a recording context. The
+original issue's exact customer root cause and macOS native 2× visual
+acceptance remain unproven; #157 must stay open pending that comparison.
+
+The final focused rendering/capture/observation/readiness/evidence group passes
+82/82 after the mitigation, without build warnings/errors. The minimum 12.1.0
+bridge probe also produces the same five correctly sized rows as its isolated
+recorded-visual control (identical SHA-256). New full-suite/native validation
+is pending; the previous successful CI covers the earlier `5bbaad1` baseline.

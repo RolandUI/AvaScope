@@ -167,7 +167,7 @@ public sealed partial class AvaScopeBridgeRuntime
             else
             {
                 using var bitmap = new RenderTargetBitmap(new PixelSize((int)width, (int)height), new Vector(96 * scaling, 96 * scaling));
-                bitmap.Render(string.IsNullOrWhiteSpace(nodeId) ? topLevel.GetPresentationSource()?.RootVisual ?? topLevel : visual);
+                RenderRuntimeVisual(bitmap, string.IsNullOrWhiteSpace(nodeId) ? topLevel.GetPresentationSource()?.RootVisual ?? topLevel : visual);
                 using var stream = new MemoryStream();
                 bitmap.Save(stream, PngBitmapEncoderOptions.Default);
                 frameFingerprint = Convert.ToHexStringLower(SHA256.HashData(stream.GetBuffer().AsSpan(0, (int)stream.Length)));

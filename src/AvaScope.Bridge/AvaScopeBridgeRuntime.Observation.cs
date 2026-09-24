@@ -95,7 +95,7 @@ public sealed partial class AvaScopeBridgeRuntime
         try
         {
             using var bitmap = new RenderTargetBitmap(pixels, new Vector(96 * topLevel.RenderScaling, 96 * topLevel.RenderScaling));
-            bitmap.Render(topLevel.GetPresentationSource()?.RootVisual ?? topLevel);
+            RenderRuntimeVisual(bitmap, topLevel.GetPresentationSource()?.RootVisual ?? topLevel);
             using var stream = new MemoryStream();
             bitmap.Save(stream, PngBitmapEncoderOptions.Default);
             if (stream.Length > maximumBytes)

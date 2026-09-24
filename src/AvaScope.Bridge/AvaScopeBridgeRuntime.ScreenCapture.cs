@@ -95,7 +95,7 @@ public sealed partial class AvaScopeBridgeRuntime
                     {
                         Check();
                         using var bitmap = new RenderTargetBitmap(pixels, new Vector(96 * scale, 96 * scale));
-                        bitmap.Render(window!.GetPresentationSource()?.RootVisual ?? window!);
+                        RenderRuntimeVisual(bitmap, window!.GetPresentationSource()?.RootVisual ?? window!);
                         using var stream = new MemoryStream(); bitmap.Save(stream, PngBitmapEncoderOptions.Default);
                         return Frame(RuntimeOperationRoutes.RenderTargetBitmap, stream.ToArray(), started, null, [new(0, 0, pixels.Width, pixels.Height)]);
                     }, DispatcherPriority.Background, deadline.Token);
