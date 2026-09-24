@@ -420,3 +420,38 @@ input/dialog/capture checks. X11 paired CLI/MCP capture compares all 8,294,400
 pixels at actual 3840×2160; hosted macOS remains actual 1×. The later observation
 contract/client changes are covered locally and by ongoing CI `36025169889`.
 Native Retina and the browser-blocked HTML viewer remain explicit coverage gaps.
+
+### Intermittent hosted text-edit timeout investigation (#171)
+
+CI `36025169889` attempt 1 failed
+`MultilineUnicodeRangeSelectionInsertionAndUndoPreserveSurroundingText` on its
+first `replace_range` IPC request (line 108 on `2f3894f`). The response is
+`bridge_ipc_unavailable`, `dispatched=unknown`, with exact request-id recovery
+guidance; the test took 12 seconds. The full suite recorded 801 passed, one
+failed and five explicit native skips. The original completed-job log is
+retained as `artifacts/agent-qa/final-ci-windows-test.log`. All six native lab
+combinations and their independent journal checks passed on the same source;
+downloaded artifacts are under `final-hosted-lab/{windows,linux,macos}`.
+
+Fifteen unchanged fresh-process focused repetitions pass (1.66–1.92 seconds
+for the whole test). A second unchanged complete local Release run also passes
+802 tests plus five skips in 11m14s; that text-edit case takes 0.208 seconds in
+the full-suite context. The unchanged hosted attempt 2 has passed its Test step
+and is continuing through packaging/downstream gates. These results do not
+establish why the original operation exceeded its five-second IPC deadline.
+No production deadline/dispatcher change or automatic uncertain-edit retry is
+supported by this evidence.
+
+The failed test now retains elapsed time, configured timeout and a bounded
+snapshot of focus/caret/selection plus whether initial/expected text was
+observed. Windows CI also emits and always uploads full TRX results, retaining
+the test timeline that was missing from attempt 1. A temporary, deliberately
+one-tick test-client timeout verified the negative diagnostic: 2.96 ms elapsed,
+initial text unchanged, expected replacement absent, focus false and the
+uncertain IPC error retained. That injected timeout was restored immediately;
+it is neither the committed test nor a reproduction of the hosted cause.
+Evidence is in `timeout-diagnostic-negative.log` and its TRX. After restoring
+the five-second path, all 17 text/observation/MCP regressions pass with no build
+warnings/errors (`timeout-diagnostics-positive.log`). The issue remains open;
+the original timeout is not
+claimed fixed by a passing rerun.

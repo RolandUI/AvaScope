@@ -157,7 +157,7 @@ jobs:
 
       - name: Test
         if: ${{ steps.changes.outputs.requires_validation == 'true' }}
-        run: dotnet test AvaScope.slnx -c Release --no-build
+        run: dotnet test AvaScope.slnx -c Release --no-build --logger trx --results-directory artifacts/test-results/windows
 
       - name: Validate source complex workflows through CLI and MCP
         if: ${{ steps.changes.outputs.requires_validation == 'true' }}
@@ -265,6 +265,7 @@ jobs:
           name: agent-foundation-windows
           retention-days: 7
           path: |
+            artifacts/test-results/windows/**/*.trx
             artifacts/provider-validation/**/*.log
             artifacts/provider-validation/**/cli-*.json
             artifacts/provider-validation/**/mcp-*.json

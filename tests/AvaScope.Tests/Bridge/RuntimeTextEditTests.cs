@@ -105,7 +105,18 @@ public sealed class RuntimeTextEditTests
             var state = await Read(client, target);
             var start = initial.IndexOf("/old/", StringComparison.Ordinal);
             var request = Edit(target, state, "replace_range", start, start + "/old/út".Length, "/new/東京");
-            var result = Verified(await client.EditTextAsync(request));
+            var started = Stopwatch.GetTimestamp();
+            var response = await client.EditTextAsync(request);
+            // Preserve the observed state on a hosted timeout without retrying an uncertain edit.
+            Assert.True(OperationResultMapper.ToToolResult(response).Success, JsonSerializer.Serialize(new
+            {
+                Response = response, ElapsedMs = Stopwatch.GetElapsedTime(started).TotalMilliseconds,
+                TimeoutMs = client.OperationTimeout.TotalMilliseconds,
+                InitialTextUnchanged = box.Text == initial,
+                ExpectedTextObserved = box.Text == "first 😀\r\npath=/new/東京\nlast e\u0301",
+                box.IsFocused, box.CaretIndex, box.SelectionStart, box.SelectionEnd
+            }));
+            var result = response.Value!;
             Assert.Equal("first 😀\r\npath=/new/東京\nlast e\u0301", result.After!.Text);
             Assert.Equal(start + "/new/東京".Length, result.After.Caret);
             Assert.Equal(result.After.Caret, result.After.SelectionStart); Assert.Equal(result.After.Caret, result.After.SelectionEnd);
