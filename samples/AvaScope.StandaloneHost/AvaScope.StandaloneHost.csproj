@@ -14,7 +14,7 @@
     <PackageReference Include="Avalonia.Wayland" Version="$(AvaloniaVersion)" Condition="'$(EnableWaylandFixture)' == 'true'" />
     <PackageReference Include="Avalonia.Headless" Version="$(AvaloniaVersion)" />
     <PackageReference Include="Avalonia.Themes.Fluent" Version="$(AvaloniaVersion)" />
-    <PackageReference Include="Avalonia.Controls.DataGrid" Version="12.1.2" Condition="'$(EnableTableFixture)' == 'true'" />
+    <PackageReference Include="Avalonia.Controls.DataGrid" Version="12.1.2" Condition="'$(EnableTableFixture)' == 'true' Or '$(EnableQaFixture)' == 'true'" />
     <Compile Include="../../docs/examples/OptionalProviderLoader.cs" Link="OptionalProviderLoader.cs" Condition="'$(EnableUiInspection)' == 'true'" />
     <Compile Include="../AvaScope.ComplexWorkflowApp/QaWindow.axaml.cs" Link="QaWindow.axaml.cs" Condition="'$(EnableQaFixture)' == 'true'" />
     <AvaloniaXaml Include="../AvaScope.ComplexWorkflowApp/QaWindow.axaml" Link="QaWindow.axaml" Condition="'$(EnableQaFixture)' == 'true'" />

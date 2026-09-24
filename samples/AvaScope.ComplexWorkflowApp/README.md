@@ -7,7 +7,11 @@ The existing no-argument workflow remains Headless + Skia for compatibility with
 `--qa` selects the shared agent QA window instead of the original two-window
 workflow. It contains settings, precise text editing, case-distinct identities,
 200 seeded rows, template-rich localized rendering, a local transform, navigation,
-window/modal/popup lifecycle and cancellable delayed loading. Both hosts use the
+window/modal/popup lifecycle and cancellable delayed loading. Additional Form,
+Table and Input tabs provide validated profile submission, sensitive/read-only/
+disabled fields, role/consent/priority controls, 200 keyed editable DataGrid rows,
+column sorting, menus, context menus, pointer capture/drag and keyboard routing.
+Both hosts use the
 same compiled XAML and code; the fixture itself has no AvaScope dependency.
 
 ```powershell
@@ -25,7 +29,10 @@ The application writes this independently of the bridge: actual checked/text sta
 per-reset action counts, editor generation, child windows, selected page/row,
 readiness, actual scale/client size and the last 100 event records. Text fields
 are bounded to 2048 characters; use synthetic test data only. The snapshot is
-replaced atomically. It is an observation of app state, not an alternative action API.
+replaced atomically. Password values are excluded from the journal. The `form`
+section separates current fields, validation and last saved profile; `table`
+records seed-order data and actual view order; `input` records independent event
+counts and pointer displacement. It is an observation of app state, not an alternative action API.
 
 `Reset test state` restores seed 42, settings, data, page, theme, locale and viewport,
 cancels delayed work and closes owned child windows/popups. The direct bridge host

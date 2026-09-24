@@ -1,14 +1,37 @@
 using System.Globalization;
+using System.ComponentModel;
 using System.Text.Json;
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Collections;
+using Avalonia.Input;
+using Avalonia.Markup.Xaml.Styling;
 using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Threading;
 
 namespace AvaScope.ComplexWorkflowApp;
+
+public sealed class QaRecord(string id, string name, string status, int score) : INotifyPropertyChanged
+{
+    private string _status = status;
+    private int _score = score;
+    public string Id { get; } = id;
+    public string Name { get; } = name;
+    public string Status
+    {
+        get => _status;
+        set { if (_status == value) return; _status = value; PropertyChanged?.Invoke(this, new(nameof(Status))); }
+    }
+    public int Score
+    {
+        get => _score;
+        set { if (_score == value) return; _score = value; PropertyChanged?.Invoke(this, new(nameof(Score))); }
+    }
+    public event PropertyChangedEventHandler? PropertyChanged;
+}
 
 // Reproduces AvaloniaUI/Avalonia#20693 without private APIs or external assets.
 public sealed class QaOpacityTransformControl : Control
@@ -58,12 +81,29 @@ public partial class QaWindow : Window
     private int _editorGeneration;
     private long _sequence;
     private string _locale = "en-US";
+    private QaRecord[] _records = [];
+    private int _formSaves;
+    private int _tableEdits;
+    private int _menuActions;
+    private int _contextActions;
+    private int _pointerPresses;
+    private int _pointerReleases;
+    private int _drags;
+    private int _keyDowns;
+    private int _focusActions;
+    private string? _lastKey;
+    private Point? _pointerStart;
+    private IPointer? _capturedPointer;
+    private Point _dragDelta;
+    private object? _savedProfile;
 
     public event Action<string>? ReadinessChanged;
 
     public QaWindow()
     {
         InitializeComponent();
+        Styles.Add(new StyleInclude(new Uri("avares://Avalonia.Controls.DataGrid/"))
+            { Source = new Uri("avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml") });
         var leaseText = Environment.GetEnvironmentVariable("AVASCOPE_QA_LIFETIME_SECONDS") ?? "3600";
         if (!int.TryParse(leaseText, out var leaseSeconds) || leaseSeconds is < 30 or > 14400)
             throw new ArgumentException("AVASCOPE_QA_LIFETIME_SECONDS must be 30–14400.");
@@ -119,6 +159,50 @@ public partial class QaWindow : Window
         ClosePopupButton.Click += (_, _) => QaPopup.IsOpen = false;
         QaPopup.Opened += (_, _) => Record("popup_opened");
         QaPopup.Closed += (_, _) => Record("popup_closed");
+        FormRole.ItemsSource = new[] { "Reader", "Editor", "Reviewer" };
+        foreach (var field in new Control[] { FormName, FormEmail, FormPassword, FormConsent, FormPriority, FormRole })
+            field.PropertyChanged += (_, change) =>
+            {
+                if (change.Property == TextBox.TextProperty || change.Property == ToggleButton.IsCheckedProperty
+                    || change.Property == RangeBase.ValueProperty || change.Property == SelectingItemsControl.SelectedIndexProperty)
+                    Record("form_changed");
+            };
+        SubmitFormButton.Click += (_, _) => SubmitForm();
+        RecordsTable.SelectionChanged += (_, _) => Record("table_selection");
+        RecordsTable.Sorting += (_, _) => Dispatcher.UIThread.Post(() => { if (!_closed) Record("table_sort"); });
+        MenuApply.Click += (_, _) => { _menuActions++; Record("menu_action"); };
+        ContextApply.Click += (_, _) => { _contextActions++; Record("context_action"); };
+        PointerPad.PointerPressed += (_, args) =>
+        {
+            if (!args.GetCurrentPoint(PointerPad).Properties.IsLeftButtonPressed) return;
+            _pointerStart = args.GetPosition(PointerPad);
+            _capturedPointer = args.Pointer;
+            _pointerPresses++;
+            args.Pointer.Capture(PointerPad);
+            PointerPad.Focus();
+            Record("pointer_pressed");
+        };
+        PointerPad.PointerReleased += (_, args) =>
+        {
+            if (_pointerStart is not { } start || args.InitialPressMouseButton != MouseButton.Left) return;
+            var delta = args.GetPosition(PointerPad) - start;
+            _dragDelta = new Point(delta.X, delta.Y);
+            if (delta.X * delta.X + delta.Y * delta.Y >= 400) _drags++;
+            _pointerStart = null;
+            _pointerReleases++;
+            args.Pointer.Capture(null);
+            Record("pointer_released");
+        };
+        PointerPad.PointerCaptureLost += (_, _) => { _pointerStart = null; _capturedPointer = null; };
+        KeyboardEditor.KeyDown += (_, args) =>
+        {
+            _keyDowns++; _lastKey = $"{args.KeyModifiers}:{args.Key}"; Record("key_down");
+        };
+        KeyboardEditor.PropertyChanged += (_, change) =>
+        {
+            if (change.Property == TextBox.TextProperty) Record("keyboard_text");
+        };
+        KeyboardNext.Click += (_, _) => { _focusActions++; Record("focus_action"); };
         SizeChanged += (_, _) => Record("size_observed");
         Opened += (_, _) => { _lease.Start(); Record("window_opened"); };
         Closed += (_, _) => { _closed = true; _lease.Stop(); CancelLoading(); CloseChildren(); Record("window_closed"); };
@@ -150,6 +234,35 @@ public partial class QaWindow : Window
             Height = _requestedSceneSize.Height;
             LoadStatus.Text = "Ready";
             WindowStatus.Text = "No secondary windows";
+            FormName.Text = "Ada Lovelace";
+            FormEmail.Text = "ada@example.test";
+            FormPassword.Text = "fixture-only-password";
+            FormConsent.IsChecked = false;
+            FormPriority.Value = 20;
+            FormRole.SelectedIndex = 0;
+            DataValidationErrors.SetErrors(FormName, null);
+            DataValidationErrors.SetErrors(FormEmail, null);
+            FormStatus.Text = "Not saved";
+            _savedProfile = null;
+            _formSaves = _tableEdits = 0;
+            _records = Enumerable.Range(1, 200).Select(index => new QaRecord($"QA-{index:000}",
+                $"Record {index:000}", index % 2 == 0 ? "passed" : "pending", index % 101)).ToArray();
+            foreach (var row in _records)
+                row.PropertyChanged += (_, _) =>
+                {
+                    // Detached rows must not affect the new seed after reset.
+                    if (_records.Contains(row)) { _tableEdits++; Record("table_edit"); }
+                };
+            RecordsTable.ItemsSource = new DataGridCollectionView(_records);
+            RecordsTable.SelectedItem = null;
+            _menuActions = _contextActions = _pointerPresses = _pointerReleases = _drags = _keyDowns = _focusActions = 0;
+            _lastKey = null;
+            _pointerStart = null;
+            _dragDelta = default;
+            PointerPad.ContextMenu?.Close();
+            InputMenu.Close();
+            _capturedPointer?.Capture(null);
+            KeyboardEditor.Text = "Keyboard seed — Árvíztűrő 😀";
             _toggleCount = _textChanges = _lowercaseCount = _uppercaseCount = _templateCount = 0;
             _resetGeneration++;
         }
@@ -163,6 +276,9 @@ public partial class QaWindow : Window
         CancelLoading();
         CloseChildren();
         QaPopup.IsOpen = false;
+        PointerPad.ContextMenu?.Close();
+        InputMenu.Close();
+        _capturedPointer?.Capture(null);
         Record("fixture_cleanup");
     }
 
@@ -176,6 +292,26 @@ public partial class QaWindow : Window
                 Record("display_name_changed");
             }
         };
+    }
+
+    private void SubmitForm()
+    {
+        var missingName = string.IsNullOrWhiteSpace(FormName.Text);
+        var email = FormEmail.Text ?? string.Empty;
+        var invalidEmail = !System.Net.Mail.MailAddress.TryCreate(email, out var address) || address.Address != email;
+        DataValidationErrors.SetErrors(FormName, missingName ? new[] { "Contact name is required." } : null);
+        DataValidationErrors.SetErrors(FormEmail, invalidEmail ? new[] { "Enter a valid email address." } : null);
+        if (missingName || invalidEmail)
+        {
+            FormStatus.Text = "Validation failed — profile not saved";
+            Record("form_rejected");
+            return;
+        }
+        _formSaves++;
+        _savedProfile = new { name = Bound(FormName.Text), email = Bound(email), role = FormRole.SelectedItem,
+            consent = FormConsent.IsChecked, priority = FormPriority.Value };
+        FormStatus.Text = $"Saved {_formSaves}: {FormName.Text} · {FormRole.SelectedItem} · priority {FormPriority.Value:0}";
+        Record("form_saved");
     }
 
     private void ReplaceEditor()
@@ -259,6 +395,8 @@ public partial class QaWindow : Window
         IdentityStatus.Text = $"a={_lowercaseCount}; A={_uppercaseCount}";
         EnvironmentLabel.Text = FormattableString.Invariant($"{RenderScaling:0.##}× · {ClientSize.Width:0}×{ClientSize.Height:0} DIP · {_locale}");
         StateSummary.Text = $"reset={_resetGeneration}; notifications={Notifications.IsChecked == true}; toggles={_toggleCount}; name={Bound(_editor.Text)}; edits={_textChanges}; a={_lowercaseCount}; A={_uppercaseCount}";
+        TableStatus.Text = $"selected={(RecordsTable.SelectedItem as QaRecord)?.Id ?? "none"}; edits={_tableEdits}";
+        InputStatus.Text = $"menu={_menuActions}; context={_contextActions}; presses={_pointerPresses}; releases={_pointerReleases}; drags={_drags}; delta={_dragDelta}; keys={_keyDowns}; last={_lastKey ?? "none"}; focus actions={_focusActions}";
         if (string.IsNullOrWhiteSpace(_outputDirectory)) return;
         if (!_closed) _screenBounds = Screens.ScreenFromWindow(this)?.Bounds;
         Directory.CreateDirectory(_outputDirectory);
@@ -272,6 +410,16 @@ public partial class QaWindow : Window
             lowercaseCount = _lowercaseCount, uppercaseCount = _uppercaseCount, templateCount = _templateCount,
             selectedPage = Pages.SelectedIndex, selectedRow = Rows.SelectedIndex, rowCount = Rows.ItemCount,
             loadStatus = LoadStatus.Text, childWindows = _children.Count, popupOpen = QaPopup.IsOpen,
+            form = new { name = Bound(FormName.Text), email = Bound(FormEmail.Text), role = FormRole.SelectedItem,
+                consent = FormConsent.IsChecked, priority = FormPriority.Value, saves = _formSaves,
+                nameInvalid = DataValidationErrors.GetHasErrors(FormName), emailInvalid = DataValidationErrors.GetHasErrors(FormEmail),
+                status = Bound(FormStatus.Text), savedProfile = _savedProfile },
+            table = new { count = _records.Length, selectedKey = (RecordsTable.SelectedItem as QaRecord)?.Id,
+                edits = _tableEdits, rows = _records.Select(row => new { id = row.Id, name = row.Name, status = Bound(row.Status), score = row.Score }),
+                viewOrder = RecordsTable.ItemsSource?.Cast<QaRecord>().Select(row => row.Id).ToArray() },
+            input = new { menuActions = _menuActions, contextActions = _contextActions, pointerPresses = _pointerPresses,
+                pointerReleases = _pointerReleases, drags = _drags, dragX = _dragDelta.X, dragY = _dragDelta.Y,
+                keyDowns = _keyDowns, lastKey = _lastKey, text = Bound(KeyboardEditor.Text), focusActions = _focusActions },
             theme = ActualThemeVariant.ToString(), locale = _locale, font = FontManager.Current.DefaultFontFamily.Name,
             nativeHandleKind = TryGetPlatformHandle()?.HandleDescriptor, renderScaling = RenderScaling,
             clientWidth = ClientSize.Width, clientHeight = ClientSize.Height,

@@ -134,6 +134,83 @@
           </Popup>
         </StackPanel>
       </TabItem>
+      <TabItem Header="Form" AutomationProperties.AutomationId="qa-form-tab">
+        <ScrollViewer>
+          <StackPanel Margin="12" Spacing="8" Width="560" HorizontalAlignment="Left"
+                      x:Name="ProfileForm" AutomationProperties.AutomationId="qa-form">
+            <TextBlock Text="Validated local profile" FontSize="22" />
+            <Label Content="Contact name" Target="{Binding #FormName}" />
+            <TextBox x:Name="FormName" AutomationProperties.AutomationId="qa-form-name" />
+            <Label Content="Email" Target="{Binding #FormEmail}" />
+            <TextBox x:Name="FormEmail" AutomationProperties.AutomationId="qa-form-email" />
+            <Label Content="Synthetic password" Target="{Binding #FormPassword}" />
+            <TextBox x:Name="FormPassword" PasswordChar="●" AutomationProperties.AutomationId="qa-form-password" />
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="14">
+              <StackPanel Spacing="8">
+                <ComboBox x:Name="FormRole" AutomationProperties.AutomationId="qa-form-role"
+                          AutomationProperties.Name="Role" HorizontalAlignment="Stretch" />
+                <CheckBox x:Name="FormConsent" Content="Receive test updates" AutomationProperties.Name="Receive test updates"
+                          AutomationProperties.AutomationId="qa-form-consent" />
+                <Slider x:Name="FormPriority" Minimum="0" Maximum="100" TickFrequency="10"
+                        AutomationProperties.Name="Priority" AutomationProperties.AutomationId="qa-form-priority" />
+              </StackPanel>
+              <StackPanel Grid.Column="1" Spacing="8">
+                <TextBox x:Name="FormAccount" Text="Account QA-0042" IsReadOnly="True" AutomationProperties.Name="Account"
+                         AutomationProperties.AutomationId="qa-form-account" />
+                <TextBox Text="Managed by policy" IsEnabled="False" AutomationProperties.Name="Policy"
+                         AutomationProperties.AutomationId="qa-form-policy" />
+                <TextBlock Text="Priority: 0–100. Name and a valid email are required." TextWrapping="Wrap" />
+              </StackPanel>
+            </Grid>
+            <Button x:Name="SubmitFormButton" Content="Save profile" AutomationProperties.AutomationId="qa-form-submit" />
+            <TextBlock x:Name="FormStatus" TextWrapping="Wrap" AutomationProperties.AutomationId="qa-form-status" />
+          </StackPanel>
+        </ScrollViewer>
+      </TabItem>
+      <TabItem Header="Table" AutomationProperties.AutomationId="qa-table-tab">
+        <Grid Margin="12" RowDefinitions="Auto,*,Auto" RowSpacing="10">
+          <TextBlock Text="200 seeded records · edit Status / Score · sort by column headers" FontSize="20" TextWrapping="Wrap" />
+          <DataGrid Grid.Row="1" x:Name="RecordsTable" AutoGenerateColumns="False" CanUserSortColumns="True"
+                    SelectionMode="Single" GridLinesVisibility="All" AutomationProperties.AutomationId="qa-table">
+            <DataGrid.Columns>
+              <DataGridTextColumn Header="Identifier" Binding="{ReflectionBinding Id}" IsReadOnly="True" Width="150" />
+              <DataGridTextColumn Header="Name" Binding="{ReflectionBinding Name}" IsReadOnly="True" Width="*" />
+              <DataGridTextColumn Header="Status" Binding="{ReflectionBinding Status, Mode=TwoWay}" Width="160" />
+              <DataGridTextColumn Header="Score" Binding="{ReflectionBinding Score, Mode=TwoWay}" Width="120" />
+            </DataGrid.Columns>
+          </DataGrid>
+          <TextBlock Grid.Row="2" x:Name="TableStatus" TextWrapping="Wrap" AutomationProperties.AutomationId="qa-table-status" />
+        </Grid>
+      </TabItem>
+      <TabItem Header="Input" AutomationProperties.AutomationId="qa-input-tab">
+        <ScrollViewer>
+          <StackPanel Margin="12" Spacing="14">
+            <Menu x:Name="InputMenu" AutomationProperties.AutomationId="qa-menu">
+              <MenuItem Header="_Actions" AutomationProperties.AutomationId="qa-actions-menu">
+                <MenuItem x:Name="MenuApply" Header="_Apply marker" AutomationProperties.AutomationId="qa-menu-apply" />
+                <MenuItem Header="Unavailable action" IsEnabled="False" AutomationProperties.AutomationId="qa-menu-disabled" />
+              </MenuItem>
+            </Menu>
+            <TextBlock Text="Pointer, focus and keyboard routing" FontSize="22" />
+            <TextBlock Text="Drag inside the pad by at least 20 DIP. A click must not count as a drag. Right-click opens its context menu." TextWrapping="Wrap" />
+            <Border x:Name="PointerPad" Background="#193A62" BorderBrush="#69BFFF" BorderThickness="2"
+                    Height="150" Width="520" HorizontalAlignment="Left" Focusable="True"
+                    AutomationProperties.Name="Pointer test pad" AutomationProperties.AutomationId="qa-pointer-pad">
+              <Border.ContextMenu>
+                <ContextMenu>
+                  <MenuItem x:Name="ContextApply" Header="Apply context marker" AutomationProperties.AutomationId="qa-context-apply" />
+                </ContextMenu>
+              </Border.ContextMenu>
+              <TextBlock Text="Press · drag · release" Foreground="White" IsHitTestVisible="False"
+                         HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Border>
+            <TextBox x:Name="KeyboardEditor" Width="520" HorizontalAlignment="Left" AcceptsReturn="True" Height="90"
+                     AutomationProperties.Name="Keyboard editor" AutomationProperties.AutomationId="qa-keyboard-editor" />
+            <Button x:Name="KeyboardNext" Content="Next focus target" AutomationProperties.AutomationId="qa-keyboard-next" />
+            <TextBlock x:Name="InputStatus" TextWrapping="Wrap" AutomationProperties.AutomationId="qa-input-status" />
+          </StackPanel>
+        </ScrollViewer>
+      </TabItem>
     </TabControl>
     <TextBlock Grid.Row="3" x:Name="StateSummary" TextWrapping="Wrap" FontFamily="monospace" FontSize="12"
                AutomationProperties.AutomationId="qa-state-summary" />

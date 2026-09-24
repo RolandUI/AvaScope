@@ -70,6 +70,26 @@ Start with reset seed 42, Light/en-US, notifications off, display name Ada, zero
 
 Apply charters to both integrations. Vary one relevant condition at a time. Run at least two clean prepare/action/reset/cleanup cycles, one deliberate failure, and interrupted/expired-session recovery. `eng/test-agent-qa-lab.ps1` checks lifecycle/evidence plumbing and retained public MCP regressions for exact case-distinct IDs and consistent query bounds with geometry-pinned picking; its scripted result does not count as these agent tasks.
 
+### Expanded fixture charters (#172)
+
+The original four tabs retain their indices and IDs. Form (4), Table (5) and
+Input (6) extend the shared Direct/standalone fixture. Their existence is not
+evidence that a tool journey passed; retain fresh calls, state and reviewed images.
+
+| Scene | Public-tool journeys and independent oracle |
+| --- | --- |
+| `qa-form` | Inspect explicit labels, sensitive redaction, read-only/disabled fields, role choices, consent and priority range. Fill a valid profile; inspect focus and desired-state repetition; save through ordinary input. `form.savedProfile` and `form.saves` prove submission. Empty name/invalid email must expose validation and preserve the last saved profile. Reset clears errors and saves. The synthetic password never enters the app journal. |
+| `qa-table` | Query the real DataGrid with `keyProperty: Id`; select offscreen `QA-175`, edit Status/Score, reject Identifier edits, sort Identifier descending and rediscover fresh row evidence. `table.rows` preserves seed order, `table.viewOrder` exposes actual sort order, `selectedKey` and `edits` prove mutations. Reset restores 200 rows, ascending seed order, no selection/edits. DataGrid has its own 12.1.2 package version alongside Avalonia 12.1.3, matching the existing native table fixture. |
+| `qa-pointer-pad`, `qa-menu`, `qa-keyboard-editor` | Query action map and pointer diagnostics; click versus drag at least 20 DIP, release capture, right-click/context action, menu action, keyboard text/chords, Tab/Shift-Tab and focus activation. `input` counts menu/context/press/release/drag/key/focus events; an ordinary click must leave `drags=0`. Compare visible text/status and focus with the journal. Reset closes menus, clears counts and restores editor text. |
+
+All data is local and synthetic. Form validation is intentionally triggered by
+Save; changing a field does not itself commit the profile. Table status is
+free-form, Score is an integer, and Identifier/Name are read-only. Unsupported
+providers/operations must be recorded as unsupported, not silently replaced by a
+different successful action. Host-declared scenes/operations/diagnostics follow
+in #173; [the complete source-derived capability inventory](AGENT_QA_CAPABILITIES.md)
+and campaign are #174.
+
 ## Report and cadence
 
 For each case record: ID/charter, goal, integration/backend/scale, exact request/response files, expected state, actual journal delta, native/rendered image observations, passed/failed/blocked/skipped, elapsed time, retries, workaround and ticket. Original `edit_text`/`ensure_state` failures remain failed even when a different tool finishes the user's broader task. Reuse existing defect tickets when the failure matches; add a new ticket only with distinct reproducible behavior.
