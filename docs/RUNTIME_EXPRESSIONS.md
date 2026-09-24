@@ -99,7 +99,12 @@ observe-act-verify infrastructure apply. Comparisons belong inside the expressio
 the condition waits for its boolean true result. Each poll reselects and reobserves
 sources. Timeout reports retain the last complete evaluation, failed paths and
 source values in `waitObservation.expression`; metadata summarizes failed paths
-for human-readable reports. Templates substitute source selector strings and string
+for human-readable reports. If a later poll fails, the observation reports
+`availability: unavailable`, keeps the last completed expression with its original
+timestamps, and retains the latest poll error in metadata. These retained operands
+are historical evidence, not a claim about current state. If no evaluation completes
+before the deadline, the observation explicitly reports unavailable and contains no
+expression. Templates substitute source selector strings and string
 literals, never operator names or executable code.
 
 Limits: eight sources, 48 expression operators, expression depth eight, 2048

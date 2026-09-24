@@ -1403,6 +1403,87 @@ public sealed class LocalBridgeClientTests : IDisposable
             });
     }
 
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task ExpressionWaitDeadlinePreservesCompletedOperandsAndReportsUnavailablePolls(
+        bool observeFirst, bool failNext)
+    {
+        Directory.CreateDirectory(_manifestDirectory);
+        var sessionId = SessionId.New(); var pipeName = TestPipeNames.New();
+        WriteManifest("wait.json", new(sessionId, Environment.ProcessId, pipeName, DateTimeOffset.UtcNow));
+        var definition = new RuntimeExpressionDefinition(RuntimeExpressionEvaluatorTests.Op("eq",
+            RuntimeExpressionEvaluatorTests.Literal("busy"), RuntimeExpressionEvaluatorTests.Literal("saved")));
+        var sampleAt = DateTimeOffset.UtcNow;
+        var expression = new RuntimeExpressionResponse(sessionId, "top", "failed",
+            RuntimeExpressionEvaluator.Evaluate(definition, []), [], sampleAt, sampleAt, "stable", []);
+        using var serverDeadline = new CancellationTokenSource(BridgePipeTestTimeout);
+        var listening = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var received = 0;
+        var server = Task.Run(async () =>
+        {
+            try
+            {
+                while (true)
+                {
+                    await using var pipe = new NamedPipeServerStream(pipeName, PipeDirection.InOut, 1,
+                        PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
+                    listening.TrySetResult();
+                    await pipe.WaitForConnectionAsync(serverDeadline.Token);
+                    var request = JsonSerializer.Deserialize<BridgeIpcRequest>(await ReadLineAsync(pipe, serverDeadline.Token))!;
+                    Assert.Equal(BridgeIpcMethods.EvaluateRuntime, request.Method);
+                    received++;
+                    BridgeIpcResponse? response = received == 1 && observeFirst
+                        ? BridgeIpcResponse.Ok(request.RequestId, expression)
+                        : received == 2 && failNext
+                            ? BridgeIpcResponse.Fail(request.RequestId, new("fixture_poll_unavailable", "The next sample is unavailable."))
+                            : null;
+                    if (response is null)
+                    {
+                        // Keep the pipe open: only the workflow's own deadline can finish this poll.
+                        await Task.Delay(Timeout.Infinite, serverDeadline.Token);
+                    }
+                    else
+                    {
+                        await pipe.WriteAsync(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(response) + "\n"), serverDeadline.Token);
+                        await pipe.FlushAsync(serverDeadline.Token);
+                    }
+                }
+            }
+            catch (OperationCanceledException) when (serverDeadline.IsCancellationRequested) { }
+        });
+        await listening.Task.WaitAsync(serverDeadline.Token);
+        CoreResult<SemanticWorkflowResponse> result;
+        try
+        {
+            result = await new SemanticWorkflowRunner().RunAsync(new(_manifestDirectory, BridgePipeTestTimeout),
+                new(sessionId, "top", [new(SemanticWorkflowActions.WaitForState,
+                    waitCondition: new("expression", expression: definition), timeoutMs: 3000, pollIntervalMs: 25)]));
+        }
+        finally { await serverDeadline.CancelAsync(); await server; }
+        var diagnostic = JsonSerializer.Serialize(result);
+        Assert.False(OperationResultMapper.IsSuccessful(result), diagnostic);
+        Assert.True(result.Value?.Steps.Count == 1, diagnostic);
+        var step = result.Value!.Steps[0];
+        Assert.Equal(observeFirst ? "semantic_workflow_wait_timeout" : "semantic_workflow_wait_state_unavailable", step.Diagnostics[0].Code);
+        Assert.True(step.WaitObservation is not null, diagnostic);
+        Assert.False(step.WaitObservation!.Matched);
+        Assert.Equal(observeFirst && !failNext ? "available" : "unavailable", step.WaitObservation.Availability);
+        Assert.InRange(long.Parse(step.Metadata!["elapsedMs"]), 2900, 10000);
+        Assert.Equal((observeFirst ? 1 : 0) + (failNext ? 1 : 0) + 1, received);
+        if (observeFirst)
+        {
+            Assert.True(step.WaitObservation.Expression is not null, diagnostic);
+            Assert.Equal(sampleAt, step.WaitObservation.Expression!.CompletedAt);
+            Assert.Equal("busy", step.WaitObservation.Expression.Result.Operands[0].Value!.Value.GetString());
+            Assert.Equal("saved", step.WaitObservation.Expression.Result.Operands[1].Value!.Value.GetString());
+            Assert.Contains("false", step.Metadata["expressionFindings"]);
+        }
+        else Assert.Null(step.WaitObservation.Expression);
+        if (failNext) Assert.Equal("fixture_poll_unavailable", step.Metadata["lastErrorCode"]);
+    }
+
     private string WriteManifest(string fileName, BridgeSessionManifest manifest)
     {
         var manifestPath = Path.Combine(_manifestDirectory, fileName);

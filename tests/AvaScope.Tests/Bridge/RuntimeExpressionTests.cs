@@ -106,7 +106,7 @@ public sealed class RuntimeExpressionTests
     }
 
     [Fact]
-    public async Task WorkflowWaitsReuseExpressionsResolveVariablesAndRetainTimeoutOperands()
+    public async Task WorkflowWaitsAndBranchConditionsReuseExpressionsAndResolveVariables()
     {
         await WithWindow(async (runtime, _, root, top, client) =>
         {
@@ -123,14 +123,25 @@ public sealed class RuntimeExpressionTests
             await Task.Delay(100); status.Text = "saved";
             var completed = await waiting;
             Assert.True(OperationResultMapper.IsSuccessful(completed), JsonSerializer.Serialize(completed));
+            Assert.True(completed.Value?.Steps[0].WaitObservation?.Expression is not null, JsonSerializer.Serialize(completed));
             Assert.Equal("passed", completed.Value!.Steps[0].WaitObservation!.Expression!.Status);
             status.Text = "busy";
-            var timeout = await runner.RunAsync(client, new(runtime.SessionId, top,
-                [new(SemanticWorkflowActions.WaitForState, waitCondition: new("expression", expression: definition), timeoutMs: 500, pollIntervalMs: 25)],
+            // Deadline/operand retention is covered by controlled IPC polls in LocalBridgeClientTests.
+            // This real UI case checks substitution and a completed false evaluation without a
+            // subsecond scheduling assumption about the hosted runner.
+            var branched = await runner.RunAsync(client, new(runtime.SessionId, top,
+                [new(SemanticWorkflowActions.If, "check-busy", waitCondition: new("expression", expression: definition), timeoutMs: 3000,
+                    then: [new(SemanticWorkflowActions.Wait, "unexpected", waitMs: 0)],
+                    @else: [new(SemanticWorkflowActions.Wait, "busy-branch", waitMs: 0)])],
                 variables: request.Variables));
-            Assert.False(OperationResultMapper.IsSuccessful(timeout));
-            Assert.Equal("failed", timeout.Value!.Steps[0].WaitObservation!.Expression!.Status);
-            Assert.Contains("false", timeout.Value.Steps[0].Metadata!["expressionFindings"]);
+            Assert.True(OperationResultMapper.IsSuccessful(branched), JsonSerializer.Serialize(branched));
+            var decision = Assert.Single(branched.Value!.Steps, step => step.StepId == "check-busy");
+            Assert.True(decision.WaitObservation?.Expression is not null, JsonSerializer.Serialize(branched));
+            Assert.Equal("failed", decision.WaitObservation!.Expression!.Status);
+            Assert.Contains("false", decision.Metadata["expressionFindings"]);
+            Assert.Equal("else", decision.Metadata["branch"]);
+            Assert.Contains(branched.Value.Steps, step => step.StepId == "unexpected" && step.Status == "skipped");
+            Assert.Contains(branched.Value.Steps, step => step.StepId == "busy-branch" && step.Status == "passed");
         });
     }
 
@@ -209,7 +220,8 @@ public sealed class RuntimeExpressionTests
                 {
                     window.Show(); using var registration = runtime.RegisterTopLevel(window);
                     var top = Assert.Single(await runtime.ListTopLevelsAsync());
-                    Assert.True((await runtime.ReadinessAsync(top.Id, options: new(waitForFrame: true))).Success);
+                    var readiness = await runtime.ReadinessAsync(top.Id, options: new(waitForFrame: true));
+                    Assert.True(readiness.Success, JsonSerializer.Serialize(readiness));
                     await test(runtime, window, root, top.Id, new(Path.GetDirectoryName(runtime.SessionManifestPath)!));
                 }
                 finally { window.Close(); AvaScopeBridge.Deactivate(); }

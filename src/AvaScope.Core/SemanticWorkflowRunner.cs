@@ -1956,7 +1956,15 @@ public sealed class SemanticWorkflowRunner
                             expected: "true", source: "runtime_expression", message: expression.Status, expression: expression);
                         sawAvailable |= available;
                     }
-                    else { lastError = evaluated.Error; lastObservation = MissingObservation(condition, evaluated.Error?.Message); }
+                    else
+                    {
+                        lastError = evaluated.Error;
+                        // An unavailable poll is not a new evaluation. Keep the last completed
+                        // operands with their original timestamp, without claiming current state.
+                        lastObservation = new(condition.Kind, "unavailable", false, DateTimeOffset.UtcNow,
+                            expected: "true", source: "runtime_expression", message: evaluated.Error?.Message,
+                            expression: lastObservation?.Expression);
+                    }
                 }
                 else if (SemanticWaitConditionKinds.IsReadiness(condition.Kind))
                 {
@@ -2127,6 +2135,10 @@ public sealed class SemanticWorkflowRunner
             }
             catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
             {
+                if (lastObservation is null && condition.Kind == SemanticWaitConditionKinds.Expression)
+                    lastObservation = new(condition.Kind, "unavailable", false, DateTimeOffset.UtcNow,
+                        expected: "true", source: "runtime_expression",
+                        message: "The wait deadline elapsed before an expression evaluation completed.");
                 return WithTopLevelEvidence(WaitConditionFailure(
                     step,
                     condition,
