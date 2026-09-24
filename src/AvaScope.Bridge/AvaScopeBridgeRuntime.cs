@@ -5781,7 +5781,7 @@ public sealed partial class AvaScopeBridgeRuntime
     {
         return MatchesContains(node.NodeType, nodeType)
             && MatchesEquals(node.Name, name)
-            && MatchesEquals(node.AutomationId, automationId)
+            && (string.IsNullOrWhiteSpace(automationId) || string.Equals(node.AutomationId, automationId, StringComparison.Ordinal))
             && MatchesContains(node.Text, text)
             && MatchesState(node.InteractionState?.Visible, visible)
             && MatchesState(node.InteractionState?.Enabled, enabled)

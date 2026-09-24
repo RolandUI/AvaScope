@@ -509,7 +509,7 @@ public sealed class RuntimePseudoStateMatrixRunner
     {
         return MatchesContains(node.NodeType, request.NodeType)
             && MatchesEquals(node.Name, request.Name)
-            && MatchesEquals(node.AutomationId, request.AutomationId)
+            && (string.IsNullOrWhiteSpace(request.AutomationId) || string.Equals(node.AutomationId, request.AutomationId, StringComparison.Ordinal))
             && MatchesContains(node.Text, request.Text);
     }
 

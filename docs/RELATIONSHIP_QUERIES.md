@@ -30,8 +30,12 @@ whole tree or arbitrary application properties are returned.
 
 ## Relationships
 
-All ordinary criteria are conjunctive and use existing find semantics: names and
-automation IDs compare without case, text/type filters are case-insensitive
+All ordinary criteria are conjunctive. Automation IDs use exact ordinal,
+case-sensitive identity matching across flat and structured queries, workflow
+dispatch, pseudo-state matrix resolution and audit recommendations. This corrects
+the 1.5.0 behavior: `Key_a` and `Key_A` are distinct; an identical duplicate ID
+still cannot authorize an operation that requires unique selection. Names compare
+without case, and text/type filters are case-insensitive
 substrings, binding paths and command paths compare exactly. `role` retains its
 existing node-type alias meaning; the projected `role` is public accessibility
 control-type metadata. `nodeId` may further constrain a current identity.

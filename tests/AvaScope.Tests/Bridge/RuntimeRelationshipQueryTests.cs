@@ -18,6 +18,105 @@ namespace AvaScope.Tests.Bridge;
 public sealed class RuntimeRelationshipQueryTests
 {
     [Fact]
+    public async Task ExactAutomationIdsKeepCaseDistinctAcrossBridgeCliAndMcp()
+    {
+        await WithWindow(async (runtime, _, root, top, client) =>
+        {
+            var lower = new Button { Name = "Lower", Content = "Shared text" };
+            var upper = new Button { Name = "Upper", Content = "Shared text" };
+            AutomationProperties.SetAutomationId(lower, "Key_a");
+            AutomationProperties.SetAutomationId(upper, "Key_A");
+            root.Children.Add(lower); root.Children.Add(upper);
+            var lowerClicks = 0; var upperClicks = 0;
+            lower.Click += (_, _) => lowerClicks++;
+            upper.Click += (_, _) => upperClicks++;
+            Dispatcher.UIThread.RunJobs();
+            foreach (var id in new[] { "Key_a", "Key_A", "KEY_A" })
+            {
+                var legacy = await client.FindNodesAsync(runtime.SessionId, top, TreeKinds.Visual, automationId: id, maxDepth: 32);
+                var query = await client.QueryNodesAsync(new(runtime.SessionId, top, new(automationId: id, actionable: true), maxDepth: 32));
+                foreach (var result in new[] { legacy, query })
+                {
+                    Assert.True(result.Success, result.Error?.Message);
+                    if (id == "KEY_A") Assert.Empty(result.Value!.Matches);
+                    else Assert.Equal(id, Assert.Single(result.Value!.Matches).Node.AutomationId);
+                }
+            }
+            var fuzzy = await client.QueryNodesAsync(new(runtime.SessionId, top,
+                new(name: "lower", nodeType: "button", text: "SHARED"), maxDepth: 32));
+            Assert.Equal("Key_a", Assert.Single(fuzzy.Value!.Matches).Node.AutomationId);
+            var excluded = await client.QueryNodesAsync(new(runtime.SessionId, top, new(nodeType: "Button"), maxDepth: 32,
+                policy: new(Path.GetTempPath(), excludedControlAutomationIds: ["Key_a"])));
+            Assert.Equal("Key_A", Assert.Single(excluded.Value!.Matches).Node.AutomationId);
+
+            var path = Path.Combine(Path.GetTempPath(), "avascope-case-" + Guid.NewGuid().ToString("N") + ".json");
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+            try
+            {
+                var environment = TestEnvironment.McpEnvironment();
+                if (Environment.GetEnvironmentVariable("TMPDIR") is { } temporary) environment["TMPDIR"] = temporary;
+                await using var mcp = await McpClient.CreateAsync(new StdioClientTransport(new StdioClientTransportOptions
+                {
+                    Name = "Exact IDs", Command = "dotnet", Arguments = [Path.Combine(AppContext.BaseDirectory, "AvaScope.Mcp.dll")],
+                    InheritEnvironmentVariables = false, EnvironmentVariables = environment, ShutdownTimeout = TimeSpan.FromSeconds(3)
+                }), cancellationToken: timeout.Token);
+                foreach (var id in new[] { "Key_a", "Key_A", "KEY_A" })
+                {
+                    var request = new RuntimeQueryRequest(runtime.SessionId, top, new(automationId: id), maxDepth: 32);
+                    await File.WriteAllTextAsync(path, JsonSerializer.Serialize(request), timeout.Token);
+                    var start = new ProcessStartInfo("dotnet") { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
+                    foreach (var argument in new[] { Path.Combine(AppContext.BaseDirectory, "avascope.dll"), "find-nodes", "--request", path, "--manifest-dir", client.ManifestDirectory }) start.ArgumentList.Add(argument);
+                    using var process = Process.Start(start)!;
+                    var output = process.StandardOutput.ReadToEndAsync(timeout.Token);
+                    var errors = process.StandardError.ReadToEndAsync(timeout.Token);
+                    try { await process.WaitForExitAsync(timeout.Token); }
+                    finally { if (!process.HasExited) process.Kill(entireProcessTree: true); }
+                    Assert.Equal(0, process.ExitCode);
+                    var cli = JsonSerializer.Deserialize<ToolResult<FindNodesResponse>>(await output)!;
+                    Assert.True(cli.Success, cli.Error?.Message + await errors);
+                    if (id == "KEY_A") Assert.Empty(cli.Value!.Matches);
+                    else Assert.Equal(id, Assert.Single(cli.Value!.Matches).Node.AutomationId);
+                    foreach (var structured in new[] { false, true })
+                    {
+                        var arguments = new Dictionary<string, object?>
+                        {
+                            ["sessionId"] = runtime.SessionId.Value, ["topLevelId"] = top,
+                            ["maxDepth"] = 32, ["manifestDirectory"] = client.ManifestDirectory
+                        };
+                        if (structured) arguments["selector"] = JsonSerializer.SerializeToElement(request.Selector);
+                        else arguments["automationId"] = id;
+                        var call = await mcp.CallToolAsync("find_nodes", arguments, cancellationToken: timeout.Token);
+                        Assert.False(call.IsError == true);
+                        var actual = JsonSerializer.Deserialize<ToolResult<FindNodesResponse>>(JsonSerializer.Serialize(call.StructuredContent))!;
+                        Assert.True(actual.Success, actual.Error?.Message);
+                        if (id == "KEY_A") Assert.Empty(actual.Value!.Matches);
+                        else Assert.Equal(id, Assert.Single(actual.Value!.Matches).Node.AutomationId);
+                    }
+                    if (id == "KEY_A") continue;
+                    var workflow = new SemanticWorkflowRequest(runtime.SessionId, top,
+                        [new(SemanticWorkflowActions.Invoke, "invoke", new(automationId: id))], maxDepth: 32);
+                    var invoked = await mcp.CallToolAsync("run_workflow", new Dictionary<string, object?>
+                    {
+                        ["request"] = JsonSerializer.SerializeToElement(workflow), ["manifestDirectory"] = client.ManifestDirectory
+                    }, cancellationToken: timeout.Token);
+                    Assert.False(invoked.IsError == true);
+                    var result = JsonSerializer.Deserialize<ToolResult<SemanticWorkflowResponse>>(JsonSerializer.Serialize(invoked.StructuredContent))!;
+                    Assert.Equal("passed", result.Value!.Status);
+                    Assert.Equal(1, lowerClicks);
+                    Assert.Equal(id == "Key_a" ? 0 : 1, upperClicks);
+                }
+            }
+            finally { File.Delete(path); }
+            AutomationProperties.SetAutomationId(upper, "Key_a");
+            var ambiguous = await new SemanticWorkflowRunner().RunAsync(client, new(runtime.SessionId, top,
+                [new(SemanticWorkflowActions.Invoke, "duplicate", new(automationId: "Key_a"))], maxDepth: 32));
+            Assert.Equal("failed", ambiguous.Value!.Status);
+            Assert.Contains("candidateCount", JsonSerializer.Serialize(ambiguous.Value));
+            Assert.Equal(1, lowerClicks); Assert.Equal(1, upperClicks);
+        });
+    }
+
+    [Fact]
     public async Task RepeatedFieldsUseContainersParentsDescendantsAndExplicitLocalizedLabels()
     {
         await WithWindow(async (runtime, _, root, top, client) =>

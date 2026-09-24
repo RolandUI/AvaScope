@@ -110,7 +110,8 @@ public sealed class UiAuditBuilderTests
                 new("three", "Avalonia.Controls.Button", automationId: "Cancel", text: "Mégse"),
                 new("four", "Avalonia.Controls.Button", text: "Save"),
                 new("five", "Avalonia.Controls.Button", name: "Shared"),
-                new("six", "App.Avalonia.Controls.ButtonVariant", name: "shared")
+                new("six", "App.Avalonia.Controls.ButtonVariant", name: "shared"),
+                new("seven", "Avalonia.Controls.Button", automationId: "Save")
             ]));
         var result = new UiAuditBuilder().Create(tree).Value!;
         var duplicate = Assert.Single(result.Issues, item => item.Code == "testability.duplicate_automation_id");
@@ -120,7 +121,7 @@ public sealed class UiAuditBuilderTests
         Assert.Equal("ambiguous", ambiguous.Status);
         Assert.Null(ambiguous.Selector);
         var localized = Assert.Single(result.SelectorRecommendations, item => item.NodeId == "two");
-        Assert.Equal("Localized", localized.Selector!.Name);
+        Assert.Equal("save", localized.Selector!.AutomationId);
         Assert.Equal(1, localized.MatchCount);
         Assert.Null(localized.Selector.Text);
         var unique = Assert.Single(result.SelectorRecommendations, item => item.NodeId == "three");

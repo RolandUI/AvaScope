@@ -134,8 +134,10 @@ public sealed class RuntimePseudoStateMatrixRunnerTests : IDisposable
         Assert.Contains("selector", diagnostic.Details["nextAction"], StringComparison.OrdinalIgnoreCase);
     }
 
-    [Fact]
-    public async Task RunAsyncReportsGenerationScopedNodeIdWhenRawTargetCannotBeResolved()
+    [Theory]
+    [InlineData(null)]
+    [InlineData("STATE-TARGET")]
+    public async Task RunAsyncReportsGenerationScopedNodeIdWhenRawTargetCannotBeResolved(string? automationId)
     {
         var sessionId = SessionId.New();
         var topLevelId = "topLevel:matrix";
@@ -165,7 +167,8 @@ public sealed class RuntimePseudoStateMatrixRunnerTests : IDisposable
             [RuntimePseudoStates.Normal],
             requestId: "matrix-missing",
             outputDirectory: outputDirectory,
-            contactSheetPath: Path.Combine(outputDirectory, "sheet.png"));
+            contactSheetPath: Path.Combine(outputDirectory, "sheet.png"),
+            automationId: automationId);
 
         var result = await new RuntimePseudoStateMatrixRunner()
             .RunAsync(new LocalBridgeClient(_manifestDirectory, BridgePipeTestTimeout), request);

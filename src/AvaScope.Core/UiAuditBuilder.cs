@@ -187,7 +187,7 @@ public sealed class UiAuditBuilder
             }
         }
         foreach (var group in nodes.Where(item => !string.IsNullOrWhiteSpace(item.Node.AutomationId))
-            .GroupBy(item => item.Node.AutomationId!, StringComparer.OrdinalIgnoreCase).Where(group => group.Count() > 1))
+            .GroupBy(item => item.Node.AutomationId!, StringComparer.Ordinal).Where(group => group.Count() > 1))
         {
             yield return CreateIssue(sequence++, "testability", "warning", "testability.duplicate_automation_id",
                 "AutomationId matches multiple nodes in the audited snapshot.", group.First().Node,
@@ -212,7 +212,7 @@ public sealed class UiAuditBuilder
             var stability = "unavailable";
             if (!string.IsNullOrWhiteSpace(node.AutomationId))
             {
-                count = nodes.Count(candidate => string.Equals(candidate.Node.AutomationId, node.AutomationId, StringComparison.OrdinalIgnoreCase));
+                count = nodes.Count(candidate => string.Equals(candidate.Node.AutomationId, node.AutomationId, StringComparison.Ordinal));
                 if (count == 1)
                 {
                     selector = new SemanticWorkflowSelector(treeKind: tree.TreeKind, automationId: node.AutomationId, maxDepth: tree.DepthLimit);
