@@ -19,6 +19,10 @@ public sealed class LocalBridgeClientTests : IDisposable
 
     [Theory]
     [InlineData("valid")]
+    [InlineData("last-pixel")]
+    [InlineData("tolerance")]
+    [InlineData("over-tolerance")]
+    [InlineData("transparent")]
     [InlineData("overflow")]
     [InlineData("dimensions")]
     [InlineData("bytes")]
@@ -29,16 +33,30 @@ public sealed class LocalBridgeClientTests : IDisposable
         WriteManifest("screen.json", new(sessionId, Environment.ProcessId, pipeName, DateTimeOffset.UtcNow));
         var target = new RuntimeTargetContext(sessionId, "top", topLevelGeneration: "current");
         var now = DateTimeOffset.UtcNow;
-        byte[] png;
+        byte[] png; byte[] nativePng;
         using (var bitmap = new SKBitmap(3840, 2160, SKColorType.Bgra8888, SKAlphaType.Premul))
         {
             bitmap.Erase(SKColors.Blue);
             using var image = SKImage.FromBitmap(bitmap); using var encoded = image.Encode(SKEncodedImageFormat.Png, 100);
             png = encoded.ToArray();
+            nativePng = png;
+            if (nativeCase is "last-pixel" or "tolerance" or "over-tolerance" or "transparent")
+            {
+                bitmap.SetPixel(3839, 2159, nativeCase switch
+                {
+                    "tolerance" => new SKColor(0, 0, 239),
+                    "over-tolerance" => new SKColor(0, 0, 238),
+                    "transparent" => SKColors.Transparent,
+                    _ => SKColors.Red
+                });
+                using var changedImage = SKImage.FromBitmap(bitmap);
+                using var changedPng = changedImage.Encode(SKEncodedImageFormat.Png, 100);
+                nativePng = changedPng.ToArray();
+            }
         }
         var rendered = new RuntimeScreenFrame("rendered-test", "captured", 3840, 2160, now, now,
             null, null, null, [], "not_required", null, [], png);
-        var native = rendered with { Source = "native-test" };
+        var native = rendered with { Source = "native-test", Png = nativePng };
         native = nativeCase switch
         {
             "overflow" => native with { PixelWidth = int.MaxValue, PixelHeight = int.MaxValue },
@@ -53,24 +71,42 @@ public sealed class LocalBridgeClientTests : IDisposable
                 new("test", "test", "controlled_ipc_fixture", null, null, "test", [], [], []), 2, 2,
                 "no_sampled_geometry_change", rendered, native, null, []));
         });
+        var captureElapsed = Stopwatch.StartNew();
         var result = await new LocalBridgeClient(_manifestDirectory, BridgePipeTestTimeout).CaptureScreenAsync(
             new(target, Path.Combine(_manifestDirectory, "evidence"), timeoutMs: 5000));
+        captureElapsed.Stop();
         await server;
         Assert.True(result.Success, JsonSerializer.Serialize(result.Error));
         var value = result.Value!;
-        Assert.Equal("captured", value.Rendered!.Status); Assert.Null(value.Rendered.Png);
-        Assert.True(File.Exists(value.Rendered.FilePath));
-        if (nativeCase == "valid")
+        Assert.True(value.Rendered!.Status == "captured", JsonSerializer.Serialize(new
         {
-            Assert.Equal("captured", value.Status); Assert.Equal("compared", value.Comparison!.Status);
-            Assert.Equal(3840L * 2160, value.Comparison.ComparedPixels); Assert.Equal(0, value.Comparison.DifferentPixels);
+            nativeCase,
+            elapsedMs = captureElapsed.ElapsedMilliseconds,
+            response = value
+        }));
+        Assert.Null(value.Rendered.Png);
+        Assert.True(File.Exists(value.Rendered.FilePath));
+        if (nativeCase is "valid" or "last-pixel" or "tolerance" or "over-tolerance" or "transparent")
+        {
+            Assert.Equal("captured", value.Status);
             Assert.True(File.Exists(value.Native!.FilePath)); Assert.Null(value.Native.Png);
+            Assert.True(value.Comparison!.Status == "compared", JsonSerializer.Serialize(new
+            {
+                nativeCase,
+                elapsedMs = captureElapsed.ElapsedMilliseconds,
+                response = value
+            }));
+            Assert.Equal(3840L * 2160 - (nativeCase == "transparent" ? 1 : 0), value.Comparison.ComparedPixels);
+            Assert.Equal(nativeCase is "last-pixel" or "over-tolerance" ? 1 : 0, value.Comparison.DifferentPixels);
         }
         else
         {
             Assert.Equal("partial", value.Status); Assert.Equal("unaligned", value.Comparison!.Status);
             Assert.Equal("unavailable", value.Native!.Status); Assert.Null(value.Native.FilePath); Assert.Null(value.Native.Png);
-            Assert.Equal("screen_capture_save_failed", Assert.Single(value.Native.Diagnostics).Code);
+            var diagnostic = Assert.Single(value.Native.Diagnostics);
+            Assert.Equal("screen_capture_save_failed", diagnostic.Code);
+            Assert.Equal(nativeCase == "dimensions" ? "decode_header" : "validate_frame", diagnostic.Details!["stage"]);
+            Assert.Equal("none", diagnostic.Details["cancellationSource"]);
         }
     }
 

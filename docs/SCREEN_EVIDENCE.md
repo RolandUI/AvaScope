@@ -83,6 +83,18 @@ can arise from occlusion, native surfaces, timing, resampling or color managemen
 they do not automatically diagnose a defect. Inspect the paired images and the
 observed geometry before deciding.
 
+Core saves valid masked frames before the optional comparison, using the same
+bounded processing deadline. An exhausted comparison reports `timeout` with its
+partial pixel counts; it does not discard files already saved. `captured` describes
+the images, so inspect the comparison status separately. Save failures include
+stage, elapsed time, exception type and cancellation source without exception text
+or image contents.
+
+Comparison uses SkiaSharp's public bulk color conversion and cached dimensions,
+avoiding repeated native calls for every pixel. The two color arrays add at most
+64 MiB under the existing 8-megapixel limit. All opaque, unmasked pixels, including
+the last row and column, still participate; channel tolerance is unchanged.
+
 ## Native backends and failure behavior
 
 | Backend | Native route | Conditions |
