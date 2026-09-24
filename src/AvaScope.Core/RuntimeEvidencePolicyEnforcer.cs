@@ -787,8 +787,8 @@ public sealed class RuntimeEvidencePolicyEnforcer
         {
             var left = Math.Clamp(mask.X, 0, bitmap.Width);
             var top = Math.Clamp(mask.Y, 0, bitmap.Height);
-            var right = Math.Clamp(mask.X + mask.Width, left, bitmap.Width);
-            var bottom = Math.Clamp(mask.Y + mask.Height, top, bitmap.Height);
+            var right = (int)Math.Clamp((long)mask.X + mask.Width, left, bitmap.Width);
+            var bottom = (int)Math.Clamp((long)mask.Y + mask.Height, top, bitmap.Height);
             if (right > left && bottom > top) canvas.DrawRect(new SKRect(left, top, right, bottom), paint);
         }
         canvas.Flush();

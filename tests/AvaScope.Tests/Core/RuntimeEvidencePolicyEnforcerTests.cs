@@ -197,6 +197,69 @@ public sealed class RuntimeEvidencePolicyEnforcerTests : IDisposable
         Assert.Equal(SKColors.Black, bitmap.GetPixel(2, 2));
     }
 
+    [Theory]
+    [InlineData(1, 1, int.MaxValue, 2, false)]
+    [InlineData(1, 1, int.MaxValue, 2, true)]
+    [InlineData(1, 1, 2, int.MaxValue, false)]
+    [InlineData(1, 1, 2, int.MaxValue, true)]
+    [InlineData(1, 1, int.MaxValue, int.MaxValue, false)]
+    [InlineData(1, 1, int.MaxValue, int.MaxValue, true)]
+    [InlineData(0, 0, int.MaxValue, int.MaxValue, false)]
+    [InlineData(0, 0, int.MaxValue, int.MaxValue, true)]
+    [InlineData(int.MaxValue, 1, int.MaxValue, 2, false)]
+    [InlineData(int.MaxValue, 1, int.MaxValue, 2, true)]
+    [InlineData(1, int.MaxValue, 2, int.MaxValue, false)]
+    [InlineData(1, int.MaxValue, 2, int.MaxValue, true)]
+    [InlineData(4, 1, int.MaxValue, 2, false)]
+    [InlineData(4, 1, int.MaxValue, 2, true)]
+    [InlineData(1, 4, 2, int.MaxValue, false)]
+    [InlineData(1, 4, 2, int.MaxValue, true)]
+    [InlineData(1, 1, 2, 2, false)]
+    [InlineData(1, 1, 2, 2, true)]
+    [InlineData(3, 3, int.MaxValue, int.MaxValue, false)]
+    [InlineData(3, 3, int.MaxValue, int.MaxValue, true)]
+    public async Task ScreenshotMasksPreserveRectangleIntersectionWithoutOverflow(
+        int x, int y, int width, int height, bool inMemory)
+    {
+        var run = Path.Combine(_directory, "root", "run");
+        var enforcer = new RuntimeEvidencePolicyEnforcer(CreatePolicy(
+            screenshotMaskRegions: [new ScreenshotRegion(x, y, width, height)]));
+        Assert.True(enforcer.PrepareRun(run, [], "request").Success);
+        var path = Path.Combine(run, "capture.png");
+        WritePng(path, 4, 4, SKColors.White);
+        var request = Request(run, evidence: new SemanticWorkflowEvidenceOptions(
+            exportReports: false,
+            policy: enforcer.Policy));
+        var screenshot = new ScreenshotResponse(request.SessionId, "top", path, 4, 4, DateTimeOffset.UtcNow);
+        byte[] pixels;
+        if (inMemory)
+        {
+            var masked = enforcer.MaskScreenshotPng(File.ReadAllBytes(path), screenshot);
+            Assert.Equal("applied", masked.Masking);
+            pixels = masked.Png;
+        }
+        else
+        {
+            var masked = await enforcer.MaskScreenshotAsync(
+                new LocalBridgeClient(Path.Combine(_directory, "manifests")),
+                request,
+                screenshot,
+                CancellationToken.None);
+            Assert.True(masked.Success, masked.Error?.Message);
+            pixels = File.ReadAllBytes(path);
+        }
+
+        using var bitmap = SKBitmap.Decode(pixels);
+        Assert.Equal(4, bitmap.Width);
+        Assert.Equal(4, bitmap.Height);
+        for (var row = 0; row < 4; row++)
+        for (var column = 0; column < 4; column++)
+        {
+            var inside = column >= x && row >= y && (long)column - x < width && (long)row - y < height;
+            Assert.Equal(inside ? SKColors.Black : SKColors.White, bitmap.GetPixel(column, row));
+        }
+    }
+
     [Fact]
     public async Task ScreenshotMaskingFailureDeletesUnmaskedArtifact()
     {

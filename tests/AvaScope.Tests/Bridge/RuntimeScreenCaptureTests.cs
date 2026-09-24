@@ -141,6 +141,33 @@ public sealed class RuntimeScreenCaptureTests
     }
 
     [Fact]
+    public async Task OversizedRectangleMasksPixelsBeforeIpcAndInSavedCapture()
+    {
+        await WithWindow(async (runtime, window, target, client, output) =>
+        {
+            var request = new RuntimeScreenCaptureRequest(target, output, "rendered",
+                policy: new(output, screenshotMaskRegions: [new(1, 1, int.MaxValue, int.MaxValue)]));
+            var direct = Value(await runtime.CaptureScreenAsync(request));
+            Assert.Equal("captured", direct.Status);
+            Assert.Equal("applied", direct.Rendered!.Masking);
+            using (var image = SKBitmap.Decode(direct.Rendered.Png))
+            {
+                Assert.Equal(SKColors.Blue, image.GetPixel(0, 0));
+                Assert.Equal(SKColors.Black, image.GetPixel(1, 1));
+                Assert.Equal(SKColors.Black, image.GetPixel(image.Width - 1, image.Height - 1));
+            }
+            Assert.False(Directory.Exists(output));
+            var exported = Value(await client.CaptureScreenAsync(request));
+            Assert.Equal("captured", exported.Status);
+            Assert.Null(exported.Rendered!.Png);
+            using var saved = SKBitmap.Decode(exported.Rendered.FilePath);
+            Assert.Equal(SKColors.Blue, saved.GetPixel(0, 0));
+            Assert.Equal(SKColors.Black, saved.GetPixel(1, 1));
+            Assert.Equal(SKColors.Black, saved.GetPixel(saved.Width - 1, saved.Height - 1));
+        });
+    }
+
+    [Fact]
     public async Task GenerationPolicyAndClosedSessionRejectEvidenceWithoutCreatingImages()
     {
         await WithWindow(async (runtime, window, target, client, output) =>

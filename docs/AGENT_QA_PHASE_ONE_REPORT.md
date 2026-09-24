@@ -151,3 +151,31 @@ seed state (Ready/Ada, zero counters, no children/popup), then owned termination
 PID 52112 succeeded. No new defect was found in this native rerun; it is not a
 Retina pass. Full Release validation at this source passed 771 tests with five
 explicit native-only skips; full Debug and combined hosted gates are pending.
+## Screenshot privacy-mask overflow (#169)
+
+The resource-boundary audit found another defect after the S301–S325 round.
+Native standalone `campaign-mask-overflow`, clean `0745a3b` (product code
+`7d86ab3`), Win32 1×, called public MCP `capture_screen` with a valid rectangle
+`{x:1,y:1,width:2147483647,height:2147483647}`. M002 returned `captured` and
+`masking: applied`, but the independently opened 1120×800 PNG remained readable.
+M003's ordinary equivalent rectangle (1,1,1119,799) correctly blacked the image
+except its first row/column. Both original transcripts/images are retained;
+owned termination of PID 11836 succeeded.
+
+The shared masking code added Int32 rectangle endpoints before clamping, so
+horizontal or vertical overflow could silently skip the mask. Eight of twenty
+new pixel-by-pixel memory/file cases failed before correction; ordinary, huge
+non-overflowing and off-image controls passed. The correction widens endpoint
+addition before clamping. A separate bridge/client regression checks masking
+before IPC and in the final saved PNG. The evidence/capture/client group passed
+102 tests; the final evidence/capture group, including that additional IPC
+regression, passed 64 tests. Release build passed without warnings/errors. Fresh
+native verification is pending. This finding supersedes any interpretation of the preceding passing
+round as a completed clean campaign.
+
+The preceding code baseline's full Debug and Release each passed 771 tests with
+five explicit native skips and zero build warnings/errors. CI `36009001380`
+passed all six native QA combinations and its Windows build/test/package gate;
+macOS/Linux final gates remain running. All six lab summaries explicitly verify
+host-declared readiness and unique popup logical identities. All observed scales
+remain 1×.
