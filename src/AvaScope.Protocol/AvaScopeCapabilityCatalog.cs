@@ -267,7 +267,7 @@ public static class AvaScopeCapabilityCatalog
                     ["interactionState"] = "visible,enabled,rendered,actionable,availableActions",
                     ["relationships"] = "selector.relationships: parent,ancestor,descendant,labeled_by; explicit public relationships only",
                     ["queryAttributes"] = string.Join(",", RuntimeQueryRequest.SupportedAttributes),
-                    ["queryLimits"] = "64 results;2048 realized nodes;32 tree levels;4 relationship levels;16 relationships;8 attributes;64 KiB response",
+                    ["queryLimits"] = $"64 results;2048 realized nodes;{RuntimeQueryRequest.MaximumDepth} tree levels;4 relationship levels;16 relationships;8 attributes;64 KiB response",
                     ["queryCoverage"] = "explicit missing,redacted,truncated,partial; selected top-level only; generation/data-context revalidation before action",
                     ["queryCli"] = "find-nodes --request query.json"
                 }),

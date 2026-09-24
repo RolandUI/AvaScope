@@ -103,7 +103,7 @@ produce no values or candidate identity and mark coverage as incomplete.
 
 `coverage` reports visited nodes, a lower bound on matches and reasons for
 partial output. Default bounds are 16 results, 512 nodes and depth 16; maximums
-are 64 results, 2048 nodes, depth 32 and eight projected attributes. The analysis
+are 64 results, 2048 nodes, depth 64 and eight projected attributes. The analysis
 also has 32,768 work checks and a two-second cooperative budget. Public app/peer
 callbacks must be fast and read-only and cannot be forcibly preempted safely.
 Output is limited to 64 KiB with explicit coverage markers, without spill files.
@@ -136,7 +136,7 @@ text-edit operations and target-pinned inspection report
 coverage; runtime mutations use `runtime_mutation_selection_incomplete`.
 Details include `coverageReasons`,
 `queryMaxDepth`, `queryMaxNodes`, `visitedNodes` and recovery guidance. For
-`depth_limit` / `node_limit`, re-query with sufficient bounds (up to depth 32 and
+`depth_limit` / `node_limit`, re-query with sufficient bounds (up to depth 64 and
 2048 nodes), verify complete coverage, then pass the entire new target. Repeating
 the same partial query is not recovery. Genuine changed generations/revisions
 and ambiguity still fail freshness checks before dispatch.

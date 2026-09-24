@@ -23,6 +23,7 @@ public sealed record RuntimeSelectorRelationship
 
 public sealed record RuntimeQueryRequest
 {
+    public const int MaximumDepth = 64;
     public static IReadOnlyList<string> SupportedAttributes { get; } =
         ["name", "automationId", "text", "nodeType", "role", "visible", "enabled", "rendered", "actionable", "focused", "checked", "selected", "value"];
 
@@ -35,8 +36,8 @@ public sealed record RuntimeQueryRequest
         if (string.IsNullOrWhiteSpace(topLevelId) || topLevelId.Length > 256) throw new ArgumentException("Select an explicit top-level id of at most 256 characters.");
         Selector = selector ?? throw new ArgumentNullException(nameof(selector));
         if (!selector.HasSearchCriteria) throw new ArgumentException("A query requires selector criteria.", nameof(selector));
-        if (maxResults is < 1 or > 64 || maxNodes is < 1 or > 2048 || maxDepth is < 0 or > 32)
-            throw new ArgumentException("Queries allow 1..64 results, 1..2048 visited nodes and depth 0..32.");
+        if (maxResults is < 1 or > 64 || maxNodes is < 1 or > 2048 || maxDepth is < 0 or > MaximumDepth)
+            throw new ArgumentException($"Queries allow 1..64 results, 1..2048 visited nodes and depth 0..{MaximumDepth}.");
         var requested = (attributes ?? []).Distinct(StringComparer.Ordinal).ToArray();
         if (requested.Length > 8 || requested.Any(attribute => !SupportedAttributes.Contains(attribute, StringComparer.Ordinal)))
             throw new ArgumentException("Select at most eight supported attributes.", nameof(attributes));

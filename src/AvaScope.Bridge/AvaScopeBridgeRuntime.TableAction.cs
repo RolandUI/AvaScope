@@ -166,8 +166,14 @@ public sealed partial class AvaScopeBridgeRuntime
         {
             status = operations > 0 || preparation ? "uncertain" : "rejected";
             if (exception is TableStop { Code: "table_validation_rejected" or "table_editor_not_verified" }) status = "not_verified";
+            var details = exception is TableStop { Details: { } sourceDetails }
+                ? new Dictionary<string, string>(sourceDetails, StringComparer.Ordinal) : new Dictionary<string, string>(StringComparer.Ordinal);
+            try { details["tableEditing"] = current is null ? "unknown" : current.Grid.Editing ? "true" : "false"; }
+            catch (Exception stateError) when (stateError is not OutOfMemoryException and not AccessViolationException) { details["tableEditing"] = "unknown"; }
+            details["intentDispatched"] = intentDispatched ? "true" : "false";
+            details["tableRecovery"] = "Inspect and explicitly finish or cancel any pending draft before a new intent. Re-query with complete coverage. Reuse the original request id only to retrieve its retained outcome.";
             diagnostics.Add(new(exception is TableStop stop ? stop.Code : exception is OperationCanceledException ? "table_action_cancelled" : "table_action_failed",
-                exception is TableStop ? exception.Message : "The public table operation failed or exceeded its deadline. Inspect the current table and any pending draft before a new intent."));
+                exception is TableStop ? exception.Message : "The public table operation failed or exceeded its deadline. Inspect the current table and any pending draft before a new intent.", details));
         }
         return Complete();
 
@@ -175,7 +181,7 @@ public sealed partial class AvaScopeBridgeRuntime
         {
             CheckTime();
             var result = CaptureTable(options);
-            if (!result.Success) throw new TableStop(result.Error!.Code, result.Error.Message);
+            if (!result.Success) throw new TableStop(result.Error!.Code, result.Error.Message, result.Error.Details);
             return result.Value!;
         }
         void Resolve(TableCapture capture)
@@ -233,7 +239,7 @@ public sealed partial class AvaScopeBridgeRuntime
             {
                 var latest = CaptureTable(query);
                 if (latest.Success) current = latest.Value;
-                else if (verified) { verified = false; status = "uncertain"; diagnostics.Add(new(latest.Error!.Code, latest.Error.Message)); }
+                else if (verified) { verified = false; status = "uncertain"; diagnostics.Add(new(latest.Error!.Code, latest.Error.Message, latest.Error.Details)); }
             }
             catch (Exception exception) when (exception is not OutOfMemoryException and not AccessViolationException)
             { verified = false; status = "uncertain"; diagnostics.Add(new("table_final_state_unavailable", "The final public table observation failed. Inspect the current state before another intent.")); }

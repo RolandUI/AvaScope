@@ -2633,7 +2633,7 @@ public sealed partial class AvaScopeBridgeRuntime
                         ["queryMaxDepth"] = (target.Selection.MaxDepth ?? 16).ToString(CultureInfo.InvariantCulture),
                         ["queryMaxNodes"] = "2048",
                         ["visitedNodes"] = coverage.VisitedNodes.ToString(CultureInfo.InvariantCulture),
-                        ["nextAction"] = "Inspect coverageReasons and re-query with sufficient maxDepth/maxNodes (at most 32/2048) for limit failures. Require complete coverage before retrying; repeating the same incomplete selection cannot establish uniqueness."
+                        ["nextAction"] = $"Inspect coverageReasons and re-query with sufficient maxDepth/maxNodes (at most {RuntimeQueryRequest.MaximumDepth}/2048) for limit failures. Require complete coverage before retrying; repeating the same incomplete selection cannot establish uniqueness."
                     };
                     return CoreResult<ResolvedMutationTarget>.Fail(new(RuntimeMutationErrorCodes.RuntimeMutationSelectionIncomplete,
                         "The selector could not be completely evaluated, so its uniqueness is unproven. This does not establish that the target changed.", incomplete));

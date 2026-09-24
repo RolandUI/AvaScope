@@ -22,6 +22,70 @@ namespace AvaScope.Tests.Bridge;
 public sealed class RuntimeTableTests
 {
     [Fact]
+    public async Task DeepQaCellEditorPreservesCoverageDiagnosticsAndAllowsExplicitLargerQuery()
+    {
+        var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessSmokeTests.BridgeHeadlessTestApplication));
+        try
+        {
+            await BridgeHeadlessSmokeTests.DispatchAsync(session, async () =>
+            {
+                AvaScopeBridge.Deactivate(); var runtime = AvaScopeBridge.Activate();
+                // Keep the real nested editor template but fewer realized rows in this
+                // depth-boundary regression; native QA separately uses the full viewport.
+                var window = new AvaScope.ComplexWorkflowApp.QaWindow { Height = 480 };
+                try
+                {
+                    window.Show(); using var registration = runtime.RegisterTopLevel(window);
+                    window.FindControl<TabControl>("Pages")!.SelectedIndex = 5;
+                    Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
+                    var top = Assert.Single(await runtime.ListTopLevelsAsync()).Id;
+                    var client = new LocalBridgeClient(Path.GetDirectoryName(runtime.SessionManifestPath)!);
+                    var found = await client.QueryNodesAsync(new(runtime.SessionId, top, new(automationId: "qa-table"), maxNodes: 2048, maxDepth: 32));
+                    Assert.True(found.Value!.Coverage!.Complete, JsonSerializer.Serialize(found));
+                    var query = new RuntimeTableQueryRequest(Assert.Single(found.Value.Matches).Target!, "Id", limit: 1);
+                    var initial = (await client.QueryTableAsync(query)).Value!;
+                    var row = Assert.Single(initial.Rows);
+                    Assert.True(row.Realized);
+                    var column = initial.Columns.Single(column => column.Id == "binding:Status");
+                    var selected = await client.TableActionAsync(new(query, "select_row", "deep-select", row.Key, row.Generation, timeoutMs: 3000));
+                    Assert.True(selected.Value!.Verified, JsonSerializer.Serialize(selected));
+                    var limited = await client.TableActionAsync(new(query, "edit_cell", "deep-limited", row.Key, row.Generation,
+                        column.Id, column.Generation, JsonSerializer.SerializeToElement("reviewed"), timeoutMs: 3000));
+                    Assert.Equal("uncertain", limited.Value!.Status);
+                    Assert.False(limited.Value.Verified); Assert.True(limited.Value.PreparationPerformed);
+                    Assert.Contains(limited.Value.Diagnostics, error => error.Code == RuntimeMutationErrorCodes.RuntimeMutationSelectionIncomplete);
+                    var error = limited.Value.Diagnostics.Single(error => error.Code == RuntimeMutationErrorCodes.RuntimeMutationSelectionIncomplete);
+                    Assert.NotNull(error.Details);
+                    Assert.Contains("depth_limit", error.Details["coverageReasons"]);
+                    Assert.Equal("32", error.Details["queryMaxDepth"]);
+                    Assert.Equal("true", error.Details["tableEditing"]);
+                    Assert.Equal("false", error.Details["intentDispatched"]);
+                    var grid = window.FindControl<DataGrid>("RecordsTable")!;
+                    var item = grid.ItemsSource.Cast<AvaScope.ComplexWorkflowApp.QaRecord>().Single(item => item.Id == row.Key);
+                    Assert.Equal("pending", item.Status);
+                    grid.CancelEdit(DataGridEditingUnit.Row);
+                    Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
+                    found = await client.QueryNodesAsync(new(runtime.SessionId, top, new(automationId: "qa-table"), maxNodes: 2048, maxDepth: 64));
+                    Assert.True(found.Value!.Coverage!.Complete);
+                    query = new(Assert.Single(found.Value.Matches).Target!, "Id", limit: 1);
+                    var writes = 0;
+                    item.PropertyChanged += (_, change) => { if (change.PropertyName == "Status") writes++; };
+                    var edit = new RuntimeTableActionRequest(query, "edit_cell", "deep-complete", row.Key, row.Generation,
+                        column.Id, column.Generation, JsonSerializer.SerializeToElement("reviewed"), timeoutMs: 3000);
+                    var result = await client.TableActionAsync(edit);
+                    Assert.True(result.Value!.Verified, JsonSerializer.Serialize(result));
+                    Assert.Equal("reviewed", item.Status); Assert.Equal(1, writes);
+                    Assert.True((await client.TableActionAsync(edit)).Value!.Replayed); Assert.Equal(1, writes);
+                    Assert.Throws<ArgumentException>(() => new RuntimeQueryRequest(runtime.SessionId, top, new(automationId: "qa-table"), maxDepth: 65));
+                    Assert.Throws<ArgumentException>(() => new RuntimeQueryRequest(runtime.SessionId, top, new(automationId: "qa-table"), maxNodes: 2049));
+                }
+                finally { window.Close(); AvaScopeBridge.Deactivate(); }
+            }, CancellationToken.None);
+        }
+        finally { BridgeHeadlessSmokeTests.DisposeHeadlessSessionAfterExplicitCleanup(session); }
+    }
+
+    [Fact]
     public async Task TestSessionPropagatesAnExceptionAfterAnAsynchronousBoundary()
     {
         var failure = await Assert.ThrowsAsync<InvalidOperationException>(() => WithTable(async (_, _, _, _, _) =>

@@ -100,6 +100,17 @@ public `Sort`. No row property is assigned directly. Formatting/custom editors a
 unsupported rather than guessed. An existing edit/add transaction blocks actions;
 rejected drafts and earlier preparation remain visible for explicit handling.
 
+Deep control templates can grow further when a cell editor opens. For the shared
+QA DataGrid, discover the table with an explicit structured `find_nodes` selector,
+`maxDepth: 64` and `maxNodes: 2048`, verify complete coverage, then pass the entire
+returned target. The default query bounds and relationship-hop limits are unchanged;
+smaller explicit bounds remain enforced and are never silently widened during an action.
+The global query node/work/time limits still apply. A depth-32 target can become
+incomplete during editor preparation; `coverageReasons`, query bounds, `tableEditing`
+and `intentDispatched` diagnostics distinguish that state from stale identity.
+Explicitly inspect and finish/cancel any pending draft before a new edit intent.
+The original request remains replayable as its original uncertain outcome.
+
 The deadline is 100..3000 ms (default 2000), with no automatic rollback or save.
 Results include before/after rows, sort state, dispatched operation count,
 preparation, diagnostics and `avalonia_public_control_api` provenance with the actual

@@ -590,7 +590,7 @@ public sealed class AvaScopeMcpTools
         Destructive = false,
         OpenWorld = false,
         UseStructuredContent = true)]
-    [Description("Finds nodes by identity/state or a bounded relationship selector. Optional attributes project typed values instead of nodes, with explicit partial coverage. Use selector for parent/ancestor/descendant/labeled_by relationships; do not mix it with flat filters.")]
+    [Description("Finds nodes by identity/state or a bounded relationship selector. Optional attributes project typed values instead of nodes, with explicit partial coverage. Use selector for parent/ancestor/descendant/labeled_by relationships; do not mix it with flat filters. Structured queries accept explicit maxDepth up to 64 and maxNodes up to 2048 for deep templates; verify complete coverage and preserve the entire returned target before acting.")]
     public static async Task<ToolResult<FindNodesResponse>> FindNodes(
         LocalBridgeClient bridgeClient,
         string sessionId,

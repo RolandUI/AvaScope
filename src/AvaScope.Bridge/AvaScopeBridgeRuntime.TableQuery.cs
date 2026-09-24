@@ -217,5 +217,9 @@ public sealed partial class AvaScopeBridgeRuntime
     private sealed record TableCapturedRow(object Item, string? Key, RuntimeTableRow Response);
     private sealed record TableCapture(DataGridTable Grid, IReadOnlyList<DataGridColumnInfo> Columns, IReadOnlyList<TableCapturedRow> Rows,
         IReadOnlyList<object> Items, bool Complete, RuntimeTableQueryResponse Response);
-    private sealed class TableStop(string code, string message) : Exception(message) { public string Code { get; } = code; }
+    private sealed class TableStop(string code, string message, IReadOnlyDictionary<string, string>? details = null) : Exception(message)
+    {
+        public string Code { get; } = code;
+        public IReadOnlyDictionary<string, string>? Details { get; } = details;
+    }
 }
