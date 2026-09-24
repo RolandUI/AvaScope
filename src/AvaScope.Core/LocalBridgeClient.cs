@@ -1651,6 +1651,18 @@ public sealed partial class LocalBridgeClient
 
         for (var attempt = 1; attempt <= maximumAttempts; attempt++)
         {
+            var elapsed = Stopwatch.StartNew();
+            var phase = "connect";
+            var receivedBytes = 0;
+            IReadOnlyDictionary<string, string> FailureDetails() => CreateRequestDetails(manifest, request,
+                new Dictionary<string, string>
+                {
+                    ["ipcPhase"] = phase,
+                    ["ipcAttempt"] = attempt.ToString(CultureInfo.InvariantCulture),
+                    ["ipcElapsedMs"] = elapsed.ElapsedMilliseconds.ToString(CultureInfo.InvariantCulture),
+                    ["ipcOperationTimeoutMs"] = (operationTimeout ?? _operationTimeout).TotalMilliseconds.ToString(CultureInfo.InvariantCulture),
+                    ["ipcReceivedBytes"] = receivedBytes.ToString(CultureInfo.InvariantCulture)
+                });
             try
             {
                 await using var pipe = new NamedPipeClientStream(
@@ -1664,11 +1676,15 @@ public sealed partial class LocalBridgeClient
                 using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
                 timeout.CancelAfter(operationTimeout ?? _operationTimeout);
 
+                phase = "serialize";
                 var requestBytes = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(request) + Environment.NewLine);
+                phase = "write";
                 await pipe.WriteAsync(requestBytes, timeout.Token);
                 await pipe.FlushAsync(timeout.Token);
 
-                var responseLine = await ReadLineAsync(pipe, timeout.Token);
+                phase = "read";
+                var responseLine = await ReadLineAsync(pipe, timeout.Token, count => receivedBytes += count);
+                phase = "deserialize";
                 var response = JsonSerializer.Deserialize<BridgeIpcResponse>(responseLine)
                     ?? throw new JsonException("Bridge IPC response payload was empty.");
 
@@ -1709,14 +1725,14 @@ public sealed partial class LocalBridgeClient
                 return CoreResult<T>.Fail(new CoreError(
                     CoreErrorCodes.BridgeIpcUnavailable,
                     "Bridge IPC request timed out.",
-                    CreateRequestDetails(manifest, request)));
+                    FailureDetails()));
             }
             catch (Exception exception) when (exception is IOException or TimeoutException or JsonException or InvalidOperationException or ObjectDisposedException)
             {
                 return CoreResult<T>.Fail(new CoreError(
                     CoreErrorCodes.BridgeIpcUnavailable,
                     exception.Message,
-                    CreateRequestDetails(manifest, request)));
+                    FailureDetails()));
             }
         }
 
@@ -1750,7 +1766,7 @@ public sealed partial class LocalBridgeClient
         await Task.Run(() => pipe.Connect(timeoutMilliseconds), cancellationToken);
     }
 
-    private static async Task<string> ReadLineAsync(PipeStream pipe, CancellationToken cancellationToken)
+    private static async Task<string> ReadLineAsync(PipeStream pipe, CancellationToken cancellationToken, Action<int> observeRead)
     {
         var responseBytes = new List<byte>();
         var buffer = new byte[8192];
@@ -1759,6 +1775,7 @@ public sealed partial class LocalBridgeClient
         while (!complete)
         {
             var read = await pipe.ReadAsync(buffer, cancellationToken);
+            observeRead(read);
             if (read == 0)
             {
                 break;
@@ -2112,6 +2129,11 @@ public sealed partial class LocalBridgeClient
         if (!string.IsNullOrWhiteSpace(request.TreeKind))
         {
             details["treeKind"] = request.TreeKind;
+        }
+
+        if (request.MaxDepth is { } maxDepth)
+        {
+            details["maxDepth"] = maxDepth.ToString(CultureInfo.InvariantCulture);
         }
 
         if (!string.IsNullOrWhiteSpace(request.NodeId))

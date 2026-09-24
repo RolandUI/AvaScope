@@ -47,6 +47,8 @@ For direct MCP registration, `mcp-server.json` identifies the exact copied serve
 
 `Stop` uses `close-session --terminate-launched-process true`; the product checks the launch marker and live process identity. If startup was interrupted after launch, Stop can recover the unique manifest in that run. Ambiguous/missing ownership needs [RUN_RECOVERY.md](RUN_RECOVERY.md); do not kill a process by name. Fixture lease expiry closes its windows even if the orchestration process disappears. A failed startup/command retains evidence. No run directories are automatically deleted.
 
+Startup separately establishes bridge, application and rendered-frame readiness within a shared 10-second readiness budget before capturing the initial tree. Health and window discovery alone do not establish UI readiness. IPC transport failures retain the final attempt's phase, elapsed milliseconds, configured operation timeout and received byte count, without response contents. A timeout with zero received bytes cannot distinguish server scheduling from execution; a partial response shows that bytes arrived but not why the frame stopped. These diagnostics do not change operation deadlines or retry actions.
+
 ## Independent observation
 
 Use three observations together: public response, app-owned `qa-state.json`, and OS-native pixels. The journal records seed, counters, editor replacement generation, bounded event history, readiness, theme, locale, font, backend handle, actual scale and client/screen geometry. It is read-only to the agent. Never change it to make a test pass. Reset is preparation, not the tested user action.

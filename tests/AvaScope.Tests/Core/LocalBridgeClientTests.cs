@@ -307,6 +307,77 @@ public sealed class LocalBridgeClientTests : IDisposable
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    public async Task TreeTimeoutReportsReadProgressAndAllowsAnExplicitFreshRequest(bool partialResponse)
+    {
+        Directory.CreateDirectory(_manifestDirectory);
+        var sessionId = SessionId.New();
+        var pipeName = TestPipeNames.New();
+        WriteManifest("tree-timeout.json", new BridgeSessionManifest(
+            sessionId, Environment.ProcessId, pipeName, DateTimeOffset.UtcNow, "Tree timeout fixture"));
+        using var deadline = new CancellationTokenSource(BridgePipeTestTimeout);
+        var releaseFirst = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var nextReady = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var prefix = Encoding.UTF8.GetBytes("{\"fixture-secret\":");
+        var requests = new List<BridgeIpcRequest>();
+        await using var firstPipe = new NamedPipeServerStream(pipeName, PipeDirection.InOut, 1,
+            PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
+        var server = Task.Run(async () =>
+        {
+            await firstPipe.WaitForConnectionAsync(deadline.Token);
+            requests.Add(JsonSerializer.Deserialize<BridgeIpcRequest>(await ReadLineAsync(firstPipe, deadline.Token))!);
+            if (partialResponse)
+            {
+                await firstPipe.WriteAsync(prefix, deadline.Token);
+                await firstPipe.FlushAsync(deadline.Token);
+            }
+            await releaseFirst.Task.WaitAsync(deadline.Token);
+            await firstPipe.DisposeAsync();
+            await using var next = new NamedPipeServerStream(pipeName, PipeDirection.InOut, 1,
+                PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
+            nextReady.SetResult();
+            await next.WaitForConnectionAsync(deadline.Token);
+            var request = JsonSerializer.Deserialize<BridgeIpcRequest>(await ReadLineAsync(next, deadline.Token))!;
+            requests.Add(request);
+            var tree = new TreeResponse(sessionId, "topLevel:timeout", TreeKinds.Visual, 4,
+                new TreeNodeSummary("visual:recovered", "Window"));
+            await next.WriteAsync(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(
+                BridgeIpcResponse.Ok(request.RequestId, tree)) + "\n"), deadline.Token);
+        }, deadline.Token);
+        try
+        {
+            var client = new LocalBridgeClient(_manifestDirectory, TimeSpan.FromSeconds(2));
+            var timedOut = await client.VisualTreeAsync(sessionId, "topLevel:timeout", 4, deadline.Token);
+            Assert.False(timedOut.Success);
+            Assert.Equal(CoreErrorCodes.BridgeIpcUnavailable, timedOut.Error!.Code);
+            Assert.Equal("read", timedOut.Error.Details!["ipcPhase"]);
+            Assert.Equal("1", timedOut.Error.Details["ipcAttempt"]);
+            Assert.Equal("2000", timedOut.Error.Details["ipcOperationTimeoutMs"]);
+            Assert.Equal(partialResponse ? prefix.Length : 0, int.Parse(timedOut.Error.Details["ipcReceivedBytes"]));
+            Assert.True(long.Parse(timedOut.Error.Details["ipcElapsedMs"]) >= 1900);
+            Assert.Equal("4", timedOut.Error.Details["maxDepth"]);
+            Assert.DoesNotContain("fixture-secret", JsonSerializer.Serialize(timedOut));
+
+            releaseFirst.SetResult();
+            await nextReady.Task.WaitAsync(deadline.Token);
+            var recovered = await client.VisualTreeAsync(sessionId, "topLevel:timeout", 4, deadline.Token);
+            Assert.True(recovered.Success, recovered.Error?.Message);
+            Assert.Equal("visual:recovered", recovered.Value!.Root.NodeId);
+            await server;
+            Assert.Equal(2, requests.Count);
+            Assert.All(requests, request => Assert.Equal(BridgeIpcMethods.VisualTree, request.Method));
+            Assert.NotEqual(requests[0].RequestId, requests[1].RequestId);
+        }
+        finally
+        {
+            releaseFirst.TrySetResult();
+            await deadline.CancelAsync();
+            try { await server; } catch (OperationCanceledException) when (deadline.IsCancellationRequested) { }
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
     public async Task BufferedResponsesPreserveFragmentedUnicodeFramingAndTheMessageLimit(bool oversized)
     {
         Directory.CreateDirectory(_manifestDirectory);

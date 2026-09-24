@@ -27,6 +27,11 @@ foreach ($integration in @('Direct','Standalone')) {
     $run = $null
     try {
         $run = & $entry -Operation Start -Integration $integration -Backend $Backend -RunDirectory $runPath -ProviderDirectory $ProviderDirectory -SkipBuild:($SkipBuild -or $integration -eq 'Standalone') | ConvertFrom-Json
+        $startup = Get-Content (Join-Path $run.root 'startup.stdout.log') -Raw | ConvertFrom-Json -Depth 100
+        foreach ($condition in @('bridge_ready','application_ready','frame_ready')) {
+            $observed = @($startup.value.readiness.observations | Where-Object condition -eq $condition)
+            if ($observed.Count -ne 1 -or -not $observed[0].matched) { throw "Startup did not establish $condition before inspection." }
+        }
         for ($cycle = 1; $cycle -le 2; $cycle++) {
             $found = Call 'find_nodes' @{sessionId=$run.sessionId;topLevelId=$run.topLevelId;automationId='qa-notifications';maxDepth=24;maxResults=4}
             $matches = @($found.value.value.matches)

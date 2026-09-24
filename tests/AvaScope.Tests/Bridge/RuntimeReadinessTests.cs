@@ -160,12 +160,14 @@ public sealed class RuntimeReadinessTests
                     RuntimeScenarioRequest Request() => new(
                         [new SemanticWorkflowStep(SemanticWorkflowActions.Invoke, selector: new SemanticWorkflowSelector(name: "Action"))],
                         sessionId: runtime.SessionId, topLevelId: top.Id, outputDirectory: Path.Combine(output, Guid.NewGuid().ToString("N")),
+                        captureVisualTree: true,
                         startupReadiness: new RuntimeStartupReadinessOptions(waitForFrame: false, waitForApplication: true, timeoutMs: 1500));
                     var absent = await AvaScopeMcpTools.RunScenario(client, Request());
                     Assert.False(absent.Success);
                     Assert.NotNull(absent.Value);
                     Assert.Equal("ui_readiness", absent.Value!.FailureStage);
                     Assert.Null(absent.Value.Workflow);
+                    Assert.False(File.Exists(Path.Combine(absent.Value.Metadata["outputDirectory"], "runtime-tree.json")));
                     Assert.Equal("unavailable", absent.Value.Readiness!.Observations.Last().Availability);
                     Assert.Equal(0, invoked);
                     runtime.SetReadiness("busy");
@@ -179,6 +181,7 @@ public sealed class RuntimeReadinessTests
                     var ready = await AvaScopeMcpTools.RunScenario(client, Request());
                     Assert.Equal("passed", ready.Value!.Status);
                     Assert.All(ready.Value.Readiness!.Observations, value => Assert.True(value.Matched));
+                    Assert.True(File.Exists(Path.Combine(ready.Value.Metadata["outputDirectory"], "runtime-tree.json")));
                     Assert.Equal(1, invoked);
 
                     var panel = new StackPanel();

@@ -195,6 +195,7 @@ if ($Operation -eq 'Start') {
         schemaVersion=1; profiles=@{ interactive=@{
             scenario=@{
                 launch=@{command='dotnet';argumentList=$launchArguments;manifestDirectory=$run.manifestDirectory;timeoutMs=30000}
+                startupReadiness=@{waitForApplication=$true;waitForFrame=$true;timeoutMs=10000}
                 steps=@(@{action='wait_for_node';selector=@{automationId='qa-reset';rendered=$true};timeoutMs=10000})
                 outputDirectory=(Join-Path $root 'startup');terminateLaunchedProcess=$false;captureVisualTree=$true
             }
