@@ -1,9 +1,9 @@
 using System.Text.Json;
 using ModelContextProtocol.Client;
 
-if (args.Length is not 3 and not 4)
+if (args.Length is < 3 or > 5 || args.Length == 5 && args[4] != "--full-result")
 {
-    Console.Error.WriteLine("Usage: AvaScope.McpScenarioClient <mcp-assembly> <request-json> <manifest-directory> [tool-name]");
+    Console.Error.WriteLine("Usage: AvaScope.McpScenarioClient <mcp-assembly> <request-json> <manifest-directory> [tool-name] [--full-result]");
     return 2;
 }
 
@@ -18,7 +18,8 @@ if (!File.Exists(serverAssembly) || !File.Exists(requestPath))
 
 var request = JsonSerializer.Deserialize<JsonElement>(await File.ReadAllTextAsync(requestPath));
 using var cancellation = new CancellationTokenSource(TimeSpan.FromMinutes(3));
-if (args.Length == 4 && args[3] == "--stdio-session") cancellation.CancelAfter(TimeSpan.FromMinutes(10));
+if (args.Length >= 4 && args[3] == "--stdio-session") cancellation.CancelAfter(TimeSpan.FromMinutes(10));
+var fullResult = args.Length == 5;
 var environment = StdioClientTransportOptions.GetDefaultEnvironmentVariables();
 // Unix NamedPipeStream resolves its socket beneath TMPDIR. Preserve that transport
 // environment when connecting to an app launched outside this sanitized MCP child.
@@ -38,7 +39,7 @@ await using var client = await McpClient.CreateAsync(
         ShutdownTimeout = TimeSpan.FromSeconds(5)
     }),
     cancellationToken: cancellation.Token);
-var toolName = args.Length == 4 ? args[3] : "run_scenario";
+var toolName = args.Length >= 4 ? args[3] : "run_scenario";
 if (toolName == "--schemas")
 {
     var schemas = await client.ListToolsAsync(cancellationToken: cancellation.Token);
@@ -61,11 +62,11 @@ if (toolName == "--stdio-session")
         var arguments = command.RootElement.GetProperty("arguments").EnumerateObject().ToDictionary(property => property.Name, property => (object?)property.Value);
         var measurement = command.RootElement.TryGetProperty("measurement", out var measured) ? measured : default;
         var called = await CallMeasuredAsync(name, arguments, measurement);
-        Console.WriteLine(JsonSerializer.Serialize(called.StructuredContent));
+        Console.WriteLine(fullResult ? JsonSerializer.Serialize(called) : JsonSerializer.Serialize(called.StructuredContent));
     }
     return 0;
 }
-var toolArguments = args.Length == 4
+var toolArguments = args.Length >= 4
     ? request.EnumerateObject().ToDictionary(property => property.Name, property => (object?)property.Value)
     : new Dictionary<string, object?>
     {
@@ -73,10 +74,10 @@ var toolArguments = args.Length == 4
         ["manifestDirectory"] = manifestDirectory
     };
 var result = await CallMeasuredAsync(toolName, toolArguments, default);
-var output = JsonSerializer.Serialize(result.StructuredContent);
+var output = fullResult ? JsonSerializer.Serialize(result) : JsonSerializer.Serialize(result.StructuredContent);
 Console.WriteLine(output);
-using var document = JsonDocument.Parse(output);
-return document.RootElement.TryGetProperty("success", out var success) && success.GetBoolean() ? 0 : 1;
+return result.IsError != true && result.StructuredContent is { ValueKind: JsonValueKind.Object } structured
+    && structured.TryGetProperty("success", out var success) && success.ValueKind == JsonValueKind.True ? 0 : 1;
 
 async Task<ModelContextProtocol.Protocol.CallToolResult> CallMeasuredAsync(string name, Dictionary<string, object?> arguments, JsonElement measurement)
 {

@@ -13,6 +13,8 @@ For the `v1.0.0` end-to-end release-readiness ledger, keep [END_TO_END_VALIDATIO
 
 Run build and test commands sequentially. Parallel build/test invocations can contend for the same `bin/` and `obj/` outputs.
 
+The [native agent QA lab](AGENT_QA_LAB.md) complements these tests with actual agent-operated desktop tasks and independent native image review. `pwsh -File eng/test-agent-qa-lab.ps1 -SkipBuild -TestExpiry` checks its two-host lifecycle and failure-evidence plumbing on an available desktop; that scripted check is not an exploratory test result. CI records the observed native backend/scale separately on Windows, X11 and macOS.
+
 Headless asynchronous test bodies must use `BridgeHeadlessSmokeTests.DispatchAsync`
 or the explicit `HeadlessUnitTestSession.Dispatch<T>(Func<Task<T>>, CancellationToken)`
 overload. Avalonia has no `Func<Task>` overload: `Dispatch(async () => { ... })`

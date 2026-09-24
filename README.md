@@ -120,6 +120,8 @@ AvaScope `v1.1.3` is the current stable agent control-plane release. Package ide
 
 Development is tracked in GitHub Issues, Milestones, and the public [AvaScope Roadmap](https://github.com/users/RolandUI/projects/4) Project board.
 
+For hands-on agent testing, use the [native QA lab](docs/AGENT_QA_LAB.md): two resettable native hosts, pinned CLI/MCP/provider snapshots, independent app-state evidence and goal-based exploratory tasks.
+
 ## Repository Layout
 
 - `src/AvaScope.Protocol`: transport-neutral DTOs and JSON contracts.

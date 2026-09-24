@@ -14,6 +14,53 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  agent-qa-lab:
+    name: Native agent QA lab (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-24.04, macos-latest]
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+      - name: Install Linux desktop prerequisites
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y xvfb x11-utils libx11-6 libice6 libsm6 libfontconfig1 fonts-dejavu-core libgtk-3-0
+      - name: Build selected source and provider
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          dotnet build AvaScope.slnx -c Release --nologo --disable-build-servers
+          ./eng/package-provider.ps1
+      - name: Validate native lifecycle and failure evidence
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          if ($IsLinux) {
+            xvfb-run -a -s '-screen 0 1920x1200x24 -nolisten tcp' pwsh -NoProfile -File eng/test-agent-qa-lab.ps1 -SkipBuild -TestExpiry -OutputDirectory artifacts/agent-qa/ci
+          } else {
+            ./eng/test-agent-qa-lab.ps1 -SkipBuild -TestExpiry -OutputDirectory artifacts/agent-qa/ci
+          }
+      - name: Retain QA evidence (not a claim of agent exploration)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-qa-lab-${{ runner.os }}
+          retention-days: 14
+          path: |
+            artifacts/agent-qa/ci/**
+            !artifacts/agent-qa/ci/**/tools/**
+            !artifacts/agent-qa/ci/**/host/**
+            !artifacts/agent-qa/ci/**/client/**
+            !artifacts/agent-qa/ci/**/provider/**
+            !artifacts/agent-qa/ci/**/build-host/**
+
   validate:
     name: Build, Test, Pack
     runs-on: windows-latest
