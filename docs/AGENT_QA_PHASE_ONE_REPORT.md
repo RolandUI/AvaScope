@@ -6,10 +6,13 @@ Latest checkpoint: infrastructure #162/#163 and defects #158/#159/#160/#167/#168
 #169/#170 are completed. #170 `678ac0b` passes 17 focused regressions in both
 configurations, native V001–V004, and full Release (802 passed, five explicit
 native skips). #157 `c8b7dc3` passes native opacity/text review and full Debug/Release
-(801 passed each, five explicit native skips); all six hosted native lab
-combinations pass, with the broader CI `36019901130` still running. The preceding
-CI `36014239916` passed every job. Public preview/session/reload/error-recovery
-exploration P001–P015 passes; latest-source combined gates remain. #157/#161 native
+(801 passed each, five explicit native skips); every job of CI `36019901130`
+passes, including all six hosted native lab combinations. Public preview/session/
+reload/error-recovery exploration P001–P015 and fresh native direct F000–F036
+pass. Combined CI `36025169889` attempt 1 on `2f3894f` found one text-edit IPC
+timeout (#171); all six native lab combinations pass. The unchanged hosted
+test job is being rerun after 15 focused fresh-process repetitions passed;
+the campaign is not yet clean. #157/#161 native
 2× acceptance still needs an accessible Retina environment. The ledger retains
 historical intermediate results; its older pending statements are superseded by
 the later dated/source-specific validations.
@@ -60,7 +63,7 @@ This initial ledger is historical. Later sections record the remaining appearanc
 
 | Ticket | Confirmed finding / uncertainty | Current state |
 | --- | --- | --- |
-| [#157](https://github.com/RolandUI/AvaScope/issues/157) | Repeated opacity/transform inflation reproduced on Avalonia 12.1.0 and 12.1.3, including bridge screenshots. | Review: `c8b7dc3` mitigation passes focused/full local and native Win32 checks; actual native macOS 2× acceptance remains outstanding. |
+| [#157](https://github.com/RolandUI/AvaScope/issues/157) | Repeated opacity/transform inflation reproduced on Avalonia 12.1.0 and 12.1.3, including bridge screenshots. | Blocked only on native macOS 2× acceptance: `c8b7dc3` mitigation passes focused/full local, native Win32 and every CI `36019901130` job. |
 | [#158](https://github.com/RolandUI/AvaScope/issues/158) | Incomplete selector coverage was mislabeled as stale. Customer coverage metadata was absent. | Fixed `e32139f`, completed; complete targets, precise refusal and dispatch counts verified. |
 | [#159](https://github.com/RolandUI/AvaScope/issues/159) | Expected constructor/domain failures became opaque MCP invocation errors. Original customer payload was absent. | Fixed `74c07e6`, completed; structured invalid arguments and supported insert/replay verified. |
 | [#160](https://github.com/RolandUI/AvaScope/issues/160) | Exact AutomationID matching incorrectly ignored case. | Fixed `173b42b`, completed; independent counters and CLI/MCP parity verified. |
@@ -69,6 +72,7 @@ This initial ledger is historical. Later sections record the remaining appearanc
 | [#168](https://github.com/RolandUI/AvaScope/issues/168) | Repeated logical object identity made popup queries fail over IPC. | Fixed `d1028c3`, completed; both integrations on all three native backends verified. |
 | [#169](https://github.com/RolandUI/AvaScope/issues/169) | Oversized privacy rectangle overflow skipped masking while reporting success. | Completed `5bbaad1`; native MCP/workflow/CLI, full Debug/Release and all jobs of CI `36014239916` pass. |
 | [#170](https://github.com/RolandUI/AvaScope/issues/170) | observe omits numeric limits from its public schema and returns only a generic request error when exceeding them. | Completed `678ac0b`; 17 focused tests and native V001–V004 verify schema, actionable refusal, corrected/default success and owned cleanup. |
+| [#171](https://github.com/RolandUI/AvaScope/issues/171) | One full hosted Windows run times out on the first Unicode range-edit IPC request; cause not established. | Active investigation; original failure retained, 15 fresh-process repetitions pass, unchanged full hosted rerun pending. |
 
 No product bug had been fixed in the original campaign evidence above. Subsequent fixes and reruns will be identified by commit/session. A workaround never changes the original failed case to passed.
 
@@ -372,3 +376,47 @@ are retained under `artifacts/agent-qa/preview-exploration-01`. No new product
 defect was found in this charter. Local full Release at `678ac0b` passes 802
 tests with five explicit native-only skips; focused observation/text/MCP Debug
 also passes 17/17. The broader native/packaging CI is tracked separately.
+
+### Fresh native direct regression round
+
+Clean `2f3894f` was built/published by the lab for `campaign-final-direct`:
+direct integration, Avalonia 12.1.3.0, Segoe UI, native Win32 1×/1120×800.
+Session `0ce36ae935e24b32b8259facc689bc6b` owns PID 10780. Public MCP calls,
+before/after application journals and independently viewed native images are
+retained separately. F000–F036 found no new product defect:
+
+- F001–F008: complete selectors report correct top-level visual coordinates;
+  desired checked state dispatches once and repetition dispatches zero times.
+  Malformed insert is rejected before dispatch; valid Unicode insertion and
+  exact replay leave `Ada Á😀` and exactly one actual edit in the app journal.
+- F009–F014: native and rendered Dark/hu-HU nested templates, local transforms,
+  reference fonts, five equal opacity rows, group alpha and clipping agree
+  after excluding window chrome and the native cursor overlay. Screenshot and
+  observe PNGs are byte-identical. Invalid depth identifies 0..8; corrected
+  observation succeeds with explicit partial coverage. The freshly published
+  schema includes all five numeric limits.
+- F015–F017: all 894,081 intended pixels of the int.MaxValue privacy mask are
+  black. Removing masking restores exactly the preceding PNG bytes. Case-
+  distinct buttons each increment their own counter once.
+- F018–F027: replacing the editor rejects its old target; fresh selection reads
+  the preserved Unicode name. Logical popup lookup returns one complete match,
+  and native popup text is readable. The first close omitted allowDestructive:
+  its guard rejected the operation with unchanged popup/child state. The
+  explicitly authorized retry closes the owned popup and opens one child;
+  list_top_levels reports that child as active and its owner inactive. This
+  retained correction is an expected guard outcome, not an additional defect.
+- F028–F035: reset closes the child; load immediately followed by reset settles
+  to Ready. A real modal blocks owner input with zero dispatched events; its
+  owned close succeeds. Final reset yields Ada, Light/en-US, all counters zero,
+  no popup/child, one top-level, unchanged geometry and independently viewed
+  native/rendered Settings images.
+- F036: owned termination confirms PID 10780 exited. Nineteen cross-checks of
+  the retained responses, independent before/after journals, image hashes,
+  mask pixel count and process ownership all pass in `verified-summary.json`.
+
+The rendering baseline `c8b7dc3` completed every job of CI `36019901130`.
+Downloaded `opacity-hosted-{windows,linux,macos}` evidence confirms native
+input/dialog/capture checks. X11 paired CLI/MCP capture compares all 8,294,400
+pixels at actual 3840×2160; hosted macOS remains actual 1×. The later observation
+contract/client changes are covered locally and by ongoing CI `36025169889`.
+Native Retina and the browser-blocked HTML viewer remain explicit coverage gaps.
