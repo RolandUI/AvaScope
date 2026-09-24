@@ -16,6 +16,43 @@ namespace AvaScope.Tests.Bridge;
 [Collection(BridgeCollectionDefinition.Name)]
 public sealed class AgentQaFixtureTests
 {
+    [Theory]
+    [InlineData(1028, 749)]
+    [InlineData(680, 620)]
+    public async Task ContentStaysWithinObservedClientAfterReset(int width, int height)
+    {
+        using var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessSmokeTests.BridgeHeadlessTestApplication));
+        await BridgeHeadlessSmokeTests.DispatchAsync(session, () =>
+        {
+            var window = new QaWindow { Width = width, Height = height }; window.Show();
+            Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
+            try
+            {
+                for (var cycle = 0; cycle < 2; cycle++)
+                {
+                    window.ResetState();
+                    window.Width = width; window.Height = height;
+                    window.FindControl<TabControl>("Pages")!.SelectedIndex = 5;
+                    Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
+                    // Reproduce the native failure boundary: content is arranged at the
+                    // requested 1120x800 while the actual client remains clamped.
+                    var content = Assert.IsAssignableFrom<Control>(window.Content);
+                    content.Measure(new Size(1120, 800));
+                    content.Arrange(new Rect(0, 0, 1120, 800));
+                    var reset = window.FindControl<Button>("ResetButton")!;
+                    var origin = reset.TranslatePoint(default, window)!.Value;
+                    Assert.True(origin.X + reset.Bounds.Width <= window.ClientSize.Width,
+                        $"Reset exceeds client at {width}, cycle {cycle}: {origin} + {reset.Bounds.Size}; client {window.ClientSize}.");
+                    var hit = window.GetVisualAt(origin + new Vector(reset.Bounds.Width / 2, reset.Bounds.Height / 2));
+                    Assert.True(hit == reset || hit?.GetVisualAncestors().Contains(reset) == true);
+                    Assert.NotEmpty(window.FindControl<DataGrid>("RecordsTable")!.GetVisualDescendants().OfType<DataGridRow>());
+                }
+            }
+            finally { window.Close(); }
+            return Task.CompletedTask;
+        }, CancellationToken.None);
+    }
+
     [Fact]
     public async Task InvalidFormCannotSaveAndResetRemovesSavedStateAndValidationWithoutJournalingPasswords()
     {

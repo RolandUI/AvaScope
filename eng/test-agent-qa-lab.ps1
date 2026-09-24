@@ -3,6 +3,7 @@ param(
     [ValidateSet('Native','Headless')][string]$Backend = 'Native',
     [switch]$SkipBuild,
     [string]$OutputDirectory,
+    [string]$ProviderDirectory,
     [switch]$TestExpiry
 )
 $ErrorActionPreference = 'Stop'
@@ -25,7 +26,7 @@ foreach ($integration in @('Direct','Standalone')) {
     $runPath = Join-Path $root $integration.ToLowerInvariant()
     $run = $null
     try {
-        $run = & $entry -Operation Start -Integration $integration -Backend $Backend -RunDirectory $runPath -SkipBuild:($SkipBuild -or $integration -eq 'Standalone') | ConvertFrom-Json
+        $run = & $entry -Operation Start -Integration $integration -Backend $Backend -RunDirectory $runPath -ProviderDirectory $ProviderDirectory -SkipBuild:($SkipBuild -or $integration -eq 'Standalone') | ConvertFrom-Json
         for ($cycle = 1; $cycle -le 2; $cycle++) {
             $found = Call 'find_nodes' @{sessionId=$run.sessionId;topLevelId=$run.topLevelId;automationId='qa-notifications';maxDepth=24;maxResults=4}
             $matches = @($found.value.value.matches)

@@ -18,6 +18,10 @@ pwsh -NoProfile -File eng/agent-qa.ps1 -Integration Standalone
 
 `-RunDirectory artifacts/agent-qa/my-investigation` selects a fresh directory. `-Backend Headless` explicitly selects the fast regression lane. `-SkipBuild` reuses already built tools/client; `-HostDirectory` reuses an already published QA host of the selected integration. `-ProviderDirectory` chooses a verified standalone distribution. `-LifetimeSeconds` is 30–14400, default 3600, measured from opening the fixture; reset does not extend it. The run record's expiry is a conservative estimate from launch start. Binaries and hashes are kept per run so rebuilding the checkout does not change a running investigation.
 
+`test-agent-qa-lab.ps1` also accepts `-ProviderDirectory` and forwards it to the standalone run. Build the provider from the source being validated before using `-SkipBuild`; a valid manifest proves distribution integrity, not that an older local distribution contains current fixes. Retain the chosen provider's hash with the run.
+
+The shared fixture constrains its content to observed `ClientSize`, independently of requested scene dimensions. Native window managers may reject a repeated oversized request without changing the client area; Reset and tabular content must remain inside that actual viewport (#177). Requested Full HD dimensions remain distinct in the journal. Geometry regressions exercise this content/client mismatch; native CI is still required to validate platform behavior.
+
 Copy the returned `root` into `$qa`. All subsequent operations require this exact directory:
 
 ```powershell
