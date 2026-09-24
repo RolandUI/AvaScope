@@ -11,8 +11,9 @@ passes, including all six hosted native lab combinations. Public preview/session
 reload/error-recovery exploration P001–P015 and fresh native direct F000–F036
 pass. Combined CI `36025169889` attempt 1 on `2f3894f` found one text-edit IPC
 timeout (#171); all six native lab combinations pass. The unchanged hosted
-test job is being rerun after 15 focused fresh-process repetitions passed;
-the campaign is not yet clean. #157/#161 native
+Windows rerun passes 802 tests plus five skips, as does the second complete
+local Release run. Downstream gates and the instrumented-source validation
+remain pending; the original failure's cause is not established. #157/#161 native
 2× acceptance still needs an accessible Retina environment. The ledger retains
 historical intermediate results; its older pending statements are superseded by
 the later dated/source-specific validations.
@@ -72,7 +73,7 @@ This initial ledger is historical. Later sections record the remaining appearanc
 | [#168](https://github.com/RolandUI/AvaScope/issues/168) | Repeated logical object identity made popup queries fail over IPC. | Fixed `d1028c3`, completed; both integrations on all three native backends verified. |
 | [#169](https://github.com/RolandUI/AvaScope/issues/169) | Oversized privacy rectangle overflow skipped masking while reporting success. | Completed `5bbaad1`; native MCP/workflow/CLI, full Debug/Release and all jobs of CI `36014239916` pass. |
 | [#170](https://github.com/RolandUI/AvaScope/issues/170) | observe omits numeric limits from its public schema and returns only a generic request error when exceeding them. | Completed `678ac0b`; 17 focused tests and native V001–V004 verify schema, actionable refusal, corrected/default success and owned cleanup. |
-| [#171](https://github.com/RolandUI/AvaScope/issues/171) | One full hosted Windows run times out on the first Unicode range-edit IPC request; cause not established. | Active investigation; original failure retained, 15 fresh-process repetitions pass, unchanged full hosted rerun pending. |
+| [#171](https://github.com/RolandUI/AvaScope/issues/171) | One full hosted Windows run times out on the first Unicode range-edit IPC request; cause not established. | Active investigation; original failure retained, 15 fresh-process repetitions and unchanged full local/hosted Windows reruns pass. Instrumented-source gate pending. |
 
 No product bug had been fixed in the original campaign evidence above. Subsequent fixes and reruns will be identified by commit/session. A workaround never changes the original failed case to passed.
 
@@ -436,8 +437,9 @@ downloaded artifacts are under `final-hosted-lab/{windows,linux,macos}`.
 Fifteen unchanged fresh-process focused repetitions pass (1.66–1.92 seconds
 for the whole test). A second unchanged complete local Release run also passes
 802 tests plus five skips in 11m14s; that text-edit case takes 0.208 seconds in
-the full-suite context. The unchanged hosted attempt 2 has passed its Test step
-and is continuing through packaging/downstream gates. These results do not
+the full-suite context. The unchanged hosted attempt 2 passes the full Windows
+suite (802 plus five skips, 9m26s) and Windows packaging; downstream Linux/macOS
+gates continue. These results do not
 establish why the original operation exceeded its five-second IPC deadline.
 No production deadline/dispatcher change or automatic uncertain-edit retry is
 supported by this evidence.
@@ -453,5 +455,28 @@ it is neither the committed test nor a reproduction of the hosted cause.
 Evidence is in `timeout-diagnostic-negative.log` and its TRX. After restoring
 the five-second path, all 17 text/observation/MCP regressions pass with no build
 warnings/errors (`timeout-diagnostics-positive.log`). The issue remains open;
-the original timeout is not
-claimed fixed by a passing rerun.
+the original timeout is not claimed fixed by a passing rerun.
+
+An isolated diagnostic probe also measures actual IPC reads and edits on
+Avalonia 12.1.3 with the unchanged five-second deadline. Forty operations cover
+30, 542, 4,126 and 8,030 UTF-16 text units (ten each); every edit is verified,
+matches the independent control text and dispatches once. The largest measured
+read/edit times are 188.6/86.2 ms. Evidence is in
+`artifacts/agent-qa/text-ipc-probe/evidence-cleanup-fixed`. A first probe had
+completed its measurements but hung in the console harness's headless-session
+disposal; its exact owned process was stopped. Moving that one-off probe's
+disposal off the completing UI thread yields normal exit and zero remaining
+owned processes. This is diagnostic harness evidence, not a product change or
+proof of the original hosted cause. The successful measurements do not support
+a speculative product timeout increase.
+
+The timeout boundary now has a deterministic regression:
+`IpcTimeoutDuringDispatchedCallbackPreservesOneEditAndItsRecoverableOutcome`
+holds the actual application's TextInput callback until the unchanged default
+five-second IPC deadline. It verifies the uncertain response's original request
+id, releases the callback, independently reads the actual changed text and
+retrieves the retained outcome with the same payload/id. The edit and input
+callback occur exactly once. All 12 text-edit tests pass in Release, including
+this case (`timeout-boundary.log`, `timeout-boundary-results/timeout-boundary.trx`).
+This demonstrates safe recovery under a controlled timeout, not the cause of
+the earlier hosted timeout; production behavior is unchanged.

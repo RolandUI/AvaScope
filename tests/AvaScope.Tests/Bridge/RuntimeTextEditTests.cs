@@ -346,6 +346,49 @@ public sealed class RuntimeTextEditTests
     }
 
     [Fact]
+    public async Task IpcTimeoutDuringDispatchedCallbackPreservesOneEditAndItsRecoverableOutcome()
+    {
+        await WithWindow(async (runtime, root, top, client) =>
+        {
+            var box = new TextBox { Name = "Editor", Text = "a" }; root.Children.Add(box); Dispatcher.UIThread.RunJobs();
+            var target = await Target(runtime, top, "Editor");
+            var request = Edit(target, await Read(client, target), "insert", 1, text: "b");
+            var received = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            using var releaseCallback = new ManualResetEventSlim();
+            var calls = 0;
+            box.AddHandler(InputElement.TextInputEvent, (_, _) =>
+            {
+                calls++;
+                received.TrySetResult();
+                Assert.True(releaseCallback.Wait(TimeSpan.FromSeconds(20)), "The test must release the application callback after observing the client timeout.");
+            }, RoutingStrategies.Tunnel);
+
+            // Observe the client deadline off the blocked UI thread; always release the callback.
+            var uncertain = await Task.Run(async () =>
+            {
+                var edit = client.EditTextAsync(request);
+                try
+                {
+                    await received.Task.WaitAsync(TimeSpan.FromSeconds(10));
+                    return await edit.WaitAsync(TimeSpan.FromSeconds(10));
+                }
+                finally { releaseCallback.Set(); }
+            });
+            Assert.False(uncertain.Success);
+            Assert.Equal(CoreErrorCodes.BridgeIpcUnavailable, uncertain.Error!.Code);
+            Assert.Equal("Bridge IPC request timed out.", uncertain.Error.Message);
+            Assert.Equal("unknown", uncertain.Error.Details!["dispatched"]);
+            Assert.Equal(request.RequestId, uncertain.Error.Details["textEditRequestId"]);
+            Assert.Equal("ab", box.Text); Assert.Equal(1, calls);
+            Assert.Equal("ab", (await Read(client, target)).Text);
+
+            var recovered = Verified(await client.EditTextAsync(request));
+            Assert.True(recovered.Replayed); Assert.Equal("ab", recovered.After!.Text);
+            Assert.Equal(1, recovered.DispatchedOperations); Assert.Equal(1, calls);
+        });
+    }
+
+    [Fact]
     public async Task LedgerLimitPreservesOldResultsAndShutdownPreventsReuse()
     {
         await WithWindow(async (runtime, root, top, client) =>
