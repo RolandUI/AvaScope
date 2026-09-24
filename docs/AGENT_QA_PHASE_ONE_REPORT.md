@@ -2,6 +2,16 @@
 
 Status: **in progress**, 2026-09-24. Tracking issue [#166](https://github.com/RolandUI/AvaScope/issues/166). This report separates actual agent exploration from scripted checks. The owner expanded the original intake-only phase to include fixes for existing and newly discovered defects, improved regression coverage and repeated comprehensive testing. Original failures remain recorded separately from post-fix verification. Version changes and release remain outside scope.
 
+Latest checkpoint: infrastructure #162/#163 and defects #158/#159/#160/#167/#168
+are completed. #169 is implemented at `5bbaad1`, passed a fresh native agent
+round M100–M134 and full Release (792 passed, five native-only skips); updated
+Debug and CI `36014239916` are running. The preceding full CI `36009001380`
+passed every job, including native tests 5/5 on each platform and actual X11
+3840×2160 paired CLI/MCP capture. #157 and #161's remaining native 2× acceptance
+are blocked on an accessible Retina environment. The following ledger retains
+historical intermediate results; its older pending statements are superseded by
+the later dated/source-specific validations.
+
 ## Tested environment and infrastructure
 
 Shared fixtures: `0957350`; retained lab: `f18f8c8fb74cce2c024c3fc3d509226bee033469`. Product assemblies remain AvaScope 1.5.0. The lab copies and hashes the CLI/MCP/client/host/provider selected for each session. See [lab instructions and task charters](AGENT_QA_LAB.md).
@@ -179,3 +189,41 @@ passed all six native QA combinations and its Windows build/test/package gate;
 macOS/Linux final gates remain running. All six lab summaries explicitly verify
 host-declared readiness and unique popup logical identities. All observed scales
 remain 1×.
+
+### Native verification after #169 (5bbaad1)
+
+Clean `campaign-mask-fixed` uses the verified standalone provider manifest
+`fee8d6a012e4f379c8509f6b0fc0d33fa30c150ac8cf997695c151ce6b1f2e81`,
+Win32 1×, session `6e57c2982afb46ec9abb7f392172ab82`.
+
+- M100–M108: independently viewed the actual initial window and fixed masked
+  PNG. The previously failing oversized rectangle now produces exactly the
+  expected black intersection, with all 896,000 pixels checked and zero
+  incorrect pixels. Ordinary-mask control, public workflow file masking and
+  CLI capture produce byte-identical masked PNGs.
+- M109–M111: removing the policy restores normal readable capture; a rectangle
+  wholly outside the image changes zero of 896,000 pixels. PNG encoding bytes
+  differ after re-encoding, so decoded pixels, not hashes, establish this case.
+- M112–M119: complete-target desired state changes once and repeats with zero
+  dispatch. Invalid insert arguments fail structurally before dispatch; valid
+  insertion produces `Ada Á😀`, exact replay is true and app textChanges=1.
+- M120–M127: native and rendered dark/hu-HU complex text were opened and agree
+  at 1×, including nested templates, 1.15× local transform and 12/18/30-DIP
+  references. Case-distinct actions increment separate counters once. Editor
+  replacement rejects the old identity and a fresh query recovers the text.
+- M128–M134: open popup logical query has one identity with complete coverage;
+  native popup text is readable and native closure works. Load followed by
+  reset remains Ready/Ada, all counters zero, no late load completion, no child
+  windows/popup, declared readiness ready. Final native image was opened.
+
+No new failure was found in this post-fix native round. Owned termination of
+PID 3488 succeeded. Full Release at `5bbaad1` passed 792 tests with five explicit
+native-only skips; Debug build passed with zero warnings/errors. Updated Debug
+tests and full CI `36014239916` remain in progress.
+
+The preceding combined CI `36009001380` completed successfully at `7d86ab3`.
+Downloaded native logs confirm 5/5 on Windows, Linux and macOS. Linux's isolated
+4096×2400 X11 desktop supplies actual 3840×2160 rendered/native frames through
+both packaged CLI and MCP, each comparing all 8,294,400 pixels while preserving
+requested client geometry. Its observed scale is 1×. Native macOS paired capture
+also passes at 1×; neither substitutes for the remaining #157/#161 Retina case.
