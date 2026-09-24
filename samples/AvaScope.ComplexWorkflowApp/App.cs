@@ -41,7 +41,7 @@ public sealed class App : Application
                     allowedCustomActions: ["fixture.prepare.agent-qa", "fixture.cleanup.agent-qa"],
                     enableTestFixtures: true, allowedTestResources: ["qa-memory"]));
                 _registrations.Add(qaRuntime.RegisterTopLevel(window));
-                window.WindowCreated += child => _registrations.Add(qaRuntime.RegisterTopLevel(child));
+                // The desktop lifetime discovers children and removes them on close.
                 window.ReadinessChanged += state => qaRuntime.SetReadiness(state, "Agent QA fixture");
                 _registrations.Add(qaRuntime.RegisterTestFixture(window,
                     new RuntimeTestFixtureDescriptor("agent-qa", "1", ["qa-memory"],

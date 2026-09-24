@@ -1,6 +1,6 @@
 # First-phase native agent QA campaign
 
-Status: **in progress**, 2026-09-24. Tracking issue [#166](https://github.com/RolandUI/AvaScope/issues/166). This report separates actual agent exploration from scripted checks. No product defect fixes, version change or release are part of this phase.
+Status: **in progress**, 2026-09-24. Tracking issue [#166](https://github.com/RolandUI/AvaScope/issues/166). This report separates actual agent exploration from scripted checks. The owner expanded the original intake-only phase to include fixes for existing and newly discovered defects, improved regression coverage and repeated comprehensive testing. Original failures remain recorded separately from post-fix verification. Version changes and release remain outside scope.
 
 ## Tested environment and infrastructure
 
@@ -38,7 +38,11 @@ The local direct session is `artifacts/agent-qa/campaign-direct`, clean fixture/
 
 Exploration corrections are retained: D27 requested unsupported projection attributes and received a structured validation error; D43/D44 omitted required picking generation/geometry context and received opaque MCP errors, then D45–D47 used the documented geometry handshake. These corrections are not hidden successes or additional distinct bugs; the lost typed-request diagnostics are noted under #159.
 
-Remaining campaign work: real editor replacement and Unicode/replay boundaries; theme/locale/size and repeated captures; loading/reset interruption; virtualized rows; focus and secondary/modal/popup lifecycle; capture/policy boundaries; repeat representative and failing journeys through standalone integration; final evidence/cleanup audit.
+Additional completed exploration: D51–D59 replaced the editor, rejected its genuine stale target before input, inserted `Á😀 ` in the fresh editor exactly once, preserved replay semantics, and rejected an offset inside the emoji surrogate pair. D60–D64 checked focus inspection, synthetic forward/back traversal, stale focus rejection and real native Tab traversal. D65–D74 inspected window geometry, opened/closed/reopened child windows and read their rendered/native images. The journal preserved the Unicode profile and notification state.
+
+The latter exposed a fixture error: direct integration manually retained child registrations after native close. The fixture now relies on the desktop lifetime for child discovery/removal, with a new two-integration native close/reopen/reset lifecycle check. This is a test-environment correction, not a new product defect. The original direct campaign session was stopped through verified owned termination; its evidence is retained.
+
+Remaining campaign work: theme/locale/size and repeated captures; loading/reset interruption; virtualized rows; modal/popup lifecycle; capture/policy boundaries; repeat representative and failing journeys through standalone integration; fix and rerun ticketed regressions; broader final evidence/cleanup audit.
 
 ## Defect inventory so far
 
@@ -51,4 +55,4 @@ Remaining campaign work: real editor replacement and Unicode/replay boundaries; 
 | [#161](https://github.com/RolandUI/AvaScope/issues/161) | Native 2× Full HD paired-capture acceptance remains blocked. |
 | [#167](https://github.com/RolandUI/AvaScope/issues/167) | New: structured find_nodes returns parent-relative visual bounds while the existing argument form returns top-level bounds. |
 
-No product bug was fixed during this campaign. A workaround never changes the original failed case to passed.
+No product bug had been fixed in the original campaign evidence above. Subsequent fixes and reruns will be identified by commit/session. A workaround never changes the original failed case to passed.

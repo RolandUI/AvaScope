@@ -41,7 +41,25 @@ foreach ($integration in @('Direct','Standalone')) {
         }
         $negative = Call 'inspect_node' @{sessionId=$run.sessionId;topLevelId=$run.topLevelId;nodeId='visual:does-not-exist'} -ExpectedFailure
         if (-not (Test-Path -LiteralPath $negative.evidence.responsePath)) { throw 'Failure evidence is missing.' }
-        $results.Add(@{integration=$integration;backend=$run.observedBackend;scale=$run.renderScaling;status='passed';cycles=2;negativeFailurePreserved=$true;root=$run.root})
+        $openChild = @{request=@{sessionId=$run.sessionId;topLevelId=$run.topLevelId;steps=@(
+            @{action='select';selector=@{automationId='qa-windows-tab'}},
+            @{action='invoke';selector=@{automationId='qa-open-child'}})}}
+        $null = Call 'run_workflow' $openChild
+        $levels = Call 'list_top_levels' @{sessionId=$run.sessionId}
+        $child = @($levels.value.value.topLevels | Where-Object title -eq 'AvaScope QA details')
+        if ($child.Count -ne 1) { throw 'One open child window was expected.' }
+        $close = Call 'find_nodes' @{sessionId=$run.sessionId;topLevelId=$child[0].id;automationId='qa-close-child';maxDepth=24;maxResults=4}
+        $null = Call 'input' @{sessionId=$run.sessionId;topLevelId=$child[0].id;action='invoke';targetNodeId=$close.value.value.matches[0].node.nodeId}
+        $levels = Call 'list_top_levels' @{sessionId=$run.sessionId}
+        if (@($levels.value.value.topLevels).Count -ne 1) { throw 'A closed child remained registered.' }
+        $null = Call 'run_workflow' $openChild
+        $levels = Call 'list_top_levels' @{sessionId=$run.sessionId}
+        $reopened = @($levels.value.value.topLevels | Where-Object title -eq 'AvaScope QA details')
+        if ($reopened.Count -ne 1 -or $reopened[0].id -eq $child[0].id) { throw 'Reopened child did not have one fresh identity.' }
+        $null = & $entry -Operation Reset -RunDirectory $run.root
+        $levels = Call 'list_top_levels' @{sessionId=$run.sessionId}
+        if (@($levels.value.value.topLevels).Count -ne 1) { throw 'Reset left a child window registered.' }
+        $results.Add(@{integration=$integration;backend=$run.observedBackend;scale=$run.renderScaling;status='passed';cycles=2;negativeFailurePreserved=$true;childCloseReopenVerified=$true;root=$run.root})
     }
     finally {
         if (Test-Path (Join-Path $runPath 'qa-run.json')) {

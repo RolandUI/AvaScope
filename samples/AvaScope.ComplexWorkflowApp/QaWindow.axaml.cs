@@ -33,7 +33,6 @@ public partial class QaWindow : Window
     private long _sequence;
     private string _locale = "en-US";
 
-    public event Action<Window>? WindowCreated;
     public event Action<string>? ReadinessChanged;
 
     public QaWindow()
@@ -212,7 +211,6 @@ public partial class QaWindow : Window
         _children.Add(child);
         close.Click += (_, _) => child.Close();
         child.Closed += (_, _) => { _children.Remove(child); Record("child_closed"); };
-        WindowCreated?.Invoke(child);
         if (modal) _ = child.ShowDialog(this);
         else child.Show(this);
         WindowStatus.Text = modal ? "Confirmation opened" : "Details opened";

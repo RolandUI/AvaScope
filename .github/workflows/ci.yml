@@ -2,6 +2,11 @@ name: CI
 
 on:
   workflow_dispatch:
+    inputs:
+      agent_qa_only:
+        description: Run only the native agent QA lab after fixture/orchestration changes
+        type: boolean
+        default: false
   pull_request:
     branches:
       - master
@@ -62,6 +67,7 @@ jobs:
             !artifacts/agent-qa/ci/**/build-host/**
 
   validate:
+    if: ${{ !inputs.agent_qa_only }}
     name: Build, Test, Pack
     runs-on: windows-latest
     outputs:
