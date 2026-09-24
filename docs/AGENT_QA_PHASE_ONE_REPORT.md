@@ -66,7 +66,7 @@ This initial ledger is historical. Later sections record the remaining appearanc
 | [#167](https://github.com/RolandUI/AvaScope/issues/167) | Structured visual queries returned bounds in the wrong coordinate space. | Fixed `cfa0d3d`, completed; nested/scroll/transform and geometry-pinned picking verified. |
 | [#168](https://github.com/RolandUI/AvaScope/issues/168) | Repeated logical object identity made popup queries fail over IPC. | Fixed `d1028c3`, completed; both integrations on all three native backends verified. |
 | [#169](https://github.com/RolandUI/AvaScope/issues/169) | Oversized privacy rectangle overflow skipped masking while reporting success. | Completed `5bbaad1`; native MCP/workflow/CLI, full Debug/Release and all jobs of CI `36014239916` pass. |
-| [#170](https://github.com/RolandUI/AvaScope/issues/170) | observe omits numeric limits from its public schema and returns only a generic request error when exceeding them. | Ready; O008 rejects maxDepth=20 without a discoverable limit, O008b succeeds with 8 after source inspection. |
+| [#170](https://github.com/RolandUI/AvaScope/issues/170) | observe omits numeric limits from its public schema and returns only a generic request error when exceeding them. | Active; five Range annotations and safe field/range diagnostics implemented, 17 focused tests pass; native retry pending. |
 
 No product bug had been fixed in the original campaign evidence above. Subsequent fixes and reruns will be identified by commit/session. A workaround never changes the original failed case to passed.
 
@@ -304,3 +304,21 @@ diagnostic. Source inspection established 0..8; the corrected O008b succeeds.
 This negative result is preserved separately from the passing screenshot cases.
 Full local Release→Debug and CI `36019901130` now validate `c8b7dc3`; both are
 still running at this checkpoint. No native Retina success is inferred.
+
+### Observation contract and recovery (#170)
+
+Standard data-annotation Range metadata publishes minimum/maximum for
+maxTopLevels (1..8), maxNodes (1..256), maxDepth (0..8), maxInlineBytes
+(4096..131072) and timeoutMs (1..5000). The MCP pre-binding filter maps only
+these trusted DTO annotations to field/minimum/maximum diagnostics. It does
+not echo raw exception messages, JSON paths or caller values. Constructor
+range violations, oversized integers, wrong types and nulls receive the same
+bounded recovery information; unrelated validation behavior stays intact.
+
+Actual MCP stdio tools/list failed its minimum-bound assertion before the fix.
+Afterward, 17 observation/text-edit/MCP tests pass. The new case checks every
+numeric bound, 25 invalid requests through an absent manifest directory,
+boundary-valid/default calls against a real bridge, corrected retries,
+unchanged application text and absence of a sensitive canary from replies and
+stderr. A valid 1 ms timeout may legitimately expire at runtime; the test
+distinguishes that from argument rejection. Native follow-up is pending.

@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
 
 namespace AvaScope.Protocol;
@@ -45,15 +46,15 @@ public sealed record RuntimeObservationRequest
     [JsonPropertyName("topLevelTitle")] public string? TopLevelTitle { get; }
     [JsonPropertyName("activeOnly")] public bool ActiveOnly { get; }
     [JsonPropertyName("rootNodeId")] public string? RootNodeId { get; }
-    [JsonPropertyName("maxTopLevels")] public int MaxTopLevels { get; }
-    [JsonPropertyName("maxNodes")] public int MaxNodes { get; }
-    [JsonPropertyName("maxDepth")] public int MaxDepth { get; }
+    [JsonPropertyName("maxTopLevels"), Range(1, 8)] public int MaxTopLevels { get; }
+    [JsonPropertyName("maxNodes"), Range(1, 256)] public int MaxNodes { get; }
+    [JsonPropertyName("maxDepth"), Range(0, 8)] public int MaxDepth { get; }
     [JsonPropertyName("includeDiagnostics")] public bool IncludeDiagnostics { get; }
     [JsonPropertyName("includeScreenshot")] public bool IncludeScreenshot { get; }
     [JsonPropertyName("outputDirectory")] public string? OutputDirectory { get; }
     [JsonPropertyName("policy")] public RuntimeEvidencePolicy? Policy { get; }
-    [JsonPropertyName("maxInlineBytes")] public int MaxInlineBytes { get; }
-    [JsonPropertyName("timeoutMs")] public int TimeoutMs { get; }
+    [JsonPropertyName("maxInlineBytes"), Range(4096, 131072)] public int MaxInlineBytes { get; }
+    [JsonPropertyName("timeoutMs"), Range(1, 5000)] public int TimeoutMs { get; }
     [JsonPropertyName("requestId")] public string RequestId { get; }
 }
 

@@ -1,5 +1,8 @@
+using System.ComponentModel.DataAnnotations;
+using System.Globalization;
 using System.Reflection;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using AvaScope.Core;
 using AvaScope.Mcp;
 using AvaScope.Protocol;
@@ -54,12 +57,32 @@ builder.Services
                     const string insertOffsets = "Insert requires a start offset within 0..8192 and no end offset.";
                     var message = parameter.ParameterType == typeof(RuntimeTextEditRequest) && exception.Message == insertOffsets
                         ? insertOffsets : "A protocol argument is missing or violates its published schema or domain constraints.";
-                    var result = ToolResult<object>.Fail(new ProtocolError("invalid_mcp_arguments", message,
-                        new Dictionary<string, string>
+                    var details = new Dictionary<string, string>
+                    {
+                        ["argument"] = parameter.Name!, ["stage"] = "request_validation", ["dispatched"] = "false",
+                        ["nextAction"] = "Correct this argument using the tool's published schema and operation requirements, then submit the corrected request."
+                    };
+                    if (parameter.ParameterType == typeof(RuntimeObservationRequest))
+                    {
+                        var invalidField = exception switch
                         {
-                            ["argument"] = parameter.Name!, ["stage"] = "request_validation", ["dispatched"] = "false",
-                            ["nextAction"] = "Correct this argument using the tool's published schema and operation requirements, then submit the corrected request."
-                        }));
+                            ArgumentOutOfRangeException range => range.ParamName,
+                            JsonException { Path: { } path } when path.StartsWith("$.", StringComparison.Ordinal) => path[2..],
+                            _ => null
+                        };
+                        // Only trusted DTO metadata is returned, never exception text or caller values.
+                        var property = typeof(RuntimeObservationRequest).GetProperties().FirstOrDefault(property =>
+                            property.GetCustomAttribute<JsonPropertyNameAttribute>()?.Name == invalidField);
+                        if (property?.GetCustomAttribute<RangeAttribute>() is { Minimum: int minimum, Maximum: int maximum })
+                        {
+                            var field = property.GetCustomAttribute<JsonPropertyNameAttribute>()!.Name;
+                            details["field"] = field;
+                            details["minimum"] = minimum.ToString(CultureInfo.InvariantCulture);
+                            details["maximum"] = maximum.ToString(CultureInfo.InvariantCulture);
+                            message = $"{field} must be an integer in {details["minimum"]}..{details["maximum"]} (inclusive).";
+                        }
+                    }
+                    var result = ToolResult<object>.Fail(new ProtocolError("invalid_mcp_arguments", message, details));
                     var content = JsonSerializer.SerializeToElement(result, McpJsonUtilities.DefaultOptions);
                     return new CallToolResult
                     {

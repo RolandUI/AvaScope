@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Headless;
@@ -16,6 +17,94 @@ namespace AvaScope.Tests.Bridge;
 [Collection(BridgeCollectionDefinition.Name)]
 public sealed class RuntimeObservationTests
 {
+    [Fact]
+    public async Task McpObservationPublishesNumericBoundsAndRejectsInvalidFieldsWithoutLeakingValues()
+    {
+        using var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessSmokeTests.BridgeHeadlessTestApplication));
+        var output = TemporaryDirectory();
+        try
+        {
+            await BridgeHeadlessSmokeTests.DispatchAsync(session, async () =>
+            {
+                AvaScopeBridge.Deactivate();
+                var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Observation bounds"));
+                var editor = new TextBox { Text = "Unchanged" };
+                var window = new Window { Width = 240, Height = 160, Content = editor };
+                try
+                {
+                    window.Show();
+                    using var registration = runtime.RegisterTopLevel(window);
+                    var top = Assert.Single(await runtime.ListTopLevelsAsync());
+                    var stderr = new System.Collections.Concurrent.ConcurrentQueue<string>();
+                    using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(90));
+                    await using var mcp = await McpClient.CreateAsync(new StdioClientTransport(new()
+                    {
+                        Command = "dotnet", Arguments = [Path.Combine(AppContext.BaseDirectory, "AvaScope.Mcp.dll")],
+                        Name = "observation-bounds-test", StandardErrorLines = stderr.Enqueue
+                    }), cancellationToken: timeout.Token);
+                    var tool = Assert.Single(await mcp.ListToolsAsync(cancellationToken: timeout.Token), item => item.Name == "observe");
+                    var properties = JsonSerializer.SerializeToNode(tool.ProtocolTool.InputSchema)!["properties"]!["request"]!["properties"]!;
+                    const string privateValue = "private-observe-validation-canary";
+                    (string Field, int Minimum, int Maximum)[] bounds =
+                    [ ("maxTopLevels", 1, 8), ("maxNodes", 1, 256), ("maxDepth", 0, 8), ("maxInlineBytes", 4096, 131072), ("timeoutMs", 1, 5000) ];
+                    foreach (var (field, minimum, maximum) in bounds)
+                    {
+                        Assert.Equal(minimum, properties[field]!["minimum"]?.GetValue<int>());
+                        Assert.Equal(maximum, properties[field]!["maximum"]?.GetValue<int>());
+                        foreach (var invalid in new object?[] { minimum - 1, maximum + 1, long.MaxValue, privateValue, null })
+                        {
+                            var json = Request();
+                            json[field] = JsonSerializer.SerializeToNode(invalid);
+                            var call = await mcp.CallToolAsync("observe", new Dictionary<string, object?>
+                            {
+                                ["request"] = json,
+                                // A valid bridge cannot be reached through this path; validation must precede dispatch.
+                                ["manifestDirectory"] = Path.Combine(output, "absent-manifests")
+                            }, cancellationToken: timeout.Token);
+                            Assert.True(call.IsError);
+                            var failed = JsonSerializer.Deserialize<ToolResult<RuntimeObservationResponse>>(JsonSerializer.Serialize(call.StructuredContent))!;
+                            Assert.Equal("invalid_mcp_arguments", failed.Error!.Code);
+                            Assert.Equal("request", failed.Error.Details!["argument"]);
+                            Assert.Equal(field, failed.Error.Details["field"]);
+                            Assert.Equal(minimum.ToString(System.Globalization.CultureInfo.InvariantCulture), failed.Error.Details["minimum"]);
+                            Assert.Equal(maximum.ToString(System.Globalization.CultureInfo.InvariantCulture), failed.Error.Details["maximum"]);
+                            Assert.Equal("false", failed.Error.Details["dispatched"]);
+                            Assert.Contains(field, failed.Error.Message, StringComparison.Ordinal);
+                            Assert.DoesNotContain(privateValue, JsonSerializer.Serialize(call), StringComparison.Ordinal);
+                            Assert.Equal("Unchanged", editor.Text);
+                        }
+                        foreach (var valid in new[] { minimum, maximum })
+                        {
+                            var json = Request();
+                            json[field] = valid;
+                            var result = await Call(json);
+                            // A real 1 ms deadline can expire after valid argument binding; it is not a range failure.
+                            if (field == "timeoutMs" && valid == 1 && !result.Success)
+                                Assert.Equal("observation_timeout", result.Error!.Code);
+                            else
+                                Assert.True(result.Success, JsonSerializer.Serialize(result));
+                        }
+                    }
+                    Assert.True((await Call(Request())).Success);
+                    Assert.Equal("Unchanged", editor.Text);
+                    Assert.DoesNotContain(privateValue, string.Join('\n', stderr), StringComparison.Ordinal);
+
+                    JsonObject Request() => JsonSerializer.SerializeToNode(new RuntimeObservationRequest(runtime.SessionId,
+                        [top.Id], outputDirectory: output))!.AsObject();
+
+                    async Task<ToolResult<RuntimeObservationResponse>> Call(JsonObject request)
+                    {
+                        var call = await mcp.CallToolAsync("observe", new Dictionary<string, object?>
+                        { ["request"] = request, ["manifestDirectory"] = Path.GetDirectoryName(runtime.SessionManifestPath)! }, cancellationToken: timeout.Token);
+                        return JsonSerializer.Deserialize<ToolResult<RuntimeObservationResponse>>(JsonSerializer.Serialize(call.StructuredContent))!;
+                    }
+                }
+                finally { window.Close(); AvaScopeBridge.Deactivate(); }
+            }, CancellationToken.None);
+        }
+        finally { Directory.Delete(output, recursive: true); }
+    }
+
     [Fact]
     public async Task CoordinatedSnapshotReportsFocusActionsChangesAndPartialCaptureFailure()
     {
