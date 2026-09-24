@@ -21,6 +21,22 @@ the later dated/source-specific validations.
 
 ## Tested environment and infrastructure
 
+### Requirement audit at `a6783cc` (2026-09-24)
+
+This is an incomplete completion audit, not a declaration that AvaScope is
+defect-free. Product code matches the explored `2f3894f`; subsequent changes
+add test diagnostics, the deadline-recovery regression and documentation.
+
+| Required outcome | Current evidence | Result / outstanding work |
+| --- | --- | --- |
+| Real agent environment, both integrations, reset/recovery and owned cleanup (#162/#163) | `eng/agent-qa.ps1`, shared QA scenes/journal, six documented charters; native Direct/Standalone transcripts and all three hosted lab backends | Implemented and validated; hosted checks remain identified as scripted. |
+| Hands-on public CLI/MCP exploration with independent state and native pixels | Direct F000–F036, Standalone M100–M134/O002–O017/V001–V004 and earlier task charters; `campaign-final-direct/verified-summary.json` contains 19 passing evidence checks | Available Windows scope passed. This does not claim agent-operated Mac/Linux desktops or native Retina coverage. |
+| Preview, variants, reload, failure recovery and session lifecycle | P001–P015: actual CLI/MCP, opened PNGs, repeated scale/theme/culture and XAML updates, failed-build recovery, one closed owned session | Passed; HTML viewer browser inspection remains blocked by the tool's local-file policy. |
+| Original five reported runtime defects (#157–#161) | Completed #158/#159/#160; #157 mitigation `c8b7dc3` and #161 bounds correction `295939d` pass the available render/capture/native gates | Native macOS 2× evidence required by #157/#161 is still missing; both tickets remain open/blocked. Original missing customer payload/view details are not invented. |
+| Newly found defects ticketed, corrected and regression-tested | #167 bounds, #168 duplicate logical identities, #169 mask overflow, #170 observe diagnostics; before/after tests and native reruns retained above | Completed. #171 remains open: the original hosted IPC deadline failure is retained and its cause is unknown. Controlled timeout recovery now passes 12 focused checks. |
+| Fresh combined regression round on the final test source | Every job of unchanged-source CI `36025169889` attempt 2 passes; instrumented-source CI `36031948678` is running on `a6783cc` | Pending that exact run and its Windows TRX artifact. A successful earlier-source rerun does not validate the new test or explain the original failure. |
+| Committed handoff, evidence and product boundaries | Changes pushed to `codex/agent-qa-phase-one`; F036 reports owned process termination; P015 reports the closed preview session; issue states retain external gaps | Product stays 1.5.0; no version bump, tag, release or publication. The campaign is not marked complete. |
+
 Shared fixtures: `0957350`; retained lab: `f18f8c8fb74cce2c024c3fc3d509226bee033469`. Product assemblies remain AvaScope 1.5.0. The lab copies and hashes the CLI/MCP/client/host/provider selected for each session. See [lab instructions and task charters](AGENT_QA_LAB.md).
 
 | Environment | Observed backend/scale | Evidence and interpretation |
