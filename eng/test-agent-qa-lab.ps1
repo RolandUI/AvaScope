@@ -52,12 +52,19 @@ foreach ($integration in @('Direct','Standalone')) {
             }
             $state = Get-Content (Join-Path $run.root 'qa-state.json') -Raw | ConvertFrom-Json
             if (-not $state.notifications -or $state.toggleCount -ne 1) { throw 'The independent journal did not observe exactly one toggle.' }
-            $capture = Call 'screenshot' @{sessionId=$run.sessionId;topLevelId=$run.topLevelId;outputPath=(Join-Path $run.root "cycle-$cycle.png")}
+            $capture = Call 'screenshot' @{sessionId=$run.sessionId;topLevelId=$run.topLevelId;outputPath=(Join-Path $run.root "cycle-$cycle.png");captureAfterRender=$true}
             if (-not (Test-Path -LiteralPath $capture.value.value.filePath)) { throw 'Public screenshot returned no artifact.' }
+            if ($capture.value.value.readiness.application.status -ne 'ready') { throw 'The host did not declare application readiness.' }
             $null = & $entry -Operation Reset -RunDirectory $run.root
             $reset = Get-Content (Join-Path $run.root 'qa-state.json') -Raw | ConvertFrom-Json
             if ($reset.notifications -or $reset.toggleCount -ne 0 -or $reset.displayName -ne 'Ada') { throw 'Reset did not restore seeded state.' }
         }
+        $null = Call 'run_workflow' @{request=@{sessionId=$run.sessionId;topLevelId=$run.topLevelId;steps=@(
+            @{action='invoke';selector=@{automationId='qa-load'}},
+            @{action='wait_for_state';waitCondition=@{kind='application_ready'};timeoutMs=5000})}}
+        $loaded = Get-Content (Join-Path $run.root 'qa-state.json') -Raw | ConvertFrom-Json
+        if ($loaded.loadStatus -ne 'Loaded 200 records') { throw 'Declared readiness completed before the app finished loading.' }
+        $null = & $entry -Operation Reset -RunDirectory $run.root
         $negative = Call 'inspect_node' @{sessionId=$run.sessionId;topLevelId=$run.topLevelId;nodeId='visual:does-not-exist'} -ExpectedFailure
         if (-not (Test-Path -LiteralPath $negative.evidence.responsePath)) { throw 'Failure evidence is missing.' }
         $sizeAction = @{request=@{sessionId=$run.sessionId;topLevelId=$run.topLevelId;steps=@(
@@ -159,7 +166,7 @@ foreach ($integration in @('Direct','Standalone')) {
                 $flat.value.value.matches[0].node.nodeId -ne $structured.value.value.matches[0].node.nodeId -or
                 -not $structured.value.value.coverage.complete) { throw 'Logical popup identity was duplicated or query coverage failed.' }
         }
-        $results.Add(@{integration=$integration;backend=$run.observedBackend;scale=$run.renderScaling;status='passed';cycles=2;negativeFailurePreserved=$true;childCloseReopenVerified=$true;exactAutomationIdsVerified=$true;queryBoundsVerified=$true;selectionCoverageVerified=$true;textEditValidationVerified=$true;logicalPopupIdentityVerified=$true;fullHdGeometry=$fullHdGeometry;root=$run.root})
+        $results.Add(@{integration=$integration;backend=$run.observedBackend;scale=$run.renderScaling;status='passed';cycles=2;negativeFailurePreserved=$true;childCloseReopenVerified=$true;exactAutomationIdsVerified=$true;queryBoundsVerified=$true;selectionCoverageVerified=$true;textEditValidationVerified=$true;logicalPopupIdentityVerified=$true;applicationReadinessVerified=$true;fullHdGeometry=$fullHdGeometry;root=$run.root})
     }
     finally {
         if (Test-Path (Join-Path $runPath 'qa-run.json')) {

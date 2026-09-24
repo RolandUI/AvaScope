@@ -100,7 +100,7 @@ Appearance exploration on the same pinned `cfa0d3d` app: D312–D314 selected Re
 - S231–S244: popup logical flat/MCP/CLI queries each return one identical object identity with complete coverage; the same holds after native closure. Focus inspection agrees with native UIA; synthetic Tab and owned-window native Shift+Tab move to Reset and back. Load followed immediately by reset remains Ready/Ada with zero counters and no subsequent load_completed. The final native image was viewed and retained.
 - Observation returns an image and truthfully reports the requested depth-8 tree as partial. Application readiness is `not_declared` in this standalone integration, not inferred from the independent journal. Paired capture on this shared desktop preserves rendered evidence while refusing native capture with `native_screen_scope_denied`; no host-wide capture grant was added.
 
-The #168 hosted run `36004045571` verified unique open-popup flat/structured identities on all three direct native backends, then failed because the new script tried the owner's actionable Reset while a native popup was open. The script now queries the closed popup before opening it and verifies both journal states; this preserves the existing popup input boundary. This was a test orchestration correction, not a new product query failure. The first run never reached standalone; the corrected six-combination rerun remains pending.
+The #168 hosted run `36004045571` verified unique open-popup flat/structured identities on all three direct native backends, then failed because the new script tried the owner's actionable Reset while a native popup was open. The script now queries the closed popup before opening it and verifies both journal states; this preserves the existing popup input boundary. This was a test orchestration correction, not a new product query failure. The first run never reached standalone. Corrected run `36006539457` passed all six Direct/Standalone × Win32/X11/macOS combinations plus expiry; downloaded summaries explicitly report logicalPopupIdentityVerified=true. #168 is completed. All actual scales remain 1×.
 
 ### Bounded 2× capture correction (#161)
 
@@ -120,3 +120,16 @@ The final 20-test capture group also passed the dense-image masking/byte-budget
 case: unmasked high-entropy PNGs are rejected, while the fully masked result is
 accepted without exposing the original. A real isolated X11 4K CLI/MCP pair is
 added and pending hosted execution. True macOS 2× capture remains unvalidated.
+
+### Final fixture corrections (#162)
+
+The source-linked standalone QA host now forwards its existing readiness event
+through the provider's public reflection bootstrap, matching direct integration
+without an AvaScope package/type dependency. The native lab requires declared
+application readiness in both screenshot cycles and waits for app-ready after
+loading, then checks the independent Loaded 200 records journal state. The popup's
+fixed dark card now has a matching local dark theme, preserving readable button
+states under either parent theme. Release solution build passed without warnings
+or errors; all three fixture tests passed. Fresh native inspection and combined
+CI are pending; the visual correction does not need an implementation-mirroring
+unit test.

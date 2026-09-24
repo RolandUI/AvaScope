@@ -154,6 +154,16 @@ internal sealed class SampleApplication : Application
                 Console.Error.WriteLine(System.Text.Json.JsonSerializer.Serialize(result));
                 if (result.Activated)
                 {
+#if QA_FIXTURE
+                    if (desktop.MainWindow is AvaScope.ComplexWorkflowApp.QaWindow qaWindow)
+                    {
+                        var bootstrap = AppDomain.CurrentDomain.GetAssemblies().Single(assembly => assembly.GetName().Name == "AvaScope.Bridge")
+                            .GetType("AvaScope.Bridge.Bootstrap", throwOnError: true)!;
+                        var declare = bootstrap.GetMethod("SetReadiness", [typeof(string), typeof(string)])!;
+                        qaWindow.ReadinessChanged += state => declare.Invoke(null, [state, "Agent QA fixture"]);
+                        declare.Invoke(null, ["ready", "Agent QA fixture ready"]);
+                    }
+#endif
                     if (desktop.Args?.Contains("--authorize-screen-capture", StringComparer.Ordinal) == true)
                     {
                         // Explicit test-host authorization, not an agent-controlled environment switch in the bridge.

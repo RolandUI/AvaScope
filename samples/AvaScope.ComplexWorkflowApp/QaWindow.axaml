@@ -119,12 +119,14 @@
           <TextBox PlaceholderText="Focus navigation target" AutomationProperties.AutomationId="qa-focus-editor" Width="360" HorizontalAlignment="Left" />
           <TextBlock x:Name="WindowStatus" Text="No secondary windows" AutomationProperties.AutomationId="qa-window-status" />
           <Popup x:Name="QaPopup" PlacementTarget="{Binding #PopupButton}" IsLightDismissEnabled="True">
-            <Border Padding="20" Background="#193A62" CornerRadius="6">
-              <StackPanel Spacing="10">
-                <TextBlock Text="Real popup content" Foreground="White" />
-                <Button x:Name="ClosePopupButton" Content="Close popup" AutomationProperties.AutomationId="qa-close-popup" />
-              </StackPanel>
-            </Border>
+            <ThemeVariantScope RequestedThemeVariant="Dark">
+              <Border Padding="20" Background="#193A62" CornerRadius="6">
+                <StackPanel Spacing="10">
+                  <TextBlock Text="Real popup content" Foreground="White" />
+                  <Button x:Name="ClosePopupButton" Content="Close popup" AutomationProperties.AutomationId="qa-close-popup" />
+                </StackPanel>
+              </Border>
+            </ThemeVariantScope>
           </Popup>
         </StackPanel>
       </TabItem>
