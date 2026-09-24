@@ -507,3 +507,15 @@ CLI/MCP samples capture 3840×2160 and compare all 8,294,400 pixels. Hosted
 macOS captures remain actual 1×. Full CI `36031948678` was subsequently started
 on `a6783cc` to validate the new diagnostic retention and timeout-boundary test;
 the earlier passing run does not validate those test-only changes.
+
+On `a6783cc`, CI `36031948678` has now passed the full Windows Test step,
+source and packaged CLI/MCP workflows, the Windows installer test, and all
+three native lab jobs. Downloaded `instrumented-hosted-lab/{windows,linux,macos}`
+artifacts independently match the selected clean source. All six Direct/
+Standalone journals contain one-toggle and one-edit states, isolated
+case-distinct action counters and successful owned termination; both lifecycle
+cycles and lease expiry pass. The compact cross-check is retained as
+`instrumented-hosted-lab/verified-all-platforms.json`. All observed scales are
+1; Mac's requested Full HD window is clamped to 1920×649 DIP. The Windows TRX
+upload and downstream package gates remain pending, so the combined run is
+not yet a completed validation result.
