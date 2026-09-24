@@ -64,6 +64,12 @@ restored when that handler returns.
 
 ## Menus and popup roots
 
+Explicit input records operation provenance immediately before its first event,
+after target and precondition checks. Backend, scale and screen origin therefore
+describe the dispatch surface even when a callback closes its popup or window.
+They do not claim that the surface remains available afterward; discover current
+top-levels separately. Validation remains `not_dispatched` with a planned route.
+
 Native Avalonia menus and context menus can render in a separate `PopupRoot`.
 After opening a menu, call `list_top_levels`, select the visible `kind: popup`
 entry, and query its current item before sending input. Owner-window keyboard

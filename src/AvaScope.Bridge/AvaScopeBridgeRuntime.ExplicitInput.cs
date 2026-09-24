@@ -37,6 +37,7 @@ public sealed partial class AvaScopeBridgeRuntime
         CoreError? error = null;
         CoreError? preconditionError = null;
         RuntimeExpressionResponse? preconditions = null;
+        RuntimeOperationProvenance? dispatchProvenance = null;
         var preconditionPhase = "not_checked";
         InputResponse? response = null;
         var elapsed = Stopwatch.StartNew();
@@ -189,7 +190,11 @@ public sealed partial class AvaScopeBridgeRuntime
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
                 CheckTarget(releasingKey);
-                if (dispatched == 0) CheckPreconditions("pre_dispatch");
+                if (dispatched == 0)
+                {
+                    CheckPreconditions("pre_dispatch");
+                    dispatchProvenance = RuntimePlatformEvidence.Operation(plan!.TopLevel, plan.Route, coordinateSpace: "top_level_dip");
+                }
                 dispatched++; // A throwing application callback can already have changed state.
                 dispatch();
             }, DispatcherPriority.Background, token);
@@ -368,7 +373,7 @@ public sealed partial class AvaScopeBridgeRuntime
                 ["motionSteps"] = options.MotionSteps.ToString(CultureInfo.InvariantCulture), ["elapsedMs"] = elapsed.ElapsedMilliseconds.ToString(CultureInfo.InvariantCulture),
                 ["permission"] = options.Strategy == "native" ? "in_process_owned_native_window;no_global_injection" : "activated_bridge",
                 ["coverage"] = options.Strategy == "native" ? "native_window_event_dispatch;not_hardware_injection_or_ime_composition" : "avalonia_app_logic"
-            }, provenance: RuntimePlatformEvidence.Operation(plan.TopLevel, plan.Route, handled, coordinateSpace: "top_level_dip"),
+            }, provenance: dispatchProvenance ?? RuntimePlatformEvidence.Operation(plan.TopLevel, plan.Route, handled, coordinateSpace: "top_level_dip"),
             activationPoint: plan.ActivationPoint);
     }
 

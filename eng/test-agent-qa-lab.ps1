@@ -106,7 +106,15 @@ foreach ($integration in @('Direct','Standalone')) {
                     outputPath=(Join-Path $run.root "cycle-$cycle-$menuKind.png");captureAfterRender=$true}
                 $activate = @{sessionId=$run.sessionId;topLevelId=$menuTop;targetNodeId=$item.value.value.matches[0].node.nodeId;
                     action='key_sequence';execution=@{strategy='synthetic';keys=@(@{key='Enter'})}}
-                $null = Call 'input' $activate
+                $menuBefore = @($levels.value.value.topLevels | Where-Object id -eq $menuTop)[0]
+                $activated = Call 'input' $activate
+                $provenance = $activated.value.value.provenance
+                if (-not $provenance.dispatched -or $provenance.route -ne 'avalonia_synthetic_key' -or
+                    $provenance.backend.backend -ne $menuBefore.backend.backend -or
+                    $provenance.backend.implementationType -ne $menuBefore.backend.implementationType -or
+                    $provenance.renderScaling -ne $menuBefore.renderScaling) {
+                    throw 'Closing menu input lost its pre-dispatch surface evidence.'
+                }
                 $state = Get-Content (Join-Path $run.root 'qa-state.json') -Raw | ConvertFrom-Json
                 $count = if ($menuKind -eq 'menu') { $state.input.menuActions } else { $state.input.contextActions }
                 if ($count -ne 1) { throw 'Menu activation did not produce exactly one app-owned action.' }

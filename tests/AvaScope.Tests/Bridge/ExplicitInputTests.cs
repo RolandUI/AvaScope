@@ -16,6 +16,47 @@ namespace AvaScope.Tests.Bridge;
 [Collection(BridgeCollectionDefinition.Name)]
 public sealed class ExplicitInputTests
 {
+    [Fact]
+    public async Task ClosingKeyInputRetainsDispatchSurfaceEvidenceWhileValidationHasNoEffect()
+    {
+        await WithWindow(async (runtime, _, editor, top, client) =>
+        {
+            var window = (Window)TopLevel.GetTopLevel(editor)!;
+            var before = Assert.Single(await runtime.ListTopLevelsAsync());
+            var closed = 0; var released = 0;
+            window.Closed += (_, _) => closed++;
+            editor.AddHandler(InputElement.KeyDownEvent, (_, args) =>
+            {
+                if (args.Key == Key.Enter) window.Close();
+            }, RoutingStrategies.Tunnel);
+            editor.AddHandler(InputElement.KeyUpEvent, (_, _) => released++, RoutingStrategies.Tunnel);
+            var node = Assert.Single((await client.FindNodesAsync(runtime.SessionId, top, TreeKinds.Visual, name: "Editor")).Value!.Matches).Node;
+            var options = new InputExecutionOptions { Keys = [new("Enter")], IntervalMs = 0 };
+            var dry = await client.ValidateInputAsync(runtime.SessionId, top, InputActions.KeySequence, targetNodeId: node.NodeId, execution: options);
+            Assert.True(dry.Success, JsonSerializer.Serialize(dry));
+            Assert.False(dry.Value!.Provenance!.Dispatched);
+            Assert.Equal(RuntimeOperationRoutes.NotDispatched, dry.Value.Provenance.Route);
+            Assert.Equal(RuntimeOperationRoutes.SyntheticKey, dry.Value.Provenance.PlannedRoute);
+            Assert.Equal("headless", dry.Value.Provenance.Backend.Backend);
+            Assert.Equal(0, closed); Assert.Equal(0, released);
+
+            var result = await client.InputAsync(runtime.SessionId, top, InputActions.KeySequence, targetNodeId: node.NodeId, execution: options);
+            Assert.True(result.Success, JsonSerializer.Serialize(result));
+            Assert.Equal(1, closed); Assert.Equal(1, released);
+            Assert.Null(window.PlatformImpl);
+            // The helper owns an explicit registration until cleanup; its current
+            // platform is unavailable even though this operation used a real headless surface.
+            Assert.Equal("unknown", Assert.Single(await runtime.ListTopLevelsAsync()).Backend!.Backend);
+            Assert.Equal("2", result.Value!.Metadata["dispatchedEvents"]);
+            Assert.Equal("no_owned_input_held", result.Value.Metadata["cleanup"]);
+            Assert.Equal(RuntimeOperationRoutes.SyntheticKey, result.Value.Provenance!.Route);
+            Assert.True(result.Value.Provenance.Dispatched);
+            Assert.Equal(before.Backend!.Backend, result.Value.Provenance.Backend.Backend);
+            Assert.Equal(before.Backend.ImplementationType, result.Value.Provenance.Backend.ImplementationType);
+            Assert.Equal(before.RenderScaling, result.Value.Provenance.RenderScaling);
+        });
+    }
+
     [Theory]
     [InlineData(false, false)]
     [InlineData(true, false)]
