@@ -41,6 +41,38 @@ foreach ($integration in @('Direct','Standalone')) {
         }
         $negative = Call 'inspect_node' @{sessionId=$run.sessionId;topLevelId=$run.topLevelId;nodeId='visual:does-not-exist'} -ExpectedFailure
         if (-not (Test-Path -LiteralPath $negative.evidence.responsePath)) { throw 'Failure evidence is missing.' }
+        $legacy = Call 'find_nodes' @{sessionId=$run.sessionId;topLevelId=$run.topLevelId;automationId='qa-notifications';maxDepth=32}
+        $query = Call 'find_nodes' @{sessionId=$run.sessionId;topLevelId=$run.topLevelId;selector=@{automationId='qa-notifications'};maxDepth=32}
+        if (@($legacy.value.value.matches).Count -ne 1 -or @($query.value.value.matches).Count -ne 1) { throw 'Expected one notification control in each query.' }
+        $legacyNode = @($legacy.value.value.matches)[0].node
+        $queryNode = @($query.value.value.matches)[0].node
+        if ($legacyNode.nodeId -ne $queryNode.nodeId -or
+            ($legacyNode.bounds | ConvertTo-Json -Compress) -ne ($queryNode.bounds | ConvertTo-Json -Compress)) {
+            throw 'Structured and legacy visual query bounds disagree.'
+        }
+        $topTarget = @{sessionId=$run.sessionId;topLevelId=$run.topLevelId;targetKind='top_level';topLevelGeneration=$queryNode.target.topLevelGeneration}
+        $geometry = Call 'pick_node' @{request=@{target=$topTarget}}
+        $bounds = $queryNode.bounds
+        $picked = Call 'pick_node' @{request=@{target=$topTarget;x=($bounds.x+$bounds.width/2);y=($bounds.y+$bounds.height/2);
+            coordinateSpace='top_level_dip';expectedGeometryRevision=$geometry.value.value.geometry.revision}}
+        if ($queryNode.nodeId -notin @($picked.value.value.hitPath.target.nodeId)) { throw 'Query bounds center missed the notification control.' }
+        $null = Call 'run_workflow' @{request=@{sessionId=$run.sessionId;topLevelId=$run.topLevelId;steps=@(
+            @{action='select';selector=@{automationId='qa-identity-tab'}})}}
+        foreach ($id in @('Example_Button_Key_a','Example_Button_Key_A','EXAMPLE_BUTTON_KEY_A')) {
+            $found = Call 'find_nodes' @{sessionId=$run.sessionId;topLevelId=$run.topLevelId;selector=@{automationId=$id};maxDepth=32}
+            $matches = @($found.value.value.matches)
+            if ($id -ceq 'EXAMPLE_BUTTON_KEY_A') {
+                if ($matches.Count -ne 0) { throw 'Wrong-case AutomationID unexpectedly matched.' }
+                continue
+            }
+            if ($matches.Count -ne 1 -or $matches[0].node.automationId -cne $id) { throw 'Exact AutomationID did not select one identical ID.' }
+            $null = Call 'run_workflow' @{request=@{sessionId=$run.sessionId;topLevelId=$run.topLevelId;steps=@(
+                @{action='invoke';selector=@{automationId=$id}})}}
+            $state = Get-Content (Join-Path $run.root 'qa-state.json') -Raw | ConvertFrom-Json
+            $expectedUpper = if ($id -ceq 'Example_Button_Key_a') { 0 } else { 1 }
+            if ($state.lowercaseCount -ne 1 -or $state.uppercaseCount -ne $expectedUpper) { throw 'Exact-ID action affected the wrong control.' }
+        }
+        $null = & $entry -Operation Reset -RunDirectory $run.root
         $openChild = @{request=@{sessionId=$run.sessionId;topLevelId=$run.topLevelId;steps=@(
             @{action='select';selector=@{automationId='qa-windows-tab'}},
             @{action='invoke';selector=@{automationId='qa-open-child'}})}}
@@ -59,7 +91,7 @@ foreach ($integration in @('Direct','Standalone')) {
         $null = & $entry -Operation Reset -RunDirectory $run.root
         $levels = Call 'list_top_levels' @{sessionId=$run.sessionId}
         if (@($levels.value.value.topLevels).Count -ne 1) { throw 'Reset left a child window registered.' }
-        $results.Add(@{integration=$integration;backend=$run.observedBackend;scale=$run.renderScaling;status='passed';cycles=2;negativeFailurePreserved=$true;childCloseReopenVerified=$true;root=$run.root})
+        $results.Add(@{integration=$integration;backend=$run.observedBackend;scale=$run.renderScaling;status='passed';cycles=2;negativeFailurePreserved=$true;childCloseReopenVerified=$true;exactAutomationIdsVerified=$true;queryBoundsVerified=$true;root=$run.root})
     }
     finally {
         if (Test-Path (Join-Path $runPath 'qa-run.json')) {

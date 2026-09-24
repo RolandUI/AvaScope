@@ -1,11 +1,13 @@
 using System.Diagnostics;
 using System.Text.Json;
+using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Automation.Peers;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using Avalonia.Data;
 using Avalonia.Headless;
+using Avalonia.Media;
 using Avalonia.Threading;
 using AvaScope.Bridge;
 using AvaScope.Core;
@@ -18,9 +20,57 @@ namespace AvaScope.Tests.Bridge;
 public sealed class RuntimeRelationshipQueryTests
 {
     [Fact]
+    public async Task StructuredAndLegacyBoundsAgreeThroughNestedMarginsTransformsAndScrolling()
+    {
+        await WithWindow(async (runtime, window, root, top, client) =>
+        {
+            var button = new Button { Name = "Nested", Content = "Nested button", Width = 120, Height = 40,
+                RenderTransform = new ScaleTransform(1.15, 1.15), RenderTransformOrigin = new RelativePoint(0, 0, RelativeUnit.Relative) };
+            AutomationProperties.SetAutomationId(button, "nested-button");
+            var stack = new StackPanel { Margin = new Thickness(17, 19), Children =
+            {
+                new Border { Height = 100 },
+                new Border { Padding = new Thickness(13, 11), Child = button },
+                new Border { Height = 600 }
+            }};
+            var scroll = new ScrollViewer { Height = 280, Margin = new Thickness(23, 29), Content = stack };
+            root.Children.Add(scroll);
+            window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
+            NodeBounds? first = null;
+            foreach (var offset in new[] { 0, 70 })
+            {
+                scroll.Offset = new Vector(0, offset);
+                window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
+                Assert.True((await runtime.ReadinessAsync(top, options: new(waitForFrame: true))).Success);
+                var legacy = await client.FindNodesAsync(runtime.SessionId, top, TreeKinds.Visual, automationId: "nested-button", maxDepth: 32);
+                var query = await client.QueryNodesAsync(new(runtime.SessionId, top, new(automationId: "nested-button"), maxDepth: 32));
+                var oldNode = Assert.Single(legacy.Value!.Matches);
+                var newNode = Assert.Single(query.Value!.Matches);
+                Assert.Equal(oldNode.Node.NodeId, newNode.Node.NodeId);
+                Assert.Equal(oldNode.Node.Bounds, newNode.Node.Bounds);
+                var bounds = newNode.Node.Bounds!;
+                Assert.NotEqual(button.Bounds.X, bounds.X);
+                if (first is null) first = bounds;
+                else Assert.Equal(70, first.Y - bounds.Y, 5);
+                var topTarget = new RuntimeTargetContext(runtime.SessionId, top, topLevelGeneration: newNode.Target!.TopLevelGeneration);
+                var geometry = await client.PickNodeAsync(new(topTarget));
+                Assert.True(geometry.Success, geometry.Error?.Message);
+                var picked = await client.PickNodeAsync(new(topTarget, bounds.X + bounds.Width / 2,
+                    bounds.Y + bounds.Height / 2, "top_level_dip", geometry.Value!.Geometry.Revision));
+                Assert.True(picked.Success, picked.Error?.Message);
+                Assert.Contains(picked.Value!.HitPath, item => item.Target.NodeId == newNode.Node.NodeId);
+                var logicalLegacy = await client.FindNodesAsync(runtime.SessionId, top, TreeKinds.Logical, automationId: "nested-button", maxDepth: 32);
+                var logicalQuery = await client.QueryNodesAsync(new(runtime.SessionId, top,
+                    new(treeKind: TreeKinds.Logical, automationId: "nested-button"), maxDepth: 32));
+                Assert.Equal(Assert.Single(logicalLegacy.Value!.Matches).Node.Bounds, Assert.Single(logicalQuery.Value!.Matches).Node.Bounds);
+            }
+        });
+    }
+
+    [Fact]
     public async Task ExactAutomationIdsKeepCaseDistinctAcrossBridgeCliAndMcp()
     {
-        await WithWindow(async (runtime, _, root, top, client) =>
+        await WithWindow(async (runtime, window, root, top, client) =>
         {
             var lower = new Button { Name = "Lower", Content = "Shared text" };
             var upper = new Button { Name = "Upper", Content = "Shared text" };
@@ -30,7 +80,8 @@ public sealed class RuntimeRelationshipQueryTests
             var lowerClicks = 0; var upperClicks = 0;
             lower.Click += (_, _) => lowerClicks++;
             upper.Click += (_, _) => upperClicks++;
-            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
+            Assert.True((await runtime.ReadinessAsync(top, options: new(waitForFrame: true))).Success);
             foreach (var id in new[] { "Key_a", "Key_A", "KEY_A" })
             {
                 var legacy = await client.FindNodesAsync(runtime.SessionId, top, TreeKinds.Visual, automationId: id, maxDepth: 32);
@@ -39,7 +90,12 @@ public sealed class RuntimeRelationshipQueryTests
                 {
                     Assert.True(result.Success, result.Error?.Message);
                     if (id == "KEY_A") Assert.Empty(result.Value!.Matches);
-                    else Assert.Equal(id, Assert.Single(result.Value!.Matches).Node.AutomationId);
+                    else
+                    {
+                        Assert.True(result.Value!.Matches.Count == 1, JsonSerializer.Serialize(new { id, result,
+                            window.ClientSize, root = root.Bounds, lower = lower.Bounds, upper = upper.Bounds }));
+                        Assert.Equal(id, Assert.Single(result.Value.Matches).Node.AutomationId);
+                    }
                 }
             }
             var fuzzy = await client.QueryNodesAsync(new(runtime.SessionId, top,

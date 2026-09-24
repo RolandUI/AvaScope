@@ -141,7 +141,8 @@ public sealed partial class AvaScopeBridgeRuntime
 
         TreeNodeSummary Summary(QueryNode entry) => entry.Summary ??= new(CreateNodeId(entry.Node, treeKind),
             entry.Node.GetType().FullName ?? entry.Node.GetType().Name, GetName(entry.Node), GetAutomationId(entry.Node), GetText(entry.Node),
-            GetBounds(entry.Node), target: CreateNodeTarget(request.TopLevelId, treeKind, top, entry.Node), interactionState: CreateInteractionState(top, entry.Node));
+            treeKind == TreeKinds.Visual ? GetTreeNodeBounds(top, entry.Node) : GetBounds(entry.Node),
+            target: CreateNodeTarget(request.TopLevelId, treeKind, top, entry.Node), interactionState: CreateInteractionState(top, entry.Node));
 
         string? Safe(string? value)
         {

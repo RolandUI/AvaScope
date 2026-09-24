@@ -28,6 +28,14 @@ attributes, `matches` is empty and `projections` contains one typed attribute se
 per matching node, with the same source target and relationship evidence. No
 whole tree or arbitrary application properties are returned.
 
+Flat and structured find results use the same bounds contract. Visual bounds
+have a top-level-relative DIP origin (including nested margins, scrolling and
+transforms) and the control's layout width/height. These are not an axis-aligned
+transformed or clipped visible rectangle; use geometry-pinned `pick_node` or
+`explain_actionability` for current hit testing. Logical bounds retain the
+control's parent-relative layout rectangle. Changing query syntax never changes
+the coordinate interpretation for the same tree kind.
+
 ## Relationships
 
 All ordinary criteria are conjunctive. Automation IDs use exact ordinal,

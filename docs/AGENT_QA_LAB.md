@@ -68,7 +68,7 @@ Start with reset seed 42, Light/en-US, notifications off, display name Ada, zero
 | Recovery | Try a read-only/disabled editor and an editor reference captured before replacement. Inspect the diagnostic, rediscover the current editor, perform a valid change and prove rejected actions did not mutate state. |
 | Free exploration | Spend a bounded session on keyboard focus, loading/reset interruption, virtualized items, secondary/modal windows and popup lifecycle. Choose actions from observations; investigate one unexpected result before continuing. |
 
-Apply charters to both integrations. Vary one relevant condition at a time. Run at least two clean prepare/action/reset/cleanup cycles, one deliberate failure, and interrupted/expired-session recovery. `eng/test-agent-qa-lab.ps1` checks lifecycle/evidence plumbing; its scripted result does not count as these agent tasks.
+Apply charters to both integrations. Vary one relevant condition at a time. Run at least two clean prepare/action/reset/cleanup cycles, one deliberate failure, and interrupted/expired-session recovery. `eng/test-agent-qa-lab.ps1` checks lifecycle/evidence plumbing and retained public MCP regressions for exact case-distinct IDs and consistent query bounds with geometry-pinned picking; its scripted result does not count as these agent tasks.
 
 ## Report and cadence
 
