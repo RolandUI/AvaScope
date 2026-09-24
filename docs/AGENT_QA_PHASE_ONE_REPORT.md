@@ -101,3 +101,22 @@ Appearance exploration on the same pinned `cfa0d3d` app: D312–D314 selected Re
 - Observation returns an image and truthfully reports the requested depth-8 tree as partial. Application readiness is `not_declared` in this standalone integration, not inferred from the independent journal. Paired capture on this shared desktop preserves rendered evidence while refusing native capture with `native_screen_scope_denied`; no host-wide capture grant was added.
 
 The #168 hosted run `36004045571` verified unique open-popup flat/structured identities on all three direct native backends, then failed because the new script tried the owner's actionable Reset while a native popup was open. The script now queries the closed popup before opening it and verifies both journal states; this preserves the existing popup input boundary. This was a test orchestration correction, not a new product query failure. The first run never reached standalone; the corrected six-combination rerun remains pending.
+
+### Bounded 2× capture correction (#161)
+
+The added 1920×1080 DIP/2× and exact 8 Mi-pixel headless cases both failed on the
+previous 4 Mi-pixel guard. Shared bridge/native/client limits now admit 8 Mi pixels
+with a 16,384 dimension bound; the 256 KiB masked PNG and 1 MiB IPC response bounds
+remain unchanged. macOS native requests preflight the observed display scale and
+recheck callback dimensions before copying. Paired capture and comparison retain
+their sequential buffer lifetimes, native callback slot and explicit processing
+deadlines; resource accounting and OS/codec limitations are in SCREEN_EVIDENCE.md.
+
+The focused capture/client/capability group passed 67 tests, including full-size
+rendered evidence, unchanged DIP geometry, truthful authorization refusal,
+oversize rejection/recovery and controlled-IPC 4K comparison plus invalid-half
+preservation. These are headless/client regressions, not native Retina evidence.
+The final 20-test capture group also passed the dense-image masking/byte-budget
+case: unmasked high-entropy PNGs are rejected, while the fully masked result is
+accepted without exposing the original. A real isolated X11 4K CLI/MCP pair is
+added and pending hosted execution. True macOS 2× capture remains unvalidated.

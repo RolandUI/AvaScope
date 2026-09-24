@@ -18,7 +18,7 @@ public sealed class NativeInputIntegrationTestsScreenCapture
         var output = Path.Combine(Path.GetFullPath(Environment.GetEnvironmentVariable("AVASCOPE_NATIVE_INPUT_OUTPUT")!), "screen");
         var manifests = Path.Combine(output, "sessions"); Directory.CreateDirectory(manifests);
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(90)); var token = timeout.Token;
-        await using var desktop = OperatingSystem.IsLinux() ? new X11TestEnvironment(new(WindowManager: true, SessionBus: true), Path.Combine(output, "desktop")) : null;
+        await using var desktop = OperatingSystem.IsLinux() ? new X11TestEnvironment(new(Width: 4096, Height: 2400, WindowManager: true, SessionBus: true), Path.Combine(output, "desktop")) : null;
         if (desktop is not null) { var ready = await desktop.StartAsync(token); Assert.True(ready.Success, ready.Error?.Message); }
         var start = new ProcessStartInfo("dotnet") { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
         foreach (var argument in new[] { host, "--exit-after-ms=100000", "--screen-fixture", "--authorize-screen-capture" }) start.ArgumentList.Add(argument);
@@ -105,6 +105,44 @@ public sealed class NativeInputIntegrationTestsScreenCapture
             Assert.True(offscreen.Native!.VisibleImageRegions.Sum(r => r.Width * r.Height) < offscreen.Native.PixelWidth * offscreen.Native.PixelHeight * 0.8);
             using (var bitmap = SKBitmap.Decode(offscreen.Native.FilePath)) Assert.Contains(bitmap.Pixels, pixel => pixel.Alpha == 0);
             using (var bitmap = SKBitmap.Decode(offscreen.Rendered!.FilePath)) Assert.DoesNotContain(bitmap.Pixels, pixel => pixel.Alpha == 0);
+            if (desktop is not null)
+            {
+                // This validates native 4K allocation/transport, not a claim of macOS Retina text fidelity.
+                var current = (await client.WindowAsync(new(target), token)).Value!.After!;
+                var moved = await client.WindowAsync(new(current.Target, "move", current.Revision, position: new(20, 40)), token);
+                Assert.Equal("executed", moved.Value!.Status);
+                current = (await client.WindowAsync(new(target), token)).Value!.After!;
+                var requestedSize = new RuntimeSize(3840 / current.RenderScaling, 2160 / current.RenderScaling);
+                var resized = await client.WindowAsync(new(current.Target, "resize", current.Revision, clientSize: requestedSize), token);
+                Assert.Equal("executed", resized.Value!.Status); Assert.Equal(requestedSize, resized.Value.After!.ClientSize);
+                await File.WriteAllTextAsync(Path.Combine(output, "full-resolution-window.json"), JsonSerializer.Serialize(resized.Value.After), token);
+                await File.WriteAllTextAsync(requestPath, JsonSerializer.Serialize(request), token);
+                using (var cli = Process.Start(cliStart)!)
+                {
+                    var jsonTask = cli.StandardOutput.ReadToEndAsync(token); var errorTask = cli.StandardError.ReadToEndAsync(token);
+                    await cli.WaitForExitAsync(token); var json = await jsonTask;
+                    await File.WriteAllTextAsync(Path.Combine(output, "cli-full-resolution.json"), json, token);
+                    var call = JsonSerializer.Deserialize<ToolResult<RuntimeScreenCaptureResponse>>(json)!;
+                    Assert.True(call.Success, json + await errorTask); Assert.Equal(0, cli.ExitCode);
+                    CheckFullResolution(call.Value!);
+                }
+                var largeMcp = await mcp.CallToolAsync("capture_screen", new Dictionary<string, object?>
+                { ["request"] = JsonSerializer.SerializeToElement(request), ["manifestDirectory"] = manifests }, cancellationToken: token);
+                var largeResult = JsonSerializer.Deserialize<ToolResult<RuntimeScreenCaptureResponse>>(JsonSerializer.Serialize(largeMcp.StructuredContent))!;
+                Assert.True(largeResult.Success, JsonSerializer.Serialize(largeResult)); CheckFullResolution(largeResult.Value!);
+                Assert.Equal(requestedSize, (await client.WindowAsync(new(target), token)).Value!.After!.ClientSize);
+                void CheckFullResolution(RuntimeScreenCaptureResponse captured)
+                {
+                    evidence.Add(captured); Assert.Equal("captured", captured.Status);
+                    foreach (var frame in new[] { captured.Rendered!, captured.Native! })
+                    {
+                        Assert.Equal(3840, frame.PixelWidth); Assert.Equal(2160, frame.PixelHeight);
+                        Assert.Null(frame.Png); Assert.True(File.Exists(frame.FilePath));
+                    }
+                    Assert.Equal("compared", captured.Comparison!.Status);
+                    Assert.Equal(3840L * 2160, captured.Comparison.ComparedPixels);
+                }
+            }
             async Task Invoke(string name)
             {
                 var found = await client.FindNodesAsync(manifest.SessionId, top.Id, TreeKinds.Visual, name: name, cancellationToken: token);

@@ -24,8 +24,10 @@ public sealed partial class LocalBridgeClient
         var result = await SendAsync<RuntimeScreenCaptureResponse>(manifest.Value!, new(NewRequestId(), BridgeIpcMethods.CaptureScreen, screenCapture: request), cancellationToken,
             _operationTimeout + TimeSpan.FromMilliseconds(request.TimeoutMs));
         if (!result.Success) return result;
+        using var processing = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        processing.CancelAfter(request.TimeoutMs);
         var response = result.Value!;
-        var comparison = CompareScreenFrames(response.Rendered, response.Native, request.Policy, response.Consistency);
+        var comparison = CompareScreenFrames(response.Rendered, response.Native, request.Policy, response.Consistency, processing.Token);
         var rendered = await Save(response.Rendered, "rendered.png"); var native = await Save(response.Native, "native.png");
         response = response with
         {
@@ -41,7 +43,8 @@ public sealed partial class LocalBridgeClient
             var path = Path.Combine(run, name); var created = false; var saved = false;
             try
             {
-                if (png.Length > 256 * 1024 || frame.PixelWidth < 1 || frame.PixelHeight < 1 || (long)frame.PixelWidth * frame.PixelHeight > 4194304)
+                processing.Token.ThrowIfCancellationRequested();
+                if (png.Length > RuntimeScreenCaptureLimits.MaximumPngBytes || !RuntimeScreenCaptureLimits.AllowsDimensions(frame.PixelWidth, frame.PixelHeight))
                     throw new InvalidOperationException("Capture budget exceeded.");
                 using (var codec = SKCodec.Create(new SKMemoryStream(png)))
                     if (codec is null || codec.Info.Width != frame.PixelWidth || codec.Info.Height != frame.PixelHeight) throw new InvalidOperationException("Capture dimensions disagree.");
@@ -50,14 +53,15 @@ public sealed partial class LocalBridgeClient
                     var masked = policy.MaskScreenshotPng(png, new(request.Target.SessionId, request.Target.TopLevelId, path, frame.PixelWidth, frame.PixelHeight, frame.CompletedAt));
                     png = masked.Png; frame = frame with { Masking = masked.Masking };
                 }
-                cancellationToken.ThrowIfCancellationRequested(); Directory.CreateDirectory(run);
+                if (png.Length > RuntimeScreenCaptureLimits.MaximumPngBytes) throw new InvalidOperationException("Masked capture budget exceeded.");
+                processing.Token.ThrowIfCancellationRequested(); Directory.CreateDirectory(run);
                 if (policy is not null)
                 {
                     var verified = policy.PrepareRun(run, [path], Path.GetFileName(run));
                     if (!verified.Success) throw new InvalidOperationException("Evidence path authorization changed.");
                 }
                 await using (var file = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None))
-                { created = true; await file.WriteAsync(png, cancellationToken); }
+                { created = true; await file.WriteAsync(png, processing.Token); }
                 saved = true; return frame with { FilePath = path, Png = null };
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException or InvalidOperationException or OperationCanceledException)
@@ -66,7 +70,7 @@ public sealed partial class LocalBridgeClient
         }
     }
 
-    private static RuntimeScreenComparison CompareScreenFrames(RuntimeScreenFrame? rendered, RuntimeScreenFrame? native, RuntimeEvidencePolicy? policy, string consistency)
+    private static RuntimeScreenComparison CompareScreenFrames(RuntimeScreenFrame? rendered, RuntimeScreenFrame? native, RuntimeEvidencePolicy? policy, string consistency, CancellationToken cancellationToken)
     {
         const string interpretation = "Descriptive comparison of sequential masked samples in the render-pixel grid; differences may reflect occlusion, native surfaces, resampling, timing or color management. No automatic defect or occlusion diagnosis.";
         if (rendered?.Png is null || native?.Png is null || rendered.Status != "captured" || native.Status != "captured"
@@ -74,7 +78,7 @@ public sealed partial class LocalBridgeClient
         if (rendered.Masking == "full_sensitive_mask" || native.Masking == "full_sensitive_mask") return new("privacy_masked", 0, 0, 16, interpretation);
         if (!Valid(rendered) || !Valid(native)) return new("unaligned", 0, 0, 16, interpretation);
         using var a = SKBitmap.Decode(rendered.Png); using var b = SKBitmap.Decode(native.Png);
-        if (a is null || b is null || a.Width != b.Width || a.Height != b.Height || (long)a.Width * a.Height > 4194304) return new("unaligned", 0, 0, 16, interpretation);
+        if (a is null || b is null || a.Width != b.Width || a.Height != b.Height || !RuntimeScreenCaptureLimits.AllowsDimensions(a.Width, a.Height)) return new("unaligned", 0, 0, 16, interpretation);
         var masked = new bool[a.Width * a.Height];
         foreach (var mask in policy?.ScreenshotMaskRegions ?? [])
         {
@@ -84,6 +88,8 @@ public sealed partial class LocalBridgeClient
         }
         long compared = 0, different = 0;
         for (var y = 0; y < a.Height; y++)
+        {
+            if (cancellationToken.IsCancellationRequested) return new("timeout", compared, different, 16, interpretation);
             for (var x = 0; x < a.Width; x++)
             {
                 if (masked[y * a.Width + x]) continue;
@@ -92,11 +98,12 @@ public sealed partial class LocalBridgeClient
                 compared++;
                 if (Math.Abs(first.Red - second.Red) > 16 || Math.Abs(first.Green - second.Green) > 16 || Math.Abs(first.Blue - second.Blue) > 16) different++;
             }
+        }
         return new(compared == 0 ? "no_comparable_pixels" : "compared", compared, different, 16, interpretation);
 
         static bool Valid(RuntimeScreenFrame frame)
         {
-            if (frame.Png!.Length > 256 * 1024 || frame.PixelWidth < 1 || frame.PixelHeight < 1 || (long)frame.PixelWidth * frame.PixelHeight > 4194304) return false;
+            if (frame.Png!.Length > RuntimeScreenCaptureLimits.MaximumPngBytes || !RuntimeScreenCaptureLimits.AllowsDimensions(frame.PixelWidth, frame.PixelHeight)) return false;
             using var codec = SKCodec.Create(new SKMemoryStream(frame.Png));
             return codec is not null && codec.Info.Width == frame.PixelWidth && codec.Info.Height == frame.PixelHeight;
         }

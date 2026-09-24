@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using AvaScope.Core;
 using AvaScope.Protocol;
+using SkiaSharp;
 
 namespace AvaScope.Tests.Core;
 
@@ -15,6 +16,63 @@ public sealed class LocalBridgeClientTests : IDisposable
         Path.GetTempPath(),
         "AvaScope.Tests",
         $"manifests-{Guid.NewGuid():N}");
+
+    [Theory]
+    [InlineData("valid")]
+    [InlineData("overflow")]
+    [InlineData("dimensions")]
+    [InlineData("bytes")]
+    public async Task FullResolutionScreenPairIsComparedOrRejectsInvalidHalfBeforeDecode(string nativeCase)
+    {
+        Directory.CreateDirectory(_manifestDirectory);
+        var sessionId = SessionId.New(); var pipeName = TestPipeNames.New();
+        WriteManifest("screen.json", new(sessionId, Environment.ProcessId, pipeName, DateTimeOffset.UtcNow));
+        var target = new RuntimeTargetContext(sessionId, "top", topLevelGeneration: "current");
+        var now = DateTimeOffset.UtcNow;
+        byte[] png;
+        using (var bitmap = new SKBitmap(3840, 2160, SKColorType.Bgra8888, SKAlphaType.Premul))
+        {
+            bitmap.Erase(SKColors.Blue);
+            using var image = SKImage.FromBitmap(bitmap); using var encoded = image.Encode(SKEncodedImageFormat.Png, 100);
+            png = encoded.ToArray();
+        }
+        var rendered = new RuntimeScreenFrame("rendered-test", "captured", 3840, 2160, now, now,
+            null, null, null, [], "not_required", null, [], png);
+        var native = rendered with { Source = "native-test" };
+        native = nativeCase switch
+        {
+            "overflow" => native with { PixelWidth = int.MaxValue, PixelHeight = int.MaxValue },
+            "dimensions" => native with { PixelWidth = 1920, PixelHeight = 1080 },
+            "bytes" => native with { Png = new byte[RuntimeScreenCaptureLimits.MaximumPngBytes + 1] },
+            _ => native
+        };
+        var server = RespondToBridgeRequestAsync(pipeName, request =>
+        {
+            Assert.Equal(BridgeIpcMethods.CaptureScreen, request.Method);
+            return BridgeIpcResponse.Ok(request.RequestId, new RuntimeScreenCaptureResponse("captured", target,
+                new("test", "test", "controlled_ipc_fixture", null, null, "test", [], [], []), 2, 2,
+                "no_sampled_geometry_change", rendered, native, null, []));
+        });
+        var result = await new LocalBridgeClient(_manifestDirectory, BridgePipeTestTimeout).CaptureScreenAsync(
+            new(target, Path.Combine(_manifestDirectory, "evidence"), timeoutMs: 5000));
+        await server;
+        Assert.True(result.Success, JsonSerializer.Serialize(result.Error));
+        var value = result.Value!;
+        Assert.Equal("captured", value.Rendered!.Status); Assert.Null(value.Rendered.Png);
+        Assert.True(File.Exists(value.Rendered.FilePath));
+        if (nativeCase == "valid")
+        {
+            Assert.Equal("captured", value.Status); Assert.Equal("compared", value.Comparison!.Status);
+            Assert.Equal(3840L * 2160, value.Comparison.ComparedPixels); Assert.Equal(0, value.Comparison.DifferentPixels);
+            Assert.True(File.Exists(value.Native!.FilePath)); Assert.Null(value.Native.Png);
+        }
+        else
+        {
+            Assert.Equal("partial", value.Status); Assert.Equal("unaligned", value.Comparison!.Status);
+            Assert.Equal("unavailable", value.Native!.Status); Assert.Null(value.Native.FilePath); Assert.Null(value.Native.Png);
+            Assert.Equal("screen_capture_save_failed", Assert.Single(value.Native.Diagnostics).Code);
+        }
+    }
 
     public void Dispose()
     {

@@ -2,6 +2,18 @@ using System.Text.Json.Serialization;
 
 namespace AvaScope.Protocol;
 
+public static class RuntimeScreenCaptureLimits
+{
+    public const int MaximumPixels = 8 * 1024 * 1024;
+    public const int MaximumDimension = 16384;
+    public const int MaximumPngBytes = 256 * 1024;
+
+    public static bool AllowsDimensions(double width, double height) =>
+        double.IsFinite(width) && double.IsFinite(height) && width >= 1 && height >= 1
+        && width <= MaximumDimension && height <= MaximumDimension
+        && Math.Ceiling(width) * Math.Ceiling(height) <= MaximumPixels;
+}
+
 public sealed record RuntimeScreenCaptureRequest
 {
     [JsonConstructor]

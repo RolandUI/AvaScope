@@ -14,6 +14,89 @@ namespace AvaScope.Tests.Bridge;
 [Collection(BridgeCollectionDefinition.Name)]
 public sealed class RuntimeScreenCaptureTests
 {
+    [Theory]
+    [InlineData(3840, 2160, true)]
+    [InlineData(4096, 2048, true)]
+    [InlineData(4096, 2048.1, false)]
+    [InlineData(16384, 512, true)]
+    [InlineData(16385, 1, false)]
+    [InlineData(0, 1, false)]
+    [InlineData(-1, 1, false)]
+    [InlineData(int.MaxValue, int.MaxValue, false)]
+    [InlineData(double.MaxValue, 2, false)]
+    [InlineData(double.NaN, 1, false)]
+    [InlineData(1, double.PositiveInfinity, false)]
+    public void CaptureDimensionsRejectOverflowAndExcessBeforeAllocation(double width, double height, bool allowed)
+    {
+        Assert.Equal(allowed, RuntimeScreenCaptureLimits.AllowsDimensions(width, height));
+    }
+
+    [Theory]
+    [InlineData(1920, 1080)]
+    [InlineData(2048, 1024)]
+    public async Task DoubleScaleFullResolutionCapturePreservesLayoutAndAuthorization(int width, int height)
+    {
+        await WithWindow(async (runtime, window, target, client, output) =>
+        {
+            window.Width = width; window.Height = height; window.SetRenderScaling(2);
+            Dispatcher.UIThread.RunJobs();
+            var before = window.ClientSize;
+            var result = Value(await client.CaptureScreenAsync(new(target, output, desktopScope: "declared_test_desktop", timeoutMs: 5000)));
+            Assert.Equal("partial", result.Status);
+            Assert.Equal("captured", result.Rendered!.Status);
+            Assert.Equal(width * 2, result.Rendered.PixelWidth); Assert.Equal(height * 2, result.Rendered.PixelHeight);
+            Assert.Equal(2, result.RenderScaling); Assert.Equal(before, window.ClientSize);
+            Assert.Equal("native_screen_scope_denied", Assert.Single(result.Native!.Diagnostics).Code);
+            Assert.Null(result.Native.FilePath); Assert.Null(result.Native.Png);
+            using var image = SKBitmap.Decode(result.Rendered.FilePath);
+            Assert.Equal(width * 2, image.Width); Assert.Equal(height * 2, image.Height);
+            Assert.Equal(SKColors.Blue, image.GetPixel(image.Width - 1, image.Height - 1));
+            var rendered = Value(await client.CaptureScreenAsync(new(target, output, "rendered", timeoutMs: 5000)));
+            Assert.Equal("captured", rendered.Status); Assert.Null(rendered.Native);
+        });
+    }
+
+    [Fact]
+    public async Task OversizedCaptureFailsBeforeEvidenceAndSmallerRetryStillWorks()
+    {
+        await WithWindow(async (runtime, window, target, client, output) =>
+        {
+            window.Width = 2048; window.Height = 1025; window.SetRenderScaling(2);
+            Dispatcher.UIThread.RunJobs();
+            var rejected = await client.CaptureScreenAsync(new(target, output, timeoutMs: 5000));
+            Assert.False(rejected.Success); Assert.Equal("screen_capture_pixel_limit", rejected.Error!.Code);
+            Assert.False(Directory.Exists(output));
+            window.Width = 240; window.Height = 160; Dispatcher.UIThread.RunJobs();
+            Assert.Equal("captured", Value(await client.CaptureScreenAsync(new(target, output, "rendered"))).Status);
+        });
+    }
+
+    [Fact]
+    public async Task DenseImagesKeepEncodedLimitAndSensitiveMaskIsAppliedBeforeAcceptedBudget()
+    {
+        await WithWindow(async (runtime, window, target, client, output) =>
+        {
+            using var noise = new SKBitmap(640, 480);
+            var random = new Random(42);
+            noise.Pixels = Enumerable.Range(0, 640 * 480).Select(_ =>
+                new SKColor((byte)random.Next(256), (byte)random.Next(256), (byte)random.Next(256))).ToArray();
+            using var image = SKImage.FromBitmap(noise); using var encoded = image.Encode(SKEncodedImageFormat.Png, 100);
+            using var stream = encoded.AsStream(); using var source = new Avalonia.Media.Imaging.Bitmap(stream);
+            window.Width = 640; window.Height = 480; window.Content = new Image { Source = source, Stretch = Stretch.Fill };
+            Dispatcher.UIThread.RunJobs();
+            var limited = Value(await client.CaptureScreenAsync(new(target, output, "rendered", timeoutMs: 5000)));
+            Assert.Equal("partial", limited.Status);
+            Assert.Equal("screen_capture_byte_limit", Assert.Single(limited.Rendered!.Diagnostics).Code);
+            Assert.Null(limited.Rendered.Png); Assert.Null(limited.Rendered.FilePath);
+            Assert.False(Directory.Exists(output));
+            var masked = Value(await client.CaptureScreenAsync(new(target, output, "rendered", timeoutMs: 5000,
+                policy: new(output, redactedText: ["sensitive-image"]))));
+            Assert.Equal("captured", masked.Status); Assert.Equal("full_sensitive_mask", masked.Rendered!.Masking);
+            using var saved = SKBitmap.Decode(masked.Rendered.FilePath);
+            Assert.Equal(SKColors.Black, saved.GetPixel(320, 240));
+        });
+    }
+
     [Fact]
     public async Task PairedCapturePreservesRenderButRefusesDesktopWithoutHostGrant()
     {

@@ -17,19 +17,25 @@ internal static class NativeScreenCapture
         "macos" => "macos_screencapturekit_region", _ => "native_screen_unsupported"
     };
 
-    internal static Task<Pixels> CaptureAsync(string backend, NodeBounds bounds) => backend switch
+    internal static Task<Pixels> CaptureAsync(string backend, NodeBounds bounds, double maximumScale)
     {
-        "win32" when OperatingSystem.IsWindows() => Task.FromResult(Windows.Capture(bounds)),
-        "x11" when OperatingSystem.IsLinux() => Task.FromResult(X11.Capture(bounds)),
-        "macos" when OperatingSystem.IsMacOS() => Mac.Capture(bounds),
-        _ => throw new CaptureException("native_screen_unsupported", "This backend has no supported native desktop capture route.")
-    };
+        if (!double.IsFinite(maximumScale) || maximumScale <= 0
+            || !RuntimeScreenCaptureLimits.AllowsDimensions(bounds.Width * maximumScale, bounds.Height * maximumScale))
+            throw new CaptureException("native_screen_pixel_limit", "The native region must fit 8388608 pixels and 16384 pixels per dimension at the observed maximum display scale.");
+        return backend switch
+        {
+            "win32" when OperatingSystem.IsWindows() => Task.FromResult(Windows.Capture(bounds)),
+            "x11" when OperatingSystem.IsLinux() => Task.FromResult(X11.Capture(bounds)),
+            "macos" when OperatingSystem.IsMacOS() => Mac.Capture(bounds),
+            _ => throw new CaptureException("native_screen_unsupported", "This backend has no supported native desktop capture route.")
+        };
+    }
 
     private static CaptureException Failed() => new("native_screen_failed", "The native capture API could not return the requested visible desktop region.");
     private static void ValidateSize(int width, int height)
     {
-        if (width < 1 || height < 1 || (long)width * height > 4194304)
-            throw new CaptureException("native_screen_pixel_limit", "A native capture is limited to 4194304 pixels.");
+        if (!RuntimeScreenCaptureLimits.AllowsDimensions(width, height))
+            throw new CaptureException("native_screen_pixel_limit", "A native capture is limited to 8388608 pixels and 16384 pixels per dimension.");
     }
 
     private static class Windows
@@ -165,8 +171,9 @@ internal static class NativeScreenCapture
         private static void Completed(nint block, nint image, nint error)
         {
             TaskCompletionSource<Pixels>? completion;
-            lock (Gate) { completion = _pending; _pending = null; }
+            lock (Gate) { completion = _pending; }
             if (completion is null) return;
+            Pixels? result = null; Exception? failure = null;
             try
             {
                 if (image == 0 || error != 0) throw Failed();
@@ -179,11 +186,14 @@ internal static class NativeScreenCapture
                     context = CGBitmapContextCreate(pinned.AddrOfPinnedObject(), (nuint)width, (nuint)height, 8, (nuint)(width * 4), colorSpace, 0x2002);
                     if (context == 0) throw Failed();
                     CGContextDrawImage(context, new(0, 0, width, height), image);
-                    completion.TrySetResult(new(bytes, width, height));
+                    result = new(bytes, width, height);
                 }
                 finally { if (context != 0) CGContextRelease(context); if (colorSpace != 0) CGColorSpaceRelease(colorSpace); pinned.Free(); }
             }
-            catch (Exception exception) { completion.TrySetException(exception is CaptureException ? exception : Failed()); }
+            catch (Exception exception) { failure = exception is CaptureException ? exception : Failed(); }
+            finally { lock (Gate) { _pending = null; } }
+            if (failure is not null) completion.TrySetException(failure);
+            else completion.TrySetResult(result!);
         }
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate void CaptureCallback(nint block, nint image, nint error);
         [StructLayout(LayoutKind.Sequential)] private readonly struct Rect(double x, double y, double width, double height)

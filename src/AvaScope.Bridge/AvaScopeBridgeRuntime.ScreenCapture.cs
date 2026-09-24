@@ -46,7 +46,7 @@ public sealed partial class AvaScopeBridgeRuntime
         var limitations = new List<string> { "sequential_samples_not_atomic", "pixel_differences_do_not_prove_a_defect_or_occlusion", "native_surfaces_and_popups_may_differ_from_rendered_tree", "cursor_and_protected_video_capture_not_guaranteed", "native_output_resampled_to_top_level_render_pixel_grid", "offscreen_or_monitor_gaps_are_transparent_missing_evidence" };
         Window? window = null; RuntimeBackendInfo? backend = null; RuntimeTargetContext? target = null;
         PixelSize pixels = default; NodeBounds? desktop = null; NodeBounds[] regions = []; string? identity = null, units = null;
-        double scale = 1, desktopScale = 1; long scopeRevision = 0; nint handle = 0; string[] clearedHighlightTopLevels = []; var clearFrameConfirmed = false;
+        double scale = 1, desktopScale = 1, maximumNativeScale = 1; long scopeRevision = 0; nint handle = 0; string[] clearedHighlightTopLevels = []; var clearFrameConfirmed = false;
         try
         {
             await Dispatcher.UIThread.InvokeAsync(() =>
@@ -59,8 +59,11 @@ public sealed partial class AvaScopeBridgeRuntime
                 clearedHighlightTopLevels = _highlights.Keys.ToArray();
                 ClearHighlights();
                 backend = RuntimePlatformEvidence.Observe(window); target = CreateTopLevelTarget(request.Target.TopLevelId, window);
-                pixels = GetPixelSize(window); scale = window.RenderScaling; desktopScale = window.DesktopScaling;
-                if (pixels.Width < 1 || pixels.Height < 1 || (long)pixels.Width * pixels.Height > 4194304) throw Stop("screen_capture_pixel_limit", "Each image is limited to 4194304 pixels.");
+                scale = window.RenderScaling; desktopScale = window.DesktopScaling;
+                var width = Math.Ceiling(window.ClientSize.Width * scale); var height = Math.Ceiling(window.ClientSize.Height * scale);
+                if (!RuntimeScreenCaptureLimits.AllowsDimensions(width, height))
+                    throw Stop("screen_capture_pixel_limit", "Each image is limited to 8388608 pixels and 16384 pixels per dimension.");
+                pixels = new((int)width, (int)height);
                 identity = QueryIdentity(window, false); handle = window.TryGetPlatformHandle()?.Handle ?? 0;
                 scopeRevision = Interlocked.Read(ref _nativeScreenScopeRevision);
                 if (backend.Backend is "win32" or "x11" or "macos")
@@ -71,6 +74,9 @@ public sealed partial class AvaScopeBridgeRuntime
                     units = backend.Backend == "macos" ? "cocoa_desktop_points" : "physical_desktop_pixels";
                     var screens = window.Screens.All.Take(17).ToArray();
                     if (screens.Length > 16) throw Stop("screen_capture_monitor_limit", "At most 16 monitors can be safely mapped.");
+                    // Cocoa capture rectangles are points. Bound the possible backing image before asking the OS;
+                    // keep the returned-dimension check too, because display configuration can change asynchronously.
+                    if (backend.Backend == "macos") maximumNativeScale = screens.Select(screen => screen.Scaling).DefaultIfEmpty(double.NaN).Max();
                     regions = screens.Select(screen => IntersectScreen(desktop, new(screen.Bounds.X, screen.Bounds.Y, screen.Bounds.Width, screen.Bounds.Height)))
                         .Where(region => region.Width > 0 && region.Height > 0).Distinct().ToArray();
                 }
@@ -123,7 +129,7 @@ public sealed partial class AvaScopeBridgeRuntime
                     {
                         // The macOS API is asynchronous. The UI dispatcher stays free while its callback is pending.
                         var operation = await Dispatcher.UIThread.InvokeAsync<Task<NativeScreenCapture.Pixels>>(() =>
-                        { Check(); CheckScope(); return NativeScreenCapture.CaptureAsync(backend.Backend, region); }, DispatcherPriority.Background, deadline.Token);
+                        { Check(); CheckScope(); return NativeScreenCapture.CaptureAsync(backend.Backend, region, maximumNativeScale); }, DispatcherPriority.Background, deadline.Token);
                         var captured = await operation.WaitAsync(deadline.Token);
                         using var bitmap = new SKBitmap(captured.Width, captured.Height, SKColorType.Bgra8888, SKAlphaType.Premul);
                         Marshal.Copy(captured.Bgra, 0, bitmap.GetPixels(), captured.Bgra.Length);
@@ -191,9 +197,11 @@ public sealed partial class AvaScopeBridgeRuntime
         }
         RuntimeScreenFrame Frame(string source, byte[] png, DateTimeOffset started, RuntimeSize? nativeSize, IReadOnlyList<NodeBounds> visible)
         {
+            deadline.Token.ThrowIfCancellationRequested();
             var masking = "not_required";
             if (policy is not null) (png, masking) = policy.MaskScreenshotPng(png, new(SessionId, request.Target.TopLevelId, Path.Combine(request.OutputDirectory, "in-memory.png"), pixels.Width, pixels.Height, DateTimeOffset.UtcNow));
-            if (png.Length > 256 * 1024) throw Stop("screen_capture_byte_limit", "Each masked PNG is limited to 256 KiB; reduce the window size or use the rendered screenshot tool.");
+            deadline.Token.ThrowIfCancellationRequested();
+            if (png.Length > RuntimeScreenCaptureLimits.MaximumPngBytes) throw Stop("screen_capture_byte_limit", "Each masked PNG is limited to 256 KiB; use the rendered screenshot tool for larger encoded evidence.");
             return new(source, "captured", pixels.Width, pixels.Height, started, DateTimeOffset.UtcNow, desktop, units, nativeSize, visible, masking, null, [], png);
         }
         RuntimeScreenFrame Unavailable(string source, DateTimeOffset started, Exception exception) =>

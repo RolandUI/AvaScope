@@ -107,9 +107,36 @@ successful native capture.
 Partial capture/save failure preserves the other requested source, with operation
 `success: false`, `status: partial` and per-frame diagnostics. No automatic retry,
 window activation, movement or permission request occurs. The capture budget is
-250–5000 ms (cooperative across native calls), one in-flight request per bridge,
-16 monitors, 4,194,304 output/native-region pixels and 256 KiB per masked PNG.
+250–5000 ms per bridge capture and client processing stage (cooperative across
+native/codec calls), one in-flight request per bridge, 16 monitors, 8,388,608
+output/native-region pixels, 16,384 per dimension and 256 KiB per masked PNG.
+Thus 1920×1080 DIP at 2× retains its full 3840×2160 render-pixel grid without
+resizing the application or downsampling the output. The existing per-region
+original native sizes and image transforms still describe any mixed-display
+resampling; output size alone is not proof of original native resolution.
 Each exported capture gets a unique directory; existing files are never overwritten.
+
+Dimensions are checked before render/native pixel allocations and client decode,
+including finite values, rounded dimensions and overflow-sized inputs. macOS
+region requests are checked in Cocoa points times the largest observed display
+scale before entering ScreenCaptureKit, then the actual callback image is checked
+again before copying. A concurrent OS display change may still produce an
+oversized OS-owned image; it is rejected rather than copied or silently reduced.
+
+The memory bound is on capture data, not total app/GPU/OS process memory. One
+8 Mi-pixel BGRA plane is 32 MiB. Render and native stages run sequentially, retaining
+only the first masked PNG while capturing the second. At native capture's largest
+explicit pixel-buffer stage, output + OS/source + normalization uses at most four
+such planes (128 MiB, plus at most 512 KiB X11 row padding); region buffers are
+disposed before the next region. Client comparison holds two decoded planes and
+one byte-per-pixel mask (72 MiB), then disposes them before saving/masking frames
+sequentially. Codec/render backend scratch storage is additional and constrained
+by the same image dimensions; these figures are not an RSS guarantee.
+The two accepted encoded PNGs total at most 512 KiB; the existing 1 MiB bridge
+response limit remains unchanged. High-entropy images can still exceed the
+encoded limit and return an explicit byte-limit/partial result. No lossy evidence
+is substituted to make them fit. The processing deadline checks comparison rows
+and artifact writes; a synchronous native/codec call itself is not preempted.
 
 Native regression fixtures exercise paired provenance, CLI occlusion, popups,
 MCP masking, off-screen transparency and policy/scope refusals. Headless tests
