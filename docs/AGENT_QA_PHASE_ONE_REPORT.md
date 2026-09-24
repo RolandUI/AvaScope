@@ -54,16 +54,18 @@ The latter exposed a fixture error: direct integration manually retained child r
 
 This initial ledger is historical. Later sections record the remaining appearance, loading, virtualization, modal/popup and standalone journeys; unresolved work is the Retina/pixel-budget issues and final combined validation.
 
-## Defect inventory so far
+## Defect inventory and current validation
 
-| Ticket | Campaign finding |
-| --- | --- |
-| [#157](https://github.com/RolandUI/AvaScope/issues/157) | Complex native Windows 1× rendering looks correct; native Retina reproduction remains blocked. |
-| [#158](https://github.com/RolandUI/AvaScope/issues/158) | Confirmed beyond macOS. Structured selector context is the relevant difference from the passing legacy path. Reproduction added. |
-| [#159](https://github.com/RolandUI/AvaScope/issues/159) | Confirmed opaque constructor-validation errors; concrete missing-offset case and contrasting valid insert/CLI response added. Original macOS payload details remain unverified. |
-| [#160](https://github.com/RolandUI/AvaScope/issues/160) | Confirmed native Windows MCP/CLI with exact-case, wrong-case, ambiguity and independent action counters. Reproduction added. |
-| [#161](https://github.com/RolandUI/AvaScope/issues/161) | Native 2× Full HD paired-capture acceptance remains blocked. |
-| [#167](https://github.com/RolandUI/AvaScope/issues/167) | New: structured find_nodes returns parent-relative visual bounds while the existing argument form returns top-level bounds. |
+| Ticket | Confirmed finding / uncertainty | Current state |
+| --- | --- | --- |
+| [#157](https://github.com/RolandUI/AvaScope/issues/157) | Complex native Windows 1× text matches RTB; customer Retina inflation is not reproduced. | Blocked on native 2× access; no speculative product change. |
+| [#158](https://github.com/RolandUI/AvaScope/issues/158) | Incomplete selector coverage was mislabeled as stale. Customer coverage metadata was absent. | Fixed `e32139f`, completed; complete targets, precise refusal and dispatch counts verified. |
+| [#159](https://github.com/RolandUI/AvaScope/issues/159) | Expected constructor/domain failures became opaque MCP invocation errors. Original customer payload was absent. | Fixed `74c07e6`, completed; structured invalid arguments and supported insert/replay verified. |
+| [#160](https://github.com/RolandUI/AvaScope/issues/160) | Exact AutomationID matching incorrectly ignored case. | Fixed `173b42b`, completed; independent counters and CLI/MCP parity verified. |
+| [#161](https://github.com/RolandUI/AvaScope/issues/161) | 4 Mi-pixel cap rejected Full HD DIP at 2×. | Implemented `295939d`; headless 2× and native X11 4K pass. Native Retina acceptance remains blocked. |
+| [#167](https://github.com/RolandUI/AvaScope/issues/167) | Structured visual queries returned bounds in the wrong coordinate space. | Fixed `cfa0d3d`, completed; nested/scroll/transform and geometry-pinned picking verified. |
+| [#168](https://github.com/RolandUI/AvaScope/issues/168) | Repeated logical object identity made popup queries fail over IPC. | Fixed `d1028c3`, completed; both integrations on all three native backends verified. |
+| [#169](https://github.com/RolandUI/AvaScope/issues/169) | Oversized privacy rectangle overflow skipped masking while reporting success. | Fixed `5bbaad1`; native pixels, CLI/MCP/workflow and Release pass; final gates pending. |
 
 No product bug had been fixed in the original campaign evidence above. Subsequent fixes and reruns will be identified by commit/session. A workaround never changes the original failed case to passed.
 

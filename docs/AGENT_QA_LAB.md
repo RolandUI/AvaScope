@@ -84,3 +84,28 @@ backend clamps the window. The journal's `clientWidth`/`clientHeight` and physic
 sizes remain the observed values. A clamped window does not establish Full HD
 coverage; record that limitation and use a capable dedicated desktop for that
 charter. Toggling again restores compact intent even on a smaller display.
+
+## Continuing the blocked Retina cases
+
+The 2026-09-24 campaign observed 1× on local Windows and all three hosted lab
+backends. #157 therefore remains unreproduced; #161's implementation has
+headless 2× and actual X11 4K coverage, but its native Retina acceptance is open.
+The agent needs access to a logged-in Mac desktop that actually provides a
+1920×1080 DIP client at 2×, plus an independent window-capture route. No such
+access is implied by the current CI runner labels.
+
+On an explicitly selected test desktop, use the same documented native lab
+entry point and freshly verified standalone provider; enable
+`-AuthorizeScreenCapture` only when that desktop is authorized. First inspect
+`qa-state.json`, doctor output and public window geometry. If the observed scale
+is not 2 or the Full HD scene is clamped, record blocked and stop that case.
+Do not resize the app smaller or force headless scaling to obtain a pass.
+
+Repeat the Appearance charter in both integrations, opening independent native
+and RTB images at full resolution. Run actual CLI and MCP paired capture,
+checking unchanged 1920×1080 DIP geometry, 3840×2160 image dimensions, native
+provenance, masking and authorization refusal. Preserve the complete transcripts,
+provider hashes, journal and cleanup in a fresh campaign directory. If the
+representative scene does not reproduce #157, obtain the customer's exact
+Avalonia patch and reduced view/font/template combination before changing the
+renderer. Keep the issue unreproduced until evidence supports a diagnosis.
