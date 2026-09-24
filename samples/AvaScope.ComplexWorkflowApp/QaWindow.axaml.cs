@@ -23,6 +23,7 @@ public partial class QaWindow : Window
     private bool _preparing;
     private bool _closed;
     private PixelRect? _screenBounds;
+    private Size _requestedSceneSize = new(1120, 800);
     private int _resetGeneration;
     private int _toggleCount;
     private int _textChanges;
@@ -75,9 +76,9 @@ public partial class QaWindow : Window
         };
         SizeButton.Click += (_, _) =>
         {
-            var full = ClientSize.Width < 1500;
-            Width = full ? 1920 : 1120;
-            Height = full ? 1080 : 800;
+            _requestedSceneSize = _requestedSceneSize.Width == 1120 ? new(1920, 1080) : new(1120, 800);
+            Width = _requestedSceneSize.Width;
+            Height = _requestedSceneSize.Height;
             Record("size_requested");
         };
         ReplaceEditorButton.Click += (_, _) => ReplaceEditor();
@@ -119,8 +120,9 @@ public partial class QaWindow : Window
             CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo(_locale);
             CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo(_locale);
             LocalizedHeading.Text = "Rendering reference — correct text stays within its cards";
-            Width = 1120;
-            Height = 800;
+            _requestedSceneSize = new(1120, 800);
+            Width = _requestedSceneSize.Width;
+            Height = _requestedSceneSize.Height;
             LoadStatus.Text = "Ready";
             WindowStatus.Text = "No secondary windows";
             _toggleCount = _textChanges = _lowercaseCount = _uppercaseCount = _templateCount = 0;
@@ -249,7 +251,7 @@ public partial class QaWindow : Window
             nativeHandleKind = TryGetPlatformHandle()?.HandleDescriptor, renderScaling = RenderScaling,
             clientWidth = ClientSize.Width, clientHeight = ClientSize.Height,
             physicalWidth = (int)Math.Ceiling(ClientSize.Width * RenderScaling), physicalHeight = (int)Math.Ceiling(ClientSize.Height * RenderScaling),
-            requestedWidth = Width, requestedHeight = Height, windowX = Position.X, windowY = Position.Y,
+            requestedWidth = _requestedSceneSize.Width, requestedHeight = _requestedSceneSize.Height, windowX = Position.X, windowY = Position.Y,
             screenWidth = _screenBounds?.Width, screenHeight = _screenBounds?.Height,
             leaseSeconds = _lease.Interval.TotalSeconds,
             avaloniaVersion = typeof(Application).Assembly.GetName().Version?.ToString(),

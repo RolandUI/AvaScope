@@ -77,3 +77,10 @@ For each case record: ID/charter, goal, integration/backend/scale, exact request
 Evidence includes `qa-run.json`, `artifact-identity.json`, `doctor*.log`, `dotnet-info*.log`, session capabilities, startup workflow reports, exact MCP requests/full responses/stderr, before/after journal snapshots and `calls.jsonl`. Synthetic fixture content may be retained; do not introduce customer data or secrets. The ledger counts task outcomes separately from expected negative responses and tool-call totals. Preserve cleanup evidence.
 
 During development, reproduce the affected task, implement a focused regression, then repeat the relevant native task after the change. At a coherent checkpoint, run the lab lifecycle check and affected deterministic suite. The later #164 work owns broader packaged/candidate gates; it must consume the exact hashes and platform gaps rather than converting missing coverage into success.
+
+The fixture retains requested scene dimensions separately from observed client
+geometry. The Full HD button means a 1920x1080 DIP request even if the desktop
+backend clamps the window. The journal's `clientWidth`/`clientHeight` and physical
+sizes remain the observed values. A clamped window does not establish Full HD
+coverage; record that limitation and use a capable dedicated desktop for that
+charter. Toggling again restores compact intent even on a smaller display.

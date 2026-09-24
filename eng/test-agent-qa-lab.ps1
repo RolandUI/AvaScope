@@ -60,6 +60,17 @@ foreach ($integration in @('Direct','Standalone')) {
         }
         $negative = Call 'inspect_node' @{sessionId=$run.sessionId;topLevelId=$run.topLevelId;nodeId='visual:does-not-exist'} -ExpectedFailure
         if (-not (Test-Path -LiteralPath $negative.evidence.responsePath)) { throw 'Failure evidence is missing.' }
+        $sizeAction = @{request=@{sessionId=$run.sessionId;topLevelId=$run.topLevelId;steps=@(
+            @{action='invoke';selector=@{automationId='qa-size'}})}}
+        $null = Call 'run_workflow' $sizeAction
+        $fullHd = Get-Content (Join-Path $run.root 'qa-state.json') -Raw | ConvertFrom-Json
+        if ($fullHd.requestedWidth -ne 1920 -or $fullHd.requestedHeight -ne 1080) { throw 'Full HD scene intent was overwritten by observed geometry.' }
+        $fullHdGeometry = @{requestedWidth=$fullHd.requestedWidth;requestedHeight=$fullHd.requestedHeight;
+            observedWidth=$fullHd.clientWidth;observedHeight=$fullHd.clientHeight;scale=$fullHd.renderScaling;
+            fullHdObserved=($fullHd.clientWidth -eq 1920 -and $fullHd.clientHeight -eq 1080)}
+        $null = Call 'run_workflow' $sizeAction
+        $compact = Get-Content (Join-Path $run.root 'qa-state.json') -Raw | ConvertFrom-Json
+        if ($compact.requestedWidth -ne 1120 -or $compact.requestedHeight -ne 800) { throw 'Size toggle did not restore compact intent.' }
         $editor = Call 'find_nodes' @{sessionId=$run.sessionId;topLevelId=$run.topLevelId;selector=@{automationId='qa-display-name'};maxDepth=32}
         if (@($editor.value.value.matches).Count -ne 1 -or -not $editor.value.value.coverage.complete) { throw 'Expected one complete editor selection.' }
         $textTarget = $editor.value.value.matches[0].target
@@ -132,7 +143,7 @@ foreach ($integration in @('Direct','Standalone')) {
         $null = & $entry -Operation Reset -RunDirectory $run.root
         $levels = Call 'list_top_levels' @{sessionId=$run.sessionId}
         if (@($levels.value.value.topLevels).Count -ne 1) { throw 'Reset left a child window registered.' }
-        $results.Add(@{integration=$integration;backend=$run.observedBackend;scale=$run.renderScaling;status='passed';cycles=2;negativeFailurePreserved=$true;childCloseReopenVerified=$true;exactAutomationIdsVerified=$true;queryBoundsVerified=$true;selectionCoverageVerified=$true;textEditValidationVerified=$true;root=$run.root})
+        $results.Add(@{integration=$integration;backend=$run.observedBackend;scale=$run.renderScaling;status='passed';cycles=2;negativeFailurePreserved=$true;childCloseReopenVerified=$true;exactAutomationIdsVerified=$true;queryBoundsVerified=$true;selectionCoverageVerified=$true;textEditValidationVerified=$true;fullHdGeometry=$fullHdGeometry;root=$run.root})
     }
     finally {
         if (Test-Path (Join-Path $runPath 'qa-run.json')) {

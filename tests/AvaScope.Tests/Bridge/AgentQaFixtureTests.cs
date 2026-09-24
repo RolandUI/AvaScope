@@ -11,6 +11,49 @@ namespace AvaScope.Tests.Bridge;
 public sealed class AgentQaFixtureTests
 {
     [Fact]
+    public async Task RequestedSceneSizeSurvivesNativeClampingAndTogglesBackToCompact()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "avascope-qa-size-" + Guid.NewGuid().ToString("N"));
+        var previous = Environment.GetEnvironmentVariable("AVASCOPE_QA_OUTPUT");
+        Environment.SetEnvironmentVariable("AVASCOPE_QA_OUTPUT", directory);
+        try
+        {
+            using var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessSmokeTests.BridgeHeadlessTestApplication));
+            await BridgeHeadlessSmokeTests.DispatchAsync(session, () =>
+            {
+                var window = new QaWindow(); window.Show();
+                try
+                {
+                    var button = window.FindControl<Button>("SizeButton")!;
+                    button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    // Model the platform coercing the public size properties on a smaller screen.
+                    window.Width = 1300; window.Height = 900;
+                    window.FindControl<Button>("ThemeButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    using (var full = JsonDocument.Parse(File.ReadAllText(Path.Combine(directory, "qa-state.json"))))
+                    {
+                        Assert.Equal(1920, full.RootElement.GetProperty("requestedWidth").GetDouble());
+                        Assert.Equal(1080, full.RootElement.GetProperty("requestedHeight").GetDouble());
+                    }
+                    button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    Assert.Equal(1120, window.Width); Assert.Equal(800, window.Height);
+                    button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    window.ResetState();
+                    using var reset = JsonDocument.Parse(File.ReadAllText(Path.Combine(directory, "qa-state.json")));
+                    Assert.Equal(1120, reset.RootElement.GetProperty("requestedWidth").GetDouble());
+                    Assert.Equal(800, reset.RootElement.GetProperty("requestedHeight").GetDouble());
+                }
+                finally { window.Close(); }
+                return Task.CompletedTask;
+            }, CancellationToken.None);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("AVASCOPE_QA_OUTPUT", previous);
+            if (Directory.Exists(directory)) Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task ResetCancelsDelayedWorkClosesChildrenAndRestoresIndependentState()
     {
         var directory = Path.Combine(Path.GetTempPath(), "avascope-qa-fixture-" + Guid.NewGuid().ToString("N"));
