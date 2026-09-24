@@ -21,6 +21,73 @@ namespace AvaScope.Tests.Bridge;
 public sealed class RuntimeDesiredStateTests
 {
     [Fact]
+    public async Task CompleteQueryTargetsWorkAndIncompleteCoverageIsDistinctFromStaleIdentity()
+    {
+        await WithWindow(async (runtime, root, top, client) =>
+        {
+            var check = new CheckBox { Name = "Check", Content = "Check" };
+            var editor = new TextBox { Name = "Editor", Text = "unchanged" };
+            root.Children.Add(check); root.Children.Add(editor);
+            var calls = 0; check.Click += (_, _) => calls++;
+            ((Window)TopLevel.GetTopLevel(root)!).UpdateLayout();
+            Assert.True((await runtime.ReadinessAsync(top, options: new(waitForFrame: true))).Success);
+            var found = await client.QueryNodesAsync(new(runtime.SessionId, top,
+                new(name: "Check", rendered: true, enabled: true), maxDepth: 32));
+            Assert.True(found.Value!.Coverage!.Complete);
+            var match = Assert.Single(found.Value.Matches);
+            var partial = await client.QueryNodesAsync(new(runtime.SessionId, top,
+                new(name: "Check", rendered: true, enabled: true), maxDepth: match.Path.Count - 1));
+            Assert.False(partial.Value!.Coverage!.Complete);
+            Assert.Contains("depth_limit", partial.Value.Coverage.Reasons);
+            var partialTarget = Assert.Single(partial.Value.Matches).Target!;
+            var refused = await client.EnsureStateAsync(Request(partialTarget, "checked", true));
+            Assert.Equal("runtime_input_selection_incomplete", refused.Error!.Code);
+            Assert.Equal("coverage_incomplete", refused.Error.Details!["selectionFailure"]);
+            Assert.Contains("depth_limit", refused.Error.Details["coverageReasons"]);
+            Assert.Contains("maxDepth", refused.Error.Details["nextAction"]);
+            Assert.Equal("false", refused.Error.Details["dispatched"]);
+            Assert.False(check.IsChecked); Assert.Equal(0, calls);
+            var inspection = await client.InspectNodeAsync(runtime.SessionId, top, TreeKinds.Visual,
+                partialTarget.NodeId!, target: partialTarget);
+            Assert.Equal("runtime_input_selection_incomplete", inspection.Error!.Code);
+            var editorQuery = await client.QueryNodesAsync(new(runtime.SessionId, top, new(name: "Editor"), maxDepth: 32));
+            var editorMatch = Assert.Single(editorQuery.Value!.Matches);
+            var partialEditor = await client.QueryNodesAsync(new(runtime.SessionId, top, new(name: "Editor"), maxDepth: editorMatch.Path.Count - 1));
+            var unreadable = await client.EditTextAsync(new(Assert.Single(partialEditor.Value!.Matches).Target!));
+            Assert.Equal("runtime_input_selection_incomplete", unreadable.Error!.Code);
+            var readable = await client.EditTextAsync(new(editorMatch.Target!));
+            Assert.True(readable.Success, readable.Error?.Message); Assert.Equal("unchanged", readable.Value!.After!.Text);
+
+            var request = Request(match.Target!, "checked", true);
+            var changed = await client.EnsureStateAsync(request);
+            Assert.True(changed.Value!.Verified); Assert.Equal(1, changed.Value.DispatchedOperations);
+            Assert.True(check.IsChecked); Assert.Equal(1, calls);
+            var replay = await client.EnsureStateAsync(request);
+            Assert.True(replay.Value!.Replayed); Assert.Equal(1, calls);
+            var satisfied = await client.EnsureStateAsync(Request(match.Target!, "checked", true));
+            Assert.Equal("already_satisfied", satisfied.Value!.Status); Assert.Equal(0, satisfied.Value.DispatchedOperations);
+            var denied = await client.EnsureStateAsync(new(match.Target!, "checked", JsonSerializer.SerializeToElement(false),
+                "query-policy-denied", new(Path.GetTempPath(), allowedDesiredStates: [])));
+            Assert.Equal("desired_state_policy_denied", denied.Error!.Code); Assert.Equal(1, calls);
+            var duplicates = new[] { new CheckBox { Name = "Check" }, new CheckBox { Name = "Check" } };
+            foreach (var duplicate in duplicates) root.Children.Add(duplicate);
+            ((Window)TopLevel.GetTopLevel(root)!).UpdateLayout();
+            Assert.True((await runtime.ReadinessAsync(top, options: new(waitForFrame: true))).Success);
+            var ambiguous = await client.EnsureStateAsync(Request(match.Target!, "checked", false));
+            Assert.Equal(RuntimeInputErrorCodes.TargetStale, ambiguous.Error!.Code); Assert.Equal(1, calls);
+            foreach (var duplicate in duplicates) root.Children.Remove(duplicate);
+            check.DataContext = new object();
+            var stale = await client.EnsureStateAsync(Request(match.Target!, "checked", false));
+            Assert.Equal(RuntimeInputErrorCodes.TargetStale, stale.Error!.Code);
+            Assert.Equal("false", stale.Error.Details!["dispatched"]); Assert.Equal(1, calls);
+            root.Children.Remove(check);
+            root.Children.Add(new CheckBox { Name = "Check", Content = "Replacement" });
+            var replaced = await client.EnsureStateAsync(Request(match.Target!, "checked", false));
+            Assert.Equal(RuntimeInputErrorCodes.TargetStale, replaced.Error!.Code); Assert.Equal(1, calls);
+        });
+    }
+
+    [Fact]
     public async Task CheckedAndExpandedRequestsSkipSatisfiedStateAndBoundTriStateCycles()
     {
         await WithWindow(async (runtime, root, top, client) =>

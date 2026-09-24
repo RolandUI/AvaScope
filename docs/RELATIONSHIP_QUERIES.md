@@ -121,6 +121,18 @@ Targets from a broad, multi-match query retain that selector. Refine it with an
 explicit identity or current node ID before input; picking one returned row does
 not silently waive the uniqueness check.
 
+Preserve and inspect `coverage` as well as the target. An unchanged node from a
+depth-limited query is not proof of unique selection. Input, desired-state and
+text-edit operations and target-pinned inspection report
+`runtime_input_selection_incomplete` when a fresh recheck has incomplete
+coverage; runtime mutations use `runtime_mutation_selection_incomplete`.
+Details include `coverageReasons`,
+`queryMaxDepth`, `queryMaxNodes`, `visitedNodes` and recovery guidance. For
+`depth_limit` / `node_limit`, re-query with sufficient bounds (up to depth 32 and
+2048 nodes), verify complete coverage, then pass the entire new target. Repeating
+the same partial query is not recovery. Genuine changed generations/revisions
+and ambiguity still fail freshness checks before dispatch.
+
 Input rechecks after focus/preparation callbacks and before new compound input
 groups. A failure after preparation does not authorize automatic replay because
 application callbacks may already have run; owned release cleanup still occurs.

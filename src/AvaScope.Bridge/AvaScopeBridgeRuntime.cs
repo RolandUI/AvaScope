@@ -2609,6 +2609,21 @@ public sealed partial class AvaScopeBridgeRuntime
                     throw new ArgumentException("Selection evidence requires both its selector and revision.");
                 var current = QueryNodes(new(SessionId, target.TopLevelId, target.Selection, maxResults: 2, maxNodes: 2048,
                     maxDepth: target.Selection.MaxDepth ?? 16));
+                if (current.Success && current.Value!.Matches.Count < 2 && current.Value.Coverage is { Complete: false } coverage
+                    && !coverage.Reasons.Contains("generation_changed", StringComparer.Ordinal))
+                {
+                    var incomplete = new Dictionary<string, string>(CreateTargetErrorDetails(target.TopLevelId, target.TreeKind, target.NodeId))
+                    {
+                        ["selectionFailure"] = "coverage_incomplete",
+                        ["coverageReasons"] = string.Join(",", coverage.Reasons),
+                        ["queryMaxDepth"] = (target.Selection.MaxDepth ?? 16).ToString(CultureInfo.InvariantCulture),
+                        ["queryMaxNodes"] = "2048",
+                        ["visitedNodes"] = coverage.VisitedNodes.ToString(CultureInfo.InvariantCulture),
+                        ["nextAction"] = "Inspect coverageReasons and re-query with sufficient maxDepth/maxNodes (at most 32/2048) for limit failures. Require complete coverage before retrying; repeating the same incomplete selection cannot establish uniqueness."
+                    };
+                    return CoreResult<ResolvedMutationTarget>.Fail(new(RuntimeMutationErrorCodes.RuntimeMutationSelectionIncomplete,
+                        "The selector could not be completely evaluated, so its uniqueness is unproven. This does not establish that the target changed.", incomplete));
+                }
                 if (!current.Success || current.Value!.Coverage?.Complete != true || current.Value.Matches.Count != 1
                     || current.Value.Matches[0].Target?.NodeId != target.NodeId
                     || current.Value.Matches[0].Target?.SelectionRevision != target.SelectionRevision)
@@ -2667,14 +2682,16 @@ public sealed partial class AvaScopeBridgeRuntime
         details["topLevelId"] = topLevelId;
         details["targetRole"] = targetRole;
         details["dispatched"] = bool.FalseString.ToLowerInvariant();
-        details["nextAction"] = "Re-resolve the semantic selector and retry only because no input was dispatched.";
+        if (error?.Code != RuntimeMutationErrorCodes.RuntimeMutationSelectionIncomplete)
+            details["nextAction"] = "Re-resolve the semantic selector and retry only because no input was dispatched.";
         if (!string.IsNullOrWhiteSpace(target.NodeId))
         {
             details["nodeId"] = target.NodeId;
         }
 
         return CoreResult<InputTargetResolution>.Fail(new CoreError(
-            RuntimeInputErrorCodes.TargetStale,
+            error?.Code == RuntimeMutationErrorCodes.RuntimeMutationSelectionIncomplete
+                ? RuntimeInputErrorCodes.SelectionIncomplete : RuntimeInputErrorCodes.TargetStale,
             error?.Message ?? "Input target is stale.",
             details));
     }

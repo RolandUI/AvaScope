@@ -30,7 +30,26 @@ foreach ($integration in @('Direct','Standalone')) {
             $found = Call 'find_nodes' @{sessionId=$run.sessionId;topLevelId=$run.topLevelId;automationId='qa-notifications';maxDepth=24;maxResults=4}
             $matches = @($found.value.value.matches)
             if ($matches.Count -ne 1) { throw 'The seeded notification control was not uniquely discovered.' }
-            $null = Call 'input' @{sessionId=$run.sessionId;topLevelId=$run.topLevelId;action='toggle';targetNodeId=$matches[0].node.nodeId}
+            if ($cycle -eq 1) {
+                $partial = Call 'find_nodes' @{sessionId=$run.sessionId;topLevelId=$run.topLevelId;
+                    selector=@{automationId='qa-notifications'};maxDepth=($matches[0].path.Count-1)}
+                if ($partial.value.value.coverage.complete) { throw 'Expected deliberately incomplete query coverage.' }
+                $refused = Call 'ensure_state' @{request=@{target=$partial.value.value.matches[0].target;property='checked';desired=$true;requestId='partial-selection'}} -ExpectedFailure
+                if ($refused.value.error.code -ne 'runtime_input_selection_incomplete' -or $refused.value.error.details.dispatched -ne 'false') {
+                    throw 'Incomplete selection did not preserve its pre-dispatch coverage diagnostic.'
+                }
+                $state = Get-Content (Join-Path $run.root 'qa-state.json') -Raw | ConvertFrom-Json
+                if ($state.notifications -or $state.toggleCount -ne 0) { throw 'Rejected incomplete selection changed app state.' }
+                $complete = Call 'find_nodes' @{sessionId=$run.sessionId;topLevelId=$run.topLevelId;
+                    selector=@{automationId='qa-notifications'};maxDepth=32}
+                if (-not $complete.value.value.coverage.complete) { throw 'Expected complete query coverage.' }
+                $changed = Call 'ensure_state' @{request=@{target=$complete.value.value.matches[0].target;property='checked';desired=$true;requestId='complete-selection'}}
+                if ($changed.value.value.dispatchedOperations -ne 1 -or -not $changed.value.value.verified) { throw 'Complete selection did not toggle exactly once.' }
+                $again = Call 'ensure_state' @{request=@{target=$complete.value.value.matches[0].target;property='checked';desired=$true;requestId='already-checked'}}
+                if ($again.value.value.status -ne 'already_satisfied' -or $again.value.value.dispatchedOperations -ne 0) { throw 'Already-satisfied state dispatched input.' }
+            } else {
+                $null = Call 'input' @{sessionId=$run.sessionId;topLevelId=$run.topLevelId;action='toggle';targetNodeId=$matches[0].node.nodeId}
+            }
             $state = Get-Content (Join-Path $run.root 'qa-state.json') -Raw | ConvertFrom-Json
             if (-not $state.notifications -or $state.toggleCount -ne 1) { throw 'The independent journal did not observe exactly one toggle.' }
             $capture = Call 'screenshot' @{sessionId=$run.sessionId;topLevelId=$run.topLevelId;outputPath=(Join-Path $run.root "cycle-$cycle.png")}
@@ -91,7 +110,7 @@ foreach ($integration in @('Direct','Standalone')) {
         $null = & $entry -Operation Reset -RunDirectory $run.root
         $levels = Call 'list_top_levels' @{sessionId=$run.sessionId}
         if (@($levels.value.value.topLevels).Count -ne 1) { throw 'Reset left a child window registered.' }
-        $results.Add(@{integration=$integration;backend=$run.observedBackend;scale=$run.renderScaling;status='passed';cycles=2;negativeFailurePreserved=$true;childCloseReopenVerified=$true;exactAutomationIdsVerified=$true;queryBoundsVerified=$true;root=$run.root})
+        $results.Add(@{integration=$integration;backend=$run.observedBackend;scale=$run.renderScaling;status='passed';cycles=2;negativeFailurePreserved=$true;childCloseReopenVerified=$true;exactAutomationIdsVerified=$true;queryBoundsVerified=$true;selectionCoverageVerified=$true;root=$run.root})
     }
     finally {
         if (Test-Path (Join-Path $runPath 'qa-run.json')) {
