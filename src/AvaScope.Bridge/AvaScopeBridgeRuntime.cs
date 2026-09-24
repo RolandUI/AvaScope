@@ -1384,7 +1384,7 @@ public sealed partial class AvaScopeBridgeRuntime
             TreeKinds.Logical,
             CreateNodeId(node, TreeKinds.Logical),
             node.GetType().FullName ?? node.GetType().Name,
-            node.GetLogicalChildren().Count(),
+            node.GetLogicalChildren().Distinct(ReferenceEqualityComparer.Instance).Count(),
             GetName(node),
             GetAutomationId(node),
             GetText(node),
@@ -5569,8 +5569,10 @@ public sealed partial class AvaScopeBridgeRuntime
         return null;
     }
 
-    private static ILogical? FindLogicalNodeById(ILogical logical, string targetNodeId)
+    private static ILogical? FindLogicalNodeById(ILogical logical, string targetNodeId, HashSet<ILogical>? visited = null)
     {
+        visited ??= new(ReferenceEqualityComparer.Instance);
+        if (!visited.Add(logical)) return null;
         if (string.Equals(CreateNodeId(logical, TreeKinds.Logical), targetNodeId, StringComparison.Ordinal))
         {
             return logical;
@@ -5578,7 +5580,7 @@ public sealed partial class AvaScopeBridgeRuntime
 
         foreach (var child in logical.GetLogicalChildren())
         {
-            var match = FindLogicalNodeById(child, targetNodeId);
+            var match = FindLogicalNodeById(child, targetNodeId, visited);
             if (match is not null)
             {
                 return match;
@@ -5846,12 +5848,17 @@ public sealed partial class AvaScopeBridgeRuntime
         return CreateNodeSummary(topLevelId, visual, TreeKinds.Visual, topLevel, children);
     }
 
-    private TreeNodeSummary SerializeLogicalNode(ILogical logical, string topLevelId, TopLevel topLevel, int depth, int maxDepth)
+    private TreeNodeSummary SerializeLogicalNode(ILogical logical, string topLevelId, TopLevel topLevel, int depth, int maxDepth, HashSet<ILogical>? visited = null)
     {
+        // Selected TabControl content can be enumerated more than once by the logical tree.
+        // Preserve the first observed path, with one serialized entry per object identity.
+        visited ??= new(ReferenceEqualityComparer.Instance);
+        visited.Add(logical);
         var children = depth >= maxDepth
             ? Array.Empty<TreeNodeSummary>()
             : logical.GetLogicalChildren()
-                .Select(child => SerializeLogicalNode(child, topLevelId, topLevel, depth + 1, maxDepth))
+                .Where(child => !visited.Contains(child))
+                .Select(child => SerializeLogicalNode(child, topLevelId, topLevel, depth + 1, maxDepth, visited))
                 .ToArray();
 
         return CreateNodeSummary(topLevelId, logical, TreeKinds.Logical, topLevel, children);

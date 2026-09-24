@@ -2,6 +2,8 @@
 
 GitHub Issues and Milestones are the primary project-management source for autonomous agents working on AvaScope. This document is the compact local handoff and validation log. Update it whenever meaningful implementation, validation, or planning changes the active GitHub issue or release state.
 
+- `2026-09-24`: #168 is the sole active issue: a real native popup duplicates one logical Button identity, while structured logical queries repeatedly return empty IPC responses (campaign-direct-04 D425–D429). #162 is in review: native D401–D402 verifies preserved Full HD intent and compact recovery; #159's native D403–D407 verifies actionable missing-offset failure, valid insertion and exact replay with one app text change. The same run passed load/reset cancellation and native End-key virtualization; modal owner input correctly refused without dispatch. Hosted combined lab `36001930848` remains pending.
+
 - `2026-09-24`: #162 resumed as the sole active issue to correct the native D315 requested-size journal defect. #159 `74c07e6` is in review after 13/13 text/MCP tests; native regressions are pending. #158's all-six native host/platform combinations passed in `35999831206`; combined campaign review remains.
 
 - `2026-09-24`: #159 is the sole active issue, addressing domain-constructor failures hidden by MCP argument binding. The regression uses actual stdio with malformed serialized edits, verifies no dispatch or sensitive-value logging and preserves a valid insert/replay. #158 is in review with native CI `35999831206` pending; #167 completed after all six hosted platform/integration combinations passed in `35998419321`.

@@ -33,6 +33,7 @@ public sealed partial class AvaScopeBridgeRuntime
         var policy = request.Policy is null ? null : new RuntimeEvidencePolicyEnforcer(request.Policy);
         var reasons = new HashSet<string>(StringComparer.Ordinal);
         var nodes = new List<QueryNode>();
+        var visited = new HashSet<object>(ReferenceEqualityComparer.Instance);
         var started = Stopwatch.GetTimestamp();
         var work = 0;
         bool Budget()
@@ -43,11 +44,13 @@ public sealed partial class AvaScopeBridgeRuntime
         }
         IEnumerable<object> Children(object node) => treeKind == TreeKinds.Visual
             ? node is Visual visual ? visual.GetVisualChildren().Cast<object>() : []
-            : node is ILogical logical ? logical.GetLogicalChildren().Cast<object>() : [];
+            : node is ILogical logical ? logical.GetLogicalChildren().Cast<object>().Distinct(ReferenceEqualityComparer.Instance) : [];
         void Visit(object node, QueryNode? parent, int depth)
         {
+            if (visited.Contains(node)) return;
             if (!Budget()) return;
             if (nodes.Count == request.MaxNodes) { reasons.Add("node_limit"); return; }
+            visited.Add(node);
             var excluded = parent?.Excluded == true || request.Policy?.ExcludedControlAutomationIds.Contains(GetAutomationId(node), StringComparer.Ordinal) == true
                 || requireCollectionCoverage && request.Policy?.RedactedAutomationIds.Contains(GetAutomationId(node), StringComparer.Ordinal) == true;
             var entry = new QueryNode(node, parent, depth, excluded, QueryIdentity(node));
@@ -59,10 +62,10 @@ public sealed partial class AvaScopeBridgeRuntime
                 reasons.Add("table_requires_structured_query");
             if (depth == request.MaxDepth)
             {
-                if (Children(node).Any()) reasons.Add("depth_limit");
+                if (Children(node).Any(child => !visited.Contains(child))) reasons.Add("depth_limit");
                 return;
             }
-            var children = Children(node).Take(request.MaxNodes + 1).ToArray();
+            var children = Children(node).Where(child => !visited.Contains(child)).Take(request.MaxNodes + 1).ToArray();
             entry.Children = children;
             foreach (var child in children)
             {

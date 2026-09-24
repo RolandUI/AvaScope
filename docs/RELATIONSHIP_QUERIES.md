@@ -5,6 +5,14 @@ The CLI accepts the same bounded query as `find-nodes --request query.json`.
 Existing flat find flags retain their behavior; do not combine a `selector` with
 flat identity/state filters or tree/binding expansion options.
 
+Logical snapshots and queries emit each object identity once, preserving its first
+observed path. Selected `TabControl` content can appear repeatedly in Avalonia's
+logical child enumeration; repeated references are not distinct selector
+candidates. Different controls sharing an AutomationID remain separate candidates.
+This does not merge native popup visual roots into their owner: a popup outside
+the selected visual root remains a separate registered hit-test scope, and
+`pick_node` reports that limitation explicitly.
+
 ```json
 {
   "sessionId": "selected-session",

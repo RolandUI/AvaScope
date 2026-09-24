@@ -4,6 +4,7 @@ using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Automation.Peers;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Templates;
 using Avalonia.Data;
 using Avalonia.Headless;
@@ -19,6 +20,77 @@ namespace AvaScope.Tests.Bridge;
 [Collection(BridgeCollectionDefinition.Name)]
 public sealed class RuntimeRelationshipQueryTests
 {
+    [Fact]
+    public async Task PopupLogicalIdentityIsUniqueAcrossSnapshotsQueriesCliAndMcp()
+    {
+        await WithWindow(async (runtime, window, root, top, client) =>
+        {
+            var open = new Button { Content = "Open" };
+            var close = new Button { Content = "Dismiss" };
+            AutomationProperties.SetAutomationId(close, "popup-close");
+            var popup = new Popup { PlacementTarget = open, Child = new Border { Child = close } };
+            root.Children.Add(new TabControl { Items =
+            {
+                new TabItem { Header = "Other", Content = new TextBlock { Text = "Other page" } },
+                new TabItem { Header = "Popup", Content = new StackPanel { Children = { open, popup } } }
+            }, SelectedIndex = 1 });
+            var path = Path.Combine(Path.GetTempPath(), "avascope-popup-query-" + Guid.NewGuid().ToString("N") + ".json");
+            try
+            {
+                window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
+                var request = new RuntimeQueryRequest(runtime.SessionId, top, new(treeKind: TreeKinds.Logical, automationId: "popup-close"), maxDepth: 32);
+                foreach (var isOpen in new[] { false, true, false, true })
+                {
+                    popup.IsOpen = isOpen; window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
+                    var flat = await client.FindNodesAsync(runtime.SessionId, top, TreeKinds.Logical, automationId: "popup-close", maxDepth: 32);
+                    Assert.True(flat.Success, flat.Error?.Message);
+                    var match = Assert.Single(flat.Value!.Matches);
+                    var query = await client.QueryNodesAsync(request);
+                    Assert.True(query.Success, query.Error?.Message);
+                    Assert.True(query.Value!.Coverage!.Complete);
+                    Assert.Equal(match.Node.NodeId, Assert.Single(query.Value.Matches).Node.NodeId);
+                    Assert.Equal(match.Path, query.Value.Matches[0].Path);
+                    var snapshot = await client.LogicalTreeAsync(runtime.SessionId, top, maxDepth: 32);
+                    Assert.True(snapshot.Success, snapshot.Error?.Message);
+                    var pending = new Stack<TreeNodeSummary>(); pending.Push(snapshot.Value!.Root);
+                    var ids = new HashSet<string>(StringComparer.Ordinal);
+                    while (pending.TryPop(out var node))
+                    {
+                        Assert.True(ids.Add(node.NodeId), "One logical object appeared twice in a tree snapshot.");
+                        foreach (var child in node.Children) pending.Push(child);
+                    }
+                }
+                await File.WriteAllTextAsync(path, JsonSerializer.Serialize(request));
+                using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(45));
+                var start = new ProcessStartInfo("dotnet") { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
+                foreach (var argument in new[] { Path.Combine(AppContext.BaseDirectory, "avascope.dll"), "find-nodes", "--request", path, "--manifest-dir", client.ManifestDirectory }) start.ArgumentList.Add(argument);
+                using var process = Process.Start(start)!;
+                var output = process.StandardOutput.ReadToEndAsync(timeout.Token); var errors = process.StandardError.ReadToEndAsync(timeout.Token);
+                try { await process.WaitForExitAsync(timeout.Token); }
+                finally { if (!process.HasExited) process.Kill(entireProcessTree: true); }
+                Assert.Equal(0, process.ExitCode);
+                var cli = JsonSerializer.Deserialize<ToolResult<FindNodesResponse>>(await output)!;
+                Assert.True(cli.Success, cli.Error?.Message + await errors); Assert.Single(cli.Value!.Matches);
+                await using var mcp = await McpClient.CreateAsync(new StdioClientTransport(new()
+                { Command = "dotnet", Arguments = [Path.Combine(AppContext.BaseDirectory, "AvaScope.Mcp.dll")], Name = "popup-logical-query" }), cancellationToken: timeout.Token);
+                var call = await mcp.CallToolAsync("find_nodes", new Dictionary<string, object?>
+                {
+                    ["sessionId"] = runtime.SessionId.Value, ["topLevelId"] = top,
+                    ["selector"] = JsonSerializer.SerializeToElement(request.Selector), ["maxDepth"] = 32, ["manifestDirectory"] = client.ManifestDirectory
+                }, cancellationToken: timeout.Token);
+                var actual = JsonSerializer.Deserialize<ToolResult<FindNodesResponse>>(JsonSerializer.Serialize(call.StructuredContent))!;
+                Assert.True(actual.Success, actual.Error?.Message);
+                Assert.Equal(Assert.Single(cli.Value.Matches).Node.NodeId, Assert.Single(actual.Value!.Matches).Node.NodeId);
+                var duplicate = new Button(); AutomationProperties.SetAutomationId(duplicate, "popup-close"); root.Children.Add(duplicate);
+                var ambiguous = await client.QueryNodesAsync(request);
+                Assert.True(ambiguous.Success, ambiguous.Error?.Message);
+                Assert.Equal(2, ambiguous.Value!.Matches.Count);
+                Assert.Equal(2, ambiguous.Value.Matches.Select(match => match.Node.NodeId).Distinct().Count());
+            }
+            finally { popup.IsOpen = false; File.Delete(path); }
+        });
+    }
+
     [Fact]
     public async Task StructuredAndLegacyBoundsAgreeThroughNestedMarginsTransformsAndScrolling()
     {

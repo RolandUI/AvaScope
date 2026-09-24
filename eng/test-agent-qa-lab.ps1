@@ -143,7 +143,20 @@ foreach ($integration in @('Direct','Standalone')) {
         $null = & $entry -Operation Reset -RunDirectory $run.root
         $levels = Call 'list_top_levels' @{sessionId=$run.sessionId}
         if (@($levels.value.value.topLevels).Count -ne 1) { throw 'Reset left a child window registered.' }
-        $results.Add(@{integration=$integration;backend=$run.observedBackend;scale=$run.renderScaling;status='passed';cycles=2;negativeFailurePreserved=$true;childCloseReopenVerified=$true;exactAutomationIdsVerified=$true;queryBoundsVerified=$true;selectionCoverageVerified=$true;textEditValidationVerified=$true;fullHdGeometry=$fullHdGeometry;root=$run.root})
+        $null = Call 'run_workflow' @{request=@{sessionId=$run.sessionId;topLevelId=$run.topLevelId;steps=@(
+            @{action='select';selector=@{automationId='qa-windows-tab'}},
+            @{action='invoke';selector=@{automationId='qa-open-popup'}})}}
+        $state = Get-Content (Join-Path $run.root 'qa-state.json') -Raw | ConvertFrom-Json
+        if (-not $state.popupOpen) { throw 'The app did not observe an open popup.' }
+        foreach ($popupOpen in @($true,$false)) {
+            if (-not $popupOpen) { $null = & $entry -Operation Reset -RunDirectory $run.root }
+            $flat = Call 'find_nodes' @{sessionId=$run.sessionId;topLevelId=$run.topLevelId;automationId='qa-close-popup';treeKind='logical';maxDepth=32}
+            $structured = Call 'find_nodes' @{sessionId=$run.sessionId;topLevelId=$run.topLevelId;selector=@{automationId='qa-close-popup';treeKind='logical'};maxDepth=32}
+            if (@($flat.value.value.matches).Count -ne 1 -or @($structured.value.value.matches).Count -ne 1 -or
+                $flat.value.value.matches[0].node.nodeId -ne $structured.value.value.matches[0].node.nodeId -or
+                -not $structured.value.value.coverage.complete) { throw 'Logical popup identity was duplicated or query coverage failed.' }
+        }
+        $results.Add(@{integration=$integration;backend=$run.observedBackend;scale=$run.renderScaling;status='passed';cycles=2;negativeFailurePreserved=$true;childCloseReopenVerified=$true;exactAutomationIdsVerified=$true;queryBoundsVerified=$true;selectionCoverageVerified=$true;textEditValidationVerified=$true;logicalPopupIdentityVerified=$true;fullHdGeometry=$fullHdGeometry;root=$run.root})
     }
     finally {
         if (Test-Path (Join-Path $runPath 'qa-run.json')) {
