@@ -1,6 +1,6 @@
 # First-phase native agent QA campaign
 
-Status: **in progress**, 2026-09-24. Tracking issue [#166](https://github.com/RolandUI/AvaScope/issues/166). This report separates actual agent exploration from scripted checks. The owner expanded the original intake-only phase to include fixes for existing and newly discovered defects, improved regression coverage and repeated comprehensive testing. Original failures remain recorded separately from post-fix verification. Version changes and release remain outside scope.
+Status: **blocked on missing acceptance evidence**, 2026-09-24. Tracking issue [#166](https://github.com/RolandUI/AvaScope/issues/166). All currently executable checks are complete and passing; the full goal is not declared achieved. This report separates actual agent exploration from scripted checks. The owner expanded the original intake-only phase to include fixes for existing and newly discovered defects, improved regression coverage and repeated comprehensive testing. Original failures remain recorded separately from post-fix verification. Version changes and release remain outside scope.
 
 Latest checkpoint: infrastructure #162/#163 and defects #158/#159/#160/#167/#168/
 #169/#170 are completed. #170 `678ac0b` passes 17 focused regressions in both
@@ -13,9 +13,12 @@ pass. Combined CI `36025169889` attempt 1 on `2f3894f` found one text-edit IPC
 timeout (#171); all six native lab combinations pass. The unchanged hosted
 Windows rerun passes 802 tests plus five skips, as does the second complete
 local Release run. Every attempt-2 downstream gate also passes. The
-instrumented-source CI `36031948678` on `a6783cc` remains pending; the original
-failure's cause is not established. #157/#161 native
-2× acceptance still needs an accessible Retina environment. The ledger retains
+instrumented-source CI `36031948678` on `a6783cc` now passes every job. Windows
+and macOS each pass 803 tests plus five explicit native skips; downloaded native
+and package evidence also passes. #171 remains open/blocked because the original
+failure's cause is not established and needs a reproducible failing environment
+or captured recurrence. #157/#161 native 2× acceptance still needs an accessible
+Retina environment. The ledger retains
 historical intermediate results; its older pending statements are superseded by
 the later dated/source-specific validations.
 
@@ -33,8 +36,8 @@ add test diagnostics, the deadline-recovery regression and documentation.
 | Hands-on public CLI/MCP exploration with independent state and native pixels | Direct F000–F036, Standalone M100–M134/O002–O017/V001–V004 and earlier task charters; `campaign-final-direct/verified-summary.json` contains 19 passing evidence checks | Available Windows scope passed. This does not claim agent-operated Mac/Linux desktops or native Retina coverage. |
 | Preview, variants, reload, failure recovery and session lifecycle | P001–P015: actual CLI/MCP, opened PNGs, repeated scale/theme/culture and XAML updates, failed-build recovery, one closed owned session | Passed; HTML viewer browser inspection remains blocked by the tool's local-file policy. |
 | Original five reported runtime defects (#157–#161) | Completed #158/#159/#160; #157 mitigation `c8b7dc3` and #161 bounds correction `295939d` pass the available render/capture/native gates | Native macOS 2× evidence required by #157/#161 is still missing; both tickets remain open/blocked. Original missing customer payload/view details are not invented. |
-| Newly found defects ticketed, corrected and regression-tested | #167 bounds, #168 duplicate logical identities, #169 mask overflow, #170 observe diagnostics; before/after tests and native reruns retained above | Completed. #171 remains open: the original hosted IPC deadline failure is retained and its cause is unknown. Controlled timeout recovery now passes 12 focused checks. |
-| Fresh combined regression round on the final test source | Every job of unchanged-source CI `36025169889` attempt 2 passes; instrumented-source CI `36031948678` on `a6783cc` passes Windows and all native lab jobs; retained Windows TRX verifies 803 passed and five explicit native skips | Linux/macOS downstream gates remain pending. Passing reruns do not explain the original failure. |
+| Newly found defects ticketed, corrected and regression-tested | #167 bounds, #168 duplicate logical identities, #169 mask overflow, #170 observe diagnostics; before/after tests and native reruns retained above | Completed. #171 remains open/blocked: the original hosted IPC deadline failure is retained and its cause is unknown. Controlled timeout recovery passes 12 focused checks and full hosted suites. |
+| Fresh combined regression round on the final test source | Every job of unchanged-source CI `36025169889` attempt 2 and instrumented-source CI `36031948678` on `a6783cc` passes; full Windows/macOS each pass 803 plus five explicit native skips | Applicable round passes; all downloaded platform evidence is checked. Passing reruns do not explain the original failure or supply missing native Retina coverage. |
 | Committed handoff, evidence and product boundaries | Changes pushed to `codex/agent-qa-phase-one`; F036 reports owned process termination; P015 reports the closed preview session; issue states retain external gaps | Product stays 1.5.0; no version bump, tag, release or publication. The campaign is not marked complete. |
 
 Shared fixtures: `0957350`; retained lab: `f18f8c8fb74cce2c024c3fc3d509226bee033469`. Product assemblies remain AvaScope 1.5.0. The lab copies and hashes the CLI/MCP/client/host/provider selected for each session. See [lab instructions and task charters](AGENT_QA_LAB.md).
@@ -525,5 +528,35 @@ Unicode case passes in 0.636 seconds; the deterministic deadline-recovery case
 passes in 5.054 seconds. This verifies diagnostic artifact retention and the new
 test in the full hosted context. Evidence is in `instrumented-hosted-windows`,
 including `verified-trx-summary.json`, and `instrumented-ci-windows.log`.
-Linux/macOS downstream package gates remain pending; the combined run is not
-yet a completed validation result and the original timeout cause is unknown.
+Linux/macOS downstream gates subsequently pass as well: the combined run is
+successful. Full macOS reports 803 passed plus five native skips, zero build
+warnings/errors. Downloaded `instrumented-hosted-linux` and
+`instrumented-hosted-macos` each confirm 20 input/dialog checks and five native
+test cases; both X11 3840×2160 CLI/MCP pairs compare all 8,294,400 pixels.
+Mac's native captures remain actual 1×. Compact checks are retained in each
+artifact directory's `verified-summary.json`; the macOS job log is
+`instrumented-ci-macos.log`. The original timeout cause is still unknown.
+
+### Blocked handoff after completed gates
+
+The named defect acceptances prevent claiming the entire goal complete.
+#157/#161 require an accessible logged-in Mac with actual 2× rendering, room for
+the 1920×1080 DIP client and independent native capture. That same missing
+environment has persisted across multiple consecutive goal turns; the request
+for a suitable host remains unanswered. Continue with the exact procedure in
+[AGENT_QA_LAB.md](AGENT_QA_LAB.md) when access exists.
+
+#171 retains its original failure separately from the passing reruns. The
+original log lacks per-operation timing and observed control state, and the
+unchanged failure does not reproduce in the completed focused/full checks.
+Further causal work needs a reproducible failing environment or a captured
+recurrence with the now-retained diagnostics. The diagnostic/recovery changes
+are validated; no unsupported product correction or timeout increase is made.
+The ticket remains open/blocked rather than claiming its cause fixed.
+
+#166, #157, #161 and #171 remain open/blocked. No test process or CI job remains
+running; all owned QA/preview cleanup is recorded. Commits are pushed, the
+working tree is clean at handoff, and only documentation follows tested
+`a6783cc`. HTML viewer browser review remains a separate tool-policy coverage
+gap; PNGs were viewed independently. Further repetition of unchanged passing
+suites does not provide the missing acceptance evidence. No release is made.
