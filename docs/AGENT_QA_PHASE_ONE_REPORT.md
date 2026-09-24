@@ -56,3 +56,11 @@ Remaining campaign work: theme/locale/size and repeated captures; loading/reset 
 | [#167](https://github.com/RolandUI/AvaScope/issues/167) | New: structured find_nodes returns parent-relative visual bounds while the existing argument form returns top-level bounds. |
 
 No product bug had been fixed in the original campaign evidence above. Subsequent fixes and reruns will be identified by commit/session. A workaround never changes the original failed case to passed.
+
+## Stabilization reruns
+
+The fixture correction `936dbed` passed `lifecycle-validation-03` locally and [focused CI 35996074830](https://github.com/RolandUI/AvaScope/actions/runs/35996074830) on native Windows, X11 and macOS. Downloaded lifecycle summaries confirm both integrations, child close/reopen/reset, preserved negative evidence and lease expiry; all observed scales are 1×. The earlier full baseline CI `35991939691` also completed successfully.
+
+**#160 fixed in `173b42b`.** Exact AutomationIDs now compare ordinally in bridge queries, pseudo-state re-resolution and audit uniqueness. The new exact-ID/audit tests failed before the fix; all 14 relationship/query, audit and matrix tests then passed, including actual CLI/MCP stdio and duplicate rejection. Native agent reruns used clean `173b42b` in `campaign-direct-02` (D202–D206) and `campaign-standalone-01` (S01–S08), with a freshly packaged hash-verified provider. Both resolve each case-distinct ID separately, reject `EXAMPLE_BUTTON_KEY_A`, and execute exact-selector actions with journal counters 0/0 → 1/0 → 1/1. Standalone CLI agrees. Native and rendered identity images were opened: both show `a=1; A=1`, correct text/layout and the same list region after excluding window chrome. Native sampling follows rendering and is not atomic. Direct owned termination passed; standalone remains retained for the next investigation.
+
+D201 was an unsuccessful text-filter discovery attempt on tab headers, followed by the observed native AutomationID. The three D203 queries have distinct original `calls/` transcripts; two convenience filenames differed only by case on Windows, so those aliases are not the authoritative record. No request/response in `calls/` was overwritten.
