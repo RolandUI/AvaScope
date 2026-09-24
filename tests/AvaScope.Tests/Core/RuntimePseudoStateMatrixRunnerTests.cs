@@ -78,6 +78,23 @@ public sealed class RuntimePseudoStateMatrixRunnerTests : IDisposable
         Assert.Equal("IsEnabled", bridgeRequests[4].Mutation!.Operation.PropertyName);
         Assert.Equal(RuntimeMutationOperationKinds.ResetMutation, bridgeRequests[7].Mutation!.Operation.Kind);
         Assert.Contains(result.Value.AgentReview.ArtifactPaths, artifact => artifact.Kind == "contact_sheet");
+
+        var imagePaths = Directory.GetFiles(outputDirectory, "*.png");
+        Assert.Equal(4, imagePaths.Length);
+        foreach (var path in imagePaths)
+        {
+            using (var stream = File.Open(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+            using (var bitmap = SKBitmap.Decode(stream))
+            {
+                Assert.NotNull(bitmap);
+                Assert.True(bitmap.Width > 0 && bitmap.Height > 0, path);
+            }
+
+            // Require released file handles before teardown, without GC or cleanup retries.
+            var movedPath = path + ".released";
+            File.Move(path, movedPath);
+            File.Move(movedPath, path);
+        }
     }
 
     [Fact]
@@ -187,14 +204,24 @@ public sealed class RuntimePseudoStateMatrixRunnerTests : IDisposable
 
     public void Dispose()
     {
+        var elapsed = Stopwatch.StartNew();
+        var failures = new List<string>();
         for (var attempt = 1; attempt <= 5 && Directory.Exists(_testRoot); attempt++)
         {
             try
             {
                 Directory.Delete(_testRoot, recursive: true);
             }
-            catch (IOException) when (attempt < 5)
+            catch (IOException exception)
             {
+                failures.Add($"attempt={attempt}, elapsedMs={elapsed.ElapsedMilliseconds}, hresult=0x{exception.HResult:X8}: {exception.Message}");
+                if (attempt == 5)
+                {
+                    throw new IOException(
+                        $"Matrix fixture cleanup failed for '{_testRoot}'. {string.Join(" | ", failures)}",
+                        exception);
+                }
+
                 Thread.Sleep(TimeSpan.FromMilliseconds(attempt * 100));
             }
         }
