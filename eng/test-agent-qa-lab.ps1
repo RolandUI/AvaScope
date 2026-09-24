@@ -144,12 +144,15 @@ foreach ($integration in @('Direct','Standalone')) {
         $levels = Call 'list_top_levels' @{sessionId=$run.sessionId}
         if (@($levels.value.value.topLevels).Count -ne 1) { throw 'Reset left a child window registered.' }
         $null = Call 'run_workflow' @{request=@{sessionId=$run.sessionId;topLevelId=$run.topLevelId;steps=@(
-            @{action='select';selector=@{automationId='qa-windows-tab'}},
-            @{action='invoke';selector=@{automationId='qa-open-popup'}})}}
-        $state = Get-Content (Join-Path $run.root 'qa-state.json') -Raw | ConvertFrom-Json
-        if (-not $state.popupOpen) { throw 'The app did not observe an open popup.' }
-        foreach ($popupOpen in @($true,$false)) {
-            if (-not $popupOpen) { $null = & $entry -Operation Reset -RunDirectory $run.root }
+            @{action='select';selector=@{automationId='qa-windows-tab'}})}}
+        # Check closed first: an open native popup intentionally makes the owner's Reset non-actionable.
+        foreach ($popupOpen in @($false,$true)) {
+            if ($popupOpen) {
+                $null = Call 'run_workflow' @{request=@{sessionId=$run.sessionId;topLevelId=$run.topLevelId;steps=@(
+                    @{action='invoke';selector=@{automationId='qa-open-popup'}})}}
+            }
+            $state = Get-Content (Join-Path $run.root 'qa-state.json') -Raw | ConvertFrom-Json
+            if ($state.popupOpen -ne $popupOpen) { throw 'The app popup state does not match the query case.' }
             $flat = Call 'find_nodes' @{sessionId=$run.sessionId;topLevelId=$run.topLevelId;automationId='qa-close-popup';treeKind='logical';maxDepth=32}
             $structured = Call 'find_nodes' @{sessionId=$run.sessionId;topLevelId=$run.topLevelId;selector=@{automationId='qa-close-popup';treeKind='logical'};maxDepth=32}
             if (@($flat.value.value.matches).Count -ne 1 -or @($structured.value.value.matches).Count -ne 1 -or

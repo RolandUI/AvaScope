@@ -1,8 +1,8 @@
 # Agent QA plan for v1.5.1 stabilization
 
-Status: planned on 2026-09-24; not an implemented lab or validation result. [Milestone v1.5.1](https://github.com/RolandUI/AvaScope/milestone/20) and [release tracker #165](https://github.com/RolandUI/AvaScope/issues/165) own the scope. Issue acceptance criteria are authoritative; this document records the design and rationale.
+Status: lab implemented and the stabilization campaign is in progress. [Campaign #166](https://github.com/RolandUI/AvaScope/issues/166) and [milestone v1.5.1](https://github.com/RolandUI/AvaScope/milestone/20) track the authorized work. Issue acceptance criteria are authoritative; this document records the design and rationale. Executed evidence and remaining gaps are in [the campaign report](AGENT_QA_PHASE_ONE_REPORT.md).
 
-The user subsequently authorized a first phase: implement #162/#163, execute the detailed exploratory campaign [#166](https://github.com/RolandUI/AvaScope/issues/166), and record bugs. Product bug fixes and release execution require the later phase. The broader candidate/release guidance below is future context, not authorization to publish during this work.
+On 2026-09-24 the user expanded the initial infrastructure/intake phase: continue thorough exploration, improve regressions, fix existing and newly recorded defects, and repeat a fresh applicable comprehensive round until it finds no new failures. Work remains sequential by issue. Version changes and publication are outside this authorization; the candidate/release guidance below remains future context.
 
 ## Observed coverage gaps
 
@@ -85,4 +85,4 @@ Every run records commit and candidate hashes, AvaScope/.NET/Avalonia versions, 
 
 Report `passed`, `failed`, `blocked` and `skipped` separately. Required missing native 2× coverage is blocked, not success. Generic MCP invocation errors fail the relevant journey. Child process failures, missing images, timeouts and cleanup errors must propagate to the gate.
 
-Close the five defects only after their criteria pass. Move the release to candidate only after all in-scope acceptance and existing [validation](VALIDATION.md) gates pass. This planning task runs no application tests and supplies no native macOS evidence.
+Close defects only after their acceptance criteria pass. A future release-candidate decision additionally requires the applicable [validation](VALIDATION.md) gates and publication authorization. The executed campaign includes native macOS at observed 1×; that does not establish the required 2× Retina evidence.
