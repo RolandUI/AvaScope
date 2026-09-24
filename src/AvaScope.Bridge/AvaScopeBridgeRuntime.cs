@@ -48,6 +48,7 @@ public sealed partial class AvaScopeBridgeRuntime
     private const string MutationValueKindString = "string";
     private const string MutationValueKindThickness = "thickness";
     private readonly ConcurrentDictionary<int, WeakReference<TopLevel>> _registeredTopLevels = new();
+    private readonly ConcurrentDictionary<int, WeakReference<PopupRoot>> _observedPopups = new();
     private readonly ConcurrentDictionary<string, RuntimeBackendInfo> _observedBackends = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, ActivePointerState> _activePointers = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, AppliedRuntimeMutation> _activeMutations = new(StringComparer.Ordinal);
@@ -61,6 +62,7 @@ public sealed partial class AvaScopeBridgeRuntime
     private long _customActionAuditSequence;
     private LocalBridgeServer? _localServer;
     private AutomaticTopLevelRegistration? _automaticTopLevels;
+    private IDisposable? _popupVisibilitySubscription;
 
     internal AvaScopeBridgeRuntime(
         SessionRegistry sessionRegistry,
@@ -72,6 +74,12 @@ public sealed partial class AvaScopeBridgeRuntime
         Session = session ?? throw new ArgumentNullException(nameof(session));
         TransportScope = transportScope;
         _activationOptions = activationOptions ?? throw new ArgumentNullException(nameof(activationOptions));
+        _popupVisibilitySubscription = Visual.IsVisibleProperty.Changed.AddClassHandler<PopupRoot>((popup, change) =>
+        {
+            var key = InspectableTopLevel.GetRuntimeId(popup);
+            if (popup.IsVisible) _observedPopups[key] = new(popup);
+            else _observedPopups.TryRemove(key, out _);
+        });
     }
 
     public SessionSnapshot Session { get; }
@@ -586,6 +594,8 @@ public sealed partial class AvaScopeBridgeRuntime
             _observationChanges.Clear();
         }
         Interlocked.Exchange(ref _automaticTopLevels, null)?.Dispose();
+        Interlocked.Exchange(ref _popupVisibilitySubscription, null)?.Dispose();
+        _observedPopups.Clear();
         ResetActiveMutationsOnUiThread(static _ => true);
         _customActions.Clear();
         CloseOperations();
@@ -1054,6 +1064,12 @@ public sealed partial class AvaScopeBridgeRuntime
             }
         }
 
+        foreach (var popup in EnumeratePopupTopLevels())
+        {
+            var summary = InspectableTopLevel.FromTopLevel(popup, "popup");
+            if (seen.Add(summary.Id)) discovered.Add(summary);
+        }
+
         foreach (var topLevel in discovered)
         {
             _observedBackends[topLevel.Id] = topLevel.Backend!;
@@ -1094,7 +1110,7 @@ public sealed partial class AvaScopeBridgeRuntime
 
             topLevels.Add(topLevel is Window window
                 ? InspectableTopLevel.FromWindow(window)
-                : InspectableTopLevel.FromTopLevel(topLevel, "topLevel"));
+                : InspectableTopLevel.FromTopLevel(topLevel, topLevel is PopupRoot ? "popup" : "topLevel"));
         }
 
         return topLevels;
@@ -7325,7 +7341,34 @@ public sealed partial class AvaScopeBridgeRuntime
     {
         return EnumerateLifetimeTopLevels()
             .Concat(EnumerateRegisteredTopLevels())
+            .Concat(EnumeratePopupTopLevels())
             .FirstOrDefault(topLevel => InspectableTopLevel.CreateId(topLevel) == topLevelId);
+    }
+
+    private IEnumerable<PopupRoot> EnumeratePopupTopLevels()
+    {
+        var owners = EnumerateLifetimeTopLevels().Concat(EnumerateRegisteredTopLevels()).ToHashSet();
+        foreach (var owner in owners)
+        {
+            // Focus can already be inside a popup when the bridge is activated.
+            var focusedRoot = owner.FocusManager?.GetFocusedElement() is Visual focused ? TopLevel.GetTopLevel(focused) : null;
+            while (focusedRoot is PopupRoot popup)
+            {
+                _observedPopups[InspectableTopLevel.GetRuntimeId(popup)] = new(popup);
+                focusedRoot = popup.ParentTopLevel;
+            }
+        }
+        foreach (var (key, reference) in _observedPopups)
+        {
+            if (!reference.TryGetTarget(out var popup) || !popup.IsVisible || popup.PlatformImpl is null)
+            {
+                _observedPopups.TryRemove(key, out _);
+                continue;
+            }
+            TopLevel owner = popup.ParentTopLevel;
+            while (owner is PopupRoot parent && parent.IsVisible) owner = parent.ParentTopLevel;
+            if (owner.IsVisible && owners.Contains(owner)) yield return popup;
+        }
     }
 
     private static IEnumerable<TopLevel> EnumerateLifetimeTopLevels()

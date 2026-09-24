@@ -62,6 +62,30 @@ stops further dispatch. Cleanup may still address the original owned window afte
 focus loss. A native handler may open a nested native event loop; modifiers are
 restored when that handler returns.
 
+## Menus and popup roots
+
+Native Avalonia menus and context menus can render in a separate `PopupRoot`.
+After opening a menu, call `list_top_levels`, select the visible `kind: popup`
+entry, and query its current item before sending input. Owner-window keyboard
+input does not silently cross into that popup: its refusal supplies
+`focusedTopLevelId` when that focused popup is discoverable. An overlay menu
+remains in the owner's top-level and uses that existing target.
+
+Discovery observes public popup visibility changes while the bridge is active,
+retains weak references, and verifies the public `PopupRoot.ParentTopLevel`
+chain reaches an inspectable visible owner. Current focused popup roots are also
+discovered after late bridge activation. Closed popups and popups belonging to
+unregistered roots are excluded. This uses Avalonia 12.1.0 public APIs; it does
+not require the `OpenedPopups` collection added in later 12.1.x patches or private
+popup-host interfaces.
+
+A menu may close and detach its item during synthetic `KeyDown`. The same
+request still sends its matching `KeyUp` to that original item, as owned cleanup
+would; subsequent keystrokes revalidate the target and stop. Observe the app's
+action count and popup closure before deciding on another intent. Native key
+routes retain their platform ownership restrictions; this does not add a native
+popup-key route or global input fallback.
+
 | Capability | Windows Win32 | Linux X11 | macOS AppKit | Headless / unknown |
 | --- | --- | --- | --- | --- |
 | Semantic / synthetic input | Yes | Yes | Yes | Synthetic on Avalonia Headless; target-dependent semantic providers |

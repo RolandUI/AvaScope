@@ -69,9 +69,59 @@ foreach ($integration in @('Direct','Standalone')) {
             }
             $null = Call 'screenshot' @{sessionId=$run.sessionId;topLevelId=$run.topLevelId;
                 outputPath=(Join-Path $run.root "cycle-$cycle-table.png");captureAfterRender=$true}
+            $null = Call 'run_workflow' @{request=@{sessionId=$run.sessionId;topLevelId=$run.topLevelId;steps=@(
+                @{action='select';selector=@{automationId='qa-input-tab'}})}}
+            foreach ($menuKind in @('menu','context')) {
+                $anchorId = if ($menuKind -eq 'menu') { 'qa-actions-menu' } else { 'qa-pointer-pad' }
+                $anchor = Call 'find_nodes' @{sessionId=$run.sessionId;topLevelId=$run.topLevelId;automationId=$anchorId;maxDepth=32;maxResults=2}
+                if (@($anchor.value.value.matches).Count -ne 1) { throw 'Menu anchor was not uniquely discovered.' }
+                $open = @{sessionId=$run.sessionId;topLevelId=$run.topLevelId;targetNodeId=$anchor.value.value.matches[0].node.nodeId}
+                if ($menuKind -eq 'menu') { $open.action='key_sequence'; $open.execution=@{strategy='synthetic';keys=@(@{key='Down'})} }
+                else { $open.action='click'; $open.execution=@{strategy='synthetic';button='right'} }
+                $null = Call 'input' $open
+                $levels = Call 'list_top_levels' @{sessionId=$run.sessionId}
+                $menuTop = $run.topLevelId
+                if ($Backend -eq 'Native') {
+                    $popups = @($levels.value.value.topLevels | Where-Object kind -eq 'popup')
+                    if ($popups.Count -ne 1) { throw 'Visible native menu must expose exactly one popup top-level.' }
+                    $menuTop = $popups[0].id
+                    if ($menuKind -eq 'menu') {
+                        $wrongOwner = Call 'input' @{sessionId=$run.sessionId;topLevelId=$run.topLevelId;action='key_sequence';
+                            execution=@{strategy='synthetic';requireCurrentFocus=$true;keys=@(@{key='Enter'})}} -ExpectedFailure
+                        if ($wrongOwner.value.error.details.focusedTopLevelId -ne $menuTop -or $wrongOwner.value.error.details.dispatchedEvents -ne '0') {
+                            throw 'Owner input must identify the popup without dispatching.'
+                        }
+                    }
+                }
+                $itemId = if ($menuKind -eq 'menu') { 'qa-menu-apply' } else { 'qa-context-apply' }
+                $item = Call 'find_nodes' @{sessionId=$run.sessionId;topLevelId=$menuTop;automationId=$itemId;maxDepth=32;maxResults=2}
+                if (@($item.value.value.matches).Count -ne 1) { throw 'Visible menu item must be uniquely inspectable in its actual root.' }
+                if ($menuKind -eq 'menu') {
+                    $disabled = Call 'find_nodes' @{sessionId=$run.sessionId;topLevelId=$menuTop;automationId='qa-menu-disabled';maxDepth=32;maxResults=2}
+                    if (@($disabled.value.value.matches).Count -ne 1) { throw 'Expected the disabled menu guard target.' }
+                    $null = Call 'input' @{sessionId=$run.sessionId;topLevelId=$menuTop;targetNodeId=$disabled.value.value.matches[0].node.nodeId;
+                        action='key_sequence';execution=@{strategy='synthetic';keys=@(@{key='Enter'})}} -ExpectedFailure
+                }
+                $null = Call 'screenshot' @{sessionId=$run.sessionId;topLevelId=$menuTop;
+                    outputPath=(Join-Path $run.root "cycle-$cycle-$menuKind.png");captureAfterRender=$true}
+                $activate = @{sessionId=$run.sessionId;topLevelId=$menuTop;targetNodeId=$item.value.value.matches[0].node.nodeId;
+                    action='key_sequence';execution=@{strategy='synthetic';keys=@(@{key='Enter'})}}
+                $null = Call 'input' $activate
+                $state = Get-Content (Join-Path $run.root 'qa-state.json') -Raw | ConvertFrom-Json
+                $count = if ($menuKind -eq 'menu') { $state.input.menuActions } else { $state.input.contextActions }
+                if ($count -ne 1) { throw 'Menu activation did not produce exactly one app-owned action.' }
+                $after = Call 'list_top_levels' @{sessionId=$run.sessionId}
+                if (@($after.value.value.topLevels | Where-Object kind -eq 'popup').Count -ne 0) { throw 'Closed popup still appears in runtime discovery.' }
+                $null = Call 'input' $activate -ExpectedFailure
+                $state = Get-Content (Join-Path $run.root 'qa-state.json') -Raw | ConvertFrom-Json
+                if ($state.input.menuActions -ne 1 -or $state.input.contextActions -ne $(if ($menuKind -eq 'context') { 1 } else { 0 })) {
+                    throw 'Rejected stale menu target changed an action counter.'
+                }
+            }
             $null = & $entry -Operation Reset -RunDirectory $run.root
             $reset = Get-Content (Join-Path $run.root 'qa-state.json') -Raw | ConvertFrom-Json
-            if ($reset.notifications -or $reset.toggleCount -ne 0 -or $reset.displayName -ne 'Ada') { throw 'Reset did not restore seeded state.' }
+            if ($reset.notifications -or $reset.toggleCount -ne 0 -or $reset.displayName -ne 'Ada' -or
+                $reset.input.menuActions -ne 0 -or $reset.input.contextActions -ne 0) { throw 'Reset did not restore seeded state.' }
         }
         $null = Call 'run_workflow' @{request=@{sessionId=$run.sessionId;topLevelId=$run.topLevelId;steps=@(
             @{action='invoke';selector=@{automationId='qa-load'}},
@@ -180,7 +230,7 @@ foreach ($integration in @('Direct','Standalone')) {
                 $flat.value.value.matches[0].node.nodeId -ne $structured.value.value.matches[0].node.nodeId -or
                 -not $structured.value.value.coverage.complete) { throw 'Logical popup identity was duplicated or query coverage failed.' }
         }
-        $results.Add(@{integration=$integration;backend=$run.observedBackend;scale=$run.renderScaling;status='passed';cycles=2;negativeFailurePreserved=$true;childCloseReopenVerified=$true;exactAutomationIdsVerified=$true;queryBoundsVerified=$true;selectionCoverageVerified=$true;textEditValidationVerified=$true;logicalPopupIdentityVerified=$true;applicationReadinessVerified=$true;tableRenderingVerified=$true;fullHdGeometry=$fullHdGeometry;root=$run.root})
+        $results.Add(@{integration=$integration;backend=$run.observedBackend;scale=$run.renderScaling;status='passed';cycles=2;negativeFailurePreserved=$true;childCloseReopenVerified=$true;exactAutomationIdsVerified=$true;queryBoundsVerified=$true;selectionCoverageVerified=$true;textEditValidationVerified=$true;logicalPopupIdentityVerified=$true;applicationReadinessVerified=$true;tableRenderingVerified=$true;menuPopupInputVerified=$true;fullHdGeometry=$fullHdGeometry;root=$run.root})
     }
     finally {
         if (Test-Path (Join-Path $runPath 'qa-run.json')) {

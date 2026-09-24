@@ -3,6 +3,7 @@ using System.Text;
 using Avalonia;
 using Avalonia.Automation.Peers;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -179,8 +180,12 @@ public sealed partial class AvaScopeBridgeRuntime
         catch (Exception exception) when (exception is not OutOfMemoryException and not AccessViolationException) { return (null, true); }
     }
 
-    private static Window? FindModalBlocker(TopLevel top) => top is Window owner
-        ? owner.OwnedWindows.Take(64).FirstOrDefault(window => window.IsDialog && window.IsVisible) : null;
+    private static Window? FindModalBlocker(TopLevel top)
+    {
+        while (top is PopupRoot popup) top = popup.ParentTopLevel;
+        return top is Window owner
+            ? owner.OwnedWindows.Take(64).FirstOrDefault(window => window.IsDialog && window.IsVisible) : null;
+    }
 
     private RuntimeActivationPoint ResolveActivationPoint(TopLevel top, string topId, Visual node, double? x, double? y,
         AvaScopeActionContext? context, bool providerFailed)
@@ -231,6 +236,7 @@ public sealed partial class AvaScopeBridgeRuntime
 
     private CoreError? InputBlocker(TopLevel top, string topId, Visual node, string action)
     {
+        while (top is PopupRoot popup) top = popup.ParentTopLevel;
         var blocker = FindModalBlocker(top);
         if (blocker is null && top is not Window { OwnedWindows.Count: > 64 }
             && node is InputElement { IsEffectivelyEnabled: true } && node.IsEffectivelyVisible)

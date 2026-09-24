@@ -16,6 +16,62 @@ namespace AvaScope.Tests.Bridge;
 [Collection(BridgeCollectionDefinition.Name)]
 public sealed class ExplicitInputTests
 {
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public async Task OverlayMenuActivationReleasesItsPairedKeyAfterClosingWithoutDispatchingAnotherIntent(bool contextMenu, bool additionalKey)
+    {
+        await WithWindow(async (runtime, pad, _, top, client) =>
+        {
+            var window = (Window)TopLevel.GetTopLevel(pad)!;
+            var apply = new MenuItem { Name = "PopupApply", Header = "Apply marker" };
+            var disabled = new MenuItem { Name = "PopupDisabled", Header = "Disabled", IsEnabled = false };
+            var invoked = 0;
+            var released = 0;
+            apply.Click += (_, _) => invoked++;
+            apply.AddHandler(InputElement.KeyUpEvent, (_, _) => released++, RoutingStrategies.Tunnel);
+            var context = new ContextMenu { Items = { apply, disabled } };
+            var header = new MenuItem { Name = "Actions", Header = "Actions" };
+            if (contextMenu) pad.ContextMenu = context;
+            else
+            {
+                context.Items.Clear();
+                header.Items.Add(apply); header.Items.Add(disabled);
+                ((StackPanel)window.Content!).Children.Insert(0, new Menu { Items = { header } });
+            }
+            window.UpdateLayout();
+            try
+            {
+                if (contextMenu) context.Open(pad);
+                else header.IsSubMenuOpen = true;
+                Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
+                Assert.Same(window, TopLevel.GetTopLevel(apply));
+                Assert.True(apply.Focus());
+                Assert.Single(await runtime.ListTopLevelsAsync());
+                var match = Assert.Single((await client.FindNodesAsync(runtime.SessionId, top, TreeKinds.Visual, name: "PopupApply", maxDepth: 32)).Value!.Matches).Node;
+                Assert.True(match.InteractionState!.Visible); Assert.True(match.InteractionState.Enabled);
+                var keys = new InputExecutionOptions { Keys = additionalKey ? [new("Enter"), new("Enter")] : [new("Enter")], RequireCurrentFocus = true, IntervalMs = 0 };
+                var disabledNode = Assert.Single((await client.FindNodesAsync(runtime.SessionId, top, TreeKinds.Visual, name: "PopupDisabled", maxDepth: 32)).Value!.Matches).Node;
+                var refused = await client.InputAsync(runtime.SessionId, top, InputActions.KeySequence,
+                    targetNodeId: disabledNode.NodeId, execution: new() { Keys = [new("Enter")], IntervalMs = 0 });
+                Assert.False(refused.Success); Assert.Equal(0, invoked); Assert.True(apply.IsFocused);
+                var result = await client.InputAsync(runtime.SessionId, top, InputActions.KeySequence,
+                    targetNodeId: match.NodeId, execution: keys);
+                Assert.True(result.Success != additionalKey, JsonSerializer.Serialize(result));
+                if (additionalKey) Assert.Equal("2", result.Error!.Details!["dispatchedEvents"]);
+                Assert.Equal(1, invoked); Assert.Equal(1, released);
+                Assert.False(context.IsOpen); Assert.False(header.IsSubMenuOpen);
+                Assert.Single(await runtime.ListTopLevelsAsync());
+                Assert.False((await client.InputAsync(runtime.SessionId, top, InputActions.KeySequence,
+                    targetNodeId: match.NodeId, execution: keys)).Success);
+                Assert.Equal(1, invoked);
+            }
+            finally { context.Close(); header.IsSubMenuOpen = false; }
+        });
+    }
+
     [Fact]
     public async Task CompoundClicksChordsAndLiteralTextUseTheRequestedRouteAcrossCliAndMcp()
     {

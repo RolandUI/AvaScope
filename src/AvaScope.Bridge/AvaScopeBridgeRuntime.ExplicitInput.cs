@@ -275,6 +275,9 @@ public sealed partial class AvaScopeBridgeRuntime
 
         void CheckTarget(bool releasingKey = false)
         {
+            // A menu activation can detach its recipient on KeyDown. Complete only
+            // this request's paired synthetic KeyUp, as the finally cleanup would.
+            if (releasingKey && heldKey is not null && options.Strategy == "synthetic") return;
             if (plan is null || FindTopLevel(topLevelId) != plan.TopLevel || TopLevel.GetTopLevel(plan.Target) != plan.TopLevel
                 || !plan.Target.IsEffectivelyVisible || !plan.Target.IsEffectivelyEnabled)
                 throw new InvalidOperationException("The selected input target closed, detached or became unavailable.");
@@ -427,6 +430,15 @@ public sealed partial class AvaScopeBridgeRuntime
         InputElement? recipient = nodeId is null ? null : FindNodeById(top, nodeId) as InputElement;
         if (nodeId is not null && recipient is null) return Fail("The requested visual input node is absent or is not an input element; no focused-node substitution was attempted.");
         if (keyboard) recipient ??= top.FocusManager?.GetFocusedElement() as InputElement;
+        if (keyboard && recipient is not null && TopLevel.GetTopLevel(recipient) is { } focusedTop && focusedTop != top
+            && EnumeratePopupTopLevels().Contains(focusedTop))
+            return CoreResult<ExplicitInputPlan>.Fail(new CoreError(BridgeErrorCodes.InvalidInputRequest,
+                "The keyboard recipient is in a separate popup. Select that popup explicitly before sending input.",
+                new Dictionary<string, string>
+                {
+                    ["focusedTopLevelId"] = InspectableTopLevel.CreateId(focusedTop),
+                    ["nextAction"] = "List top levels, inspect the popup and select its current node or focus target. No input was dispatched."
+                }));
         if (options.RequireCurrentFocus && (recipient is null || !recipient.IsFocused || top.FocusManager?.GetFocusedElement() != recipient))
             return Fail("The requested keyboard target no longer holds focus; no focus or input was dispatched.");
         if ((x is null) != (y is null)) return Fail("Both x and y must be supplied together.");
