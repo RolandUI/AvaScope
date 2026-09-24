@@ -5,6 +5,7 @@ using Avalonia.Collections;
 using Avalonia;
 using Avalonia.Input;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using System.ComponentModel;
 using Avalonia.Headless;
 using Avalonia.Interactivity;
@@ -105,6 +106,8 @@ public sealed class AgentQaFixtureTests
                         var row = table.ItemsSource.Cast<QaRecord>().Single(item => item.Id == "QA-175");
                         window.FindControl<TabControl>("Pages")!.SelectedIndex = 5;
                         Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
+                        Assert.NotNull(table.Template);
+                        Assert.NotEmpty(table.GetVisualDescendants().OfType<DataGridRow>());
                         row.Status = "reviewed"; row.Score = 99;
                         table.CollectionView.SortDescriptions.Add(DataGridSortDescription.FromPath("Id", ListSortDirection.Descending));
                         table.SelectedItem = row;

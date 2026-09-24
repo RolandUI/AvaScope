@@ -90,6 +90,14 @@ different successful action. Host-declared scenes/operations/diagnostics follow
 in #173; [the complete source-derived capability inventory](AGENT_QA_CAPABILITIES.md)
 and campaign are #174.
 
+The #175 regression requires an applied DataGrid template and realized rows;
+reading its backing collection alone can succeed even when the entire grid is
+visually blank. Register implicit control themes before XAML attaches controls.
+The lifecycle check now visits Table in both reset cycles on both host paths,
+requires rendered row nodes plus realized query cells, and retains a table image.
+These checks establish a usable surface; the agent must still inspect the images
+and perform the table interaction charter.
+
 ## Report and cadence
 
 For each case record: ID/charter, goal, integration/backend/scale, exact request/response files, expected state, actual journal delta, native/rendered image observations, passed/failed/blocked/skipped, elapsed time, retries, workaround and ticket. Original `edit_text`/`ensure_state` failures remain failed even when a different tool finishes the user's broader task. Reuse existing defect tickets when the failure matches; add a new ticket only with distinct reproducible behavior.

@@ -101,9 +101,10 @@ public partial class QaWindow : Window
 
     public QaWindow()
     {
-        InitializeComponent();
+        // Implicit control themes must be available when XAML attaches the controls.
         Styles.Add(new StyleInclude(new Uri("avares://Avalonia.Controls.DataGrid/"))
             { Source = new Uri("avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml") });
+        InitializeComponent();
         var leaseText = Environment.GetEnvironmentVariable("AVASCOPE_QA_LIFETIME_SECONDS") ?? "3600";
         if (!int.TryParse(leaseText, out var leaseSeconds) || leaseSeconds is < 30 or > 14400)
             throw new ArgumentException("AVASCOPE_QA_LIFETIME_SECONDS must be 30–14400.");

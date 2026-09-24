@@ -55,6 +55,19 @@ foreach ($integration in @('Direct','Standalone')) {
             $capture = Call 'screenshot' @{sessionId=$run.sessionId;topLevelId=$run.topLevelId;outputPath=(Join-Path $run.root "cycle-$cycle.png");captureAfterRender=$true}
             if (-not (Test-Path -LiteralPath $capture.value.value.filePath)) { throw 'Public screenshot returned no artifact.' }
             if ($capture.value.value.readiness.application.status -ne 'ready') { throw 'The host did not declare application readiness.' }
+            $null = Call 'run_workflow' @{request=@{sessionId=$run.sessionId;topLevelId=$run.topLevelId;steps=@(
+                @{action='select';selector=@{automationId='qa-table-tab'}})}}
+            $rows = Call 'find_nodes' @{sessionId=$run.sessionId;topLevelId=$run.topLevelId;
+                nodeType='Avalonia.Controls.DataGridRow';rendered=$true;maxDepth=32;maxResults=2}
+            if (@($rows.value.value.matches).Count -lt 1) { throw 'The QA table has data but no rendered row controls; verify theme initialization.' }
+            $table = Call 'find_nodes' @{sessionId=$run.sessionId;topLevelId=$run.topLevelId;automationId='qa-table';maxDepth=32;maxResults=2}
+            if (@($table.value.value.matches).Count -ne 1) { throw 'The QA table was not uniquely discovered.' }
+            $data = Call 'query_table' @{request=@{table=$table.value.value.matches[0].node.target;keyProperty='Id';limit=3}}
+            if ($data.value.value.coverage.totalAvailableRows -ne 200 -or @($data.value.value.rows | Where-Object realized).Count -lt 1) {
+                throw 'The QA table must expose both seeded data and realized cells.'
+            }
+            $null = Call 'screenshot' @{sessionId=$run.sessionId;topLevelId=$run.topLevelId;
+                outputPath=(Join-Path $run.root "cycle-$cycle-table.png");captureAfterRender=$true}
             $null = & $entry -Operation Reset -RunDirectory $run.root
             $reset = Get-Content (Join-Path $run.root 'qa-state.json') -Raw | ConvertFrom-Json
             if ($reset.notifications -or $reset.toggleCount -ne 0 -or $reset.displayName -ne 'Ada') { throw 'Reset did not restore seeded state.' }
@@ -166,7 +179,7 @@ foreach ($integration in @('Direct','Standalone')) {
                 $flat.value.value.matches[0].node.nodeId -ne $structured.value.value.matches[0].node.nodeId -or
                 -not $structured.value.value.coverage.complete) { throw 'Logical popup identity was duplicated or query coverage failed.' }
         }
-        $results.Add(@{integration=$integration;backend=$run.observedBackend;scale=$run.renderScaling;status='passed';cycles=2;negativeFailurePreserved=$true;childCloseReopenVerified=$true;exactAutomationIdsVerified=$true;queryBoundsVerified=$true;selectionCoverageVerified=$true;textEditValidationVerified=$true;logicalPopupIdentityVerified=$true;applicationReadinessVerified=$true;fullHdGeometry=$fullHdGeometry;root=$run.root})
+        $results.Add(@{integration=$integration;backend=$run.observedBackend;scale=$run.renderScaling;status='passed';cycles=2;negativeFailurePreserved=$true;childCloseReopenVerified=$true;exactAutomationIdsVerified=$true;queryBoundsVerified=$true;selectionCoverageVerified=$true;textEditValidationVerified=$true;logicalPopupIdentityVerified=$true;applicationReadinessVerified=$true;tableRenderingVerified=$true;fullHdGeometry=$fullHdGeometry;root=$run.root})
     }
     finally {
         if (Test-Path (Join-Path $runPath 'qa-run.json')) {
