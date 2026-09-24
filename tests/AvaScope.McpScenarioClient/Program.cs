@@ -23,7 +23,8 @@ var fullResult = args.Length == 5;
 var environment = StdioClientTransportOptions.GetDefaultEnvironmentVariables();
 // Unix NamedPipeStream resolves its socket beneath TMPDIR. Preserve that transport
 // environment when connecting to an app launched outside this sanitized MCP child.
-foreach (var name in new[] { "TMPDIR", "DISPLAY", "XAUTHORITY", "WAYLAND_DISPLAY", "XDG_RUNTIME_DIR", "XDG_DATA_DIRS", "LD_LIBRARY_PATH", "DBUS_SESSION_BUS_ADDRESS", "LANG", "LC_ALL", "AVASCOPE_PROFILE_TEST_SECRET", "AVASCOPE_RESPONSE_ARTIFACT_DIR", "AVASCOPE_RUN_STORE_DIR", "AVASCOPE_RECIPE_HEALTHY", "AVASCOPE_RECIPE_BROKEN" })
+// Preserve explicit evidence/session stores so isolated scenarios retain ownership.
+foreach (var name in new[] { "TMPDIR", "DISPLAY", "XAUTHORITY", "WAYLAND_DISPLAY", "XDG_RUNTIME_DIR", "XDG_DATA_DIRS", "LD_LIBRARY_PATH", "DBUS_SESSION_BUS_ADDRESS", "LANG", "LC_ALL", "AVASCOPE_PROFILE_TEST_SECRET", "AVASCOPE_RESPONSE_ARTIFACT_DIR", "AVASCOPE_RUN_STORE_DIR", "AVASCOPE_PREVIEW_SESSION_STORE", "AVASCOPE_RECIPE_HEALTHY", "AVASCOPE_RECIPE_BROKEN" })
 {
     if (Environment.GetEnvironmentVariable(name) is { } value) environment[name] = value;
 }

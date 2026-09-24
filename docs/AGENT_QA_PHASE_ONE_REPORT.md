@@ -2,13 +2,15 @@
 
 Status: **in progress**, 2026-09-24. Tracking issue [#166](https://github.com/RolandUI/AvaScope/issues/166). This report separates actual agent exploration from scripted checks. The owner expanded the original intake-only phase to include fixes for existing and newly discovered defects, improved regression coverage and repeated comprehensive testing. Original failures remain recorded separately from post-fix verification. Version changes and release remain outside scope.
 
-Latest checkpoint: infrastructure #162/#163 and defects #158/#159/#160/#167/#168
-are completed. #169 is implemented at `5bbaad1`, passed a fresh native agent
-round M100–M134 and full Debug/Release (792 passed each, five native-only skips);
-updated CI `36014239916` is running. The preceding full CI `36009001380`
-passed every job, including native tests 5/5 on each platform and actual X11
-3840×2160 paired CLI/MCP capture. #157 and #161's remaining native 2× acceptance
-are blocked on an accessible Retina environment. The following ledger retains
+Latest checkpoint: infrastructure #162/#163 and defects #158/#159/#160/#167/#168/
+#169/#170 are completed. #170 `678ac0b` passes 17 focused regressions in both
+configurations, native V001–V004, and full Release (802 passed, five explicit
+native skips). #157 `c8b7dc3` passes native opacity/text review and full Debug/Release
+(801 passed each, five explicit native skips); all six hosted native lab
+combinations pass, with the broader CI `36019901130` still running. The preceding
+CI `36014239916` passed every job. Public preview/session/reload/error-recovery
+exploration P001–P015 passes; latest-source combined gates remain. #157/#161 native
+2× acceptance still needs an accessible Retina environment. The ledger retains
 historical intermediate results; its older pending statements are superseded by
 the later dated/source-specific validations.
 
@@ -58,7 +60,7 @@ This initial ledger is historical. Later sections record the remaining appearanc
 
 | Ticket | Confirmed finding / uncertainty | Current state |
 | --- | --- | --- |
-| [#157](https://github.com/RolandUI/AvaScope/issues/157) | Repeated opacity/transform inflation reproduced on Avalonia 12.1.0 and 12.1.3, including bridge screenshots. | Active: recorded-visual mitigation and regressions; actual native macOS 2× acceptance remains outstanding. |
+| [#157](https://github.com/RolandUI/AvaScope/issues/157) | Repeated opacity/transform inflation reproduced on Avalonia 12.1.0 and 12.1.3, including bridge screenshots. | Review: `c8b7dc3` mitigation passes focused/full local and native Win32 checks; actual native macOS 2× acceptance remains outstanding. |
 | [#158](https://github.com/RolandUI/AvaScope/issues/158) | Incomplete selector coverage was mislabeled as stale. Customer coverage metadata was absent. | Fixed `e32139f`, completed; complete targets, precise refusal and dispatch counts verified. |
 | [#159](https://github.com/RolandUI/AvaScope/issues/159) | Expected constructor/domain failures became opaque MCP invocation errors. Original customer payload was absent. | Fixed `74c07e6`, completed; structured invalid arguments and supported insert/replay verified. |
 | [#160](https://github.com/RolandUI/AvaScope/issues/160) | Exact AutomationID matching incorrectly ignored case. | Fixed `173b42b`, completed; independent counters and CLI/MCP parity verified. |
@@ -66,7 +68,7 @@ This initial ledger is historical. Later sections record the remaining appearanc
 | [#167](https://github.com/RolandUI/AvaScope/issues/167) | Structured visual queries returned bounds in the wrong coordinate space. | Fixed `cfa0d3d`, completed; nested/scroll/transform and geometry-pinned picking verified. |
 | [#168](https://github.com/RolandUI/AvaScope/issues/168) | Repeated logical object identity made popup queries fail over IPC. | Fixed `d1028c3`, completed; both integrations on all three native backends verified. |
 | [#169](https://github.com/RolandUI/AvaScope/issues/169) | Oversized privacy rectangle overflow skipped masking while reporting success. | Completed `5bbaad1`; native MCP/workflow/CLI, full Debug/Release and all jobs of CI `36014239916` pass. |
-| [#170](https://github.com/RolandUI/AvaScope/issues/170) | observe omits numeric limits from its public schema and returns only a generic request error when exceeding them. | Active; five Range annotations and safe field/range diagnostics implemented, 17 focused tests pass; native retry pending. |
+| [#170](https://github.com/RolandUI/AvaScope/issues/170) | observe omits numeric limits from its public schema and returns only a generic request error when exceeding them. | Completed `678ac0b`; 17 focused tests and native V001–V004 verify schema, actionable refusal, corrected/default success and owned cleanup. |
 
 No product bug had been fixed in the original campaign evidence above. Subsequent fixes and reruns will be identified by commit/session. A workaround never changes the original failed case to passed.
 
@@ -321,4 +323,52 @@ numeric bound, 25 invalid requests through an absent manifest directory,
 boundary-valid/default calls against a real bridge, corrected retries,
 unchanged application text and absence of a sensitive canary from replies and
 stderr. A valid 1 ms timeout may legitimately expire at runtime; the test
-distinguishes that from argument rejection. Native follow-up is pending.
+distinguishes that from argument rejection.
+
+Clean `campaign-observe-bounds` at `678ac0b` uses the unchanged verified
+`c8b7dc3` standalone host/provider and updated MCP/CLI. Actual schema includes
+minimum=0/maximum=8. V001 rejects maxDepth=20 with the field and exact range;
+V002 at 8 returns a screenshot and explicitly partial node coverage; V003
+defaults succeed. The journal remains Ada, zero edits/toggles, native Win32
+1×, Avalonia 12.1.3.0. V004 confirms owned PID 47256 termination. #170 is closed.
+
+### Actual preview lifecycle and recovery exploration
+
+`preview-exploration-01` uses the `678ac0b` MCP/CLI snapshot with a synthetic
+net10.0/Avalonia 12.1.3 project and a separate preview metadata store. The test
+client now forwards `AVASCOPE_PREVIEW_SESSION_STORE` to its sanitized MCP child;
+the persisted record was verified in that exact owned directory. No default
+or unrelated preview sessions are involved. This one-line infrastructure change
+is validated by the public calls below, rather than a test mirroring an env list.
+
+- P001–P003: create a durable preview record, render Light/en-US at 1× and 2×,
+  then Dark/hu-HU at 2×. Viewed PNGs have the requested 680×640 / 1360×1280
+  dimensions, correct number formatting, Unicode text and nested template.
+  Five identical transformed/full-opacity text rows remain equally sized in
+  both themes: independent pixel measurements find five 26-pixel ink bands at
+  2×, 90 pixels apart. This is headless preview evidence, not native Retina.
+- P004: edit the owned XAML from version A to B and reload the same session;
+  the new content is visible. The initial image is preserved separately.
+- P005–P007: mismatched closing XAML tag returns `preview_project_build_failed`
+  in `lastRender`, marks the durable session failed and survives a new MCP
+  process/list call. Repairing it to version C returns the same session to
+  active and renders the corrected content. The outer reload result describes
+  a successfully updated session record; its nested render result correctly
+  reports the deliberate build failure.
+- P008: viewer HTML export succeeds. Browser review is **blocked** by the
+  browser tool's local `file://` URL policy; no alternate surface or URL
+  workaround was attempted. PNG review is completed independently, and does
+  not establish the HTML viewer's browser appearance.
+- P009–P010: packaged CLI preview is byte-identical to the MCP version-C PNG;
+  CLI listing sees exactly the owned active record.
+- P011: a bounded CLI watch observes the actual C → D file edit, coalesces the
+  two filesystem events into one successful reload and exits at maxReloads=1
+  without timing out. The version-D PNG and complete watch result are retained.
+- P012–P015: close the owned record, reject reload with `session_closed`,
+  repeat close successfully, and verify only the closed record remains.
+
+The selected operations, raw responses, expected failure and recovered images
+are retained under `artifacts/agent-qa/preview-exploration-01`. No new product
+defect was found in this charter. Local full Release at `678ac0b` passes 802
+tests with five explicit native-only skips; focused observation/text/MCP Debug
+also passes 17/17. The broader native/packaging CI is tracked separately.
