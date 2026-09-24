@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.IO.Pipes;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
@@ -19,6 +20,80 @@ namespace AvaScope.Tests.Bridge;
 [Collection(BridgeCollectionDefinition.Name)]
 public sealed class RuntimeTextEditTests
 {
+    [Fact]
+    public async Task MalformedMcpArgumentsReturnSafeStructuredErrorsBeforeDispatchAndLeaveValidReplayIntact()
+    {
+        await WithWindow(async (runtime, root, top, client) =>
+        {
+            var box = new TextBox { Name = "Editor", Text = "Ada" };
+            root.Children.Add(box); Dispatcher.UIThread.RunJobs();
+            var target = await Target(runtime, top, "Editor");
+            var state = await Read(client, target);
+            var dispatched = 0;
+            box.AddHandler(InputElement.TextInputEvent, (_, _) => dispatched++, RoutingStrategies.Tunnel);
+            const string privateText = "private-mcp-validation-canary";
+            var policy = new RuntimeEvidencePolicy(Path.Combine(Path.GetTempPath(), "avascope-text-validation"),
+                redactedText: [privateText], allowedDesiredStates: ["text"]);
+            var request = Edit(target, state, "insert", 1, text: "X", policy: policy);
+            var stderr = new System.Collections.Concurrent.ConcurrentQueue<string>();
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(90));
+            await using var mcp = await McpClient.CreateAsync(new StdioClientTransport(new()
+            {
+                Command = "dotnet", Arguments = [Path.Combine(AppContext.BaseDirectory, "AvaScope.Mcp.dll")],
+                Name = "text-validation-test", StandardErrorLines = stderr.Enqueue
+            }), cancellationToken: timeout.Token);
+
+            Action<JsonObject>[] invalidChanges =
+            [
+                json => json.Remove("start"),
+                json => json["start"] = -1,
+                json => json["end"] = 1,
+                json => json["start"] = privateText,
+                json => json["action"] = privateText,
+                json => json["target"] = null,
+                json => { json["target"]!["targetKind"] = privateText; json["target"]!["treeKind"] = null; },
+                json => json["policy"]!["retentionMaxAgeMinutes"] = -1,
+                json => json["text"] = new string('x', RuntimeTextEditRequest.MaximumReplacementLength + 1)
+            ];
+            for (var index = 0; index < invalidChanges.Length + 2; index++)
+            {
+                var json = JsonSerializer.SerializeToNode(request)!.AsObject();
+                if (index < invalidChanges.Length) invalidChanges[index](json);
+                var arguments = new Dictionary<string, object?> { ["manifestDirectory"] = client.ManifestDirectory };
+                if (index <= invalidChanges.Length) arguments["request"] = index == invalidChanges.Length ? null : json;
+                var call = await mcp.CallToolAsync("edit_text", arguments, cancellationToken: timeout.Token);
+                Assert.True(call.IsError, $"Malformed case {index}: {JsonSerializer.Serialize(call)}");
+                Assert.NotNull(call.StructuredContent);
+                var failed = JsonSerializer.Deserialize<ToolResult<RuntimeTextEditResponse>>(JsonSerializer.Serialize(call.StructuredContent))!;
+                Assert.False(failed.Success); Assert.Equal("invalid_mcp_arguments", failed.Error!.Code);
+                Assert.Equal("false", failed.Error.Details!["dispatched"]);
+                Assert.Equal("request", failed.Error.Details["argument"]);
+                Assert.Contains("schema", failed.Error.Details["nextAction"]);
+                if (index == 0) Assert.Contains("start offset", failed.Error.Message);
+                Assert.DoesNotContain(privateText, JsonSerializer.Serialize(call));
+                Assert.Equal("Ada", box.Text); Assert.Equal(0, dispatched);
+            }
+
+            var readCall = await mcp.CallToolAsync("edit_text", new Dictionary<string, object?>
+            { ["request"] = JsonSerializer.SerializeToElement(new RuntimeTextEditRequest(target)), ["manifestDirectory"] = client.ManifestDirectory }, cancellationToken: timeout.Token);
+            var read = JsonSerializer.Deserialize<ToolResult<RuntimeTextEditResponse>>(JsonSerializer.Serialize(readCall.StructuredContent))!;
+            Assert.True(read.Success); Assert.Equal(state, read.Value!.After);
+            for (var replay = 0; replay < 2; replay++)
+            {
+                var call = await mcp.CallToolAsync("edit_text", new Dictionary<string, object?>
+                { ["request"] = JsonSerializer.SerializeToElement(request), ["manifestDirectory"] = client.ManifestDirectory }, cancellationToken: timeout.Token);
+                var edited = JsonSerializer.Deserialize<ToolResult<RuntimeTextEditResponse>>(JsonSerializer.Serialize(call.StructuredContent))!;
+                Assert.True(edited.Success, JsonSerializer.Serialize(call)); Assert.Equal(replay == 1, edited.Value!.Replayed);
+                Assert.Equal("AXda", edited.Value.After!.Text); Assert.Equal(1, dispatched);
+            }
+            var pick = await mcp.CallToolAsync("pick_node", new Dictionary<string, object?>
+            { ["request"] = new { target = new { sessionId = runtime.SessionId.Value, topLevelId = top } } }, cancellationToken: timeout.Token);
+            Assert.True(pick.IsError); Assert.NotNull(pick.StructuredContent);
+            Assert.Equal("invalid_mcp_arguments", JsonSerializer.Deserialize<ToolResult<object>>(JsonSerializer.Serialize(pick.StructuredContent))!.Error!.Code);
+            Assert.DoesNotContain(privateText, string.Join('\n', stderr));
+        });
+    }
+
     [Fact]
     public async Task MultilineUnicodeRangeSelectionInsertionAndUndoPreserveSurroundingText()
     {

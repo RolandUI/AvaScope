@@ -34,6 +34,16 @@ the replacement preserves both surrounding lines and their original endings.
 | `replace_selection` | text, expectedRevision, requestId | Replace the selection captured by that revision |
 | `insert` | start, text, expectedRevision, requestId | Insert at an explicit position, collapsing selection |
 
+`insert` requires an explicit `start` and forbids `end`; it does not infer the
+caret position. Malformed protocol DTOs at the MCP boundary return
+`invalid_mcp_arguments` with `stage: request_validation`, `dispatched: false`,
+the argument name and schema guidance. Missing insert offsets include a specific
+explanation. The adapter validates these DTOs before SDK binding, preserving the
+generated typed schema and avoiding raw constructor/converter exception logging.
+Untrusted values are omitted from validation diagnostics. Failures after tool
+invocation keep the operation's dispatch/uncertainty contract; they are not
+reclassified as safe validation failures.
+
 Offsets are zero-based UTF-16 code units, start-inclusive/end-exclusive. An emoji
 outside the BMP occupies two units. A boundary cannot split a surrogate pair or
 CRLF. Combining-character/grapheme boundaries are not inferred. Input must be

@@ -60,6 +60,28 @@ foreach ($integration in @('Direct','Standalone')) {
         }
         $negative = Call 'inspect_node' @{sessionId=$run.sessionId;topLevelId=$run.topLevelId;nodeId='visual:does-not-exist'} -ExpectedFailure
         if (-not (Test-Path -LiteralPath $negative.evidence.responsePath)) { throw 'Failure evidence is missing.' }
+        $editor = Call 'find_nodes' @{sessionId=$run.sessionId;topLevelId=$run.topLevelId;selector=@{automationId='qa-display-name'};maxDepth=32}
+        if (@($editor.value.value.matches).Count -ne 1 -or -not $editor.value.value.coverage.complete) { throw 'Expected one complete editor selection.' }
+        $textTarget = $editor.value.value.matches[0].target
+        $read = Call 'edit_text' @{request=@{target=$textTarget;action='read'}}
+        $edit = @{target=$textTarget;action='insert';requestId='native-text-insert';expectedRevision=$read.value.value.after.revision;
+            text='X';policy=@{ownedEvidenceRoot=$run.root;allowedDesiredStates=@('text')}}
+        for ($attempt=0; $attempt -lt 2; $attempt++) {
+            $refused = Call 'edit_text' @{request=$edit} -ExpectedFailure
+            if ($refused.value.error.code -ne 'invalid_mcp_arguments' -or $refused.value.error.details.dispatched -ne 'false' -or
+                $refused.value.error.message -notlike '*start offset*') { throw 'Malformed insert did not return its structured pre-dispatch explanation.' }
+        }
+        $state = Get-Content (Join-Path $run.root 'qa-state.json') -Raw | ConvertFrom-Json
+        if ($state.displayName -ne 'Ada' -or $state.textChanges -ne 0) { throw 'Malformed insertion changed app state.' }
+        $edit.start = 1
+        for ($attempt=0; $attempt -lt 2; $attempt++) {
+            $changed = Call 'edit_text' @{request=$edit}
+            if ($changed.value.value.after.text -ne 'AXda' -or -not $changed.value.value.verified -or
+                $changed.value.value.replayed -ne ($attempt -eq 1)) { throw 'Valid insert or its exact replay failed.' }
+        }
+        $state = Get-Content (Join-Path $run.root 'qa-state.json') -Raw | ConvertFrom-Json
+        if ($state.displayName -ne 'AXda' -or $state.textChanges -ne 1) { throw 'Independent journal did not confirm one insertion.' }
+        $null = & $entry -Operation Reset -RunDirectory $run.root
         $legacy = Call 'find_nodes' @{sessionId=$run.sessionId;topLevelId=$run.topLevelId;automationId='qa-notifications';maxDepth=32}
         $query = Call 'find_nodes' @{sessionId=$run.sessionId;topLevelId=$run.topLevelId;selector=@{automationId='qa-notifications'};maxDepth=32}
         if (@($legacy.value.value.matches).Count -ne 1 -or @($query.value.value.matches).Count -ne 1) { throw 'Expected one notification control in each query.' }
@@ -110,7 +132,7 @@ foreach ($integration in @('Direct','Standalone')) {
         $null = & $entry -Operation Reset -RunDirectory $run.root
         $levels = Call 'list_top_levels' @{sessionId=$run.sessionId}
         if (@($levels.value.value.topLevels).Count -ne 1) { throw 'Reset left a child window registered.' }
-        $results.Add(@{integration=$integration;backend=$run.observedBackend;scale=$run.renderScaling;status='passed';cycles=2;negativeFailurePreserved=$true;childCloseReopenVerified=$true;exactAutomationIdsVerified=$true;queryBoundsVerified=$true;selectionCoverageVerified=$true;root=$run.root})
+        $results.Add(@{integration=$integration;backend=$run.observedBackend;scale=$run.renderScaling;status='passed';cycles=2;negativeFailurePreserved=$true;childCloseReopenVerified=$true;exactAutomationIdsVerified=$true;queryBoundsVerified=$true;selectionCoverageVerified=$true;textEditValidationVerified=$true;root=$run.root})
     }
     finally {
         if (Test-Path (Join-Path $runPath 'qa-run.json')) {
