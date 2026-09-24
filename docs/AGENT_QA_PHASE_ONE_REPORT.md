@@ -12,8 +12,9 @@ reload/error-recovery exploration P001–P015 and fresh native direct F000–F03
 pass. Combined CI `36025169889` attempt 1 on `2f3894f` found one text-edit IPC
 timeout (#171); all six native lab combinations pass. The unchanged hosted
 Windows rerun passes 802 tests plus five skips, as does the second complete
-local Release run. Downstream gates and the instrumented-source validation
-remain pending; the original failure's cause is not established. #157/#161 native
+local Release run. Every attempt-2 downstream gate also passes. The
+instrumented-source CI `36031948678` on `a6783cc` remains pending; the original
+failure's cause is not established. #157/#161 native
 2× acceptance still needs an accessible Retina environment. The ledger retains
 historical intermediate results; its older pending statements are superseded by
 the later dated/source-specific validations.
@@ -480,3 +481,13 @@ callback occur exactly once. All 12 text-edit tests pass in Release, including
 this case (`timeout-boundary.log`, `timeout-boundary-results/timeout-boundary.trx`).
 This demonstrates safe recovery under a controlled timeout, not the cause of
 the earlier hosted timeout; production behavior is unchanged.
+
+CI `36025169889` attempt 2 then completes successfully on unchanged `2f3894f`.
+Windows and macOS each pass 802 tests plus five explicit native skips; all six
+native lab combinations and the Linux/macOS package gates pass. Downloaded
+`final-hosted-linux` and `final-hosted-macos` evidence confirms 20 input/dialog
+checks per platform and five native test cases each. Both X11 full-resolution
+CLI/MCP samples capture 3840×2160 and compare all 8,294,400 pixels. Hosted
+macOS captures remain actual 1×. Full CI `36031948678` was subsequently started
+on `a6783cc` to validate the new diagnostic retention and timeout-boundary test;
+the earlier passing run does not validate those test-only changes.
