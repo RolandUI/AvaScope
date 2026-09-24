@@ -34,7 +34,7 @@ add test diagnostics, the deadline-recovery regression and documentation.
 | Preview, variants, reload, failure recovery and session lifecycle | P001–P015: actual CLI/MCP, opened PNGs, repeated scale/theme/culture and XAML updates, failed-build recovery, one closed owned session | Passed; HTML viewer browser inspection remains blocked by the tool's local-file policy. |
 | Original five reported runtime defects (#157–#161) | Completed #158/#159/#160; #157 mitigation `c8b7dc3` and #161 bounds correction `295939d` pass the available render/capture/native gates | Native macOS 2× evidence required by #157/#161 is still missing; both tickets remain open/blocked. Original missing customer payload/view details are not invented. |
 | Newly found defects ticketed, corrected and regression-tested | #167 bounds, #168 duplicate logical identities, #169 mask overflow, #170 observe diagnostics; before/after tests and native reruns retained above | Completed. #171 remains open: the original hosted IPC deadline failure is retained and its cause is unknown. Controlled timeout recovery now passes 12 focused checks. |
-| Fresh combined regression round on the final test source | Every job of unchanged-source CI `36025169889` attempt 2 passes; instrumented-source CI `36031948678` is running on `a6783cc` | Pending that exact run and its Windows TRX artifact. A successful earlier-source rerun does not validate the new test or explain the original failure. |
+| Fresh combined regression round on the final test source | Every job of unchanged-source CI `36025169889` attempt 2 passes; instrumented-source CI `36031948678` on `a6783cc` passes Windows and all native lab jobs; retained Windows TRX verifies 803 passed and five explicit native skips | Linux/macOS downstream gates remain pending. Passing reruns do not explain the original failure. |
 | Committed handoff, evidence and product boundaries | Changes pushed to `codex/agent-qa-phase-one`; F036 reports owned process termination; P015 reports the closed preview session; issue states retain external gaps | Product stays 1.5.0; no version bump, tag, release or publication. The campaign is not marked complete. |
 
 Shared fixtures: `0957350`; retained lab: `f18f8c8fb74cce2c024c3fc3d509226bee033469`. Product assemblies remain AvaScope 1.5.0. The lab copies and hashes the CLI/MCP/client/host/provider selected for each session. See [lab instructions and task charters](AGENT_QA_LAB.md).
@@ -516,6 +516,14 @@ Standalone journals contain one-toggle and one-edit states, isolated
 case-distinct action counters and successful owned termination; both lifecycle
 cycles and lease expiry pass. The compact cross-check is retained as
 `instrumented-hosted-lab/verified-all-platforms.json`. All observed scales are
-1; Mac's requested Full HD window is clamped to 1920×649 DIP. The Windows TRX
-upload and downstream package gates remain pending, so the combined run is
-not yet a completed validation result.
+1; Mac's requested Full HD window is clamped to 1920×649 DIP. The entire Windows
+job now passes, including provider/artifact verification. Its downloaded TRX
+contains 803 passed and five explicit native `NotExecuted` results (808 total),
+matching the console log; the adapter's summary `notExecuted` counter is zero,
+so skip counts are derived from the individual outcomes. The formerly failing
+Unicode case passes in 0.636 seconds; the deterministic deadline-recovery case
+passes in 5.054 seconds. This verifies diagnostic artifact retention and the new
+test in the full hosted context. Evidence is in `instrumented-hosted-windows`,
+including `verified-trx-summary.json`, and `instrumented-ci-windows.log`.
+Linux/macOS downstream package gates remain pending; the combined run is not
+yet a completed validation result and the original timeout cause is unknown.
