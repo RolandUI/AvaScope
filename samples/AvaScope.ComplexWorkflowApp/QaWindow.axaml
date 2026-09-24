@@ -1,0 +1,135 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="AvaScope.ComplexWorkflowApp.QaWindow"
+        Title="AvaScope Agent QA" Width="1120" Height="800"
+        MinWidth="640" MinHeight="480" AutomationProperties.AutomationId="qa-window">
+  <Window.Resources>
+    <ControlTheme x:Key="QaCardButton" TargetType="Button">
+      <Setter Property="Padding" Value="18" />
+      <Setter Property="Background" Value="#193A62" />
+      <Setter Property="Foreground" Value="White" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border Background="{TemplateBinding Background}" CornerRadius="8" Padding="{TemplateBinding Padding}">
+            <Border BorderBrush="#69BFFF" BorderThickness="1" Padding="12" ClipToBounds="True">
+              <StackPanel Spacing="8">
+                <TextBlock Text="NESTED CONTROL TEMPLATE" FontSize="11" Foreground="#99DAFF" />
+                <ContentPresenter x:Name="PART_ContentPresenter" Content="{TemplateBinding Content}"
+                                  ContentTemplate="{TemplateBinding ContentTemplate}"
+                                  FontSize="{TemplateBinding FontSize}" Foreground="{TemplateBinding Foreground}" />
+              </StackPanel>
+            </Border>
+          </Border>
+        </ControlTemplate>
+      </Setter>
+    </ControlTheme>
+  </Window.Resources>
+  <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="20" RowSpacing="12">
+    <Grid ColumnDefinitions="*,Auto">
+      <StackPanel>
+        <TextBlock Text="AvaScope · Agent QA" FontSize="26" FontWeight="SemiBold" />
+        <TextBlock Text="Local test data · deterministic reset · independent state journal" Opacity="0.7" />
+      </StackPanel>
+      <Button Grid.Column="1" x:Name="ResetButton" Content="Reset test state" AutomationProperties.AutomationId="qa-reset" />
+    </Grid>
+    <WrapPanel Grid.Row="1" ItemSpacing="8" LineSpacing="6">
+      <Button x:Name="ThemeButton" Content="Switch theme" AutomationProperties.AutomationId="qa-theme" />
+      <Button x:Name="LocaleButton" Content="Switch language" AutomationProperties.AutomationId="qa-locale" />
+      <Button x:Name="SizeButton" Content="Full HD / compact" AutomationProperties.AutomationId="qa-size" />
+      <TextBlock x:Name="EnvironmentLabel" VerticalAlignment="Center" AutomationProperties.AutomationId="qa-environment" />
+    </WrapPanel>
+    <TabControl Grid.Row="2" x:Name="Pages" AutomationProperties.AutomationId="qa-pages">
+      <TabItem Header="Settings" AutomationProperties.AutomationId="qa-settings-tab">
+        <ScrollViewer>
+          <StackPanel Margin="12" Spacing="14" MaxWidth="720" HorizontalAlignment="Left">
+            <TextBlock Text="Profile and notifications" FontSize="22" />
+            <ToggleButton x:Name="Notifications" Content="Notifications enabled" AutomationProperties.AutomationId="qa-notifications" />
+            <TextBlock Text="Display name" />
+            <StackPanel x:Name="EditorHost">
+              <TextBox x:Name="DisplayNameEditor" Text="Ada" PlaceholderText="Display name" Width="360"
+                       AutomationProperties.AutomationId="qa-display-name" />
+            </StackPanel>
+            <TextBox x:Name="NotesEditor" Text="First line&#10;Árvíztűrő tükörfúrógép 😀" AcceptsReturn="True"
+                     TextWrapping="Wrap" Height="110" Width="480" AutomationProperties.AutomationId="qa-notes" />
+            <TextBox Text="Read-only reference" IsReadOnly="True" Width="360" AutomationProperties.AutomationId="qa-readonly" />
+            <TextBox Text="Disabled reference" IsEnabled="False" Width="360" AutomationProperties.AutomationId="qa-disabled" />
+            <StackPanel Orientation="Horizontal" Spacing="10">
+              <Button x:Name="ReplaceEditorButton" Content="Replace editor instance" AutomationProperties.AutomationId="qa-replace-editor" />
+              <Button x:Name="DelayedButton" Content="Load test data" AutomationProperties.AutomationId="qa-load" />
+            </StackPanel>
+            <TextBlock x:Name="LoadStatus" Text="Ready" AutomationProperties.AutomationId="qa-load-status" />
+          </StackPanel>
+        </ScrollViewer>
+      </TabItem>
+      <TabItem Header="Rendering" AutomationProperties.AutomationId="qa-rendering-tab">
+        <ScrollViewer>
+          <StackPanel Margin="12" Spacing="18">
+            <TextBlock x:Name="LocalizedHeading" Text="Rendering reference — correct text stays within its cards" FontSize="24"
+                       TextWrapping="Wrap" AutomationProperties.AutomationId="qa-render-heading" />
+            <Button x:Name="TemplateButton" Theme="{StaticResource QaCardButton}" FontSize="18"
+                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" AutomationProperties.AutomationId="qa-template">
+              <StackPanel Spacing="6">
+                <TextBlock x:Name="LocalizedText" Text="Árvíztűrő tükörfúrógép · Straße · Ελληνικά · 日本語" FontSize="18" TextWrapping="Wrap" />
+                <TextBlock Text="Nested presenter: 14 DIP text, wrapping and clipping remain stable after capture." FontSize="14" TextWrapping="Wrap" />
+                <Border Background="#30547A" Padding="10" ClipToBounds="True">
+                  <ContentControl Content="Bounded nested content — 16 DIP" FontSize="16">
+                    <ContentControl.ContentTemplate>
+                      <DataTemplate>
+                        <Border Padding="6" BorderBrush="#99DAFF" BorderThickness="1">
+                          <ContentPresenter Content="{Binding}" FontSize="16" />
+                        </Border>
+                      </DataTemplate>
+                    </ContentControl.ContentTemplate>
+                  </ContentControl>
+                </Border>
+              </StackPanel>
+            </Button>
+            <Border Background="#F0E7CE" Padding="16" ClipToBounds="True" Height="110" AutomationProperties.AutomationId="qa-transform-card">
+              <StackPanel RenderTransformOrigin="0%,0%">
+                <StackPanel.RenderTransform><ScaleTransform ScaleX="1.15" ScaleY="1.15" /></StackPanel.RenderTransform>
+                <TextBlock Text="Explicit 1.15× local transform" FontSize="18" Foreground="#172535" />
+                <TextBlock Text="14 DIP reference text inside a clipped parent" FontSize="14" Foreground="#172535" />
+              </StackPanel>
+            </Border>
+            <TextBlock Text="12 DIP reference  ·  Aa Bb 0123456789" FontSize="12" AutomationProperties.AutomationId="qa-font-12" />
+            <TextBlock Text="18 DIP reference  ·  Aa Bb 0123456789" FontSize="18" AutomationProperties.AutomationId="qa-font-18" />
+            <TextBlock Text="30 DIP reference  ·  Aa Bb 0123456789" FontSize="30" AutomationProperties.AutomationId="qa-font-30" />
+          </StackPanel>
+        </ScrollViewer>
+      </TabItem>
+      <TabItem Header="Identity and items" AutomationProperties.AutomationId="qa-identity-tab">
+        <Grid Margin="12" RowDefinitions="Auto,Auto,*" RowSpacing="12">
+          <TextBlock Text="Case-distinct identities must address different controls" FontSize="22" TextWrapping="Wrap" />
+          <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="12">
+            <Button x:Name="LowercaseButton" Content="Key a" AutomationProperties.AutomationId="Example_Button_Key_a" />
+            <Button x:Name="UppercaseButton" Content="Key A" AutomationProperties.AutomationId="Example_Button_Key_A" />
+            <TextBlock x:Name="IdentityStatus" Text="a=0; A=0" VerticalAlignment="Center" AutomationProperties.AutomationId="qa-identity-status" />
+          </StackPanel>
+          <ListBox Grid.Row="2" x:Name="Rows" SelectionMode="Single" AutomationProperties.AutomationId="qa-rows" />
+        </Grid>
+      </TabItem>
+      <TabItem Header="Windows and focus" AutomationProperties.AutomationId="qa-windows-tab">
+        <StackPanel Margin="12" Spacing="14">
+          <TextBlock Text="Window lifecycle and focus" FontSize="22" />
+          <StackPanel Orientation="Horizontal" Spacing="10">
+            <Button x:Name="ChildButton" Content="Open details" AutomationProperties.AutomationId="qa-open-child" />
+            <Button x:Name="ModalButton" Content="Open confirmation" AutomationProperties.AutomationId="qa-open-modal" />
+            <Button x:Name="PopupButton" Content="Show popup" AutomationProperties.AutomationId="qa-open-popup" />
+          </StackPanel>
+          <TextBox PlaceholderText="Focus navigation target" AutomationProperties.AutomationId="qa-focus-editor" Width="360" HorizontalAlignment="Left" />
+          <TextBlock x:Name="WindowStatus" Text="No secondary windows" AutomationProperties.AutomationId="qa-window-status" />
+          <Popup x:Name="QaPopup" PlacementTarget="{Binding #PopupButton}" IsLightDismissEnabled="True">
+            <Border Padding="20" Background="#193A62" CornerRadius="6">
+              <StackPanel Spacing="10">
+                <TextBlock Text="Real popup content" Foreground="White" />
+                <Button x:Name="ClosePopupButton" Content="Close popup" AutomationProperties.AutomationId="qa-close-popup" />
+              </StackPanel>
+            </Border>
+          </Popup>
+        </StackPanel>
+      </TabItem>
+    </TabControl>
+    <TextBlock Grid.Row="3" x:Name="StateSummary" TextWrapping="Wrap" FontFamily="monospace" FontSize="12"
+               AutomationProperties.AutomationId="qa-state-summary" />
+  </Grid>
+</Window>

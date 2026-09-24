@@ -56,6 +56,48 @@ The roadmap below records the release-shaped plan through `v1.0.0`. It is intent
 
 ## Current Release Target
 
+- Release: `v1.5.1`
+- Target Version: `1.5.1`
+- Release State: `Planned`
+- Scope Defined: `2026-09-24`
+- GitHub Milestone: [v1.5.1](https://github.com/RolandUI/AvaScope/milestone/20)
+- Release Tracker: [#165](https://github.com/RolandUI/AvaScope/issues/165)
+- Defects: #157–#161
+- Regression infrastructure: #162–#164
+- Previous Release: `v1.5.0`
+
+Stabilize the shipped runtime and validate the public agent workflows against representative native applications before adding product features. This intake defines the work; it does not implement fixes, change the package version or publish a release. The full infrastructure rationale and development/release cadence are in [Agent QA Plan](AGENT_QA_PLAN.md).
+
+### v1.5.1 Scope
+
+| Issue | Deliverable |
+| --- | --- |
+| [#157](https://github.com/RolandUI/AvaScope/issues/157) | Reproduce and correct oversized text in complex macOS Retina runtime screenshots. |
+| [#158](https://github.com/RolandUI/AvaScope/issues/158) | Accept freshly resolved stable targets in `ensure_state`, preserving genuine stale-target guards. |
+| [#159](https://github.com/RolandUI/AvaScope/issues/159) | Restore revision-safe `edit_text` insertion and actionable structured failures through real MCP. |
+| [#160](https://github.com/RolandUI/AvaScope/issues/160) | Make exact AutomationID identity matching case-sensitive consistently. |
+| [#161](https://github.com/RolandUI/AvaScope/issues/161) | Support bounded paired capture of a 1920×1080 DIP viewport at 2× without resizing the app. |
+| [#162](https://github.com/RolandUI/AvaScope/issues/162) | Extend the existing complex and standalone sample hosts with representative, resettable native QA scenes. |
+| [#163](https://github.com/RolandUI/AvaScope/issues/163) | Provide reproducible native sessions and a usable exploratory agent workflow. |
+| [#164](https://github.com/RolandUI/AvaScope/issues/164) | Gate release on packaged public MCP journeys, CLI parity and native Retina visual evidence. |
+
+The report was received on `2026-09-24` for AvaScope 1.5.0, .NET 10, Avalonia 12.1.x, macOS Avalonia.Native/NSWindow, actual render scaling 2, a standalone local bridge and an untrimmed app. No native controls or external rendering surfaces are required. Exact Avalonia patch, complex-view fixture and runtime root causes remain to be established. Static inspection supports the reported case-insensitive comparison and 4,194,304-pixel guard; it is not a runtime reproduction.
+
+### Execution And Release Gate
+
+Start with #162 and minimal failing cases, then implement individual fixes with focused tests. #163 depends on the representative fixtures; #164 integrates the fixes and native environment. Keep one issue in progress. Follow issue-level acceptance criteria and the existing release gate; avoid repeating unchanged broad suites after each edit.
+
+- Verify each defect through the public request path and independent app state or native pixels. A workaround cannot count as a pass for the original operation.
+- Run the exact MCP tool calls through a real packaged stdio server, with package-integrated and standalone-provider hosts plus CLI parity.
+- Require real macOS native `RenderScaling=2`, a `1920×1080` DIP client area, text-sensitive native/rendered comparisons and paired-capture evidence. Headless 2×, correct PNG dimensions or a 1× hosted Mac do not satisfy this gate.
+- Record pass, fail, blocked and skipped separately. Missing required native evidence prevents Release Candidate; unavailable desktops/permissions are precise infrastructure blockers.
+- Run focused checks during development and one consolidated full Debug/Release, Windows/Linux/macOS, existing Wayland support-boundary, exact-version packaging/installer/manifest and publish dry-run gate before release. Preserve failure evidence and review the exact candidate in a bounded exploratory agent session.
+- Close #165 and the milestone only after the final release commit and verified remote publication, following the normal release workflow.
+
+No feature expansion, new remote transport, foreign-framework adapter or automatic customer-source modification is in scope. No new hardware purchase or provisioned macOS Retina host is assumed by this plan.
+
+## Released Target: v1.5.0
+
 - Release: `v1.5.0`
 - Target Version: `1.5.0`
 - Release State: `Released`

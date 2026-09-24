@@ -7,6 +7,7 @@
     <DefineConstants Condition="'$(EnableUiInspection)' == 'true'">$(DefineConstants);ENABLE_UI_INSPECTION</DefineConstants>
     <DefineConstants Condition="'$(EnableTableFixture)' == 'true'">$(DefineConstants);TABLE_FIXTURE</DefineConstants>
     <DefineConstants Condition="'$(EnableWaylandFixture)' == 'true'">$(DefineConstants);WAYLAND_FIXTURE</DefineConstants>
+    <DefineConstants Condition="'$(EnableQaFixture)' == 'true'">$(DefineConstants);QA_FIXTURE</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Avalonia.Desktop" Version="$(AvaloniaVersion)" />
@@ -15,5 +16,7 @@
     <PackageReference Include="Avalonia.Themes.Fluent" Version="$(AvaloniaVersion)" />
     <PackageReference Include="Avalonia.Controls.DataGrid" Version="12.1.2" Condition="'$(EnableTableFixture)' == 'true'" />
     <Compile Include="../../docs/examples/OptionalProviderLoader.cs" Link="OptionalProviderLoader.cs" Condition="'$(EnableUiInspection)' == 'true'" />
+    <Compile Include="../AvaScope.ComplexWorkflowApp/QaWindow.axaml.cs" Link="QaWindow.axaml.cs" Condition="'$(EnableQaFixture)' == 'true'" />
+    <AvaloniaXaml Include="../AvaScope.ComplexWorkflowApp/QaWindow.axaml" Link="QaWindow.axaml" Condition="'$(EnableQaFixture)' == 'true'" />
   </ItemGroup>
 </Project>

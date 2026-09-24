@@ -32,6 +32,30 @@ public sealed class App : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
+            if (desktop.Args?.Contains("--qa", StringComparer.Ordinal) == true)
+            {
+                var window = new QaWindow();
+                desktop.MainWindow = window;
+                var qaRuntime = AvaScopeBridge.Activate(new BridgeActivationOptions(
+                    "AvaScope Agent QA", enableCustomActions: true,
+                    allowedCustomActions: ["fixture.prepare.agent-qa", "fixture.cleanup.agent-qa"],
+                    enableTestFixtures: true, allowedTestResources: ["qa-memory"]));
+                _registrations.Add(qaRuntime.RegisterTopLevel(window));
+                window.WindowCreated += child => _registrations.Add(qaRuntime.RegisterTopLevel(child));
+                window.ReadinessChanged += state => qaRuntime.SetReadiness(state, "Agent QA fixture");
+                _registrations.Add(qaRuntime.RegisterTestFixture(window,
+                    new RuntimeTestFixtureDescriptor("agent-qa", "1", ["qa-memory"],
+                        new SemanticWaitCondition(SemanticWaitConditionKinds.ApplicationReady)),
+                    _ => { window.ResetState(); return CustomActionOutcome.Succeeded("Seed 42 prepared."); },
+                    _ => { window.CleanupState(); return CustomActionOutcome.Succeeded("QA fixture cleaned."); }));
+                if (desktop.Args.Contains("--authorize-screen-capture", StringComparer.Ordinal))
+                    qaRuntime.SetNativeScreenCaptureScope("declared_test_desktop");
+                qaRuntime.SetReadiness("ready", "Agent QA fixture ready");
+                desktop.Exit += (_, _) => DisposeBridgeRegistrations();
+                base.OnFrameworkInitializationCompleted();
+                return;
+            }
+
             var detailsWindow = CreateDetailsWindow();
             var (mainWindow, actionTarget) = CreateMainWindow();
             desktop.MainWindow = mainWindow;

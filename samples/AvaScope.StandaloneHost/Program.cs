@@ -131,6 +131,10 @@ internal sealed class SampleApplication : Application
                 ConfigureScreenFixture(desktop.MainWindow);
             if (desktop.Args?.Contains("--accessibility-fixture", StringComparer.Ordinal) == true)
                 ConfigureAccessibilityFixture(desktop.MainWindow);
+#if QA_FIXTURE
+            if (desktop.Args?.Contains("--qa", StringComparer.Ordinal) == true)
+                desktop.MainWindow = new AvaScope.ComplexWorkflowApp.QaWindow();
+#endif
 
             // The host owns this compile-time authorization. Merely supplying files or an
             // environment variable cannot enable inspection in the normal build.
