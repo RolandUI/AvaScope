@@ -160,8 +160,8 @@ public sealed class RuntimeMutationEvidenceRunner
             }
         }
 
-        var beforeTarget = FindNodeById(beforeTree.Value!.Root, request.Target.NodeId);
-        var afterTarget = FindNodeById(afterTree.Value!.Root, request.Target.NodeId);
+        var beforeTarget = FindEvidenceTarget(beforeTree.Value!, request.Target, mutation.Value.Target, "before", diagnostics);
+        var afterTarget = FindEvidenceTarget(afterTree.Value!, request.Target, mutation.Value.Target, "after", diagnostics);
         var summary = new RuntimeMutationEvidenceSummary(
             CreateEvidenceStatus(mutation.Value),
             mutation.Value.Status,
@@ -169,8 +169,8 @@ public sealed class RuntimeMutationEvidenceRunner
             screenshotsCaptured: true,
             visualTreeSnapshotsCaptured: true,
             diffStatus,
-            CountNodes(beforeTree.Value.Root),
-            CountNodes(afterTree.Value.Root),
+            CountNodes(beforeTree.Value!.Root),
+            CountNodes(afterTree.Value!.Root),
             beforeTarget is not null,
             afterTarget is not null,
             diff?.ChangedPixels,
@@ -277,27 +277,70 @@ public sealed class RuntimeMutationEvidenceRunner
             : "mutation_not_applied";
     }
 
-    private static TreeNodeSummary? FindNodeById(TreeNodeSummary node, string? nodeId)
+    private static TreeNodeSummary? FindEvidenceTarget(
+        TreeResponse tree,
+        RuntimeTargetContext requested,
+        RuntimeTargetContext resolved,
+        string stage,
+        List<ProtocolError> diagnostics)
     {
-        if (string.IsNullOrWhiteSpace(nodeId))
+        if (string.IsNullOrWhiteSpace(requested.NodeId))
         {
             return null;
         }
 
-        if (string.Equals(node.NodeId, nodeId, StringComparison.Ordinal))
+        var requestedTreeKind = requested.TreeKind ?? TreeKinds.Visual;
+        var logical = requestedTreeKind == TreeKinds.Logical;
+        var identityAvailable = tree.TreeKind == TreeKinds.Visual
+            && tree.SessionId == requested.SessionId && tree.TopLevelId == requested.TopLevelId
+            && resolved.SessionId == requested.SessionId && resolved.TopLevelId == requested.TopLevelId
+            && resolved.NodeId == requested.NodeId && (resolved.TreeKind ?? TreeKinds.Visual) == requestedTreeKind
+            && (requested.NodeGeneration is null || requested.NodeGeneration == resolved.NodeGeneration)
+            && (requested.TopLevelGeneration is null || requested.TopLevelGeneration == resolved.TopLevelGeneration)
+            && (!logical || (!string.IsNullOrWhiteSpace(resolved.NodeGeneration)
+                && !string.IsNullOrWhiteSpace(resolved.TopLevelGeneration)));
+        TreeNodeSummary? match = null;
+        var ambiguous = false;
+        var pending = new Stack<TreeNodeSummary>();
+        if (identityAvailable) pending.Push(tree.Root);
+        while (pending.TryPop(out var node))
         {
-            return node;
-        }
-
-        foreach (var child in node.Children)
-        {
-            var match = FindNodeById(child, nodeId);
-            if (match is not null)
+            // Tree-local IDs are opaque. Logical aliases require the generation identity
+            // supplied by the bridge, scoped to this same session and top-level.
+            var matches = logical || node.NodeId == resolved.NodeId;
+            if (node.Target is { } identity)
             {
-                return match;
+                matches &= identity.SessionId == requested.SessionId
+                    && identity.TopLevelId == requested.TopLevelId
+                    && (identity.TreeKind ?? TreeKinds.Visual) == TreeKinds.Visual && identity.NodeId == node.NodeId
+                    && (resolved.NodeGeneration is null || identity.NodeGeneration == resolved.NodeGeneration)
+                    && (resolved.TopLevelGeneration is null || identity.TopLevelGeneration == resolved.TopLevelGeneration);
             }
+            else
+            {
+                matches &= !logical && resolved.NodeGeneration is null && resolved.TopLevelGeneration is null;
+            }
+            if (matches)
+            {
+                if (match is not null) { ambiguous = true; break; }
+                match = node;
+            }
+            foreach (var child in node.Children) pending.Push(child);
         }
 
+        if (match is not null && !ambiguous) return match;
+        diagnostics.Add(new ProtocolError(
+            RuntimeMutationErrorCodes.RuntimeMutationEvidenceTargetUnavailable,
+            "The mutation target could not be uniquely identified in the captured visual tree; this does not establish that it is absent from the application.",
+            new Dictionary<string, string>
+            {
+                ["stage"] = stage,
+                ["requestedTreeKind"] = requestedTreeKind,
+                ["maxDepth"] = tree.DepthLimit.ToString(CultureInfo.InvariantCulture),
+                ["reason"] = !identityAvailable ? "target_identity_unavailable"
+                    : ambiguous ? "ambiguous_visual_identity" : "target_not_in_captured_visual_tree",
+                ["nextAction"] = "Inspect the current target identity and capture sufficient visual-tree depth; do not infer aliases from node-id text."
+            }));
         return null;
     }
 

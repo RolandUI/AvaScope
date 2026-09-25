@@ -12,4 +12,5 @@ public static class RuntimeMutationErrorCodes
     public const string UnsupportedRuntimeMutationProperty = "unsupported_runtime_mutation_property";
     public const string RuntimeMutationResetTargetNotFound = "runtime_mutation_reset_target_not_found";
     public const string RuntimeMutationResetOrderConflict = "runtime_mutation_reset_order_conflict";
+    public const string RuntimeMutationEvidenceTargetUnavailable = "runtime_mutation_evidence_target_unavailable";
 }

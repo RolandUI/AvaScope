@@ -854,6 +854,101 @@ public sealed class LocalBridgeClientTests : IDisposable
         }
     }
 
+    [Theory]
+    [InlineData("matched", true, true)]
+    [InlineData("legacy_visual", true, true)]
+    [InlineData("wrong_session", false, false)]
+    [InlineData("wrong_top_level", false, false)]
+    [InlineData("wrong_window_generation", false, false)]
+    [InlineData("wrong_node_generation", false, false)]
+    [InlineData("missing_node_identity", false, false)]
+    [InlineData("missing_resolved_identity", false, false)]
+    [InlineData("stale_requested", false, false)]
+    [InlineData("wrong_resolved_node", false, false)]
+    [InlineData("ambiguous", false, false)]
+    [InlineData("depth_limited", false, false)]
+    [InlineData("missing_after", true, false)]
+    public async Task RuntimeMutationEvidenceRequiresUniqueScopedVisualIdentity(
+        string identityCase, bool beforeFound, bool afterFound)
+    {
+        Directory.CreateDirectory(_manifestDirectory);
+        var sessionId = SessionId.New();
+        var pipeName = TestPipeNames.New();
+        WriteManifest("identity-evidence.json", new BridgeSessionManifest(
+            sessionId, Environment.ProcessId, pipeName, DateTimeOffset.UtcNow));
+        var legacy = identityCase == "legacy_visual";
+        var depth = identityCase == "depth_limited" ? 0 : 4;
+        var requested = new RuntimeTargetContext(sessionId, "topLevel:core",
+            legacy ? TreeKinds.Visual : TreeKinds.Logical, legacy ? "legacy-visual-node" : "requested-logical-node",
+            nodeGeneration: identityCase == "stale_requested" ? "stale-node-generation" : null);
+        var resolved = new RuntimeTargetContext(sessionId, "topLevel:core",
+            legacy ? TreeKinds.Visual : TreeKinds.Logical,
+            identityCase == "wrong_resolved_node" ? "different-logical-node" : requested.NodeId,
+            topLevelGeneration: legacy || identityCase == "missing_resolved_identity" ? null : "window-generation",
+            nodeGeneration: legacy || identityCase == "missing_resolved_identity" ? null : "node-generation");
+        var mutationRequest = new RuntimeMutationRequest("core-evidence", requested,
+            new RuntimeMutationOperation(RuntimeMutationOperationKinds.SetProperty,
+                propertyName: "Text", value: "After", valueType: "string"));
+        var server = RespondToBridgeRequestsAsync(pipeName, 5, (index, request) =>
+        {
+            if (index is 0 or 3)
+                return CreateEvidenceScreenshotResponse(request, sessionId, "topLevel:core",
+                    index == 0 ? "core-evidence-before.png" : "core-evidence-after.png");
+            if (index == 2)
+            {
+                Assert.Equal(BridgeIpcMethods.MutateNode, request.Method);
+                Assert.Equal(requested.NodeId, request.Mutation!.Target.NodeId);
+                return BridgeIpcResponse.Ok(request.RequestId, new RuntimeMutationResponse(
+                    mutationRequest.RequestId, "mutation:identity:1", sessionId, "topLevel:core", resolved,
+                    mutationRequest.Operation, RuntimeMutationStatuses.Applied, true, DateTimeOffset.UtcNow));
+            }
+            Assert.Equal(BridgeIpcMethods.VisualTree, request.Method);
+            Assert.Equal(depth, request.MaxDepth);
+            var nodes = new List<TreeNodeSummary>();
+            var count = identityCase == "ambiguous" ? 2 : identityCase == "depth_limited"
+                || identityCase == "missing_after" && index == 4 ? 0 : 1;
+            for (var nodeIndex = 0; nodeIndex < count; nodeIndex++)
+            {
+                // Deliberately unrelated opaque IDs: neither prefixes nor names identify aliases.
+                var id = legacy ? requested.NodeId! : $"display-alias-{nodeIndex}";
+                var identity = legacy || identityCase == "missing_node_identity" ? null : new RuntimeTargetContext(
+                    identityCase == "wrong_session" ? new SessionId("foreign-session") : sessionId,
+                    identityCase == "wrong_top_level" ? "other-window" : "topLevel:core",
+                    TreeKinds.Visual, id,
+                    topLevelGeneration: identityCase == "wrong_window_generation" ? "old-window" : "window-generation",
+                    nodeGeneration: identityCase == "wrong_node_generation" ? "other-node" : "node-generation");
+                nodes.Add(new TreeNodeSummary(id, "Avalonia.Controls.TextBlock", "EvidenceTarget",
+                    text: index == 1 ? "Before" : "After", target: identity));
+            }
+            return BridgeIpcResponse.Ok(request.RequestId, new TreeResponse(sessionId, "topLevel:core",
+                TreeKinds.Visual, depth, new TreeNodeSummary("root", "Avalonia.Controls.Window", children: nodes)));
+        });
+        var result = await new RuntimeMutationEvidenceRunner().CaptureAsync(
+            new LocalBridgeClient(_manifestDirectory, BridgePipeTestTimeout), sessionId, mutationRequest,
+            Path.Combine(_manifestDirectory, "evidence"), maxDepth: depth, includeDiff: false);
+        Assert.Equal(5, (await server).Count);
+        Assert.True(result.Success, result.Error?.Message);
+        var evidence = result.Value!;
+        Assert.Equal(beforeFound, evidence.Summary.BeforeTargetFound);
+        Assert.Equal(afterFound, evidence.Summary.AfterTargetFound);
+        if (beforeFound) Assert.Equal("Before", evidence.BeforeTarget!.Text);
+        else Assert.Null(evidence.BeforeTarget);
+        if (afterFound) Assert.Equal("After", evidence.AfterTarget!.Text);
+        else Assert.Null(evidence.AfterTarget);
+        var diagnostics = evidence.Diagnostics.Where(diagnostic =>
+            diagnostic.Code == RuntimeMutationErrorCodes.RuntimeMutationEvidenceTargetUnavailable).ToArray();
+        Assert.Equal((beforeFound ? 0 : 1) + (afterFound ? 0 : 1), diagnostics.Length);
+        Assert.Equal(new[] { beforeFound ? null : "before", afterFound ? null : "after" }.OfType<string>(),
+            diagnostics.Select(diagnostic => diagnostic.Details!["stage"]));
+        Assert.All(diagnostics, diagnostic =>
+        {
+            Assert.Equal(depth.ToString(), diagnostic.Details!["maxDepth"]);
+            Assert.Contains("does not establish", diagnostic.Message, StringComparison.Ordinal);
+            Assert.NotEmpty(diagnostic.Details["nextAction"]);
+            if (identityCase == "ambiguous") Assert.Equal("ambiguous_visual_identity", diagnostic.Details["reason"]);
+        });
+    }
+
     [Fact]
     public async Task CloseSessionReturnsStructuredErrorWhenNoManifestMatches()
     {

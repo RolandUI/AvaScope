@@ -1651,8 +1651,10 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
         }
     }
 
-    [Fact]
-    public async Task McpMutateNodeEvidenceCapturesScreenshotsTreesAndDiffThroughLocalBridgePipe()
+    [Theory]
+    [InlineData(McpTreeKind.Visual)]
+    [InlineData(McpTreeKind.Logical)]
+    public async Task McpMutateNodeEvidenceCapturesScreenshotsTreesAndDiffThroughLocalBridgePipe(McpTreeKind treeKind)
     {
         var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessTestApplication));
 
@@ -1696,15 +1698,25 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                     Assert.True(tree.Success, tree.Error?.Message);
                     var targetNode = FindNode(tree.Value!.Root, node => node.Name == "McpEvidenceSurface");
                     Assert.NotNull(targetNode);
+                    var logicalTree = await AvaScopeMcpTools.LogicalTree(
+                        client, runtime.SessionId.Value, topLevel.Id, maxDepth: 8);
+                    Assert.True(logicalTree.Success, logicalTree.Error?.Message);
+                    var logicalNode = FindNode(logicalTree.Value!.Root, node => node.Name == "McpEvidenceSurface");
+                    Assert.NotNull(logicalNode);
+                    Assert.NotEqual(targetNode.NodeId, logicalNode.NodeId);
+                    Assert.NotNull(targetNode.Target?.NodeGeneration);
+                    Assert.Equal(targetNode.Target.NodeGeneration, logicalNode.Target?.NodeGeneration);
+                    Assert.Equal(targetNode.Target.TopLevelGeneration, logicalNode.Target?.TopLevelGeneration);
+                    Assert.Equal(Brushes.Red.ToString(), targetSurface.Background?.ToString());
 
                     var evidence = await AvaScopeMcpTools.MutateNodeEvidence(
                         client,
                         runtime.SessionId.Value,
                         topLevel.Id,
-                        targetNode.NodeId,
+                        treeKind == McpTreeKind.Visual ? targetNode.NodeId : logicalNode.NodeId,
                         McpMutationOperation.SetProperty,
                         artifactDirectory,
-                        McpTreeKind.Visual,
+                        treeKind,
                         propertyName: "Background",
                         value: "#0000ff",
                         valueType: "brush",
@@ -1723,6 +1735,11 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                     Assert.True(evidence.Value.Summary.VisualTreeSnapshotsCaptured);
                     Assert.True(evidence.Value.Summary.BeforeTargetFound);
                     Assert.True(evidence.Value.Summary.AfterTargetFound);
+                    Assert.Equal(targetNode.NodeId, evidence.Value.BeforeTarget!.NodeId);
+                    Assert.Equal(targetNode.NodeId, evidence.Value.AfterTarget!.NodeId);
+                    Assert.Equal(targetNode.Target.NodeGeneration, evidence.Value.Mutation.Target.NodeGeneration);
+                    Assert.Equal("Red", evidence.Value.Mutation.Metadata["originalValue"]);
+                    Assert.Equal(Brushes.Blue.ToString(), evidence.Value.Mutation.Metadata["effectiveValue"]);
                     Assert.NotNull(evidence.Value.Diff);
                     Assert.False(evidence.Value.Diff.Passed);
                     Assert.True(evidence.Value.Diff.ChangedPixels > 0);
@@ -1744,6 +1761,10 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                     Assert.Contains("Before", reviewHtml, StringComparison.Ordinal);
                     Assert.Contains("After", reviewHtml, StringComparison.Ordinal);
                     Assert.Equal(Brushes.Blue.ToString(), targetSurface.Background?.ToString());
+                    using var beforePixels = SKBitmap.Decode(evidence.Value.BeforeScreenshotPath);
+                    using var afterPixels = SKBitmap.Decode(evidence.Value.AfterScreenshotPath);
+                    Assert.Equal(SKColors.Red, beforePixels.GetPixel(180, 120));
+                    Assert.Equal(SKColors.Blue, afterPixels.GetPixel(180, 120));
                 }
                 finally
                 {
