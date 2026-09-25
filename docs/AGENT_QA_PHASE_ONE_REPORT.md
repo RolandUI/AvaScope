@@ -2,6 +2,37 @@
 
 Status: **in progress**, 2026-09-25. Tracking issue [#166](https://github.com/RolandUI/AvaScope/issues/166); expanded fixture #172, declared surfaces #173 and capability campaign #174. The full goal is not achieved and current applicable checks are not all passing. The owner expanded the original intake-only phase to include fixes, meaningful regressions and repeated comprehensive testing. Original failures remain distinct from post-fix verification. Version changes and release remain outside scope.
 
+## Initial gesture frame readiness (#185, validation in progress)
+
+The first provider-backed slider drag fails on macOS in both retained hosted
+runs: 19 ms on b90ca39 and 12 ms on 8bebfe6. The latter confirms that #188's
+input-transparent hit selection did not resolve this case. A successful visual
+tree query and drained dispatcher jobs were the fixture's only prerequisites.
+
+The [Avalonia 12.1.3 compositor source](https://raw.githubusercontent.com/AvaloniaUI/Avalonia/12.1.3/src/Avalonia.Base/Rendering/Composition/CompositingRenderer.cs)
+publishes updated hit data after a full render. Its
+[headless timer](https://raw.githubusercontent.com/AvaloniaUI/Avalonia/12.1.3/src/Headless/Avalonia.Headless/HeadlessRenderTimer.cs)
+uses a scheduled UI dispatcher tick; draining available jobs is not a first-frame
+barrier. The test now logs bounded initial frame availability, target bounds,
+layout validity and center hit ancestry, then uses the public
+[`CaptureRenderedFrame`](https://raw.githubusercontent.com/AvaloniaUI/Avalonia/12.1.3/src/Headless/Avalonia.Headless/HeadlessWindowExtensions.cs)
+barrier. It requires an actual 500x430 frame and a center hit belonging to the
+slider before sending input, and checks exactly one range-value change.
+Production input guards, fallback/capture cleanup, negative cases and operation
+timeouts are unchanged. Linux/macOS CI now retain TRX output, including these
+diagnostics, alongside the existing Windows evidence.
+
+The initial instrumented local cold run passes (9 seconds,
+`gesture-readiness-before-results/gesture-readiness-before.trx`): a frame already
+exists, bounds are 20,20,200,40 and the center hit belongs to the slider template.
+This is not a local reproduction; the two uninstrumented hosted failures do not
+reveal their exact compositor sequence. Post-change focused validation passes all
+36 gesture, explicit input, picking and action-explanation cases (one minute,
+clean build, `gesture-readiness-after-results/gesture-readiness-after.trx`). The
+gesture output records a 500x430 ready frame, valid layout and slider-template
+center hit; the once-only range assertion and all existing fallback/cancellation
+checks pass. Hosted macOS after-fix and the combined gate remain required.
+
 ## Unix recovery connection (#184, fix validation in progress)
 
 The before-fix lifecycle fixture disposes its sole named-pipe server after every

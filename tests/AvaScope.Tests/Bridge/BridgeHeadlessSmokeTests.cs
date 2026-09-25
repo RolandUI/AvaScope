@@ -19,14 +19,18 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Text.Json;
 using System.Windows.Input;
+using Xunit.Abstractions;
 
 namespace AvaScope.Tests.Bridge;
 
 [Collection(BridgeCollectionDefinition.Name)]
 public sealed class BridgeHeadlessSmokeTests : IDisposable
 {
-    public BridgeHeadlessSmokeTests()
+    private readonly ITestOutputHelper _output;
+
+    public BridgeHeadlessSmokeTests(ITestOutputHelper output)
     {
+        _output = output;
         AvaScopeBridge.Deactivate();
     }
 
@@ -4155,6 +4159,11 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                     Height = 40
                 };
                 AutomationProperties.SetAutomationId(slider, "gesture-slider");
+                var rangeChanges = 0;
+                slider.PropertyChanged += (_, change) =>
+                {
+                    if (change.Property == RangeBase.ValueProperty) rangeChanges++;
+                };
                 Canvas.SetLeft(slider, 20);
                 Canvas.SetTop(slider, 20);
 
@@ -4388,6 +4397,36 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                     var nestedSliderNode = RequireNode("gesture-nested-slider");
                     var destinationNode = RequireNode("gesture-destination");
 
+                    using var initialFrame = window.GetLastRenderedFrame();
+                    var initialCenter = slider.TranslatePoint(new Point(slider.Bounds.Width / 2, slider.Bounds.Height / 2), window);
+                    var initialHit = initialCenter is { } point ? window.InputHitTest(point, enabledElementsOnly: false) as Visual : null;
+                    var initialReadiness = JsonSerializer.Serialize(new
+                    {
+                        frameAvailable = initialFrame is not null,
+                        clientSize = window.ClientSize.ToString(),
+                        bounds = slider.Bounds.ToString(),
+                        center = initialCenter?.ToString(),
+                        slider.IsMeasureValid,
+                        slider.IsArrangeValid,
+                        slider.IsVisible,
+                        slider.IsEffectivelyEnabled,
+                        hitPath = initialHit?.GetSelfAndVisualAncestors().Take(8).Select(visual => visual.GetType().Name).ToArray()
+                    });
+                    _output.WriteLine("Initial gesture readiness: " + initialReadiness);
+
+                    // Layout/tree availability alone does not publish the compositor hit-test data.
+                    // Use the public headless frame barrier before the first input, not a timed delay.
+                    using var readyFrame = window.CaptureRenderedFrame();
+                    Assert.NotNull(readyFrame);
+                    Assert.Equal(new PixelSize(500, 430), readyFrame.PixelSize);
+                    var readyCenter = slider.TranslatePoint(new Point(slider.Bounds.Width / 2, slider.Bounds.Height / 2), window);
+                    var readyHit = readyCenter is { } centerPoint ? window.InputHitTest(centerPoint, enabledElementsOnly: false) as Visual : null;
+                    var readyReadiness = $"frame={readyFrame.PixelSize}; bounds={slider.Bounds}; center={readyCenter}; measure={slider.IsMeasureValid}; arrange={slider.IsArrangeValid}; hit={readyHit?.GetType().Name ?? "none"}";
+                    _output.WriteLine("Ready gesture: " + readyReadiness);
+                    Assert.True(slider.IsMeasureValid && slider.IsArrangeValid
+                        && readyHit?.GetSelfAndVisualAncestors().Contains(slider) == true,
+                        $"Gesture fixture is not ready: {readyReadiness}; initial={initialReadiness}");
+
                     var providerDrag = await AvaScopeMcpTools.Input(
                         client,
                         runtime.SessionId.Value,
@@ -4396,8 +4435,9 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                         targetNodeId: sliderNode.NodeId,
                         gestureDirection: GestureDirections.End,
                         gestureDurationMs: 50);
-                    Assert.True(providerDrag.Success, providerDrag.Error?.Message);
+                    Assert.True(providerDrag.Success, $"{providerDrag.Error?.Code}: {providerDrag.Error?.Message}; ready={readyReadiness}; initial={initialReadiness}");
                     Assert.Equal(100, slider.Value);
+                    Assert.Equal(1, rangeChanges);
                     Assert.NotNull(providerDrag.Value!.Gesture);
                     Assert.Equal("automation_provider", providerDrag.Value.Gesture!.ExecutionMode);
                     Assert.Equal(RuntimeOperationRoutes.AutomationProvider, providerDrag.Value.Provenance!.Route);

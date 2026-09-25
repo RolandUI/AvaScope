@@ -326,7 +326,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y xvfb x11-utils openbox dbus at-spi2-core weston wayland-utils xkb-data libegl-mesa0 libgl1-mesa-dri libx11-6 libice6 libsm6 libfontconfig1 fonts-dejavu-core libgtk-3-0
-          AVASCOPE_RECOVERY_MANAGED_X11=1 AVASCOPE_VALIDATION_EVIDENCE_ROOT="$GITHUB_WORKSPACE/artifacts/x11-unit" dotnet test AvaScope.slnx -c Release --no-build --filter 'FullyQualifiedName~X11TestEnvironmentTests|FullyQualifiedName~WaylandTestEnvironmentTests|FullyQualifiedName~AgentRunRecoveryTests|FullyQualifiedName~SessionControlTests|FullyQualifiedName~RuntimeScenarioLifecycleTests'
+          AVASCOPE_RECOVERY_MANAGED_X11=1 AVASCOPE_VALIDATION_EVIDENCE_ROOT="$GITHUB_WORKSPACE/artifacts/x11-unit" dotnet test AvaScope.slnx -c Release --no-build --logger trx --results-directory artifacts/test-results/linux --filter 'FullyQualifiedName~X11TestEnvironmentTests|FullyQualifiedName~WaylandTestEnvironmentTests|FullyQualifiedName~AgentRunRecoveryTests|FullyQualifiedName~SessionControlTests|FullyQualifiedName~RuntimeScenarioLifecycleTests'
           pwsh -NoProfile -File ./eng/package-provider.ps1
           pwsh -NoProfile -File ./eng/test-managed-x11.ps1
           pwsh -NoProfile -File ./eng/test-managed-wayland.ps1 -CliAssembly ./artifacts/executables/avascope-linux-x64-framework-dependent/avascope.dll -McpAssembly ./artifacts/executables/avascope-linux-x64-framework-dependent/AvaScope.Mcp.dll
@@ -373,6 +373,7 @@ jobs:
           name: agent-foundation-linux
           retention-days: 7
           path: |
+            artifacts/test-results/linux/**/*.trx
             artifacts/provider-validation/**/*.log
             artifacts/provider-validation/**/cli-*.json
             artifacts/provider-validation/**/mcp-*.json
@@ -435,7 +436,7 @@ jobs:
         run: dotnet build AvaScope.slnx -c Release --no-restore
 
       - name: Test
-        run: dotnet test AvaScope.slnx -c Release --no-build
+        run: dotnet test AvaScope.slnx -c Release --no-build --logger trx --results-directory artifacts/test-results/macos
 
       - name: Validate macOS runtime and preview workflows
         run: bash ./eng/test-macos-runtime.sh Release
@@ -499,6 +500,7 @@ jobs:
           name: agent-foundation-macos
           retention-days: 7
           path: |
+            artifacts/test-results/macos/**/*.trx
             artifacts/provider-validation/**/*.log
             artifacts/provider-validation/**/cli-*.json
             artifacts/provider-validation/**/mcp-*.json
