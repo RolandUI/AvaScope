@@ -2,6 +2,61 @@
 
 Status: **in progress**, 2026-09-25. Tracking issue [#166](https://github.com/RolandUI/AvaScope/issues/166); expanded fixture #172, declared surfaces #173 and capability campaign #174. The full goal is not achieved and current applicable checks are not all passing. The owner expanded the original intake-only phase to include fixes, meaningful regressions and repeated comprehensive testing. Original failures remain distinct from post-fix verification. Version changes and release remain outside scope.
 
+## Expanded standalone table and form journeys (#174)
+
+Clean `483fedb` run `capabilities-standalone-01` uses the immutable standalone
+host/provider, Avalonia 12.1.3, Win32 and 1120x800 at 1x. T001-T051 contain 49
+public requests (37 MCP/12 CLI; T038/T039 are independent native observations).
+Twenty-seven table checks pass. Three retained agent errors are classified:
+an old Direct oracle closure, an incorrect expected conflict-code spelling, and
+assuming cell cancellation also finished the row. The first was detected before
+further edits; requests/snapshots were already in the correct standalone run and
+the accidentally appended Direct check was restored with the original failed
+evidence retained in `harness-path-error.json`. No new product defect is confirmed.
+
+The table round verifies all 200 available rows, typed values, projected CLI
+paging to unrealized QA-200, AND filtering, bounded incomplete scans, invalid
+bounds, realization/selection of QA-199 and exact cross-adapter replay. Stale
+revision, read-only column and wrong scalar type refuse without mutation. Real
+cell editors commit a Unicode status and integer score once each. Exact replay,
+already-satisfied values and conflicting payload reuse add no edits. Descending
+sort agrees with the independent view order; projection agrees across adapters.
+Redacted cells remain unavailable to filters without exposing the protected value;
+the CLI policy-denied action does not change selection or records.
+
+A fractional value in the integer Score column produces a visible invalid draft
+with original source value 37, `table_editor_not_verified` and `tableEditing:true`.
+Query returns the original numeric value with validation errors, and a new action
+refuses with zero dispatch. Escape clears the invalid cell but leaves the row
+transaction active in this fixture. A second synthetic Escape and a native Escape
+do not establish completed recovery; an already-satisfied selection also cannot
+prove that no edit is active. After observing the valid original value, explicit
+Enter finishes the row and a new edit verifies score 38 exactly once. Reset
+restores records, sort, selection and counters. Fresh same-key row generations
+differ; old generations refuse, while exact pre-reset replay returns historical
+score 37 without touching the new record's 98. The final reset restores the seed.
+Native and rendered positive/invalid frames (T020/T027), plus recovery observations
+T038/T039, were actually viewed and retained.
+
+SF001-SF019 add 19 form requests (13 MCP/six CLI) and 13 passing checks. Eight-field
+inventory, password redaction, labels, read-only mixed-plan refusal, invalid bounds,
+Unicode fill, lower range boundary 0, no-submit behavior, exact replay/conflict and
+separate CLI submission agree with the app journal and viewed SF010 images. Invalid
+email preserves the saved profile and exposes one error in CLI inspection and both
+SF015 images. Out-of-range priority 101 refuses before a change. Repairing text
+correctly reports partial effects until explicit revalidation; exact partial replay
+adds no events, and separate submit saves the repaired profile once more. Native
+ComboBox inventory remains explicitly partial; standalone choice selection was not
+exercised in this round. Response scans find no synthetic password.
+
+Together the rounds retain 68 public requests and 40 passing checks, plus three
+classified agent errors. Both clients exit 0 with empty stderr (PID 19888 after
+23 MCP calls, PID 20964 after 27). Final reset clears saved/validation/table state;
+owned Stop closes the session and terminates PID 8208. `table-summary.json` and
+`form-summary.json` include cleanup. No local test/QA process remains. Direct table
+comparison and the remaining capability families are still pending; this is scoped
+native evidence, not a comprehensive passing gate.
+
 ## Desired-state budget and MCP lifecycle diagnosis (#191)
 
 CI `36100032601` is terminal failure on clean `3b82d1d`. Windows has 853

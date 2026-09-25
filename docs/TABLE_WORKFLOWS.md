@@ -111,6 +111,14 @@ and `intentDispatched` diagnostics distinguish that state from stale identity.
 Explicitly inspect and finish/cancel any pending draft before a new edit intent.
 The original request remains replayable as its original uncertain outcome.
 
+Cell cancellation is not necessarily row-transaction completion. In the native QA
+fixture, Escape clears a rejected fractional Score draft and its validation error,
+but subsequent edits still report `table_edit_active`. After confirming the original
+valid source value, explicitly finishing the row with Enter allows a newly observed
+edit. Inspect the application's actual editing behavior before choosing finish or
+cancel; do not repeat an unverified write. An already-satisfied action performs no
+input and does not prove that a separate edit transaction has ended.
+
 The deadline is 100..3000 ms (default 2000), with no automatic rollback or save.
 Results include before/after rows, sort state, dispatched operation count,
 preparation, diagnostics and `avalonia_public_control_api` provenance with the actual
