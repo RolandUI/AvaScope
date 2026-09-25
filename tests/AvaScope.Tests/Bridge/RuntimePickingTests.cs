@@ -66,9 +66,11 @@ public sealed class RuntimePickingTests
             window.UpdateLayout(); using var prepared = window.CaptureRenderedFrame(); Assert.NotNull(prepared);
             var found = Assert.Single((await client.FindNodesAsync(runtime.SessionId, top.TopLevelId,
                 TreeKinds.Visual, name: target.Name, maxDepth: 32)).Value!.Matches).Node;
-            var queried = Assert.Single((await client.FindNodesAsync(runtime.SessionId, top.TopLevelId,
+            var query = await client.FindNodesAsync(runtime.SessionId, top.TopLevelId,
                 TreeKinds.Visual, maxDepth: 32, selector: new(treeKind: TreeKinds.Visual,
-                    automationId: "transformed-bounds"))).Value!.Matches).Node;
+                    automationId: "transformed-bounds"));
+            Assert.True(query.Success && query.Value!.Matches.Count == 1, JsonSerializer.Serialize(query));
+            var queried = Assert.Single(query.Value!.Matches).Node;
             var inspected = (await client.InspectNodeAsync(runtime.SessionId, top.TopLevelId,
                 TreeKinds.Visual, found.NodeId)).Value!;
             var recorded = await new RuntimeInteractionAnimationRunner().RunAsync(client, new(
@@ -76,7 +78,7 @@ public sealed class RuntimePickingTests
                 [new(RuntimeInteractionAnimationActions.Wait, targetNodeId: found.NodeId, frameOffsetsMs: [0])],
                 outputDirectory: output, maxDepth: 32,
                 assertions: [new(found.NodeId, "width", "not_clipped")]));
-            Assert.True(recorded.Success, JsonSerializer.Serialize(recorded.Error));
+            Assert.True(recorded.Success && recorded.Value!.Status == "passed", JsonSerializer.Serialize(recorded));
             var frame = Assert.Single(Assert.Single(recorded.Value!.Steps).Frames);
             using var pixels = SKBitmap.Decode(frame.Screenshot!.FilePath);
             var minX = pixels.Width; var minY = pixels.Height; var maxX = -1; var maxY = -1;
@@ -335,6 +337,76 @@ public sealed class RuntimePickingTests
     }
 
     [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task PseudoStateCausalFailureAndAdvisorySuccessAgreeThroughCliAndMcp(bool useMcp, bool occluded)
+    {
+        await WithWindow(async (runtime, window, button, top, node, client, output) =>
+        {
+            var target = new Border { Name = "DiagnosticHoverTarget", Background = Brushes.Blue };
+            var panel = new Grid { Children = { target } };
+            if (occluded) panel.Children.Add(new Border { Background = Brushes.Red });
+            window.Content = panel; window.UpdateLayout();
+            using var frame = window.CaptureRenderedFrame();
+            var found = Assert.Single((await client.FindNodesAsync(runtime.SessionId, top.TopLevelId, TreeKinds.Visual, name: target.Name)).Value!.Matches);
+            var request = new RuntimePseudoStateMatrixRequest(runtime.SessionId, top.TopLevelId, found.Node.Target!,
+                [RuntimePseudoStates.Normal, RuntimePseudoStates.PointerOver], outputDirectory: output);
+            ToolResult<RuntimePseudoStateMatrixResponse> result;
+            if (useMcp)
+            {
+                using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+                await using var mcp = await McpClient.CreateAsync(new StdioClientTransport(new()
+                { Command = "dotnet", Arguments = [Path.Combine(AppContext.BaseDirectory, "AvaScope.Mcp.dll")], Name = "matrix-diagnostics-test" }), cancellationToken: timeout.Token);
+                var call = await mcp.CallToolAsync("pseudo_state_matrix", new Dictionary<string, object?>
+                { ["request"] = JsonSerializer.SerializeToElement(request), ["manifestDirectory"] = client.ManifestDirectory }, cancellationToken: timeout.Token);
+                result = JsonSerializer.Deserialize<ToolResult<RuntimePseudoStateMatrixResponse>>(JsonSerializer.Serialize(call.StructuredContent))!;
+            }
+            else
+            {
+                Directory.CreateDirectory(output);
+                var requestPath = Path.Combine(output, "request.json");
+                await File.WriteAllTextAsync(requestPath, JsonSerializer.Serialize(request));
+                var start = new ProcessStartInfo("dotnet") { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
+                foreach (var argument in new[] { Path.Combine(AppContext.BaseDirectory, "avascope.dll"), "pseudo-state-matrix", "--request", requestPath, "--manifest-dir", client.ManifestDirectory }) start.ArgumentList.Add(argument);
+                using var process = Process.Start(start)!;
+                var stdout = process.StandardOutput.ReadToEndAsync(); var stderr = process.StandardError.ReadToEndAsync();
+                try
+                {
+                    await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(30));
+                    result = JsonSerializer.Deserialize<ToolResult<RuntimePseudoStateMatrixResponse>>(await stdout)!;
+                    Assert.True(string.IsNullOrWhiteSpace(await stderr), await stderr);
+                    Assert.Equal(occluded ? 1 : 0, process.ExitCode);
+                }
+                finally
+                {
+                    if (!process.HasExited) { process.Kill(entireProcessTree: true); await process.WaitForExitAsync(); }
+                }
+            }
+
+            Assert.True(result.TransportSuccess);
+            Assert.Equal(!occluded, result.Success);
+            Assert.Contains(result.Value!.Diagnostics, diagnostic => diagnostic.Code == "pseudo_state_raw_node_id_generation_scoped");
+            var hover = result.Value.Entries[1];
+            Assert.Equal(occluded ? "failed" : "passed", hover.Status);
+            Assert.Equal(!occluded, hover.Target!.Classes.Contains(":pointerover"));
+            using var pixels = SKBitmap.Decode(hover.Screenshot!.FilePath);
+            Assert.Equal(occluded ? SKColors.Red : SKColors.Blue, pixels.GetPixel(150, 110));
+            if (occluded)
+            {
+                Assert.Equal("pseudo_state_not_observed", result.Error!.Code);
+                Assert.Equal(":pointerover", result.Error.Details!["expectedClass"]);
+                Assert.Equal("true", result.Error.Details["partialValueAvailable"]);
+            }
+            else Assert.Null(result.Error);
+            Assert.False(target.IsPointerOver);
+            Assert.False(window.IsPointerOver);
+            Assert.All(panel.Children, child => Assert.False(child.IsPointerOver));
+        });
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task PseudoStateHoverRequiresRealStateAndResetsFullWindowTarget(bool occluded)
@@ -417,8 +489,7 @@ public sealed class RuntimePickingTests
                 runtime.SessionId, top.TopLevelId, pinnedTarget ? requestedTarget : null,
                 [RuntimePseudoStates.Normal, RuntimePseudoStates.Disabled], outputDirectory: output,
                 maxDepth: 32, name: !pinnedTarget || replaceTarget ? button.Name : null));
-            Assert.True(result.Success, JsonSerializer.Serialize(result.Error));
-            Assert.Equal("passed", result.Value!.Status);
+            Assert.True(result.Success && result.Value!.Status == "passed", JsonSerializer.Serialize(result));
             Assert.Equal(2, result.Value.Entries.Count);
             Assert.All(result.Value.Entries, entry =>
             {

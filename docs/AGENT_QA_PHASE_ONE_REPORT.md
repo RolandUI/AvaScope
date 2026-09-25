@@ -4,6 +4,21 @@ Status: **in progress**, 2026-09-25. Tracking issue [#166](https://github.com/Ro
 
 ## Current validation checkpoint
 
+The #211 diagnostic correction prioritizes failed pseudo-state entry diagnostics
+over three known target-lifetime advisories, preserving the full partial response
+and all advisories. Eight new controls include actual stdio MCP/CLI over real
+Avalonia occluded and unobstructed controls, with rendered pixels and hover cleanup.
+Before correction five fail/three pass. The first affected run retains 59 passes
+and five failures: two existing deep-state matrices, two structured geometry
+queries and a 30-second MCP cancellation. A host snapshot records 100% CPU; this
+does not establish causation. Additional assertions retain the entire matrix and
+query response, without changing deadlines, replaying uncertain input or relaxing
+state checks. All 19 targeted cases then pass, including those boundaries and the
+unchanged common-state journey. Original macOS and transient local causes remain
+unknown; #211 stays open and the complete hosted gate is still required. Artifacts:
+`matrix-diagnostics-01` (all four TRX stages, logs, independent verification and
+resource observation). The MCP timing recurrence is also linked to existing #192.
+
 Latest #174 exploration: `windows-direct-01` on clean `53ad53c` retains
 32 calls (22 MCP/ten CLI), 124 checks and seven reviewed native images. Parent
 resize 1120x800 to 1000x760 and restoration agree with independent image sizes;

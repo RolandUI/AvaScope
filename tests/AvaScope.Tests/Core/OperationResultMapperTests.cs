@@ -5,6 +5,51 @@ namespace AvaScope.Tests.Core;
 
 public sealed class OperationResultMapperTests
 {
+    [Theory]
+    [InlineData("failed", "pseudo_state_not_observed")]
+    [InlineData("unsupported", "input_strategy_unsupported")]
+    [InlineData("failed", null)]
+    [InlineData("passed", null)]
+    public void PseudoStateOutcomePreservesCausalFailureInsteadOfTargetAdvisories(string status, string? failureCode)
+    {
+        var sessionId = new SessionId("matrix-diagnostics");
+        var advisory = new ProtocolError("pseudo_state_raw_node_id_generation_scoped", "Target uses a generation-scoped node id.");
+        var resolved = new ProtocolError("pseudo_state_target_reresolved", "Target was re-resolved.");
+        var failure = failureCode is null ? null : new ProtocolError(failureCode, "Requested state could not be observed.",
+            new Dictionary<string, string> { ["state"] = "pointerover", ["expectedClass"] = ":pointerover" });
+        var diagnostics = failure is null ? new[] { advisory, resolved } : new[] { advisory, resolved, failure };
+        var response = new RuntimePseudoStateMatrixResponse(
+            "matrix-diagnostics", sessionId, "topLevel:main",
+            new RuntimeTargetContext(sessionId, "topLevel:main", TreeKinds.Visual, "visual:target"),
+            status, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
+            [
+                new RuntimePseudoStateMatrixEntry("normal", "Normal", "passed", "Captured.", DateTimeOffset.UtcNow, diagnostics: [advisory]),
+                new RuntimePseudoStateMatrixEntry("pointerover", "Hover", status, failure?.Message ?? status, DateTimeOffset.UtcNow, diagnostics: diagnostics)
+            ], diagnostics: diagnostics);
+
+        var result = OperationResultMapper.ToToolResult(CoreResult<RuntimePseudoStateMatrixResponse>.Ok(response));
+
+        Assert.True(result.TransportSuccess);
+        Assert.Same(response, result.Value);
+        Assert.Equal(diagnostics, result.Value!.Diagnostics);
+        Assert.Equal(status == "passed", result.Success);
+        if (status == "passed")
+        {
+            Assert.Null(result.Error);
+        }
+        else
+        {
+            Assert.Equal(failureCode ?? "pseudo_state_matrix_failed", result.Error!.Code);
+            Assert.Equal(status, result.Error.Details!["status"]);
+            Assert.Equal("true", result.Error.Details["partialValueAvailable"]);
+            if (failure is not null)
+            {
+                Assert.Equal(failure.Message, result.Error.Message);
+                Assert.Equal(":pointerover", result.Error.Details["expectedClass"]);
+            }
+        }
+    }
+
     [Fact]
     public void ValidatedWorkflowIsSuccessfulWithoutRuntimeDispatch()
     {

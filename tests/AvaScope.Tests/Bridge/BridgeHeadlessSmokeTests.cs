@@ -4169,7 +4169,7 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
 
                     var result = await AvaScopeMcpTools.PseudoStateMatrix(client, request);
 
-                    Assert.True(result.Success, result.Error?.Message);
+                    Assert.True(result.Success, JsonSerializer.Serialize(result));
                     Assert.Equal("passed", result.Value!.Status);
                     Assert.Equal(
                         [

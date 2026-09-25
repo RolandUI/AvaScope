@@ -73,7 +73,16 @@ public static class OperationResultMapper
             RuntimePointerDiagnosticsResponse response when response.Status == "failed"
                 => OutcomeError("pointer_diagnostics_failed", response.Status, response.Diagnostics),
             RuntimePseudoStateMatrixResponse response when response.Status is "failed" or "unsupported"
-                => OutcomeError("pseudo_state_matrix_failed", response.Status, response.Diagnostics),
+                => OutcomeError("pseudo_state_matrix_failed", response.Status,
+                    response.Entries
+                        .Where(static entry => entry.Status is "failed" or "unsupported")
+                        .OrderBy(static entry => entry.Status == "failed" ? 0 : 1)
+                        .SelectMany(static entry => entry.Diagnostics)
+                        .Concat(response.Diagnostics)
+                        .Where(static diagnostic => diagnostic.Code is not
+                            ("pseudo_state_raw_node_id_generation_scoped" or
+                             "pseudo_state_target_reresolved" or
+                             "pseudo_state_target_reresolved_ambiguous"))),
             RuntimeInteractionAnimationResponse response when response.Status == "failed"
                 => OutcomeError("interaction_animation_failed", response.Status, response.Diagnostics),
             CloseSessionResponse response when response.TerminateLaunchedProcessRequested
