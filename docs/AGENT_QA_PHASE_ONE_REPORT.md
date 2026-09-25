@@ -24,6 +24,35 @@ retaining new phase/cleanup evidence. Full CI `36152235816` targets that exact
 commit and is running. #204 is the sole active issue for the preserved pointer
 fixture failure. Counts are 40 unique defects/28 closed.
 
+## Public preview follow-up and binding-scope discovery (#205)
+
+`preview-followup-01` executes sixteen public calls (eight MCP/eight CLI) on
+`96c1656`, Windows headless Skia / Avalonia 12.1.3. Source and five binary hashes
+remain unchanged; only the handoff document was dirty. Five images were viewed.
+Thirty-three independent verification assertions retain equal/changed baseline
+results on both transports, the exact 28,734 changed pixels, passing/failing
+JUnit artifacts, one file-triggered reload, zero unchanged-input reloads, closed
+session refusal and error-only filtering with unchanged pixels. A malformed
+baseline CLI invocation is separately retained as an agent argument error;
+its corrected invocation produces the expected comparison failure.
+
+The deliberately problematic diagnostic scene reveals a binding-scope mismatch.
+A separate valid fixture then confirms #205: element-local `DataContext="sample"`
+and `Text="{Binding Length}"` render the correct value `6`, pixel-identical to
+a literal `Text="6"` reference, while both MCP and CLI report
+`binding_missing_datacontext`. The literal reference does not produce that
+warning. `AddSourceDiagnostics` currently applies root `content.DataContext`
+to ordinary binding references, ignoring the nearer effective source. The issue
+is open and the original images/responses are preserved before implementation.
+
+`verify.py` / `verified-summary.json` retain comparisons, checks and identities.
+All sixteen public clients exited; the owned preview session is closed.
+Loose-XAML comparison does not validate #203's project-build timeout or #201's
+animation timing. #204 remains review with its two new Unix controls awaiting
+hosted execution. The separate `c83e50c` gate has Windows 968 passed/six skips,
+all eleven #203 cases passed, Linux 33 and six native lab/three expiry checks
+independently verified at 1x; final macOS validation remains in progress.
+
 ## Pointer fixture request sequence and failure propagation (#204)
 
 The original macOS failure remains retained from `8bfcec0` / CI `36146649046`:

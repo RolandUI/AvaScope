@@ -75,9 +75,19 @@ error/recovery, exact CLI/MCP image parity, theme/culture/design data, multiple
 sizes, diff/regions and session close guards pass. It also confirms two failures:
 #201 animation offsets do not control time, and #202 baseline-create ignores
 build options. Baseline comparisons, file watch and diagnostic filters remain
-pending. #202 now has pushed correction/24 affected passes; subsequent baseline
-comparison timeout is retained separately as #203. This is neither native Retina
-nor visual HTML validation.
+pending in that historical round. The `preview-followup-01` journey on `96c1656`
+adds eight MCP/eight CLI calls with verified source/binary hashes (only the
+handoff document was dirty). Equal/changed loose-XAML baseline checks work on
+both transports; independent pixels agree with the 28,734-pixel reported delta
+and passing/failing JUnit reports. CLI watch performs one real file-triggered
+reload, skips unchanged input and rejects a closed session. MCP/CLI error-only
+filtering retains identical pixels. The journey confirms #205 on both transports:
+valid local DataContext bindings render exactly like the literal expected value,
+but incorrectly produce a missing-root-context warning. Five images were viewed,
+33 verification assertions retain this defect plus one separate agent CLI-argument
+mistake. All 16 clients exit and the session metadata is closed. #202 now has
+pushed correction/24 affected passes; project baseline comparison timeout remains
+#203. This is neither native Retina nor visual HTML validation.
 
 All listed native apps and clients were cleaned up. Shared-host lifecycle failures
 are retained as #192; hosted desired-state timing failure is #191. Neither is
