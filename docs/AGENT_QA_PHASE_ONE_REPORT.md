@@ -18,9 +18,11 @@ diagnostics fixture, now #204. Downloaded results verify Windows 957 passed/six
 skipped, macOS 955/seven/one failed, Linux 33; all four #202 cases pass on both
 full platforms. All six native lab runs/three expiry checks verify clean identity
 and owned cleanup at 1x. The combined gate is failed, not accepted via a rerun.
-#201 is blocked on supported Avalonia clock control. #203 is active with 29
-affected checks passing and actual CLI/MCP timeout recurrences retaining new
-phase/cleanup evidence. Counts are 40 unique defects/28 closed.
+#201 is blocked on supported Avalonia clock control. #203 is review at pushed
+`c83e50c`, with 29 affected checks passing and actual CLI/MCP timeout recurrences
+retaining new phase/cleanup evidence. Full CI `36152235816` targets that exact
+commit and is running. #204 is the sole active issue for the preserved pointer
+fixture failure. Counts are 40 unique defects/28 closed.
 
 ## Preview timeout evidence and owned cleanup (#203)
 
