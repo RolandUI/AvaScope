@@ -95,6 +95,16 @@ now complete after all six jobs of `59b9b2c` CI `36177716925` pass; their origin
 failures above remain historical evidence. Standalone focus exploration is
 still not implied by these geometry journeys.
 
+Subsequent `focus-standalone-after-01` on clean `2684a38` adds 24 calls
+(15 MCP/nine CLI), two actual Windows Tab/Shift+Tab actions, 61 independent
+checks and eight viewed images. Focus inspection/probes, stale refusal,
+action-map search/realization/partial coverage, window guards and the corrected
+deep/shallow/missing recording journey pass. App key/action counters and
+independent UIA agree, except for one retained immediate native-Tab UIA lag
+that resolves on a separate read without redispatch. Source/25 pinned binaries
+and original-process cleanup verify. This supplies standalone focus evidence at
+Win32 1x; multi-window/modal focus and other platforms remain separate boundaries.
+
 The separate `preview-campaign-01` journey on clean `0658716` uses Windows
 headless Skia / Avalonia 12.1.3: 22 MCP/six CLI calls, 17 positive checks, nine
 viewed images and independent pixel analysis. DPI sizing, source reload with

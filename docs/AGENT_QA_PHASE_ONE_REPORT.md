@@ -4,6 +4,26 @@ Status: **in progress**, 2026-09-25. Tracking issue [#166](https://github.com/Ro
 
 ## Current validation checkpoint
 
+Latest #174 exploration: `focus-standalone-after-01` on clean `2684a38`
+(production unchanged since `19dd8bd`) executes 24 public calls, 15 MCP/nine CLI,
+plus two real Windows keyboard actions. All 61 evidence checks pass; eight
+images were reviewed. Initial no-focus, editor focus, synthetic Tab/Shift+Tab,
+native Tab/Shift+Tab, stale-target refusal, wrong-window/invalid-map guards,
+action search and explicit partial/unrealized menu coverage agree with the app
+journal and independently observed Windows UIA focus. Deep recording now passes
+on both transports, shallow recording remains valid and missing geometry fails.
+
+One immediate native-Tab UIA snapshot still named the editor while the image,
+journal and subsequent runtime query showed the button. A separate fresh UIA
+read agreed, without repeating input; both snapshots remain retained and no
+zero-latency cross-provider synchronization is claimed. An initial PID-only
+cleanup audit briefly found an already exited client's numeric PID, with no
+identity available at the next read. The original audit is retained; final
+start-time-aware checks confirm owned app 5680 and all original clients absent.
+No unrelated process was terminated. Twenty-five immutable binaries and source
+identity verify. Full combined #209/#210 CI `36186815465` continues on exact
+`19dd8bd`; #174 remains active for multi-window/modal boundaries.
+
 #210 candidate validation now succeeds locally and in both actual native
 integrations. `transformed-bounds-01` retains the old five failures/two passing
 controls and the corrected 73 affected tests/two Unix skips. Seven cases compare
