@@ -22,6 +22,99 @@ namespace AvaScope.Tests.Bridge;
 public sealed class RuntimePickingTests
 {
     [Theory]
+    [InlineData("normal")]
+    [InlineData("translation")]
+    [InlineData("scale")]
+    [InlineData("rotation")]
+    [InlineData("ancestor_scale")]
+    [InlineData("ancestor_rotation")]
+    [InlineData("scaled_clipping_control")]
+    public async Task VisualBoundsMatchRenderedExtentsAcrossTransforms(string scenario)
+    {
+        await WithWindow(async (runtime, window, button, top, node, client, output) =>
+        {
+            var target = new Border { Name = "TransformedBounds", Width = 80, Height = 40, Background = Brushes.Lime };
+            AutomationProperties.SetAutomationId(target, "transformed-bounds");
+            var localX = scenario == "scaled_clipping_control" ? 70 : 40;
+            var localY = scenario == "scaled_clipping_control" ? 20 : 40;
+            Canvas.SetLeft(target, localX); Canvas.SetTop(target, localY);
+            var parent = new Canvas { Width = scenario == "scaled_clipping_control" ? 140 : 180,
+                Height = scenario == "scaled_clipping_control" ? 100 : 120, ClipToBounds = true,
+                Children = { target } };
+            Canvas.SetLeft(parent, 50); Canvas.SetTop(parent, 50);
+            var expected = scenario switch
+            {
+                "translation" => new NodeBounds(95, 80, 80, 40),
+                "scale" => new NodeBounds(50, 100, 160, 20),
+                "rotation" => new NodeBounds(110, 70, 40, 80),
+                "ancestor_scale" => new NodeBounds(70, 100, 40, 50),
+                "ancestor_rotation" => new NodeBounds(120, 60, 40, 80),
+                "scaled_clipping_control" => new NodeBounds(140, 80, 40, 20),
+                _ => new NodeBounds(90, 90, 80, 40)
+            };
+            if (scenario == "translation") target.RenderTransform = new TranslateTransform(5, -10);
+            if (scenario == "scale") target.RenderTransform = new ScaleTransform(2, .5);
+            if (scenario == "rotation") target.RenderTransform = new RotateTransform(90);
+            if (scenario == "scaled_clipping_control") target.RenderTransform = new ScaleTransform(.5, .5);
+            if (scenario == "ancestor_scale")
+            {
+                parent.RenderTransformOrigin = new RelativePoint(0, 0, RelativeUnit.Relative);
+                parent.RenderTransform = new ScaleTransform(.5, 1.25);
+            }
+            if (scenario == "ancestor_rotation") parent.RenderTransform = new RotateTransform(90);
+            window.Content = new Canvas { Background = Brushes.White, Children = { parent } };
+            window.UpdateLayout(); using var prepared = window.CaptureRenderedFrame(); Assert.NotNull(prepared);
+            var found = Assert.Single((await client.FindNodesAsync(runtime.SessionId, top.TopLevelId,
+                TreeKinds.Visual, name: target.Name, maxDepth: 32)).Value!.Matches).Node;
+            var queried = Assert.Single((await client.FindNodesAsync(runtime.SessionId, top.TopLevelId,
+                TreeKinds.Visual, maxDepth: 32, selector: new(treeKind: TreeKinds.Visual,
+                    automationId: "transformed-bounds"))).Value!.Matches).Node;
+            var inspected = (await client.InspectNodeAsync(runtime.SessionId, top.TopLevelId,
+                TreeKinds.Visual, found.NodeId)).Value!;
+            var recorded = await new RuntimeInteractionAnimationRunner().RunAsync(client, new(
+                runtime.SessionId, top.TopLevelId,
+                [new(RuntimeInteractionAnimationActions.Wait, targetNodeId: found.NodeId, frameOffsetsMs: [0])],
+                outputDirectory: output, maxDepth: 32,
+                assertions: [new(found.NodeId, "width", "not_clipped")]));
+            Assert.True(recorded.Success, JsonSerializer.Serialize(recorded.Error));
+            var frame = Assert.Single(Assert.Single(recorded.Value!.Steps).Frames);
+            using var pixels = SKBitmap.Decode(frame.Screenshot!.FilePath);
+            var minX = pixels.Width; var minY = pixels.Height; var maxX = -1; var maxY = -1;
+            for (var y = 0; y < pixels.Height; y++)
+                for (var x = 0; x < pixels.Width; x++)
+                    if (pixels.GetPixel(x, y) == SKColors.Lime)
+                    { minX = Math.Min(minX, x); minY = Math.Min(minY, y); maxX = Math.Max(maxX, x); maxY = Math.Max(maxY, y); }
+            Assert.Equal((int)expected.X, minX); Assert.Equal((int)expected.Y, minY);
+            Assert.Equal((int)expected.Width, maxX - minX + 1); Assert.Equal((int)expected.Height, maxY - minY + 1);
+
+            void AssertBounds(NodeBounds? actual)
+            {
+                Assert.NotNull(actual);
+                Assert.Equal(expected.X, actual.X, 6); Assert.Equal(expected.Y, actual.Y, 6);
+                Assert.Equal(expected.Width, actual.Width, 6); Assert.Equal(expected.Height, actual.Height, 6);
+            }
+            AssertBounds(found.Bounds); AssertBounds(queried.Bounds); AssertBounds(inspected.Bounds);
+            AssertBounds(Assert.Single(frame.Geometry).Bounds);
+            Assert.Equal("passed", recorded.Value.Status);
+            Assert.Equal(new NodeBounds(localX, localY, 80, 40), inspected.LayoutExplanation!.Node!.Bounds);
+            var tree = (await client.VisualTreeAsync(runtime.SessionId, top.TopLevelId, 32)).Value!;
+            var pending = new Stack<TreeNodeSummary>(); pending.Push(tree.Root);
+            TreeNodeSummary? treeNode = null;
+            while (pending.TryPop(out var current))
+            {
+                if (current.NodeId == found.NodeId) { treeNode = current; break; }
+                foreach (var child in current.Children) pending.Push(child);
+            }
+            Assert.NotNull(treeNode); AssertBounds(treeNode.Bounds);
+            var geometry = Pick(await client.PickNodeAsync(new(top))).Geometry;
+            var picked = Pick(await client.PickNodeAsync(new(top, expected.X + expected.Width / 2,
+                expected.Y + expected.Height / 2, "top_level_dip", geometry.Revision)));
+            Assert.Equal(found.NodeId, picked.HitPath[0].Target.NodeId);
+            AssertBounds(picked.HitPath[0].Bounds);
+        });
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task InteractionRecordingCapturesDeepGeometryAndParentCoordinates(bool clipped)

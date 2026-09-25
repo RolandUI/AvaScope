@@ -37,12 +37,13 @@ per matching node, with the same source target and relationship evidence. No
 whole tree or arbitrary application properties are returned.
 
 Flat and structured find results use the same bounds contract. Visual bounds
-have a top-level-relative DIP origin (including nested margins, scrolling and
-transforms) and the control's layout width/height. These are not an axis-aligned
-transformed or clipped visible rectangle; use geometry-pinned `pick_node` or
-`explain_actionability` for current hit testing. Logical bounds retain the
-control's parent-relative layout rectangle. Changing query syntax never changes
-the coordinate interpretation for the same tree kind.
+are the axis-aligned rectangle enclosing the control's full layout rectangle
+transformed into top-level DIPs, including ancestor transforms, nested margins
+and scrolling. They are not reduced to painted pixels or intersected with
+ancestor clips; use geometry-pinned `pick_node` or `explain_actionability` for
+current hit testing. Logical bounds and explicit layout-explanation metrics
+retain the control's parent-relative layout rectangle. Changing query syntax
+never changes the coordinate interpretation for the same tree kind.
 
 ## Relationships
 

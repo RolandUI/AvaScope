@@ -4,6 +4,41 @@ Status: **in progress**, 2026-09-25. Tracking issue [#166](https://github.com/Ro
 
 ## Current validation checkpoint
 
+#210 candidate validation now succeeds locally and in both actual native
+integrations. `transformed-bounds-01` retains the old five failures/two passing
+controls and the corrected 73 affected tests/two Unix skips. Seven cases compare
+actual solid pixels against manually specified normal, translated, scaled,
+rotated, ancestor-transformed and clipping-control rectangles. Two additional
+bounds/gesture consumers pass after updating a legacy assertion that expected
+the original mismatch; its initial failure remains retained.
+
+`transformed-direct-after-01` and `transformed-standalone-after-01` each execute
+17 public calls (12 MCP/five CLI), with 153/155 independent checks plus eight
+exact pixel-extent comparisons and eight reviewed images per integration.
+Normal/hover/pressed/release frames now report the full rectangle (pressed
+122.5x31.36 DIP), and static 1.15x ancestor scaling agrees across find, inspect,
+recording and geometry-pinned picking. Local layout metrics remain local;
+transformed bounds are unclipped layout AABBs, not ink extents or ancestor-clip
+intersections. Missing targets still fail and input journals remain unchanged.
+Source and selected binary hashes, pure standalone/provider isolation and owned
+app/all-client absence are independently verified. Provider manifest is
+`82844218f109028ad1440218fe16255d26fa77e3c05a725972d66cb671d38611`.
+The initial Direct pixel parser's wrong `step.id` lookup is retained as an agent
+error, corrected without replaying application actions. Sampling uses explicit
+200 ms settling delays and does not claim a deterministic animation clock.
+Native scope remains Win32 1x; the combined #209/#210 full gate is next.
+
+Latest gate: full `36177716925` on exact `59b9b2c` succeeds all six jobs.
+Independent artifact verification confirms Windows 997 passed/eight skips,
+macOS 995/nine, Linux 33 and six native/three expiry checks at 1x. All five #206
+and eight #207 cases plus both provenance cases pass on both full platforms;
+#206/#207 are closed. #208's three Windows process controls pass (explicit skips
+on macOS), while its original installer stall cause remains unknown/open. #209
+is pushed as `2fbbee7` and in review; active #210 now tests transformed extents.
+The next full gate will combine those changes after native verification. Current
+accounting: 46 defects/32 closed. No local owned app/client remains. Entries
+below retain earlier intermediate failures and narrower validation.
+
 Latest discovery: `focus-recording-direct-01` on clean `703c960` executes 22
 public calls (14 MCP/eight CLI), with 45 independent checks and five viewed
 images. Focus inspection, observed Tab/Shift+Tab round trip, stale refusal,

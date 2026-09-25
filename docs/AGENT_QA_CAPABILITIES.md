@@ -84,6 +84,17 @@ calls/118 checks and six viewed images with pure host/verified provider, matchin
 target-resolution success and the retained #210 extent failure. Both apps and
 all clients are gone; source and pinned binaries remain unchanged.
 
+The #210 correction is subsequently verified in `transformed-direct-after-01`
+and `transformed-standalone-after-01`, based on `2fbbee7` plus the retained bridge
+candidate. Each has 17 calls (12 MCP/five CLI), 153/155 checks respectively,
+eight exact pixel-extent comparisons and eight reviewed images. Full transformed
+bounds, local layout separation, fixed ancestor scale, picking, missing refusal,
+input state, source/binary identity and owned cleanup pass at Win32 1x. The
+combined #209/#210 full gate remains pending. Earlier #206/#207 acceptance is
+now complete after all six jobs of `59b9b2c` CI `36177716925` pass; their original
+failures above remain historical evidence. Standalone focus exploration is
+still not implied by these geometry journeys.
+
 The separate `preview-campaign-01` journey on clean `0658716` uses Windows
 headless Skia / Avalonia 12.1.3: 22 MCP/six CLI calls, 17 positive checks, nine
 viewed images and independent pixel analysis. DPI sizing, source reload with

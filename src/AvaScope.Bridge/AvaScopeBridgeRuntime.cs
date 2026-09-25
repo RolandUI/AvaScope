@@ -6152,12 +6152,9 @@ public sealed partial class AvaScopeBridgeRuntime
             return null;
         }
 
-        var origin = visual.TranslatePoint(new Point(0, 0), topLevel) ?? new Point(visual.Bounds.X, visual.Bounds.Y);
-        return new NodeBounds(
-            origin.X,
-            origin.Y,
-            visual.Bounds.Width,
-            visual.Bounds.Height);
+        // Transform the complete rectangle, including ancestor transforms, just as input
+        // geometry does. Mixing a transformed origin with local dimensions is not a bound.
+        return GetGestureBounds(visual, topLevel) is { } bounds ? ToNodeBounds(bounds) : null;
     }
 
     private RuntimeNodeInteractionState? CreateInteractionState(TopLevel topLevel, object node)

@@ -5120,7 +5120,9 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                     Assert.Equal(destinationNode.NodeId, drag.Gesture.DestinationTargetNodeId);
                     Assert.Equal(drag.Gesture.Path.SourceBounds.X + drag.Gesture.Path.SourceBounds.Width / 2, drag.Gesture.Path.Points[0].X, 3);
                     Assert.Equal(drag.Gesture.Path.DestinationBounds!.X + drag.Gesture.Path.DestinationBounds.Width / 2, drag.Gesture.Path.Points[^1].X, 3);
-                    Assert.True(drag.Gesture.Path.SourceBounds.Width > sourceNode.Bounds!.Width);
+                    Assert.Equal(new NodeBounds(10, 100, 100, 40), sourceNode.Bounds);
+                    Assert.Equal(sourceNode.Bounds, drag.Gesture.Path.SourceBounds);
+                    Assert.Equal(80, source.Bounds.Width);
                     Assert.Equal(1, pressed);
                     Assert.True(moved > 0);
                     Assert.Equal(1, released);
