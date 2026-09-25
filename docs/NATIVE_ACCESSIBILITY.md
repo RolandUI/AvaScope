@@ -87,6 +87,22 @@ native references are released. Session shutdown cancels the owned query. No
 subscriptions, listeners, app mutations, global input or persistent OS resources
 are created by an audit.
 
+Windows `native_accessibility_partial` diagnostics retain the failing operation
+stage, HRESULT and its source (`native_return` or `managed_exception`), native
+reader elapsed time, current-stage elapsed time, cancellation state, configured
+query/connection/transaction budgets and observed/pending node counts. Timings are
+in invariant-culture milliseconds. The reader timer starts after bridge capture;
+it is not the entire audit duration. A requested cancellation and a native error
+may coexist, so neither elapsed time nor cancellation alone proves the cause of
+a provider failure. Unobserved nodes remain unavailable, with already observed
+native nodes retained as partial evidence.
+
+Inspect these fields before changing provider readiness or timeouts. The adapter
+keeps the actual failed HRESULT even if thread-local COM error information maps
+it to a different managed exception. It never exports exception messages, inner
+exceptions, stack traces or exception data. COM initialization failure is reported
+at its own stage, and only successful initialization is balanced with uninitialization.
+
 Session/PID inspection authorization and scalar redaction are enforced before
 IPC output. An evidence policy with redacted or excluded AutomationId subtrees
 **refuses the native audit**: native grouping can conceal ancestry, so selectively
@@ -96,6 +112,10 @@ Password controls expose only a fixed control label, never their value.
 Public API references:
 [Windows UI Automation interfaces](https://learn.microsoft.com/en-us/windows/win32/api/uiautomationclient/nn-uiautomationclient-iuiautomation2),
 [Windows SDK declarations](https://github.com/microsoft/win32metadata/blob/main/generation/WinSDK/RecompiledIdlHeaders/um/UIAutomationClient.h),
+[UIA connection timeout](https://learn.microsoft.com/en-us/windows/win32/api/uiautomationclient/nf-uiautomationclient-iuiautomation2-put_connectiontimeout),
+[UIA transaction timeout](https://learn.microsoft.com/en-us/windows/win32/api/uiautomationclient/nf-uiautomationclient-iuiautomation2-put_transactiontimeout),
+[COM initialization](https://learn.microsoft.com/en-us/windows/win32/api/combaseapi/nf-combaseapi-coinitializeex),
+[HRESULT mapping and thread-local error information](https://learn.microsoft.com/en-us/dotnet/api/system.runtime.interopservices.marshal.throwexceptionforhr?view=net-10.0),
 [GIO D-Bus calls](https://docs.gtk.org/gio/method.DBusConnection.call_sync.html),
 [Avalonia 12.1 AT-SPI interface implementation](https://github.com/AvaloniaUI/Avalonia/blob/12.1.3/src/Avalonia.FreeDesktop.AtSpi/Handlers/AtSpiAccessibleHandler.cs).
 The adapter calls public native interfaces; it does not inspect Avalonia's private
