@@ -2,6 +2,48 @@
 
 Status: **in progress**, 2026-09-25. Tracking issue [#166](https://github.com/RolandUI/AvaScope/issues/166); expanded fixture #172, declared surfaces #173 and capability campaign #174. The full goal is not achieved and current applicable checks are not all passing. The owner expanded the original intake-only phase to include fixes, meaningful regressions and repeated comprehensive testing. Original failures remain distinct from post-fix verification. Version changes and release remain outside scope.
 
+## Animated-priority and native UIA discoveries (#198, #199)
+
+The fixture expansion also reopens #181: a fresh local run hits the same image
+lock boundary at the explicit exclusive-open assertion for `01-normal.png`,
+before teardown. Its owner is still unknown. The original failed result is
+retained; no retry or weaker assertion replaces it. Current unique-defect counts
+are 35 tickets/24 closed after reopening. The two new fixture-test expectation
+mistakes (StyleTrigger priority and style detachment on window close) are recorded
+separately from product defects in `animation-fixture-*-error.json` and
+`animation-fixture-close-expectation.json`.
+
+The extended #196 audit finds an additional reset boundary, now #198. On
+unchanged `5fda3f9` production, all nine initial real-Avalonia cases retain the
+temporary green base after successful reset while Blue animation remains active.
+The expanded 24-case baseline has 18 failures/six passes. It compares local,
+Style, local binding and current-value-over-Style origins against an independently
+animated untouched control. Animations beginning after mutation expose both a
+hidden Style override and a restored current value replacing ongoing animation.
+Before TRX/logs remain in `expanded-campaign/animation-priority*-before*`.
+The public-API correction passes all 87 affected mutation/pseudo-state cases
+(zero failures/skips, 1m15s). Validation and apply refuse already animated writes
+before effects; reset preserves an animation that starts after a supported
+mutation while restoring the known base. The shared QA fixture now provides
+finite brush timelines, Style/Local target/reference pairs and independent
+sampled value/priority evidence. All 16 affected QA fixture/runtime cases pass
+after cancellation moves to Closing, before the window detaches its styles and
+animations. Earlier evidence includes a 102-pass/one-failure run exposing that
+new fixture lifecycle defect; the corrected fixture-only validation takes 33 s
+and reuses unchanged previously built dependencies. Native Direct/standalone
+validation and a fresh full gate remain pending; no completed issue is claimed.
+
+Full `5fda3f9` CI 36118971656 finishes failed in the Windows Verify artifacts
+step, specifically the native UIA audit (#199). Main Windows TRX passes 895 with
+six skips; provider/onboarding/recipe/readiness lanes also pass. The owned native
+group has four passes/one failure. Its retained `initial.json` has 20 valid bridge
+nodes but zero native UIA nodes, `unavailable`, `truncated=true` and only a generic
+`native_accessibility_partial` diagnostic. Timings do not establish a deadline
+or COM/provider root cause. Linux/macOS downstream jobs skip. All three separate
+native-lab jobs pass; their retained identities/cleanup are audited separately.
+Evidence lives under `expanded-campaign/ci-5fda-windows` and the failed job log.
+#198 is sole active; #196 stays review and #197/#199 ready. No release.
+
 ## Native precedence verification and combined acceptance audit
 
 Both `style-reset-{direct,standalone}-after-01` runs use clean `5fda3f9`,

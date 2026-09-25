@@ -2,11 +2,13 @@ using System.Globalization;
 using System.ComponentModel;
 using System.Text.Json;
 using Avalonia;
+using Avalonia.Animation;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Collections;
 using Avalonia.Data;
+using Avalonia.Diagnostics;
 using Avalonia.Input;
 using Avalonia.Markup.Xaml.Styling;
 using Avalonia.Media;
@@ -169,6 +171,10 @@ public partial class QaWindow : Window
     private int _operationCancellations;
     private string _operationState = "idle";
     private bool _declaredRuntime;
+    private CancellationTokenSource? _animation;
+    private int _animationStarts;
+    private int _animationStops;
+    private string? _animationError;
 
     public event Action<string>? ReadinessChanged;
 
@@ -225,6 +231,9 @@ public partial class QaWindow : Window
         LowercaseButton.Click += (_, _) => { _lowercaseCount++; Record("lowercase_key"); };
         UppercaseButton.Click += (_, _) => { _uppercaseCount++; Record("uppercase_key"); };
         TemplateButton.Click += (_, _) => { _templateCount++; Record("template_click"); };
+        StartAnimationButton.Click += async (_, _) => await RunAnimationAsync();
+        StopAnimationButton.Click += (_, _) => { StopAnimation(); Record("animation_stopped"); };
+        SampleAnimationButton.Click += (_, _) => Record("animation_sampled");
         Pages.SelectionChanged += (_, _) => Record("navigation");
         Rows.SelectionChanged += (_, _) => Record("row_selection");
         ChildButton.Click += (_, _) => OpenChild(false);
@@ -288,7 +297,8 @@ public partial class QaWindow : Window
         };
         SizeChanged += (_, _) => Record("size_observed");
         Opened += (_, _) => { _lease.Start(); Record("window_opened"); };
-        Closed += (_, _) => { _closed = true; _lease.Stop(); CancelLoading(); StopFixtureOperation(); _diagnosticBinding?.Dispose(); CloseChildren(); Record("window_closed"); };
+        Closing += (_, _) => StopAnimation();
+        Closed += (_, _) => { _closed = true; _lease.Stop(); CancelLoading(); StopFixtureOperation(); StopAnimation(); _diagnosticBinding?.Dispose(); CloseChildren(); Record("window_closed"); };
         ResetState();
     }
 
@@ -299,6 +309,7 @@ public partial class QaWindow : Window
         {
             CancelLoading();
             StopFixtureOperation();
+            StopAnimation();
             CloseChildren();
             QaPopup.IsOpen = false;
             Notifications.IsChecked = false;
@@ -350,6 +361,9 @@ public partial class QaWindow : Window
             RuntimeScene.Reset();
             _operationStarts = _operationCompletions = _operationFailures = _operationCancellations = 0;
             _operationState = "idle";
+            _animationStarts = _animationStops = 0;
+            _animationError = null;
+            AnimationStatus.Text = "Idle";
             OperationProgress.Value = 0;
             OperationStatus.Text = "Idle";
             DiagnosticToggle.IsChecked = false;
@@ -366,6 +380,7 @@ public partial class QaWindow : Window
     {
         CancelLoading();
         StopFixtureOperation();
+        StopAnimation();
         CloseChildren();
         QaPopup.IsOpen = false;
         PointerPad.ContextMenu?.Close();
@@ -379,6 +394,62 @@ public partial class QaWindow : Window
         _declaredRuntime = true;
         DeclarationStatus.Text = "Scene selection and cancellable work are declared to AvaScope by this host.";
         Record("runtime_declared");
+    }
+
+    public async Task RunAnimationAsync()
+    {
+        Dispatcher.UIThread.VerifyAccess();
+        if (_animation is not null || _closed) return;
+        var cancellation = new CancellationTokenSource();
+        _animation = cancellation;
+        _animationStarts++;
+        _animationError = null;
+        AnimationStatus.Text = "Running";
+        var animation = new Animation
+        {
+            Duration = TimeSpan.FromSeconds(2), IterationCount = new IterationCount(600),
+            PlaybackDirection = PlaybackDirection.Alternate, FillMode = FillMode.None,
+            Children =
+            {
+                new KeyFrame { Cue = new Cue(0), Setters = { new Setter(Border.BackgroundProperty, Brushes.Blue) } },
+                new KeyFrame { Cue = new Cue(1), Setters = { new Setter(Border.BackgroundProperty, Brushes.DodgerBlue) } }
+            }
+        };
+        try
+        {
+            var runs = new[] { AnimationStyleTarget, AnimationStyleReference, AnimationLocalTarget, AnimationLocalReference }
+                .Select(control => animation.RunAsync(control, cancellation.Token)).ToArray();
+            Record("animation_started");
+            await Task.WhenAll(runs);
+            if (ReferenceEquals(_animation, cancellation) && !_closed)
+            {
+                _animation = null;
+                AnimationStatus.Text = "Completed";
+                Record("animation_completed");
+            }
+        }
+        catch (Exception exception)
+        {
+            if (ReferenceEquals(_animation, cancellation) && !_closed)
+            {
+                StopAnimation();
+                _animationError = Bound(exception.Message);
+                AnimationStatus.Text = "Failed";
+                Record("animation_failed");
+            }
+        }
+        finally { cancellation.Dispose(); }
+    }
+
+    private void StopAnimation()
+    {
+        var animation = _animation;
+        _animation = null;
+        if (animation is null) return;
+        _animationStops++;
+        // Detach ownership before cancellation so an old continuation cannot overwrite reset/cleanup.
+        animation.Cancel();
+        AnimationStatus.Text = "Stopped";
     }
 
     public async Task<string> RunFixtureOperationAsync(string mode, int steps,
@@ -600,6 +671,12 @@ public partial class QaWindow : Window
             operation = new { state = _operationState, starts = _operationStarts, completions = _operationCompletions,
                 failures = _operationFailures, cancellations = _operationCancellations, progress = OperationProgress.Value,
                 status = OperationStatus.Text },
+            animation = new { running = _animation is not null, starts = _animationStarts, stops = _animationStops,
+                status = AnimationStatus.Text, error = _animationError,
+                controls = new[] { AnimationStyleTarget, AnimationStyleReference, AnimationLocalTarget, AnimationLocalReference }
+                    .Select(control => new { name = control.Name, background = control.Background?.ToString(),
+                        isAnimating = control.IsAnimating(Border.BackgroundProperty),
+                        priority = control.GetDiagnostic(Border.BackgroundProperty).Priority.ToString() }) },
             intentionalDiagnostics = new { enabled = DiagnosticToggle.IsChecked == true,
                 validationError = DataValidationErrors.GetHasErrors(DiagnosticEditor), bindingAttached = _diagnosticBinding is not null,
                 childWidth = DiagnosticLayout.Width },

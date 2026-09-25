@@ -970,6 +970,8 @@ When several mutations override the same property, class, or resource, reset the
 
 Property reset preserves the original value source: a style, theme, inherited or default value resumes after the temporary local override is removed, so later app updates remain effective. Original local values (including null) and `SetCurrentValue` overrides are restored with their original precedence. Mutation metadata distinguishes `originalHadLocalValue` from `originalHadCurrentValueOverride`; a value supplied by a style is not a local value.
 
+Setting a property already controlled by animation is unsupported because its effective value hides the original base source. Both validation and apply return `isAnimating: true` and advise waiting for the application to finish or stop that animation before inspecting and mutating again. If animation begins after a supported mutation, reset removes the known temporary base without replacing the ongoing animation. A prior current-value override invalidated by that active animation is not reapplied over it.
+
 Use `--source-project`, `--source-view`, `--source-app`, and `--source-profile` when an agent wants a source-aware handoff after runtime experiments. The suggestions report likely source target kind, file status, confidence, suggested member/property/class/resource key, limitations, and manual action text. They never modify project files automatically; agents must still inspect the suggested source before making an explicit patch.
 
 Close an active local bridge session:

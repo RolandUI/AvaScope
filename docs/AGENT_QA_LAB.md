@@ -22,6 +22,10 @@ pwsh -NoProfile -File eng/agent-qa.ps1 -Integration Standalone
 
 The shared fixture constrains its content to observed `ClientSize`, independently of requested scene dimensions. Native window managers may reject a repeated oversized request without changing the client area; Reset and tabular content must remain inside that actual viewport (#177). Requested Full HD dimensions remain distinct in the journal. Geometry regressions exercise this content/client mismatch; native CI is still required to validate platform behavior.
 
+The Rendering tab includes real `Animation.RunAsync` brush timelines (#198). `qa-animation-start`, `qa-animation-stop` and `qa-animation-sample` control a finite 20-minute blue pulse and record independent state. The `qa-animation-style-target`/`qa-animation-style-reference` pair starts from a red Style; the `qa-animation-local-target`/`qa-animation-local-reference` pair starts from red LocalValue. Mutate only the targets, compare against their untouched references, and record after a rendered frame and after stopping. `qa-state.json.animation` reports actual brushes, priorities, `isAnimating`, lifecycle counts and any fixture error. No per-frame disk writes occur. Repeat Start does not stack animations; Reset, cleanup and window closure cancel them before recording final state. Reset/cleanup do not silently clear AvaScope mutations: reset those through the public mutation API when verifying restoration.
+
+Exercise both orders: an already running animation must cause a truthful unsupported mutation with zero effects; a supported mutation followed by animation must reset its hidden base without interrupting the timeline. Stop then exposes the restored red source. Preserve the request/response, sampled journal and viewed native/rendered images for each integration; the headless priority matrix alone does not validate a native timeline.
+
 Copy the returned `root` into `$qa`. All subsequent operations require this exact directory:
 
 ```powershell

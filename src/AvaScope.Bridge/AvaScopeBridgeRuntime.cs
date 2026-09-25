@@ -1970,8 +1970,27 @@ public sealed partial class AvaScopeBridgeRuntime
             return property.Error;
         }
 
+        var priorityError = ValidatePropertyMutationPriority(property.Value!);
+        if (priorityError is not null)
+        {
+            return priorityError;
+        }
+
         var value = ConvertMutationValue(operation, property.Value!.ValueKind);
         return value.Success ? null : value.Error;
+    }
+
+    private static CoreError? ValidatePropertyMutationPriority(MutableAvaloniaProperty property)
+    {
+        return !property.Owner.IsAnimating(property.Property) ? null : new CoreError(
+            RuntimeMutationErrorCodes.UnsupportedRuntimeMutationProperty,
+            "A property currently controlled by animation cannot be safely captured for reversible mutation.",
+            new Dictionary<string, string>
+            {
+                ["propertyName"] = property.PropertyName,
+                ["isAnimating"] = "true",
+                ["nextAction"] = "Let the application finish or stop its animation, then inspect the property again before requesting a mutation."
+            });
     }
 
     private static CoreError? ValidateResourceMutation(RuntimeMutationOperation operation)
@@ -1996,6 +2015,13 @@ public sealed partial class AvaScopeBridgeRuntime
         }
 
         var property = propertyResult.Value!;
+        var priorityError = ValidatePropertyMutationPriority(property);
+        if (priorityError is not null)
+        {
+            return MutationResponse(request, RuntimeMutationStatuses.Unsupported, applied: false,
+                resolvedTarget.Target, ToProtocolError(priorityError));
+        }
+
         var valueResult = ConvertMutationValue(request.Operation, property.ValueKind);
         if (!valueResult.Success)
         {
@@ -3454,16 +3480,25 @@ public sealed partial class AvaScopeBridgeRuntime
         AvaloniaProperty property,
         PropertyValueSnapshot original)
     {
+        var isAnimating = owner.IsAnimating(property);
         if (original.HasLocalValue)
         {
             owner.SetValue(property, original.Value, BindingPriority.LocalValue);
         }
         else
         {
+            if (isAnimating)
+            {
+                // Avalonia 12.1 ClearValue skips a local base hidden by Animation. Mark the
+                // unchanged effective value as current so ClearValue reevaluates that base.
+                owner.SetCurrentValue(property, owner.GetValue(property));
+            }
             owner.ClearValue(property);
         }
 
-        if (original.IsOverriddenCurrentValue)
+        // A later animation invalidates a prior current-value override; restoring it now
+        // would replace the application's still-running animated value.
+        if (original.IsOverriddenCurrentValue && !isAnimating)
         {
             owner.SetCurrentValue(property, original.Value);
         }

@@ -930,6 +930,174 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
         }
     }
 
+    [Theory]
+    [InlineData("local", "individual", false)]
+    [InlineData("local", "reset_all", false)]
+    [InlineData("local", "deactivate", false)]
+    [InlineData("style", "individual", false)]
+    [InlineData("style", "reset_all", false)]
+    [InlineData("style", "deactivate", false)]
+    [InlineData("local_binding", "individual", false)]
+    [InlineData("local_binding", "reset_all", false)]
+    [InlineData("local_binding", "deactivate", false)]
+    [InlineData("current_style", "individual", false)]
+    [InlineData("current_style", "reset_all", false)]
+    [InlineData("current_style", "deactivate", false)]
+    [InlineData("local", "individual", true)]
+    [InlineData("local", "reset_all", true)]
+    [InlineData("local", "deactivate", true)]
+    [InlineData("style", "individual", true)]
+    [InlineData("style", "reset_all", true)]
+    [InlineData("style", "deactivate", true)]
+    [InlineData("local_binding", "individual", true)]
+    [InlineData("local_binding", "reset_all", true)]
+    [InlineData("local_binding", "deactivate", true)]
+    [InlineData("current_style", "individual", true)]
+    [InlineData("current_style", "reset_all", true)]
+    [InlineData("current_style", "deactivate", true)]
+    public async Task RuntimeMutationPreservesUnderlyingValueWhenAnimationHidesItsPriority(
+        string origin, string cleanup, bool animationStartsAfterMutation)
+    {
+        var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessTestApplication));
+        try
+        {
+            await DispatchAsync(session, async () =>
+            {
+                var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Animated mutation precedence"));
+                var source = new Border { Background = Brushes.Red };
+                var control = new Border { Name = "Target", Width = 150, Height = 40 };
+                var reference = new Border { Width = 150, Height = 40 };
+                var window = new Window
+                {
+                    Width = 400, Height = 240, Content = new StackPanel { Children = { control, reference } }
+                };
+                IDisposable? binding = null;
+                IDisposable? referenceBinding = null;
+                IDisposable? animation = null;
+                IDisposable? referenceAnimation = null;
+                if (origin is "style" or "current_style")
+                {
+                    window.Styles.Add(new Style(x => x.OfType<Border>())
+                    {
+                        Setters = { new Setter(Border.BackgroundProperty, Brushes.Red) }
+                    });
+                }
+                else if (origin == "local_binding")
+                {
+                    binding = control.Bind(Border.BackgroundProperty, source.GetObservable(Border.BackgroundProperty));
+                    referenceBinding = reference.Bind(Border.BackgroundProperty, source.GetObservable(Border.BackgroundProperty));
+                }
+                else
+                {
+                    control.Background = Brushes.Red;
+                    reference.Background = Brushes.Red;
+                }
+                try
+                {
+                    window.Show();
+                    using var registration = runtime.RegisterTopLevel(window);
+                    using var frame = window.CaptureRenderedFrame();
+                    Assert.NotNull(frame);
+                    Assert.Equal(new PixelSize(400, 240), frame.PixelSize);
+                    if (origin == "current_style")
+                    {
+                        control.SetCurrentValue(Border.BackgroundProperty, Brushes.Orange);
+                        reference.SetCurrentValue(Border.BackgroundProperty, Brushes.Orange);
+                    }
+                    var original = control.GetDiagnostic(Border.BackgroundProperty);
+                    Assert.Equal(reference.Background, original.Value);
+                    if (!animationStartsAfterMutation)
+                    {
+                        animation = control.SetValue(Border.BackgroundProperty, Brushes.Blue, BindingPriority.Animation);
+                        referenceAnimation = reference.SetValue(Border.BackgroundProperty, Brushes.Blue, BindingPriority.Animation);
+                        Assert.NotNull(animation);
+                        Assert.True(control.IsAnimating(Border.BackgroundProperty));
+                        Assert.Equal(BindingPriority.Animation, control.GetDiagnostic(Border.BackgroundProperty).Priority);
+                    }
+                    var top = Assert.Single(await runtime.ListTopLevelsAsync());
+                    var target = Assert.Single((await runtime.FindNodesAsync(top.Id, TreeKinds.Visual,
+                        name: "Target", maxDepth: 32)).Value!.Matches).Target!;
+                    var operation = new RuntimeMutationOperation(RuntimeMutationOperationKinds.SetProperty,
+                        propertyName: "Background", value: "#FF0A7C59", valueType: "brush");
+                    var validation = await runtime.ValidateMutationAsync(new("animated-validate", target, operation));
+                    var mutation = await runtime.MutateNodeAsync(new("animated-apply", target, operation));
+                    Assert.True(validation.Success, validation.Error?.Message);
+                    Assert.True(mutation.Success, mutation.Error?.Message);
+                    if (animationStartsAfterMutation)
+                    {
+                        Assert.True(mutation.Value!.Applied, JsonSerializer.Serialize(mutation.Value));
+                        animation = control.SetValue(Border.BackgroundProperty, Brushes.Blue, BindingPriority.Animation);
+                        referenceAnimation = reference.SetValue(Border.BackgroundProperty, Brushes.Blue, BindingPriority.Animation);
+                    }
+                    Assert.Equal(Brushes.Blue, control.Background);
+                    if (mutation.Value!.Applied && cleanup != "deactivate")
+                    {
+                        var reset = await runtime.MutateNodeAsync(new("animated-reset", target,
+                            new RuntimeMutationOperation(cleanup == "individual"
+                                ? RuntimeMutationOperationKinds.ResetMutation : RuntimeMutationOperationKinds.ResetAll,
+                                mutationId: cleanup == "individual" ? mutation.Value.MutationId : null)));
+                        Assert.True(reset.Success, reset.Error?.Message);
+                        Assert.True(reset.Value!.Applied, JsonSerializer.Serialize(reset.Value));
+                    }
+                    if (cleanup == "deactivate")
+                    {
+                        Assert.True(AvaScopeBridge.Deactivate().Success);
+                    }
+                    else
+                    {
+                        Assert.Equal(0, (await runtime.MutationReviewAsync()).Value!.ActiveMutationCount);
+                    }
+                    Assert.Equal(Brushes.Blue, control.Background);
+                    Assert.True(control.IsAnimating(Border.BackgroundProperty));
+                    Assert.Equal(BindingPriority.Animation, control.GetDiagnostic(Border.BackgroundProperty).Priority);
+                    animation!.Dispose();
+                    animation = null;
+                    referenceAnimation!.Dispose();
+                    referenceAnimation = null;
+                    var restored = control.GetDiagnostic(Border.BackgroundProperty);
+                    var expected = reference.GetDiagnostic(Border.BackgroundProperty);
+                    var evidence = JsonSerializer.Serialize(new
+                    {
+                        origin, cleanup, animationStartsAfterMutation,
+                        originalValue = original.Value?.ToString(), original.Priority,
+                        mutationStatus = mutation.Value.Status, restoredValue = restored.Value?.ToString(),
+                        restoredPriority = restored.Priority, expectedValue = expected.Value?.ToString(),
+                        expectedPriority = expected.Priority
+                    });
+                    Assert.True(Equals(expected.Value, restored.Value), evidence);
+                    Assert.True(expected.Priority == restored.Priority, evidence);
+                    if (!mutation.Value.Applied)
+                    {
+                        Assert.Equal(RuntimeMutationStatuses.Unsupported, mutation.Value.Status);
+                        Assert.Equal(RuntimeMutationStatuses.Unsupported, validation.Value!.Status);
+                        var diagnostic = Assert.Single(mutation.Value.Diagnostics);
+                        Assert.Equal(RuntimeMutationErrorCodes.UnsupportedRuntimeMutationProperty, diagnostic.Code);
+                        Assert.Equal("true", diagnostic.Details!["isAnimating"]);
+                        Assert.Contains("animation", diagnostic.Details["nextAction"], StringComparison.OrdinalIgnoreCase);
+                    }
+                    if (origin == "local_binding")
+                    {
+                        source.Background = Brushes.Green;
+                        Assert.Equal(Brushes.Green, control.Background);
+                    }
+                }
+                finally
+                {
+                    animation?.Dispose();
+                    referenceAnimation?.Dispose();
+                    binding?.Dispose();
+                    referenceBinding?.Dispose();
+                    window.Close();
+                    AvaScopeBridge.Deactivate();
+                }
+            }, CancellationToken.None);
+        }
+        finally
+        {
+            DisposeHeadlessSessionAfterExplicitCleanup(session);
+        }
+    }
+
     [Fact]
     public async Task RuntimeMutationAppliesClassesResourcesTextAndScreenshotObservableBackgroundThenResetAll()
     {

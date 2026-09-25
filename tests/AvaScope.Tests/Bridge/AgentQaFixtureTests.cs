@@ -3,6 +3,9 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Collections;
 using Avalonia;
+using Avalonia.Data;
+using Avalonia.Diagnostics;
+using Avalonia.Media;
 using Avalonia.Input;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -19,6 +22,90 @@ namespace AvaScope.Tests.Bridge;
 [Collection(BridgeCollectionDefinition.Name)]
 public sealed class AgentQaFixtureTests
 {
+    [Theory]
+    [InlineData("stop")]
+    [InlineData("reset")]
+    [InlineData("cleanup")]
+    [InlineData("close")]
+    public async Task TimelineAnimationKeepsReferencesAndCancelsWithoutLateStateWrites(string cleanup)
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "avascope-qa-animation-" + Guid.NewGuid().ToString("N"));
+        var previous = Environment.GetEnvironmentVariable("AVASCOPE_QA_OUTPUT");
+        Environment.SetEnvironmentVariable("AVASCOPE_QA_OUTPUT", directory);
+        try
+        {
+            using var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessSmokeTests.BridgeHeadlessTestApplication));
+            await BridgeHeadlessSmokeTests.DispatchAsync(session, async () =>
+            {
+                var window = new QaWindow(); window.Show();
+                try
+                {
+                    window.FindControl<TabControl>("Pages")!.SelectedIndex = 1;
+                    var names = new[] { "AnimationStyleTarget", "AnimationStyleReference", "AnimationLocalTarget", "AnimationLocalReference" };
+                    var controls = names.Select(name => window.FindControl<Border>(name)!).ToArray();
+                    using (var frame = window.CaptureRenderedFrame()) Assert.NotNull(frame);
+                    foreach (var control in controls)
+                    {
+                        Assert.Equal(Colors.Red, Assert.IsAssignableFrom<ISolidColorBrush>(control.Background).Color);
+                        Assert.Equal(control.Name!.Contains("Style") ? BindingPriority.StyleTrigger : BindingPriority.LocalValue,
+                            control.GetDiagnostic(Border.BackgroundProperty).Priority);
+                    }
+                    var animation = window.RunAnimationAsync();
+                    await window.RunAnimationAsync(); // A second start must not stack animations.
+                    using (var frame = window.CaptureRenderedFrame()) Assert.NotNull(frame);
+                    foreach (var control in controls)
+                    {
+                        Assert.True(control.IsAnimating(Border.BackgroundProperty));
+                        Assert.Equal(BindingPriority.Animation, control.GetDiagnostic(Border.BackgroundProperty).Priority);
+                        Assert.NotEqual(Colors.Red, Assert.IsAssignableFrom<ISolidColorBrush>(control.Background).Color);
+                    }
+                    window.FindControl<Button>("SampleAnimationButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    using (var running = JsonDocument.Parse(File.ReadAllText(Path.Combine(directory, "qa-state.json"))))
+                    {
+                        var state = running.RootElement.GetProperty("animation");
+                        Assert.True(state.GetProperty("running").GetBoolean());
+                        Assert.Equal(1, state.GetProperty("starts").GetInt32());
+                        Assert.Equal(JsonValueKind.Null, state.GetProperty("error").ValueKind);
+                        Assert.All(state.GetProperty("controls").EnumerateArray(), control => Assert.True(control.GetProperty("isAnimating").GetBoolean()));
+                    }
+                    if (cleanup == "reset") window.ResetState();
+                    else if (cleanup == "cleanup") window.CleanupState();
+                    else if (cleanup == "close") window.Close();
+                    else window.FindControl<Button>("StopAnimationButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    var stoppedJournal = File.ReadAllText(Path.Combine(directory, "qa-state.json"));
+                    await animation;
+                    Dispatcher.UIThread.RunJobs();
+                    Assert.Equal(stoppedJournal, File.ReadAllText(Path.Combine(directory, "qa-state.json")));
+                    foreach (var control in controls)
+                    {
+                        Assert.False(control.IsAnimating(Border.BackgroundProperty));
+                        if (cleanup == "close" && control.Name!.Contains("Style"))
+                        {
+                            // Closing detaches the window's styles, so neither the animated
+                            // target nor its reference should retain a styled brush.
+                            Assert.Null(control.Background);
+                            continue;
+                        }
+                        Assert.Equal(Colors.Red, Assert.IsAssignableFrom<ISolidColorBrush>(control.Background).Color);
+                        Assert.Equal(control.Name!.Contains("Style") ? BindingPriority.StyleTrigger : BindingPriority.LocalValue,
+                            control.GetDiagnostic(Border.BackgroundProperty).Priority);
+                    }
+                    using var stopped = JsonDocument.Parse(stoppedJournal);
+                    var stoppedState = stopped.RootElement.GetProperty("animation");
+                    Assert.False(stoppedState.GetProperty("running").GetBoolean());
+                    Assert.Equal(cleanup == "reset" ? 0 : 1, stoppedState.GetProperty("stops").GetInt32());
+                    Assert.Equal(cleanup == "reset" ? "Idle" : "Stopped", stoppedState.GetProperty("status").GetString());
+                }
+                finally { window.Close(); }
+            }, CancellationToken.None);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("AVASCOPE_QA_OUTPUT", previous);
+            if (Directory.Exists(directory)) Directory.Delete(directory, recursive: true);
+        }
+    }
+
     [Fact]
     public async Task KeyedListCanRevealAndSelectOffscreenRowsWithoutChangingTableOrderAndResetRestoresItsSeed()
     {

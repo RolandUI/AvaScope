@@ -25,6 +25,11 @@
       </Setter>
     </ControlTheme>
   </Window.Resources>
+  <Window.Styles>
+    <Style Selector="Border.qa-animation-base">
+      <Setter Property="Background" Value="Red" />
+    </Style>
+  </Window.Styles>
   <Border Padding="20" HorizontalAlignment="Left" VerticalAlignment="Top"
           Width="{ReflectionBinding ClientSize.Width, RelativeSource={RelativeSource AncestorType=Window}}"
           Height="{ReflectionBinding ClientSize.Height, RelativeSource={RelativeSource AncestorType=Window}}">
@@ -70,6 +75,30 @@
             <StackPanel Margin="12" Spacing="18">
               <TextBlock x:Name="LocalizedHeading" Text="Rendering reference — correct text stays within its cards" FontSize="24"
                          TextWrapping="Wrap" AutomationProperties.AutomationId="qa-render-heading" />
+              <StackPanel Spacing="8">
+                <TextBlock Text="Animated mutations: targets and untouched references" FontSize="18" TextWrapping="Wrap" />
+                <WrapPanel ItemSpacing="8" LineSpacing="6">
+                  <Button x:Name="StartAnimationButton" Content="Start animation" AutomationProperties.AutomationId="qa-animation-start" />
+                  <Button x:Name="StopAnimationButton" Content="Stop animation" AutomationProperties.AutomationId="qa-animation-stop" />
+                  <Button x:Name="SampleAnimationButton" Content="Record animation state" AutomationProperties.AutomationId="qa-animation-sample" />
+                  <TextBlock x:Name="AnimationStatus" Text="Idle" VerticalAlignment="Center" AutomationProperties.AutomationId="qa-animation-status" />
+                </WrapPanel>
+                <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="10" RowSpacing="8">
+                  <Border x:Name="AnimationStyleTarget" Classes="qa-animation-base" Padding="12" AutomationProperties.AutomationId="qa-animation-style-target">
+                    <TextBlock Text="Style target" Foreground="White" />
+                  </Border>
+                  <Border Grid.Column="1" x:Name="AnimationStyleReference" Classes="qa-animation-base" Padding="12" AutomationProperties.AutomationId="qa-animation-style-reference">
+                    <TextBlock Text="Style reference" Foreground="White" />
+                  </Border>
+                  <Border Grid.Row="1" x:Name="AnimationLocalTarget" Background="Red" Padding="12" AutomationProperties.AutomationId="qa-animation-local-target">
+                    <TextBlock Text="Local target" Foreground="White" />
+                  </Border>
+                  <Border Grid.Row="1" Grid.Column="1" x:Name="AnimationLocalReference" Background="Red" Padding="12" AutomationProperties.AutomationId="qa-animation-local-reference">
+                    <TextBlock Text="Local reference" Foreground="White" />
+                  </Border>
+                </Grid>
+                <TextBlock Text="Blue pulses run for at most 20 minutes. Stop reveals the base: red unless a mutation remains. Reset and cleanup cancel animation." TextWrapping="Wrap" />
+              </StackPanel>
               <Button x:Name="TemplateButton" Theme="{StaticResource QaCardButton}" FontSize="18"
                       HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" AutomationProperties.AutomationId="qa-template">
                 <StackPanel Spacing="6">
