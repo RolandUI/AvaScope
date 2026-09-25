@@ -4,6 +4,9 @@ Status: **in progress**, 2026-09-25. Tracking issue [#166](https://github.com/Ro
 
 ## Native test cleanup correction (#200)
 
+Implementation `7f8e46a` is pushed and in review; #174 resumes as the sole active
+issue for remaining workflow/replay and preview coverage.
+
 The controlled before baseline retains two failures after actual owned processes
 exit but an injected capture completion remains pending. The correction keeps
 termination, bounded exit, each stream and disposal independent, persists safe
