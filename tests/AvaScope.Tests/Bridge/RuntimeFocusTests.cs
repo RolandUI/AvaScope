@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text.Json;
+using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Headless;
@@ -203,6 +204,9 @@ public sealed class RuntimeFocusTests
                 {
                     window.Show(); using var registration = runtime.RegisterTopLevel(window);
                     var top = Assert.Single(await runtime.ListTopLevelsAsync());
+                    using var preparedFrame = window.CaptureRenderedFrame();
+                    Assert.NotNull(preparedFrame);
+                    Assert.Equal(new PixelSize(400, 240), preparedFrame.PixelSize);
                     Assert.True((await runtime.ReadinessAsync(top.Id, options: new(waitForFrame: true))).Success);
                     await test(runtime, window, root, first, second, top.Id, new(Path.GetDirectoryName(runtime.SessionManifestPath)!));
                 }

@@ -259,6 +259,9 @@ public sealed class RuntimeNavigationTests
                 {
                     window.Show(); using var registered = runtime.RegisterTopLevel(window); Dispatcher.UIThread.RunJobs();
                     var top = Assert.Single(await runtime.ListTopLevelsAsync()).Id;
+                    using var preparedFrame = window.CaptureRenderedFrame();
+                    Assert.NotNull(preparedFrame);
+                    Assert.Equal(new PixelSize(400, 220), preparedFrame.PixelSize);
                     Assert.True((await runtime.ReadinessAsync(top, options: new(waitForFrame: true, timeoutMs: 5000))).Success);
                     var target = Assert.Single((await runtime.FindNodesAsync(top, TreeKinds.Visual, name: "NavigationRoot")).Value!.Matches).Target!;
                     await test(runtime, view, target, new(Path.GetDirectoryName(runtime.SessionManifestPath)!), window);

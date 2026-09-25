@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text.Json;
+using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Automation.Peers;
 using Avalonia.Controls;
@@ -220,6 +221,9 @@ public sealed class RuntimeExpressionTests
                 {
                     window.Show(); using var registration = runtime.RegisterTopLevel(window);
                     var top = Assert.Single(await runtime.ListTopLevelsAsync());
+                    using var preparedFrame = window.CaptureRenderedFrame();
+                    Assert.NotNull(preparedFrame);
+                    Assert.Equal(new PixelSize(500, 700), preparedFrame.PixelSize);
                     var readiness = await runtime.ReadinessAsync(top.Id, options: new(waitForFrame: true));
                     Assert.True(readiness.Success, JsonSerializer.Serialize(readiness));
                     await test(runtime, window, root, top.Id, new(Path.GetDirectoryName(runtime.SessionManifestPath)!));

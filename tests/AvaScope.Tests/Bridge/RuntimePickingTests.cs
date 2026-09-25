@@ -401,7 +401,11 @@ public sealed class RuntimePickingTests
                     window.Show(); using var registration = runtime.RegisterTopLevel(window); Dispatcher.UIThread.RunJobs();
                     var client = new LocalBridgeClient(Path.GetDirectoryName(runtime.SessionManifestPath)!);
                     var top = Assert.Single(await runtime.ListTopLevelsAsync()).Id;
-                    await runtime.ReadinessAsync(top, options: new(waitForFrame: true));
+                    using var preparedFrame = window.CaptureRenderedFrame();
+                    Assert.NotNull(preparedFrame);
+                    Assert.Equal(new PixelSize(300, 220), preparedFrame.PixelSize);
+                    var readiness = await runtime.ReadinessAsync(top, options: new(waitForFrame: true));
+                    Assert.True(readiness.Success, JsonSerializer.Serialize(readiness));
                     var pinned = (await client.WindowAsync(new(new(runtime.SessionId, top)))).Value!.After!.Target;
                     var found = await client.FindNodesAsync(runtime.SessionId, top, TreeKinds.Visual, name: "PickButton");
                     await test(runtime, window, button, pinned, Assert.Single(found.Value!.Matches).Node.Target!, client, output);

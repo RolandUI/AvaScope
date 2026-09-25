@@ -1,11 +1,13 @@
 using System.Diagnostics;
 using System.Text.Json;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using AvaScope.Bridge;
 using AvaScope.Core;
 using AvaScope.Protocol;
 using ModelContextProtocol.Client;
+using Xunit.Abstractions;
 using static AvaScope.Tests.Core.RuntimeExpressionEvaluatorTests;
 
 namespace AvaScope.Tests.Bridge;
@@ -13,6 +15,10 @@ namespace AvaScope.Tests.Bridge;
 [Collection(BridgeCollectionDefinition.Name)]
 public sealed class RuntimeDispatchPreconditionTests
 {
+    private readonly ITestOutputHelper _output;
+
+    public RuntimeDispatchPreconditionTests(ITestOutputHelper output) => _output = output;
+
     [Fact]
     public async Task ChangedDocumentAndDryRunRejectBeforeDispatchAndAcceptedResultsPreserveCheckedValues()
     {
@@ -159,7 +165,7 @@ public sealed class RuntimeDispatchPreconditionTests
     private static RuntimeExpressionDefinition Condition(string expected) => new(Op("eq", new("value", "document"), Literal(expected)),
         [new("document", new(name: "Document"), "text")]);
 
-    private static async Task WithWindow(Func<AvaScopeBridgeRuntime, Window, StackPanel, TextBox, Button, string, RuntimeTargetContext, LocalBridgeClient, Task> test)
+    private async Task WithWindow(Func<AvaScopeBridgeRuntime, Window, StackPanel, TextBox, Button, string, RuntimeTargetContext, LocalBridgeClient, Task> test)
     {
         var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessSmokeTests.BridgeHeadlessTestApplication));
         try
@@ -175,7 +181,46 @@ public sealed class RuntimeDispatchPreconditionTests
                 {
                     window.Show(); using var registration = runtime.RegisterTopLevel(window);
                     var top = Assert.Single(await runtime.ListTopLevelsAsync());
-                    Assert.True((await runtime.ReadinessAsync(top.Id, options: new(waitForFrame: true))).Success);
+                    using var initialFrame = window.GetLastRenderedFrame();
+                    var initial = JsonSerializer.Serialize(new
+                    {
+                        frameAvailable = initialFrame is not null,
+                        clientSize = window.ClientSize.ToString(),
+                        window.IsVisible,
+                        window.IsMeasureValid,
+                        window.IsArrangeValid,
+                        buttonBounds = button.Bounds.ToString()
+                    });
+                    _output.WriteLine("Initial precondition fixture: " + initial);
+                    var watch = Stopwatch.StartNew();
+                    // Prepare real headless pixels before the probe's unchanged readiness budget.
+                    using var preparedFrame = window.CaptureRenderedFrame();
+                    var preparationMs = watch.Elapsed.TotalMilliseconds;
+                    Assert.NotNull(preparedFrame);
+                    Assert.Equal(new PixelSize(500, 300), preparedFrame.PixelSize);
+                    watch.Restart();
+                    var readiness = await runtime.ReadinessAsync(top.Id, options: new(waitForFrame: true));
+                    using var observedFrame = window.GetLastRenderedFrame();
+                    var observed = JsonSerializer.Serialize(new
+                    {
+                        preparationMs,
+                        elapsedMs = watch.Elapsed.TotalMilliseconds,
+                        readiness.Success,
+                        readiness.Error,
+                        frame = readiness.Value?.Frame,
+                        layoutValid = readiness.Value?.LayoutValid,
+                        frameAvailable = observedFrame is not null,
+                        clientSize = window.ClientSize.ToString(),
+                        window.IsMeasureValid,
+                        window.IsArrangeValid,
+                        buttonBounds = button.Bounds.ToString()
+                    });
+                    _output.WriteLine("Observed precondition fixture: " + observed);
+                    Assert.True(readiness.Success, $"Precondition fixture readiness failed: {observed}; initial={initial}");
+                    Assert.Equal("rendered", readiness.Value!.Frame.Status);
+                    Assert.True(readiness.Value.LayoutValid, observed);
+                    Assert.NotNull(observedFrame);
+                    Assert.Equal(new PixelSize(500, 300), observedFrame.PixelSize);
                     var client = new LocalBridgeClient(Path.GetDirectoryName(runtime.SessionManifestPath)!);
                     var query = await client.QueryNodesAsync(new(runtime.SessionId, top.Id, new(name: "Action"), maxDepth: 32));
                     Assert.True(query.Value!.Coverage!.Complete, JsonSerializer.Serialize(query));

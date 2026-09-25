@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Headless;
@@ -129,6 +130,9 @@ public sealed class RuntimeObservationTests
                     editor.Focus();
                     var top = Assert.Single(await runtime.ListTopLevelsAsync());
                     // Focus can schedule template/layout work after RunJobs; establish the settled fixture before asserting no sampled change.
+                    using var preparedFrame = window.CaptureRenderedFrame();
+                    Assert.NotNull(preparedFrame);
+                    Assert.Equal(new PixelSize(300, 180), preparedFrame.PixelSize);
                     Assert.True((await runtime.ReadinessAsync(top.Id, options: new(waitForFrame: true, timeoutMs: 5000))).Success);
                     var client = new LocalBridgeClient(Path.GetDirectoryName(runtime.SessionManifestPath)!);
                     var observer = new RuntimeObserver();

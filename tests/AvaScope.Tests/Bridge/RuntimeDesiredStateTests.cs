@@ -412,6 +412,9 @@ public sealed class RuntimeDesiredStateTests
                 try
                 {
                     window.Show(); using var registration = runtime.RegisterTopLevel(window); Dispatcher.UIThread.RunJobs();
+                    using var preparedFrame = window.CaptureRenderedFrame();
+                    Assert.NotNull(preparedFrame);
+                    Assert.Equal(new PixelSize(500, 700), preparedFrame.PixelSize);
                     await test(runtime, root, Assert.Single(await runtime.ListTopLevelsAsync()).Id, new(Path.GetDirectoryName(runtime.SessionManifestPath)!));
                 }
                 finally { window.Close(); AvaScopeBridge.Deactivate(); }

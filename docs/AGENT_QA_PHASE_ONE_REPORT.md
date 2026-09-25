@@ -79,6 +79,45 @@ packaging steps are skipped. All five #193 cases and #185's gesture case pass.
 TRX/logs, per-platform verified summaries and native cleanup are retained in
 `expanded-campaign/ci-511-*`. All native runners use 1x, not Retina.
 
+The instrumented unchanged local precondition fixture passes all five cases
+(18s). All five initially have valid layout but no frame; unchanged readiness
+completes in 7.52-354.15ms. This measures a preparation gap without reproducing
+or proving the original hosted timeout cause. `dispatch-readiness-before-results`
+retains TRX and the phase summary. The correction prepares/requires a real
+500x300 frame before the unchanged readiness probe, then asserts rendered status,
+valid layout and observed pixels; bounded initial/preparation/probe evidence is
+retained. No production code, deadline, replay or dispatch assertion changes.
+
+The startup-readiness audit identifies 15 matching initial fixture sites across
+12 test files. Each now captures/requires its declared pixel dimensions before
+the initial probe (or before the test body that adds controls and first probes):
+
+| Fixture | Initial frame dimensions |
+| --- | --- |
+| Dispatch preconditions | 500x300, with before/after phase timings |
+| Explicit input; picking | 300x220 each; picking now checks the initial readiness result |
+| Focus | 400x240 |
+| Expressions; desired state; relationship queries | 500x700 each |
+| Provenance | 320x220 |
+| Navigation | 400x220 |
+| Observation after initial focus | 300x180 |
+| Rendering regression | 300x300 DIP at the case's actual 1/1.5/2 scale |
+| Bridge input; nested pointer; durable selector; targeted click | 360x240; 260x180; 420x320; 320x180 |
+
+These sites shared Show/RunJobs/layout followed by first-frame-dependent checks.
+Mid-test geometry/content changes continue to exercise readiness as before.
+`RuntimeReadinessTests` intentionally probes unprepared, hidden and animated
+states and is unchanged; #193's action and #185's gesture preparation already
+require a frame. Official Avalonia 12.1.3 CaptureRenderedFrame pumps bounded
+dispatcher/render work, while GetLastRenderedFrame only samples. The affected
+local group passes all 138 cases (4m18s, clean build); the separately named
+`McpMutateNodeEvidenceCapturesScreenshotsTreesAndDiffThroughLocalBridgePipe`
+also passes (4s). All five measured precondition fixtures initially lack a frame;
+preparation takes 2.72-4.16ms and the unchanged readiness probe 7.95-34.43ms.
+TRX and phase summaries are retained in `dispatch-readiness-after-results` and
+`mutation-mcp-evidence-after-results`. Fresh combined hosted confirmation remains
+pending; this does not prove the discarded original error's root cause.
+
 ## Action-explanation fixture readiness (#193)
 
 The original macOS failure on 483fedb remains retained. Local instrumentation

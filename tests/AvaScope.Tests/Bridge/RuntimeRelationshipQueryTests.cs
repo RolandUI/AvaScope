@@ -547,6 +547,9 @@ public sealed class RuntimeRelationshipQueryTests
                     using var registration = runtime.RegisterTopLevel(window);
                     Dispatcher.UIThread.RunJobs();
                     var top = Assert.Single(await runtime.ListTopLevelsAsync());
+                    using var preparedFrame = window.CaptureRenderedFrame();
+                    Assert.NotNull(preparedFrame);
+                    Assert.Equal(new PixelSize(500, 700), preparedFrame.PixelSize);
                     await test(runtime, window, root, top.Id, new(Path.GetDirectoryName(runtime.SessionManifestPath)!));
                 }
                 finally { window.Close(); AvaScopeBridge.Deactivate(); }

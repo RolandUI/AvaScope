@@ -45,6 +45,9 @@ public sealed class RuntimeRenderingTests
                     using var registration = runtime.RegisterTopLevel(window);
                     var top = Assert.Single(await runtime.ListTopLevelsAsync());
                     var client = new LocalBridgeClient(Path.GetDirectoryName(runtime.SessionManifestPath)!);
+                    using var preparedFrame = window.CaptureRenderedFrame();
+                    Assert.NotNull(preparedFrame);
+                    Assert.Equal(new PixelSize((int)(300 * scaling), (int)(300 * scaling)), preparedFrame.PixelSize);
                     byte[]? firstSimple = null, firstComplex = null;
                     foreach (var complex in new[] { false, true, true, false })
                     {

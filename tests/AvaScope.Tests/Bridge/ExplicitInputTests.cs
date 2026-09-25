@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text.Json;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Input;
@@ -308,6 +309,9 @@ public sealed class ExplicitInputTests
                 using var registration = runtime.RegisterTopLevel(window);
                 Dispatcher.UIThread.RunJobs();
                 var top = Assert.Single(await runtime.ListTopLevelsAsync());
+                using var preparedFrame = window.CaptureRenderedFrame();
+                Assert.NotNull(preparedFrame);
+                Assert.Equal(new PixelSize(300, 220), preparedFrame.PixelSize);
                 Assert.True((await runtime.ReadinessAsync(top.Id, options: new(waitForFrame: true))).Success);
                 await test(runtime, pad, editor, top.Id, new LocalBridgeClient(Path.GetDirectoryName(runtime.SessionManifestPath)!));
             }

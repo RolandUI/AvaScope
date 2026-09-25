@@ -1730,6 +1730,9 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
 
                 var client = new LocalBridgeClient(Path.GetDirectoryName(runtime.SessionManifestPath)!);
                 var topLevel = Assert.Single(await runtime.ListTopLevelsAsync());
+                using var preparedFrame = window.CaptureRenderedFrame();
+                Assert.NotNull(preparedFrame);
+                Assert.Equal(new PixelSize(360, 240), preparedFrame.PixelSize);
                 Assert.True((await runtime.ReadinessAsync(topLevel.Id, options: new(waitForFrame: true))).Success);
                 var buttonCenter = button.TranslatePoint(
                     new Point(button.Bounds.Width / 2, button.Bounds.Height / 2),
@@ -1989,6 +1992,9 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
 
                     var client = new LocalBridgeClient(Path.GetDirectoryName(runtime.SessionManifestPath)!);
                     var topLevel = Assert.Single(await runtime.ListTopLevelsAsync());
+                    using var preparedFrame = window.CaptureRenderedFrame();
+                    Assert.NotNull(preparedFrame);
+                    Assert.Equal(new PixelSize(260, 180), preparedFrame.PixelSize);
                     Assert.True((await runtime.ReadinessAsync(topLevel.Id, options: new(waitForFrame: true))).Success);
                     var tree = await AvaScopeMcpTools.VisualTree(
                         client,
@@ -3582,6 +3588,9 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
 
                     var client = new LocalBridgeClient(manifestDirectory);
                     var topLevel = Assert.Single(await runtime.ListTopLevelsAsync());
+                    using var preparedFrame = window.CaptureRenderedFrame();
+                    Assert.NotNull(preparedFrame);
+                    Assert.Equal(new PixelSize(420, 320), preparedFrame.PixelSize);
                     Assert.True((await runtime.ReadinessAsync(topLevel.Id, options: new(waitForFrame: true))).Success);
 
                     async Task<TreeNodeSummary> Find(string automationId)
@@ -4015,6 +4024,9 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                     var client = new LocalBridgeClient(Path.GetDirectoryName(runtime.SessionManifestPath)!);
                     var topLevel = Assert.Single(await runtime.ListTopLevelsAsync());
                     // Input hit testing needs the compositor's first frame, not just completed layout jobs.
+                    using var preparedFrame = window.CaptureRenderedFrame();
+                    Assert.NotNull(preparedFrame);
+                    Assert.Equal(new PixelSize(320, 180), preparedFrame.PixelSize);
                     var ready = await runtime.ReadinessAsync(topLevel.Id, options: new(waitForFrame: true, timeoutMs: 5000));
                     Assert.True(ready.Success, ready.Error?.Message);
                     Assert.Equal("rendered", ready.Value!.Frame.Status);

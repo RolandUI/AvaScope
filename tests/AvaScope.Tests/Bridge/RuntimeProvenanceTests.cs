@@ -40,6 +40,9 @@ public sealed class RuntimeProvenanceTests
                     using var registration = runtime.RegisterTopLevel(window);
                     Dispatcher.UIThread.RunJobs();
                     var top = Assert.Single(await runtime.ListTopLevelsAsync());
+                    using var preparedFrame = window.CaptureRenderedFrame();
+                    Assert.NotNull(preparedFrame);
+                    Assert.Equal(new PixelSize(320, 220), preparedFrame.PixelSize);
                     Assert.True((await runtime.ReadinessAsync(top.Id, options: new(waitForFrame: true))).Success);
                     Assert.Equal("headless", top.Backend!.Backend);
                     Assert.Equal("STUB", top.Backend.HandleDescriptor);
