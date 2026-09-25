@@ -1252,6 +1252,135 @@ public sealed class CliSmokeTests
     }
 
     [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task BaselineCreateUsesExistingAssemblyWithoutBuilding(bool useAssemblyPath)
+    {
+        var testRoot = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(testRoot);
+        try
+        {
+            var projectPath = Path.Combine(testRoot, "ExistingBaseline.csproj");
+            var viewPath = Path.Combine(testRoot, "MainView.axaml");
+            var buildMarker = Path.Combine(testRoot, "build-invoked.txt");
+            await File.WriteAllTextAsync(projectPath, """
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <TargetFramework>net10.0</TargetFramework>
+                    <AssemblyName>AvaScope.Protocol</AssemblyName>
+                  </PropertyGroup>
+                  <Target Name="RejectBuild" BeforeTargets="Restore;Build">
+                    <WriteLinesToFile File="$(MSBuildProjectDirectory)/build-invoked.txt" Lines="unexpected build" />
+                    <Error Text="This preview must use the existing assembly." />
+                  </Target>
+                </Project>
+                """);
+            await File.WriteAllTextAsync(viewPath, """
+                <UserControl xmlns="https://github.com/avaloniaui">
+                  <Border Background="#FF2167A8" />
+                </UserControl>
+                """);
+            var assemblyPath = typeof(AvaScopeProduct).Assembly.Location;
+            var outputRoot = Path.Combine(testRoot, "selected-build-output");
+            var existingAssemblyPath = Path.Combine(outputRoot, "Debug", "net10.0", Path.GetFileName(assemblyPath));
+            Directory.CreateDirectory(Path.GetDirectoryName(existingAssemblyPath)!);
+            File.Copy(assemblyPath, existingAssemblyPath);
+
+            var result = await RunCliAsync(
+                Path.Combine(AppContext.BaseDirectory, "avascope.dll"),
+                "baseline-create", projectPath,
+                "--view", viewPath,
+                "--manifest", Path.Combine(testRoot, "baseline.json"),
+                "--sizes", "80x60,120x90",
+                "--no-build", "true",
+                useAssemblyPath ? "--assembly-path" : "--build-output-root",
+                useAssemblyPath ? assemblyPath : outputRoot);
+
+            Assert.True(result.ExitCode == 0, result.StandardOutput + result.StandardError);
+            Assert.False(File.Exists(buildMarker), "Explicit no-build must not invoke the project build target.");
+            var payload = JsonSerializer.Deserialize<ToolResult<PreviewBaselineCreateResponse>>(result.StandardOutput, JsonOptions);
+            Assert.NotNull(payload);
+            Assert.True(payload.Success, payload.Error?.Message);
+            Assert.Equal(2, payload.Value!.Manifest.Entries.Count);
+            foreach (var entry in payload.Value.Render.Entries)
+            {
+                Assert.True(entry.Render.Success, entry.Render.Error?.Message);
+                Assert.Equal(useAssemblyPath ? "assembly_path" : "no_build", entry.Render.Value!.ProjectInfo!.BuildMode);
+                AssertSamePath(useAssemblyPath ? assemblyPath : existingAssemblyPath, entry.Render.Value.ProjectInfo.OutputAssemblyPath);
+                using var bitmap = SKBitmap.Decode(entry.OutputPath);
+                Assert.Equal(entry.Viewport.Width, bitmap.Width);
+                Assert.Equal(entry.Viewport.Height, bitmap.Height);
+                Assert.Equal(new SKColor(33, 103, 168, 255), bitmap.GetPixel(10, 10));
+            }
+        }
+        finally
+        {
+            await DeleteDirectoryWithRetryAsync(testRoot);
+        }
+    }
+
+    [Fact]
+    public async Task BaselineCreateForwardsExplicitBuildOutputRoot()
+    {
+        var testRoot = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(testRoot);
+        try
+        {
+            var projectPath = Path.Combine(testRoot, "FailingBaseline.csproj");
+            var viewPath = Path.Combine(testRoot, "MainView.axaml");
+            var outputRoot = Path.Combine(testRoot, "explicit-build-output");
+            await File.WriteAllTextAsync(projectPath, """
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup>
+                  <Target Name="RejectBuild" BeforeTargets="Restore;Build">
+                    <Error Text="Intentional baseline build failure." />
+                  </Target>
+                </Project>
+                """);
+            await File.WriteAllTextAsync(viewPath, """
+                <UserControl xmlns="https://github.com/avaloniaui" />
+                """);
+            var result = await RunCliAsync(
+                Path.Combine(AppContext.BaseDirectory, "avascope.dll"),
+                "baseline-create", projectPath,
+                "--view", viewPath,
+                "--manifest", Path.Combine(testRoot, "baseline.json"),
+                "--sizes", "80x60",
+                "--no-build", "false",
+                "--build-output-root", outputRoot);
+
+            Assert.Equal(1, result.ExitCode);
+            var payload = JsonSerializer.Deserialize<ToolResult<PreviewBaselineCreateResponse>>(result.StandardOutput, JsonOptions);
+            Assert.NotNull(payload);
+            Assert.False(payload.Success);
+            Assert.Equal("isolated_explicit_build", payload.Error!.Details!["buildMode"]);
+            AssertSamePath(outputRoot, payload.Error.Details["buildOutputRoot"]);
+            Assert.Contains("Intentional baseline build failure.", payload.Error.Details["outputTail"], StringComparison.Ordinal);
+        }
+        finally
+        {
+            await DeleteDirectoryWithRetryAsync(testRoot);
+        }
+    }
+
+    [Fact]
+    public async Task BaselineCreateRejectsInvalidNoBuildBeforeLoadingProject()
+    {
+        var result = await RunCliAsync(
+            Path.Combine(AppContext.BaseDirectory, "avascope.dll"),
+            "baseline-create", "missing.csproj",
+            "--view", "MainView.axaml", "--manifest", "baseline.json",
+            "--sizes", "80x60", "--no-build", "sometimes");
+
+        Assert.Equal(2, result.ExitCode);
+        var payload = JsonSerializer.Deserialize<ToolResult<PreviewBaselineCreateResponse>>(result.StandardOutput, JsonOptions);
+        Assert.NotNull(payload);
+        Assert.False(payload.Success);
+        Assert.Equal("invalid_cli_arguments", payload.Error!.Code);
+        Assert.Contains("no-build must be true or false", payload.Error.Message, StringComparison.Ordinal);
+    }
+
+    [Theory]
     [InlineData("--run-index")]
     [InlineData("--task")]
     [InlineData("--run-group")]

@@ -68,6 +68,15 @@ Exact calls, journals, images, limitations and cleanup are described in
 | Workflow/export/replay | `workflow-direct-01`, e91041b: 20 MCP/six CLI, 20 checks, six viewed images, fresh host/source verification and owned cleanup. | `workflow-standalone-01`, d4b376e: 21 MCP/six CLI, 20 checks, six viewed images, restored state/source and owned cleanup. | Positive execution/export/parameterized replay plus truncated/mismatched recording, missing bindings, dry-run, unsupported-plan and stop-on-assertion-failure guards. Exact independent journal and complete report evidence; other platforms and broader composition remain unclaimed. |
 | Ownership/recovery | `ownership-direct-01`, 8bebfe6: 24 passing checks. | `ownership-standalone-01`, a099b86: 34 passing checks. | Scoped production-bridge comparison; Unix fixture regression and combined gate tracked separately. |
 
+The separate `preview-campaign-01` journey on clean `0658716` uses Windows
+headless Skia / Avalonia 12.1.3: 22 MCP/six CLI calls, 17 positive checks, nine
+viewed images and independent pixel analysis. DPI sizing, source reload with
+error/recovery, exact CLI/MCP image parity, theme/culture/design data, multiple
+sizes, diff/regions and session close guards pass. It also confirms two failures:
+#201 animation offsets do not control time, and #202 baseline-create ignores
+build options. Baseline comparisons, file watch and diagnostic filters remain
+pending. This is neither native Retina nor visual HTML validation.
+
 All listed native apps and clients were cleaned up. Shared-host lifecycle failures
 are retained as #192; hosted desired-state timing failure is #191. Neither is
 converted into a passing result by unrelated native journeys.

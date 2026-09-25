@@ -1266,7 +1266,8 @@ internal static class Program
                 "no-build")
             || !TryReadRequiredOption(options.Values, "view", GetBaselineCreateUsage(), out var viewPath)
             || !TryReadRequiredOption(options.Values, "manifest", GetBaselineCreateUsage(), out var manifestPath)
-            || !TryReadRequiredOption(options.Values, "sizes", GetBaselineCreateUsage(), out var sizesText))
+            || !TryReadRequiredOption(options.Values, "sizes", GetBaselineCreateUsage(), out var sizesText)
+            || !TryReadOptionalBoolean(options.Values, "no-build", out var noBuild))
         {
             return 2;
         }
@@ -1302,7 +1303,10 @@ internal static class Program
                 themeVariant: options.Values.GetValueOrDefault("theme"),
                 culture: options.Values.GetValueOrDefault("culture"),
                 designDataType: options.Values.GetValueOrDefault("design-data-type"),
-                stateVariant: options.Values.GetValueOrDefault("state-variant"));
+                stateVariant: options.Values.GetValueOrDefault("state-variant"),
+                buildOutputRoot: options.Values.GetValueOrDefault("build-output-root"),
+                assemblyPath: options.Values.GetValueOrDefault("assembly-path"),
+                noBuild: noBuild);
         }
         catch (Exception exception) when (exception is ArgumentException or ArgumentOutOfRangeException or PathTooLongException)
         {

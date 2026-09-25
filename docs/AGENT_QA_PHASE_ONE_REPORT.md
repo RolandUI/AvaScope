@@ -13,10 +13,61 @@ coverage. #199 remains open because the original unavailable-query cause is
 unproven. Fresh combined CI `36141416097` runs on `108adc5`, including #200
 cleanup `7f8e46a`; no passing combined result is claimed yet.
 
-#174 remains the sole active issue. Next are isolated preview/reload/variants,
-baseline/diff/regions and the remaining capability matrix boundaries. Current
-counts are 36 unique defects/27 closed; #199/#200 are review. No local owned
-native/test process remains at this checkpoint.
+#202 is the sole active issue after the preview exploration below; #174 and
+#199/#200 are review, #201/#203 ready. Counts are 39 unique defects/27 closed.
+No owned preview client remains; #202 affected tests pass 24/24 (101 s).
+
+## Isolated preview exploration (#174)
+
+`preview-campaign-01` on clean `0658716` (production `4ea4d02`) uses Windows
+headless Skia / Avalonia 12.1.3. The 28 public calls (22 MCP/six CLI), 17 positive
+checks and nine viewed images include 96/192 DPI, a live XAML change, malformed
+XAML failure and exact-pixel recovery, CLI session-store access and identical
+CLI/MCP project pixels. Real application resources, compiled design data,
+light/dark and en-US/hu-HU appear correctly. Multiple sizes and a contact sheet
+render; clipping in the smaller sample is recorded, not claimed responsive.
+
+Independent Pillow analysis agrees with CLI diff and MCP region assertions on
+28,760 changed pixels out of 28,800; the deliberate unchanged assertion fails.
+Semantic findings retain heuristic provenance. Close rejects subsequent reload,
+closed metadata remains listed as designed. Five original sample source hashes
+match, client/launcher 19976 exits 0 and no owned preview app remains. The
+viewer HTML is generated; visual HTML review is still blocked. Four failed
+agent launcher attempts (command PATH/PATHEXT and PowerShell Task output)
+precede the successful health probe and are retained separately; they dispatched
+no product tool request.
+
+Two product defects prevent an overall pass: #201 samples real project
+animation at 0/225/600/600 ms with identical pixels on both CLI and MCP. A
+separate red rectangle animating width 20 to 120 over one second measures
+66/68/68 at requested 0/500/1000 ms. The timer API uses actual stopwatch time,
+not a fixed timestep. #202 accepts build flags in baseline-create but drops
+them before rendering, launching a build despite explicit no-build. Its
+subsequent NuGet error reflects the limited agent launcher environment and is
+not asserted to be a separate product bug. Baseline checks, file watching and
+diagnostic filters remain pending. Full requests, tool identity, original
+failures, images, independent-pixels.json and preview-summary.json are retained.
+
+## Baseline build selection correction (#202)
+
+The CLI now forwards its already accepted buildOutputRoot, assemblyPath and
+noBuild properties and validates no-build using the existing boolean parser.
+Four new regressions fail on original source (18 s). The first after run has
+23 passing cases and one agent fixture mistake: the existing assembly must sit
+under Debug/net10.0 inside buildOutputRoot. After correcting that fixture, all
+24 affected baseline/CLI/preview cases pass (101 s), including exact pixels and
+a project that fails deliberately if an unwanted build starts.
+
+The actual corrected CLI creates both baseline images using assembly_path and
+no build; both are viewed. A separate standard-shell MCP baseline check has one
+60-second host timeout followed by an exact zero-pixel comparison. Missing
+phase/child evidence for the first viewport is #203, not a claimed successful
+round or an inferred root cause. An earlier restricted-launcher run reports
+explicit NuGet path1 errors and remains separate. Evidence and candidate hashes
+are in preview-campaign-01/baseline-after-01/verified-summary.json, B001–B004 and
+the before/after/corrected TRX directories. Full candidate CI remains pending.
+Baseline-check still builds fresh project outputs; no-build creation does not
+silently pin future comparisons to an old assembly.
 
 ## Native workflow execution and replay (#174)
 
