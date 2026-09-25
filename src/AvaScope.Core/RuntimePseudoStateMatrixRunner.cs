@@ -263,7 +263,30 @@ public sealed class RuntimePseudoStateMatrixRunner
                 message = "The current pseudo-state target could not be verified after capture.";
                 targetSummary = null;
             }
-            else targetSummary = ToTargetSummary(afterTarget.Value!.Node);
+            else
+            {
+                targetSummary = ToTargetSummary(afterTarget.Value!.Node);
+                foreach (var operation in operations)
+                {
+                    var expectedClass = operation.Kind switch
+                    {
+                        MatrixOperationKind.PointerOver => ":pointerover",
+                        MatrixOperationKind.Pressed => ":pressed",
+                        _ => null
+                    };
+                    if (expectedClass is null || targetSummary.Classes.Contains(expectedClass)) continue;
+                    status = Failed;
+                    message = $"Requested pseudo-state '{expectedClass}' was not observed on the target after input dispatch.";
+                    diagnostics.Add(new ProtocolError("pseudo_state_not_observed", message,
+                        new Dictionary<string, string>
+                        {
+                            ["nodeId"] = targetSummary.NodeId,
+                            ["state"] = state,
+                            ["expectedClass"] = expectedClass,
+                            ["observedClasses"] = string.Join(",", targetSummary.Classes)
+                        }));
+                }
+            }
             metadata = CreateEntryMetadata(state, appliedMutations, inputs);
             AddDiffMetadata(request, state, baselineEntry, screenshot, outputDirectory, metadata, diagnostics);
 
@@ -751,7 +774,7 @@ public sealed class RuntimePseudoStateMatrixRunner
         string action,
         CancellationToken cancellationToken)
     {
-        var point = Center(node?.Bounds) ?? new PointerPoint(0, 0);
+        var point = Center(node?.Bounds) ?? new PointerPoint(-1, -1);
         var result = await bridgeClient.InputAsync(
             request.SessionId,
             request.TopLevelId,
@@ -773,8 +796,8 @@ public sealed class RuntimePseudoStateMatrixRunner
             request.SessionId,
             request.TopLevelId,
             InputActions.PointerMove,
-            0,
-            0,
+            -1,
+            -1,
             cancellationToken: cancellationToken);
         return result.Success
             ? result

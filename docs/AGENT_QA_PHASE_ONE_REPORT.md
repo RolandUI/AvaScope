@@ -25,10 +25,59 @@ animation clock control, and #203's original project timeout cause is still
 unknown despite validated diagnostic improvements. Full `30d176a` CI
 `36157963606` subsequently succeeds: Windows 969/eight skips, macOS 970/seven,
 Linux 33, all twelve pointer cases on macOS including both Unix controls, and
-six native/three expiry checks at 1x are independently verified. #205 is pushed
-at `ba07220`, with exact-source full CI `36163086325` running. #206 is the sole
-active issue after the next native discovery; counts are 43 unique defects/29
-closed.
+six native/three expiry checks at 1x are independently verified. #205 closes after
+the complete `ba07220` gate `36163086325`: Windows 981/eight skips, macOS 982/seven,
+Linux 33, all twelve new binding-scope cases on both full platforms, and six
+native/three expiry checks at 1x independently verified. #207 is the sole active
+issue; current GitHub accounting is 44 unique defects/30 closed.
+
+Full #206 `d32e539` CI `36168286222` is terminal failed: Windows 985 passed/one
+installer process timeout/eight skips, with all five new #206 cases passing.
+Downstream full macOS/Linux jobs skip. All six native lab runs/three expiry
+checks pass and verify clean exact source/ownership at 1x. New #208 preserves
+the installer's 60-second process wait and the fixture's missing partial-output
+and owned-cleanup evidence; the original cause and surviving-child outcome are
+unknown. #206 remains review until a complete gate passes.
+
+## Actual hover state and cleanup (#207)
+
+Five real Avalonia 12.1.3 tests fail before the candidate: target/ancestor hover
+is absent and an occluded target's matrix still reports success. The candidate
+uses public entered/exited events, tracks only newly entered elements and clears
+them in leaf-to-root order after movement, detach, registration disposal or bridge
+deactivation. A held pointer retains identity/capture; preexisting native hover
+is preserved. It never writes the private input root or moves the OS cursor;
+concurrent native input can interfere with this synthetic approximation.
+
+The matrix checks the requested `:pointerover`/`:pressed` after capture and
+retains a failed entry, screenshot and `pseudo_state_not_observed` when absent.
+Cleanup releases/moves outside the top-level. Real pixel tests cover a full-window
+blue-to-green hover and an occluding sibling; a full-window button proves pressed/
+disabled restoration with zero clicks. The final affected run passes 56 cases
+with two Unix skips (68 seconds), including all eight new tests. One intermediate
+new test used an incorrect fixed coordinate; its 35-pass/one-failure result is
+retained separately, and translated actual geometry corrects it. Original
+five failures, all candidate stages and independent TRX verification live in
+`artifacts/agent-qa/hover-state-01`.
+
+Native `hover-direct-after-01` on d32e539 plus the candidate completes twelve
+public calls (nine MCP/three CLI) and 76 independent checks. Both matrices show
+`:pointerover` and 3859 changed pixels, visible pressed/disabled states and
+restoration. Separate delayed inspection observes hover before explicit outside
+movement and no hover afterward. Missing/stale targets are refused with unchanged
+input journals. Six images are viewed, including independent native captures;
+both source hashes and selected binary hashes remain unchanged. Reset/Stop
+terminates owned app 8460, and all twelve clients are absent.
+
+Fresh `hover-standalone-after-01` completes the same twelve public calls with 78
+independent checks and six viewed images. Its host contains no AvaScope DLLs;
+the verified provider manifest is `da3987d82874b61fc951a18396d400414e3c5a42290efa9879218013cc4d0d5a`.
+Both transport matrices show the same 3859-pixel hover change, correct pseudo-classes,
+visibly distinct pressed/disabled states and restoration. Delayed hover/clear
+and all negative guards agree. The candidate source/binary hashes and independent
+input journals remain unchanged; Reset/Stop terminates owned app 9204, and all
+twelve clients are absent. Both journeys validate the requested four-state matrix
+on Win32 1x; no complete hosted gate or native Retina pass is claimed yet.
 
 ## Native pseudo-state response-budget discovery (#206)
 

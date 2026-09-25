@@ -7,18 +7,196 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Input;
 using Avalonia.Media;
+using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using AvaScope.Bridge;
 using AvaScope.Core;
 using AvaScope.Protocol;
 using ModelContextProtocol.Client;
+using SkiaSharp;
 
 namespace AvaScope.Tests.Bridge;
 
 [Collection(BridgeCollectionDefinition.Name)]
 public sealed class RuntimePickingTests
 {
+    [Fact]
+    public async Task SyntheticHoverCleanupPreservesPreexistingNativeHover()
+    {
+        await WithWindow(async (runtime, window, button, top, node, client, output) =>
+        {
+            var native = new Border { Width = 100, Height = 100, Background = Brushes.Blue };
+            var synthetic = new Border { Width = 100, Height = 100, Background = Brushes.Red };
+            var parent = new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Children = { native, synthetic } };
+            window.Content = parent; window.UpdateLayout();
+            using var frame = window.CaptureRenderedFrame();
+            var nativePoint = native.TranslatePoint(new Point(50, 50), window)!.Value;
+            var syntheticPoint = synthetic.TranslatePoint(new Point(50, 50), window)!.Value;
+            window.MouseMove(nativePoint);
+            Assert.True(native.IsPointerOver); Assert.True(parent.IsPointerOver);
+            var moved = await client.InputAsync(runtime.SessionId, top.TopLevelId, InputActions.PointerMove, syntheticPoint.X, syntheticPoint.Y);
+            Assert.True(moved.Success); Assert.True(synthetic.IsPointerOver);
+            var cleared = await client.InputAsync(runtime.SessionId, top.TopLevelId, InputActions.PointerMove, -1, -1);
+            Assert.True(cleared.Success); Assert.False(synthetic.IsPointerOver);
+            Assert.True(native.IsPointerOver); Assert.True(parent.IsPointerOver);
+            window.MouseMove(new Point(-1, -1));
+            Assert.False(native.IsPointerOver); Assert.False(parent.IsPointerOver);
+        });
+    }
+
+    [Fact]
+    public async Task SyntheticHoverRetainsPressedPointerCaptureUntilRelease()
+    {
+        await WithWindow(async (runtime, window, button, top, node, client, output) =>
+        {
+            var pad = new Border { Background = Brushes.Blue };
+            window.Content = pad; window.UpdateLayout();
+            using var frame = window.CaptureRenderedFrame();
+            IPointer? hovered = null; IPointer? pressed = null; IPointer? released = null;
+            var heldMoves = 0;
+            pad.PointerEntered += (_, e) => hovered = e.Pointer;
+            pad.PointerPressed += (_, e) => { pressed = e.Pointer; e.Pointer.Capture(pad); };
+            pad.PointerMoved += (_, e) =>
+            {
+                if (e.GetCurrentPoint(pad).Properties.IsLeftButtonPressed)
+                { Assert.Same(pressed, e.Pointer); heldMoves++; }
+            };
+            pad.PointerReleased += (_, e) => released = e.Pointer;
+            foreach (var action in new[] { InputActions.PointerMove, InputActions.PointerDown })
+                Assert.True((await client.InputAsync(runtime.SessionId, top.TopLevelId, action, 50, 50)).Success);
+            Assert.Same(hovered, pressed); Assert.NotNull(pressed); Assert.Same(pad, pressed.Captured);
+            Assert.True((await client.InputAsync(runtime.SessionId, top.TopLevelId, InputActions.PointerMove, -1, -1)).Success);
+            Assert.Equal(1, heldMoves); Assert.False(pad.IsPointerOver);
+            Assert.True((await client.InputAsync(runtime.SessionId, top.TopLevelId, InputActions.PointerUp, -1, -1)).Success);
+            Assert.Same(pressed, released); Assert.Null(pressed.Captured);
+        });
+    }
+
+    [Fact]
+    public async Task PseudoStateHoverPressedAndDisabledRestoreWithoutClickingFullWindowButton()
+    {
+        await WithWindow(async (runtime, window, button, top, node, client, output) =>
+        {
+            ((Border)button.Parent!).Child = null;
+            button.Width = double.NaN; button.Height = double.NaN;
+            button.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch;
+            button.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Stretch;
+            window.Content = button; window.UpdateLayout();
+            using var frame = window.CaptureRenderedFrame();
+            var clicks = 0; button.Click += (_, _) => clicks++;
+            var result = await new RuntimePseudoStateMatrixRunner().RunAsync(client, new(
+                runtime.SessionId, top.TopLevelId, states: [RuntimePseudoStates.Normal, RuntimePseudoStates.PointerOver,
+                    RuntimePseudoStates.Pressed, RuntimePseudoStates.Disabled], name: button.Name, outputDirectory: output));
+            Assert.True(result.Success, JsonSerializer.Serialize(result.Error));
+            Assert.Equal("passed", result.Value!.Status);
+            Assert.Contains(":pointerover", result.Value.Entries[1].Target!.Classes);
+            Assert.Contains(":pressed", result.Value.Entries[2].Target!.Classes);
+            Assert.Contains(":disabled", result.Value.Entries[3].Target!.Classes);
+            Assert.Equal(0, clicks); Assert.False(button.IsPointerOver); Assert.False(button.IsPressed);
+            Assert.True(button.IsEnabled); Assert.False(window.IsPointerOver);
+        });
+    }
+
+    [Theory]
+    [InlineData("outside")]
+    [InlineData("unregister")]
+    [InlineData("deactivate")]
+    public async Task SyntheticHoverTracksAncestorsAndClearsDetachedTargets(string cleanup)
+    {
+        await WithWindow(async (runtime, window, button, top, node, client, output) =>
+        {
+            var first = new Border { Width = 100, Height = 100, Background = Brushes.Blue };
+            var second = new Border { Width = 100, Height = 100, Background = Brushes.Red };
+            var parent = new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Children = { first, second } };
+            var hoverWindow = new Window { Width = 240, Height = 160, Content = parent };
+            hoverWindow.Show();
+            using var registration = runtime.RegisterTopLevel(hoverWindow);
+            try
+            {
+                using var frame = hoverWindow.CaptureRenderedFrame();
+                var hoverTop = (await runtime.ListTopLevelsAsync()).Single(item => item.Id != top.TopLevelId).Id;
+                var entered = 0; var exited = 0; var parentEntered = 0; var parentExited = 0;
+                var exitOrder = new List<string>();
+                first.PointerEntered += (_, _) => entered++;
+                first.PointerExited += (_, _) => exited++;
+                parent.PointerEntered += (_, _) => parentEntered++;
+                second.PointerExited += (_, _) => exitOrder.Add("second");
+                parent.PointerExited += (_, _) => { parentExited++; exitOrder.Add("parent"); };
+                hoverWindow.PointerExited += (_, _) => exitOrder.Add("window");
+                async Task Move(double x, double y)
+                {
+                    var moved = await client.InputAsync(runtime.SessionId, hoverTop, InputActions.PointerMove, x, y);
+                    Assert.True(moved.Success, JsonSerializer.Serialize(moved.Error));
+                }
+                await Move(50, 50);
+                Assert.True(first.IsPointerOver);
+                Assert.True(parent.IsPointerOver);
+                Assert.True(hoverWindow.IsPointerOver);
+                Assert.Contains(":pointerover", first.Classes);
+                await Move(55, 55);
+                Assert.Equal(1, entered); Assert.Equal(1, parentEntered);
+                await Move(150, 50);
+                Assert.False(first.IsPointerOver); Assert.True(second.IsPointerOver);
+                Assert.Equal(1, exited); Assert.Equal(0, parentExited);
+                Assert.True(parent.IsPointerOver);
+                // Exit must still reach an owned hovered element after it leaves the visual tree.
+                parent.Children.Remove(second);
+                if (cleanup == "outside") await Move(-1, -1);
+                else if (cleanup == "unregister") registration.Dispose();
+                else AvaScopeBridge.Deactivate();
+                Assert.False(second.IsPointerOver);
+                Assert.False(parent.IsPointerOver);
+                Assert.False(hoverWindow.IsPointerOver);
+                Assert.Equal(1, parentExited);
+                Assert.Equal(new[] { "second", "parent", "window" }, exitOrder);
+            }
+            finally { hoverWindow.Close(); }
+        });
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task PseudoStateHoverRequiresRealStateAndResetsFullWindowTarget(bool occluded)
+    {
+        await WithWindow(async (runtime, window, button, top, node, client, output) =>
+        {
+            var target = new Border { Name = "HoverTarget" };
+            target.Styles.Add(new Style(selector => selector.OfType<Border>())
+                { Setters = { new Setter(Border.BackgroundProperty, Brushes.Blue) } });
+            target.Styles.Add(new Style(selector => selector.OfType<Border>().Class(":pointerover"))
+                { Setters = { new Setter(Border.BackgroundProperty, Brushes.Lime) } });
+            var panel = new Grid { Children = { target } };
+            if (occluded) panel.Children.Add(new Border { Background = Brushes.Red });
+            window.Content = panel; window.UpdateLayout();
+            using var frame = window.CaptureRenderedFrame();
+            var result = await new RuntimePseudoStateMatrixRunner().RunAsync(client, new(
+                runtime.SessionId, top.TopLevelId, states: [RuntimePseudoStates.Normal, RuntimePseudoStates.PointerOver],
+                name: target.Name, outputDirectory: output));
+            Assert.True(result.Success, JsonSerializer.Serialize(result.Error));
+            var hover = result.Value!.Entries[1];
+            if (occluded)
+            {
+                Assert.Equal("failed", hover.Status);
+                Assert.Contains(hover.Diagnostics, diagnostic => diagnostic.Code == "pseudo_state_not_observed");
+                Assert.DoesNotContain(":pointerover", hover.Target!.Classes);
+            }
+            else
+            {
+                Assert.Equal("passed", result.Value.Status);
+                Assert.Contains(":pointerover", hover.Target!.Classes);
+                using var normalPixels = SKBitmap.Decode(result.Value.Entries[0].Screenshot!.FilePath);
+                using var hoverPixels = SKBitmap.Decode(hover.Screenshot!.FilePath);
+                Assert.Equal(SKColors.Blue, normalPixels.GetPixel(150, 110));
+                Assert.Equal(SKColors.Lime, hoverPixels.GetPixel(150, 110));
+            }
+            Assert.False(target.IsPointerOver);
+            Assert.False(window.IsPointerOver);
+            Assert.All(panel.Children, child => Assert.False(child.IsPointerOver));
+        });
+    }
+
     [Theory]
     [InlineData(false, false)]
     [InlineData(true, false)]

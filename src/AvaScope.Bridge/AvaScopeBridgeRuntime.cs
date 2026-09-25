@@ -51,6 +51,7 @@ public sealed partial class AvaScopeBridgeRuntime
     private readonly ConcurrentDictionary<int, WeakReference<PopupRoot>> _observedPopups = new();
     private readonly ConcurrentDictionary<string, RuntimeBackendInfo> _observedBackends = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, ActivePointerState> _activePointers = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, SyntheticHoverState> _syntheticHover = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, AppliedRuntimeMutation> _activeMutations = new(StringComparer.Ordinal);
     private readonly ConcurrentQueue<RuntimeMutationReviewEntry> _mutationHistory = new();
     private readonly ConcurrentDictionary<long, RegisteredCustomAction> _customActions = new();
@@ -604,6 +605,7 @@ public sealed partial class AvaScopeBridgeRuntime
         CloseScenes();
         CloseNavigation();
         ClearHighlights();
+        ClearSyntheticHover();
         _nativeAccessibilityClosed.Cancel();
         _registeredTopLevels.Clear();
         Volatile.Write(ref _nativeScreenScope, null);
@@ -2431,6 +2433,7 @@ public sealed partial class AvaScopeBridgeRuntime
 
     private void UnregisterTopLevel(int key, string topLevelId)
     {
+        ClearSyntheticHover(topLevelId);
         ClearHighlights(topLevelId);
         StopTopLevelTraces(topLevelId);
         StopTopLevelScenes(topLevelId);
@@ -4363,6 +4366,65 @@ public sealed partial class AvaScopeBridgeRuntime
 
     private sealed record ActivePointerState(Pointer Pointer, InputElement PressedTarget);
 
+    private sealed record SyntheticHoverState(TopLevel TopLevel, Pointer Pointer, List<InputElement> Entered);
+
+    private bool UpdateSyntheticHover(TopLevel topLevel, string topLevelId, Pointer pointer, Point point)
+    {
+        // Public direct enter/exit events update Avalonia's IsPointerOver and pseudo-classes.
+        // This remains synthetic input: it does not move the OS cursor or write private input-root state.
+        var hit = topLevel.InputHitTest(point) as InputElement;
+        if (pointer.Captured is { } captured && hit != captured) hit = null;
+        var path = new List<InputElement>();
+        for (Visual? element = hit; element is not null; element = element.GetVisualParent())
+            if (element is InputElement input) path.Add(input);
+
+        var state = _syntheticHover.GetOrAdd(topLevelId, _ => new(topLevel, pointer, []));
+        var dispatched = false;
+        foreach (var element in state.Entered.ToArray())
+        {
+            if (path.Contains(element)) continue;
+            state.Entered.Remove(element);
+            element.RaiseEvent(new PointerEventArgs(InputElement.PointerExitedEvent, element, pointer,
+                topLevel, point, (ulong)Environment.TickCount64, PointerPointProperties.None, KeyModifiers.None));
+            dispatched = true;
+        }
+        foreach (var element in path)
+        {
+            // Do not own/clear a hover that was already established by the user's native pointer.
+            if (element.IsPointerOver) continue;
+            if (!state.Entered.Contains(element)) state.Entered.Add(element);
+            element.RaiseEvent(new PointerEventArgs(InputElement.PointerEnteredEvent, element, pointer,
+                topLevel, point, (ulong)Environment.TickCount64, PointerPointProperties.None, KeyModifiers.None));
+            dispatched = true;
+        }
+        // Retained ancestors precede a newly entered sibling in the ownership list;
+        // restore leaf-to-root exit order for a later move, detach or shutdown.
+        var ordered = path.Where(state.Entered.Contains).ToArray();
+        state.Entered.Clear();
+        state.Entered.AddRange(ordered);
+        if (state.Entered.Count == 0) _syntheticHover.TryRemove(topLevelId, out _);
+        return dispatched;
+    }
+
+    private void ClearSyntheticHover(string? topLevelId = null)
+    {
+        if (_syntheticHover.IsEmpty) return;
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.InvokeAsync(() => ClearSyntheticHover(topLevelId), DispatcherPriority.Send)
+                .GetTask().GetAwaiter().GetResult();
+            return;
+        }
+        foreach (var entry in _syntheticHover.Where(pair => topLevelId is null || pair.Key == topLevelId).ToArray())
+        {
+            if (!_syntheticHover.TryRemove(entry.Key, out var state)) continue;
+            foreach (var element in state.Entered)
+                element.RaiseEvent(new PointerEventArgs(InputElement.PointerExitedEvent, element, state.Pointer,
+                    state.TopLevel, new Point(-1, -1), (ulong)Environment.TickCount64,
+                    PointerPointProperties.None, KeyModifiers.None));
+        }
+    }
+
     private enum GesturePointerEvent
     {
         Pressed,
@@ -4380,20 +4442,26 @@ public sealed partial class AvaScopeBridgeRuntime
         }
 
         var target = topLevel.InputHitTest(point.Value, enabledElementsOnly: false) as Visual;
+        _activePointers.TryGetValue(topLevelId, out var activePointer);
+        var pointer = activePointer?.Pointer
+            ?? (_syntheticHover.TryGetValue(topLevelId, out var hover) ? hover.Pointer
+                : new Pointer(Pointer.GetNextFreeId(), PointerType.Mouse, isPrimary: true));
+        var hoverDispatched = UpdateSyntheticHover(topLevel, topLevelId, pointer, point.Value);
         var metadata = CreatePointerInputMetadata(topLevel, point.Value, target, null);
-        if (target is null)
+        if (target is null && pointer.Captured is null)
         {
             return CoreResult<InputResponse>.Ok(new InputResponse(
                 SessionId,
                 topLevelId,
                 InputActions.PointerMove,
-                handled: false,
+                handled: hoverDispatched,
                 DateTimeOffset.UtcNow,
                 metadata: metadata,
-                provenance: provenance with { Route = RuntimeOperationRoutes.NotDispatched, Dispatched = false, PlannedRoute = provenance.Route }));
+                provenance: hoverDispatched ? provenance
+                    : provenance with { Route = RuntimeOperationRoutes.NotDispatched, Dispatched = false, PlannedRoute = provenance.Route }));
         }
 
-        var inputTarget = target as InputElement ?? target.FindAncestorOfType<InputElement>();
+        var inputTarget = pointer.Captured as InputElement ?? target as InputElement ?? target?.FindAncestorOfType<InputElement>();
         if (inputTarget is null)
         {
             return CoreResult<InputResponse>.Fail(new CoreError(
@@ -4404,11 +4472,12 @@ public sealed partial class AvaScopeBridgeRuntime
         inputTarget.RaiseEvent(new PointerEventArgs(
             InputElement.PointerMovedEvent,
             inputTarget,
-            new Pointer(Pointer.GetNextFreeId(), PointerType.Mouse, isPrimary: true),
+            pointer,
             topLevel,
             point.Value,
             (ulong)Environment.TickCount64,
-            PointerPointProperties.None,
+            activePointer is null ? PointerPointProperties.None
+                : new PointerPointProperties(RawInputModifiers.LeftMouseButton, PointerUpdateKind.Other),
             KeyModifiers.None));
 
         return CoreResult<InputResponse>.Ok(new InputResponse(
@@ -4445,7 +4514,8 @@ public sealed partial class AvaScopeBridgeRuntime
 
         if (isPressed)
         {
-            pointer = new Pointer(Pointer.GetNextFreeId(), PointerType.Mouse, isPrimary: true);
+            pointer = _syntheticHover.TryGetValue(topLevelId, out var hover) ? hover.Pointer
+                : new Pointer(Pointer.GetNextFreeId(), PointerType.Mouse, isPrimary: true);
             inputTarget = hitInputTarget;
             if (inputTarget is not null)
             {

@@ -5,6 +5,23 @@ selects `semantic`, `synthetic`, or `native`; an unsupported route fails before
 dispatch and never silently falls back. Use returned `provenance`, then observe the
 application postcondition. `handled` means dispatch, not a verified business result.
 
+Legacy `pointer_move` (without explicit `execution`) also sends public Avalonia
+`PointerEntered`/`PointerExited` events along the enabled hit's visual ancestor
+path. It tracks only elements it entered, clears detached targets on the next
+move, and clears owned hover when the top-level registration or bridge closes.
+Moving outside the top-level clears that synthetic hover. A held synthetic press
+keeps its pointer identity and capture through move/release. Preexisting native
+hover is not owned or cleared. This is a synthetic routed-event approximation;
+it neither moves the OS cursor nor updates Avalonia's private native input-root
+bookkeeping. Concurrent native input can interfere; inspect the observed state.
+
+Avalonia 12.1.3's public entered/exited class handlers update `IsPointerOver` and
+`:pointerover`; a moved event alone does not. The implementation uses those public
+events, following the ancestor transitions in the pinned
+[InputElement source](https://github.com/AvaloniaUI/Avalonia/blob/12.1.3/src/Avalonia.Base/Input/InputElement.cs)
+and [pointer-over processor](https://github.com/AvaloniaUI/Avalonia/blob/12.1.3/src/Avalonia.Base/Input/PointerOverPreProcessor.cs),
+without calling the internal processor or writing its state.
+
 CLI passes `--execution options.json` (maximum 32 KiB); MCP `input` accepts the same
 `execution` object. Workflow steps use `inputExecution`. Structured targets retain
 the existing session/node generation checks. No new bridge activation mechanism or
