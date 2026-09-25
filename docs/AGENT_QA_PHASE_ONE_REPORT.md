@@ -13,12 +13,58 @@ owned host 8292. Six native lab runs plus three expiry checks verify clean
 identity and ownership at actual 1x. #200 is closed; #199 original cause remains
 open. These are scripted checks, not exploratory Retina coverage.
 
-#202 fix `8bfcec0` is pushed/review after 24 affected checks and actual CLI
-no-build creation. Fresh full CI `36146649046` targets that exact commit and is
-running. #201 is the sole active issue; its Avalonia 12.1.3 API audit is retained
-in preview-campaign-01/animation-api-research.json, with no animation correction
-claimed yet. #203 retains the original preview timeout. Counts are 39 unique
-defects/28 closed. No local owned preview/native/test process remains.
+#202 fix `8bfcec0` remains review: full CI `36146649046` fails one macOS pointer
+diagnostics fixture, now #204. Downloaded results verify Windows 957 passed/six
+skipped, macOS 955/seven/one failed, Linux 33; all four #202 cases pass on both
+full platforms. All six native lab runs/three expiry checks verify clean identity
+and owned cleanup at 1x. The combined gate is failed, not accepted via a rerun.
+#201 is blocked on supported Avalonia clock control. #203 is active with 29
+affected checks passing and actual CLI/MCP timeout recurrences retaining new
+phase/cleanup evidence. Counts are 40 unique defects/28 closed.
+
+## Preview timeout evidence and owned cleanup (#203)
+
+PreviewHost now writes a small atomic progress snapshot with explicit phases,
+owned process ids, elapsed times and build-log location. During builds it saves
+bounded safe counters and recognized output markers at most four times/second;
+arbitrary in-progress output is withheld. Completed build logs retain existing
+behavior. Output markers identify observed text, not authoritative MSBuild task
+state or a root cause. The client accepts only bounded, matching-process,
+allowlisted progress and reports unavailable evidence explicitly.
+
+Timeout handling confirms owned process exit, bounds stream draining separately
+and records each stream's completion/count without copying its content. The
+same owned cleanup runs for caller cancellation. The existing operation deadline
+also covers output draining; default production timeout remains 60 seconds.
+An internal standard .NET TimeProvider seam lets a real blocked-build test
+expire that deadline only after the controlled marker; it does not control
+Avalonia animation time.
+
+The original controlled design-data timeout fails before the change (missing
+phase), then passes. Final affected validation passes 29 cases/zero skips in
+58 seconds, including real design-data/build children, cancellation, delayed
+capture after an actual process exit, invalid progress, baseline options and
+normal rendering. Two agent fixture corrections are retained separately: an
+inline MSBuild task used an unavailable reference API, and its initial fixed
+15-second deadline sometimes preceded the controlled marker. The latter is
+replaced by explicit deadline triggering, not a production budget increase.
+
+Actual `preview-timeout-01/journey` has successful CLI no-build baseline creation
+at 128x96 and 240x120; both images were viewed. MCP T002 then times out both
+fresh builds, honestly returning transport success but baseline failure. The
+final CLI T003 returns exit 1 and baseline failure, also in `project_build`:
+recognized restore output appears at 43.740/40.403 seconds before each unchanged
+60-second deadline. All four owned host/build pairs are absent after completion,
+both output captures complete and safe build markers remain available. These
+recurrences narrow the observed boundary but do not prove the original B004
+cause or a timeout fix. A separate aggregate snapshot afterwards records 100%
+CPU, 5221 MiB available memory and 262 page inputs/s; it is evidence of current
+host contention, not a causal conclusion. No unrelated processes were changed.
+
+Before/after/fixture corrections, TRX, exact requests/results, immutable tool
+snapshots, source hashes and build markers are retained under
+`artifacts/agent-qa/preview-timeout-01`. The separate #204 original macOS TRX,
+three-minute method mismatch and job log remain under `expanded-campaign`.
 
 ## Isolated preview exploration (#174)
 
@@ -91,7 +137,9 @@ phase/child evidence for the first viewport is #203, not a claimed successful
 round or an inferred root cause. An earlier restricted-launcher run reports
 explicit NuGet path1 errors and remains separate. Evidence and candidate hashes
 are in preview-campaign-01/baseline-after-01/verified-summary.json, B001–B004 and
-the before/after/corrected TRX directories. Full candidate CI `36146649046` is running on pushed `8bfcec0`.
+the before/after/corrected TRX directories. Full candidate CI `36146649046`
+fails the separate macOS #204 fixture; all four #202 regressions pass on both
+Windows and macOS. #202 remains review pending a complete passing gate.
 Baseline-check still builds fresh project outputs; no-build creation does not
 silently pin future comparisons to an old assembly.
 

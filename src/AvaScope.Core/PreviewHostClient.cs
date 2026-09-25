@@ -10,9 +10,16 @@ public sealed class PreviewHostClient
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private readonly TimeSpan _operationTimeout;
+    private readonly TimeProvider _timeProvider;
 
     public PreviewHostClient(string? hostAssemblyPath = null, TimeSpan? operationTimeout = null)
+        : this(hostAssemblyPath, operationTimeout, TimeProvider.System)
     {
+    }
+
+    internal PreviewHostClient(string? hostAssemblyPath, TimeSpan? operationTimeout, TimeProvider timeProvider)
+    {
+        _timeProvider = timeProvider;
         HostAssemblyPath = string.IsNullOrWhiteSpace(hostAssemblyPath)
             ? Path.Combine(AppContext.BaseDirectory, "AvaScope.PreviewHost.dll")
             : hostAssemblyPath;
@@ -401,27 +408,41 @@ public sealed class PreviewHostClient
                 CreateHostReadinessDetails(HostAssemblyPath, "dotnet_cli", exception)));
         }
 
-        var stdoutTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
-        var stderrTask = process.StandardError.ReadToEndAsync(cancellationToken);
+        using var outputCancellation = new CancellationTokenSource();
+        var stdoutTask = process.StandardOutput.ReadToEndAsync(outputCancellation.Token);
+        var stderrTask = process.StandardError.ReadToEndAsync(outputCancellation.Token);
+        var elapsed = Stopwatch.StartNew();
 
-        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeout.CancelAfter(_operationTimeout);
+        using var deadline = new CancellationTokenSource(_operationTimeout, _timeProvider);
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, deadline.Token);
 
+        string stdout;
+        string stderr;
         try
         {
             await process.WaitForExitAsync(timeout.Token);
+            stdout = await stdoutTask.WaitAsync(timeout.Token);
+            stderr = await stderrTask.WaitAsync(timeout.Token);
         }
-        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException)
         {
-            KillPreviewHost(process);
+            var details = new Dictionary<string, string>(
+                CreateHostReadinessDetails(HostAssemblyPath, "host_timeout"), StringComparer.Ordinal)
+            {
+                ["hostProcessId"] = process.Id.ToString(CultureInfo.InvariantCulture),
+                ["hostElapsedMs"] = elapsed.ElapsedMilliseconds.ToString(CultureInfo.InvariantCulture),
+                ["operationTimeoutMs"] = _operationTimeout.TotalMilliseconds.ToString(CultureInfo.InvariantCulture),
+                ["outputContent"] = "withheld",
+                ["nextAction"] = "Inspect the retained host phase and build-log availability. The timed-out request was not retried."
+            };
+            ReadHostProgress(requestPath, process.Id, details);
+            await StopPreviewHostAsync(process, stdoutTask, stderrTask, outputCancellation, details);
+            cancellationToken.ThrowIfCancellationRequested();
             return CoreResult<PreviewResponse>.Fail(new CoreError(
                 CoreErrorCodes.PreviewHostUnavailable,
                 "Preview host request timed out.",
-                CreateHostReadinessDetails(HostAssemblyPath, "host_timeout")));
+                details));
         }
-
-        var stdout = await stdoutTask;
-        var stderr = await stderrTask;
 
         if (!string.IsNullOrWhiteSpace(stderr))
         {
@@ -969,14 +990,150 @@ public sealed class PreviewHostClient
         return new BitmapComparison(changedPixels, totalPixels, maxDelta);
     }
 
-    private static void KillPreviewHost(Process process)
+    internal static void ReadHostProgress(string requestPath, int processId, Dictionary<string, string> details)
+    {
+        details["lastHostPhase"] = "unavailable";
+        try
+        {
+            using var reader = File.OpenText(requestPath + ".progress.json");
+            var buffer = new char[8193];
+            var count = reader.ReadBlock(buffer, 0, buffer.Length);
+            if (count == buffer.Length)
+            {
+                details["hostProgress"] = "oversized";
+                return;
+            }
+
+            var progress = JsonSerializer.Deserialize<Dictionary<string, string>>(new string(buffer, 0, count), JsonOptions);
+            if (progress is null
+                || !progress.TryGetValue("processId", out var recordedProcessId)
+                || recordedProcessId != processId.ToString(CultureInfo.InvariantCulture))
+            {
+                details["hostProgress"] = "unmatched";
+                return;
+            }
+
+            if (progress.TryGetValue("phase", out var phase)
+                && phase is "request" or "avalonia_setup" or "paths" or "project_metadata"
+                    or "project_build_lock" or "project_build" or "project_build_output" or "project_build_complete"
+                    or "source_metadata" or "design_data" or "application_resources" or "content"
+                    or "layout" or "capture" or "save" or "window_close" or "response")
+            {
+                details["lastHostPhase"] = phase;
+            }
+
+            details["hostProgress"] = "observed";
+            if (progress.TryGetValue("elapsedMs", out var phaseElapsed)
+                && long.TryParse(phaseElapsed, CultureInfo.InvariantCulture, out var milliseconds) && milliseconds >= 0)
+            {
+                details["lastHostPhaseElapsedMs"] = milliseconds.ToString(CultureInfo.InvariantCulture);
+            }
+
+            if (progress.TryGetValue("buildProcessId", out var buildProcess)
+                && int.TryParse(buildProcess, CultureInfo.InvariantCulture, out var buildId) && buildId > 0)
+            {
+                details["buildProcessId"] = buildId.ToString(CultureInfo.InvariantCulture);
+            }
+
+            foreach (var key in new[] { "buildStdoutCharacters", "buildStderrCharacters", "buildLastOutputElapsedMs" })
+            {
+                if (progress.TryGetValue(key, out var value)
+                    && long.TryParse(value, CultureInfo.InvariantCulture, out var number) && number >= 0)
+                {
+                    details[key] = number.ToString(CultureInfo.InvariantCulture);
+                }
+            }
+
+            if (progress.TryGetValue("buildOutputMarker", out var outputMarker)
+                && outputMarker is "restore_started" or "restore_current" or "restored_project" or "build_succeeded" or "build_failed")
+            {
+                details["buildOutputMarker"] = outputMarker;
+                details["buildOutputMarkerProvenance"] = "recognized_dotnet_output";
+            }
+
+            if (progress.TryGetValue("buildLogPath", out var buildLogPath)
+                && !string.IsNullOrEmpty(buildLogPath) && buildLogPath.Length <= 2048 && Path.IsPathFullyQualified(buildLogPath)
+                && !buildLogPath.Any(char.IsControl))
+            {
+                details["buildLogPath"] = buildLogPath;
+                details["buildLogAvailable"] = File.Exists(buildLogPath) ? "true" : "false";
+            }
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException or ArgumentException)
+        {
+            details["hostProgress"] = "unavailable";
+        }
+    }
+
+    internal static async Task StopPreviewHostAsync(
+        Process process,
+        Task<string> stdoutTask,
+        Task<string> stderrTask,
+        CancellationTokenSource outputCancellation,
+        Dictionary<string, string> details)
     {
         try
         {
-            process.Kill(entireProcessTree: true);
+            if (!process.HasExited)
+            {
+                process.Kill(entireProcessTree: true);
+                details["hostTermination"] = "requested";
+            }
+            else
+            {
+                details["hostTermination"] = "already_exited";
+            }
         }
-        catch (InvalidOperationException)
+        catch (Exception exception) when (exception is InvalidOperationException or System.ComponentModel.Win32Exception or AggregateException)
         {
+            details["hostTermination"] = "failed";
+            details["hostTerminationHResult"] = exception.HResult.ToString(CultureInfo.InvariantCulture);
+        }
+
+        try
+        {
+            using var exitDeadline = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+            await process.WaitForExitAsync(exitDeadline.Token);
+            details["hostExited"] = "true";
+            details["hostExitCode"] = process.ExitCode.ToString(CultureInfo.InvariantCulture);
+        }
+        catch (Exception exception) when (exception is OperationCanceledException or InvalidOperationException or System.ComponentModel.Win32Exception)
+        {
+            details["hostExited"] = "unconfirmed";
+        }
+
+        try
+        {
+            await Task.WhenAll(stdoutTask, stderrTask).WaitAsync(TimeSpan.FromSeconds(3));
+        }
+        catch (Exception exception) when (exception is TimeoutException or OperationCanceledException or IOException or ObjectDisposedException)
+        {
+            // Retain each stream's independent completion state; never expose application output here.
+        }
+        finally
+        {
+            foreach (var (name, task) in new[] { ("stdout", stdoutTask), ("stderr", stderrTask) })
+            {
+                details[name + "Capture"] = task.IsCompletedSuccessfully ? "completed"
+                    : task.IsFaulted ? "failed" : task.IsCanceled ? "cancelled" : "incomplete";
+                if (task.IsCompletedSuccessfully)
+                {
+                    details[name + "Characters"] = task.Result.Length.ToString(CultureInfo.InvariantCulture);
+                }
+            }
+
+            outputCancellation.Cancel();
+            foreach (var (name, reader) in new[] { ("stdout", process.StandardOutput), ("stderr", process.StandardError) })
+            {
+                try
+                {
+                    reader.Dispose();
+                }
+                catch (Exception exception) when (exception is IOException or ObjectDisposedException)
+                {
+                    details[name + "Dispose"] = "failed";
+                }
+            }
         }
     }
 

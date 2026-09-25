@@ -37,6 +37,10 @@ internal static class Program
     private const double MinimumHitTargetSize = 24;
     private const double TextLayoutWidthTolerance = 1;
     private const double TextLayoutHeightTolerance = 4;
+    private static readonly Stopwatch ProgressTimer = Stopwatch.StartNew();
+    private static readonly Dictionary<string, string> Progress = new(StringComparer.Ordinal);
+    private static string? _progressPath;
+    private static long _lastBuildProgressWrittenMs;
     private static readonly string[] PreviewBackgroundResourceKeys =
     [
         "SystemRegionBrush",
@@ -70,7 +74,10 @@ internal static class Program
 
         try
         {
+            _progressPath = Path.GetFullPath(requestPath) + ".progress.json";
+            ReportProgress("request");
             var request = await ReadRequestAsync(requestPath);
+            ReportProgress("avalonia_setup");
             BuildAvaloniaApp(request.ProjectPath).SetupWithoutStarting();
 
             var result = Dispatcher.UIThread.CheckAccess()
@@ -79,6 +86,7 @@ internal static class Program
                     .InvokeAsync(() => Render(request), DispatcherPriority.Send)
                     .GetTask();
 
+            ReportProgress("response");
             WriteResult(result);
             return result.Success ? 0 : 1;
         }
@@ -97,6 +105,46 @@ internal static class Program
                 exception.Message,
                 CreateExceptionDetails("render", exception))));
             return 1;
+        }
+    }
+
+    private static void ReportProgress(string phase, PreviewProjectInfo? projectInfo = null, int? buildProcessId = null)
+    {
+        lock (Progress)
+        {
+            WriteProgress(phase, projectInfo, buildProcessId);
+        }
+    }
+
+    private static void WriteProgress(string phase, PreviewProjectInfo? projectInfo, int? buildProcessId)
+    {
+        if (_progressPath is null)
+        {
+            return;
+        }
+
+        Progress["phase"] = phase;
+        Progress["processId"] = Environment.ProcessId.ToString(CultureInfo.InvariantCulture);
+        Progress["elapsedMs"] = ProgressTimer.ElapsedMilliseconds.ToString(CultureInfo.InvariantCulture);
+        if (projectInfo?.BuildLogPath is { } buildLogPath)
+        {
+            Progress["buildLogPath"] = buildLogPath;
+        }
+
+        if (buildProcessId is { } processId)
+        {
+            Progress["buildProcessId"] = processId.ToString(CultureInfo.InvariantCulture);
+        }
+
+        try
+        {
+            var temporaryPath = _progressPath + ".tmp";
+            File.WriteAllText(temporaryPath, JsonSerializer.Serialize(Progress, JsonOptions));
+            File.Move(temporaryPath, _progressPath, overwrite: true);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            // Optional progress evidence must not change the render outcome.
         }
     }
 
@@ -190,6 +238,7 @@ internal static class Program
 
     private static ToolResult<PreviewResponse> Render(PreviewRequest request)
     {
+        ReportProgress("paths");
         var pathsResult = ResolvePreviewPaths(request);
         if (!pathsResult.Success)
         {
@@ -202,6 +251,7 @@ internal static class Program
         var fullViewPath = paths.ViewPath;
         ApplyCulture(request.Culture);
 
+        ReportProgress("project_metadata");
         var projectInfoResult = ResolveProjectInfo(fullProjectPath);
         if (!projectInfoResult.Success)
         {
@@ -227,6 +277,7 @@ internal static class Program
             Directory.CreateDirectory(outputDirectory);
         }
 
+        ReportProgress("source_metadata");
         var sourceMetadataResult = LoadPreviewSourceMetadata(
             fullProjectPath,
             fullViewPath,
@@ -255,9 +306,12 @@ internal static class Program
             AddProjectDiagnostics(diagnostics, projectInfo);
         }
 
+        ReportProgress("design_data");
         var designData = CreateDesignData(projectInfo, fullProjectPath, request.DesignDataType, request.StateVariant);
         AddStateVariantDiagnostic(diagnostics, designData, request.StateVariant);
+        ReportProgress("application_resources");
         var projectApplicationScope = LoadProjectApplicationScope(fullProjectPath, projectInfo);
+        ReportProgress("content");
         var content = LoadContent(fullProjectPath, fullViewPath, projectInfo);
         if (designData.Value is not null)
         {
@@ -297,6 +351,7 @@ internal static class Program
             request.Dpi);
         try
         {
+            ReportProgress("layout");
             AddSourceDiagnostics(diagnostics, sourceMetadata, content, window, resolvedThemeVariant, fullProjectPath, projectInfo);
             window.Show();
             Dispatcher.UIThread.RunJobs();
@@ -306,6 +361,7 @@ internal static class Program
             AdvanceAnimationOffset(request.AnimationTimeOffsetMs);
             AddLayoutDiagnostics(diagnostics, window);
 
+            ReportProgress("capture");
             using var frame = window.CaptureRenderedFrame();
             if (frame is null)
             {
@@ -315,6 +371,7 @@ internal static class Program
                     CreateRenderDetails(fullProjectPath, fullViewPath, fullOutputPath)));
             }
 
+            ReportProgress("save");
             using (var stream = File.Create(fullOutputPath))
             {
                 frame.Save(stream, PngBitmapEncoderOptions.Default);
@@ -338,6 +395,7 @@ internal static class Program
         }
         finally
         {
+            ReportProgress("window_close");
             window.Close();
         }
     }
@@ -1531,6 +1589,7 @@ internal static class Program
         var workingDirectory = projectInfo.ProjectDirectory;
         var arguments = CreateBuildArguments(projectInfo);
         var command = FormatCommand("dotnet", arguments);
+        ReportProgress("project_build_lock", projectInfo);
         using var buildLock = AcquireProjectBuildLock(projectInfo, workingDirectory, command, out var buildLockError);
         if (buildLockError is not null)
         {
@@ -1581,8 +1640,12 @@ internal static class Program
                 exception: exception);
         }
 
-        var stdoutTask = process.StandardOutput.ReadToEndAsync();
-        var stderrTask = process.StandardError.ReadToEndAsync();
+        ReportProgress("project_build", projectInfo, process.Id);
+        WriteBuildLog(projectInfo.BuildLogPath,
+            $"AvaScope project build started; processId={process.Id.ToString(CultureInfo.InvariantCulture)}.{Environment.NewLine}" +
+            "In-progress output is withheld; this marker is replaced by the completed build log.");
+        var stdoutTask = ReadBuildOutputAsync(process.StandardOutput, "stdout", projectInfo, process.Id);
+        var stderrTask = ReadBuildOutputAsync(process.StandardError, "stderr", projectInfo, process.Id);
 
         if (!process.WaitForExit(milliseconds: 60000))
         {
@@ -1595,10 +1658,12 @@ internal static class Program
                 timeoutMilliseconds: 60000);
         }
 
+        ReportProgress("project_build_output", projectInfo, process.Id);
         var output = CombineProcessOutput(
             stdoutTask.GetAwaiter().GetResult(),
             stderrTask.GetAwaiter().GetResult());
         var buildLogPath = WriteBuildLog(projectInfo.BuildLogPath, output);
+        ReportProgress("project_build_complete", projectInfo, process.Id);
 
         if (process.ExitCode == 0)
         {
@@ -1631,6 +1696,57 @@ internal static class Program
         return stdout.EndsWith(Environment.NewLine, StringComparison.Ordinal)
             ? stdout + stderr
             : stdout + Environment.NewLine + stderr;
+    }
+
+    private static async Task<string> ReadBuildOutputAsync(
+        StreamReader reader, string streamName, PreviewProjectInfo projectInfo, int processId)
+    {
+        var output = new StringBuilder();
+        var buffer = new char[4096];
+        var markerTail = string.Empty;
+        while (true)
+        {
+            var count = await reader.ReadAsync(buffer.AsMemory()).ConfigureAwait(false);
+            if (count == 0) break;
+            output.Append(buffer, 0, count);
+            var markerText = markerTail + new string(buffer, 0, count);
+            markerTail = markerText.Length <= 128 ? markerText : markerText[^128..];
+            lock (Progress)
+            {
+                Progress[streamName == "stdout" ? "buildStdoutCharacters" : "buildStderrCharacters"] =
+                    output.Length.ToString(CultureInfo.InvariantCulture);
+                var now = ProgressTimer.ElapsedMilliseconds;
+                Progress["buildLastOutputElapsedMs"] = now.ToString(CultureInfo.InvariantCulture);
+                var lastMarkerIndex = -1;
+                foreach (var (text, marker) in new[]
+                {
+                    ("Determining projects to restore...", "restore_started"),
+                    ("All projects are up-to-date for restore.", "restore_current"),
+                    ("Restored ", "restored_project"),
+                    ("Build succeeded.", "build_succeeded"),
+                    ("Build FAILED.", "build_failed")
+                })
+                {
+                    var index = markerText.LastIndexOf(text, StringComparison.Ordinal);
+                    if (index > lastMarkerIndex)
+                    {
+                        Progress["buildOutputMarker"] = marker;
+                        lastMarkerIndex = index;
+                    }
+                }
+
+                if (now - _lastBuildProgressWrittenMs >= 250)
+                {
+                    _lastBuildProgressWrittenMs = now;
+                    WriteProgress(Progress["phase"], projectInfo, processId);
+                    WriteBuildLog(projectInfo.BuildLogPath,
+                        "In-progress output is withheld; only counters and recognized output markers are retained." +
+                        Environment.NewLine + JsonSerializer.Serialize(Progress, JsonOptions));
+                }
+            }
+        }
+
+        return output.ToString();
     }
 
     private static string? WriteBuildLog(string? buildLogPath, string output)

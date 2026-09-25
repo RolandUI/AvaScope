@@ -1,3 +1,6 @@
+using System.Diagnostics;
+using System.Globalization;
+using System.Text.Json;
 using AvaScope.Core;
 using AvaScope.Protocol;
 
@@ -91,6 +94,306 @@ public sealed class PreviewHostClientTests : IDisposable
         Assert.Equal("host_assembly", result.Error.Details["requirement"]);
         Assert.Equal(Path.GetFullPath(Path.Combine(_testRoot, "missing-host.dll")), result.Error.Details["hostAssemblyPath"]);
         Assert.Contains("AvaScope.PreviewHost.dll", result.Error.Details["nextAction"], StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task RenderAsyncInterruptedRequestCleansChildAndRetainsSafeTimeoutEvidence(bool cancelRequest)
+    {
+        Directory.CreateDirectory(_testRoot);
+        var markerPath = Path.Combine(_testRoot, "blocked.pid");
+        var projectPath = Path.Combine(_testRoot, "Blocked.csproj");
+        await File.WriteAllTextAsync(projectPath, """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup>
+            </Project>
+            """);
+        var client = new PreviewHostClient(
+            Path.Combine(AppContext.BaseDirectory, "AvaScope.PreviewHost.dll"),
+            TimeSpan.FromSeconds(cancelRequest ? 30 : 10));
+        using var cancellation = new CancellationTokenSource();
+        try
+        {
+            var renderTask = client.RenderAsync(new PreviewRequest(
+                Path.Combine(_testRoot, "blocked.png"),
+                width: 80,
+                height: 60,
+                projectPath: projectPath,
+                assemblyPath: typeof(PreviewHostClientTests).Assembly.Location,
+                noBuild: true,
+                designDataType: typeof(BlockingDesignData).FullName,
+                stateVariant: markerPath), cancellation.Token);
+
+            if (cancelRequest)
+            {
+                var deadline = Stopwatch.StartNew();
+                while (!File.Exists(markerPath) && !renderTask.IsCompleted && deadline.Elapsed < TimeSpan.FromSeconds(10))
+                {
+                    await Task.Delay(20);
+                }
+
+                Assert.True(File.Exists(markerPath), "Owned child did not reach the controlled block.");
+                cancellation.Cancel();
+                await Assert.ThrowsAnyAsync<OperationCanceledException>(() => renderTask);
+                Assert.False(IsProcessRunning(int.Parse(await File.ReadAllTextAsync(markerPath), CultureInfo.InvariantCulture)));
+                return;
+            }
+
+            var result = await renderTask;
+
+            Assert.True(File.Exists(markerPath), JsonSerializer.Serialize(result));
+            var processId = int.Parse(await File.ReadAllTextAsync(markerPath), CultureInfo.InvariantCulture);
+            Assert.False(result.Success);
+            Assert.Equal(CoreErrorCodes.PreviewHostUnavailable, result.Error!.Code);
+            Assert.Equal("host_timeout", result.Error.Details!["requirement"]);
+            Assert.Equal("design_data", result.Error.Details["lastHostPhase"]);
+            Assert.Equal(processId.ToString(CultureInfo.InvariantCulture), result.Error.Details["hostProcessId"]);
+            Assert.Equal("true", result.Error.Details["hostExited"]);
+            Assert.Equal("completed", result.Error.Details["stdoutCapture"]);
+            Assert.Equal("completed", result.Error.Details["stderrCapture"]);
+            Assert.True(long.Parse(result.Error.Details["stdoutCharacters"], CultureInfo.InvariantCulture) > 0);
+            Assert.True(long.Parse(result.Error.Details["stderrCharacters"], CultureInfo.InvariantCulture) > 0);
+            Assert.DoesNotContain("private-preview-output", JsonSerializer.Serialize(result));
+            Assert.False(File.Exists(Path.Combine(_testRoot, "blocked.png")));
+            Assert.False(IsProcessRunning(processId));
+        }
+        finally
+        {
+            await File.WriteAllTextAsync(markerPath + ".release", "release owned fixture");
+            if (File.Exists(markerPath))
+            {
+                var processId = int.Parse(await File.ReadAllTextAsync(markerPath), CultureInfo.InvariantCulture);
+                if (IsProcessRunning(processId))
+                {
+                    using var process = Process.GetProcessById(processId);
+                    await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(5));
+                }
+            }
+        }
+    }
+
+    [Fact]
+    public async Task RenderAsyncBuildTimeoutRetainsBuildMarkerAndStopsOwnedBuildProcess()
+    {
+        Directory.CreateDirectory(_testRoot);
+        var projectPath = Path.Combine(_testRoot, "BlockedBuild.csproj");
+        var markerPath = Path.Combine(_testRoot, "build.pid");
+        await File.WriteAllTextAsync(projectPath, """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup>
+              <UsingTask TaskName="ControlledBlock" TaskFactory="RoslynCodeTaskFactory"
+                         AssemblyFile="$(MSBuildToolsPath)/Microsoft.Build.Tasks.Core.dll">
+                <ParameterGroup><Marker ParameterType="System.String" Required="true" /></ParameterGroup>
+                <Task><Code Type="Fragment" Language="cs"><![CDATA[
+                  using (var ownedProcess = System.Diagnostics.Process.GetCurrentProcess())
+                      System.IO.File.WriteAllText(Marker + ".tmp", ownedProcess.Id.ToString());
+                  System.Console.WriteLine("private-build-output");
+                  System.Console.Out.Flush();
+                  System.IO.File.Move(Marker + ".tmp", Marker);
+                  var elapsed = System.Diagnostics.Stopwatch.StartNew();
+                  while (!System.IO.File.Exists(Marker + ".release") && elapsed.Elapsed.TotalMinutes < 2)
+                      System.Threading.Thread.Sleep(10);
+                ]]></Code></Task>
+              </UsingTask>
+              <Target Name="BlockBuild" BeforeTargets="Restore;Build">
+                <ControlledBlock Marker="$(MSBuildProjectDirectory)/build.pid" />
+              </Target>
+            </Project>
+            """);
+        var clock = new ControlledDeadline();
+        Task<CoreResult<PreviewResponse>>? renderTask = null;
+        try
+        {
+            renderTask = new PreviewHostClient(
+                Path.Combine(AppContext.BaseDirectory, "AvaScope.PreviewHost.dll"),
+                TimeSpan.FromSeconds(60), clock).RenderAsync(new PreviewRequest(
+                    Path.Combine(_testRoot, "build.png"), width: 80, height: 60, projectPath: projectPath));
+
+            var startupDeadline = Stopwatch.StartNew();
+            while (!File.Exists(markerPath) && !renderTask.IsCompleted && startupDeadline.Elapsed < TimeSpan.FromSeconds(60))
+            {
+                await Task.Delay(20);
+            }
+
+            clock.Expire();
+            var result = await renderTask.WaitAsync(TimeSpan.FromSeconds(10));
+            Assert.True(File.Exists(markerPath), JsonSerializer.Serialize(result));
+            Assert.False(result.Success);
+            Assert.Equal("host_timeout", result.Error!.Details!["requirement"]);
+            Assert.Equal("project_build", result.Error.Details["lastHostPhase"]);
+            Assert.Equal("true", result.Error.Details["hostExited"]);
+            Assert.Equal("true", result.Error.Details["buildLogAvailable"]);
+            var buildProcessId = int.Parse(await File.ReadAllTextAsync(markerPath), CultureInfo.InvariantCulture);
+            Assert.Equal(buildProcessId.ToString(CultureInfo.InvariantCulture), result.Error.Details["buildProcessId"]);
+            var log = await File.ReadAllTextAsync(result.Error.Details["buildLogPath"]);
+            Assert.Contains("In-progress output is withheld", log, StringComparison.Ordinal);
+            Assert.DoesNotContain("private-build-output", log);
+            Assert.DoesNotContain("private-build-output", JsonSerializer.Serialize(result));
+            var exitDeadline = Stopwatch.StartNew();
+            while (IsProcessRunning(buildProcessId) && exitDeadline.Elapsed < TimeSpan.FromSeconds(5))
+            {
+                await Task.Delay(20);
+            }
+
+            Assert.False(IsProcessRunning(buildProcessId));
+        }
+        finally
+        {
+            clock.Expire();
+            await File.WriteAllTextAsync(markerPath + ".release", "release owned build fixture");
+            if (renderTask is not null)
+            {
+                await renderTask.WaitAsync(TimeSpan.FromSeconds(10));
+            }
+        }
+    }
+
+    private sealed class ControlledDeadline : TimeProvider
+    {
+        private DeadlineTimer? _timer;
+
+        public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
+        {
+            var timer = new DeadlineTimer(callback, state);
+            Volatile.Write(ref _timer, timer);
+            return timer;
+        }
+
+        public void Expire() => Volatile.Read(ref _timer)?.Expire();
+
+        private sealed class DeadlineTimer(TimerCallback callback, object? state) : ITimer
+        {
+            private int _completed;
+            public bool Change(TimeSpan dueTime, TimeSpan period) => false;
+            public void Dispose() => Interlocked.Exchange(ref _completed, 1);
+            public ValueTask DisposeAsync() { Dispose(); return ValueTask.CompletedTask; }
+            public void Expire()
+            {
+                if (Interlocked.Exchange(ref _completed, 1) == 0) callback(state);
+            }
+        }
+    }
+
+    [Theory]
+    [InlineData("{", "unavailable")]
+    [InlineData("null", "unmatched")]
+    [InlineData("{\"processId\":\"2\",\"phase\":\"content\"}", "unmatched")]
+    [InlineData("{\"processId\":\"1\",\"phase\":\"private-output\",\"buildLogPath\":null}", "observed")]
+    [InlineData("oversized", "oversized")]
+    public void HostProgressRejectsInvalidForeignAndUnboundedEvidence(string json, string status)
+    {
+        Directory.CreateDirectory(_testRoot);
+        var requestPath = Path.Combine(_testRoot, "request.json");
+        File.WriteAllText(requestPath + ".progress.json", json == "oversized" ? new string('x', 9000) : json);
+        var details = new Dictionary<string, string>();
+
+        PreviewHostClient.ReadHostProgress(requestPath, 1, details);
+
+        Assert.Equal(status, details["hostProgress"]);
+        Assert.Equal("unavailable", details["lastHostPhase"]);
+        Assert.DoesNotContain("private-output", JsonSerializer.Serialize(details));
+    }
+
+    [Fact]
+    public void HostProgressCopiesOnlySafeObservedBuildMetrics()
+    {
+        Directory.CreateDirectory(_testRoot);
+        var requestPath = Path.Combine(_testRoot, "request.json");
+        File.WriteAllText(requestPath + ".progress.json", """
+            {"processId":"1","phase":"project_build","elapsedMs":"12","buildProcessId":"2",
+             "buildStdoutCharacters":"123","buildStderrCharacters":"-1","buildLastOutputElapsedMs":"15",
+             "buildOutputMarker":"restore_started","stdout":"private-output","environment":"private-output"}
+            """);
+        var details = new Dictionary<string, string>();
+
+        PreviewHostClient.ReadHostProgress(requestPath, 1, details);
+
+        Assert.Equal("project_build", details["lastHostPhase"]);
+        Assert.Equal("123", details["buildStdoutCharacters"]);
+        Assert.Equal("15", details["buildLastOutputElapsedMs"]);
+        Assert.Equal("restore_started", details["buildOutputMarker"]);
+        Assert.Equal("recognized_dotnet_output", details["buildOutputMarkerProvenance"]);
+        Assert.False(details.ContainsKey("buildStderrCharacters"));
+        Assert.DoesNotContain("private-output", JsonSerializer.Serialize(details));
+    }
+
+    private static bool IsProcessRunning(int processId)
+    {
+        try
+        {
+            using var process = Process.GetProcessById(processId);
+            return !process.HasExited;
+        }
+        catch (ArgumentException)
+        {
+            return false;
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task InterruptedCleanupBoundsAnIncompleteStreamAfterActualChildExit(bool blockStderr)
+    {
+        using var process = new Process
+        {
+            StartInfo = new ProcessStartInfo("dotnet", "--version")
+            {
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false
+            }
+        };
+        Assert.True(process.Start());
+        var actualStdout = process.StandardOutput.ReadToEndAsync();
+        var actualStderr = process.StandardError.ReadToEndAsync();
+        await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(10));
+        await Task.WhenAll(actualStdout, actualStderr).WaitAsync(TimeSpan.FromSeconds(5));
+        using var captureCancellation = new CancellationTokenSource();
+        var pendingCapture = WaitForCaptureAsync(captureCancellation.Token);
+        var details = new Dictionary<string, string>();
+        var elapsed = Stopwatch.StartNew();
+
+        await PreviewHostClient.StopPreviewHostAsync(
+            process,
+            blockStderr ? actualStdout : pendingCapture,
+            blockStderr ? pendingCapture : actualStderr,
+            captureCancellation,
+            details);
+
+        Assert.Equal("already_exited", details["hostTermination"]);
+        Assert.Equal("true", details["hostExited"]);
+        Assert.Equal("incomplete", details[blockStderr ? "stderrCapture" : "stdoutCapture"]);
+        Assert.Equal("completed", details[blockStderr ? "stdoutCapture" : "stderrCapture"]);
+        Assert.True(elapsed.Elapsed < TimeSpan.FromSeconds(10));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => pendingCapture);
+
+        static async Task<string> WaitForCaptureAsync(CancellationToken token)
+        {
+            await Task.Delay(Timeout.InfiniteTimeSpan, token);
+            return string.Empty;
+        }
+    }
+
+    public sealed class BlockingDesignData
+    {
+        public static BlockingDesignData ForState(string markerPath)
+        {
+            File.WriteAllText(markerPath + ".tmp", Environment.ProcessId.ToString(CultureInfo.InvariantCulture));
+            Console.Out.Write("private-preview-output stdout");
+            Console.Out.Flush();
+            Console.Error.Write("private-preview-output stderr");
+            Console.Error.Flush();
+            File.Move(markerPath + ".tmp", markerPath);
+            var deadline = Stopwatch.StartNew();
+            while (!File.Exists(markerPath + ".release") && deadline.Elapsed < TimeSpan.FromMinutes(2))
+            {
+                Thread.Sleep(10);
+            }
+
+            return new BlockingDesignData();
+        }
     }
 
     [Fact]
