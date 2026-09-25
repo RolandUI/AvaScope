@@ -2,6 +2,55 @@
 
 Status: **in progress**, 2026-09-25. Tracking issue [#166](https://github.com/RolandUI/AvaScope/issues/166); expanded fixture #172, declared surfaces #173 and capability campaign #174. The full goal is not achieved and current applicable checks are not all passing. The owner expanded the original intake-only phase to include fixes, meaningful regressions and repeated comprehensive testing. Original failures remain distinct from post-fix verification. Version changes and release remain outside scope.
 
+## Native test cleanup correction (#200)
+
+The controlled before baseline retains two failures after actual owned processes
+exit but an injected capture completion remains pending. The correction keeps
+termination, bounded exit, each stream and disposal independent, persists safe
+phase metadata and preserves primary plus cleanup failures. Missing capture is
+explicitly unavailable; it is not a successful empty log. Existing three-second
+stream bounds remain unchanged; process exit gains its own three-second bound.
+Production runtime behavior is unchanged.
+
+Corrected validation passes 65 affected checks/one separately gated native skip
+(25 s). Seven initial after failures are retained as an agent fixture error:
+Process.Disposed was an invalid disposal oracle; tests now check public disposed
+getter behavior. The actual native integration then passes in 32 s with three
+successful audits (13 native nodes). Owned host 22000 exits/is disposed; both logs
+and cleanup.json persist. Exit wait takes 1.22 ms; stdout completion follows
+2438.88 ms later. This measures separated phases, not the original delayed-EOF
+cause. Evidence: expanded-campaign/native-cleanup-{before,after,corrected}-results,
+native-uia-cleanup-after-results, uia-owned-cleanup-after-01/accessibility and
+native-uia-cleanup-after-verified.json. Combined hosted validation remains pending.
+
+## Native accessibility diagnostic checkpoint (#199)
+
+Commit `4ea4d02` retains bounded Windows stage, actual HRESULT, elapsed time,
+cancellation and query/provider budgets without exception text. A controlled
+owned HWND on an STA thread proves the previously missing diagnostic; it does
+not reproduce the original hosted provider failure. All 58 affected checks pass
+with one separately gated native skip. The initial test-fixture HRESULT mapping
+error is retained separately.
+
+`uia-diagnostic-standalone-after-01` uses clean 4ea4d02, a verified standalone
+provider and pure host, Avalonia 12.1.3.0, Win32 at actual 1x. Nine MCP/two CLI calls
+pass 14 checks. Before external OS inspection, the first audit observes 36 native
+nodes and correctly maps Reset. CLI mapping, intentional name mismatch, redacted
+label, stale/unauthorized targets, excluded-subtree refusal and bounded partial
+tree semantics pass. Two native/rendered images agree; the application journal
+and six source hashes remain unchanged. Client 20824 exits 0 and owned app 12712
+terminates. Full evidence and cleanup are retained in `native-uia-summary.json`.
+
+The original native integration case then produces three successful audits
+(initial/CLI/MCP, 13 native nodes), but the overall test fails at the three-second
+stdout-drain cleanup after 38 seconds. Original TRX and artifacts remain under
+`expanded-campaign/native-uia-owned-after-results` and
+`uia-owned-integration-after-01`. The already-exited host is PID 9776; no matching
+host/test process remains. Missing cleanup logs and lost failure context are now
+#200, the sole active issue. #199 remains review, with its original cause unknown;
+full CI `36136730284` is running. No budget extension or repeated app action.
+Current count: 36 unique defects, 27 closed.
+
 ## Logical mutation evidence correction (#197)
 
 Commit `c6b11db` passes all 100 affected mutation/pseudo-state regressions
@@ -33,10 +82,11 @@ the saved provider verification record to complete bookkeeping without repeating
 application requests. That agent error is retained separately. Clients 6148/5104
 exit 0 and owned apps 20308/15968 terminate. This is not native Retina coverage.
 
-#197 is review pending full CI `36130672354`, still in progress. #199 is the sole
-active issue: preserve safe bounded UIA stage/error/timing diagnostics and only
-choose a readiness correction from evidence. Current counts are 35 unique defects,
-26 closed; #181/#199 original causes remain unproven. No release.
+#197 is completed after full CI `36130672354` succeeds. Downloaded TRX verifies
+Windows 937 passed/six skipped, macOS 938/five and Linux 33 focused cases. All six
+native lifecycle runs and three expiry checks verify clean identity and owned
+cleanup at actual 1x. These scripted hosted runs are not exploratory Retina
+coverage. #181/#199 original causes remain unproven. No release.
 
 ## Animated-priority and native UIA discoveries (#198, #199)
 
