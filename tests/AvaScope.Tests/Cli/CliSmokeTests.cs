@@ -5723,41 +5723,160 @@ public sealed class CliSmokeTests
         var outputDirectory = Path.Combine(testRoot, "launch");
         Directory.CreateDirectory(testRoot);
 
+        var scriptPath = Path.Combine(testRoot, "child.ps1");
+        var readyPath = Path.Combine(testRoot, "child-ready.json");
+        var stopPath = Path.Combine(testRoot, "child-stop");
+        await File.WriteAllTextAsync(scriptPath, """
+            param([string]$ReadyPath, [string]$StopPath)
+            $ErrorActionPreference = 'Stop'
+            $child = Get-Process -Id $PID
+            $identity = @{ processId = $PID; startTimeUtcTicks = $child.StartTime.ToUniversalTime().Ticks }
+            [IO.File]::WriteAllText("$ReadyPath.tmp", ($identity | ConvertTo-Json -Compress))
+            [IO.File]::Move("$ReadyPath.tmp", $ReadyPath)
+            $timer = [Diagnostics.Stopwatch]::StartNew()
+            while (!(Test-Path -LiteralPath $StopPath) -and $timer.Elapsed.TotalSeconds -lt 120) {
+                Start-Sleep -Milliseconds 50
+            }
+            """);
+        using var process = CreateCliProcess(AppContext.BaseDirectory, cliAssembly, environment: null,
+            ["launch-app", "--command", "powershell.exe",
+             "--args", $"-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File \"{scriptPath}\" \"{readyPath}\" \"{stopPath}\"",
+             "--manifest-dir", manifestDirectory, "--out-dir", outputDirectory, "--timeout-ms", "500"]);
+        process.StartInfo.CreateNoWindow = true;
+        var startedAt = Stopwatch.StartNew();
+        var exit = new TaskCompletionSource<long>(TaskCreationOptions.RunContinuationsAsynchronously);
+        process.EnableRaisingEvents = true;
+        process.Exited += (_, _) => exit.TrySetResult(startedAt.ElapsedMilliseconds);
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+        Process? child = null;
+        Task<string>? stdoutTask = null;
+        Task<string>? stderrTask = null;
+        var started = false;
+        var passed = false;
+        long? childReadyMs = null;
+        long? cliOutputMs = null;
+        var phase = "cli_start";
+
+        Process ReadOwnedChild()
+        {
+            using var identity = JsonDocument.Parse(File.ReadAllText(readyPath));
+            var owned = Process.GetProcessById(identity.RootElement.GetProperty("processId").GetInt32());
+            try
+            {
+                Assert.Equal(identity.RootElement.GetProperty("startTimeUtcTicks").GetInt64(),
+                    owned.StartTime.ToUniversalTime().Ticks);
+                return owned;
+            }
+            catch
+            {
+                owned.Dispose();
+                throw;
+            }
+        }
+
         try
         {
-            var startedAt = Stopwatch.StartNew();
-            var result = await RunCliAsync(
-                cliAssembly,
-                "launch-app",
-                "--command",
-                "powershell.exe",
-                "--args",
-                "-NoProfile -Command \"Start-Sleep -Seconds 5\"",
-                "--manifest-dir",
-                manifestDirectory,
-                "--out-dir",
-                outputDirectory,
-                "--timeout-ms",
-                "500");
-            startedAt.Stop();
+            Assert.True(started = process.Start());
+            stdoutTask = process.StandardOutput.ReadToEndAsync(cancellation.Token);
+            stderrTask = process.StandardError.ReadToEndAsync(cancellation.Token);
+            phase = "child_ready";
+            while (!File.Exists(readyPath))
+            {
+                await Task.Delay(50, cancellation.Token);
+            }
 
-            Assert.Equal(1, result.ExitCode);
-            Assert.True(
-                startedAt.Elapsed < TimeSpan.FromSeconds(4),
-                $"launch-app should not wait for the child process to exit. Elapsed: {startedAt.Elapsed}");
-            var payload = JsonSerializer.Deserialize<ToolResult<LaunchAppResponse>>(result.StandardOutput, JsonOptions);
+            childReadyMs = startedAt.ElapsedMilliseconds;
+            child = ReadOwnedChild();
+            phase = "cli_exit";
+            // Exited observes the process independently of redirected pipe completion.
+            await exit.Task.WaitAsync(cancellation.Token);
+            Assert.False(child.HasExited, "The CLI must exit while its controlled bridge-less child is still alive.");
+            Assert.Equal(1, process.ExitCode);
+
+            phase = "cli_output";
+            var stdout = await stdoutTask;
+            var stderr = await stderrTask;
+            cliOutputMs = startedAt.ElapsedMilliseconds;
+            Assert.False(child.HasExited, "CLI output must complete before the test releases the child.");
+            Assert.True(string.IsNullOrWhiteSpace(stderr), stderr);
+            var payload = JsonSerializer.Deserialize<ToolResult<LaunchAppResponse>>(stdout, JsonOptions);
             Assert.NotNull(payload);
             Assert.False(payload.Success);
             Assert.Equal(CoreErrorCodes.BridgeSessionNotFound, payload.Error!.Code);
             Assert.Contains("Timed out waiting", payload.Error.Message, StringComparison.Ordinal);
+            // The Windows detached route can report its launcher PID, not the actual app PID.
             Assert.True(payload.Error.Details!.TryGetValue("processId", out var processIdText));
             Assert.True(int.Parse(processIdText, CultureInfo.InvariantCulture) > 0);
             Assert.True(File.Exists(payload.Error.Details["stdoutPath"]));
             Assert.True(File.Exists(payload.Error.Details["stderrPath"]));
+            Assert.Equal("true", payload.Error.Details["timedOut"]);
+            Assert.Equal(RuntimeScenarioFailureStages.BridgeReadiness, payload.Error.Details["failureStage"]);
+            phase = "child_release";
+            await File.WriteAllTextAsync(stopPath, "stop");
+            await child.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(10));
+            Assert.Equal(0, child.ExitCode);
+            passed = true;
+        }
+        catch (Exception exception)
+        {
+            var completedStdout = stdoutTask?.IsCompletedSuccessfully == true ? await stdoutTask : null;
+            var completedStderr = stderrTask?.IsCompletedSuccessfully == true ? await stderrTask : null;
+            var diagnostics = JsonSerializer.Serialize(new
+            {
+                phase,
+                elapsedMs = startedAt.ElapsedMilliseconds,
+                cliProcessId = started ? (int?)process.Id : null,
+                cliExitMs = exit.Task.IsCompletedSuccessfully ? (long?)await exit.Task : null,
+                cliOutputMs,
+                childReadyMs,
+                childProcessId = child?.Id,
+                childExited = child?.HasExited,
+                stdoutStatus = stdoutTask?.Status.ToString(),
+                stderrStatus = stderrTask?.Status.ToString(),
+                stdout = completedStdout?[..Math.Min(4096, completedStdout.Length)],
+                stderr = completedStderr?[..Math.Min(4096, completedStderr.Length)],
+                evidenceDirectory = testRoot
+            }, JsonOptions);
+            await File.WriteAllTextAsync(Path.Combine(testRoot, "lifecycle-diagnostics.json"), diagnostics);
+            throw new InvalidOperationException($"launch-app lifecycle failed: {diagnostics}", exception);
         }
         finally
         {
-            await DeleteDirectoryWithRetryAsync(testRoot);
+            // Leave the stop marker on failure so even a late-starting child exits.
+            await File.WriteAllTextAsync(stopPath, "stop");
+            if (child is null && File.Exists(readyPath))
+            {
+                try { child = ReadOwnedChild(); }
+                catch (ArgumentException) { /* The recorded child has already exited. */ }
+            }
+
+            try
+            {
+                if (child is not null && !child.HasExited)
+                {
+                    try { await child.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(10)); }
+                    catch (TimeoutException)
+                    {
+                        child.Kill(entireProcessTree: true);
+                        await child.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(10));
+                    }
+                }
+
+                if (started && !process.HasExited)
+                {
+                    process.Kill(entireProcessTree: true);
+                    await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(10));
+                }
+            }
+            finally
+            {
+                cancellation.Cancel();
+                child?.Dispose();
+                if (passed)
+                {
+                    await DeleteDirectoryWithRetryAsync(testRoot);
+                }
+            }
         }
     }
 

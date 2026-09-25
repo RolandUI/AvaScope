@@ -2,6 +2,34 @@
 
 Status: **in progress**, 2026-09-25. Tracking issue [#166](https://github.com/RolandUI/AvaScope/issues/166); expanded fixture #172, declared surfaces #173 and capability campaign #174. The full goal is not achieved and current applicable checks are not all passing. The owner expanded the original intake-only phase to include fixes, meaningful regressions and repeated comprehensive testing. Original failures remain distinct from post-fix verification. Version changes and release remain outside scope.
 
+## CLI timeout lifecycle (#189, combined gate pending)
+
+The unchanged launcher was measured with a controlled bridge-less child under
+`expanded-campaign/launch-lifecycle-probe-01`: CLI JSON at 3918 ms, process exit
+at 3995 ms and redirected stream closure at 5306 ms. The actual child was
+independently observed alive afterward and released at 32755 ms; both child and
+detached launcher subsequently exited. The timeout payload reports launcher PID
+13824, whereas the child-owned ready record identifies PID 17580 and its exact
+start time. No production wait defect is reproduced, and these measurements do
+not establish the original full-suite 7.767-second failure's cause.
+
+The Windows CLI regression now holds its child until explicit release and
+separately observes the CLI's `Exited` event, output completion and the child's
+identity/liveness. The actual bridge attach deadline remains 500 ms. A 60-second
+outer test bound and the child's 120-second fallback prevent indefinite waits;
+the obsolete less-than-four-second wall-clock assertion is removed. Failure
+evidence retains phase/timing, bounded output, process identities and logs.
+Owned cleanup checks both PID and start time; late children see the retained
+stop marker. No release or launcher implementation change is made for #189.
+
+All 13 affected launch/scenario lifecycle tests pass (2m53s, no skips,
+`launch-lifecycle-results/launch-lifecycle.trx`). After removing diagnostic
+analyzer warnings and making the helper's script policy explicit, the final
+exact CLI regression passes again (11 seconds, clean build,
+`launch-lifecycle-final-results/launch-lifecycle-final.trx`). No helper process
+remains. The original full-suite failure is retained; a fresh combined gate
+remains required. #190 cleanup recovery is next.
+
 ## Legacy input hit selection (#188, combined gate pending)
 
 All ten real-Avalonia child/sibling-overlay cases fail before the correction
