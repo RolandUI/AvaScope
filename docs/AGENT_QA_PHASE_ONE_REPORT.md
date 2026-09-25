@@ -2,6 +2,30 @@
 
 Status: **in progress**, 2026-09-25. Tracking issue [#166](https://github.com/RolandUI/AvaScope/issues/166); expanded fixture #172, declared surfaces #173 and capability campaign #174. The full goal is not achieved and current applicable checks are not all passing. The owner expanded the original intake-only phase to include fixes, meaningful regressions and repeated comprehensive testing. Original failures remain distinct from post-fix verification. Version changes and release remain outside scope.
 
+## Action-explanation fixture readiness (#193)
+
+The original macOS failure on 483fedb remains retained. Local instrumentation
+of the unchanged preparation sequence passes all five action-explanation cases
+(18s), but three begin with valid layout and no rendered frame, including
+DisabledSave. Readiness subsequently completes in 56.7-123.5ms. This establishes
+a preparation gap; it does not reproduce or prove the original hosted cause.
+
+The fixture now uses [Avalonia 12.1.3's public headless frame capture](https://raw.githubusercontent.com/AvaloniaUI/Avalonia/12.1.3/src/Headless/Avalonia.Headless/HeadlessWindowExtensions.cs)
+to prepare and require a real 320x240 image before its unchanged 1000ms readiness
+probe. It retains bounded initial/frame/layout/error and preparation/probe timing,
+and additionally requires rendered readiness, valid layout and observed pixels.
+Action assertions, production code, deadlines and retries remain unchanged.
+The affected action/readiness/picking/explicit-input/gesture group passes all 39
+cases (1m13s) with a clean build. All five action fixtures initially lack a frame;
+preparation takes 1.31-2.03ms and the subsequent probes 4.71-20.64ms. Evidence:
+`action-readiness-before-results` and `action-readiness-after-results`, full
+TRX and verified summaries. Hosted full-gate confirmation remains pending.
+
+#184 is complete at 8bf3c4b: the full affected Linux Installer gate now passes
+and both the original recovery case and queued Unix regression pass on Linux
+and macOS. The original before-fix failures remain retained. This does not
+convert the unrelated #193 failure or the unfinished #174 campaign into a pass.
+
 ## Expanded Direct table comparison and hosted gate (#174)
 
 Clean e3cf363 run `capabilities-direct-table-01` completes 40 public

@@ -12,12 +12,17 @@ using AvaScope.Bridge;
 using AvaScope.Core;
 using AvaScope.Protocol;
 using ModelContextProtocol.Client;
+using Xunit.Abstractions;
 
 namespace AvaScope.Tests.Bridge;
 
 [Collection(BridgeCollectionDefinition.Name)]
 public sealed class ActionExplanationTests
 {
+    private readonly ITestOutputHelper _output;
+
+    public ActionExplanationTests(ITestOutputHelper output) => _output = output;
+
     [Fact]
     public async Task DisabledSaveSeparatesProvenBlockersDeclaredReasonsAndUnrelatedValidation()
     {
@@ -260,7 +265,7 @@ public sealed class ActionExplanationTests
     private static async Task<string> Node(AvaScopeBridgeRuntime runtime, string top, string name) =>
         Assert.Single((await runtime.FindNodesAsync(top, TreeKinds.Visual, name: name)).Value!.Matches).Node.NodeId;
 
-    private static async Task WithWindow(Func<AvaScopeBridgeRuntime, Window, Canvas, EvidenceButton, string, LocalBridgeClient, Task> test)
+    private async Task WithWindow(Func<AvaScopeBridgeRuntime, Window, Canvas, EvidenceButton, string, LocalBridgeClient, Task> test)
     {
         var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessSmokeTests.BridgeHeadlessTestApplication));
         try
@@ -279,7 +284,47 @@ public sealed class ActionExplanationTests
                     using var registration = runtime.RegisterTopLevel(window);
                     Dispatcher.UIThread.RunJobs();
                     var top = Assert.Single(await runtime.ListTopLevelsAsync());
-                    Assert.True((await runtime.ReadinessAsync(top.Id, options: new(waitForFrame: true))).Success);
+                    using var initialFrame = window.GetLastRenderedFrame();
+                    var initial = JsonSerializer.Serialize(new
+                    {
+                        frameAvailable = initialFrame is not null,
+                        clientSize = window.ClientSize.ToString(),
+                        window.IsVisible,
+                        window.IsMeasureValid,
+                        window.IsArrangeValid,
+                        buttonBounds = button.Bounds.ToString()
+                    });
+                    _output.WriteLine("Initial action fixture: " + initial);
+                    var watch = Stopwatch.StartNew();
+                    // RunJobs can leave a valid layout with no rendered headless frame.
+                    // Prepare the real frame before spending the readiness probe's unchanged budget.
+                    using var preparedFrame = window.CaptureRenderedFrame();
+                    var preparationMs = watch.Elapsed.TotalMilliseconds;
+                    Assert.NotNull(preparedFrame);
+                    Assert.Equal(new PixelSize(320, 240), preparedFrame.PixelSize);
+                    watch.Restart();
+                    var readiness = await runtime.ReadinessAsync(top.Id, options: new(waitForFrame: true));
+                    using var observedFrame = window.GetLastRenderedFrame();
+                    var observed = JsonSerializer.Serialize(new
+                    {
+                        preparationMs,
+                        elapsedMs = watch.Elapsed.TotalMilliseconds,
+                        readiness.Success,
+                        readiness.Error,
+                        frame = readiness.Value?.Frame,
+                        layoutValid = readiness.Value?.LayoutValid,
+                        frameAvailable = observedFrame is not null,
+                        clientSize = window.ClientSize.ToString(),
+                        window.IsMeasureValid,
+                        window.IsArrangeValid,
+                        buttonBounds = button.Bounds.ToString()
+                    });
+                    _output.WriteLine("Observed action fixture: " + observed);
+                    Assert.True(readiness.Success, $"Action fixture readiness failed: {observed}; initial={initial}");
+                    Assert.Equal("rendered", readiness.Value!.Frame.Status);
+                    Assert.True(readiness.Value.LayoutValid, observed);
+                    Assert.NotNull(observedFrame);
+                    Assert.Equal(new PixelSize(320, 240), observedFrame.PixelSize);
                     await test(runtime, window, canvas, button, top.Id, new(Path.GetDirectoryName(runtime.SessionManifestPath)!));
                 }
                 finally { window.Close(); AvaScopeBridge.Deactivate(); }
