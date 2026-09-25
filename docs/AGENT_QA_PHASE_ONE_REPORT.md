@@ -2,6 +2,30 @@
 
 Status: **in progress**, 2026-09-25. Tracking issue [#166](https://github.com/RolandUI/AvaScope/issues/166); expanded fixture #172, declared surfaces #173 and capability campaign #174. The full goal is not achieved and current applicable checks are not all passing. The owner expanded the original intake-only phase to include fixes, meaningful regressions and repeated comprehensive testing. Original failures remain distinct from post-fix verification. Version changes and release remain outside scope.
 
+## Standalone workflow execution and replay (#174)
+
+`workflow-standalone-01` uses clean `d4b376e`, Avalonia 12.1.3.0 and Win32 at
+actual 1x. Its 27 public calls (21 MCP/six CLI), 20 checks and six viewed images
+cover actual Unicode edits and notification changes, explicit postconditions,
+complete recording export and two parameterized replay cycles. Validation-only,
+missing parameter/owner, changed source, truncated recording and unsupported-plan
+guards leave the independent journal unchanged. An intentional failed assertion
+stops before the next control step. CLI and MCP both execute/export/replay.
+
+The bounded inline response identifies a complete separate artifact; that artifact
+was copied, inspected and used for export. Stable aliases replace transient IDs,
+literal values become required parameters and process/evidence bindings must be
+fresh. Success and failure JSON/Markdown/JUnit reports match actual outcomes.
+Final reset restores the seed, client 3100 exits 0 and owned app 11044 terminates.
+Six source hashes and pure-host/provider identity remain verified. The summary,
+exact requests/results, journals, reports and images are retained under
+`workflow-standalone-01/workflow-summary.json`.
+
+An initial out-of-range evidence depth was rejected before dispatch; a separate
+local JSON reader needed UTF-8 BOM handling. Both agent mistakes are recorded;
+no application action was repeated because of them. No new product bug in this
+scoped round. Fresh Direct comparison and other capability families remain next.
+
 ## Native test cleanup correction (#200)
 
 Implementation `7f8e46a` is pushed and in review; #174 resumes as the sole active
