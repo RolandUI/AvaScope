@@ -24,6 +24,43 @@ retaining new phase/cleanup evidence. Full CI `36152235816` targets that exact
 commit and is running. #204 is the sole active issue for the preserved pointer
 fixture failure. Counts are 40 unique defects/28 closed.
 
+## Pointer fixture request sequence and failure propagation (#204)
+
+The original macOS failure remains retained from `8bfcec0` / CI `36146649046`:
+expected `pick_node`, received `visual_tree`, followed by a total three-minute
+test duration. Its exact preceding transport failure is unknown. A controlled
+geometry failure reproduces the method transition: the runner correctly skips
+the point query after failed geometry and advances to the next visual tree.
+The strict fixture then fails its assertion; previously the caller awaited the
+runner before observing that failure, allowing further request deadlines.
+
+The controlled regression initially fails (nine existing cases pass). The
+test-only coordinator now cancels before the failing connection closes, retains
+the identical primary exception and observes both tasks. Bounded TRX output
+records request index, method, fixture target, phase, elapsed time, error type
+and result codes without payloads. The original 30-second fixture/client bounds
+and all semantic assertions remain. The regression initially used a one-second
+client bound to contain the before-fix experiment; its final version uses the
+same existing 30-second bound and asserts cancellation directly.
+
+The responder also now creates the next pending pipe before disposing the
+accepted connection, matching production `LocalBridgeServer` and the earlier
+#184 fixture correction. [Official .NET 10 Unix pipe source](https://github.com/dotnet/runtime/blob/v10.0.7/src/libraries/System.IO.Pipes/src/System/IO/Pipes/NamedPipeServerStream.Unix.cs) disposes the shared
+listening socket when its last server instance is disposed; queued connections
+can therefore be lost by the old per-request fixture lifetime. Two controlled
+Unix tests hold the first reply, connect/write the second request exactly once,
+then release the server: the legacy negative control must lose that reply and
+the corrected fixture must return it. These tests require Linux/macOS; local
+Windows skips are not Unix proof. No production pointer, retry or deadline
+behavior is changed, and a passing later run alone cannot establish the
+original hosted failure's cause.
+
+Evidence: `artifacts/agent-qa/pointer-sequence-01` retains before/after TRX,
+bounded traces and independent `verify.py` checks. The candidate local group
+passes ten cases with two Unix skips (final rebuilt run: seven seconds); nineteen real Avalonia picking checks
+also pass (41 seconds). Hosted validation of this new candidate is pending;
+the still-running `c83e50c` CI is a separate #203 validation checkpoint.
+
 ## Preview timeout evidence and owned cleanup (#203)
 
 PreviewHost now writes a small atomic progress snapshot with explicit phases,

@@ -1,10 +1,12 @@
 using System.Diagnostics;
 using System.IO.Pipes;
+using System.Runtime.ExceptionServices;
 using System.Text;
 using System.Text.Json;
 using AvaScope.Core;
 using AvaScope.Protocol;
 using SkiaSharp;
+using Xunit.Abstractions;
 
 namespace AvaScope.Tests.Core;
 
@@ -13,9 +15,14 @@ public sealed class RuntimePointerDiagnosticsRunnerTests : IDisposable
     private static readonly TimeSpan BridgePipeTestTimeout = TimeSpan.FromSeconds(30);
     private readonly string _testRoot = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));
     private readonly string _manifestDirectory;
+    private readonly CancellationTokenSource _fixtureCancellation = new();
+    private readonly Stopwatch _fixtureElapsed = Stopwatch.StartNew();
+    private readonly List<FixtureEvent> _events = [];
+    private readonly ITestOutputHelper _output;
 
-    public RuntimePointerDiagnosticsRunnerTests()
+    public RuntimePointerDiagnosticsRunnerTests(ITestOutputHelper output)
     {
+        _output = output;
         _manifestDirectory = Path.Combine(_testRoot, "manifests");
         Directory.CreateDirectory(_manifestDirectory);
     }
@@ -66,9 +73,8 @@ public sealed class RuntimePointerDiagnosticsRunnerTests : IDisposable
             outputDirectory: outputDirectory,
             parentHoverNodeId: "visual:hover");
 
-        var result = await new RuntimePointerDiagnosticsRunner()
-            .RunAsync(new LocalBridgeClient(_manifestDirectory, BridgePipeTestTimeout), request);
-        var bridgeRequests = await serverTask;
+        var (result, bridgeRequests) = await RunWithServerAsync(serverTask,
+            new LocalBridgeClient(_manifestDirectory, BridgePipeTestTimeout), request);
 
         Assert.True(result.Success, result.Error?.Message);
         Assert.Equal("failed", result.Value!.Status);
@@ -146,9 +152,8 @@ public sealed class RuntimePointerDiagnosticsRunnerTests : IDisposable
             requestId: "pointer-mismatch",
             includeAllTopLevels: false);
 
-        var result = await new RuntimePointerDiagnosticsRunner()
-            .RunAsync(new LocalBridgeClient(_manifestDirectory, BridgePipeTestTimeout), request);
-        await serverTask;
+        var (result, _) = await RunWithServerAsync(serverTask,
+            new LocalBridgeClient(_manifestDirectory, BridgePipeTestTimeout), request);
 
         Assert.True(result.Success, result.Error?.Message);
         Assert.Equal("passed", result.Value!.Status);
@@ -180,10 +185,9 @@ public sealed class RuntimePointerDiagnosticsRunnerTests : IDisposable
             4 => CreateScreenshotResponse(request, sessionId, "topLevel:main", 200, 200),
             _ => throw new InvalidOperationException()
         });
-        var result = await new RuntimePointerDiagnosticsRunner().RunAsync(new(_manifestDirectory, BridgePipeTestTimeout),
+        var (result, _) = await RunWithServerAsync(server, new(_manifestDirectory, BridgePipeTestTimeout),
             new(sessionId, "topLevel:main", [new("move", x: 10, y: 10)], outputDirectory: _testRoot,
                 includeAllTopLevels: false, captureScreenshots: true));
-        await server;
         Assert.True(result.Success, result.Error?.Message); Assert.Equal("passed", result.Value!.Status);
         using var bitmap = SKBitmap.Decode(Assert.Single(result.Value.Steps).PointerOverlayPath);
         Assert.NotEqual(SKColors.White, bitmap.GetPixel(20, 20));
@@ -217,9 +221,8 @@ public sealed class RuntimePointerDiagnosticsRunnerTests : IDisposable
                 return BridgeIpcResponse.Fail(request.RequestId, new("pick_geometry_changed", "Observed geometry changed."));
             return CreatePickResponse(request, sessionId, "topLevel:main", 10, 10, truncated: kind == "partial");
         });
-        var result = await new RuntimePointerDiagnosticsRunner().RunAsync(new(_manifestDirectory, BridgePipeTestTimeout),
+        var (result, _) = await RunWithServerAsync(server, new(_manifestDirectory, BridgePipeTestTimeout),
             new(sessionId, "topLevel:main", [new("move", x: 10, y: 10), new("assert_hit", expectedNodeId: "visual:hover")], includeAllTopLevels: false));
-        await server;
         Assert.True(result.Success, result.Error?.Message);
         Assert.Equal("failed", result.Value!.Status);
         var last = result.Value.Steps.Last();
@@ -254,9 +257,8 @@ public sealed class RuntimePointerDiagnosticsRunnerTests : IDisposable
             }
             return BridgeIpcResponse.Ok(request.RequestId, response);
         });
-        var result = await new RuntimePointerDiagnosticsRunner().RunAsync(new(_manifestDirectory, BridgePipeTestTimeout),
+        var (result, _) = await RunWithServerAsync(server, new(_manifestDirectory, BridgePipeTestTimeout),
             new(sessionId, "topLevel:main", [new("move", x: 65, y: 10), new("assert_hit", expectedNodeId: "visual:hover")]));
-        await server;
         Assert.True(result.Success, result.Error?.Message); Assert.Equal("failed", result.Value!.Status);
         Assert.Contains(result.Value.Steps.Last().Diagnostics, error => error.Code == diagnostic);
         Assert.Contains(result.Value.Steps.Last().Diagnostics, error => error.Code == "runtime_pointer_hit_unverified");
@@ -266,11 +268,180 @@ public sealed class RuntimePointerDiagnosticsRunnerTests : IDisposable
 
     public void Dispose()
     {
+        _fixtureCancellation.Cancel();
+        _fixtureCancellation.Dispose();
         if (Directory.Exists(_testRoot))
         {
             Directory.Delete(_testRoot, recursive: true);
         }
     }
+
+    [Fact]
+    public async Task GeometryFailureSequenceCancelsTheFixtureAndPreservesItsFirstAssertion()
+    {
+        var sessionId = SessionId.New();
+        var pipeName = TestPipeNames.New();
+        WriteManifest("controlled-pointer.json", new(sessionId, Environment.ProcessId, pipeName,
+            DateTimeOffset.UtcNow, "Controlled pointer fixture", processName: Process.GetCurrentProcess().ProcessName));
+        var methods = new List<string>();
+        var server = RespondToBridgeRequestsAsync(pipeName, 5, (index, request) =>
+        {
+            methods.Add(request.Method);
+            return index switch
+            {
+                0 => CreateInputResponse(request, sessionId, "topLevel:main", 10, 10),
+                1 => CreateTopLevelsResponse(request),
+                2 => CreateTreeResponse(request, sessionId, "topLevel:main", false),
+                3 => BridgeIpcResponse.Fail(request.RequestId, new("bridge_ipc_unavailable", "Controlled geometry failure.")),
+                4 => CreatePickResponse(request, sessionId, "topLevel:main", 10, 10),
+                _ => throw new InvalidOperationException("Unexpected controlled request.")
+            };
+        });
+        var run = RunWithServerAsync(server, new(_manifestDirectory, BridgePipeTestTimeout),
+            new(sessionId, "topLevel:main", [new("move", x: 10, y: 10)]));
+        try
+        {
+            var original = await Record.ExceptionAsync(() => server);
+            Assert.NotNull(original);
+            Assert.Equal(["input", "list_top_levels", "visual_tree", "pick_node", "visual_tree"], methods);
+            Assert.True(_fixtureCancellation.IsCancellationRequested,
+                "A failed response assertion must cancel the fixture before subsequent client requests can wait.");
+            Assert.Same(original, await Record.ExceptionAsync(() => run));
+            Assert.Contains(_events, item => item.Index == 3 && item.Phase == "response" && item.Outcome == "bridge_ipc_unavailable");
+            Assert.Contains(_events, item => item.Index == 4 && item.Phase == "request" && item.Method == "visual_tree");
+            Assert.Contains(_events, item => item.Index == 4 && item.Phase == "server_failed" && item.ErrorType == original.GetType().Name);
+        }
+        finally
+        {
+            _fixtureCancellation.Cancel();
+            await Record.ExceptionAsync(() => run);
+        }
+    }
+
+    [UnixPipeFact]
+    public Task LegacyListenerDisposalDropsAnAlreadyQueuedPointerFixtureRequest() =>
+        AssertQueuedFixtureConnectionAsync(preserveListener: false);
+
+    [UnixPipeFact]
+    public Task PointerFixtureRetainsAnAlreadyQueuedRequestBetweenResponses() =>
+        AssertQueuedFixtureConnectionAsync(preserveListener: true);
+
+    private async Task AssertQueuedFixtureConnectionAsync(bool preserveListener)
+    {
+        var pipeName = TestPipeNames.New();
+        var firstFlushed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var continueServer = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var deadline = new CancellationTokenSource(BridgePipeTestTimeout);
+        var server = RespondToBridgeRequestsAsync(pipeName, 2, (_, request) => CreateTopLevelsResponse(request),
+            async (index, cancellationToken) =>
+            {
+                if (index != 0) return;
+                firstFlushed.SetResult();
+                await continueServer.Task.WaitAsync(cancellationToken);
+            }, preserveListener);
+        try
+        {
+            await using var first = new NamedPipeClientStream(".", pipeName, PipeDirection.InOut, PipeOptions.Asynchronous);
+            await first.ConnectAsync(deadline.Token);
+            await first.WriteAsync(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(
+                new BridgeIpcRequest("first", BridgeIpcMethods.ListTopLevels)) + "\n"), deadline.Token);
+            Assert.NotNull(await ReadLineAsync(first, deadline.Token));
+            await firstFlushed.Task.WaitAsync(deadline.Token);
+
+            // Connect and write once while the server is explicitly held at its previous reply.
+            // On Unix this enters the listening socket's backlog; no sleep or retry is involved.
+            await using var queued = new NamedPipeClientStream(".", pipeName, PipeDirection.InOut, PipeOptions.Asynchronous);
+            await queued.ConnectAsync(deadline.Token);
+            await queued.WriteAsync(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(
+                new BridgeIpcRequest("queued", BridgeIpcMethods.ListTopLevels)) + "\n"), deadline.Token);
+            continueServer.SetResult();
+            string? line = null;
+            var failure = await Record.ExceptionAsync(async () => line = await ReadLineAsync(queued, deadline.Token));
+            Trace("queued_result", failure: failure, outcome: string.IsNullOrWhiteSpace(line) ? "no_response" : "response");
+            if (preserveListener)
+            {
+                Assert.Null(failure);
+                Assert.False(string.IsNullOrWhiteSpace(line), "The pointer fixture dropped an already queued request.");
+                var response = JsonSerializer.Deserialize<BridgeIpcResponse>(line!);
+                Assert.Equal("queued", response!.RequestId);
+                Assert.True(response.Success);
+                Assert.Equal(2, (await server.WaitAsync(deadline.Token)).Count);
+            }
+            else
+            {
+                Assert.True(failure is IOException || failure is null && string.IsNullOrWhiteSpace(line),
+                    "The legacy negative control must lose the queued response, without a deadline or a retry.");
+                Assert.False(deadline.IsCancellationRequested);
+            }
+        }
+        finally
+        {
+            continueServer.TrySetResult();
+            _fixtureCancellation.Cancel();
+            await Record.ExceptionAsync(() => server.WaitAsync(TimeSpan.FromSeconds(3)));
+        }
+    }
+
+    private async Task<(CoreResult<RuntimePointerDiagnosticsResponse> Result, IReadOnlyList<BridgeIpcRequest> Requests)>
+        RunWithServerAsync(Task<IReadOnlyList<BridgeIpcRequest>> server, LocalBridgeClient client, RuntimePointerDiagnosticsRequest request)
+    {
+        var phase = "runner";
+        try
+        {
+            var result = await new RuntimePointerDiagnosticsRunner().RunAsync(client, request, _fixtureCancellation.Token);
+            Trace("runner_completed", outcome: result.Success ? result.Value!.Status : result.Error!.Code);
+            foreach (var diagnostic in result.Value?.Diagnostics.Take(64) ?? [])
+            {
+                Trace("runner_diagnostic", outcome: diagnostic.Code);
+            }
+
+            phase = "server";
+            var requests = await server;
+            return (result, requests);
+        }
+        catch (Exception failure)
+        {
+            Trace("coordinator_failed", failure: failure, outcome: phase);
+            var serverFailedFirst = phase == "server"
+                || failure is OperationCanceledException && _fixtureCancellation.IsCancellationRequested;
+            _fixtureCancellation.Cancel();
+            try
+            {
+                await server.WaitAsync(TimeSpan.FromSeconds(3));
+            }
+            catch (Exception serverFailure)
+            {
+                Trace("server_observed", failure: serverFailure);
+                if (serverFailedFirst && server.IsFaulted)
+                {
+                    ExceptionDispatchInfo.Capture(serverFailure).Throw();
+                }
+            }
+
+            throw;
+        }
+    }
+
+    private void Trace(string phase, int index = -1, BridgeIpcRequest? request = null, Exception? failure = null, string? outcome = null)
+    {
+        var method = request?.Method is "input" or "list_top_levels" or "visual_tree" or "pick_node" or "screenshot"
+            ? request.Method : null;
+        var target = request?.TopLevelId ?? request?.Pick?.Target.TopLevelId;
+        if (target is not ("topLevel:main" or "topLevel:popup")) target = null;
+        // Only fixture symbols and exception identity are retained, never request/response payloads or messages.
+        if (outcome is { Length: > 96 } || outcome?.Any(c => !char.IsAsciiLetterOrDigit(c) && c != '_') == true) outcome = "other";
+        lock (_events)
+        {
+            if (_events.Count >= 256) return;
+            var item = new FixtureEvent(index, phase, method, target, _fixtureElapsed.ElapsedMilliseconds,
+                failure?.GetType().Name, failure?.HResult, outcome);
+            _events.Add(item);
+            _output.WriteLine("Pointer fixture: " + JsonSerializer.Serialize(item));
+        }
+    }
+
+    private sealed record FixtureEvent(int Index, string Phase, string? Method, string? TopLevelId,
+        long ElapsedMs, string? ErrorType, int? HResult, string? Outcome);
 
     private string WriteManifest(string fileName, BridgeSessionManifest manifest)
     {
@@ -458,50 +629,72 @@ public sealed class RuntimePointerDiagnosticsRunnerTests : IDisposable
         data.SaveTo(stream);
     }
 
-    private static async Task<IReadOnlyList<BridgeIpcRequest>> RespondToBridgeRequestsAsync(
+    private async Task<IReadOnlyList<BridgeIpcRequest>> RespondToBridgeRequestsAsync(
         string pipeName,
         int expectedCount,
-        Func<int, BridgeIpcRequest, BridgeIpcResponse> responseFactory)
+        Func<int, BridgeIpcRequest, BridgeIpcResponse> responseFactory,
+        Func<int, CancellationToken, Task>? afterResponse = null,
+        bool preserveListener = true)
     {
-        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(_fixtureCancellation.Token);
+        cancellation.CancelAfter(BridgePipeTestTimeout);
         var requests = new List<BridgeIpcRequest>(expectedCount);
+        NamedPipeServerStream? pendingPipe = null;
         try
         {
             while (requests.Count < expectedCount)
             {
-                await using var pipe = new NamedPipeServerStream(
-                    pipeName,
-                    PipeDirection.InOut,
-                    maxNumberOfServerInstances: 1,
-                    PipeTransmissionMode.Byte,
-                    PipeOptions.Asynchronous);
+                pendingPipe ??= CreatePipe();
+                await using var pipe = pendingPipe;
+                pendingPipe = null;
 
-                await pipe.WaitForConnectionAsync(cancellation.Token);
-                var requestLine = await ReadLineAsync(pipe, cancellation.Token);
-                if (string.IsNullOrWhiteSpace(requestLine))
-                {
-                    continue;
-                }
-
-                var request = JsonSerializer.Deserialize<BridgeIpcRequest>(requestLine);
-                if (request is null)
-                {
-                    continue;
-                }
-
+                BridgeIpcRequest? request = null;
                 var index = requests.Count;
-                requests.Add(request);
-                var responseBytes = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(responseFactory(index, request)) + Environment.NewLine);
-                await pipe.WriteAsync(responseBytes, cancellation.Token);
-                await pipe.FlushAsync(cancellation.Token);
+                try
+                {
+                    Trace("accepting", index);
+                    await pipe.WaitForConnectionAsync(cancellation.Token);
+                    Trace("connected", index);
+                    // Match LocalBridgeServer: keep the Unix listener and its queued connections alive
+                    // before replying and disposing this connection. False is only the regression's negative control.
+                    if (preserveListener) pendingPipe = CreatePipe();
+                    var requestLine = await ReadLineAsync(pipe, cancellation.Token);
+                    if (string.IsNullOrWhiteSpace(requestLine)) continue;
+                    request = JsonSerializer.Deserialize<BridgeIpcRequest>(requestLine);
+                    if (request is null) continue;
+
+                    requests.Add(request);
+                    Trace("request", index, request);
+                    var response = responseFactory(index, request);
+                    Trace("response", index, request, outcome: response.Success ? "success" : response.Error!.Code);
+                    var responseBytes = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(response) + Environment.NewLine);
+                    await pipe.WriteAsync(responseBytes, cancellation.Token);
+                    await pipe.FlushAsync(cancellation.Token);
+                    Trace("flushed", index, request);
+                    if (afterResponse is not null) await afterResponse(index, cancellation.Token);
+                }
+                catch (Exception failure)
+                {
+                    var timedOut = failure is OperationCanceledException && cancellation.IsCancellationRequested
+                        && !_fixtureCancellation.IsCancellationRequested;
+                    Trace("server_failed", index, request, failure, timedOut ? "deadline" : "failure");
+                    // Cancel while the failing connection is still open so the runner does not enter another connect wait.
+                    _fixtureCancellation.Cancel();
+                    if (timedOut)
+                        throw new TimeoutException($"Timed out waiting for {expectedCount} bridge IPC requests; received {requests.Count}.", failure);
+                    throw;
+                }
             }
 
             return requests;
         }
-        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+        finally
         {
-            throw new TimeoutException($"Timed out waiting for {expectedCount} bridge IPC requests on pipe '{pipeName}'.");
+            if (pendingPipe is not null) await pendingPipe.DisposeAsync();
         }
+
+        NamedPipeServerStream CreatePipe() => new(pipeName, PipeDirection.InOut,
+            NamedPipeServerStream.MaxAllowedServerInstances, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
     }
 
     private static async Task<string?> ReadLineAsync(Stream stream, CancellationToken cancellationToken)
