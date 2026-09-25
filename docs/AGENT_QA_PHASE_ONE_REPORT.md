@@ -2,7 +2,7 @@
 
 Status: **in progress**, 2026-09-25. Tracking issue [#166](https://github.com/RolandUI/AvaScope/issues/166); expanded fixture #172, declared surfaces #173 and capability campaign #174. The full goal is not achieved and current applicable checks are not all passing. The owner expanded the original intake-only phase to include fixes, meaningful regressions and repeated comprehensive testing. Original failures remain distinct from post-fix verification. Version changes and release remain outside scope.
 
-## Legacy input hit selection (#188, validation in progress)
+## Legacy input hit selection (#188, combined gate pending)
 
 All ten real-Avalonia child/sibling-overlay cases fail before the correction
 (`legacy-hit-before-results`, seven seconds). Independent handlers show events
@@ -37,7 +37,7 @@ independent journal unchanged. Wrong-node assertion still refuses. Windows
 accessibility/pixels and the public marker image were reviewed. Reset/owned
 PID 18512 termination succeed; client 2116 exits 0 after 11 calls, empty stderr.
 This is real native Win32 1x app validation of legacy synthetic event routes,
-not native Retina evidence. Fresh standalone verification is pending.
+not native Retina evidence.
 
 `legacy-hit-standalone-01` fails startup at `top_levels`: the provider reports
 activation and writes a manifest near the 30-second launch deadline, then the
@@ -49,6 +49,14 @@ owned cleanup (#190). The original failed run and all logs stay unchanged; clien
 9272 exits 0 after one read. The late bootstrap cause is unknown and is not
 conflated with #182's post-attach inspection or #189's elapsed guard. A second
 fresh standalone attempt uses unchanged binaries; no deadline is increased.
+
+That second run, `legacy-hit-standalone-02`, passes the same 22 N001-N014/reset
+checks as Direct, including actual focus, CLI/MCP center agreement, no mismatch,
+independent 2/2/1 counters at 259x0 DIP and reviewed native/marker pixels. Reset
+and owned PID 8472 termination pass; client 16412 exits 0 after 11 calls with
+empty stderr. The successful unchanged attempt does not explain or erase
+standalone-01's startup/cleanup failure. #188 implementation is pushed as
+`92c5f10` and remains in review pending the combined gate. #189 is next.
 
 ## Pointer diagnostics checkpoint (#186, combined gate pending)
 
