@@ -2,6 +2,22 @@
 
 Status: **in progress**, 2026-09-25. Tracking issue [#166](https://github.com/RolandUI/AvaScope/issues/166); expanded fixture #172, declared surfaces #173 and capability campaign #174. The full goal is not achieved and current applicable checks are not all passing. The owner expanded the original intake-only phase to include fixes, meaningful regressions and repeated comprehensive testing. Original failures remain distinct from post-fix verification. Version changes and release remain outside scope.
 
+## Current validation checkpoint
+
+Full diagnostic CI `36136730284` on `4ea4d02` succeeds across all six jobs.
+Downloaded evidence verifies Windows 946 passed/six skipped, macOS 945/seven,
+Linux 33 focused cases and five Windows native-input cases. All six native
+integration lifecycle runs plus three expiry checks verify clean identity and
+owned cleanup at actual 1x; these are scripted checks, not exploratory Retina
+coverage. #199 remains open because the original unavailable-query cause is
+unproven. Fresh combined CI `36141416097` runs on `108adc5`, including #200
+cleanup `7f8e46a`; no passing combined result is claimed yet.
+
+#174 remains the sole active issue. Next are isolated preview/reload/variants,
+baseline/diff/regions and the remaining capability matrix boundaries. Current
+counts are 36 unique defects/27 closed; #199/#200 are review. No local owned
+native/test process remains at this checkpoint.
+
 ## Native workflow execution and replay (#174)
 
 `workflow-standalone-01` uses clean `d4b376e`, Avalonia 12.1.3.0 and Win32 at
