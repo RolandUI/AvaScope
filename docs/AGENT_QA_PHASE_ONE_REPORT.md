@@ -28,6 +28,24 @@ and explicitly skips the Unix case (1m32s, clean build,
 regression/diagnostic checkpoint for hosted reproduction, not a validated Unix
 fix. The original b90ca39 hosted failure remains retained.
 
+The independent production-bridge comparison on clean `8bebfe6`, retained in
+`ownership-direct-01`, passes 24 checks through 25 actual persistent MCP calls
+and seven CLI calls. Native Windows/Avalonia 12.1.3/Win32/1x ownership rejects an
+outsider's acquisition, input and cleanup; the remembered owner toggles exactly
+once. Explicit CLI-to-MCP handoff/renewal, stale-token and invalid-TTL refusals,
+observed expiry, refusal after expiry and explicit reacquisition all agree with
+the app journal. Viewed Windows/rendered images show the same active state.
+Only the two permitted input cases and reset change the journal. Recovery cleans
+only recorded app PID 19164, repeated recovery agrees, and Stop confirms
+`already_exited`. Client 6468 exits 0 after 25 calls with empty stderr; the native
+window is gone. All retained protocol requests/responses, including nested MCP
+text, redact lease tokens; the evidence scan finds no known raw lease token.
+This is Windows production ownership evidence, not a Unix fixture fix or proof
+of the original hosted failure's cause. Full CI
+[36096369354](https://github.com/RolandUI/AvaScope/actions/runs/36096369354)
+is running the unchanged before-fix checkpoint; its Windows test step has passed
+but the complete workflow and Unix reproduction are still pending.
+
 ## Failed startup cleanup (#190, combined gate pending)
 
 The controlled lifecycle app now supports an explicit 60-second top-level
