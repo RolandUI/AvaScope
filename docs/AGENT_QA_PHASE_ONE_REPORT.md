@@ -4,7 +4,40 @@ Status: **in progress**, 2026-09-25. Tracking issue [#166](https://github.com/Ro
 
 ## Current validation checkpoint
 
-Latest #174 exploration: `focus-standalone-after-01` on clean `2684a38`
+Latest #174 exploration: `windows-direct-01` on clean `53ad53c` retains
+32 calls (22 MCP/ten CLI), 124 checks and seven reviewed native images. Parent
+resize 1120x800 to 1000x760 and restoration agree with independent image sizes;
+stale revision is refused without dispatch. An owned 460x260 child moves exactly
+24 pixels in both axes, independently confirmed by native screenshot origins.
+Modal ownership blocks parent resize without dispatch. Explicit modal focus and
+paired native-window-message Tab agree with UIA, with no held input or fallback.
+This route is owned HWND event dispatch, not hardware/IME injection.
+
+Original W013 omitted `isolatedStateDirectory`; its correct guard refusal and
+still-open W014/W015 observations are preserved as an agent request mistake.
+Corrected W026b closes the child once; W026c and W030 reject actually closed
+windows. Final main-window activity, no modal blocker, no focused control and
+unchanged unrelated input/form/table journals agree with native UIA. Reset and
+owned termination pass; 25 immutable binaries/source verify. All 32 original
+clients and app 9388 are absent. PID 19144 now identifies an unrelated svchost
+with unavailable start time; the original dotnet client's recorded exit and
+different process identity prove reuse, and that process was never touched.
+An optional-null verifier error and incorrect cleanup parameter/stale exit-code
+checks remain retained; corrected verification does not replay the journey.
+Standalone window comparison and navigation are still pending.
+
+Full `19dd8bd` CI `36186815465` is terminal **failed**. Downloaded TRX verifies
+Windows 1010 passed/eight skipped, macOS 1007 passed/one failed/nine skipped and
+Linux 33 passed. All thirteen #209/#210 cases pass on both full-test platforms;
+six native integration runs and three expiry runs pass on exact clean source
+at actual 1x. macOS fails the unchanged common-state pseudo-state matrix test;
+its only reported error is a generation-scoped-node advisory, and its output
+directory is deleted. #211 retains this failure and investigates the missing
+causal evidence; the original cause is unknown. Subsequent macOS gates were
+skipped. #209/#210 stay review, #174 moves to review while #211 is selected.
+Current inventory: 47 defects, 32 closed. No release.
+
+Earlier #174 exploration: `focus-standalone-after-01` on clean `2684a38`
 (production unchanged since `19dd8bd`) executes 24 public calls, 15 MCP/nine CLI,
 plus two real Windows keyboard actions. All 61 evidence checks pass; eight
 images were reviewed. Initial no-focus, editor focus, synthetic Tab/Shift+Tab,

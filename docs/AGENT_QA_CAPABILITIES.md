@@ -105,6 +105,18 @@ that resolves on a separate read without redispatch. Source/25 pinned binaries
 and original-process cleanup verify. This supplies standalone focus evidence at
 Win32 1x; multi-window/modal focus and other platforms remain separate boundaries.
 
+`windows-direct-01` on clean `53ad53c` subsequently supplies Direct multi-window
+evidence: 32 public calls, 124 checks and seven viewed native images. Parent
+resize/stale/restore, owned child move with independent native coordinate delta,
+modal resize blocking, explicit modal focus/owned HWND Tab, isolated closure and
+closed-target refusal pass. Final window focus has no focused control, confirmed
+by UIA. The original missing-isolation close request was correctly refused and
+is preserved separately from its corrected invocation. Reset, binary/source
+identity and original-process absence verify. Standalone window comparison and
+navigation boundaries remain pending; no cross-platform/Retina claim. The full
+19dd8bd CI fails a separate macOS common-state matrix case (#211) even though all
+thirteen #209/#210 regressions and the Windows/Linux/native gates pass.
+
 The separate `preview-campaign-01` journey on clean `0658716` uses Windows
 headless Skia / Avalonia 12.1.3: 22 MCP/six CLI calls, 17 positive checks, nine
 viewed images and independent pixel analysis. DPI sizing, source reload with
