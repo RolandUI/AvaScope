@@ -43,8 +43,23 @@ text, redact lease tokens; the evidence scan finds no known raw lease token.
 This is Windows production ownership evidence, not a Unix fixture fix or proof
 of the original hosted failure's cause. Full CI
 [36096369354](https://github.com/RolandUI/AvaScope/actions/runs/36096369354)
-is running the unchanged before-fix checkpoint; its Windows test step has passed
-but the complete workflow and Unix reproduction are still pending.
+is running the unchanged before-fix checkpoint. Windows Build/Test/Pack is now
+complete: 855 passed/six explicit skips (including the Unix case), zero failures,
+11m34s, plus the packaged-installer case. Raw/clean job logs are retained as
+`expanded-campaign/ci-8beb-windows-raw.log` / `ci-8beb-windows.log`. The macOS
+native QA job also passed; full Unix jobs and complete workflow remain pending.
+
+Fresh clean `a099b86` standalone comparison `ownership-standalone-01` passes all
+34 retained checks, through 25 MCP/seven CLI calls, on native Win32/Avalonia
+12.1.3/1120x800/1x. Provider manifest SHA-256 is
+`aefea294a734bf699fcacde04420a66b1373c73ed8580dc37833490c840ae074`.
+The same contention, handoff, old/invalid/expired-token, reacquire, reset and
+owned cleanup journeys pass. Viewed Windows/rendered images show notifications
+enabled and exactly one toggle; only the two permitted toggles and reset change
+the independent journal. Token-redacted protocol evidence has no known raw
+lease token. App PID 1760 is gone, client 15016 exits 0 after 25 calls with empty
+stderr, repeated recovery agrees and Stop confirms `already_exited`/`stopped`.
+These are independent integration checks; neither asserts a Unix fixture fix.
 
 ## Failed startup cleanup (#190, combined gate pending)
 
