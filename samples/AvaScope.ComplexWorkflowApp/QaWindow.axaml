@@ -220,6 +220,40 @@
             </StackPanel>
           </ScrollViewer>
         </TabItem>
+        <TabItem Header="Runtime" AutomationProperties.AutomationId="qa-runtime-tab">
+          <ScrollViewer>
+            <StackPanel Margin="12" Spacing="10" HorizontalAlignment="Stretch" MaxWidth="600">
+              <TextBlock Text="Declared scene and background work" FontSize="22" />
+              <TextBlock x:Name="DeclarationStatus" Text="Host declarations unavailable; ordinary fixture controls remain usable."
+                         TextWrapping="Wrap" AutomationProperties.AutomationId="qa-declaration-status" />
+              <local:QaSceneControl x:Name="RuntimeScene" Height="130" HorizontalAlignment="Stretch"
+                                    AutomationProperties.Name="Three drawn records" AutomationProperties.AutomationId="qa-scene" />
+              <StackPanel Orientation="Horizontal" Spacing="10">
+                <Button x:Name="MoveSceneButton" Content="Shift scene" AutomationProperties.AutomationId="qa-scene-shift" />
+                <TextBlock x:Name="SceneStatus" VerticalAlignment="Center" AutomationProperties.AutomationId="qa-scene-status" />
+              </StackPanel>
+              <StackPanel Orientation="Horizontal" Spacing="10">
+                <Button x:Name="StartOperationButton" Content="Run work" AutomationProperties.AutomationId="qa-operation-start" />
+                <Button x:Name="FailOperationButton" Content="Run failing work" AutomationProperties.AutomationId="qa-operation-fail" />
+                <Button x:Name="CancelOperationButton" Content="Cancel work" AutomationProperties.AutomationId="qa-operation-cancel" />
+              </StackPanel>
+              <ProgressBar x:Name="OperationProgress" Minimum="0" Maximum="100" Height="12"
+                           AutomationProperties.AutomationId="qa-operation-progress" />
+              <TextBlock x:Name="OperationStatus" Text="Idle" TextWrapping="Wrap" AutomationProperties.AutomationId="qa-operation-status" />
+              <CheckBox x:Name="DiagnosticToggle" Content="Enable intentional diagnostic errors"
+                        AutomationProperties.AutomationId="qa-diagnostics-toggle" />
+              <TextBox x:Name="DiagnosticEditor" Text="Local diagnostic reference" IsReadOnly="True"
+                       AutomationProperties.AutomationId="qa-diagnostic-validation" />
+              <TextBlock x:Name="DiagnosticBinding" Text="Binding fixture disabled"
+                         AutomationProperties.AutomationId="qa-diagnostic-binding" />
+              <Border Width="280" Height="32" ClipToBounds="True" HorizontalAlignment="Left" BorderThickness="1" BorderBrush="#69BFFF"
+                      AutomationProperties.AutomationId="qa-diagnostic-clip">
+                <TextBlock x:Name="DiagnosticLayout" Text="Layout fixture reference" Width="260" HorizontalAlignment="Left"
+                           AutomationProperties.AutomationId="qa-diagnostic-layout" />
+              </Border>
+            </StackPanel>
+          </ScrollViewer>
+        </TabItem>
       </TabControl>
       <TextBlock Grid.Row="3" x:Name="StateSummary" TextWrapping="Wrap" FontFamily="monospace" FontSize="12"
                  AutomationProperties.AutomationId="qa-state-summary" />

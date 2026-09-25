@@ -19,6 +19,7 @@
     <Using Include="Xunit" />
     <None Update="xunit.runner.json" CopyToOutputDirectory="PreserveNewest" />
     <Compile Include="../../samples/AvaScope.ComplexWorkflowApp/QaWindow.axaml.cs" Link="Fixtures/QaWindow.axaml.cs" />
+    <Compile Include="../../samples/AvaScope.ComplexWorkflowApp/QaRuntimeRegistration.cs" Link="Fixtures/QaRuntimeRegistration.cs" />
     <AvaloniaXaml Include="../../samples/AvaScope.ComplexWorkflowApp/QaWindow.axaml" Link="Fixtures/QaWindow.axaml" />
   </ItemGroup>
 

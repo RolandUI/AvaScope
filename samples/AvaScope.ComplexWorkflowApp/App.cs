@@ -38,9 +38,11 @@ public sealed class App : Application
                 desktop.MainWindow = window;
                 var qaRuntime = AvaScopeBridge.Activate(new BridgeActivationOptions(
                     "AvaScope Agent QA", enableCustomActions: true,
-                    allowedCustomActions: ["fixture.prepare.agent-qa", "fixture.cleanup.agent-qa"],
+                    allowedCustomActions: ["fixture.prepare.agent-qa", "fixture.cleanup.agent-qa",
+                        QaRuntimeRegistration.SelectAction, QaRuntimeRegistration.WorkAction],
                     enableTestFixtures: true, allowedTestResources: ["qa-memory"]));
                 _registrations.Add(qaRuntime.RegisterTopLevel(window));
+                _registrations.AddRange(QaRuntimeRegistration.Register(qaRuntime, window));
                 // The desktop lifetime discovers children and removes them on close.
                 window.ReadinessChanged += state => qaRuntime.SetReadiness(state, "Agent QA fixture");
                 _registrations.Add(qaRuntime.RegisterTestFixture(window,

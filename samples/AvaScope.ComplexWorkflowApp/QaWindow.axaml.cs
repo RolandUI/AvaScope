@@ -6,6 +6,7 @@ using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Collections;
+using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Markup.Xaml.Styling;
 using Avalonia.Media;
@@ -13,6 +14,70 @@ using Avalonia.Styling;
 using Avalonia.Threading;
 
 namespace AvaScope.ComplexWorkflowApp;
+
+public sealed record QaSceneItem(string Id, string Label, Rect Bounds);
+
+public sealed class QaSceneControl : Control
+{
+    public IReadOnlyList<QaSceneItem> Items { get; } =
+    [new("blue", "Blue record", new(10, 20, 150, 80)),
+     new("orange", "Orange record", new(195, 20, 150, 80)),
+     new("green", "Green record", new(380, 20, 150, 80))];
+    public int Generation { get; private set; }
+    public int Revision { get; private set; }
+    public int SelectionCount { get; private set; }
+    public string? SelectedId { get; private set; }
+    public int Offset { get; private set; }
+    public Matrix SceneToCanvas => Matrix.CreateTranslation(Offset, 0);
+    public event Action? Changed;
+
+    public QaSceneControl()
+    {
+        PointerPressed += (_, args) =>
+        {
+            if (!args.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
+            var point = args.GetPosition(this) - new Vector(Offset, 0);
+            var item = Items.FirstOrDefault(item => item.Bounds.Contains(point));
+            if (item is not null) Select(item.Id);
+        };
+    }
+
+    public bool Select(string id)
+    {
+        Dispatcher.UIThread.VerifyAccess();
+        if (!Items.Any(item => item.Id == id)) return false;
+        SelectedId = id; SelectionCount++; Revision++;
+        InvalidateVisual(); Changed?.Invoke(); return true;
+    }
+
+    public void Shift()
+    {
+        Dispatcher.UIThread.VerifyAccess();
+        Offset = Offset == 0 ? 20 : 0; Revision++;
+        InvalidateVisual(); Changed?.Invoke();
+    }
+
+    public void Reset()
+    {
+        Dispatcher.UIThread.VerifyAccess();
+        Generation++; Revision++; SelectionCount = 0; SelectedId = null; Offset = 0;
+        InvalidateVisual(); Changed?.Invoke();
+    }
+
+    public override void Render(DrawingContext context)
+    {
+        context.DrawRectangle(Brushes.WhiteSmoke, null, new Rect(Bounds.Size));
+        using (context.PushTransform(SceneToCanvas))
+            foreach (var item in Items)
+            {
+                var brush = item.Id switch { "blue" => Brushes.SteelBlue, "orange" => Brushes.DarkOrange, _ => Brushes.SeaGreen };
+                context.DrawRectangle(brush, new Pen(SelectedId == item.Id ? Brushes.Black : Brushes.Transparent, 4), item.Bounds);
+                var text = new FormattedText(item.Label, CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
+                    Typeface.Default, 18, Brushes.White);
+                context.DrawText(text, item.Bounds.TopLeft + new Point(12, 26));
+            }
+    }
+}
 
 public sealed class QaRecord(string id, string name, string status, int score) : INotifyPropertyChanged
 {
@@ -96,6 +161,14 @@ public partial class QaWindow : Window
     private IPointer? _capturedPointer;
     private Point _dragDelta;
     private object? _savedProfile;
+    private CancellationTokenSource? _operation;
+    private IDisposable? _diagnosticBinding;
+    private int _operationStarts;
+    private int _operationCompletions;
+    private int _operationFailures;
+    private int _operationCancellations;
+    private string _operationState = "idle";
+    private bool _declaredRuntime;
 
     public event Action<string>? ReadinessChanged;
 
@@ -204,9 +277,18 @@ public partial class QaWindow : Window
             if (change.Property == TextBox.TextProperty) Record("keyboard_text");
         };
         KeyboardNext.Click += (_, _) => { _focusActions++; Record("focus_action"); };
+        RuntimeScene.Changed += () => Record("scene_changed");
+        MoveSceneButton.Click += (_, _) => RuntimeScene.Shift();
+        StartOperationButton.Click += async (_, _) => await RunFixtureOperationAsync("complete", 8);
+        FailOperationButton.Click += async (_, _) => await RunFixtureOperationAsync("fail", 8);
+        CancelOperationButton.Click += (_, _) => { _operation?.Cancel(); Record("operation_cancel_requested"); };
+        DiagnosticToggle.PropertyChanged += (_, change) =>
+        {
+            if (change.Property == ToggleButton.IsCheckedProperty) SetDiagnosticErrors(DiagnosticToggle.IsChecked == true);
+        };
         SizeChanged += (_, _) => Record("size_observed");
         Opened += (_, _) => { _lease.Start(); Record("window_opened"); };
-        Closed += (_, _) => { _closed = true; _lease.Stop(); CancelLoading(); CloseChildren(); Record("window_closed"); };
+        Closed += (_, _) => { _closed = true; _lease.Stop(); CancelLoading(); StopFixtureOperation(); _diagnosticBinding?.Dispose(); CloseChildren(); Record("window_closed"); };
         ResetState();
     }
 
@@ -216,6 +298,7 @@ public partial class QaWindow : Window
         try
         {
             CancelLoading();
+            StopFixtureOperation();
             CloseChildren();
             QaPopup.IsOpen = false;
             Notifications.IsChecked = false;
@@ -264,6 +347,13 @@ public partial class QaWindow : Window
             InputMenu.Close();
             _capturedPointer?.Capture(null);
             KeyboardEditor.Text = "Keyboard seed — Árvíztűrő 😀";
+            RuntimeScene.Reset();
+            _operationStarts = _operationCompletions = _operationFailures = _operationCancellations = 0;
+            _operationState = "idle";
+            OperationProgress.Value = 0;
+            OperationStatus.Text = "Idle";
+            DiagnosticToggle.IsChecked = false;
+            SetDiagnosticErrors(false);
             _toggleCount = _textChanges = _lowercaseCount = _uppercaseCount = _templateCount = 0;
             _resetGeneration++;
         }
@@ -275,12 +365,92 @@ public partial class QaWindow : Window
     public void CleanupState()
     {
         CancelLoading();
+        StopFixtureOperation();
         CloseChildren();
         QaPopup.IsOpen = false;
         PointerPad.ContextMenu?.Close();
         InputMenu.Close();
         _capturedPointer?.Capture(null);
         Record("fixture_cleanup");
+    }
+
+    public void EnableDeclaredRuntime()
+    {
+        _declaredRuntime = true;
+        DeclarationStatus.Text = "Scene selection and cancellable work are declared to AvaScope by this host.";
+        Record("runtime_declared");
+    }
+
+    public async Task<string> RunFixtureOperationAsync(string mode, int steps,
+        CancellationToken cancellationToken = default, Action<double, string>? report = null)
+    {
+        Dispatcher.UIThread.VerifyAccess();
+        if (mode is not ("complete" or "fail") || steps is < 1 or > 10)
+            throw new ArgumentException("Fixture work requires complete/fail and 1–10 steps.");
+        StopFixtureOperation();
+        var operation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        _operation = operation;
+        _operationStarts++; _operationState = "running";
+        OperationProgress.Value = 0; OperationStatus.Text = "Running";
+        Record("operation_started");
+        try
+        {
+            for (var step = 1; step <= steps; step++)
+            {
+                await Task.Delay(150, operation.Token);
+                if (!ReferenceEquals(operation, _operation) || _closed) return "cancelled";
+                OperationProgress.Value = 100d * step / steps;
+                OperationStatus.Text = $"Running {step}/{steps}";
+                report?.Invoke((double)step / steps, OperationStatus.Text);
+                Record("operation_progress");
+            }
+            _operationState = mode == "fail" ? "failed" : "completed";
+            if (mode == "fail") _operationFailures++; else _operationCompletions++;
+            OperationStatus.Text = mode == "fail" ? "Deliberate fixture failure" : "Completed";
+            Record("operation_" + _operationState);
+            return _operationState;
+        }
+        catch (OperationCanceledException) when (operation.IsCancellationRequested)
+        {
+            // Reset, replacement and cleanup own their new state; old work cannot overwrite it.
+            if (ReferenceEquals(operation, _operation) && !_closed)
+            {
+                _operationCancellations++; _operationState = "cancelled";
+                OperationStatus.Text = "Cancelled";
+                Record("operation_cancelled");
+            }
+            return "cancelled";
+        }
+        finally
+        {
+            if (ReferenceEquals(operation, _operation)) _operation = null;
+            operation.Dispose();
+        }
+    }
+
+    private void StopFixtureOperation()
+    {
+        var operation = _operation;
+        _operation = null;
+        operation?.Cancel();
+        if (_operationState == "running")
+        {
+            _operationState = "cancelled";
+            OperationStatus.Text = "Cancelled";
+        }
+    }
+
+    private void SetDiagnosticErrors(bool enabled)
+    {
+        _diagnosticBinding?.Dispose(); _diagnosticBinding = null;
+        DataValidationErrors.SetErrors(DiagnosticEditor, enabled ? new[] { "Intentional QA validation error." } : null);
+        DiagnosticBinding.Text = "Binding fixture disabled";
+        if (enabled)
+            _diagnosticBinding = DiagnosticBinding.Bind(TextBlock.TextProperty,
+                new ReflectionBinding("MissingQaDiagnosticProperty") { Source = this, FallbackValue = "Expected missing binding" });
+        DiagnosticLayout.Width = enabled ? 800 : 260;
+        DiagnosticLayout.Text = enabled ? "Intentional clipped layout — this text exceeds its declared parent" : "Layout fixture reference";
+        Record("diagnostics_changed");
     }
 
     private void ObserveEditor(TextBox editor)
@@ -398,6 +568,7 @@ public partial class QaWindow : Window
         StateSummary.Text = $"reset={_resetGeneration}; notifications={Notifications.IsChecked == true}; toggles={_toggleCount}; name={Bound(_editor.Text)}; edits={_textChanges}; a={_lowercaseCount}; A={_uppercaseCount}";
         TableStatus.Text = $"selected={(RecordsTable.SelectedItem as QaRecord)?.Id ?? "none"}; edits={_tableEdits}";
         InputStatus.Text = $"menu={_menuActions}; context={_contextActions}; presses={_pointerPresses}; releases={_pointerReleases}; drags={_drags}; delta={_dragDelta}; keys={_keyDowns}; last={_lastKey ?? "none"}; focus actions={_focusActions}";
+        SceneStatus.Text = $"selected={RuntimeScene.SelectedId ?? "none"}; revision={RuntimeScene.Revision}; selections={RuntimeScene.SelectionCount}";
         if (string.IsNullOrWhiteSpace(_outputDirectory)) return;
         if (!_closed) _screenBounds = Screens.ScreenFromWindow(this)?.Bounds;
         Directory.CreateDirectory(_outputDirectory);
@@ -422,6 +593,16 @@ public partial class QaWindow : Window
             input = new { menuActions = _menuActions, contextActions = _contextActions, pointerPresses = _pointerPresses,
                 pointerReleases = _pointerReleases, drags = _drags, dragX = _dragDelta.X, dragY = _dragDelta.Y,
                 keyDowns = _keyDowns, lastKey = _lastKey, text = Bound(KeyboardEditor.Text), focusActions = _focusActions },
+            scene = new { declared = _declaredRuntime, generation = RuntimeScene.Generation, revision = RuntimeScene.Revision,
+                selectedId = RuntimeScene.SelectedId, selections = RuntimeScene.SelectionCount, offset = RuntimeScene.Offset,
+                objects = RuntimeScene.Items.Select(item => new { id = item.Id, label = item.Label,
+                    x = item.Bounds.X, y = item.Bounds.Y, width = item.Bounds.Width, height = item.Bounds.Height }) },
+            operation = new { state = _operationState, starts = _operationStarts, completions = _operationCompletions,
+                failures = _operationFailures, cancellations = _operationCancellations, progress = OperationProgress.Value,
+                status = OperationStatus.Text },
+            intentionalDiagnostics = new { enabled = DiagnosticToggle.IsChecked == true,
+                validationError = DataValidationErrors.GetHasErrors(DiagnosticEditor), bindingAttached = _diagnosticBinding is not null,
+                childWidth = DiagnosticLayout.Width },
             theme = ActualThemeVariant.ToString(), locale = _locale, font = FontManager.Current.DefaultFontFamily.Name,
             nativeHandleKind = TryGetPlatformHandle()?.HandleDescriptor, renderScaling = RenderScaling,
             clientWidth = ClientSize.Width, clientHeight = ClientSize.Height,

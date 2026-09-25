@@ -93,9 +93,29 @@ All data is local and synthetic. Form validation is intentionally triggered by
 Save; changing a field does not itself commit the profile. Table status is
 free-form, Score is an integer, and Identifier/Name are read-only. Unsupported
 providers/operations must be recorded as unsupported, not silently replaced by a
-different successful action. Host-declared scenes/operations/diagnostics follow
-in #173; [the complete source-derived capability inventory](AGENT_QA_CAPABILITIES.md)
+different successful action. Host-declared scenes/operations/diagnostics are
+described below; [the complete source-derived capability inventory](AGENT_QA_CAPABILITIES.md)
 and campaign are #174.
+
+### Runtime fixture charters (#173)
+
+Runtime (tab 7) adds a shared pure Avalonia scene, bounded background work and
+opt-in diagnostic errors. Direct additionally registers the scene and custom
+actions through `QaRuntimeRegistration`; standalone has no host-owned registration
+and explicitly says so. An unsupported standalone `scene`/custom-action request
+is an expected limitation, never a passing declared-operation journey.
+
+| Surface | Journey and independent oracle |
+| --- | --- |
+| `qa-scene` | Three drawn records (`blue`, `orange`, `green`) keep stable IDs, with generation changed by reset and revision changed by selection/shift/reset. Inspect declared object bounds; use geometry-pinned `pick_node` to locate the canvas and ordinary pointer input to select a drawn record. Shift by 20 DIP and repeat. Direct `scene` invocation uses `qa.scene.select` and the observed object token; stale tokens must be refused without journal changes. Selection outline, `scene.selectedId` and `scene.selections` are independent oracles. Scene declarations do not claim OS hit testing. |
+| `qa-operation-start` | Direct `qa.work` declares `mode` (`complete`/`fail`) and integer `steps` (1–10), each step taking 150 ms. Discover parameters, invoke once, observe progress, wait, fail deliberately and cancel. UI buttons run the same work on both hosts. `operation` journals starts/terminal counts, progress and visible status; reset or cleanup cancels old work before it can alter prepared state. Use retained operation IDs for terminal observation after reset. Background work leaves the UI interactive and does not declare the entire app busy. |
+| `qa-diagnostics-toggle` | Default is clean: validation off, no intentional missing binding, width 260 inside the 280 DIP clipping parent. Enable errors to introduce one explicit validation error, an unresolved `MissingQaDiagnosticProperty` binding with a visible fallback and an 800 DIP child inside that parent. Observe diagnostics/audit/layout findings and compare pixels plus `intentionalDiagnostics`; disable/reset must remove the intentional current errors. Historical diagnostic logs may retain earlier events and must be distinguished from current state. |
+
+Retain trace correlation around declared actions, runtime expression/assertion
+results against independent journal values, and reversible mutation before/after/
+reset images. A successful operation response is insufficient if the journal or
+visible state disagrees. Fresh execution outcomes belong in the campaign report;
+this charter does not assert a passing test run.
 
 The #175 regression requires an applied DataGrid template and realized rows;
 reading its backing collection alone can succeed even when the entire grid is
