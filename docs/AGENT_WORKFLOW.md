@@ -323,6 +323,8 @@ Applied mutation responses include mutation ids, original/effective metadata, di
 
 Runtime mutations are temporary local overrides. Prefer `reset_mutation` or `reset_all` when keeping a session open; `close-session`, bridge deactivation, and top-level unregister also clear AvaScope's active mutation registry and attempt to restore active overrides.
 
+Reset overlapping overrides in reverse application order. If a newer active mutation changes the same property, class, or resource on the same object, `reset_mutation` and its dry-run validation return `rejected` with `runtime_mutation_reset_order_conflict`, without changing the value or active registry. Reset the returned `blockingMutationId` first, or use `reset_all` to restore the session's original values in reverse order. Independent objects and values can be reset separately; visual/logical aliases of the same object share this ordering rule.
+
 ## 9. Close And Clean Up
 
 ```powershell

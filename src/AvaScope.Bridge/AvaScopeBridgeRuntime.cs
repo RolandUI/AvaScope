@@ -1932,10 +1932,7 @@ public sealed partial class AvaScopeBridgeRuntime
                     RuntimeMutationErrorCodes.UnsupportedRuntimeMutationProperty,
                     "Resource mutations require a StyledElement target."),
             RuntimeMutationOperationKinds.SetResource => ValidateResourceMutation(request.Operation),
-            RuntimeMutationOperationKinds.ResetMutation
-                when !_activeMutations.ContainsKey(request.Operation.MutationId!) => new CoreError(
-                    RuntimeMutationErrorCodes.RuntimeMutationResetTargetNotFound,
-                    $"Runtime mutation '{request.Operation.MutationId}' is not active and cannot be reset."),
+            RuntimeMutationOperationKinds.ResetMutation => ValidateMutationReset(request.Operation.MutationId!),
             _ => null
         };
 
@@ -2052,6 +2049,8 @@ public sealed partial class AvaScopeBridgeRuntime
             resolvedTarget.Node.GetType().FullName ?? resolvedTarget.Node.GetType().Name,
             appliedAt,
             metadata,
+            property.Owner,
+            property.Property,
             () => ResetAvaloniaProperty(property.Owner, property.Property, original.Value, shouldRestoreLocalValue));
 
         _activeMutations[identity.Id] = activeMutation;
@@ -2142,6 +2141,8 @@ public sealed partial class AvaScopeBridgeRuntime
             resolvedTarget.Node.GetType().FullName ?? resolvedTarget.Node.GetType().Name,
             appliedAt,
             metadata,
+            styledElement,
+            "class:" + className,
             () => SetClassPresence(styledElement, className, wasPresent));
 
         _activeMutations[identity.Id] = activeMutation;
@@ -2270,6 +2271,8 @@ public sealed partial class AvaScopeBridgeRuntime
             resolvedTarget.Node.GetType().FullName ?? resolvedTarget.Node.GetType().Name,
             appliedAt,
             metadata,
+            styledElement,
+            "resource:" + resourceKey,
             () => ResetResource(styledElement, resourceKey, hadLocalResource, originalValue));
 
         _activeMutations[identity.Id] = activeMutation;
@@ -2283,30 +2286,51 @@ public sealed partial class AvaScopeBridgeRuntime
             metadata);
     }
 
+    private CoreError? ValidateMutationReset(string targetMutationId)
+    {
+        if (!_activeMutations.TryGetValue(targetMutationId, out var mutation))
+        {
+            return new CoreError(
+                RuntimeMutationErrorCodes.RuntimeMutationResetTargetNotFound,
+                $"Runtime mutation '{targetMutationId}' is not active and cannot be reset.",
+                new Dictionary<string, string>
+                {
+                    ["mutationId"] = targetMutationId,
+                    ["activeMutationCount"] = _activeMutations.Count.ToString(CultureInfo.InvariantCulture),
+                    ["nextAction"] = "Reset only mutation ids returned by applied mutation responses, or call reset_all for the current session."
+                });
+        }
+
+        var newer = _activeMutations.Values
+            .Where(candidate => candidate.Sequence > mutation.Sequence
+                && ReferenceEquals(candidate.ResetOwner, mutation.ResetOwner)
+                && Equals(candidate.ResetKey, mutation.ResetKey))
+            .OrderByDescending(static candidate => candidate.Sequence)
+            .FirstOrDefault();
+        return newer is null ? null : new CoreError(
+            RuntimeMutationErrorCodes.RuntimeMutationResetOrderConflict,
+            $"Runtime mutation '{targetMutationId}' cannot be reset while a newer mutation overrides the same value.",
+            new Dictionary<string, string>
+            {
+                ["mutationId"] = targetMutationId,
+                ["blockingMutationId"] = newer.MutationId,
+                ["activeMutationCount"] = _activeMutations.Count.ToString(CultureInfo.InvariantCulture),
+                ["nextAction"] = "Reset newer mutations of this value first, starting with blockingMutationId, or call reset_all for the current session."
+            });
+    }
+
     private CoreResult<RuntimeMutationResponse> ResetMutation(
         RuntimeMutationRequest request,
         RuntimeTargetContext currentTarget)
     {
         var targetMutationId = request.Operation.MutationId!;
-        if (!_activeMutations.TryGetValue(targetMutationId, out var mutation))
+        var error = ValidateMutationReset(targetMutationId);
+        if (error is not null)
         {
-            return MutationResponse(
-                request,
-                RuntimeMutationStatuses.Rejected,
-                applied: false,
-                currentTarget,
-                new ProtocolError(
-                    RuntimeMutationErrorCodes.RuntimeMutationResetTargetNotFound,
-                    $"Runtime mutation '{targetMutationId}' is not active and cannot be reset.",
-                    new Dictionary<string, string>
-                    {
-                        ["mutationId"] = targetMutationId,
-                        ["activeMutationCount"] = _activeMutations.Count.ToString(CultureInfo.InvariantCulture),
-                        ["nextAction"] = "Reset only mutation ids returned by applied mutation responses, or call reset_all for the current session."
-                    }));
+            return MutationResponse(request, RuntimeMutationStatuses.Rejected, applied: false, currentTarget, ToProtocolError(error));
         }
 
-        return ResetAppliedMutations(request, currentTarget, [mutation], resetAll: false);
+        return ResetAppliedMutations(request, currentTarget, [_activeMutations[targetMutationId]], resetAll: false);
     }
 
     private CoreResult<RuntimeMutationResponse> ResetAllMutations(
@@ -2896,7 +2920,8 @@ public sealed partial class AvaScopeBridgeRuntime
         {
             RuntimeMutationErrorCodes.InvalidRuntimeMutationRequest
                 or RuntimeMutationErrorCodes.InvalidRuntimeMutationValue
-                or RuntimeMutationErrorCodes.RuntimeMutationResetTargetNotFound => RuntimeMutationStatuses.Rejected,
+                or RuntimeMutationErrorCodes.RuntimeMutationResetTargetNotFound
+                or RuntimeMutationErrorCodes.RuntimeMutationResetOrderConflict => RuntimeMutationStatuses.Rejected,
             RuntimeMutationErrorCodes.RuntimeMutationCapabilityUnavailable
                 or RuntimeMutationErrorCodes.UnsupportedRuntimeMutationOperation
                 or RuntimeMutationErrorCodes.UnsupportedRuntimeMutationProperty => RuntimeMutationStatuses.Unsupported,
@@ -7450,6 +7475,8 @@ public sealed partial class AvaScopeBridgeRuntime
         string NodeType,
         DateTimeOffset AppliedAt,
         IReadOnlyDictionary<string, string> Metadata,
+        object ResetOwner,
+        object ResetKey,
         Action Reset);
 
     private sealed record ResolvedMutationTarget(object Node, RuntimeTargetContext Target);

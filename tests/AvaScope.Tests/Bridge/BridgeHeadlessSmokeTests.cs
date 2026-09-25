@@ -606,6 +606,149 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
         }
     }
 
+    [Theory]
+    [InlineData("property", "reset_all")]
+    [InlineData("property", "deactivate")]
+    [InlineData("property", "individual")]
+    [InlineData("class", "reset_all")]
+    [InlineData("class", "deactivate")]
+    [InlineData("class", "individual")]
+    [InlineData("resource", "reset_all")]
+    [InlineData("resource", "deactivate")]
+    [InlineData("resource", "individual")]
+    public async Task RuntimeMutationResetOrderingPreservesNewerOverridesAndOriginalState(string kind, string cleanup)
+    {
+        var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessTestApplication));
+        try
+        {
+            await DispatchAsync(session, async () =>
+            {
+                AvaScopeBridge.Deactivate();
+                var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Mutation ordering"));
+                var first = new TextBox { Name = "First", Text = "Ada", Width = 180 };
+                var second = new TextBox { Name = "Second", Text = "Grace", Width = 180 };
+                first.Resources["shared"] = "original";
+                var window = new Window
+                {
+                    Width = 400, Height = 240,
+                    Content = new StackPanel { Children = { first, second } }
+                };
+                try
+                {
+                    window.Show();
+                    using var registration = runtime.RegisterTopLevel(window);
+                    using var frame = window.CaptureRenderedFrame();
+                    Assert.NotNull(frame);
+                    var top = Assert.Single(await runtime.ListTopLevelsAsync());
+                    var visual = Assert.Single((await runtime.FindNodesAsync(top.Id, TreeKinds.Visual, name: "First", maxDepth: 32)).Value!.Matches).Target!;
+                    var logical = Assert.Single((await runtime.FindNodesAsync(top.Id, TreeKinds.Logical, name: "First", maxDepth: 32)).Value!.Matches).Target!;
+                    var other = Assert.Single((await runtime.FindNodesAsync(top.Id, TreeKinds.Visual, name: "Second", maxDepth: 32)).Value!.Matches).Target!;
+                    var changes = 0;
+                    first.PropertyChanged += (_, change) => { if (change.Property == TextBox.TextProperty) changes++; };
+
+                    RuntimeMutationOperation Edit(bool newer) => kind switch
+                    {
+                        "property" => new(RuntimeMutationOperationKinds.SetProperty,
+                            propertyName: newer ? "text" : "Text", value: newer ? "B" : "A", valueType: "string"),
+                        "class" => new(newer ? RuntimeMutationOperationKinds.RemoveClass : RuntimeMutationOperationKinds.AddClass,
+                            className: "shared"),
+                        _ => new(RuntimeMutationOperationKinds.SetResource,
+                            resourceKey: "shared", value: newer ? "B" : "A", valueType: "string")
+                    };
+                    string Current() => kind switch
+                    {
+                        "property" => first.Text!,
+                        "class" => first.Classes.Contains("shared").ToString(),
+                        _ => (string)first.Resources["shared"]!
+                    };
+                    async Task<RuntimeMutationResponse> Apply(string id, RuntimeTargetContext target, RuntimeMutationOperation operation)
+                    {
+                        var result = await runtime.MutateNodeAsync(new(id, target, operation));
+                        Assert.True(result.Success, result.Error?.Message);
+                        Assert.NotNull(result.Value);
+                        return result.Value;
+                    }
+
+                    var original = Current();
+                    var older = await Apply("older", visual, Edit(false));
+                    var newer = await Apply("newer-logical-alias", logical, Edit(true));
+                    Assert.True(older.Applied && newer.Applied);
+                    var current = Current();
+                    var changeCount = changes;
+                    var resetOperation = new RuntimeMutationOperation(RuntimeMutationOperationKinds.ResetMutation, mutationId: older.MutationId);
+                    var reset = await Apply("unsafe-reset", visual, resetOperation);
+                    Assert.False(reset.Applied, JsonSerializer.Serialize(new { kind, current, after = Current(), reset }));
+                    Assert.Equal(RuntimeMutationStatuses.Rejected, reset.Status);
+                    var diagnostic = Assert.Single(reset.Diagnostics);
+                    Assert.Equal(RuntimeMutationErrorCodes.RuntimeMutationResetOrderConflict, diagnostic.Code);
+                    Assert.Equal(newer.MutationId, diagnostic.Details!["blockingMutationId"]);
+                    Assert.Equal(current, Current());
+                    Assert.Equal(changeCount, changes);
+                    var validation = await runtime.ValidateMutationAsync(new("validate-unsafe-reset", logical, resetOperation));
+                    Assert.True(validation.Success, validation.Error?.Message);
+                    Assert.Equal(RuntimeMutationStatuses.Rejected, validation.Value!.Status);
+                    Assert.Equal(diagnostic.Code, Assert.Single(validation.Value.Diagnostics).Code);
+                    Assert.Equal(current, Current());
+                    Assert.Equal(changeCount, changes);
+                    var review = await runtime.MutationReviewAsync();
+                    Assert.Equal(2, review.Value!.ActiveMutationCount);
+                    Assert.All(review.Value.ActiveMutations, entry => Assert.True(entry.Active));
+
+                    var independentTarget = await Apply("other-target", other, Edit(false));
+                    var independentSlot = await Apply("other-slot", visual,
+                        new(RuntimeMutationOperationKinds.SetProperty, propertyName: "Width", value: "240", valueType: "double"));
+                    Assert.True(independentTarget.Applied && independentSlot.Applied);
+                    Assert.True((await Apply("reset-independent-target", other,
+                        new(RuntimeMutationOperationKinds.ResetMutation, mutationId: independentTarget.MutationId))).Applied);
+                    Assert.True((await Apply("reset-independent-slot", visual,
+                        new(RuntimeMutationOperationKinds.ResetMutation, mutationId: independentSlot.MutationId))).Applied);
+                    Assert.Equal(180, first.Width);
+                    Assert.Equal("Grace", second.Text);
+                    Assert.DoesNotContain("shared", second.Classes);
+                    Assert.False(second.Resources.ContainsKey("shared"));
+                    Assert.Equal(current, Current());
+
+                    if (cleanup == "deactivate")
+                    {
+                        Assert.True(AvaScopeBridge.Deactivate().Success);
+                    }
+                    else
+                    {
+                        if (cleanup == "individual")
+                        {
+                            var allowed = new RuntimeMutationOperation(RuntimeMutationOperationKinds.ResetMutation, mutationId: newer.MutationId);
+                            var valid = await runtime.ValidateMutationAsync(new("validate-newer-reset", logical, allowed));
+                            Assert.Equal(RuntimeMutationStatuses.Validated, valid.Value!.Status);
+                            Assert.Equal(current, Current());
+                            Assert.True((await Apply("reset-newer", visual, allowed)).Applied);
+                            Assert.Equal(kind == "class" ? bool.TrueString : "A", Current());
+                            Assert.Equal(1, (await runtime.MutationReviewAsync()).Value!.ActiveMutationCount);
+                            Assert.True((await Apply("reset-older", logical, resetOperation)).Applied);
+                        }
+                        else
+                        {
+                            var all = await Apply("reset-all", visual, new(RuntimeMutationOperationKinds.ResetAll));
+                            Assert.True(all.Applied);
+                            Assert.Equal("2", all.Metadata["resetCount"]);
+                        }
+                        Assert.Equal(0, (await runtime.MutationReviewAsync()).Value!.ActiveMutationCount);
+                    }
+                    Assert.Equal(original, Current());
+                    Assert.Equal(kind == "property" ? 4 : 0, changes);
+                }
+                finally
+                {
+                    window.Close();
+                    AvaScopeBridge.Deactivate();
+                }
+            }, CancellationToken.None);
+        }
+        finally
+        {
+            DisposeHeadlessSessionAfterExplicitCleanup(session);
+        }
+    }
+
     [Fact]
     public async Task RuntimeMutationAppliesClassesResourcesTextAndScreenshotObservableBackgroundThenResetAll()
     {

@@ -27,8 +27,19 @@ The evidence tree has explicit byte/depth budgets: requested depth 32 is copied
 as a 27-node inline tree, while a 193-node/full-depth artifact is also returned
 and contains the target. The mutation evidence reports missing target summaries;
 full target evidence and HTML visual review are not claimed. Class/resource and
-standalone mutation coverage remain pending. Select #194 for a failing regression
-and minimal ordering guard before resuming those #174 journeys.
+standalone mutation coverage remain pending.
+
+#194's six before-fix real-Avalonia property/class/resource cases all fail at the
+unsafe-reset assertion, retaining complete responses and actual values. The
+guard now compares actual owner/value identity, including visual/logical aliases,
+and refuses an older overlapping reset with an actionable blocking mutation ID.
+Validation and execution share the guard; independent targets/values remain
+resettable. All 27 affected mutation/evidence/review cases pass (20s, clean build),
+including nine ordering cases with individual reverse reset, reset_all and
+deactivation. Original values, event counts and active registry are checked.
+TRX and verified summaries are in `expanded-campaign/mutation-order-{before,after}-results`.
+This is local regression confirmation; native Direct/standalone after-fix
+comparison and the fresh combined gate are still pending.
 
 ## Action-explanation fixture readiness (#193)
 
