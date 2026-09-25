@@ -21,6 +21,92 @@ namespace AvaScope.Tests.Bridge;
 [Collection(BridgeCollectionDefinition.Name)]
 public sealed class RuntimePickingTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task InteractionRecordingCapturesDeepGeometryAndParentCoordinates(bool clipped)
+    {
+        await WithWindow(async (runtime, window, button, top, node, client, output) =>
+        {
+            var target = new Border { Name = "RecordingTarget", Width = 80, Height = 30, Background = Brushes.Lime };
+            Canvas.SetLeft(target, clipped ? 110 : 20); Canvas.SetTop(target, 10);
+            var parent = new Canvas { Name = "RecordingParent", Width = 140, Height = 80,
+                ClipToBounds = true, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left,
+                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top, Children = { target } };
+            Control nested = parent;
+            for (var depth = 0; depth < 12; depth++) nested = new Border { Child = nested };
+            Canvas.SetLeft(nested, 30); Canvas.SetTop(nested, 40);
+            window.Content = new Canvas { Background = Brushes.White, Children = { nested } };
+            window.UpdateLayout(); using var prepared = window.CaptureRenderedFrame(); Assert.NotNull(prepared);
+            var found = Assert.Single((await client.FindNodesAsync(runtime.SessionId, top.TopLevelId,
+                TreeKinds.Visual, name: target.Name, maxDepth: 32)).Value!.Matches).Node;
+            var parentNode = Assert.Single((await client.FindNodesAsync(runtime.SessionId, top.TopLevelId,
+                TreeKinds.Visual, name: parent.Name, maxDepth: 32)).Value!.Matches).Node;
+            var tree = (await client.VisualTreeAsync(runtime.SessionId, top.TopLevelId, 32)).Value!;
+            Assert.True(tree.ResponseBudget?.Truncated);
+            Assert.DoesNotContain(found.NodeId, JsonSerializer.Serialize(tree.Root));
+            var result = await new RuntimeInteractionAnimationRunner().RunAsync(client, new(
+                runtime.SessionId, top.TopLevelId,
+                [new(RuntimeInteractionAnimationActions.Wait, targetNodeId: found.NodeId, frameOffsetsMs: [0, 1])],
+                outputDirectory: output, maxDepth: 32, assertions:
+                [new(found.NodeId, "width", "equals", expectedValue: 80, tolerance: 0),
+                 new(found.NodeId, "width", "not_clipped")]));
+            Assert.True(result.Success, JsonSerializer.Serialize(result.Error));
+            Assert.Equal(clipped ? "failed" : "passed", result.Value!.Status);
+            Assert.Equal("passed", result.Value.Assertions[0].Status);
+            Assert.Equal(clipped ? "failed" : "passed", result.Value.Assertions[1].Status);
+            Assert.DoesNotContain(result.Value.Diagnostics, d => d.Code == "interaction_geometry_target_not_found");
+            Assert.Equal(2, result.Value.Steps[0].Frames.Count);
+            foreach (var frame in result.Value.Steps[0].Frames)
+            {
+                var geometry = Assert.Single(frame.Geometry);
+                Assert.Equal(found.NodeId, geometry.NodeId);
+                Assert.Equal(parentNode.NodeId, geometry.ParentNodeId);
+                Assert.Equal(found.Bounds, geometry.Bounds);
+                Assert.Equal(parentNode.Bounds, geometry.ParentBounds);
+                Assert.Equal(new NodeBounds(clipped ? 140 : 50, 50, 80, 30), geometry.Bounds);
+                Assert.Equal(new NodeBounds(30, 40, 140, 80), geometry.ParentBounds);
+                Assert.Equal(clipped, geometry.IsClippedByParent);
+                using var pixels = SKBitmap.Decode(frame.Screenshot!.FilePath);
+                Assert.Equal(SKColors.Lime, pixels.GetPixel(clipped ? 150 : 60, 65));
+                Assert.Equal(SKColors.White, pixels.GetPixel(175, 65));
+                Assert.True(File.Exists(frame.GeometryOverlayPath));
+            }
+            var limited = await new RuntimeInteractionAnimationRunner().RunAsync(client, new(
+                runtime.SessionId, top.TopLevelId,
+                [new(RuntimeInteractionAnimationActions.Wait, targetNodeId: found.NodeId, frameOffsetsMs: [0])],
+                outputDirectory: Path.Combine(output, "depth-limited"), maxDepth: 2));
+            Assert.Equal("failed", limited.Value!.Status);
+            Assert.Empty(Assert.Single(limited.Value.Steps[0].Frames).Geometry);
+        });
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task InteractionRecordingDoesNotSubstituteMissingOrReplacedTarget(bool replaced)
+    {
+        await WithWindow(async (runtime, window, button, top, node, client, output) =>
+        {
+            var parent = (Border)button.Parent!;
+            window.Content = null;
+            Control nested = parent;
+            for (var depth = 0; depth < 12; depth++) nested = new Border { Child = nested };
+            window.Content = nested;
+            parent.Child = replaced ? new Button { Name = button.Name, Content = "Replacement" } : null;
+            window.UpdateLayout(); using var frame = window.CaptureRenderedFrame();
+            Assert.True((await client.VisualTreeAsync(runtime.SessionId, top.TopLevelId, 32)).Value!.ResponseBudget?.Truncated);
+            var result = await new RuntimeInteractionAnimationRunner().RunAsync(client, new(
+                runtime.SessionId, top.TopLevelId,
+                [new(RuntimeInteractionAnimationActions.Wait, targetNodeId: node.NodeId, frameOffsetsMs: [0])],
+                outputDirectory: output, maxDepth: 32));
+            Assert.True(result.Success, JsonSerializer.Serialize(result.Error));
+            Assert.Equal("failed", result.Value!.Status);
+            Assert.Contains(result.Value.Diagnostics, d => d.Code == "interaction_geometry_target_not_found");
+            Assert.Empty(Assert.Single(result.Value.Steps[0].Frames).Geometry);
+        });
+    }
+
     [Fact]
     public async Task SyntheticHoverCleanupPreservesPreexistingNativeHover()
     {

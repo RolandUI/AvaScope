@@ -70,6 +70,20 @@ Exact calls, journals, images, limitations and cleanup are described in
 | Pseudo-state target budgeting | `pointer-focus-direct-01` discovers #206 on ba07220; candidate `pseudo-budget-direct-after-01`: eleven calls, exact state/pixel/identity/cleanup evidence. | `pseudo-budget-standalone-after-01`: eight calls with fresh pure host/verified provider and matching target/guard results. | Deep-target, pressed/disabled and restoration checks pass; both transports/integrations expose separate false hover success (#207). Three viewed images per candidate run, owned cleanup, Win32 1x. This is not a passing whole state matrix; #206 full gate remains pending. |
 | Actual hover and cleanup | `hover-direct-after-01`, d32e539 plus #207 candidate: twelve calls/76 independent checks and six viewed images; real hover class and 3859 changed pixels, pressed/disabled/reset, delayed inspection and missing/stale refusal. | Fresh `hover-standalone-after-01`: twelve calls/78 checks and six viewed images, same correct behavior with pure host/verified provider (da3987d8...). | Owned apps 8460/9204 and all clients are gone, both candidate sources and selected binary hashes unchanged. Eight real new regressions plus existing affected tests pass (56/two Unix skips). Full #207 gate remains required; native scope is Win32 1x. |
 
+`focus-recording-direct-01` on clean `703c960` adds 22 public calls and 45
+independent checks with five viewed images: observed Tab/Shift+Tab focus round
+trip, stale focus refusal, action-map availability/search/partial coverage and
+window guards. It confirms #209 deep recording geometry omission on both
+transports, with a passing shallow control. Candidate `recording-direct-after-01`
+then resolves the deep target and parent in nine calls/116 checks, with six
+viewed images and owned cleanup. It separately exposes #210's transformed
+origins with unscaled extents; this remains a failed geometry boundary. Neither
+those checks nor successful recording responses imply complete geometry or
+standalone focus coverage. Fresh `recording-standalone-after-01` verifies nine
+calls/118 checks and six viewed images with pure host/verified provider, matching
+target-resolution success and the retained #210 extent failure. Both apps and
+all clients are gone; source and pinned binaries remain unchanged.
+
 The separate `preview-campaign-01` journey on clean `0658716` uses Windows
 headless Skia / Avalonia 12.1.3: 22 MCP/six CLI calls, 17 positive checks, nine
 viewed images and independent pixel analysis. DPI sizing, source reload with

@@ -4,6 +4,49 @@ Status: **in progress**, 2026-09-25. Tracking issue [#166](https://github.com/Ro
 
 ## Current validation checkpoint
 
+Latest discovery: `focus-recording-direct-01` on clean `703c960` executes 22
+public calls (14 MCP/eight CLI), with 45 independent checks and five viewed
+images. Focus inspection, observed Tab/Shift+Tab round trip, stale refusal,
+action-map search/realization boundaries and missing-window guards pass.
+Recording a deep visible button fails through both transports with
+`interaction_geometry_target_not_found`, despite correct captured pixels and
+successful subsequent targeted inspection. A shallow recording control passes;
+genuinely missing geometry remains refused. New #209 tracks this separate
+recording response-budget defect. App 9580/all clients are gone, 25 pinned
+binaries match the verified #207 production candidate, and production source is
+unchanged since `8d10546`. Native scope is Win32 1x. Two agent helper mistakes
+(window argument shape and null-result presentation) were corrected without
+replaying product actions. #209 is active; 45 defects/30 closed.
+
+Combined full CI `36177716925` targets `59b9b2c` including #206/#207/#208 and is
+still running. Its predecessor `36174208805` is terminal failed at the old
+provenance test expectation (993 pass/one fail/eight skips); all eight new hover
+cases and six native/three expiry runs are independently verified. The test-only
+follow-up passes all 32 local cases. Neither run includes the new #209 work.
+Historical checkpoints below retain their exact scope/source.
+
+#209's bounded lookup candidate passes 37 affected tests (39s), including six
+new real geometry/coordinate/clipping/missing/replacement and retained-pipe
+disappearance cases. Before: two failures/two passes. First candidate: 33 passes
+and two failures due to incorrectly passing a tree context as a node context;
+corrected to retain the actual inspected node identity across frames. Every
+stage is preserved. Direct `recording-direct-after-01` then verifies nine calls
+(six MCP/three CLI), 116 checks and six viewed images. Deep target/parent lookup,
+missing refusal and explicit hover/down/release/clear work; app 21968/all clients
+are gone. Source/binary identity verifies. This is not whole-geometry success:
+new #210 records transformed origins combined with unscaled width/height under
+Fluent's pressed scale. The original verifier incorrectly assumed a stationary
+origin; that failure is retained and the separate extent defect remains explicit.
+Fresh `recording-standalone-after-01` completes the same nine calls with 118
+checks/six viewed images, pure host and verified provider manifest
+`a45b0e1b083478f59f0f39899c5261acfc770b267a1d36910da46be9ca73d9a5`.
+Deep geometry/parent resolution, missing guards and explicit hover/down/release
+pass with source/binary hashes unchanged; the separate #210 extent failure
+reproduces. Both native apps/all clients are gone. #209 is ready for commit and
+review pending a full gate. Current accounting: 46 defects/30 closed.
+Earlier 59b9b2c CI has Windows 997/eight skips, Linux 33 and six native/three
+expiry checks verified at 1x; macOS full validation still runs.
+
 Full combined CI `36141416097` on `108adc5` succeeds across all six jobs.
 Downloaded individual TRX results verify Windows 953 passed/six skipped, macOS
 952/seven and Linux 33 focused cases. All seven #200 cleanup regressions pass

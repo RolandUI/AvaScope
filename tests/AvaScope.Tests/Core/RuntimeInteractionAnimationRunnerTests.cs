@@ -107,6 +107,67 @@ public sealed class RuntimeInteractionAnimationRunnerTests : IDisposable
         Assert.Equal(BridgeIpcMethods.Screenshot, bridgeRequests[2].Method);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task RunAsyncDoesNotReuseGeometryWhenTargetOrParentDisappears(bool missingTarget)
+    {
+        var sessionId = SessionId.New();
+        const string topLevelId = "topLevel:recording";
+        const string nodeId = "visual:deep";
+        const string parentId = "visual:parent";
+        var pipeName = TestPipeNames.New();
+        WriteManifest("recording.json", new BridgeSessionManifest(sessionId, Environment.ProcessId, pipeName,
+            DateTimeOffset.UtcNow, "Recording app", processName: Process.GetCurrentProcess().ProcessName));
+        var target = new RuntimeTargetContext(sessionId, topLevelId, TreeKinds.Visual, nodeId,
+            topLevelGeneration: "top-v1", nodeGeneration: "node-v1");
+        var serverTask = RespondToBridgeRequestsAsync(pipeName, missingTarget ? 7 : 8, (index, request) =>
+        {
+            if (index is 0 or 4)
+            {
+                Assert.Equal(BridgeIpcMethods.VisualTree, request.Method);
+                return BridgeIpcResponse.Ok(request.RequestId, new TreeResponse(sessionId, topLevelId,
+                    TreeKinds.Visual, 32, new TreeNodeSummary("visual:root", "Window", bounds: new(0, 0, 200, 120)),
+                    responseBudget: new ResponseBudgetInfo(1024, 4096, 1, 20, 1, 1, 20, 1, true)));
+            }
+            if (index is 1 or 5) return CreateScreenshotResponse(request, sessionId, topLevelId, SKColors.White);
+            Assert.Equal(BridgeIpcMethods.InspectNode, request.Method);
+            if (index is 2 or 6)
+            {
+                Assert.Equal(nodeId, request.NodeId);
+                if (index == 2) Assert.Null(request.InputTarget);
+                else Assert.Equal(target, request.InputTarget);
+                if (index == 6 && missingTarget)
+                    return BridgeIpcResponse.Fail(request.RequestId, new ProtocolError("runtime_input_target_stale", "Target was replaced."));
+                return BridgeIpcResponse.Ok(request.RequestId, new InspectNodeResponse(sessionId, topLevelId,
+                    TreeKinds.Visual, nodeId, "Border", 0, bounds: new(25, 15, 70, 30), target: target,
+                    layoutExplanation: new("available", "Nested control", ancestors:
+                        [new RuntimeLayoutAncestor(parentId, "Canvas", bounds: new(1, 2, 90, 50))])));
+            }
+            Assert.Equal(parentId, request.NodeId);
+            if (index == 7)
+                return BridgeIpcResponse.Fail(request.RequestId, new ProtocolError("node_not_found", "Parent disappeared."));
+            return BridgeIpcResponse.Ok(request.RequestId, new InspectNodeResponse(sessionId, topLevelId,
+                TreeKinds.Visual, parentId, "Canvas", 1, bounds: new(20, 10, 90, 50)));
+        });
+        var result = await new RuntimeInteractionAnimationRunner().RunAsync(
+            new LocalBridgeClient(_manifestDirectory, BridgePipeTestTimeout), new(sessionId, topLevelId,
+                [new(RuntimeInteractionAnimationActions.Wait, targetNodeId: nodeId, frameOffsetsMs: [0, 1]),
+                 new(RuntimeInteractionAnimationActions.Wait, "must-not-run", frameOffsetsMs: [0])],
+                outputDirectory: Path.Combine(_testRoot, "frames"), maxDepth: 32,
+                assertions: [new(nodeId, "width", "not_clipped")]));
+        await serverTask;
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal("failed", result.Value!.Status);
+        var step = Assert.Single(result.Value.Steps);
+        Assert.Equal(2, step.Frames.Count);
+        var first = Assert.Single(step.Frames[0].Geometry);
+        Assert.Equal(new NodeBounds(20, 10, 90, 50), first.ParentBounds);
+        Assert.Empty(step.Frames[1].Geometry);
+        Assert.Contains(result.Value.Diagnostics, d => d.Code == "interaction_geometry_target_not_found");
+        Assert.Equal("failed", Assert.Single(result.Value.Assertions).Status);
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_testRoot))

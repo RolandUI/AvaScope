@@ -223,6 +223,7 @@ public sealed class RuntimeInteractionAnimationRunner
             .Distinct(StringComparer.Ordinal)
             .ToArray();
         var previousOffset = 0;
+        var observedTargets = new Dictionary<string, RuntimeTargetContext>(StringComparer.Ordinal);
 
         for (var offsetIndex = 0; offsetIndex < offsets.Count; offsetIndex++)
         {
@@ -261,16 +262,44 @@ public sealed class RuntimeInteractionAnimationRunner
                 continue;
             }
 
-            var geometry = targetNodeIds
-                .Select(targetNodeId => FindNodeWithParent(treeResult.Value!.Root, targetNodeId!, null))
-                .Where(static match => match.Node is not null)
-                .Select(static match => ToGeometrySnapshot(match.Node!, match.Parent))
-                .ToArray();
+            var geometry = new List<RuntimeInteractionGeometrySnapshot>();
+            foreach (var targetNodeId in targetNodeIds)
+            {
+                var tree = treeResult.Value!;
+                var match = FindNodeWithParent(tree.Root, targetNodeId!, null);
+                if (match.Node is not null)
+                {
+                    geometry.Add(ToGeometrySnapshot(match.Node, match.Parent));
+                    if (match.Node.Target is not null) observedTargets[targetNodeId!] = match.Node.Target;
+                }
+                else if (tree.ResponseBudget?.Truncated == true)
+                {
+                    // The inline budget can omit a live requested node. Inspect only that node
+                    // and its immediate parent; never load an unbounded tree artifact.
+                    observedTargets.TryGetValue(targetNodeId!, out var observedTarget);
+                    var inspected = await bridgeClient.InspectNodeAsync(request.SessionId, request.TopLevelId,
+                        TreeKinds.Visual, targetNodeId!, cancellationToken, observedTarget);
+                    if (!inspected.Success) continue;
+                    var node = inspected.Value!;
+                    observedTargets[targetNodeId!] = node.Target;
+                    var parentId = node.LayoutExplanation?.Ancestors.FirstOrDefault()?.NodeId;
+                    if (parentId is null) continue;
+                    var inspectedParent = await bridgeClient.InspectNodeAsync(request.SessionId, request.TopLevelId,
+                        TreeKinds.Visual, parentId, cancellationToken);
+                    if (!inspectedParent.Success || inspectedParent.Value!.Bounds is null) continue;
+                    // LayoutExplanation ancestor Bounds are parent-relative. InspectNode.Bounds
+                    // use the same top-level coordinates as the tree and screenshot overlays.
+                    var parent = inspectedParent.Value!;
+                    geometry.Add(new RuntimeInteractionGeometrySnapshot(node.NodeId, node.NodeType,
+                        node.Name, node.AutomationId, node.Text, node.Bounds, parent.NodeId, parent.Bounds,
+                        IsClippedByParent(node.Bounds, parent.Bounds)));
+                }
+            }
             foreach (var missingTarget in targetNodeIds.Where(target => geometry.All(snapshot => snapshot.NodeId != target)))
             {
                 diagnostics.Add(new ProtocolError(
                     "interaction_geometry_target_not_found",
-                    $"Interaction animation target node '{missingTarget}' was not found in frame '{frameId}'.",
+                    $"Interaction animation target geometry '{missingTarget}' could not be resolved in frame '{frameId}'.",
                     new Dictionary<string, string>
                     {
                         ["stepId"] = step.Id,
@@ -301,7 +330,7 @@ public sealed class RuntimeInteractionAnimationRunner
                 new Dictionary<string, string>
                 {
                     ["treeRoot"] = treeResult.Value!.Root.NodeId,
-                    ["geometrySnapshotCount"] = geometry.Length.ToString(CultureInfo.InvariantCulture)
+                    ["geometrySnapshotCount"] = geometry.Count.ToString(CultureInfo.InvariantCulture)
                 }));
         }
 
