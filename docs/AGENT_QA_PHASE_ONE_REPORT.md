@@ -2,6 +2,34 @@
 
 Status: **in progress**, 2026-09-25. Tracking issue [#166](https://github.com/RolandUI/AvaScope/issues/166); expanded fixture #172, declared surfaces #173 and capability campaign #174. The full goal is not achieved and current applicable checks are not all passing. The owner expanded the original intake-only phase to include fixes, meaningful regressions and repeated comprehensive testing. Original failures remain distinct from post-fix verification. Version changes and release remain outside scope.
 
+## Native mutation reset-order defect (#194)
+
+Clean afd4ad0 `capabilities-direct-mutation-01` records 20 public calls
+(15 MCP/five CLI) on Avalonia 12.1.3/Win32 1x. Six checks pass, one agent
+assertion contract mistake is retained separately, and one product defect is
+confirmed. Unsupported/invalid values do not change state; Unicode Text mutation,
+bounded history/source advice and its single reset agree with app counters and
+viewed pixels. Runtime/source files are not changed by these experiments.
+
+M012 sets the original Ada to Mutation A; M013 sets Mutation B. Resetting the
+earlier A in M014 unexpectedly sets Ada while M015 still lists B active. M016
+reset_all then leaves Mutation A, although M017 reports zero active mutations.
+M018 native/rendered images and the independent journal confirm the incorrect
+final value. Both mutation resets return applied/success. The reset closures
+capture the immediately previous value; removing an earlier closure loses the
+original baseline for later cleanup. This is #194, not a passing campaign.
+M019 explicit fixture Reset recovers Ada; M020 inspection/journal agree. Client
+20728 exits 0 with empty stderr and owned Stop terminates app 21148. Reproduction,
+full calls/state, five reviewed images, source hashes and cleanup are retained
+in reset-order-repro.json, mutation-summary.json and journey-checks.json.
+
+The evidence tree has explicit byte/depth budgets: requested depth 32 is copied
+as a 27-node inline tree, while a 193-node/full-depth artifact is also returned
+and contains the target. The mutation evidence reports missing target summaries;
+full target evidence and HTML visual review are not claimed. Class/resource and
+standalone mutation coverage remain pending. Select #194 for a failing regression
+and minimal ordering guard before resuming those #174 journeys.
+
 ## Action-explanation fixture readiness (#193)
 
 The original macOS failure on 483fedb remains retained. Local instrumentation
