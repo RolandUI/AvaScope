@@ -68,9 +68,23 @@ public sealed class RuntimeProvenanceTests
                     AssertRoute(await runtime.InputAsync(top.Id, InputActions.Focus, targetNodeId: textId), RuntimeOperationRoutes.Focus);
                     AssertRoute(await runtime.InputAsync(top.Id, InputActions.KeyText, targetNodeId: textId, inputText: "new"), RuntimeOperationRoutes.ControlProperty);
                     AssertRoute(await runtime.InputAsync(top.Id, InputActions.KeyDown, targetNodeId: textId, inputKey: "Left"), RuntimeOperationRoutes.SyntheticKey);
+                    var entered = 0;
+                    var exited = 0;
+                    window.PointerEntered += (_, _) => entered++;
+                    window.PointerExited += (_, _) => exited++;
                     AssertRoute(await runtime.InputAsync(top.Id, InputActions.PointerMove, x: 10, y: 10), RuntimeOperationRoutes.SyntheticPointer);
+                    Assert.True(window.IsPointerOver);
+                    Assert.Equal(1, entered);
+                    var exit = await runtime.InputAsync(top.Id, InputActions.PointerMove, x: -100, y: -100);
+                    AssertRoute(exit, RuntimeOperationRoutes.SyntheticPointer);
+                    Assert.True(exit.Value!.Handled);
+                    Assert.False(window.IsPointerOver);
+                    Assert.Equal(1, exited);
+                    // Once owned hover is cleared, another outside move really dispatches nothing.
                     var miss = await runtime.InputAsync(top.Id, InputActions.PointerMove, x: -100, y: -100);
                     AssertRoute(miss, RuntimeOperationRoutes.NotDispatched, dispatched: false);
+                    Assert.False(miss.Value!.Handled);
+                    Assert.Equal(1, exited);
                     Assert.Equal(RuntimeOperationRoutes.SyntheticPointer, miss.Value!.Provenance!.PlannedRoute);
                     var dry = await runtime.ValidateInputAsync(top.Id, InputActions.Invoke, targetNodeId: buttonId);
                     AssertRoute(dry, RuntimeOperationRoutes.NotDispatched, dispatched: false);

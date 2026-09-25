@@ -72,6 +72,13 @@ owned exit events, but the old test still expects `not_dispatched`. Windows has
 #208 installer invocation also passes (1.599s), without establishing its earlier
 cause. Full macOS/Linux jobs skip and native labs continue. #207 needs the
 provenance regression updated to distinguish actual exit from a repeated no-op.
+The follow-up now observes real entered/exited events and window hover state,
+requires synthetic dispatch for the first exit, and retains `not_dispatched` for
+the second outside move without another event. All 32 provenance/picking cases
+pass locally (2m45s); the original CI failure and follow-up TRX remain retained
+in `ci-8d10546-windows` and `hover-state-01/provenance-followup`. No production
+change was needed for that obsolete assertion. Combined full validation remains
+required after the current native jobs complete.
 
 Five real Avalonia 12.1.3 tests fail before the candidate: target/ancestor hover
 is absent and an occluded target's matrix still reports success. The candidate
