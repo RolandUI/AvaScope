@@ -4,6 +4,31 @@ Status: **in progress**, 2026-09-25. Tracking issue [#166](https://github.com/Ro
 
 ## Current validation checkpoint
 
+Fresh `windows-standalone-01` on clean `b650ca1` (production `16a44ac`)
+completes 46 public calls, 30 MCP/16 CLI, with nine reviewed native images at
+Win32 1x. Its 32 window calls pass 126 checks: resize/stale/restore, independently
+measured child movement, modal owner blocking/focus, guarded close and closed
+identity refusal match Direct behavior. W013 intentionally omits isolation as
+a negative control; it leaves the child open until the explicit isolated close.
+Final main-window activity has no focused control, independently confirmed by UIA.
+
+The additional 14 navigation calls pass 58 checks: actual Windows → Settings →
+Windows changes, retained ordered visits/actions, stale-tip refusal, bounded
+queries, retrospective route provenance, explicit clear and expired-identity
+refusal. The fixture has no declared navigation identity. Its bounded partial
+sample stays unchanged across these visibly different pages, so all three visits
+remain distinct and the two sampled revisit candidates are explicitly uncertain.
+An initial verifier wrongly expected no candidates; its failure is retained and
+corrected against the documented contract without replaying requests. This is a
+fixture coverage gap, not proof of equivalent domain state or a product defect.
+
+Reset, owned termination and independent absence of app 19560/all 46 original
+clients verify. Thirty-one pinned binaries, unchanged production source, pure
+standalone host and updated verified provider agree. Exact `16a44ac` full CI
+`36193600154` has passed Windows and all three native labs; Linux/macOS full jobs
+still run. No complete gate or Retina coverage is claimed. #174 remains sole
+active; #209/#210/#211 remain review. Inventory: 47 defects/32 closed.
+
 The #211 diagnostic correction prioritizes failed pseudo-state entry diagnostics
 over three known target-lifetime advisories, preserving the full partial response
 and all advisories. Eight new controls include actual stdio MCP/CLI over real
@@ -19,7 +44,7 @@ unknown; #211 stays open and the complete hosted gate is still required. Artifac
 `matrix-diagnostics-01` (all four TRX stages, logs, independent verification and
 resource observation). The MCP timing recurrence is also linked to existing #192.
 
-Latest #174 exploration: `windows-direct-01` on clean `53ad53c` retains
+Earlier #174 exploration: `windows-direct-01` on clean `53ad53c` retains
 32 calls (22 MCP/ten CLI), 124 checks and seven reviewed native images. Parent
 resize 1120x800 to 1000x760 and restoration agree with independent image sizes;
 stale revision is refused without dispatch. An owned 460x260 child moves exactly
@@ -39,7 +64,7 @@ with unavailable start time; the original dotnet client's recorded exit and
 different process identity prove reuse, and that process was never touched.
 An optional-null verifier error and incorrect cleanup parameter/stale exit-code
 checks remain retained; corrected verification does not replay the journey.
-Standalone window comparison and navigation are still pending.
+The subsequent standalone comparison and navigation baseline are recorded above.
 
 Full `19dd8bd` CI `36186815465` is terminal **failed**. Downloaded TRX verifies
 Windows 1010 passed/eight skipped, macOS 1007 passed/one failed/nine skipped and

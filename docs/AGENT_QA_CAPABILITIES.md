@@ -112,10 +112,20 @@ modal resize blocking, explicit modal focus/owned HWND Tab, isolated closure and
 closed-target refusal pass. Final window focus has no focused control, confirmed
 by UIA. The original missing-isolation close request was correctly refused and
 is preserved separately from its corrected invocation. Reset, binary/source
-identity and original-process absence verify. Standalone window comparison and
-navigation boundaries remain pending; no cross-platform/Retina claim. The full
+identity and original-process absence verify. Subsequent standalone evidence is
+recorded below; no cross-platform/Retina claim. The full
 19dd8bd CI fails a separate macOS common-state matrix case (#211) even though all
 thirteen #209/#210 regressions and the Windows/Linux/native gates pass.
+
+`windows-standalone-01` on clean `b650ca1` (production `16a44ac`) supplies the
+comparison: 32 window calls/126 checks/seven viewed images match Direct geometry,
+modal, focus and lifecycle outcomes. Fourteen additional navigation calls/58
+checks/two images verify real page changes, ordered retrospective routes, stale
+tips, bounded queries and clear. Without a declared host identity, all visits
+retain distinct state keys and sampled loop candidates stay explicitly uncertain;
+the partial sample does not distinguish these pages. Declared context/revision
+and equivalent-state loop coverage need fixture expansion. Thirty-one binaries,
+pure host/verified provider, reset and all 46 original client/app absences verify.
 
 The separate `preview-campaign-01` journey on clean `0658716` uses Windows
 headless Skia / Avalonia 12.1.3: 22 MCP/six CLI calls, 17 positive checks, nine
