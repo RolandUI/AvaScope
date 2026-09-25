@@ -22,6 +22,29 @@ defects/28 closed. No local owned preview/native/test process remains.
 
 ## Isolated preview exploration (#174)
 
+### Animation clock API boundary (#201)
+
+The supported timing audit pins Avalonia's official `12.1.3` source to
+`8eeda4f6f546165b3f72e63c9f42247abb306905`. `IClock`, `Clock`,
+`Animatable.ClockProperty` and `Animatable.Clock` are internal, as is the
+`Animation.RunAsync` overload taking a clock. An isolated compile probe against
+the actual 12.1.3 package confirms four access errors (CS0122/CS1061/CS0117),
+not a restore failure. `MediaContext` drives its UI animation clock from a
+private stopwatch; replacing the render timer alone does not control that
+clock. `IRenderTimer` is also explicitly marked `PrivateApi`.
+
+Primary sources: [animation clock](https://github.com/AvaloniaUI/Avalonia/blob/12.1.3/src/Avalonia.Base/Animation/Animatable.cs),
+[animation execution](https://github.com/AvaloniaUI/Avalonia/blob/12.1.3/src/Avalonia.Base/Animation/Animation.cs),
+[UI animation clock](https://github.com/AvaloniaUI/Avalonia/blob/12.1.3/src/Avalonia.Base/Media/MediaContext.cs),
+[headless timer](https://github.com/AvaloniaUI/Avalonia/blob/12.1.3/src/Headless/Avalonia.Headless/HeadlessRenderTimer.cs).
+The source checkout, exact probe and failed build log are retained under
+`artifacts/agent-qa/animation-timing-01`. No supported deterministic clock
+control was found in this pinned API. #201 therefore remains open/blocked on
+a supported Avalonia timing API or an explicit change to its timing contract.
+No private hook, substitute interpolator, sleep-based approximation or passing
+animation claim is introduced. Original wrong pixels remain retained. Continue
+with #203's independent preview timeout evidence; the overall goal stays active.
+
 `preview-campaign-01` on clean `0658716` (production `4ea4d02`) uses Windows
 headless Skia / Avalonia 12.1.3. The 28 public calls (22 MCP/six CLI), 17 positive
 checks and nine viewed images include 96/192 DPI, a live XAML change, malformed
