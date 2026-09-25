@@ -30,8 +30,24 @@ sampled value/priority evidence. All 16 affected QA fixture/runtime cases pass
 after cancellation moves to Closing, before the window detaches its styles and
 animations. Earlier evidence includes a 102-pass/one-failure run exposing that
 new fixture lifecycle defect; the corrected fixture-only validation takes 33 s
-and reuses unchanged previously built dependencies. Native Direct/standalone
-validation and a fresh full gate remain pending; no completed issue is claimed.
+and reuses unchanged previously built dependencies.
+
+Commit `8803271` passes fresh real native brush-timeline journeys in both
+integrations at Avalonia 12.1.3.0 / Windows win32 / 1x. Direct has 33 public calls
+(29 MCP/four CLI), 16 passing checks and seven viewed images; standalone has the
+same calls/images and 17 checks including pure-host/provider identity. Both
+verify already-animated refusal, untouched references, supported edits before
+animation, individual/reset_all reset without interrupting the timeline, correct
+StyleTrigger/Local bases after stop and fixture reset. Four source hashes remain
+unchanged. Clients 18156/22152 exit 0; owned apps 2032/6152 terminate. Evidence is
+in `animation-{direct,standalone}-after-01/animation-summary.json`. The initial
+native screenshot data URLs were saved as their actual JPEG type; rendered
+captures are PNG. This is not native Retina coverage.
+
+Full `8803271` CI 36125594904 passes Windows Build/Test/Pack, including the UIA
+audit; downstream platform checks remain in progress. The fresh pass does not
+resolve #181's lock owner or #199's missing COM-stage/cause diagnostics. #198 is
+review pending the combined gate; #197 is the next sole active implementation.
 
 Full `5fda3f9` CI 36118971656 finishes failed in the Windows Verify artifacts
 step, specifically the native UIA audit (#199). Main Windows TRX passes 895 with
