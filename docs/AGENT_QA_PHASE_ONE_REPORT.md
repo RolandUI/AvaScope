@@ -2,6 +2,36 @@
 
 Status: **in progress**, 2026-09-25. Tracking issue [#166](https://github.com/RolandUI/AvaScope/issues/166); expanded fixture #172, declared surfaces #173 and capability campaign #174. The full goal is not achieved and current applicable checks are not all passing. The owner expanded the original intake-only phase to include fixes, meaningful regressions and repeated comprehensive testing. Original failures remain distinct from post-fix verification. Version changes and release remain outside scope.
 
+## Native precedence verification and combined acceptance audit
+
+Both `style-reset-{direct,standalone}-after-01` runs use clean `5fda3f9`,
+Avalonia 12.1.3.0 and Win32 at 1x. Each completes 22 MCP/four CLI calls,
+nine passing checks and four reviewed native/rendered images. Actual property
+priority, stacked visual/logical targets, unsafe-order refusal, individual reset,
+theme changes while local layers remain active and final reset_all agree with
+the independent journal. Final Light uses current `#33000000` Style, no active
+mutations, unchanged source hashes and exactly two theme changes. Clients
+20164/14692 exit 0; owned apps 9180/2064 are terminated.
+
+Direct client initialization mistakes, standalone check-list closure routing and
+a Stop outer-redirection collision are retained as agent errors. No product
+failure is inferred and no uncertain application action is repeated. Four
+misrouted standalone check entries were transferred unchanged, with the mixed
+file retained and the nine original Direct entries restored. Stop failed before
+child dispatch because the outer command opened the script's own log; the
+corrected invocation terminated the verified owned app. See each run's
+`style-reset-summary.json` and separately named agent notes.
+
+Full CI 36113144014 on `c1f11d6` completes successfully: Windows 865 passed/six
+skips, macOS 866/five skips, Linux 33, all six native integrations and three
+expiry checks. Downloaded TRX, clean identities and owned cleanup are verified
+under `expanded-campaign/ci-c1f-*`. Acceptance audit closes #179, #181, #183,
+#185, #186, #188, #189, #190, #193, #194 and #195. Original-cause uncertainty
+is explicitly retained on test/diagnostic corrections; #182 stays open in review.
+CI 36118971656 now validates `5fda3f9`; #196 remains active for animated-priority
+coverage, and #197 remains ready. Neither this gate nor the Windows journeys
+prove Retina behavior or complete the broader capability campaign. No release.
+
 ## Native mutation evidence and precedence defects (#196, #197)
 
 Clean bfd7978 `capabilities-direct-evidence-01` runs the actual Direct app on
