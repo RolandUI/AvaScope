@@ -39,7 +39,39 @@ the installer's 60-second process wait and the fixture's missing partial-output
 and owned-cleanup evidence; the original cause and surviving-child outcome are
 unknown. #206 remains review until a complete gate passes.
 
+## Installer process evidence and cleanup (#208)
+
+The controlled Windows child writes partial stdout/stderr and waits beyond the
+unchanged 60-second deadline. Before correction it remains alive after the helper
+returns cancellation: two exit-code controls pass, one ownership case fails in
+62s. The test's fallback kills that observed child (9144); no live child remains.
+This proves the helper gap, not the historical CI installer's preceding cause.
+
+The test helper now retains the original exception, captures bounded output tails
+after owned termination, reports process phase/timing and cleanup outcomes, and
+closes redirected readers. Installer failures additionally report boolean file
+milestones; arguments and environment values are omitted. The default deadline
+stays 60 seconds, cleanup/drain waits are each bounded to three seconds, and
+neither installer behavior nor retries change. New controlled cases are explicitly
+Windows-only instead of silently passing elsewhere.
+
+Both initial and final affected runs pass all six discovered cases in 90s. Five
+exercise real processes, including the original install/discovery and MCP tests;
+the packaged-installer test is an environment guard because no local installer
+artifact was selected. Independent TRX verification confirms actual child exit,
+original cancellation, retained stdout/stderr and bounded tails. Evidence is in
+`artifacts/agent-qa/installer-process-01`. The original install timeout cause
+remains unknown and this ticket stays open pending further evidence/full CI.
+
 ## Actual hover state and cleanup (#207)
+
+The first complete `8d10546` gate `36174208805` fails one Windows provenance
+expectation: after moving inside, the first outside move now actually dispatches
+owned exit events, but the old test still expects `not_dispatched`. Windows has
+993 passed/one failed/eight skips; all eight new hover cases pass. The original
+#208 installer invocation also passes (1.599s), without establishing its earlier
+cause. Full macOS/Linux jobs skip and native labs continue. #207 needs the
+provenance regression updated to distinguish actual exit from a repeated no-op.
 
 Five real Avalonia 12.1.3 tests fail before the candidate: target/ancestor hover
 is absent and an occluded target's matrix still reports success. The candidate

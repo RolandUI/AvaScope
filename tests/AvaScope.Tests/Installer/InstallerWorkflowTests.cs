@@ -6,8 +6,72 @@ using ModelContextProtocol.Client;
 
 namespace AvaScope.Tests.Installer;
 
-public sealed class InstallerWorkflowTests
+public sealed class WindowsInstallerFactAttribute : FactAttribute
 {
+    public WindowsInstallerFactAttribute()
+    { if (!OperatingSystem.IsWindows()) Skip = "Controlled Windows installer process fixture."; }
+}
+
+public sealed class WindowsInstallerTheoryAttribute : TheoryAttribute
+{
+    public WindowsInstallerTheoryAttribute()
+    { if (!OperatingSystem.IsWindows()) Skip = "Controlled Windows installer process fixture."; }
+}
+
+public sealed class InstallerWorkflowTests(Xunit.Abstractions.ITestOutputHelper output)
+{
+    [WindowsInstallerFact]
+    public async Task InstallerProcessTimeoutRetainsPartialOutputAndStopsItsOwnedChild()
+    {
+        Process? owned = null;
+        try
+        {
+            var failure = await Record.ExceptionAsync(() => RunProcessAsync("powershell",
+                ["-NoProfile", "-Command", "[Console]::Out.WriteLine(('x' * 12000)); [Console]::Out.WriteLine('installer-fixture-ready'); [Console]::Error.WriteLine('installer-fixture-stderr'); Start-Sleep -Seconds 120"],
+                FindRepositoryRoot(), process =>
+                {
+                    owned = Process.GetProcessById(process.Id);
+                    _ = owned.SafeHandle; // Retain the exact child identity even after the helper disposes its handle.
+                }));
+            Assert.NotNull(failure);
+            Assert.IsAssignableFrom<OperationCanceledException>(failure);
+            Assert.NotNull(owned);
+            Assert.True(owned.HasExited, "The timed-out installer test child is still running after RunProcessAsync returned.");
+            Assert.Equal("process_wait", failure.Data["processPhase"]);
+            Assert.Equal(owned.Id, failure.Data["processId"]);
+            Assert.Equal(true, failure.Data["cleanupProcessExited"]);
+            Assert.Equal(60000, failure.Data["timeoutMs"]);
+            var stdout = Assert.IsType<string>(failure.Data["stdoutTail"]);
+            var stderr = Assert.IsType<string>(failure.Data["stderrTail"]);
+            Assert.Contains("installer-fixture-ready", stdout);
+            Assert.Contains("installer-fixture-stderr", stderr);
+            Assert.True(stdout.Length <= 4096); Assert.True(stderr.Length <= 4096);
+        }
+        finally
+        {
+            // The before-fix regression must not leave the deliberately waiting child behind.
+            if (owned is not null)
+            {
+                if (!owned.HasExited) owned.Kill(entireProcessTree: true);
+                await owned.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(5));
+                owned.Dispose();
+            }
+        }
+    }
+
+    [WindowsInstallerTheory]
+    [InlineData(0)]
+    [InlineData(23)]
+    public async Task InstallerProcessPreservesCompletedOutputAndExitCode(int exitCode)
+    {
+        var result = await RunProcessAsync("powershell",
+            ["-NoProfile", "-Command", $"[Console]::Out.WriteLine('installer-completed'); [Console]::Error.WriteLine('installer-diagnostic'); exit {exitCode}"],
+            FindRepositoryRoot());
+        Assert.Equal(exitCode, result.ExitCode);
+        Assert.Equal("installer-completed", result.StandardOutput.Trim());
+        Assert.Equal("installer-diagnostic", result.StandardError.Trim());
+    }
+
     [Fact]
     public async Task PackagedInstallerSupportsInstallRepairDoctorMcpAndUninstall()
     {
@@ -388,10 +452,11 @@ public sealed class InstallerWorkflowTests
         }
     }
 
-    private static async Task<ProcessResult> RunProcessAsync(
+    private async Task<ProcessResult> RunProcessAsync(
         string fileName,
         IReadOnlyList<string> arguments,
-        string workingDirectory)
+        string workingDirectory,
+        Action<Process>? onStarted = null)
     {
         using var process = new Process
         {
@@ -401,6 +466,7 @@ public sealed class InstallerWorkflowTests
                 WorkingDirectory = workingDirectory,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
+                CreateNoWindow = true,
                 UseShellExecute = false
             }
         };
@@ -411,11 +477,109 @@ public sealed class InstallerWorkflowTests
         }
 
         Assert.True(process.Start());
+        var timer = Stopwatch.StartNew();
+        var phase = "process_started";
         using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(60));
-        var stdoutTask = process.StandardOutput.ReadToEndAsync(cancellation.Token);
-        var stderrTask = process.StandardError.ReadToEndAsync(cancellation.Token);
-        await process.WaitForExitAsync(cancellation.Token);
-        return new ProcessResult(process.ExitCode, await stdoutTask, await stderrTask);
+        using var captureCancellation = new CancellationTokenSource();
+        var stdoutReader = process.StandardOutput;
+        var stderrReader = process.StandardError;
+        var streamsClosed = false;
+        // Keep capture alive through owned termination so timeout does not discard partial output.
+        var stdoutTask = stdoutReader.ReadToEndAsync(captureCancellation.Token);
+        var stderrTask = stderrReader.ReadToEndAsync(captureCancellation.Token);
+        try
+        {
+            onStarted?.Invoke(process);
+            phase = "process_wait";
+            await process.WaitForExitAsync(cancellation.Token);
+            phase = "stdout_drain";
+            var stdout = await stdoutTask.WaitAsync(cancellation.Token);
+            phase = "stderr_drain";
+            var stderr = await stderrTask.WaitAsync(cancellation.Token);
+            output.WriteLine(JsonSerializer.Serialize(new
+            {
+                operation = "installer_test_process", executable = Path.GetFileName(fileName),
+                processId = process.Id, phase = "completed", process.ExitCode,
+                elapsedMs = timer.Elapsed.TotalMilliseconds, timeoutMs = 60000
+            }));
+            return new ProcessResult(process.ExitCode, stdout, stderr);
+        }
+        catch (Exception primary)
+        {
+            var failedAfterMs = timer.Elapsed.TotalMilliseconds;
+            var cleanupFailures = new List<string>();
+            var exited = false;
+            try { if (!process.HasExited) process.Kill(entireProcessTree: true); }
+            catch (Exception failure) { cleanupFailures.Add("terminate:" + failure.GetType().Name); }
+            try
+            {
+                await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(3));
+                exited = true;
+            }
+            catch (Exception failure) { cleanupFailures.Add("exit:" + failure.GetType().Name); }
+            var stdout = await CaptureTailAsync(stdoutTask, "stdout");
+            var stderr = await CaptureTailAsync(stderrTask, "stderr");
+            captureCancellation.Cancel();
+            CloseReader(stdoutReader, "stdout");
+            CloseReader(stderrReader, "stderr");
+            streamsClosed = true;
+            var evidence = new Dictionary<string, object?>
+            {
+                ["operation"] = "installer_test_process", ["executable"] = Path.GetFileName(fileName),
+                ["processId"] = process.Id, ["processPhase"] = phase,
+                ["failureType"] = primary.GetType().Name, ["elapsedMs"] = failedAfterMs,
+                ["timeoutMs"] = 60000, ["cleanupWaitMs"] = 3000, ["cleanupProcessExited"] = exited,
+                ["cleanupFailures"] = cleanupFailures, ["stdoutTail"] = stdout, ["stderrTail"] = stderr
+            };
+            // These are observations, not a claim about which installer operation stalled.
+            for (var index = 0; index + 1 < arguments.Count; index++)
+            {
+                if (!string.Equals(arguments[index], "-InstallRoot", StringComparison.OrdinalIgnoreCase)) continue;
+                var installRoot = arguments[index + 1];
+                evidence["stagingDirectoryExists"] = Directory.Exists(Path.Combine(installRoot, ".installing", "current"));
+                evidence["stagedExecutableExists"] = File.Exists(Path.Combine(installRoot, ".installing", "current", "avascope.exe"));
+                evidence["installedExecutableExists"] = File.Exists(Path.Combine(installRoot, "current", "avascope.exe"));
+                evidence["shimExists"] = File.Exists(Path.Combine(installRoot, "bin", "avascope.cmd"));
+                evidence["discoveryManifestExists"] = File.Exists(Path.Combine(installRoot, "avascope.discovery.json"));
+                break;
+            }
+            foreach (var entry in evidence) primary.Data[entry.Key] = entry.Value;
+            try { output.WriteLine(JsonSerializer.Serialize(evidence)); }
+            catch (Exception failure) { primary.Data["evidenceWriteFailureType"] = failure.GetType().Name; }
+            // Preserve the original cancellation/read/start-callback exception and stack.
+            throw;
+
+            async Task<string> CaptureTailAsync(Task<string> read, string stream)
+            {
+                try
+                {
+                    var text = await read.WaitAsync(TimeSpan.FromSeconds(3));
+                    return text.Length <= 4096 ? text : text[^4096..];
+                }
+                catch (Exception failure)
+                {
+                    cleanupFailures.Add(stream + "_drain:" + failure.GetType().Name);
+                    _ = read.ContinueWith(task => { _ = task.Exception; }, CancellationToken.None,
+                        TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+                    return "[capture unavailable]";
+                }
+            }
+
+            void CloseReader(StreamReader reader, string stream)
+            {
+                try { reader.Dispose(); }
+                catch (Exception failure) { cleanupFailures.Add(stream + "_close:" + failure.GetType().Name); }
+            }
+        }
+        finally
+        {
+            captureCancellation.Cancel();
+            if (!streamsClosed)
+            {
+                try { stdoutReader.Dispose(); }
+                finally { stderrReader.Dispose(); }
+            }
+        }
     }
 
     private static async Task DeleteDirectoryWithRetryAsync(string path)
