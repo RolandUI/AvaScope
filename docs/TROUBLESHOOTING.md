@@ -20,6 +20,8 @@ Use this when an agent workflow fails and the next action is not obvious from th
 - If `AvaScope.PreviewHost.dll` is missing from a packaged tool directory, rerun `eng\package-executables.ps1` or use a release ZIP that contains CLI, MCP, and PreviewHost together.
 - If a preview session reload fails after a source edit, inspect `list-preview-sessions` and `diagnostics`; close the failed session and recreate it if the stored request is stale.
 - Repeated preview sessions are one-shot isolated child-process renders. `PersistentHostEnabled=false` is expected behavior, not a failure.
+- Binding diagnostics inspect the effective DataContext of the rendered source element, including nearer scopes and local null values. A binding on `DataContext` itself uses the visual parent's context.
+- `binding_datacontext_unverified` means the rendered element could not be mapped reliably to its XAML source. For compiled views, enable `AvaloniaXamlCreateSourceInfo=true` and rebuild. This informational result does not mean that the binding passed or failed; typed binding diagnostics retain their declared `x:DataType` source provenance.
 
 ## Runtime Mutation
 

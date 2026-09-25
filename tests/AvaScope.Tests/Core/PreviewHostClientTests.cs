@@ -551,6 +551,114 @@ public sealed class PreviewHostClientTests : IDisposable
     }
 
     [Fact]
+    public Task BindingOnDataContextUsesTheVisualParentContext() =>
+        BindingDiagnosticsRespectTheEffectiveDataContextScope("visual_parent", null, "6");
+
+    [Theory]
+    [InlineData("element", null, "6")]
+    [InlineData("ancestor", null, "6")]
+    [InlineData("different_root", null, "6")]
+    [InlineData("null_override", "binding_missing_datacontext", "")]
+    [InlineData("missing_local_path", "binding_path_not_found", "")]
+    [InlineData("root_missing_context", "binding_missing_datacontext", "")]
+    [InlineData("root_missing_path", "binding_path_not_found", "")]
+    [InlineData("datacontext_binding", null, "6")]
+    [InlineData("compiled_source", null, "6")]
+    [InlineData("compiled_no_source", "binding_datacontext_unverified", "6")]
+    [InlineData("compiled_code_context", "binding_datacontext_unverified", "6")]
+    public async Task BindingDiagnosticsRespectTheEffectiveDataContextScope(string scope, string? expectedCode, string expectedText)
+    {
+        Directory.CreateDirectory(_testRoot);
+        var rootContext = scope switch
+        {
+            "different_root" or "visual_parent" => "<UserControl.DataContext><Border /></UserControl.DataContext>",
+            "null_override" or "root_missing_path" or "datacontext_binding" => "<UserControl.DataContext><x:String>sample</x:String></UserControl.DataContext>",
+            _ => ""
+        };
+        var context = scope switch
+        {
+            "element" or "missing_local_path" or "compiled_source" or "compiled_no_source" => "DataContext=\"sample\"",
+            "null_override" => "DataContext=\"{x:Null}\"",
+            "visual_parent" => "DataContext=\"{Binding Length}\"",
+            _ => ""
+        };
+        var bindingPath = scope is "missing_local_path" or "root_missing_path" ? "MissingProperty"
+            : scope is "datacontext_binding" or "visual_parent" ? "." : "Length";
+        var text = $"<TextBlock Name=\"BoundValue\" {context} Text=\"{{Binding {bindingPath}}}\" Foreground=\"Black\" FontSize=\"24\" />";
+        if (scope is "ancestor" or "different_root") text = $"<Border DataContext=\"sample\">{text}</Border>";
+        if (scope == "datacontext_binding") text = $"<Border DataContext=\"{{Binding Length}}\">{text}</Border>";
+        if (scope == "visual_parent") text = $$"""
+            <ContentControl>
+              <ContentControl.Template><ControlTemplate>
+                <Border DataContext="sample"><ContentPresenter Name="PART_ContentPresenter" Content="{TemplateBinding Content}" /></Border>
+              </ControlTemplate></ContentControl.Template>
+              {{text}}
+            </ContentControl>
+            """;
+        string? project = null;
+        var classAttribute = "";
+        if (scope.StartsWith("compiled_", StringComparison.Ordinal))
+        {
+            project = Path.Combine(_testRoot, "BindingScopeSample.csproj");
+            classAttribute = "x:Class=\"BindingScopeSample.ScopeView\" x:CompileBindings=\"False\"";
+            await File.WriteAllTextAsync(project, $"""
+                <Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup>
+                    <TargetFramework>net10.0</TargetFramework>
+                    <AvaloniaXamlCreateSourceInfo>{(scope == "compiled_source" ? "true" : "false")}</AvaloniaXamlCreateSourceInfo>
+                  </PropertyGroup>
+                  <ItemGroup><PackageReference Include="Avalonia" Version="12.1.3" /></ItemGroup>
+                </Project>
+                """);
+            var initializeContext = scope == "compiled_code_context"
+                ? "this.FindControl<TextBlock>(\"BoundValue\").DataContext = \"sample\";" : "";
+            await File.WriteAllTextAsync(Path.Combine(_testRoot, "ScopeView.cs"), $$"""
+                using Avalonia.Controls;
+                using Avalonia.Markup.Xaml;
+                namespace BindingScopeSample;
+                public partial class ScopeView : UserControl
+                {
+                    public ScopeView()
+                    {
+                        AvaloniaXamlLoader.Load(this);
+                        {{initializeContext}}
+                    }
+                }
+                """);
+        }
+        var view = Path.Combine(_testRoot, "scope.axaml");
+        await File.WriteAllTextAsync(view, $"""
+            <UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" {classAttribute}>
+              {rootContext}
+              <Border Background="White" Padding="8">{text}</Border>
+            </UserControl>
+            """);
+        var client = new PreviewHostClient(Path.Combine(AppContext.BaseDirectory, "AvaScope.PreviewHost.dll"));
+        var actual = await client.RenderAsync(new(Path.Combine(_testRoot, "scope.png"), 240, 120, projectPath: project, viewPath: view));
+        Assert.True(actual.Success, actual.Error?.Message);
+
+        var reference = Path.Combine(_testRoot, "literal.axaml");
+        await File.WriteAllTextAsync(reference, $"""
+            <UserControl xmlns="https://github.com/avaloniaui">
+              <Border Background="White" Padding="8">
+                <TextBlock Text="{expectedText}" Foreground="Black" FontSize="24" />
+              </Border>
+            </UserControl>
+            """);
+        var literal = await client.RenderAsync(new(Path.Combine(_testRoot, "literal.png"), 240, 120, viewPath: reference));
+        Assert.True(literal.Success, literal.Error?.Message);
+        using var actualPixels = SkiaSharp.SKBitmap.Decode(actual.Value!.FilePath);
+        using var literalPixels = SkiaSharp.SKBitmap.Decode(literal.Value!.FilePath);
+        Assert.Equal(literalPixels.Pixels, actualPixels.Pixels);
+
+        var bindingDiagnostics = actual.Value.Diagnostics.Where(diagnostic => diagnostic.Category == "binding").ToArray();
+        if (expectedCode is null)
+            Assert.Empty(bindingDiagnostics);
+        else
+            Assert.Equal(expectedCode, Assert.Single(bindingDiagnostics).Code);
+    }
+
+    [Fact]
     public void GetDiagnosticsReportsAvailablePreviewHost()
     {
         var hostAssembly = Path.Combine(AppContext.BaseDirectory, "AvaScope.PreviewHost.dll");

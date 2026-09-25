@@ -17,6 +17,7 @@ using Avalonia.Headless;
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Markup.Xaml;
+using Avalonia.Markup.Xaml.Diagnostics;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Styling;
@@ -352,13 +353,13 @@ internal static class Program
         try
         {
             ReportProgress("layout");
-            AddSourceDiagnostics(diagnostics, sourceMetadata, content, window, resolvedThemeVariant, fullProjectPath, projectInfo);
             window.Show();
             Dispatcher.UIThread.RunJobs();
             EnsurePreviewBackground(content, window, resolvedThemeVariant);
             Dispatcher.UIThread.RunJobs();
             AddAnimationSamplingDiagnostic(diagnostics, request.AnimationTimeOffsetMs);
             AdvanceAnimationOffset(request.AnimationTimeOffsetMs);
+            AddSourceDiagnostics(diagnostics, sourceMetadata, content, window, resolvedThemeVariant, fullProjectPath, projectInfo);
             AddLayoutDiagnostics(diagnostics, window);
 
             ReportProgress("capture");
@@ -559,8 +560,11 @@ internal static class Program
         string? fullProjectPath,
         PreviewProjectInfo? projectInfo)
     {
-        var dataContext = content.DataContext;
         var projectAssembly = TryLoadProjectAssembly(fullProjectPath, projectInfo);
+        var sourceControls = EnumerateVisuals(content).OfType<Control>()
+            .Select(control => (Control: control, Source: XamlSourceInfo.GetXamlSourceInfo(control)))
+            .Where(item => item.Source is not null)
+            .ToArray();
 
         foreach (var binding in sourceMetadata.BindingReferences)
         {
@@ -617,40 +621,70 @@ internal static class Program
                 continue;
             }
 
-            if (AddDataTypeBindingDiagnostics(diagnostics, sourceMetadata, binding, projectAssembly) != BindingDataTypeDiagnosticResult.NotApplicable)
+            if ((binding.IsCompiledBinding || !binding.HasScopedDataContext)
+                && AddDataTypeBindingDiagnostics(diagnostics, sourceMetadata, binding, projectAssembly) != BindingDataTypeDiagnosticResult.NotApplicable)
             {
                 continue;
             }
 
-            if (dataContext is null)
+            var owners = sourceControls.Where(item => item.Source!.LineNumber == binding.LineNumber
+                && item.Source.LinePosition == binding.LinePosition
+                && item.Source.SourceUri is { IsFile: true } uri
+                && string.Equals(uri.LocalPath, binding.SourcePath,
+                    OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
+                .Select(item => item.Control).ToArray();
+            var resolvedRoot = owners.Length == 0 && !binding.ElementPath.Contains('/');
+            if (resolvedRoot) owners = [content];
+            if (owners.Length == 0)
             {
                 AddDiagnostic(diagnostics, new PreviewDiagnostic(
-                    PreviewDiagnosticSeverities.Warning,
+                    PreviewDiagnosticSeverities.Info,
                     PreviewDiagnosticCategories.Binding,
-                    "binding_missing_datacontext",
-                    $"Binding path '{binding.BindingPath}' has no root DataContext in the preview.",
+                    "binding_datacontext_unverified",
+                    "The binding's runtime source element could not be identified, so its effective DataContext is unverified.",
                     propertyName: binding.TargetProperty,
                     sourcePath: binding.SourcePath,
-                    details: CreateBindingDetails(binding)));
+                    details: CreateBindingDetails(binding, new Dictionary<string, string>
+                    {
+                        ["dataContextResolution"] = "runtime_source_unavailable",
+                        ["suggestedAction"] = "Build the view with AvaloniaXamlCreateSourceInfo=true to identify its effective runtime DataContext."
+                    })));
                 continue;
             }
 
-            if (IsInspectableBindingPath(binding.BindingPath)
-                && !CanResolveBindingPath(dataContext.GetType(), binding.BindingPath))
+            // A binding on DataContext itself observes its visual parent's context. Other properties
+            // observe this element's effective context, including inheritance and local nulls.
+            var contextTypes = owners.Select(owner => (binding.TargetProperty == nameof(StyledElement.DataContext)
+                ? (owner.GetVisualParent() as IDataContextProvider)?.DataContext : owner.DataContext)?.GetType()).Distinct().ToArray();
+            foreach (var contextType in contextTypes)
             {
-                AddDiagnostic(diagnostics, new PreviewDiagnostic(
-                    PreviewDiagnosticSeverities.Warning,
-                    PreviewDiagnosticCategories.Binding,
-                    "binding_path_not_found",
-                    $"Binding path '{binding.BindingPath}' was not found on preview DataContext '{dataContext.GetType().FullName}'.",
-                    propertyName: binding.TargetProperty,
-                    sourcePath: binding.SourcePath,
-                    details: CreateBindingDetails(
-                        binding,
-                        new Dictionary<string, string>
-                        {
-                            ["dataContextType"] = dataContext.GetType().FullName ?? dataContext.GetType().Name
-                        })));
+                var details = new Dictionary<string, string>
+                {
+                    ["dataContextResolution"] = resolvedRoot ? "preview_root_control" : "runtime_source_location"
+                };
+                if (contextType is null)
+                {
+                    AddDiagnostic(diagnostics, new PreviewDiagnostic(
+                        PreviewDiagnosticSeverities.Warning,
+                        PreviewDiagnosticCategories.Binding,
+                        "binding_missing_datacontext",
+                        $"Binding path '{binding.BindingPath}' has no DataContext at its source element in the preview.",
+                        propertyName: binding.TargetProperty,
+                        sourcePath: binding.SourcePath,
+                        details: CreateBindingDetails(binding, details)));
+                }
+                else if (IsInspectableBindingPath(binding.BindingPath) && !CanResolveBindingPath(contextType, binding.BindingPath))
+                {
+                    details["dataContextType"] = contextType.FullName ?? contextType.Name;
+                    AddDiagnostic(diagnostics, new PreviewDiagnostic(
+                        PreviewDiagnosticSeverities.Warning,
+                        PreviewDiagnosticCategories.Binding,
+                        "binding_path_not_found",
+                        $"Binding path '{binding.BindingPath}' was not found on preview DataContext '{contextType.FullName}'.",
+                        propertyName: binding.TargetProperty,
+                        sourcePath: binding.SourcePath,
+                        details: CreateBindingDetails(binding, details)));
+                }
             }
         }
 
@@ -2211,7 +2245,7 @@ internal static class Program
             {
                 DtdProcessing = DtdProcessing.Prohibit
             });
-            var document = XDocument.Load(reader);
+            var document = XDocument.Load(reader, LoadOptions.SetLineInfo);
             var root = document.Root;
             if (root is null)
             {
@@ -2326,7 +2360,13 @@ internal static class Program
                     dataType?.ElementPath,
                     dataType?.Namespaces,
                     HasExplicitBindingSource(value),
-                    sourcePath));
+                    sourcePath,
+                    ((IXmlLineInfo)element).LineNumber,
+                    ((IXmlLineInfo)element).LinePosition,
+                    element.AncestorsAndSelf().Any(ancestor => ancestor != root
+                        && (ancestor != element || attribute.Name.LocalName != nameof(StyledElement.DataContext))
+                        && (ancestor.Attribute(nameof(StyledElement.DataContext)) is not null
+                            || ancestor.Elements().Any(child => child.Name.LocalName.EndsWith(".DataContext", StringComparison.Ordinal))))));
 
                 if (references.Count >= MaximumPreviewDiagnostics)
                 {
@@ -2599,12 +2639,15 @@ internal static class Program
         }
 
         var viewUri = new Uri(fullViewPath);
+        using var viewStream = File.OpenRead(fullViewPath);
         var loaded = AvaloniaRuntimeXamlLoader.Load(
-            File.ReadAllText(fullViewPath),
-            typeof(Program).Assembly,
-            rootInstance: null,
-            viewUri,
-            designMode: true);
+            new RuntimeXamlLoaderDocument(viewUri, viewStream) { Document = fullViewPath },
+            new RuntimeXamlLoaderConfiguration
+            {
+                LocalAssembly = typeof(Program).Assembly,
+                DesignMode = true,
+                CreateSourceInfo = true
+            });
         return loaded as Control
             ?? throw new NotSupportedException("Preview view XAML must load to an Avalonia Control.");
     }
@@ -3403,7 +3446,10 @@ internal static class Program
         string? DataTypePath,
         IReadOnlyDictionary<string, string>? DataTypeNamespaces,
         bool HasExplicitSource,
-        string? SourcePath);
+        string? SourcePath,
+        int LineNumber,
+        int LinePosition,
+        bool HasScopedDataContext);
 
     private sealed record SourceDataTypeReference(
         string TypeName,

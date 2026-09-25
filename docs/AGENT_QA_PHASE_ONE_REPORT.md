@@ -13,16 +13,18 @@ owned host 8292. Six native lab runs plus three expiry checks verify clean
 identity and ownership at actual 1x. #200 is closed; #199 original cause remains
 open. These are scripted checks, not exploratory Retina coverage.
 
-#202 fix `8bfcec0` remains review: full CI `36146649046` fails one macOS pointer
-diagnostics fixture, now #204. Downloaded results verify Windows 957 passed/six
-skipped, macOS 955/seven/one failed, Linux 33; all four #202 cases pass on both
-full platforms. All six native lab runs/three expiry checks verify clean identity
-and owned cleanup at 1x. The combined gate is failed, not accepted via a rerun.
-#201 is blocked on supported Avalonia clock control. #203 is review at pushed
-`c83e50c`, with 29 affected checks passing and actual CLI/MCP timeout recurrences
-retaining new phase/cleanup evidence. Full CI `36152235816` targets that exact
-commit and is running. #204 is the sole active issue for the preserved pointer
-fixture failure. Counts are 40 unique defects/28 closed.
+#202 fix `8bfcec0` is closed after the later complete `c83e50c` gate
+`36152235816` passes all six jobs: Windows 968 passed/six skipped, macOS
+967/seven and Linux 33. All eleven #203 cases pass on both full platforms; all
+six native lab runs/three expiry checks verify clean identity and owned cleanup
+at 1x. The original `8bfcec0` macOS pointer failure remains retained as #204;
+the later green run is not proof of that original cause. #204's candidate
+`96c1656` is now review, and new full CI `36157963606` runs exact `30d176a`,
+including its two controlled Unix cases. #201 remains blocked on supported
+animation clock control, and #203's original project timeout cause is still
+unknown despite validated diagnostic improvements. #205 is the sole active
+issue following the new public binding-scope reproduction. Counts are 41
+unique defects/29 closed.
 
 ## Public preview follow-up and binding-scope discovery (#205)
 
@@ -41,17 +43,45 @@ A separate valid fixture then confirms #205: element-local `DataContext="sample"
 and `Text="{Binding Length}"` render the correct value `6`, pixel-identical to
 a literal `Text="6"` reference, while both MCP and CLI report
 `binding_missing_datacontext`. The literal reference does not produce that
-warning. `AddSourceDiagnostics` currently applies root `content.DataContext`
-to ordinary binding references, ignoring the nearer effective source. The issue
-is open and the original images/responses are preserved before implementation.
+warning. The original `AddSourceDiagnostics` applies root `content.DataContext`
+to ordinary binding references, ignoring the nearer effective source. The
+original images/responses remain preserved separately from the candidate.
 
 `verify.py` / `verified-summary.json` retain comparisons, checks and identities.
 All sixteen public clients exited; the owned preview session is closed.
 Loose-XAML comparison does not validate #203's project-build timeout or #201's
 animation timing. #204 remains review with its two new Unix controls awaiting
-hosted execution. The separate `c83e50c` gate has Windows 968 passed/six skips,
-all eleven #203 cases passed, Linux 33 and six native lab/three expiry checks
-independently verified at 1x; final macOS validation remains in progress.
+hosted execution. The separate `c83e50c` gate completed successfully with the
+platform results recorded above.
+
+The #205 candidate enables public Avalonia 12.1.3 XAML source information in
+loose views and reads diagnostics after visual realization. URI/line/column
+mapping identifies the rendered control and its effective DataContext. Local
+nulls and missing properties still warn; bindings on DataContext use the visual
+parent, matching Avalonia's public-source implementation. Compiled views without
+source metadata report informational `binding_datacontext_unverified` instead
+of guessing a child's root context, including code-behind context assignments.
+Known root elements and declared typed-source diagnostics retain provenance.
+
+Evidence in `binding-scope-01` retains five original regression failures/three
+passes, followed by a candidate realization failure (six/two) and correction.
+Final twelve scope cases pass (2m01s), each comparing actual rendered pixels
+against a literal reference before asserting diagnostics. They cover element,
+ancestor, different root, null, invalid path, DataContext binding, compiled
+metadata/no metadata/code-behind and a template with different logical/visual
+parent contexts. The visual-parent regression fails before its correction.
+Four existing typed/resource/source cases passed with the preceding candidate;
+the remaining 31 preview smoke cases passed before the final unknown-child and
+visual-parent refinements. Full validation of the exact final candidate remains
+required; those earlier runs are not represented as a final full gate.
+
+Actual public after-fix exploration includes six CLI/MCP calls with 23 independent
+checks after the unknown-child refinement: correct pixels, real missing-path/null
+warnings and severity filtering. A seventh MCP call after the visual-parent fix
+renders the reviewed correct `6`, pixel-identical to the original reference with
+zero diagnostics. Separate identity/patch hashes, client exit and process-absence
+checks are retained for these stages. All seven clients exited; no owned preview
+process remains. No native/Retina or deterministic-animation result is implied.
 
 ## Pointer fixture request sequence and failure propagation (#204)
 
