@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 using ModelContextProtocol.Client;
 
@@ -53,17 +54,35 @@ if (toolName == "--schemas")
 }
 if (toolName == "--stdio-session")
 {
+    // This pipe is a UTF-8 JSON protocol, independent of the Windows console code page.
+    using var input = new StreamReader(Console.OpenStandardInput(), new UTF8Encoding(false, true), detectEncodingFromByteOrderMarks: false);
     for (var index = 0; index < 128; index++)
     {
-        var line = await Console.In.ReadLineAsync(cancellation.Token);
-        if (line is null) break;
-        if (line.Length > 1024 * 1024) throw new ArgumentException("A probe command is limited to 1 MiB.");
-        using var command = JsonDocument.Parse(line);
-        var name = command.RootElement.GetProperty("tool").GetString()!;
-        var arguments = command.RootElement.GetProperty("arguments").EnumerateObject().ToDictionary(property => property.Name, property => (object?)property.Value);
-        var measurement = command.RootElement.TryGetProperty("measurement", out var measured) ? measured : default;
-        var called = await CallMeasuredAsync(name, arguments, measurement);
-        Console.WriteLine(fullResult ? JsonSerializer.Serialize(called) : JsonSerializer.Serialize(called.StructuredContent));
+        JsonDocument command;
+        try
+        {
+            var line = await input.ReadLineAsync(cancellation.Token);
+            if (line is null) break;
+            if (line.Length > 1024 * 1024)
+            {
+                Console.Error.WriteLine("A probe command is limited to 1048576 characters.");
+                return 2;
+            }
+            command = JsonDocument.Parse(line);
+        }
+        catch (Exception exception) when (exception is JsonException or DecoderFallbackException)
+        {
+            Console.Error.WriteLine("Invalid probe command: expected valid UTF-8 and complete JSON.");
+            return 2;
+        }
+        using (command)
+        {
+            var name = command.RootElement.GetProperty("tool").GetString()!;
+            var arguments = command.RootElement.GetProperty("arguments").EnumerateObject().ToDictionary(property => property.Name, property => (object?)property.Value);
+            var measurement = command.RootElement.TryGetProperty("measurement", out var measured) ? measured : default;
+            var called = await CallMeasuredAsync(name, arguments, measurement);
+            Console.WriteLine(fullResult ? JsonSerializer.Serialize(called) : JsonSerializer.Serialize(called.StructuredContent));
+        }
     }
     return 0;
 }

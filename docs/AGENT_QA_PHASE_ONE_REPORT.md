@@ -2,6 +2,36 @@
 
 Status: **in progress**, 2026-09-25. Tracking issue [#166](https://github.com/RolandUI/AvaScope/issues/166); expanded fixture #172, declared surfaces #173 and capability campaign #174. The full goal is not achieved and current applicable checks are not all passing. The owner expanded the original intake-only phase to include fixes, meaningful regressions and repeated comprehensive testing. Original failures remain distinct from post-fix verification. Version changes and release remain outside scope.
 
+## Persistent UTF-8 client checkpoint (#187)
+
+The test client now reads its stdin pipe as strict, BOM-less UTF-8 without
+changing the console code page. Production MCP transport is unchanged. Invalid
+bytes, malformed/truncated JSON and oversized lines exit with bounded errors;
+existing command/session limits and file-request behavior remain.
+
+The unchanged client (`9a1a8c6d55bed39a946342222d95c36767adf56beba754afe91002f43208c9a9`)
+failed both compact/full-result raw-Unicode subprocess cases. Original native
+K004/K005 corruption stays retained. Initial regression development also exposed
+two test-authoring mistakes: failed-dispatch cleanup tried to join its own
+headless worker, and an explicitly multiline string was sent to a single-line
+TextBox. Cleanup now disposes off-worker and the fixture accepts returns. The
+aborted baseline/stack and intermediate 6-pass/2-fail run are retained, not
+classified as additional product defects. Final focused Release validation:
+**8/8 passed, 2m28s**, including existing AgentRecipe cases, compact/full-result
+raw accents/CJK/emoji, escaped multiline JSON, exact replay, file mode and four
+invalid-input cases. Evidence: `expanded-campaign/persistent-utf8-final-results`.
+
+Fresh native `artifacts/agent-qa/utf8-direct-01` uses unchanged fixture `5e5f159`
+and rebuilt client `0b08f82ae5806b4b6cf9e47179881f8463a28a1a6b7911d7bb18b7dea53a3116`.
+Node's console code page is **852 before and after**. U003/U004 use unmodified
+raw UTF-8 pipe writes: each produces the exact desired accented/CJK/emoji text
+and one independent journal increment. U005 exact replay leaves the entire
+journal unchanged. U006 file mode preserves the combined Unicode string.
+Reviewed native images and Windows accessibility agree; no Unicode-escape
+workaround is installed. Five retained checks pass. Final reset restores seed
+state, owned app PID 9664 terminates, and client PID 1032 exits 0 after six
+persistent calls with empty stderr. This is Windows Win32 1x evidence only.
+
 ## Expanded fixture checkpoint
 
 The capability map in [AGENT_QA_CAPABILITIES.md](AGENT_QA_CAPABILITIES.md) remains
