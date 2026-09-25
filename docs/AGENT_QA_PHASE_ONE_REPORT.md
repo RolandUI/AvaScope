@@ -2,6 +2,32 @@
 
 Status: **in progress**, 2026-09-25. Tracking issue [#166](https://github.com/RolandUI/AvaScope/issues/166); expanded fixture #172, declared surfaces #173 and capability campaign #174. The full goal is not achieved and current applicable checks are not all passing. The owner expanded the original intake-only phase to include fixes, meaningful regressions and repeated comprehensive testing. Original failures remain distinct from post-fix verification. Version changes and release remain outside scope.
 
+## Unix recovery connection (#184, reproduction in progress)
+
+The actual lifecycle fixture disposes its sole named-pipe server after every
+response. In the [official .NET 10 Unix implementation](https://raw.githubusercontent.com/dotnet/runtime/v10.0.0/src/libraries/System.IO.Pipes/src/System/IO/Pipes/NamedPipeServerStream.Unix.cs),
+last-instance disposal unlinks the path and closes the listening socket;
+`Disconnect` releases the accepted connection while retaining the listener.
+This identifies a possible queued-connection race, not the exact cause of the
+original hosted failure.
+
+A bounded test-only response gate now holds the real fixture after its first
+health reply. The Unix regression connects and writes one outsider acquire while
+that response remains held, then releases the fixture and requires a correlated
+`session_control_conflict` response with the original lease intact. There is no
+acquire retry. Windows explicitly skips this socket-backlog test. The existing
+agent-kill/resume/cleanup test now includes bounded redacted message and
+allowlisted IPC phase/attempt/timing/byte diagnostics on conflict failure;
+neither the saved token nor a successful response's token is serialized.
+The listener has not been changed yet. Local WSL/Linux is unavailable; a real
+hosted Unix reproduction and subsequent validation remain required.
+
+The fixture builds cleanly; local Windows recovery validation passes ten cases
+and explicitly skips the Unix case (1m32s, clean build,
+`unix-queue-before-windows-results/unix-queue-before-windows.trx`). This is a
+regression/diagnostic checkpoint for hosted reproduction, not a validated Unix
+fix. The original b90ca39 hosted failure remains retained.
+
 ## Failed startup cleanup (#190, combined gate pending)
 
 The controlled lifecycle app now supports an explicit 60-second top-level

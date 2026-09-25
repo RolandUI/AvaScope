@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using System.IO.Pipes;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using AvaScope.Core;
@@ -6,12 +8,87 @@ using AvaScope.Protocol;
 
 namespace AvaScope.Tests.Core;
 
+public sealed class UnixPipeFactAttribute : FactAttribute
+{
+    public UnixPipeFactAttribute()
+    {
+        if (OperatingSystem.IsWindows())
+            Skip = "Queued Unix socket connections require the Linux or macOS test lane.";
+    }
+}
+
 public sealed class AgentRunRecoveryTests : IDisposable
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", "recovery-" + Guid.NewGuid().ToString("N"));
     private string StorePath => Path.Combine(_root, "store");
     private string Output => Path.Combine(_root, "evidence");
     private string Manifests => Path.Combine(_root, "manifests");
+
+    [UnixPipeFact]
+    public async Task QueuedUnixClientRetainsItsConnectionBetweenFixtureRequests()
+    {
+        Directory.CreateDirectory(_root);
+        var gate = Path.Combine(_root, "response-gate");
+        var start = new ProcessStartInfo("dotnet") { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
+        foreach (var argument in new[] { FixturePath, "--response-gate", gate, "--control-token-file", Path.Combine(_root, "private-control-token") })
+            start.ArgumentList.Add(argument);
+        start.Environment[BridgeSessionManifest.DirectoryEnvironmentVariable] = Manifests;
+        using var app = Process.Start(start)!;
+        var stdout = app.StandardOutput.ReadToEndAsync();
+        var stderr = app.StandardError.ReadToEndAsync();
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var elapsed = Stopwatch.StartNew();
+        var phase = "manifest";
+        try
+        {
+            var client = new LocalBridgeClient(Manifests);
+            BridgeSessionManifest? manifest;
+            while ((manifest = client.ListSessionManifests().SingleOrDefault()) is null)
+                await Task.Delay(20, deadline.Token);
+            phase = "first_response";
+            var attached = await client.AttachToAppAsync(processId: app.Id, cancellationToken: deadline.Token);
+            Assert.True(attached.Success, attached.Error?.Message);
+            while (!File.Exists(gate + ".ready")) await Task.Delay(10, deadline.Token);
+
+            // Unix accepts this transport connection into the socket backlog while
+            // the fixture still owns the preceding response. Send once, with no retry.
+            phase = "queued_connect";
+            await using var queued = new NamedPipeClientStream(".", manifest.PipeName, PipeDirection.InOut, PipeOptions.Asynchronous);
+            await queued.ConnectAsync(deadline.Token);
+            using var writer = new StreamWriter(queued, new UTF8Encoding(false), leaveOpen: true) { AutoFlush = true };
+            using var reader = new StreamReader(queued, Encoding.UTF8, leaveOpen: true);
+            var request = new BridgeIpcRequest("queued-outsider", BridgeIpcMethods.SessionControl,
+                sessionControl: new("acquire", "queued-outsider"));
+            phase = "queued_write";
+            await writer.WriteLineAsync(JsonSerializer.Serialize(request).AsMemory(), deadline.Token);
+            await File.WriteAllTextAsync(gate + ".continue", "continue", deadline.Token);
+            phase = "queued_response";
+            var line = await reader.ReadLineAsync(deadline.Token);
+            Assert.False(string.IsNullOrWhiteSpace(line), "The fixture dropped a queued client instead of replying.");
+            var response = JsonSerializer.Deserialize<BridgeIpcResponse>(line!);
+            Assert.NotNull(response);
+            Assert.Equal(request.RequestId, response.RequestId);
+            Assert.False(response.Success);
+            Assert.Equal("session_control_conflict", response.Error!.Code);
+            phase = "following_request";
+            var state = await client.SessionControlAsync(manifest.SessionId, new(), deadline.Token);
+            Assert.True(state.Success, state.Error?.Message);
+            Assert.Equal("fixture-owner", state.Value!.Owner);
+            Assert.Null(state.Value.Token);
+        }
+        catch (Exception exception)
+        {
+            throw new InvalidOperationException($"Unix fixture connection failed: phase={phase}, elapsedMs={elapsed.ElapsedMilliseconds}, appPid={app.Id}, appExited={app.HasExited}. No acquire retry was made.", exception);
+        }
+        finally
+        {
+            await File.WriteAllTextAsync(gate + ".continue", "continue");
+            if (!app.HasExited) app.Kill(entireProcessTree: true);
+            await app.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(5));
+            await File.WriteAllTextAsync(Path.Combine(_root, "fixture.stdout.log"), await stdout);
+            await File.WriteAllTextAsync(Path.Combine(_root, "fixture.stderr.log"), await stderr);
+        }
+    }
 
     [Theory]
     [InlineData(false, false)]
@@ -360,7 +437,16 @@ public sealed class AgentRunRecoveryTests : IDisposable
                 ? await stdout + await stderr : "The scenario did not persist its control lease within ten seconds.");
             Assert.True((await store.RecoverAsync(new(record.RunId))).Value!.Active);
             var outsider = new LocalBridgeClient(Manifests);
-            Assert.Equal("session_control_conflict", (await outsider.SessionControlAsync(record.SessionId!, new("acquire", "other-agent"))).Error!.Code);
+            var rejected = await outsider.SessionControlAsync(record.SessionId!, new("acquire", "other-agent"));
+            var rejectionMessage = rejected.Error?.Message?.Replace(record.ControlToken!, "[REDACTED]", StringComparison.Ordinal);
+            Assert.True(!rejected.Success && rejected.Error?.Code == "session_control_conflict", JsonSerializer.Serialize(new
+            {
+                rejected.Success,
+                errorCode = rejected.Error?.Code,
+                message = rejectionMessage?[..Math.Min(512, rejectionMessage.Length)],
+                ipc = rejected.Error?.Details?.Where(pair => pair.Key is "ipcPhase" or "ipcAttempt" or "ipcElapsedMs" or "ipcOperationTimeoutMs" or "ipcReceivedBytes")
+                    .ToDictionary(pair => pair.Key, pair => pair.Value)
+            }));
             owner.Kill(); // Simulates only the agent dying; deliberately preserve its app for recovery.
             await owner.WaitForExitAsync();
             var inspect = await store.RecoverAsync(new(record.RunId));

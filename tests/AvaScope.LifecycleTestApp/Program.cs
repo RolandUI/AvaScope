@@ -7,6 +7,7 @@ using AvaScope.Core;
 
 var markerPath = ReadOption(args, "--marker");
 var failMethod = ReadOption(args, "--fail-method");
+var responseGate = ReadOption(args, "--response-gate");
 var secret = Environment.GetEnvironmentVariable("AVASCOPE_LIFECYCLE_TEST_SECRET");
 var echoSecret = string.Equals(
     Environment.GetEnvironmentVariable("AVASCOPE_LIFECYCLE_TEST_ECHO_SECRET"),
@@ -126,6 +127,16 @@ while (true)
         var responseBytes = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(response) + Environment.NewLine);
         await pipe.WriteAsync(responseBytes);
         await pipe.FlushAsync();
+        if (responseGate is not null)
+        {
+            File.WriteAllText(responseGate + ".ready", "ready");
+            var gateTimer = Stopwatch.StartNew();
+            while (!File.Exists(responseGate + ".continue") && gateTimer.Elapsed < TimeSpan.FromSeconds(15))
+                await Task.Delay(10);
+            if (!File.Exists(responseGate + ".continue"))
+                throw new TimeoutException("Lifecycle response gate was not released within 15 seconds.");
+            responseGate = null;
+        }
     }
     catch (Exception exception) when (exception is IOException or JsonException)
     {
