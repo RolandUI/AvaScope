@@ -2,6 +2,57 @@
 
 Status: **in progress**, 2026-09-25. Tracking issue [#166](https://github.com/RolandUI/AvaScope/issues/166); expanded fixture #172, declared surfaces #173 and capability campaign #174. The full goal is not achieved and current applicable checks are not all passing. The owner expanded the original intake-only phase to include fixes, meaningful regressions and repeated comprehensive testing. Original failures remain distinct from post-fix verification. Version changes and release remain outside scope.
 
+## Native mutation evidence and precedence defects (#196, #197)
+
+Clean bfd7978 `capabilities-direct-evidence-01` runs the actual Direct app on
+Avalonia 12.1.3/Win32 1x with 18 public requests (16 MCP/two CLI). Two checks
+pass and three retained failures establish two separate defects. A visual
+Background mutation records both target summaries and visible pixel changes.
+CLI Content and MCP Background mutations through the same button's logical ID
+apply successfully but omit both target summaries, although both visual-tree
+artifacts contain its shallow visual alias (#197). Public inspection, changed
+pixels and the artifact contents independently establish the mismatch.
+
+After reverse reset_all, activeCount is zero and original values return, but
+the button's originally styled Background now has LocalValue precedence (#196).
+Switching the actual fixture to Dark leaves this button at #33000000 while the
+untouched reference changes to #33ffffff at Style precedence. The app journal,
+public property inspection, and viewed native/rendered dark images agree.
+This differs from #194 ordering: restoration in the valid reverse order still
+loses the original value source. The original failed assertion remains classified
+as a product failure, not an agent mistake.
+
+Full calls/state, logical-target-repro.json, logical-target-mcp-repro.json,
+style-reset-repro.json, E017 dark images, journey-checks.json and
+evidence-summary.json are retained in the run directory. Four source hashes
+stay unchanged. Theme returns to Light, client 12144 exits 0 with empty stderr,
+and owned Stop terminates app 21428; the residual local override persists until
+termination and is not claimed repaired by cleanup. HTML visual review remains
+blocked by the previously observed local-file policy; no alternate serving
+route is attempted. #196 is selected first; #197 and remaining #174 are ready.
+
+The prepared pre-fix regression confirms 15 failures/15 passes in 30 cases:
+style, theme, style binding and current-value overrides lose precedence across
+individual, reset_all and deactivation paths. Local values/null, local bindings,
+inheritance and default values pass the original behavior. The first 24-case
+attempt retains nine product failures plus three agent fixture errors from
+checking new styles before rendering; the prepared rerun explicitly renders
+before the future-update assertion. Both TRX files and classifications are in
+expanded-campaign/style-reset-before[-prepared]-results.
+
+The implementation uses Avalonia 12.1.3's public property diagnostics for local
+precedence and current-value overrides, clears temporary locals when the original
+source was lower priority, and restores existing current-value overrides through
+SetCurrentValue. The previous IsSet/unknown-source fallback is removed: mutation
+snapshot reads run on the UI thread with already resolved public properties and
+must have actual source diagnostics before applying an override. Relevant source:
+[IsSet/GetDiagnostic](https://raw.githubusercontent.com/AvaloniaUI/Avalonia/12.1.3/src/Avalonia.Base/AvaloniaObject.cs),
+[value-store priorities](https://raw.githubusercontent.com/AvaloniaUI/Avalonia/12.1.3/src/Avalonia.Base/PropertyStore/ValueStore.cs),
+[current-value diagnostics](https://raw.githubusercontent.com/AvaloniaUI/Avalonia/12.1.3/src/Avalonia.Base/Diagnostics/AvaloniaPropertyValue.cs).
+All 63 affected mutation/pseudo-state cases pass after the fix (36 s, clean
+build), including all 30 precedence cases; TRX is retained in
+expanded-campaign/style-reset-after-results. Native verification remains pending.
+
 ## Native mutation reset-order defect (#194)
 
 Fix 5d0df14 passes fresh native Win32/Avalonia 12.1.3/1x comparison:

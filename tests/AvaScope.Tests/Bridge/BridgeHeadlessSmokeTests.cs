@@ -2,11 +2,14 @@ using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Data;
+using Avalonia.Diagnostics;
 using Avalonia.Headless;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml.Diagnostics;
 using Avalonia.Media;
+using Avalonia.Styling;
 using Avalonia.Themes.Fluent;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -738,6 +741,184 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                 }
                 finally
                 {
+                    window.Close();
+                    AvaScopeBridge.Deactivate();
+                }
+            }, CancellationToken.None);
+        }
+        finally
+        {
+            DisposeHeadlessSessionAfterExplicitCleanup(session);
+        }
+    }
+
+    [Theory]
+    [InlineData("style", "individual")]
+    [InlineData("style", "reset_all")]
+    [InlineData("style", "deactivate")]
+    [InlineData("theme", "individual")]
+    [InlineData("theme", "reset_all")]
+    [InlineData("theme", "deactivate")]
+    [InlineData("inherited", "individual")]
+    [InlineData("inherited", "reset_all")]
+    [InlineData("inherited", "deactivate")]
+    [InlineData("default", "individual")]
+    [InlineData("default", "reset_all")]
+    [InlineData("default", "deactivate")]
+    [InlineData("local", "individual")]
+    [InlineData("local", "reset_all")]
+    [InlineData("local", "deactivate")]
+    [InlineData("local_null", "individual")]
+    [InlineData("local_null", "reset_all")]
+    [InlineData("local_null", "deactivate")]
+    [InlineData("local_binding", "individual")]
+    [InlineData("local_binding", "reset_all")]
+    [InlineData("local_binding", "deactivate")]
+    [InlineData("style_binding", "individual")]
+    [InlineData("style_binding", "reset_all")]
+    [InlineData("style_binding", "deactivate")]
+    [InlineData("current_style", "individual")]
+    [InlineData("current_style", "reset_all")]
+    [InlineData("current_style", "deactivate")]
+    [InlineData("current_default", "individual")]
+    [InlineData("current_default", "reset_all")]
+    [InlineData("current_default", "deactivate")]
+    public async Task RuntimeMutationResetPreservesValuePrecedenceAndFutureUpdates(string origin, string cleanup)
+    {
+        var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessTestApplication));
+        try
+        {
+            await DispatchAsync(session, async () =>
+            {
+                var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Mutation precedence"));
+                var source = new Border { Background = Brushes.Red };
+                Control control = origin switch
+                {
+                    "theme" => new Button { Content = "Theme target" },
+                    "inherited" => new TextBlock { Text = "Inherited target" },
+                    _ => new Border { Width = 150, Height = 40 }
+                };
+                control.Name = "Target";
+                AvaloniaProperty property = origin == "inherited" ? TextBlock.ForegroundProperty : Border.BackgroundProperty;
+                if (origin == "theme")
+                {
+                    property = Button.BackgroundProperty;
+                }
+                var reference = new Button { Content = "Untouched theme reference" };
+                var window = new Window
+                {
+                    Width = 400, Height = 240, RequestedThemeVariant = ThemeVariant.Light,
+                    Content = new StackPanel { Children = { control, reference } }
+                };
+                IDisposable? binding = null;
+                var style = new Style(x => x.OfType<Border>()) { Setters = { new Setter(Border.BackgroundProperty, Brushes.Red) } };
+                switch (origin)
+                {
+                    case "style":
+                    case "current_style":
+                        window.Styles.Add(style);
+                        break;
+                    case "inherited":
+                        window.Foreground = Brushes.Red;
+                        break;
+                    case "local":
+                        control.SetValue(property, Brushes.Red);
+                        break;
+                    case "local_null":
+                        control.SetValue(property, null);
+                        break;
+                    case "local_binding":
+                    case "style_binding":
+                        binding = control.Bind(property, source.GetObservable(Border.BackgroundProperty),
+                            origin == "local_binding" ? BindingPriority.LocalValue : BindingPriority.Style);
+                        break;
+                }
+                try
+                {
+                    window.Show();
+                    using var registration = runtime.RegisterTopLevel(window);
+                    using var frame = window.CaptureRenderedFrame();
+                    Assert.NotNull(frame);
+                    Assert.Equal(new PixelSize(400, 240), frame.PixelSize);
+                    if (origin is "current_style" or "current_default")
+                    {
+                        control.SetCurrentValue(property, Brushes.Blue);
+                    }
+                    var original = control.GetDiagnostic(property);
+                    var top = Assert.Single(await runtime.ListTopLevelsAsync());
+                    var target = Assert.Single((await runtime.FindNodesAsync(top.Id, TreeKinds.Visual, name: "Target", maxDepth: 32)).Value!.Matches).Target!;
+                    async Task<RuntimeMutationResponse> Apply(string id, RuntimeMutationOperation operation)
+                    {
+                        var result = await runtime.MutateNodeAsync(new(id, target, operation));
+                        Assert.True(result.Success, result.Error?.Message);
+                        Assert.True(result.Value!.Applied, JsonSerializer.Serialize(result.Value));
+                        return result.Value;
+                    }
+                    var older = await Apply("first", new(RuntimeMutationOperationKinds.SetProperty,
+                        propertyName: property.Name, value: "#FF0A7C59", valueType: "brush"));
+                    var newer = await Apply("second", new(RuntimeMutationOperationKinds.SetProperty,
+                        propertyName: property.Name, value: "#FFCE8A22", valueType: "brush"));
+                    Assert.Equal(Color.Parse("#FFCE8A22"), Assert.IsAssignableFrom<ISolidColorBrush>(control.GetValue(property)).Color);
+                    if (cleanup == "deactivate")
+                    {
+                        Assert.True(AvaScopeBridge.Deactivate().Success);
+                    }
+                    else
+                    {
+                        if (cleanup == "individual")
+                        {
+                            await Apply("reset-second", new(RuntimeMutationOperationKinds.ResetMutation, mutationId: newer.MutationId));
+                            Assert.Equal(Color.Parse("#FF0A7C59"), Assert.IsAssignableFrom<ISolidColorBrush>(control.GetValue(property)).Color);
+                            await Apply("reset-first", new(RuntimeMutationOperationKinds.ResetMutation, mutationId: older.MutationId));
+                        }
+                        else
+                        {
+                            await Apply("reset-all", new(RuntimeMutationOperationKinds.ResetAll));
+                        }
+                        Assert.Equal(0, (await runtime.MutationReviewAsync()).Value!.ActiveMutationCount);
+                    }
+                    Assert.Equal(original.Value, control.GetValue(property));
+                    Assert.Equal(original.Priority, control.GetDiagnostic(property).Priority);
+                    Assert.Equal(original.IsOverriddenCurrentValue, control.GetDiagnostic(property).IsOverriddenCurrentValue);
+                    Assert.Equal((original.Priority == BindingPriority.LocalValue).ToString(), older.Metadata["originalHadLocalValue"]);
+
+                    object? expected = Brushes.Green;
+                    switch (origin)
+                    {
+                        case "theme":
+                            window.RequestedThemeVariant = ThemeVariant.Dark;
+                            break;
+                        case "inherited":
+                            window.Foreground = Brushes.Green;
+                            break;
+                        case "local_binding":
+                        case "style_binding":
+                            source.Background = Brushes.Green;
+                            break;
+                        default:
+                            window.Styles.Remove(style);
+                            window.Styles.Add(new Style(x => x.OfType<Border>())
+                            {
+                                Setters = { new Setter(Border.BackgroundProperty, Brushes.Green) }
+                            });
+                            if (origin is "local" or "local_null")
+                            {
+                                expected = original.Value;
+                            }
+                            break;
+                    }
+                    using var restoredFrame = window.CaptureRenderedFrame();
+                    Assert.NotNull(restoredFrame);
+                    if (origin == "theme")
+                    {
+                        expected = reference.Background;
+                        Assert.NotEqual(original.Value, expected);
+                    }
+                    Assert.Equal(expected, control.GetValue(property));
+                }
+                finally
+                {
+                    binding?.Dispose();
                     window.Close();
                     AvaScopeBridge.Deactivate();
                 }

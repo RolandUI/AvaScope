@@ -2036,7 +2036,6 @@ public sealed partial class AvaScopeBridgeRuntime
             original,
             effective,
             appliedAt);
-        var shouldRestoreLocalValue = original.Priority == BindingPriority.LocalValue || original.HasLocalValue;
         var activeMutation = new AppliedRuntimeMutation(
             identity.Id,
             identity.Sequence,
@@ -2051,7 +2050,7 @@ public sealed partial class AvaScopeBridgeRuntime
             metadata,
             property.Owner,
             property.Property,
-            () => ResetAvaloniaProperty(property.Owner, property.Property, original.Value, shouldRestoreLocalValue));
+            () => ResetAvaloniaProperty(property.Owner, property.Property, original));
 
         _activeMutations[identity.Id] = activeMutation;
 
@@ -3295,28 +3294,15 @@ public sealed partial class AvaScopeBridgeRuntime
 
     private static PropertyValueSnapshot CapturePropertySnapshot(AvaloniaObject owner, AvaloniaProperty property)
     {
-        try
-        {
-            var diagnostic = owner.GetDiagnostic(property);
-            return new PropertyValueSnapshot(
-                diagnostic.Value,
-                diagnostic.Value?.GetType().FullName ?? "null",
-                FormatComputedValue(diagnostic.Value),
-                diagnostic.Priority,
-                MapComputedSource(diagnostic.Priority),
-                owner.IsSet(property));
-        }
-        catch (InvalidOperationException)
-        {
-            var value = owner.GetValue(property);
-            return new PropertyValueSnapshot(
-                value,
-                value?.GetType().FullName ?? "null",
-                FormatComputedValue(value),
-                BindingPriority.Unset,
-                "not_available",
-                owner.IsSet(property));
-        }
+        var diagnostic = owner.GetDiagnostic(property);
+        return new PropertyValueSnapshot(
+            diagnostic.Value,
+            diagnostic.Value?.GetType().FullName ?? "null",
+            FormatComputedValue(diagnostic.Value),
+            diagnostic.Priority,
+            MapComputedSource(diagnostic.Priority),
+            diagnostic.Priority == BindingPriority.LocalValue,
+            diagnostic.IsOverriddenCurrentValue);
     }
 
     private static PropertyValueSnapshot CreateValueSnapshot(object? value, string source, bool hasLocalValue)
@@ -3430,6 +3416,7 @@ public sealed partial class AvaScopeBridgeRuntime
         metadata[$"{prefix}ValueType"] = snapshot.ValueType;
         metadata[$"{prefix}ValueSource"] = snapshot.Source;
         metadata[$"{prefix}HadLocalValue"] = snapshot.HasLocalValue.ToString(CultureInfo.InvariantCulture);
+        metadata[$"{prefix}HadCurrentValueOverride"] = snapshot.IsOverriddenCurrentValue.ToString(CultureInfo.InvariantCulture);
     }
 
     private static IReadOnlyDictionary<string, string> CreateResetMetadata(
@@ -3465,16 +3452,21 @@ public sealed partial class AvaScopeBridgeRuntime
     private static void ResetAvaloniaProperty(
         AvaloniaObject owner,
         AvaloniaProperty property,
-        object? originalValue,
-        bool restoreLocalValue)
+        PropertyValueSnapshot original)
     {
-        if (restoreLocalValue)
+        if (original.HasLocalValue)
         {
-            owner.SetValue(property, originalValue!, BindingPriority.LocalValue);
-            return;
+            owner.SetValue(property, original.Value, BindingPriority.LocalValue);
+        }
+        else
+        {
+            owner.ClearValue(property);
         }
 
-        owner.ClearValue(property);
+        if (original.IsOverriddenCurrentValue)
+        {
+            owner.SetCurrentValue(property, original.Value);
+        }
     }
 
     private static void SetClassPresence(StyledElement styledElement, string className, bool isPresent)
@@ -7461,7 +7453,8 @@ public sealed partial class AvaScopeBridgeRuntime
         string ValueText,
         BindingPriority Priority,
         string Source,
-        bool HasLocalValue);
+        bool HasLocalValue,
+        bool IsOverriddenCurrentValue = false);
 
     private sealed record AppliedRuntimeMutation(
         string MutationId,

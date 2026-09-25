@@ -968,6 +968,8 @@ dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll mutation-review --sessi
 
 When several mutations override the same property, class, or resource, reset the newest one first. An unsafe individual reset returns `runtime_mutation_reset_order_conflict` with a `blockingMutationId` and changes nothing. Reset that newer mutation first, or use `reset_all`, which restores active overrides in reverse order. Independent values and controls can still be reset separately.
 
+Property reset preserves the original value source: a style, theme, inherited or default value resumes after the temporary local override is removed, so later app updates remain effective. Original local values (including null) and `SetCurrentValue` overrides are restored with their original precedence. Mutation metadata distinguishes `originalHadLocalValue` from `originalHadCurrentValueOverride`; a value supplied by a style is not a local value.
+
 Use `--source-project`, `--source-view`, `--source-app`, and `--source-profile` when an agent wants a source-aware handoff after runtime experiments. The suggestions report likely source target kind, file status, confidence, suggested member/property/class/resource key, limitations, and manual action text. They never modify project files automatically; agents must still inspect the suggested source before making an explicit patch.
 
 Close an active local bridge session:
