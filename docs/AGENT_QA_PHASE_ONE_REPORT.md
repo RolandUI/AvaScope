@@ -4,18 +4,21 @@ Status: **in progress**, 2026-09-25. Tracking issue [#166](https://github.com/Ro
 
 ## Current validation checkpoint
 
-Full diagnostic CI `36136730284` on `4ea4d02` succeeds across all six jobs.
-Downloaded evidence verifies Windows 946 passed/six skipped, macOS 945/seven,
-Linux 33 focused cases and five Windows native-input cases. All six native
-integration lifecycle runs plus three expiry checks verify clean identity and
-owned cleanup at actual 1x; these are scripted checks, not exploratory Retina
-coverage. #199 remains open because the original unavailable-query cause is
-unproven. Fresh combined CI `36141416097` runs on `108adc5`, including #200
-cleanup `7f8e46a`; no passing combined result is claimed yet.
+Full combined CI `36141416097` on `108adc5` succeeds across all six jobs.
+Downloaded individual TRX results verify Windows 953 passed/six skipped, macOS
+952/seven and Linux 33 focused cases. All seven #200 cleanup regressions pass
+on both full platforms. Windows native input now has twelve passing cases;
+actual accessibility cleanup records complete logs, all phases and disposed
+owned host 8292. Six native lab runs plus three expiry checks verify clean
+identity and ownership at actual 1x. #200 is closed; #199 original cause remains
+open. These are scripted checks, not exploratory Retina coverage.
 
-#202 is the sole active issue after the preview exploration below; #174 and
-#199/#200 are review, #201/#203 ready. Counts are 39 unique defects/27 closed.
-No owned preview client remains; #202 affected tests pass 24/24 (101 s).
+#202 fix `8bfcec0` is pushed/review after 24 affected checks and actual CLI
+no-build creation. Fresh full CI `36146649046` targets that exact commit and is
+running. #201 is the sole active issue; its Avalonia 12.1.3 API audit is retained
+in preview-campaign-01/animation-api-research.json, with no animation correction
+claimed yet. #203 retains the original preview timeout. Counts are 39 unique
+defects/28 closed. No local owned preview/native/test process remains.
 
 ## Isolated preview exploration (#174)
 
@@ -65,7 +68,7 @@ phase/child evidence for the first viewport is #203, not a claimed successful
 round or an inferred root cause. An earlier restricted-launcher run reports
 explicit NuGet path1 errors and remains separate. Evidence and candidate hashes
 are in preview-campaign-01/baseline-after-01/verified-summary.json, B001–B004 and
-the before/after/corrected TRX directories. Full candidate CI remains pending.
+the before/after/corrected TRX directories. Full candidate CI `36146649046` is running on pushed `8bfcec0`.
 Baseline-check still builds fresh project outputs; no-build creation does not
 silently pin future comparisons to an old assembly.
 
@@ -103,8 +106,9 @@ capability boundaries remain incomplete.
 
 ## Native test cleanup correction (#200)
 
-Implementation `7f8e46a` is pushed and in review; #174 resumes as the sole active
-issue for remaining workflow/replay and preview coverage.
+Implementation `7f8e46a` is closed after the combined `108adc5` CI above.
+The original delayed-EOF cause remains distinct from verified failure-preserving
+cleanup behavior.
 
 The controlled before baseline retains two failures after actual owned processes
 exit but an injected capture completion remains pending. The correction keeps
@@ -123,7 +127,9 @@ and cleanup.json persist. Exit wait takes 1.22 ms; stdout completion follows
 2438.88 ms later. This measures separated phases, not the original delayed-EOF
 cause. Evidence: expanded-campaign/native-cleanup-{before,after,corrected}-results,
 native-uia-cleanup-after-results, uia-owned-cleanup-after-01/accessibility and
-native-uia-cleanup-after-verified.json. Combined hosted validation remains pending.
+native-uia-cleanup-after-verified.json. Combined hosted validation now passes;
+ci-108adc5-{windows,macos,linux,native}/verified*.json retains the independent
+cross-checks.
 
 ## Native accessibility diagnostic checkpoint (#199)
 
