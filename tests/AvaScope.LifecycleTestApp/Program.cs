@@ -77,6 +77,12 @@ while (true)
             await Task.Delay(firstResponseDelayMs);
         }
 
+        if (request.Method == BridgeIpcMethods.ListTopLevels && args.Contains("--stall-top-levels", StringComparer.Ordinal))
+        {
+            Console.WriteLine($"Lifecycle top-level timeout probe entered at {DateTimeOffset.UtcNow:O}.");
+            await Task.Delay(TimeSpan.FromSeconds(60));
+        }
+
         var authorization = BridgeIpcMethods.RequiresControl(request) ? control.Enter(request.ControlToken) : null;
         using var permit = authorization?.Value;
         var response = authorization is { Success: false }

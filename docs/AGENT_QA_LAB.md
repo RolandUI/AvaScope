@@ -53,7 +53,19 @@ another tool dispatch, with a bounded diagnostic on stderr. The existing maximum
 128 commands and ten-minute session lifetime remain. The client does not alter
 the console code page; file-request mode continues reading JSON from its file.
 
-`Stop` uses `close-session --terminate-launched-process true`; the product checks the launch marker and live process identity. If startup was interrupted after launch, Stop can recover the unique manifest in that run. Ambiguous/missing ownership needs [RUN_RECOVERY.md](RUN_RECOVERY.md); do not kill a process by name. Fixture lease expiry closes its windows even if the orchestration process disappears. A failed startup/command retains evidence. No run directories are automatically deleted.
+`Stop` uses `close-session --terminate-launched-process true` for a ready session;
+the product checks the launch marker and live process identity. A failed or
+interrupted startup with a recorded run ID uses `recover-run` against that run's
+private `run-store`, including recovery after a previous failed Stop. Recovery
+checks active-run ownership, process start identity and session control before
+cleanup. A successful cleanup is recorded separately as `cleanupStatus=cleaned`;
+the original failed startup stays `status=failed`, with its logs and failure stage
+retained. `cleanupOutcome=already_exited` means all recorded children were already
+absent before recovery; otherwise the verified recovery outcome is `cleaned`.
+Without a run ID, only the existing unique-session/launch-marker path is allowed.
+Ambiguous/missing ownership needs [RUN_RECOVERY.md](RUN_RECOVERY.md); do not kill a
+process by name. Fixture lease expiry closes its windows even if the orchestration
+process disappears. No run directories are automatically deleted.
 
 Startup separately establishes bridge, application and rendered-frame readiness within a shared 10-second readiness budget before capturing the initial tree. Health and window discovery alone do not establish UI readiness. IPC transport failures retain the final attempt's phase, elapsed milliseconds, configured operation timeout and received byte count, without response contents. A timeout with zero received bytes cannot distinguish server scheduling from execution; a partial response shows that bytes arrived but not why the frame stopped. These diagnostics do not change operation deadlines or retry actions.
 

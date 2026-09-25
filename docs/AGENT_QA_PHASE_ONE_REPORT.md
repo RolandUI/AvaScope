@@ -2,6 +2,37 @@
 
 Status: **in progress**, 2026-09-25. Tracking issue [#166](https://github.com/RolandUI/AvaScope/issues/166); expanded fixture #172, declared surfaces #173 and capability campaign #174. The full goal is not achieved and current applicable checks are not all passing. The owner expanded the original intake-only phase to include fixes, meaningful regressions and repeated comprehensive testing. Original failures remain distinct from post-fix verification. Version changes and release remain outside scope.
 
+## Failed startup cleanup (#190, validation in progress)
+
+The controlled lifecycle app now supports an explicit 60-second top-level
+response stall and timestamps entry into that probe. A real CLI scenario with
+a 15-second launch budget reaches `top_levels`, returns the retained partial
+failure and terminates its directly owned process. The initial new test wrongly
+expected the CLI error envelope's `success` to be true; that setup error is
+retained in `qa-stop-before-results`, not counted as a product reproduction.
+After correcting it, `qa-stop-before-valid-results` records the actual lab Stop
+failure: the already-exited app has no live session. The changed-identity case
+also cannot reach run recovery with the old script. Both cases fail (57 seconds).
+
+The lab now routes failed/interrupted startup cleanup through the existing
+private `recover-run` contract, including a previous failed Stop that copied a
+stale session ID. Process/start identity, active-run and control-lease checks stay
+in the existing Core implementation. Cleanup status is separate from startup
+status; the lifecycle script attempts it whenever a run ID was recorded. No
+launcher, bridge deadline or operation retry change is made.
+
+The original native `legacy-hit-standalone-01` was recovered through the actual
+updated Stop command: exit 0, `cleaned`, `already_exited`, with original
+`outcome=failed` / `failureStage=top_levels`. Its QA status is restored to `failed`
+from the old Stop's `cleanup_failed`; the guessed stale session ID is cleared.
+Pre-recovery QA/private records are preserved. SHA-256 checks prove original
+startup and failed Stop responses are unchanged (`recovery-190-audit.json`).
+The bootstrap latency cause remains unknown. All 25 affected launch, scenario,
+ownership and recovery guards pass (2m16s, no skips, clean build,
+`qa-stop-after-results/qa-stop-after.trx`). This includes original/previously
+attempted failed Stop, repeated cleanup and a mismatched live PID's refusal.
+A fresh native standalone start/cleanup remains pending.
+
 ## CLI timeout lifecycle (#189, combined gate pending)
 
 The unchanged launcher was measured with a controlled bridge-less child under

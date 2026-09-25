@@ -248,7 +248,7 @@ foreach ($integration in @('Direct','Standalone')) {
     finally {
         if (Test-Path (Join-Path $runPath 'qa-run.json')) {
             $record = Get-Content (Join-Path $runPath 'qa-run.json') -Raw | ConvertFrom-Json
-            if ($record.sessionId) { $null = & $entry -Operation Stop -RunDirectory $runPath }
+            if ($record.sessionId -or $record.runId) { $null = & $entry -Operation Stop -RunDirectory $runPath }
         }
     }
 }

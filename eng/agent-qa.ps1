@@ -272,6 +272,44 @@ switch ($Operation) {
         if (-not $called.success -or $called.value.value.status -ne 'passed') { throw 'QA reset did not pass.' }
     }
     'Stop' {
+        if ($run.runId -and (-not $run.sessionId -or $run.status -in @('failed','blocked','cleanup_failed'))) {
+            # Startup can fail before a session ownership marker exists. The private
+            # run record already owns the exact launched process, including start identity.
+            $recoveryArguments = @($run.cliAssembly,'recover-run','--run',$run.runId,'--store-dir',(Join-Path $root 'run-store'))
+            $inspected = Invoke-Dotnet ($recoveryArguments + @('--operation','inspect')) 'stop-recovery-inspect'
+            $inspection = $inspected.text | ConvertFrom-Json -AsHashtable -Depth 100
+            if ($inspected.exitCode -ne 0 -or -not $inspection.success -or $inspection.value.active) {
+                throw 'Owned QA recovery could not inspect an inactive run; inspect stop-recovery-inspect.stdout.log.'
+            }
+            # This read-only observation describes already-exited children. Only
+            # recover-run may authorize termination; a reused PID must still be refused.
+            $alreadyExited = @($inspection.value.processes).Count -gt 0
+            foreach ($owned in $inspection.value.processes) {
+                try {
+                    $observed = [Diagnostics.Process]::GetProcessById([int]$owned.processId)
+                    try { if (-not $observed.HasExited) { $alreadyExited = $false } }
+                    finally { $observed.Dispose() }
+                }
+                catch [ArgumentException] { }
+                catch { $alreadyExited = $false }
+            }
+            $stopped = Invoke-Dotnet ($recoveryArguments + @('--operation','cleanup')) 'stop-recovery'
+            $result = $stopped.text | ConvertFrom-Json -AsHashtable -Depth 100
+            $run.cleanupMethod = 'run_recovery'
+            if ($stopped.exitCode -ne 0 -or -not $result.success -or $result.value.state -ne 'cleaned') {
+                $run.cleanupStatus = 'failed'; Write-Json $recordPath $run
+                throw 'Owned QA recovery failed; inspect stop-recovery.stdout.log. Startup evidence was retained.'
+            }
+            $run.cleanupStatus = 'cleaned'
+            $run.cleanupOutcome = if ($alreadyExited) { 'already_exited' } else { 'cleaned' }
+            $run.sessionId = $result.value.sessionId
+            if ($result.value.outcome -in @('failed','cancelled')) { $run.status = 'failed' }
+            elseif ($run.status -eq 'cleanup_failed') { $run.status = 'stopped' }
+            $run.stoppedAt = [DateTimeOffset]::UtcNow.ToString('O')
+            Write-Json $recordPath $run
+            $result | ConvertTo-Json -Depth 100
+            break
+        }
         if (-not $run.sessionId) {
             $manifests = @(Get-ChildItem -LiteralPath $run.manifestDirectory -Filter '*.json' -ErrorAction SilentlyContinue | Where-Object Name -NotLike '.*')
             if ($manifests.Count -ne 1) { throw 'Startup has no unique session identity. Inspect startup and run-recovery evidence; do not kill an unverified process.' }
