@@ -2,7 +2,7 @@
 
 Status: **in progress**, 2026-09-25. Tracking issue [#166](https://github.com/RolandUI/AvaScope/issues/166); expanded fixture #172, declared surfaces #173 and capability campaign #174. The full goal is not achieved and current applicable checks are not all passing. The owner expanded the original intake-only phase to include fixes, meaningful regressions and repeated comprehensive testing. Original failures remain distinct from post-fix verification. Version changes and release remain outside scope.
 
-## Failed startup cleanup (#190, validation in progress)
+## Failed startup cleanup (#190, combined gate pending)
 
 The controlled lifecycle app now supports an explicit 60-second top-level
 response stall and timestamps entry into that probe. A real CLI scenario with
@@ -31,7 +31,16 @@ The bootstrap latency cause remains unknown. All 25 affected launch, scenario,
 ownership and recovery guards pass (2m16s, no skips, clean build,
 `qa-stop-after-results/qa-stop-after.trx`). This includes original/previously
 attempted failed Stop, repeated cleanup and a mismatched live PID's refusal.
-A fresh native standalone start/cleanup remains pending.
+Fresh native `cleanup-standalone-01` on clean pushed `b70e35c` passes ten retained
+checks: actual Win32/Avalonia 12.1.3/1x/1120x800, three readiness observations,
+unchanged seeded journal after capture, viewed Windows/rendered images, exactly
+one toggle, reset to generation two and owned app PID 9956 termination. Client
+1828 exits 0 after three MCP calls, empty stderr; independent Windows inventory
+confirms the QA window is gone. The existing verified provider manifest remains
+`aefea294a734bf699fcacde04420a66b1373c73ed8580dc37833490c840ae074`.
+Both failed-start recovery and ordinary ready-session cleanup are now exercised.
+The successful fresh start does not explain the original bootstrap latency.
+#190 is ready for the combined gate; #184 follows. No release.
 
 ## CLI timeout lifecycle (#189, combined gate pending)
 
