@@ -2,7 +2,7 @@
 
 Status: **in progress**, 2026-09-25. Tracking issue [#166](https://github.com/RolandUI/AvaScope/issues/166); expanded fixture #172, declared surfaces #173 and capability campaign #174. The full goal is not achieved and current applicable checks are not all passing. The owner expanded the original intake-only phase to include fixes, meaningful regressions and repeated comprehensive testing. Original failures remain distinct from post-fix verification. Version changes and release remain outside scope.
 
-## Standalone workflow execution and replay (#174)
+## Native workflow execution and replay (#174)
 
 `workflow-standalone-01` uses clean `d4b376e`, Avalonia 12.1.3.0 and Win32 at
 actual 1x. Its 27 public calls (21 MCP/six CLI), 20 checks and six viewed images
@@ -23,8 +23,16 @@ exact requests/results, journals, reports and images are retained under
 
 An initial out-of-range evidence depth was rejected before dispatch; a separate
 local JSON reader needed UTF-8 BOM handling. Both agent mistakes are recorded;
-no application action was repeated because of them. No new product bug in this
-scoped round. Fresh Direct comparison and other capability families remain next.
+no application action was repeated because of them.
+
+Fresh `workflow-direct-01` on clean `e91041b` repeats the same positive/negative
+CLI/MCP journeys with 26 calls (20 MCP/six CLI), 20 checks, six viewed images and
+no agent request errors. A freshly published Direct host and its bridge/core/
+protocol snapshots are verified. Client 396 exits 0, owned app 3220 terminates,
+final state and six source hashes agree. Both integration summaries retain exact
+source identity, requests, independent state, exports and complete reports. No
+new product bug in these scoped workflow rounds. Preview/reload/baseline and other
+capability boundaries remain incomplete.
 
 ## Native test cleanup correction (#200)
 
