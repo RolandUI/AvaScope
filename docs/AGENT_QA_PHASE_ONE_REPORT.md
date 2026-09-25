@@ -4,6 +4,30 @@ Status: **in progress**, 2026-09-25. Tracking issue [#166](https://github.com/Ro
 
 ## Native mutation reset-order defect (#194)
 
+Fix 5d0df14 passes fresh native Win32/Avalonia 12.1.3/1x comparison:
+`mutation-order-direct-after-01` retains 36 public calls (21 MCP/15 CLI),
+13 passing checks and one explicitly classified agent mistake;
+`mutation-order-standalone-after-01` retains 28 calls (16 MCP/12 CLI) and
+11 passing checks, with no failure. CLI/MCP unsafe resets return rejected,
+the corresponding blocking mutation ID and zero extra Text events. Actual
+logical/visual aliases share the guard; same-name classes/resources remain
+independent. Individual reverse resets and reset_all restore Ada, Width=360,
+the original class list and a truthful empty active registry. Journal counts,
+public inspection and viewed native/rendered images agree; source hashes stay
+unchanged. Native resource-value coverage is response/registry only, with the
+independent value oracle provided by the real-Avalonia regressions.
+
+The Direct agent binding error occurred after a successful set A; the agent
+incorrectly repeated it, then asserted two active entries instead of the actual
+three. Original calls and failed assertion remain; explicit reset_all recovers
+Ada and a separate clean sequence verifies two layers. The first MD030 native
+image includes the newly opened standalone window's occlusion; a fresh foreground
+image and rendered image were both inspected. Clients 11480/21020 exit 0 with
+empty stderr; owned Stop terminates apps 12228/4476. Detailed evidence is in each
+run's mutation-summary.json, journey-checks.json, full calls/state and images.
+#194 is in review pending a fresh combined gate; no new product failure is
+claimed from these scoped native checks.
+
 Clean afd4ad0 `capabilities-direct-mutation-01` records 20 public calls
 (15 MCP/five CLI) on Avalonia 12.1.3/Win32 1x. Six checks pass, one agent
 assertion contract mistake is retained separately, and one product defect is
@@ -38,8 +62,22 @@ resettable. All 27 affected mutation/evidence/review cases pass (20s, clean buil
 including nine ordering cases with individual reverse reset, reset_all and
 deactivation. Original values, event counts and active registry are checked.
 TRX and verified summaries are in `expanded-campaign/mutation-order-{before,after}-results`.
-This is local regression confirmation; native Direct/standalone after-fix
-comparison and the fresh combined gate are still pending.
+Native comparison is recorded above; the fresh combined gate is still pending.
+
+## Hosted dispatch-precondition fixture readiness (#195)
+
+Full CI 36107667148 on 511312a fails only macOS
+`RuntimeDispatchPreconditionTests.WorkflowReplayPreservesOriginalGuardAndAsyncCompletionRequiresSeparateVerification`:
+WithWindow line 178's initial readiness assertion fails in 1.138s before the
+test body. The assertion discards the error/phase evidence, so the root cause is
+unknown. The window has no explicit initial headless frame preparation; #195
+tracks measurement and an evidence-based fixture correction, not an assumed
+production dispatch/replay defect. Windows has 856 passes/six skips; Linux has
+33 passes; all six native lifecycle combinations and their owned cleanup pass.
+macOS has 856 passes/one failure/five skips (9m17s); its downstream workflow and
+packaging steps are skipped. All five #193 cases and #185's gesture case pass.
+TRX/logs, per-platform verified summaries and native cleanup are retained in
+`expanded-campaign/ci-511-*`. All native runners use 1x, not Retina.
 
 ## Action-explanation fixture readiness (#193)
 
