@@ -19,6 +19,111 @@ namespace AvaScope.Tests.Bridge;
 [Collection(BridgeCollectionDefinition.Name)]
 public sealed class RuntimePickingTests
 {
+    [Theory]
+    [InlineData(false, InputActions.PointerMove)]
+    [InlineData(true, InputActions.PointerMove)]
+    [InlineData(false, InputActions.PointerDown)]
+    [InlineData(true, InputActions.PointerDown)]
+    [InlineData(false, InputActions.PointerUp)]
+    [InlineData(true, InputActions.PointerUp)]
+    [InlineData(false, InputActions.Drag)]
+    [InlineData(true, InputActions.Drag)]
+    [InlineData(false, InputActions.Focus)]
+    [InlineData(true, InputActions.Focus)]
+    public async Task LegacyInputSkipsHitTestInvisibleChildOrOverlay(bool overlay, string action)
+    {
+        await WithWindow(async (runtime, window, button, top, node, client, output) =>
+        {
+            var ignored = new Border { Name = "IgnoredHit", Width = 160, Height = 80,
+                Background = Brushes.Red, IsHitTestVisible = false };
+            var pad = new Border { Name = "InputPad", Width = 160, Height = 80,
+                Background = Brushes.Blue, Focusable = true, RenderTransform = new TranslateTransform(12, 9) };
+            Canvas.SetLeft(pad, 40); Canvas.SetTop(pad, 30);
+            var canvas = new Canvas { Children = { pad }, ClipToBounds = true };
+            if (overlay)
+            {
+                Canvas.SetLeft(ignored, 52); Canvas.SetTop(ignored, 39); canvas.Children.Add(ignored);
+            }
+            else pad.Child = ignored;
+            window.Content = canvas; window.UpdateLayout();
+            Assert.True((await runtime.ReadinessAsync(top.TopLevelId, options: new(waitForFrame: true))).Success);
+            var padNode = Assert.Single((await client.FindNodesAsync(runtime.SessionId, top.TopLevelId, TreeKinds.Visual, name: pad.Name, maxDepth: 32)).Value!.Matches).Node;
+            var point = pad.TranslatePoint(new(80, 40), window)!.Value;
+            var excludedEvents = 0; var presses = 0; var releases = 0; var moves = 0; var captureLost = 0;
+            IPointer? ownedPointer = null;
+            ignored.PointerMoved += (_, _) => excludedEvents++;
+            ignored.PointerPressed += (_, _) => excludedEvents++;
+            ignored.PointerReleased += (_, _) => excludedEvents++;
+            pad.PointerMoved += (_, _) => moves++;
+            pad.PointerPressed += (_, e) => { presses++; ownedPointer = e.Pointer; e.Pointer.Capture(pad); };
+            pad.PointerReleased += (_, _) => releases++;
+            pad.PointerCaptureLost += (_, _) => captureLost++;
+
+            var result = action == InputActions.Drag
+                ? await client.InputAsync(runtime.SessionId, top.TopLevelId, action, targetNodeId: padNode.NodeId,
+                    gesture: new(GestureDirections.Right, 50, durationMs: 50))
+                : await client.InputAsync(runtime.SessionId, top.TopLevelId, action, x: point.X, y: point.Y);
+            CoreResult<InputResponse>? pairedRelease = null;
+            if (action == InputActions.PointerDown)
+                pairedRelease = await client.InputAsync(runtime.SessionId, top.TopLevelId, InputActions.PointerUp, x: 5, y: 5);
+            Assert.True(result.Success, JsonSerializer.Serialize(result.Error));
+            Assert.True(excludedEvents == 0,
+                $"{action}, overlay={overlay}: ignored visual received {excludedEvents} events; pad presses={presses}, releases={releases}, moves={moves}; response={JsonSerializer.Serialize(result.Value)}");
+            Assert.Equal(padNode.NodeId, result.Value!.TargetNodeId);
+            if (action == InputActions.PointerMove) Assert.Equal(1, moves);
+            if (action == InputActions.PointerUp) Assert.Equal(1, releases);
+            if (action is InputActions.PointerDown or InputActions.Drag)
+            {
+                if (pairedRelease is not null) Assert.True(pairedRelease.Success, JsonSerializer.Serialize(pairedRelease.Error));
+                Assert.Equal(1, presses); Assert.Equal(1, releases); Assert.Equal(1, captureLost);
+                Assert.NotNull(ownedPointer); Assert.Null(ownedPointer.Captured);
+            }
+            if (action == InputActions.Focus) Assert.Same(pad, window.FocusManager!.GetFocusedElement());
+            if (action is InputActions.PointerMove or InputActions.PointerDown or InputActions.PointerUp)
+                Assert.Equal("TopLevel.InputHitTest", result.Value.Metadata["hitTestSource"]);
+
+            // A real input overlay remains the target; ignoring decorations must not bypass it.
+            ignored.IsHitTestVisible = true;
+            Assert.True((await runtime.ReadinessAsync(top.TopLevelId, options: new(waitForFrame: true))).Success);
+            var intercepted = await client.InputAsync(runtime.SessionId, top.TopLevelId, InputActions.PointerMove, x: point.X, y: point.Y);
+            Assert.True(intercepted.Success, JsonSerializer.Serialize(intercepted.Error));
+            Assert.NotEqual(padNode.NodeId, intercepted.Value!.TargetNodeId); Assert.Equal(1, excludedEvents);
+            ignored.IsHitTestVisible = false; pad.IsEnabled = false;
+            var before = (presses, releases, moves, excludedEvents);
+            var disabled = await client.InputAsync(runtime.SessionId, top.TopLevelId, InputActions.PointerDown,
+                x: point.X, y: point.Y, targetNodeId: padNode.NodeId);
+            Assert.False(disabled.Success); Assert.Equal(before, (presses, releases, moves, excludedEvents));
+        });
+    }
+
+    [Fact]
+    public async Task InputTransparentOverlayDoesNotContradictClickActionability()
+    {
+        await WithWindow(async (runtime, window, button, top, node, client, output) =>
+        {
+            button = new Button { Name = "ActionButton", Width = 160, Height = 60, Content = "Run" };
+            var ignored = new Border { Width = button.Width, Height = button.Height,
+                Background = Brushes.Red, IsHitTestVisible = false };
+            window.Content = new Grid { Children = { button, ignored } };
+            var clicks = 0; button.Click += (_, _) => clicks++;
+            window.UpdateLayout();
+            Assert.True((await runtime.ReadinessAsync(top.TopLevelId, options: new(waitForFrame: true))).Success);
+            var point = button.TranslatePoint(new(button.Bounds.Width / 2, button.Bounds.Height / 2), window)!.Value;
+            var click = await client.InputAsync(runtime.SessionId, top.TopLevelId, InputActions.Click, x: point.X, y: point.Y);
+            Assert.True(click.Success, JsonSerializer.Serialize(click.Error)); Assert.Equal(1, clicks);
+            var observed = Assert.Single((await client.FindNodesAsync(runtime.SessionId, top.TopLevelId, TreeKinds.Visual, name: button.Name, maxDepth: 32)).Value!.Matches).Node;
+            Assert.True(observed.InteractionState!.Actionable, "A successful actual click contradicts the input-transparent overlay's actionable=false snapshot.");
+            Assert.Equal("TopLevel.InputHitTest", click.Value!.Metadata["hitTestSource"]);
+
+            ignored.IsHitTestVisible = true;
+            Assert.True((await runtime.ReadinessAsync(top.TopLevelId, options: new(waitForFrame: true))).Success);
+            var blocked = await client.InputAsync(runtime.SessionId, top.TopLevelId, InputActions.Click, x: point.X, y: point.Y);
+            Assert.False(blocked.Success); Assert.Equal(1, clicks);
+            observed = Assert.Single((await client.FindNodesAsync(runtime.SessionId, top.TopLevelId, TreeKinds.Visual, name: button.Name, maxDepth: 32)).Value!.Matches).Node;
+            Assert.False(observed.InteractionState!.Actionable);
+        });
+    }
+
     [Fact]
     public async Task PointerDiagnosticsUsesActualHitPathAcrossTransformsOverlaysAndClipping()
     {

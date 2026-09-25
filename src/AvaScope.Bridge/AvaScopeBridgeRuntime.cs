@@ -3992,7 +3992,7 @@ public sealed partial class AvaScopeBridgeRuntime
             }
         }
 
-        var hitVisual = topLevel.GetVisualAt(bounds.Value.Center);
+        var hitVisual = topLevel.InputHitTest(bounds.Value.Center, enabledElementsOnly: false) as Visual;
         if (hitVisual is null
             || !ReferenceEquals(hitVisual, visual)
                 && !hitVisual.GetVisualAncestors().Contains(visual))
@@ -4103,7 +4103,7 @@ public sealed partial class AvaScopeBridgeRuntime
             var target = pointer.Captured as InputElement ?? pointerTarget;
             if (target is null)
             {
-                var hitVisual = plan.TopLevel.GetVisualAt(point);
+                var hitVisual = plan.TopLevel.InputHitTest(point, enabledElementsOnly: false) as Visual;
                 target = hitVisual as InputElement
                     ?? hitVisual?.FindAncestorOfType<InputElement>()
                     ?? plan.Source.InputElement;
@@ -4327,7 +4327,7 @@ public sealed partial class AvaScopeBridgeRuntime
             return CoreResult<InputResponse>.Fail(point.Error!);
         }
 
-        var target = topLevel.GetVisualAt(point.Value);
+        var target = topLevel.InputHitTest(point.Value, enabledElementsOnly: false) as Visual;
         var metadata = CreatePointerInputMetadata(topLevel, point.Value, target, null);
         if (target is null)
         {
@@ -4386,7 +4386,7 @@ public sealed partial class AvaScopeBridgeRuntime
             return CoreResult<InputResponse>.Fail(point.Error!);
         }
 
-        var hitVisual = topLevel.GetVisualAt(point.Value);
+        var hitVisual = topLevel.InputHitTest(point.Value, enabledElementsOnly: false) as Visual;
         var hitInputTarget = hitVisual as InputElement ?? hitVisual?.FindAncestorOfType<InputElement>();
         Pointer pointer;
         InputElement? inputTarget;
@@ -4674,7 +4674,7 @@ public sealed partial class AvaScopeBridgeRuntime
         var metadata = new Dictionary<string, string>(StringComparer.Ordinal)
         {
             ["coordinateSpace"] = "top_level_dip",
-            ["hitTestSource"] = "TopLevel.GetVisualAt",
+            ["hitTestSource"] = "TopLevel.InputHitTest",
             ["requestedX"] = point.X.ToString("0.###", CultureInfo.InvariantCulture),
             ["requestedY"] = point.Y.ToString("0.###", CultureInfo.InvariantCulture),
             ["effectiveX"] = point.X.ToString("0.###", CultureInfo.InvariantCulture),
@@ -5472,7 +5472,7 @@ public sealed partial class AvaScopeBridgeRuntime
             return CoreResult<InputElement>.Fail(point.Error!);
         }
 
-        var visual = topLevel.GetVisualAt(point.Value);
+        var visual = topLevel.InputHitTest(point.Value, enabledElementsOnly: false) as Visual;
         if (visual is null)
         {
             return CoreResult<InputElement>.Fail(new CoreError(
@@ -6076,7 +6076,7 @@ public sealed partial class AvaScopeBridgeRuntime
         var actionable = rendered && unclipped && enabled && availableActions.Count > 0;
         if (actionable)
         {
-            var hitVisual = topLevel.GetVisualAt(bounds!.Value.Center);
+            var hitVisual = topLevel.InputHitTest(bounds!.Value.Center, enabledElementsOnly: false) as Visual;
             actionable = hitVisual is not null
                 && (ReferenceEquals(hitVisual, visual) || hitVisual.GetVisualAncestors().Contains(visual));
         }

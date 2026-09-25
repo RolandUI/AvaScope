@@ -2,6 +2,54 @@
 
 Status: **in progress**, 2026-09-25. Tracking issue [#166](https://github.com/RolandUI/AvaScope/issues/166); expanded fixture #172, declared surfaces #173 and capability campaign #174. The full goal is not achieved and current applicable checks are not all passing. The owner expanded the original intake-only phase to include fixes, meaningful regressions and repeated comprehensive testing. Original failures remain distinct from post-fix verification. Version changes and release remain outside scope.
 
+## Legacy input hit selection (#188, validation in progress)
+
+All ten real-Avalonia child/sibling-overlay cases fail before the correction
+(`legacy-hit-before-results`, seven seconds). Independent handlers show events
+delivered to an input-transparent visual for move/down/up and child drag;
+sibling-overlay drag is incorrectly blocked, and coordinate focus targets the
+wrong element. A separate valid before-case proves an actual click succeeds
+while the same transparent overlay makes its tree report `actionable=false`
+(`legacy-actionability-before-valid-results`, three seconds). The first attempt
+at that test reparented an attached control and failed during setup; that
+retained attempt is an authoring error, not a product reproduction.
+
+The seven-line correction uses public `InputHitTest` for six legacy input,
+gesture, coordinate-focus and actionability selections and fixes shared
+`hitTestSource` metadata. Existing click dispatch already uses this API.
+`enabledElementsOnly:false` preserves the existing picking/click behavior and
+separate input guards; capture/release ownership is unchanged. This choice is
+checked against [Avalonia 12.1.3 InputExtensions](https://raw.githubusercontent.com/AvaloniaUI/Avalonia/12.1.3/src/Avalonia.Base/Input/InputExtensions.cs).
+All 59 affected Release input/picking/focus/provenance/actionability and pointer
+diagnostic cases now pass (1m41s), including all eleven new reproductions,
+paired capture/release, genuine input overlays and disabled-target refusal.
+Full Release build passes with zero warnings/errors. Fresh Direct host and
+standalone provider packaging pass; the provider's verified manifest SHA-256
+is `aefea294a734bf699fcacde04420a66b1373c73ed8580dc37833490c840ae074`.
+
+Fresh native `legacy-hit-direct-01` N001-N014 passes 22 retained checks including
+reset. Public picking, MCP center diagnostics and actual CLI center movement
+all select the pad through its input-transparent text, with no mismatch.
+Coordinate focus and independent focus inspection agree. MCP down/CLI up make
+one click; a legacy synthetic half-width gesture yields two total presses and
+releases, one 259x0 DIP drag. An extra release and move-only probes leave the
+independent journal unchanged. Wrong-node assertion still refuses. Windows
+accessibility/pixels and the public marker image were reviewed. Reset/owned
+PID 18512 termination succeed; client 2116 exits 0 after 11 calls, empty stderr.
+This is real native Win32 1x app validation of legacy synthetic event routes,
+not native Retina evidence. Fresh standalone verification is pending.
+
+`legacy-hit-standalone-01` fails startup at `top_levels`: the provider reports
+activation and writes a manifest near the 30-second launch deadline, then the
+launcher explicitly terminates its owned PID 3168 on cancellation. Only reset
+was journaled, with no opened window. Read-only recovery finds no live session
+or QA window; this is not evidence of an app crash. The documented lab Stop
+also fails with `bridge_session_not_found` instead of recognizing completed
+owned cleanup (#190). The original failed run and all logs stay unchanged; client
+9272 exits 0 after one read. The late bootstrap cause is unknown and is not
+conflated with #182's post-attach inspection or #189's elapsed guard. A second
+fresh standalone attempt uses unchanged binaries; no deadline is increased.
+
 ## Pointer diagnostics checkpoint (#186, combined gate pending)
 
 The actual-Avalonia transformed-pad regression fails with the old bounds-order
