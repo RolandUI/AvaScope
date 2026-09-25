@@ -10,12 +10,102 @@ using System.ComponentModel;
 using Avalonia.Headless;
 using Avalonia.Interactivity;
 using AvaScope.ComplexWorkflowApp;
+using AvaScope.Bridge;
+using AvaScope.Core;
+using AvaScope.Protocol;
 
 namespace AvaScope.Tests.Bridge;
 
 [Collection(BridgeCollectionDefinition.Name)]
 public sealed class AgentQaFixtureTests
 {
+    [Fact]
+    public async Task KeyedListCanRevealAndSelectOffscreenRowsWithoutChangingTableOrderAndResetRestoresItsSeed()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "avascope-qa-items-" + Guid.NewGuid().ToString("N"));
+        var previous = Environment.GetEnvironmentVariable("AVASCOPE_QA_OUTPUT");
+        Environment.SetEnvironmentVariable("AVASCOPE_QA_OUTPUT", directory);
+        try
+        {
+            using var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessSmokeTests.BridgeHeadlessTestApplication));
+            await BridgeHeadlessSmokeTests.DispatchAsync(session, async () =>
+            {
+                AvaScopeBridge.Deactivate();
+                var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("QA keyed list"));
+                var window = new QaWindow(); window.Show();
+                try
+                {
+                    using var registration = runtime.RegisterTopLevel(window);
+                    var top = Assert.Single(await runtime.ListTopLevelsAsync());
+                    var client = new LocalBridgeClient(Path.GetDirectoryName(runtime.SessionManifestPath)!);
+                    var rows = window.FindControl<ListBox>("Rows")!;
+                    var table = window.FindControl<DataGrid>("RecordsTable")!;
+                    for (var cycle = 0; cycle < 2; cycle++)
+                    {
+                        window.FindControl<TabControl>("Pages")!.SelectedIndex = 2;
+                        Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
+                        var seed = rows.ItemsSource!.Cast<QaRecord>().ToArray();
+                        Assert.Equal(200, seed.Length);
+                        Assert.Equal("QA-001", seed[0].Id);
+                        Assert.Null(rows.ContainerFromIndex(174));
+                        var found = await runtime.FindNodesAsync(top.Id, TreeKinds.Visual, automationId: "qa-rows", maxDepth: 32);
+                        Assert.True(found.Success, found.Error?.Message);
+                        var target = Assert.Single(found.Value!.Matches).Node.Target!;
+                        var lookup = await client.VirtualItemAsync(new RuntimeVirtualItemRequest(target, "Id", "QA-175"));
+                        Assert.True(lookup.Success, lookup.Error?.Message);
+                        Assert.False(lookup.Value!.Realized);
+                        Assert.Equal(174, lookup.Value.Index);
+                        Assert.Null(rows.SelectedItem);
+                        var selected = await client.VirtualItemAsync(new RuntimeVirtualItemRequest(target, "Id", "QA-175", "select"));
+                        Assert.True(selected.Success, selected.Error?.Message);
+                        Assert.True(selected.Value!.Rendered);
+                        Assert.Same(seed[174], rows.SelectedItem);
+                        Assert.Null(table.SelectedItem);
+                        Assert.Contains(rows.ContainerFromIndex(174)!.GetVisualDescendants().OfType<TextBlock>(),
+                            text => text.Text == "Record 175 — seeded QA data");
+                        using (var journal = JsonDocument.Parse(File.ReadAllText(Path.Combine(directory, "qa-state.json"))))
+                        {
+                            Assert.Equal(174, journal.RootElement.GetProperty("selectedRow").GetInt32());
+                            Assert.Equal("QA-175", journal.RootElement.GetProperty("selectedRowKey").GetString());
+                        }
+                        var reveal = await client.VirtualItemAsync(new RuntimeVirtualItemRequest(target, "Id", "QA-001", "reveal"));
+                        Assert.True(reveal.Success, reveal.Error?.Message);
+                        Assert.True(reveal.Value!.Rendered);
+                        Assert.Same(seed[174], rows.SelectedItem);
+                        table.CollectionView.SortDescriptions.Add(DataGridSortDescription.FromPath("Id", ListSortDirection.Descending));
+                        Assert.Equal("QA-200", table.ItemsSource.Cast<QaRecord>().First().Id);
+                        Assert.Equal("QA-001", rows.ItemsSource!.Cast<QaRecord>().First().Id);
+                        var beforeRefusal = File.ReadAllText(Path.Combine(directory, "qa-state.json"));
+                        var missing = await client.VirtualItemAsync(new RuntimeVirtualItemRequest(target, "Id", "QA-999", "select"));
+                        Assert.Equal("virtual_item_not_found", missing.Error!.Code);
+                        var limited = await client.VirtualItemAsync(new RuntimeVirtualItemRequest(target, "Id", "QA-175", "select", maxItems: 100));
+                        Assert.Equal("virtual_item_search_limit", limited.Error!.Code);
+                        var staleTarget = new RuntimeTargetContext(target.SessionId, target.TopLevelId, target.TreeKind,
+                            target.NodeId, nodeGeneration: "stale");
+                        var stale = await client.VirtualItemAsync(new RuntimeVirtualItemRequest(staleTarget, "Id", "QA-175", "select"));
+                        Assert.Equal("virtual_item_stale_collection", stale.Error!.Code);
+                        Assert.Same(seed[174], rows.SelectedItem);
+                        Assert.Equal(beforeRefusal, File.ReadAllText(Path.Combine(directory, "qa-state.json")));
+                        window.ResetState();
+                        Assert.Null(rows.SelectedItem);
+                        Assert.Equal(0, window.FindControl<TabControl>("Pages")!.SelectedIndex);
+                        Assert.NotSame(seed[174], rows.ItemsSource!.Cast<QaRecord>().ElementAt(174));
+                        Assert.Empty(table.CollectionView.SortDescriptions);
+                        using var reset = JsonDocument.Parse(File.ReadAllText(Path.Combine(directory, "qa-state.json")));
+                        Assert.Equal(-1, reset.RootElement.GetProperty("selectedRow").GetInt32());
+                        Assert.Equal(JsonValueKind.Null, reset.RootElement.GetProperty("selectedRowKey").ValueKind);
+                    }
+                }
+                finally { window.Close(); AvaScopeBridge.Deactivate(); }
+            }, CancellationToken.None);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("AVASCOPE_QA_OUTPUT", previous);
+            if (Directory.Exists(directory)) Directory.Delete(directory, recursive: true);
+        }
+    }
+
     [Theory]
     [InlineData(1028, 749)]
     [InlineData(680, 620)]

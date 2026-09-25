@@ -112,7 +112,13 @@
               <Button x:Name="UppercaseButton" Content="Key A" AutomationProperties.AutomationId="Example_Button_Key_A" />
               <TextBlock x:Name="IdentityStatus" Text="a=0; A=0" VerticalAlignment="Center" AutomationProperties.AutomationId="qa-identity-status" />
             </StackPanel>
-            <ListBox Grid.Row="2" x:Name="Rows" SelectionMode="Single" AutomationProperties.AutomationId="qa-rows" />
+            <ListBox Grid.Row="2" x:Name="Rows" SelectionMode="Single" AutomationProperties.AutomationId="qa-rows">
+              <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="local:QaRecord">
+                  <TextBlock Text="{CompiledBinding Name, StringFormat='{}{0} — seeded QA data'}" />
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
           </Grid>
         </TabItem>
         <TabItem Header="Windows and focus" AutomationProperties.AutomationId="qa-windows-tab">

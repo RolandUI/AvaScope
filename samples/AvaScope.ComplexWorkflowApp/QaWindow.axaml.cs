@@ -222,8 +222,6 @@ public partial class QaWindow : Window
             _editor.Text = "Ada";
             _editor.SelectionStart = _editor.SelectionEnd = 0;
             NotesEditor.Text = "First line\nÁrvíztűrő tükörfúrógép 😀";
-            Rows.ItemsSource = Enumerable.Range(1, 200).Select(index => $"Record {index:000} — seeded QA data").ToArray();
-            Rows.SelectedIndex = -1;
             Pages.SelectedIndex = 0;
             RequestedThemeVariant = ThemeVariant.Light;
             _locale = "en-US";
@@ -248,6 +246,8 @@ public partial class QaWindow : Window
             _formSaves = _tableEdits = 0;
             _records = Enumerable.Range(1, 200).Select(index => new QaRecord($"QA-{index:000}",
                 $"Record {index:000}", index % 2 == 0 ? "passed" : "pending", index % 101)).ToArray();
+            Rows.ItemsSource = _records;
+            Rows.SelectedIndex = -1;
             foreach (var row in _records)
                 row.PropertyChanged += (_, _) =>
                 {
@@ -410,6 +410,7 @@ public partial class QaWindow : Window
             displayName = Bound(_editor.Text), textChanges = _textChanges, notes = Bound(NotesEditor.Text),
             lowercaseCount = _lowercaseCount, uppercaseCount = _uppercaseCount, templateCount = _templateCount,
             selectedPage = Pages.SelectedIndex, selectedRow = Rows.SelectedIndex, rowCount = Rows.ItemCount,
+            selectedRowKey = (Rows.SelectedItem as QaRecord)?.Id,
             loadStatus = LoadStatus.Text, childWindows = _children.Count, popupOpen = QaPopup.IsOpen,
             form = new { name = Bound(FormName.Text), email = Bound(FormEmail.Text), role = FormRole.SelectedItem,
                 consent = FormConsent.IsChecked, priority = FormPriority.Value, saves = _formSaves,
