@@ -2,6 +2,49 @@
 
 Status: **in progress**, 2026-09-25. Tracking issue [#166](https://github.com/RolandUI/AvaScope/issues/166); expanded fixture #172, declared surfaces #173 and capability campaign #174. The full goal is not achieved and current applicable checks are not all passing. The owner expanded the original intake-only phase to include fixes, meaningful regressions and repeated comprehensive testing. Original failures remain distinct from post-fix verification. Version changes and release remain outside scope.
 
+## Expanded Direct form journey (#174, scoped evidence)
+
+Clean `3b82d1d` native Direct run `capabilities-direct-01` uses Avalonia 12.1.3,
+Win32, 1120x800 at 1x. F001-F032 retain 23 actual persistent MCP calls and nine
+CLI calls, independent app journals, responses and four reviewed native/rendered
+images (F014/F026). Twenty-nine checks pass. Three retained failures are agent
+request/assertion mistakes: legacy click on a TabItem instead of select, expecting
+CLI argument-error exit 1 instead of 2, and expecting success on an invalid form
+plan. Corrected requests/assertions verify the intended refusals without effects;
+these are not product defects or 32 passing checks.
+
+Eight-field inspection agrees across adapters, redacts the password, and reports
+bounded/partial coverage. Invalid bounds and a plan containing a read-only field
+refuse before mutation. A four-field Unicode/name/email/consent/range fill verifies
+without saving; exact cross-adapter replay and already-satisfied values produce
+no new journal events, while changed-payload reuse refuses. Explicit popup input
+selects Reviewer and separate submit saves once. The native ComboBox exposes its
+choices in a separate popup; form/desired-state selection requires same-window
+targets and refuses that combination. This documented limitation is not a full
+form-selection pass.
+
+Invalid name/email preserve the previous saved profile and expose both errors
+through inspection and reviewed pixels. Because the fixture validates on submit,
+repairing text retains old validation errors and correctly reports partial effects
+without submitting or proceeding to the next field. Exact partial replay adds no
+events. Explicit revalidation, remaining repair and separate submit save the
+correct profile exactly once more and clear both errors. Reset restores the seed.
+Response scanning finds no fixture password. Client PID 21196 exits 0 after 23
+calls with empty stderr; owned Stop terminates app PID 21188 and closes the
+session. This scoped form round confirms no new product defect. Standalone forms,
+the current table journey and the remaining capability inventory are unfinished.
+
+The concurrent full Windows gate on `3b82d1d` in CI `36100032601` instead fails
+two persistent Unicode regression variants: 853 passed/two failed/six explicit
+skips (9m41s). Both transport-successful replies report `desired_state_budget`
+after one routed text operation, uncertain status and unavailable after-state.
+The false/full-result variant had already preserved the preceding Unicode value.
+This is tracked separately as [#191](https://github.com/RolandUI/AvaScope/issues/191),
+not a demonstrated encoding regression. Logs and full TRX with verified outcomes
+remain in `expanded-campaign/ci-3b82-windows*`. Native QA jobs still run; downstream
+Linux/macOS jobs are skipped, leaving #184/#185 after-fix validation pending.
+Return #174 to ready while diagnosing #191; no comprehensive passing claim.
+
 ## Initial gesture frame readiness (#185, validation in progress)
 
 The first provider-backed slider drag fails on macOS in both retained hosted
