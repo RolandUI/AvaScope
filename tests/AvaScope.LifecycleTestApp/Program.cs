@@ -30,6 +30,14 @@ if (!string.IsNullOrWhiteSpace(markerPath))
 var sessionId = new SessionId($"lifecycle-{Guid.NewGuid():N}");
 var process = Process.GetCurrentProcess();
 var pipeName = $"avs-{process.Id}-{Guid.NewGuid().ToString("N")[..16]}";
+NamedPipeServerStream CreatePipe() => new(
+    pipeName,
+    PipeDirection.InOut,
+    NamedPipeServerStream.MaxAllowedServerInstances,
+    PipeTransmissionMode.Byte,
+    PipeOptions.Asynchronous);
+
+var pendingPipe = CreatePipe();
 var manifest = new BridgeSessionManifest(
     sessionId,
     process.Id,
@@ -53,96 +61,100 @@ if (ReadOption(args, "--control-token-file") is { } tokenFile)
     File.WriteAllText(tokenFile, lease.Value!.Token);
 }
 
-while (true)
+try
 {
-    await using var pipe = new NamedPipeServerStream(
-        pipeName,
-        PipeDirection.InOut,
-        maxNumberOfServerInstances: 1,
-        PipeTransmissionMode.Byte,
-        PipeOptions.Asynchronous);
-    await pipe.WaitForConnectionAsync();
-    try
+    while (true)
     {
-        var requestLine = await ReadLineAsync(pipe);
-        if (string.IsNullOrWhiteSpace(requestLine)) continue;
-        var request = JsonSerializer.Deserialize<BridgeIpcRequest>(requestLine);
-        if (request is null)
+        await using var pipe = pendingPipe;
+        await pipe.WaitForConnectionAsync();
+        // Match the production bridge: preserve queued Unix clients when this reply is disposed.
+        pendingPipe = CreatePipe();
+        try
         {
-            continue;
-        }
+            var requestLine = await ReadLineAsync(pipe);
+            if (string.IsNullOrWhiteSpace(requestLine)) continue;
+            var request = JsonSerializer.Deserialize<BridgeIpcRequest>(requestLine);
+            if (request is null)
+            {
+                continue;
+            }
 
-        if (firstResponse && firstResponseDelayMs > 0)
-        {
-            firstResponse = false;
-            await Task.Delay(firstResponseDelayMs);
-        }
+            if (firstResponse && firstResponseDelayMs > 0)
+            {
+                firstResponse = false;
+                await Task.Delay(firstResponseDelayMs);
+            }
 
-        if (request.Method == BridgeIpcMethods.ListTopLevels && args.Contains("--stall-top-levels", StringComparer.Ordinal))
-        {
-            Console.WriteLine($"Lifecycle top-level timeout probe entered at {DateTimeOffset.UtcNow:O}.");
-            await Task.Delay(TimeSpan.FromSeconds(60));
-        }
+            if (request.Method == BridgeIpcMethods.ListTopLevels && args.Contains("--stall-top-levels", StringComparer.Ordinal))
+            {
+                Console.WriteLine($"Lifecycle top-level timeout probe entered at {DateTimeOffset.UtcNow:O}.");
+                await Task.Delay(TimeSpan.FromSeconds(60));
+            }
 
-        var authorization = BridgeIpcMethods.RequiresControl(request) ? control.Enter(request.ControlToken) : null;
-        using var permit = authorization?.Value;
-        var response = authorization is { Success: false }
-            ? BridgeIpcResponse.Fail(request.RequestId, new ProtocolError(authorization.Error!.Code, authorization.Error.Message))
-            : request.Method == failMethod
-            ? BridgeIpcResponse.Fail(request.RequestId, new ProtocolError("fixture_failure", $"Requested fixture failure: {failMethod}"))
-            : request.Method switch
+            var authorization = BridgeIpcMethods.RequiresControl(request) ? control.Enter(request.ControlToken) : null;
+            using var permit = authorization?.Value;
+            var response = authorization is { Success: false }
+                ? BridgeIpcResponse.Fail(request.RequestId, new ProtocolError(authorization.Error!.Code, authorization.Error.Message))
+                : request.Method == failMethod
+                ? BridgeIpcResponse.Fail(request.RequestId, new ProtocolError("fixture_failure", $"Requested fixture failure: {failMethod}"))
+                : request.Method switch
+            {
+                BridgeIpcMethods.SessionControl => Control(request),
+                BridgeIpcMethods.Health => BridgeIpcResponse.Ok(
+                    request.RequestId,
+                    HealthResponse.Current(SessionCapabilitiesResponse.Current(sessionId, process.Id))),
+                BridgeIpcMethods.ListTopLevels => BridgeIpcResponse.Ok(
+                    request.RequestId,
+                    args.Contains("--empty-windows", StringComparer.Ordinal) ? [] : new TopLevelSummary[]
+                    {
+                        new TopLevelSummary(
+                            "topLevel:lifecycle",
+                            "window",
+                            "Lifecycle",
+                            640,
+                            480,
+                            1,
+                            true)
+                    }),
+                BridgeIpcMethods.CloseSession => BridgeIpcResponse.Ok(
+                    request.RequestId,
+                    new CloseSessionResponse(
+                        new SessionSummary(
+                            sessionId,
+                            SessionKinds.Runtime,
+                            SessionStates.Closed,
+                            manifest.CreatedAt,
+                            manifest.DisplayName),
+                        process.Id,
+                        DateTimeOffset.UtcNow)),
+                _ => BridgeIpcResponse.Fail(
+                    request.RequestId,
+                    new ProtocolError("lifecycle_test_method_unsupported", $"Method '{request.Method}' is not supported."))
+            };
+            var responseBytes = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(response) + Environment.NewLine);
+            await pipe.WriteAsync(responseBytes);
+            await pipe.FlushAsync();
+            if (responseGate is not null)
+            {
+                File.WriteAllText(responseGate + ".ready", "ready");
+                var gateTimer = Stopwatch.StartNew();
+                while (!File.Exists(responseGate + ".continue") && gateTimer.Elapsed < TimeSpan.FromSeconds(15))
+                    await Task.Delay(10);
+                if (!File.Exists(responseGate + ".continue"))
+                    throw new TimeoutException("Lifecycle response gate was not released within 15 seconds.");
+                responseGate = null;
+            }
+        }
+        catch (Exception exception) when (exception is IOException or JsonException)
         {
-            BridgeIpcMethods.SessionControl => Control(request),
-            BridgeIpcMethods.Health => BridgeIpcResponse.Ok(
-                request.RequestId,
-                HealthResponse.Current(SessionCapabilitiesResponse.Current(sessionId, process.Id))),
-            BridgeIpcMethods.ListTopLevels => BridgeIpcResponse.Ok(
-                request.RequestId,
-                args.Contains("--empty-windows", StringComparer.Ordinal) ? [] : new TopLevelSummary[]
-                {
-                    new TopLevelSummary(
-                        "topLevel:lifecycle",
-                        "window",
-                        "Lifecycle",
-                        640,
-                        480,
-                        1,
-                        true)
-                }),
-            BridgeIpcMethods.CloseSession => BridgeIpcResponse.Ok(
-                request.RequestId,
-                new CloseSessionResponse(
-                    new SessionSummary(
-                        sessionId,
-                        SessionKinds.Runtime,
-                        SessionStates.Closed,
-                        manifest.CreatedAt,
-                        manifest.DisplayName),
-                    process.Id,
-                    DateTimeOffset.UtcNow)),
-            _ => BridgeIpcResponse.Fail(
-                request.RequestId,
-                new ProtocolError("lifecycle_test_method_unsupported", $"Method '{request.Method}' is not supported."))
-        };
-        var responseBytes = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(response) + Environment.NewLine);
-        await pipe.WriteAsync(responseBytes);
-        await pipe.FlushAsync();
-        if (responseGate is not null)
-        {
-            File.WriteAllText(responseGate + ".ready", "ready");
-            var gateTimer = Stopwatch.StartNew();
-            while (!File.Exists(responseGate + ".continue") && gateTimer.Elapsed < TimeSpan.FromSeconds(15))
-                await Task.Delay(10);
-            if (!File.Exists(responseGate + ".continue"))
-                throw new TimeoutException("Lifecycle response gate was not released within 15 seconds.");
-            responseGate = null;
+            // Readiness probes may disconnect; a cancelled observer must not kill the fixture app.
+            Console.Error.WriteLine("Lifecycle test client disconnected or sent an incomplete request.");
         }
     }
-    catch (Exception exception) when (exception is IOException or JsonException)
-    {
-        // Readiness probes may disconnect; a cancelled observer must not kill the fixture app.
-        Console.Error.WriteLine("Lifecycle test client disconnected or sent an incomplete request.");
-    }
+}
+finally
+{
+    await pendingPipe.DisposeAsync();
 }
 
 BridgeIpcResponse Control(BridgeIpcRequest request)

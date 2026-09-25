@@ -2,9 +2,9 @@
 
 Status: **in progress**, 2026-09-25. Tracking issue [#166](https://github.com/RolandUI/AvaScope/issues/166); expanded fixture #172, declared surfaces #173 and capability campaign #174. The full goal is not achieved and current applicable checks are not all passing. The owner expanded the original intake-only phase to include fixes, meaningful regressions and repeated comprehensive testing. Original failures remain distinct from post-fix verification. Version changes and release remain outside scope.
 
-## Unix recovery connection (#184, reproduction in progress)
+## Unix recovery connection (#184, fix validation in progress)
 
-The actual lifecycle fixture disposes its sole named-pipe server after every
+The before-fix lifecycle fixture disposes its sole named-pipe server after every
 response. In the [official .NET 10 Unix implementation](https://raw.githubusercontent.com/dotnet/runtime/v10.0.0/src/libraries/System.IO.Pipes/src/System/IO/Pipes/NamedPipeServerStream.Unix.cs),
 last-instance disposal unlinks the path and closes the listening socket;
 `Disconnect` releases the accepted connection while retaining the listener.
@@ -19,14 +19,45 @@ acquire retry. Windows explicitly skips this socket-backlog test. The existing
 agent-kill/resume/cleanup test now includes bounded redacted message and
 allowlisted IPC phase/attempt/timing/byte diagnostics on conflict failure;
 neither the saved token nor a successful response's token is serialized.
-The listener has not been changed yet. Local WSL/Linux is unavailable; a real
-hosted Unix reproduction and subsequent validation remain required.
+Local WSL/Linux is unavailable; hosted Unix validation is required.
 
 The fixture builds cleanly; local Windows recovery validation passes ten cases
 and explicitly skips the Unix case (1m32s, clean build,
 `unix-queue-before-windows-results/unix-queue-before-windows.trx`). This is a
 regression/diagnostic checkpoint for hosted reproduction, not a validated Unix
 fix. The original b90ca39 hosted failure remains retained.
+
+The before-fix Linux job `107954766546` in CI `36096369354` now reproduces
+the controlled race on unchanged `8bebfe6`: `queued_response` fails with
+`IOException` / `SocketException: Connection reset by peer` after 206 ms
+(245 ms test), fixture PID 6005 still alive, no acquire retry. Aggregate:
+32 passed/one failed/zero skips, 55 seconds. Raw/clean logs are retained in
+`expanded-campaign/ci-8beb-linux-raw.log` / `ci-8beb-linux.log`. The original
+agent-kill/resume case passes this run. This proves the controlled fixture race,
+but cannot recover the exact original b90ca39 request sequence.
+macOS job `107954766598` independently reproduces the same queued-response loss
+after 287 ms (365 ms test): an empty response with fixture PID 15467 still alive.
+Its full run has 854 passed/two failed/five explicit skips (9m56s); the second
+failure is the existing #185 first slider gesture, again rejected as obscured
+after only 12 ms. `ci-8beb-macos-raw.log` / `ci-8beb-macos.log` retain both. The
+before-fix workflow is terminal failure, not a passing combined gate.
+
+The fixture now follows the production bridge's existing pattern: create the
+next pending pipe before handling/disposal of the accepted connection, retaining
+the shared Unix listener. The first listener exists before manifest publication;
+processing remains sequential and the pending pipe is disposed on exit. Response
+disposal, ownership rules, deadlines and client retry behavior are unchanged.
+The explicit fixture build passes in 21 seconds with zero warnings/errors.
+Fresh Windows affected validation passes 35 cases/one explicit Unix skip
+(2m09s, `unix-listener-after-windows-results/unix-listener-after-windows.trx`),
+including recovery, launch ownership, session control, scenarios and integration
+verification. `unix-listener-after-build-identity.json` pins the rebuilt fixture
+and edited source hashes. Hosted Unix after-fix and combined gates are pending.
+An initial post-edit invocation rebuilt only the test project and used the old
+separately built fixture; `unix-listener-pre-rebuild-note.json` records that
+binary's timestamp/hash. Its 26 pass/one skip result is retained separately as
+`unix-listener-pre-rebuild.trx`, not post-fix evidence. The actual affected rerun
+above follows the explicit fixture rebuild.
 
 The independent production-bridge comparison on clean `8bebfe6`, retained in
 `ownership-direct-01`, passes 24 checks through 25 actual persistent MCP calls
@@ -47,7 +78,12 @@ is running the unchanged before-fix checkpoint. Windows Build/Test/Pack is now
 complete: 855 passed/six explicit skips (including the Unix case), zero failures,
 11m34s, plus the packaged-installer case. Raw/clean job logs are retained as
 `expanded-campaign/ci-8beb-windows-raw.log` / `ci-8beb-windows.log`. The macOS
-native QA job also passed; full Unix jobs and complete workflow remain pending.
+native QA job also passed. All three native QA jobs have now passed; their
+downloaded `ci-8beb-native` lifecycle summaries verify both integrations, two
+cycles and expiry. All observed scales are 1. Full HD is actually observed only
+on X11 (Windows observes 1028x749, macOS 1920x649); requested size is not evidence
+of observed size. The complete workflow fails on the controlled Unix
+reproduction on both hosts and the existing macOS #185 gesture case.
 
 Fresh clean `a099b86` standalone comparison `ownership-standalone-01` passes all
 34 retained checks, through 25 MCP/seven CLI calls, on native Win32/Avalonia
