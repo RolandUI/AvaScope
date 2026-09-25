@@ -20,6 +20,59 @@ namespace AvaScope.Tests.Bridge;
 public sealed class RuntimePickingTests
 {
     [Fact]
+    public async Task PointerDiagnosticsUsesActualHitPathAcrossTransformsOverlaysAndClipping()
+    {
+        await WithWindow(async (runtime, window, button, top, node, client, output) =>
+        {
+            var pad = new Border { Name = "PointerPad", Width = 120, Height = 60, Background = Brushes.Blue,
+                RenderTransform = new TranslateTransform(20, 10) };
+            Canvas.SetLeft(pad, 40); Canvas.SetTop(pad, 30);
+            var overlay = new Border { Name = "PointerOverlay", Width = 120, Height = 60, Background = Brushes.Red, IsVisible = false };
+            Canvas.SetLeft(overlay, 60); Canvas.SetTop(overlay, 40);
+            var canvas = new Canvas { Width = 200, Height = 120, ClipToBounds = true, Children = { pad, overlay } };
+            window.Content = new Grid { Children = { new Border { Background = Brushes.White, Name = "Background" }, canvas } };
+            window.UpdateLayout(); await runtime.ReadinessAsync(top.TopLevelId, options: new(waitForFrame: true));
+            var padNode = Assert.Single((await client.FindNodesAsync(runtime.SessionId, top.TopLevelId, TreeKinds.Visual, name: "PointerPad", maxDepth: 32)).Value!.Matches).Node;
+            var point = pad.TranslatePoint(new(60, 30), window)!.Value;
+            var geometry = Pick(await client.PickNodeAsync(new(top))).Geometry;
+            var actual = Pick(await client.PickNodeAsync(new(top, point.X, point.Y, "top_level_dip", geometry.Revision, maxPath: 32)));
+            Assert.Equal(padNode.NodeId, actual.HitPath[0].Target.NodeId);
+            var presses = 0; pad.PointerPressed += (_, _) => presses++;
+
+            async Task<RuntimePointerDiagnosticsResponse> Probe(string expected, int depth = 32)
+            {
+                var result = await new RuntimePointerDiagnosticsRunner().RunAsync(client, new(runtime.SessionId, top.TopLevelId,
+                    [new(RuntimePointerPathActions.Move, x: point.X, y: point.Y), new(RuntimePointerPathActions.AssertHit, expectedNodeId: expected)],
+                    maxDepth: depth, includeAllTopLevels: false));
+                Assert.True(result.Success, JsonSerializer.Serialize(result.Error));
+                return result.Value!;
+            }
+
+            var direct = await Probe(padNode.NodeId);
+            Assert.Equal("passed", direct.Status);
+            Assert.Equal(padNode.NodeId, direct.Steps.Last().ActiveLayer!.HitTestPath.Last().NodeId);
+            Assert.DoesNotContain(direct.Diagnostics, error => error.Code == "runtime_pointer_input_hit_path_mismatch");
+            // A shallow nearest-node tree must not truncate the independent runtime hit test.
+            Assert.Equal("passed", (await Probe(padNode.NodeId, depth: 1)).Status);
+
+            overlay.IsVisible = true; window.UpdateLayout(); await runtime.ReadinessAsync(top.TopLevelId, options: new(waitForFrame: true));
+            var overlayNode = Assert.Single((await client.FindNodesAsync(runtime.SessionId, top.TopLevelId, TreeKinds.Visual, name: "PointerOverlay", maxDepth: 32)).Value!.Matches).Node;
+            Assert.Equal("passed", (await Probe(overlayNode.NodeId)).Status);
+            Assert.Equal("failed", (await Probe(padNode.NodeId)).Status);
+            overlay.IsHitTestVisible = false;
+            await runtime.ReadinessAsync(top.TopLevelId, options: new(waitForFrame: true));
+            Assert.Equal("passed", (await Probe(padNode.NodeId)).Status);
+
+            // This point stays in the child's transformed bounds but falls outside its clipping parent.
+            pad.RenderTransform = new TranslateTransform(120, 10);
+            window.UpdateLayout(); await runtime.ReadinessAsync(top.TopLevelId, options: new(waitForFrame: true));
+            point = pad.TranslatePoint(new(60, 30), window)!.Value;
+            Assert.Equal("failed", (await Probe(padNode.NodeId)).Status);
+            Assert.Equal(0, presses);
+        });
+    }
+
+    [Fact]
     public async Task CurrentHitPathUsesExplicitGeometryWithoutDispatchingInputOrFocus()
     {
         await WithWindow(async (runtime, window, button, top, node, client, output) =>
@@ -252,6 +305,10 @@ public sealed class RuntimePickingTests
             }, CancellationToken.None);
         }
         finally
-        { BridgeHeadlessSmokeTests.DisposeHeadlessSessionAfterExplicitCleanup(session); if (Directory.Exists(output)) Directory.Delete(output, true); }
+        {
+            // Failed dispatch continuations can run on the worker that Dispose joins.
+            await Task.Run(() => BridgeHeadlessSmokeTests.DisposeHeadlessSessionAfterExplicitCleanup(session));
+            if (Directory.Exists(output)) Directory.Delete(output, true);
+        }
     }
 }

@@ -9,7 +9,7 @@ public sealed class RuntimePointerDiagnosticsRunner
     private const string Passed = "passed";
     private const string Failed = "failed";
     private const int MaximumTopLevelLayers = 8;
-    private const string TransitionProvenance = "bounds_snapshot_inference";
+    private const string TransitionProvenance = "avalonia_hit_test_snapshot_inference";
 
     public async Task<CoreResult<RuntimePointerDiagnosticsResponse>> RunAsync(
         LocalBridgeClient bridgeClient,
@@ -218,10 +218,16 @@ public sealed class RuntimePointerDiagnosticsRunner
         List<ProtocolError> diagnostics,
         CancellationToken cancellationToken)
     {
+        var diagnosticsBeforeDiscovery = diagnostics.Count;
         var topLevels = await ResolveTopLevelsAsync(bridgeClient, request, diagnostics, cancellationToken);
         var layers = new List<RuntimePointerLayerSnapshot>();
+        RuntimePickGeometry? primaryGeometry = null;
+        RuntimeTargetContext? primaryTarget = null;
+        var scopeComplete = topLevels.Count <= MaximumTopLevelLayers && diagnostics.Count == diagnosticsBeforeDiscovery;
+        if (topLevels.Count > MaximumTopLevelLayers)
+            diagnostics.Add(new("runtime_pointer_layer_limit", "Only eight top-levels can be sampled; desktop layer selection is incomplete."));
 
-        foreach (var topLevel in topLevels.Take(MaximumTopLevelLayers))
+        foreach (var topLevel in topLevels.OrderByDescending(top => top.Id == request.TopLevelId).Take(MaximumTopLevelLayers))
         {
             var tree = await bridgeClient.VisualTreeAsync(
                 request.SessionId,
@@ -231,18 +237,52 @@ public sealed class RuntimePointerDiagnosticsRunner
             if (!tree.Success)
             {
                 diagnostics.Add(ToProtocolError(tree.Error!));
+                scopeComplete = false;
                 continue;
             }
 
-            layers.Add(CreateLayerSnapshot(request, topLevel, tree.Value!.Root, pointer));
+            var sampled = await CreateLayerSnapshotAsync(bridgeClient, request, topLevel, tree.Value!, pointer,
+                primaryGeometry, diagnostics, cancellationToken);
+            layers.Add(sampled.Layer);
+            if (topLevel.Id == request.TopLevelId)
+            {
+                primaryGeometry = sampled.Geometry;
+                if (tree.Value!.Target.TopLevelGeneration is { } generation)
+                    primaryTarget = new(request.SessionId, topLevel.Id, topLevelGeneration: generation);
+            }
+            if (sampled.Layer.Metadata["hitPathCoverage"] == "unavailable") scopeComplete = false;
         }
 
-        return layers
+        // Mapping another root used the primary window's desktop origin. Reject that
+        // cross-root sample if the origin/scale changed during this bounded observation.
+        if (layers.Count > 1 && primaryTarget is not null && primaryGeometry is not null)
+        {
+            var current = await bridgeClient.PickNodeAsync(new(primaryTarget), cancellationToken);
+            if (!current.Success || current.Value!.Geometry.Revision != primaryGeometry.Revision)
+            {
+                diagnostics.Add(new("runtime_pointer_primary_geometry_changed", "Primary window geometry changed while sampling other top-levels; no cross-root hit is claimed."));
+                layers.RemoveAll(layer => !layer.IsPrimary);
+                scopeComplete = false;
+            }
+        }
+
+        var active = layers
             .OrderByDescending(static layer => layer.HitTestPath.Count > 0)
             .ThenByDescending(static layer => LayerPriority(layer.LayerKind))
             .ThenByDescending(static layer => layer.HitTestPath.Count)
             .ThenBy(static layer => layer.NearestNode?.Distance ?? double.MaxValue)
             .FirstOrDefault();
+        if (active is null) return null;
+        var ambiguous = layers.Count(layer => layer.HitTestPath.Count > 0) > 1;
+        if (ambiguous)
+            diagnostics.Add(new("runtime_pointer_layer_order_unverified", "Several registered roots hit this desktop point. The displayed candidate uses layer priority; native z-order/delivery is unverified. Select the intended top-level explicitly with includeAllTopLevels=false."));
+        var metadata = new Dictionary<string, string>(active.Metadata)
+        {
+            ["layerSelection"] = !scopeComplete ? "incomplete" : ambiguous ? "ambiguous" : "selected_root",
+            ["nativeDelivery"] = "unverified"
+        };
+        return new(active.TopLevelId, active.TopLevelKind, active.LayerKind, active.IsPrimary,
+            active.HitTestPath, active.NearestNode, active.Pointer, metadata);
     }
 
     private static async Task<IReadOnlyList<TopLevelSummary>> ResolveTopLevelsAsync(
@@ -273,48 +313,73 @@ public sealed class RuntimePointerDiagnosticsRunner
             .ToArray();
     }
 
-    private static RuntimePointerLayerSnapshot CreateLayerSnapshot(
+    private static async Task<(RuntimePointerLayerSnapshot Layer, RuntimePickGeometry? Geometry)> CreateLayerSnapshotAsync(
+        LocalBridgeClient bridgeClient,
         RuntimePointerDiagnosticsRequest request,
         TopLevelSummary topLevel,
-        TreeNodeSummary root,
-        RuntimePointerLocation pointer)
+        TreeResponse tree,
+        RuntimePointerLocation pointer,
+        RuntimePickGeometry? primaryGeometry,
+        List<ProtocolError> diagnostics,
+        CancellationToken cancellationToken)
     {
-        var hitPath = CreateHitPath(root, pointer).ToArray();
-        var nearest = FindNearestNode(root, pointer);
-        var layerKind = InferLayerKind(topLevel, root, hitPath);
-        return new RuntimePointerLayerSnapshot(
-            topLevel.Id,
-            topLevel.Kind,
-            layerKind,
-            string.Equals(topLevel.Id, request.TopLevelId, StringComparison.Ordinal),
-            hitPath,
-            nearest);
-    }
-
-    private static IReadOnlyList<RuntimePointerHitNode> CreateHitPath(TreeNodeSummary root, RuntimePointerLocation pointer)
-    {
-        var path = new List<RuntimePointerHitNode>();
-        AddHitPath(root, pointer, path);
-        return path;
-    }
-
-    private static bool AddHitPath(TreeNodeSummary node, RuntimePointerLocation pointer, List<RuntimePointerHitNode> path)
-    {
-        if (!Contains(node.Bounds, pointer))
+        var primary = topLevel.Id == request.TopLevelId;
+        RuntimePointerLocation? localPoint = primary ? pointer : null;
+        RuntimePickGeometry? geometry = null;
+        IReadOnlyList<RuntimePointerHitNode> hitPath = [];
+        var metadata = new Dictionary<string, string>
         {
-            return false;
+            ["hitTestSource"] = "pick_node; TopLevel.InputHitTest",
+            ["hitPathCoverage"] = "unavailable",
+            ["coordinateSpace"] = "top_level_dip",
+            ["nearestNodeSource"] = "bounded_tree_rectangle_distance; not_hit_test",
+            ["treeDepthLimit"] = tree.DepthLimit.ToString(CultureInfo.InvariantCulture)
+        };
+        if (tree.Target.TopLevelGeneration is not { Length: > 0 } generation)
+        {
+            diagnostics.Add(new("runtime_pointer_generation_unavailable", "The tree has no observed top-level generation; no bounds-derived hit is substituted.",
+                new Dictionary<string, string> { ["topLevelId"] = topLevel.Id }));
+            return Snapshot();
         }
 
-        path.Add(ToHitNode(node, pointer, contains: true));
-        foreach (var child in node.Children
-            .Where(child => Contains(child.Bounds, pointer))
-            .OrderBy(static child => Area(child.Bounds)))
+        var target = new RuntimeTargetContext(request.SessionId, topLevel.Id, topLevelGeneration: generation);
+        var observed = await bridgeClient.PickNodeAsync(new(target), cancellationToken);
+        if (!observed.Success) { diagnostics.Add(ToProtocolError(observed.Error!)); return Snapshot(); }
+        geometry = observed.Value!.Geometry;
+        metadata["geometryRevision"] = geometry.Revision;
+        metadata["renderScaling"] = geometry.RenderScaling.ToString("R", CultureInfo.InvariantCulture);
+        if (!primary)
         {
-            AddHitPath(child, pointer, path);
-            break;
+            if (primaryGeometry?.DesktopBounds is not { } origin || geometry.DesktopBounds is not { } other
+                || string.IsNullOrEmpty(geometry.DesktopUnits) || geometry.DesktopUnits != primaryGeometry.DesktopUnits)
+            {
+                diagnostics.Add(new("runtime_pointer_coordinates_unavailable", "This backend cannot map the primary DIP point to another top-level. Select that root explicitly; no shared-origin assumption is made.",
+                    new Dictionary<string, string> { ["topLevelId"] = topLevel.Id }));
+                return Snapshot();
+            }
+            localPoint = new((origin.X + pointer.X * primaryGeometry.DesktopScaling - other.X) / geometry.DesktopScaling,
+                (origin.Y + pointer.Y * primaryGeometry.DesktopScaling - other.Y) / geometry.DesktopScaling);
         }
+        var picked = await bridgeClient.PickNodeAsync(new(target, localPoint!.X, localPoint.Y,
+            "top_level_dip", geometry.Revision, maxPath: 32), cancellationToken);
+        if (!picked.Success) { diagnostics.Add(ToProtocolError(picked.Error!)); return Snapshot(); }
+        var value = picked.Value!;
+        metadata["pickStatus"] = value.Status;
+        metadata["occlusion"] = value.Occlusion;
+        metadata["hitPathCoverage"] = value.Truncated ? "partial" : value.Status is "picked" or "no_hit" or "outside" ? "complete" : "unavailable";
+        diagnostics.AddRange(value.Diagnostics.Where(error => error.Code != "pick_current_sample"));
+        if (value.Truncated)
+            diagnostics.Add(new("runtime_pointer_hit_path_partial", "The runtime pick is bounded or incomplete; absent ancestors and desktop coverage cannot be asserted.",
+                new Dictionary<string, string> { ["topLevelId"] = topLevel.Id }));
+        // pick_node returns leaf-to-root; the pointer contract remains root-to-leaf.
+        hitPath = value.HitPath.Reverse().Select(node => new RuntimePointerHitNode(
+            node.Target.NodeId!, node.Type, node.Name, node.AutomationId, node.Text, node.Bounds,
+            Contains(node.Bounds, localPoint), Distance(node.Bounds, localPoint))).ToArray();
+        return Snapshot();
 
-        return true;
+        (RuntimePointerLayerSnapshot Layer, RuntimePickGeometry? Geometry) Snapshot() =>
+            (new(topLevel.Id, topLevel.Kind, InferLayerKind(topLevel, tree.Root, hitPath), primary, hitPath,
+                localPoint is null ? null : FindNearestNode(tree.Root, localPoint), localPoint, metadata), geometry);
     }
 
     private static RuntimePointerHitNode? FindNearestNode(TreeNodeSummary root, RuntimePointerLocation pointer)
@@ -358,6 +423,8 @@ public sealed class RuntimePointerDiagnosticsRunner
         RuntimePointerLayerSnapshot? current)
     {
         var transitions = new List<RuntimePointerTransitionDiagnostic>();
+        if (previous?.Metadata.GetValueOrDefault("hitPathCoverage") != "complete"
+            || current?.Metadata.GetValueOrDefault("hitPathCoverage") != "complete") return transitions;
         var previousLeaf = previous?.HitTestPath.LastOrDefault();
         var currentLeaf = current?.HitTestPath.LastOrDefault();
         if (previous is not null
@@ -404,6 +471,11 @@ public sealed class RuntimePointerDiagnosticsRunner
 
     private static ProtocolError? EvaluateHitAssertion(RuntimePointerPathStep step, RuntimePointerLayerSnapshot? activeLayer)
     {
+        if (activeLayer?.Metadata.GetValueOrDefault("hitPathCoverage") != "complete"
+            || activeLayer.Metadata.GetValueOrDefault("layerSelection") is "incomplete" or "ambiguous")
+            return new("runtime_pointer_hit_unverified", "A complete, unambiguous runtime hit sample is unavailable. Inspect coverage diagnostics or select the intended top-level explicitly.");
+        if (activeLayer.Metadata.GetValueOrDefault("occlusion") == "modal_blocks_selected_owner")
+            return new("runtime_pointer_owner_blocked", "A modal window blocks the selected owner; its local hit path does not prove input delivery.");
         if (!string.IsNullOrWhiteSpace(step.ExpectedNodeId)
             && activeLayer?.HitTestPath.Any(node => string.Equals(node.NodeId, step.ExpectedNodeId, StringComparison.Ordinal)) != true)
         {
@@ -443,6 +515,7 @@ public sealed class RuntimePointerDiagnosticsRunner
         if (input is null
             || !input.Handled
             || string.IsNullOrWhiteSpace(input.TargetNodeId)
+            || activeLayer?.Metadata.GetValueOrDefault("hitPathCoverage") != "complete"
             || activeLayer?.HitTestPath.Any(node => string.Equals(node.NodeId, input.TargetNodeId, StringComparison.Ordinal)) == true)
         {
             return;
@@ -485,15 +558,15 @@ public sealed class RuntimePointerDiagnosticsRunner
 
         if (activeLayer.HitTestPath.Count == 0)
         {
-            return "no_tree_bounds_contains_pointer";
+            return "no_runtime_hit";
         }
 
         if (string.Equals(activeLayer.NearestNode?.NodeId, input.TargetNodeId, StringComparison.Ordinal))
         {
-            return "input_target_nearest_but_outside_bounds_path";
+            return "input_target_nearest_but_outside_runtime_hit_path";
         }
 
-        return "input_target_not_in_bounds_hit_path";
+        return "input_target_not_in_runtime_hit_path";
     }
 
     private static void AddPointerCoordinateDetails(
@@ -539,6 +612,11 @@ public sealed class RuntimePointerDiagnosticsRunner
         {
             return null;
         }
+        if (activeLayer is not null)
+        {
+            pointer = activeLayer.Pointer;
+            if (pointer is null) return null;
+        }
 
         var overlayPath = Path.Combine(
             Path.GetDirectoryName(screenshot.FilePath) ?? string.Empty,
@@ -576,8 +654,11 @@ public sealed class RuntimePointerDiagnosticsRunner
                 IsAntialias = true
             };
 
-            var x = (float)Math.Clamp(pointer.X, 0, Math.Max(0, bitmap.Width - 1));
-            var y = (float)Math.Clamp(pointer.Y, 0, Math.Max(0, bitmap.Height - 1));
+            var scale = screenshot.Provenance?.RenderScaling ?? (activeLayer is not null
+                && double.TryParse(activeLayer.Metadata.GetValueOrDefault("renderScaling"), NumberStyles.Float, CultureInfo.InvariantCulture, out var observedScale)
+                ? observedScale : 1);
+            var x = (float)Math.Clamp(pointer.X * scale, 0, Math.Max(0, bitmap.Width - 1));
+            var y = (float)Math.Clamp(pointer.Y * scale, 0, Math.Max(0, bitmap.Height - 1));
             canvas.DrawCircle(x, y, 8, fillPaint);
             canvas.DrawCircle(x, y, 8, markerPaint);
             canvas.DrawLine(x - 14, y, x + 14, y, markerPaint);
@@ -688,7 +769,7 @@ public sealed class RuntimePointerDiagnosticsRunner
         RuntimePointerLayerSnapshot? activeLayer,
         IReadOnlyList<RuntimePointerTransitionDiagnostic> transitions)
     {
-        var leaf = activeLayer?.HitTestPath.LastOrDefault()?.NodeId ?? activeLayer?.NearestNode?.NodeId ?? "not_available";
+        var leaf = activeLayer?.HitTestPath.LastOrDefault()?.NodeId ?? "not_available";
         return $"{step.Action} completed; active layer '{activeLayer?.LayerKind ?? "not_available"}', hit node '{leaf}', transitions {transitions.Count.ToString(CultureInfo.InvariantCulture)}.";
     }
 

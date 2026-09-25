@@ -3553,13 +3553,14 @@ public sealed class CliSmokeTests
 
         var serverTask = RespondToBridgeRequestsAsync(
             pipeName,
-            expectedCount: 4,
+            expectedCount: 8,
             (index, request) => index switch
             {
                 0 => CreatePointerInputResponse(request, sessionId),
                 1 => CreatePointerTreeResponse(request, sessionId, "topLevel:pointer"),
-                2 => CreatePointerTreeResponse(request, sessionId, "topLevel:pointer"),
-                3 => CreatePointerScreenshotResponse(request, sessionId, "topLevel:pointer", "02-capture.png"),
+                2 or 3 or 5 or 6 => CreatePointerPickResponse(request, sessionId),
+                4 => CreatePointerTreeResponse(request, sessionId, "topLevel:pointer"),
+                7 => CreatePointerScreenshotResponse(request, sessionId, "topLevel:pointer", "02-capture.png"),
                 _ => throw new InvalidOperationException("Unexpected pointer diagnostics bridge request index.")
             });
         var pointerRequest = new RuntimePointerDiagnosticsRequest(
@@ -3587,7 +3588,7 @@ public sealed class CliSmokeTests
             Assert.True(string.IsNullOrWhiteSpace(result.StandardError), result.StandardError);
             Assert.Equal(BridgeIpcMethods.Input, requests[0].Method);
             Assert.Equal(BridgeIpcMethods.VisualTree, requests[1].Method);
-            Assert.Equal(BridgeIpcMethods.Screenshot, requests[3].Method);
+            Assert.Equal(BridgeIpcMethods.Screenshot, requests[7].Method);
 
             var payload = JsonSerializer.Deserialize<ToolResult<RuntimePointerDiagnosticsResponse>>(result.StandardOutput, JsonOptions);
             Assert.NotNull(payload);
@@ -6295,7 +6296,25 @@ public sealed class CliSmokeTests
                             automationId: "pointer-button",
                             text: "Hover",
                             bounds: new NodeBounds(0, 0, 50, 24))
-                    ])));
+                    ]), target: new(sessionId, topLevelId, topLevelGeneration: "pointer")));
+    }
+
+    private static BridgeIpcResponse CreatePointerPickResponse(BridgeIpcRequest request, SessionId sessionId)
+    {
+        Assert.Equal(BridgeIpcMethods.PickNode, request.Method);
+        var pick = Assert.IsType<RuntimePickRequest>(request.Pick);
+        Assert.Equal("pointer", pick.Target.TopLevelGeneration);
+        var geometry = new RuntimePickGeometry(new string('a', 64), new(100, 60), new(100, 60), 1, 1, null, null, DateTimeOffset.UtcNow);
+        if (pick.X is not null)
+        {
+            Assert.Equal(12, pick.X); Assert.Equal(8, pick.Y); Assert.Equal(geometry.Revision, pick.ExpectedGeometryRevision);
+            Assert.Equal("top_level_dip", pick.CoordinateSpace);
+        }
+        return BridgeIpcResponse.Ok(request.RequestId, new RuntimePickResponse(pick.X is null ? "geometry" : "picked",
+            pick.Target, geometry, pick.X is null ? null : new(12, 8), pick.X is null ? [] :
+            [new(new(sessionId, "topLevel:pointer", TreeKinds.Visual, "visual:pointerButton"), "Avalonia.Controls.Button", "PointerButton", "pointer-button", "Hover", new(0, 0, 50, 24), true, true),
+             new(new(sessionId, "topLevel:pointer", TreeKinds.Visual, "visual:pointerRoot"), "Avalonia.Controls.Window", "PointerWindow", null, null, new(0, 0, 100, 60), true, true)],
+            [], "native_occlusion_unverified", false, []));
     }
 
     private static BridgeIpcResponse CreatePointerScreenshotResponse(

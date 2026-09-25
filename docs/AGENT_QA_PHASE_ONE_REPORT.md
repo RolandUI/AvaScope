@@ -2,6 +2,64 @@
 
 Status: **in progress**, 2026-09-25. Tracking issue [#166](https://github.com/RolandUI/AvaScope/issues/166); expanded fixture #172, declared surfaces #173 and capability campaign #174. The full goal is not achieved and current applicable checks are not all passing. The owner expanded the original intake-only phase to include fixes, meaningful regressions and repeated comprehensive testing. Original failures remain distinct from post-fix verification. Version changes and release remain outside scope.
 
+## Pointer diagnostics checkpoint (#186, combined gate pending)
+
+The actual-Avalonia transformed-pad regression fails with the old bounds-order
+path. Generation/geometry-pinned public picking now supplies the root-to-leaf
+path independently of the nearest-node tree depth. Partial/unavailable evidence
+and ambiguous cross-root order refuse assertions. Layer-local DIP coordinates
+and render scale place screenshot markers correctly. All 19 affected Release
+picking/Core/CLI/protocol cases pass (32 seconds), including the final two
+missing-map/changed-primary regressions; the full Release build is clean.
+The complete Release test run finishes with 838 passed, one failed and five
+explicit native skips (35m05s). The failure is the unrelated launch timeout
+guard (7.767 seconds versus less than four seconds, tracked as #189); no
+launcher cause is established. The two final mapping cases were added after
+that full run started and are validated in the separate 19-case focused run.
+
+Fresh native `pointer-direct-01` uses fixture `5e5f159` and changed Core/CLI/MCP
+with retained binary identities (source base `91819d1`, dirty). Win32 1x P004
+now reports the correct complete pad path, replacing the window background.
+It also exposes a genuine separate legacy input mismatch: `pointer_move`
+dispatches to the centered `IsHitTestVisible=False` TextBlock. This is tracked
+in #188, not removed from diagnostics. P006/P007 clear-area CLI/MCP positives
+pass, including `maxDepth=1`; P008/P009 wrong-node/outside-pad assertions fail
+as expected without changing the journal. P012/P013 native click/drag produce
+two presses/releases and exactly one 80x30 DIP drag. P014 stale geometry refuses
+with zero events. Public marker images and native pixels were reviewed.
+
+P010 incorrectly supplied a pick revision to input's distinct activation guard;
+it was safely refused, then corrected using `explain_action`. P015's default
+depth did not find the menu; P017's expand provider was unsupported; an observed
+native click opened it. P021-P023 observed a real popup and geometry, but it
+closed before P024 input (`top_level_not_found`). That popup journey is not
+counted passed and its cause is not inferred. Repeat with no simultaneous full
+test run. Final reset/owned PID 12868 termination pass; persistent client 2964
+exits 0 after 23 calls. The original popup failure remains retained.
+
+Isolated native `pointer-standalone-01` S001-S021 passes 18 retained checks:
+correct center path (with the separate #188 mismatch still present), depth-one
+CLI clear-pad positive, MCP wrong-node negative, actual native click/CLI drag,
+zero-event stale refusal and unchanged move-only journals. Independent app
+counters and reviewed Windows pixels show two presses/releases and one 80x30
+DIP drag. An explicit popup point (81,20) hits `qa-menu-apply`; the rendered
+popup marker was reviewed. Mapping owner (125,244) to that popup yields (81,20)
+and refuses ambiguous cross-root assertions. Owner-only cannot assert the popup
+node. The outer failure includes the existing `pick_native_popup_present`
+diagnostic; per-step diagnostics retain `runtime_pointer_hit_unverified` or
+`runtime_pointer_expected_node_not_hit` respectively. Escape closes the popup
+with zero menu actions. Final reset/owned PID 11868 termination pass; persistent
+client 4444 exits 0 after 19 calls with empty stderr.
+
+Fresh isolated `pointer-direct-02` D001-D013 independently passes eight checks:
+CLI popup-local assertion/marker, MCP correctly mapped ambiguous-root refusal,
+owner-only negative, unchanged journals and Escape without a menu action.
+The actual Windows window and popup were reviewed alongside the marker image.
+Final reset and owned PID 11992 termination pass; client 21184 exits 0 after
+13 calls with empty stderr. Both integrations are Win32 1x, not native Retina
+evidence. #186 is ready for combined validation; #188/#189 remain separately
+open, and a fresh passing full gate is still required.
+
 ## Persistent UTF-8 client checkpoint (#187)
 
 The test client now reads its stdin pipe as strict, BOM-less UTF-8 without

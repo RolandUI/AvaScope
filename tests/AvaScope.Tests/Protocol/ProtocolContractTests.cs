@@ -863,7 +863,9 @@ public sealed class ProtocolContractTests
             "popup",
             isPrimary: false,
             hitTestPath: [hitNode],
-            nearestNode: hitNode);
+            nearestNode: hitNode,
+            pointer: new(4, 6),
+            metadata: new Dictionary<string, string> { ["hitPathCoverage"] = "complete", ["layerSelection"] = "selected_root" });
         var transition = new RuntimePointerTransitionDiagnostic(
             "warning",
             "pointer_parent_hover_exited_into_popup_layer",
@@ -915,6 +917,14 @@ public sealed class ProtocolContractTests
         Assert.True(responseNode["steps"]![0]!["transitions"]![0]!["parentHoverRegionExited"]!.GetValue<bool>());
         Assert.Equal("bounds_snapshot_inference", responseNode["steps"]![0]!["metadata"]!["transitionProvenance"]!.GetValue<string>());
         Assert.Equal("pointer_overlay", responseNode["agentReview"]!["artifactPaths"]![1]!["kind"]!.GetValue<string>());
+        var roundtrip = JsonSerializer.Deserialize<RuntimePointerDiagnosticsResponse>(responseNode.ToJsonString())!;
+        Assert.Equal(new RuntimePointerLocation(4, 6), roundtrip.Steps[0].ActiveLayer!.Pointer);
+        Assert.Equal("complete", roundtrip.Steps[0].ActiveLayer!.Metadata["hitPathCoverage"]);
+        var legacyLayer = responseNode["steps"]![0]!["activeLayer"]!.AsObject();
+        legacyLayer.Remove("pointer"); legacyLayer.Remove("metadata");
+        var legacy = JsonSerializer.Deserialize<RuntimePointerDiagnosticsResponse>(responseNode.ToJsonString())!;
+        Assert.Null(legacy.Steps[0].ActiveLayer!.Pointer);
+        Assert.Empty(legacy.Steps[0].ActiveLayer!.Metadata);
     }
 
     [Fact]

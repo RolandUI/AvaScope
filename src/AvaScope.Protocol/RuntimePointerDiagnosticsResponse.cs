@@ -223,7 +223,9 @@ public sealed record RuntimePointerLayerSnapshot
         string layerKind,
         bool isPrimary,
         IReadOnlyList<RuntimePointerHitNode>? hitTestPath = null,
-        RuntimePointerHitNode? nearestNode = null)
+        RuntimePointerHitNode? nearestNode = null,
+        RuntimePointerLocation? pointer = null,
+        IReadOnlyDictionary<string, string>? metadata = null)
     {
         TopLevelId = string.IsNullOrWhiteSpace(topLevelId) ? "unknown" : topLevelId.Trim();
         TopLevelKind = string.IsNullOrWhiteSpace(topLevelKind) ? "unknown" : topLevelKind.Trim();
@@ -231,6 +233,8 @@ public sealed record RuntimePointerLayerSnapshot
         IsPrimary = isPrimary;
         HitTestPath = hitTestPath ?? [];
         NearestNode = nearestNode;
+        Pointer = pointer;
+        Metadata = metadata ?? new Dictionary<string, string>();
     }
 
     [JsonPropertyName("topLevelId")]
@@ -251,6 +255,13 @@ public sealed record RuntimePointerLayerSnapshot
     [JsonPropertyName("nearestNode")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public RuntimePointerHitNode? NearestNode { get; }
+
+    [JsonPropertyName("pointer")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public RuntimePointerLocation? Pointer { get; }
+
+    [JsonPropertyName("metadata")]
+    public IReadOnlyDictionary<string, string> Metadata { get; }
 }
 
 public sealed record RuntimePointerHitNode(
