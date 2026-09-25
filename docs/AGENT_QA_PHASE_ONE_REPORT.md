@@ -39,6 +39,55 @@ validate subsequent #182/#183 implementation or the new keyed fixture.
 #157/#161 still require real native Retina 2x evidence. The historical checkpoint
 below describes earlier source-specific validation only.
 
+## Runtime fixture checkpoint (#173)
+
+`5e5f159` adds Runtime tab 7, shared custom drawing, bounded background work and
+opt-in diagnostics. Direct additionally owns scene/action registrations. All 25
+affected Release fixture/scene/operation regressions pass (67 seconds); both host
+publishes have no warnings. The first regression caught premature registration
+of detached tab content; registration now waits for actual visual attachment.
+
+Fresh native Windows standalone evidence is in
+`artifacts/agent-qa/runtime-standalone-01` (Win32, 1120x800 DIP, 1x). The run
+started from the uncommitted fixture later committed as `5e5f159`; its binary
+hashes are retained. The external provider remains the verified `47034aa` build.
+
+| Journey | Outcome |
+| --- | --- |
+| S001–S015: scene discovery/pick/input | Ordinary drawn scene passed: exact canvas pick, shift, native orange/green selection, two selections in the independent journal, selected outline in reviewed native and public images. Scene declaration and custom actions are explicitly unsupported/disabled in this standalone host. S007/S009 lacked the target required by a geometry guard and S010 used the wrong argument shape; these agent-authored requests were rejected without events, then corrected using `explain_action` and the observed target. They are not product failures or successful dispatches. |
+| W001–W009: ordinary background work | Passed: running to completed, deliberate failure, explicit cancellation, reset while active. Terminal counts agree with visible state; later observations still show idle/zero counts after reset, with no late completion. |
+| D001–D011: intentional diagnostics | Passed current-state validation/clipping/removal: MCP and CLI inspect show the one expected validation error; `explain_layout` identifies the clipping ancestor. Native pixels show the error and clipped text. Binding metadata observes the runtime binding and fallback value; path/error/fallback-detail availability is explicitly unavailable through these public metadata APIs, so this is not full binding-error diagnostics coverage. Toggle-off removes the binding and current errors. `audit_ui` returns no issues in either state; it does not substitute for these targeted checks. D008 used an unsupported CLI request-file form and was corrected to the documented flags. |
+| E001/E002: runtime assertions | CLI idle assertion passed; MCP assertion expecting Completed failed as expected, without changing the journal. |
+| M001–M005: reversible mutation | MCP changes scene opacity 1 to 0.35; CLI resets it. Reviewed native/public pixels agree and each comparison reports 78000 changed pixels. Unsupported property mutation is refused and history reports zero active mutations. Inline trees are explicitly depth/byte truncated (27 nodes, target absent); their retained full-tree artifacts contain all 162 nodes including `qa-scene`. Do not report inline-tree coverage as complete. |
+
+Final reset passed, owned PID 20092 terminated, and the persistent MCP client
+21488 exited 0 after 39 calls. Standard JSON Unicode escapes remain an explicit
+workaround for open test-client #187. No additional confirmed product defect was
+found in this scoped standalone journey.
+
+Fresh Direct evidence at clean `5e5f159` is in
+`artifacts/agent-qa/runtime-direct-01`, also Win32 / 1120x800 DIP / 1x:
+
+| Journey | Outcome |
+| --- | --- |
+| S001–S015 | Passed: declared discovery/three objects, MCP green selection, CLI orange selection after a 20 DIP shift, stale shift/reset token refusal, fresh generation after reset and native blue selection. Reviewed native outlines and journal counts agree. |
+| W001–W013 | Passed: CLI action schema, MCP start, actual CLI running/progress=0.5 with journal progress=50, successful completion, CLI deliberate failure, CLI cancel and MCP terminal wait. Bad enum and out-of-range integer refuse without starting work. W013 exercises a wrong-session operation identity (`runtime_operation_session_mismatch`), not an unknown retained ID in the current session. |
+| T001–T005 | Passed bridge/operation correlation: completed work is explicitly correlated to its request/operation, the deliberate failure is marked different correlation, CLI exports a sanitized trace and MCP stops it. Unknown trace is refused. Validation sampling reports partial coverage and misses this deeply nested fixture; binding/app-event/log adapters are unavailable. Those sources are not counted as validated. |
+| F001–F009 | Passed declared cleanup and CLI prepare while work is active: retained operations finish cancelled, and the exact cleanup/prepared journals remain unchanged after those terminal observations. Prepare clears scene/diagnostics and restores idle/zero counters. |
+| E001/E002, D001/D002 | MCP idle assertion passes, incorrect CLI assertion fails without changing state. Native intentional errors are visible; prepare removes them and public validation becomes clean. |
+| M001–M003 | Passed MCP opacity change plus CLI reset, reviewed native/public images and 78000 changed pixels in each direction; zero active mutations afterward. The same explicit inline-tree budget applies as in standalone. |
+
+The retained-evidence checks pass 13 assertions for standalone and 19 for Direct.
+The Direct helper's first summary counter used an old JavaScript closure; its
+zero-count artifact is retained and all checks were rerun with an explicit
+session-owned counter. This is a reporting-helper correction, not a product
+failure. Final Direct reset passed, owned PID 15012 terminated, and client 20920
+exited 0 after 37 calls. No new product defect was confirmed in these scoped
+Runtime journeys. #173 fixture implementation/available-surface validation is
+complete; #174 comprehensive coverage, #184–#187 fixes, review gates and native
+Retina acceptance remain open. `operation` supports status/wait/cancel by retained
+ID; no list action exists and none is claimed tested.
+
 ## Earlier first-phase checkpoint (2026-09-24)
 
 Latest checkpoint: infrastructure #162/#163 and defects #158/#159/#160/#167/#168/

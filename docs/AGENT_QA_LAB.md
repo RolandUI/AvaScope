@@ -117,6 +117,14 @@ reset images. A successful operation response is insufficient if the journal or
 visible state disagrees. Fresh execution outcomes belong in the campaign report;
 this charter does not assert a passing test run.
 
+Use targeted inspection for these diagnostics: `inspect_node`/`find_nodes`
+expose current validation, and `explain_layout` identifies the clipping ancestor.
+`audit_ui` is not a substitute for those checks. Public binding metadata can
+observe an active runtime expression and its fallback value while reporting the
+binding path/error/fallback details unavailable; do not infer a healthy binding
+or full error coverage from that partial metadata. `operation` currently accepts
+status/wait/cancel for a retained ID, not an operation-list action.
+
 The #175 regression requires an applied DataGrid template and realized rows;
 reading its backing collection alone can succeed even when the entire grid is
 visually blank. Register implicit control themes before XAML attaches controls.
