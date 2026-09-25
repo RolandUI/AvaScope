@@ -58,7 +58,7 @@ Exact calls, journals, images, limitations and cleanup are described in
 | Family | Native Direct | Native standalone | Remaining boundary |
 | --- | --- | --- | --- |
 | Forms | `capabilities-direct-01`, 3b82d1d: 23 MCP/nine CLI, 29 passing checks; three classified agent mistakes. | `capabilities-standalone-01` SF001-SF019, 483fedb: 13 MCP/six CLI, 13 passing checks. | ComboBox inventory is partial; separate popup selection passed only in Direct. |
-| Tables | Expanded comparison remains pending. | Same standalone run T001-T051: 37 MCP/12 CLI, 27 passing checks; three classified agent mistakes. | Read/filter/page/edit/sort/privacy/draft recovery/reset/stale/replay are covered at Win32 1x; column replacement, duplicate-key fixtures and other backends are not claimed here. |
+| Tables | `capabilities-direct-table-01`, e3cf363: 29 MCP/11 CLI, 26 passing checks; independent images, source and cleanup. | Same standalone run T001-T051: 37 MCP/12 CLI, 27 passing checks; three classified agent mistakes. | Read/filter/page/edit/sort/privacy/draft recovery/reset/stale/replay are covered at Win32 1x; column replacement, duplicate-key fixtures and other backends are not claimed here. |
 | Ownership/recovery | `ownership-direct-01`, 8bebfe6: 24 passing checks. | `ownership-standalone-01`, a099b86: 34 passing checks. | Scoped production-bridge comparison; Unix fixture regression and combined gate tracked separately. |
 
 All listed native apps and clients were cleaned up. Shared-host lifecycle failures

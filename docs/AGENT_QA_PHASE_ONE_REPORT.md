@@ -2,6 +2,42 @@
 
 Status: **in progress**, 2026-09-25. Tracking issue [#166](https://github.com/RolandUI/AvaScope/issues/166); expanded fixture #172, declared surfaces #173 and capability campaign #174. The full goal is not achieved and current applicable checks are not all passing. The owner expanded the original intake-only phase to include fixes, meaningful regressions and repeated comprehensive testing. Original failures remain distinct from post-fix verification. Version changes and release remain outside scope.
 
+## Expanded Direct table comparison and hosted gate (#174)
+
+Clean e3cf363 run `capabilities-direct-table-01` completes 40 public
+requests (29 MCP/11 CLI) and 26 independent passing checks on native Win32,
+Avalonia 12.1.3, 1120x800 at 1x. Complete 200-row reads, last-page projection,
+AND filtering, explicit incomplete scans, invalid bounds, offscreen selection,
+read-only/type refusal, Unicode/numeric editor changes, replay/conflict, sort,
+privacy, invalid draft recovery and reset/stale/historical replay match the
+independent journal. An incorrect column generation refuses with zero dispatch;
+physical column replacement is not claimed. The invalid 3.5 draft leaves source
+37 unchanged; Escape plus observed valid source and explicit Enter finish allow
+a new score 38 exactly once. All four native/rendered positive and invalid
+images were viewed. Initial native accessibility lagged the pixels; a fresh
+observation agrees with Unicode/37/edits=2, and both observations are retained.
+No new product defect was confirmed. Final reset restores all seed records;
+client 15468 exits 0 with empty stderr and owned Stop terminates app 360.
+Evidence: table-summary.json, journey-checks.json, DT001-DT040 and client-exit.json.
+
+CI 36102961992 on clean 483fedb is terminal **failed** only on macOS Test:
+Windows 856 passed/six explicit skips (12m04s), Linux 33 passed (1m02s),
+macOS 856 passed/one failed/five skips (11m16s). #184 queued Unix cases pass
+on Linux/macOS (269/299 ms); #185 macOS gesture passes with frame/hit evidence
+(1.583s). All six native lab integrations pass two cycles and expiry; downloaded
+identities and owned terminations are verified in ci-483-native/verified-summary.json.
+All observed scales remain 1x, so this is not Retina acceptance. macOS downstream
+workflow/package checks are skipped after Test failure.
+
+New #193 retains ActionExplanationTests' WithWindow readiness failure at line
+282, before the actual test body. The original assertion captured no phase
+evidence; no production cause is inferred. Both hosted Unicode variants and
+the controlled cooperative-budget case pass on Windows/macOS. Windows's eight
+routed input spans are 0.306-20.449 ms and every expected text/change count agrees;
+this does not explain #191's original failure or resolve #192's local contention.
+Full TRX, bounded summaries and timing records remain under ci-483-*.
+#193 is next, followed by remaining capability families; #174 remains incomplete.
+
 ## Expanded standalone table and form journeys (#174)
 
 Clean `483fedb` run `capabilities-standalone-01` uses the immutable standalone
