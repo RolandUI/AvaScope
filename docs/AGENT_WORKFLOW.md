@@ -292,6 +292,8 @@ For style regressions that only appear in specific control states, run a pseudo-
 
 `pseudo-state-matrix` targets a runtime node by supported find filters first, or by `target`/`nodeId` for immediate follow-ups. Prefer selector-first request fields (`automationId`, `name`, `nodeType`, `text`) for repeatable multi-step workflows; if a raw generation-scoped node id disappears, diagnostics report the scope and the selector fields needed to retry. The tool captures states such as `normal`, `pointerover`, `pressed`, `disabled`, `selected`, and `selected+pointerover`, and writes one screenshot per state plus a labeled contact sheet. Results include applied mutation ids, reset mutation responses, pointer input evidence, per-state diagnostics, and explicit `unsupported` entries when a state cannot be safely forced on the selected control.
 
+When the inline visual tree is truncated, the matrix can inspect its exact target separately without expanding the tree response. A missing or stale target after capture fails that state and omits its target summary; an existing screenshot alone does not establish successful state capture. Applied mutations are still reset, and reset outcomes remain in the entry.
+
 For animation bugs that only happen after real input, record frames after the scripted interaction instead of relying on a static preview time offset:
 
 ```powershell

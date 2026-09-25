@@ -22,9 +22,70 @@ the later green run is not proof of that original cause. #204's candidate
 `96c1656` is now review, and new full CI `36157963606` runs exact `30d176a`,
 including its two controlled Unix cases. #201 remains blocked on supported
 animation clock control, and #203's original project timeout cause is still
-unknown despite validated diagnostic improvements. #205 is the sole active
-issue following the new public binding-scope reproduction. Counts are 41
-unique defects/29 closed.
+unknown despite validated diagnostic improvements. Full `30d176a` CI
+`36157963606` subsequently succeeds: Windows 969/eight skips, macOS 970/seven,
+Linux 33, all twelve pointer cases on macOS including both Unix controls, and
+six native/three expiry checks at 1x are independently verified. #205 is pushed
+at `ba07220`, with exact-source full CI `36163086325` running. #206 is the sole
+active issue after the next native discovery; counts are 43 unique defects/29
+closed.
+
+## Native pseudo-state response-budget discovery (#206)
+
+`pointer-focus-direct-01` starts from clean `ba07220` with freshly published
+and pinned Direct binaries on Win32 / Avalonia 12.1.3 / actual 1x. Ten public
+calls (nine MCP/one CLI), two viewed independent native images and 39 verification
+assertions retain the discovery. A visible enabled `KeyboardNext` control is
+found uniquely through depth-24 lookup and focus inspection. Both MCP's four
+state matrix and CLI's normal state then falsely report it missing. A shallow
+ThemeButton normal-state control succeeds; failed matrices dispatch no inputs
+or mutations and the independent input journal is unchanged.
+
+The visual tree correctly reports its response budget: requested/original depth
+24, returned depth eight, 124 original nodes/27 inline nodes. The complete
+artifact contains the target, while its inline root omits it. The matrix uses
+that inline root as though it establishes absence, and its post-capture fallback
+can reuse earlier node data. #206 tracks the bounded-current-target correction.
+The first tab invocation used unsupported `invoke` and was corrected to `select`;
+an extra ignored argument on the separate tree read is also an agent mistake,
+not a product failure. Neither is in the failing matrix requests.
+
+`verify-discovery.py` / `verified-discovery.json` retain exact identities, original
+responses, budget/full-artifact comparison, unchanged selected binary hashes and
+owned cleanup. Reset followed by public Stop terminates app 7048; all ten clients
+are absent. This interrupted the planned pointer/recording/focus journey; those
+remaining operations are not claimed tested. The two real Avalonia regressions
+for a selector and pinned deep target both fail on the original source (three
+seconds), before the candidate correction. #205's separate full gate continues.
+
+The #206 candidate inspects the exact generation-bearing target when an inline
+tree omits it, preserving bounded responses. Stable selector recovery remains
+available before applying a state. After capture, missing current evidence fails
+with a null target summary instead of silently reusing the earlier node or
+substituting a replacement; mutation reset still runs. Twenty-seven affected
+picking/matrix cases pass (31 seconds), followed by all three final deep-target
+variants (eight seconds), including actual replacement and stale-generation
+refusal. Original before-fix failures remain retained in `pseudo-budget-01`.
+
+`pseudo-budget-direct-after-01` retains eleven public calls and 73 independent
+identity/state/pixel/cleanup assertions against the exact candidate patch. Deep
+target resolution, real pressed/disabled state, enabled restoration, missing and
+stale guards now agree through CLI/MCP and the journal. Three images were viewed,
+including the independent native restored window. App 2972 and all clients are
+gone after Reset/Stop. This is **not** a complete passing state matrix: both
+transports claim successful `pointerover` while its pixels equal normal and its
+classes lack `:pointerover`. Separate pointer move then delayed inspection still
+shows no hover. New #207 preserves this independent synthetic-input/state-verification
+defect; no hover fix is claimed by #206.
+
+`pseudo-budget-standalone-after-01` repeats eight public calls with the freshly
+built pure host and verified external provider. The same target/pressed/disabled/
+restoration and negative guards agree, and the independent hover defect reproduces
+on both transports. Three images were viewed, including the native restored
+window. Original binary/source/patch identities, response-reported versus independently
+counted pixel differences and owned cleanup are retained. App 10996 and every
+client are absent after Reset/Stop. This scoped native comparison is Win32 1x;
+full combined hosted validation of #206 remains required.
 
 ## Public preview follow-up and binding-scope discovery (#205)
 
@@ -117,8 +178,10 @@ original hosted failure's cause.
 Evidence: `artifacts/agent-qa/pointer-sequence-01` retains before/after TRX,
 bounded traces and independent `verify.py` checks. The candidate local group
 passes ten cases with two Unix skips (final rebuilt run: seven seconds); nineteen real Avalonia picking checks
-also pass (41 seconds). Hosted validation of this new candidate is pending;
-the still-running `c83e50c` CI is a separate #203 validation checkpoint.
+also pass (41 seconds). Subsequent full `30d176a` CI passes all six jobs; its
+macOS TRX individually verifies all twelve pointer cases including both Unix
+controls. #204 retains the unknown original preceding cause, as distinguished
+from these demonstrated fixture corrections.
 
 ## Preview timeout evidence and owned cleanup (#203)
 

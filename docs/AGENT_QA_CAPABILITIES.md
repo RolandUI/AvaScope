@@ -67,6 +67,7 @@ Exact calls, journals, images, limitations and cleanup are described in
 | Native accessibility diagnostics | Controlled real HWND/STA regression and affected checks; new Direct QA exploration is not claimed. | `uia-diagnostic-standalone-after-01`, 4ea4d02: nine MCP/two CLI, 14 checks, two viewed images, unchanged journal/source and owned cleanup. | Positive and wrong-name mapping, privacy/stale/owner/exclusion/partial-tree guards pass. Original integration audits pass but test cleanup fails (#200); corrected cleanup and full 108adc5 CI subsequently pass and #200 closes. Original hosted UIA cause remains #199. |
 | Workflow/export/replay | `workflow-direct-01`, e91041b: 20 MCP/six CLI, 20 checks, six viewed images, fresh host/source verification and owned cleanup. | `workflow-standalone-01`, d4b376e: 21 MCP/six CLI, 20 checks, six viewed images, restored state/source and owned cleanup. | Positive execution/export/parameterized replay plus truncated/mismatched recording, missing bindings, dry-run, unsupported-plan and stop-on-assertion-failure guards. Exact independent journal and complete report evidence; other platforms and broader composition remain unclaimed. |
 | Ownership/recovery | `ownership-direct-01`, 8bebfe6: 24 passing checks. | `ownership-standalone-01`, a099b86: 34 passing checks. | Scoped production-bridge comparison; Unix fixture regression and combined gate tracked separately. |
+| Pseudo-state target budgeting | `pointer-focus-direct-01` discovers #206 on ba07220; candidate `pseudo-budget-direct-after-01`: eleven calls, exact state/pixel/identity/cleanup evidence. | `pseudo-budget-standalone-after-01`: eight calls with fresh pure host/verified provider and matching target/guard results. | Deep-target, pressed/disabled and restoration checks pass; both transports/integrations expose separate false hover success (#207). Three viewed images per candidate run, owned cleanup, Win32 1x. This is not a passing whole state matrix; #206 full gate remains pending. |
 
 The separate `preview-campaign-01` journey on clean `0658716` uses Windows
 headless Skia / Avalonia 12.1.3: 22 MCP/six CLI calls, 17 positive checks, nine
@@ -85,9 +86,11 @@ filtering retains identical pixels. The journey confirms #205 on both transports
 valid local DataContext bindings render exactly like the literal expected value,
 but incorrectly produce a missing-root-context warning. Five images were viewed,
 33 verification assertions retain this defect plus one separate agent CLI-argument
-mistake. All 16 clients exit and the session metadata is closed. #202 now has
-pushed correction/24 affected passes; project baseline comparison timeout remains
-#203. This is neither native Retina nor visual HTML validation.
+mistake. All 16 clients exit and the session metadata is closed. #202 closes after
+the full c83e50c gate; project baseline comparison timeout remains #203. #205's
+ba07220 correction has twelve real pixel-backed scope cases and actual CLI/MCP
+verification; its full gate is pending. This is neither native Retina nor visual
+HTML validation.
 
 All listed native apps and clients were cleaned up. Shared-host lifecycle failures
 are retained as #192; hosted desired-state timing failure is #191. Neither is

@@ -135,7 +135,8 @@ public sealed class RuntimePseudoStateMatrixRunner
                 return await CompleteAsync();
             }
 
-            var targetResolution = ResolveStateTarget(currentTree.Value!.Root, request, target);
+            var targetResolution = await ResolveCapturedStateTargetAsync(
+                bridgeClient, currentTree.Value!, request, target, allowReresolve: true, cancellationToken);
             if (!targetResolution.Success)
             {
                 var diagnostic = ToProtocolError(targetResolution.Error!);
@@ -251,15 +252,18 @@ public sealed class RuntimePseudoStateMatrixRunner
 
             screenshot = screenshotResult.Value!;
             var afterTree = await bridgeClient.VisualTreeAsync(request.SessionId, request.TopLevelId, request.MaxDepth, cancellationToken);
-            var afterNode = afterTree.Success
-                ? FindNodeById(afterTree.Value!.Root, stateTarget.NodeId) ?? node
-                : node;
-            if (!afterTree.Success)
+            var afterTarget = afterTree.Success
+                ? await ResolveCapturedStateTargetAsync(bridgeClient, afterTree.Value!, request,
+                    stateTarget, allowReresolve: false, cancellationToken)
+                : CoreResult<StateTargetResolution>.Fail(afterTree.Error!);
+            if (!afterTarget.Success)
             {
-                diagnostics.Add(ToProtocolError(afterTree.Error!));
+                diagnostics.Add(ToProtocolError(afterTarget.Error!));
+                status = Failed;
+                message = "The current pseudo-state target could not be verified after capture.";
+                targetSummary = null;
             }
-
-            targetSummary = ToTargetSummary(afterNode);
+            else targetSummary = ToTargetSummary(afterTarget.Value!.Node);
             metadata = CreateEntryMetadata(state, appliedMutations, inputs);
             AddDiffMetadata(request, state, baselineEntry, screenshot, outputDirectory, metadata, diagnostics);
 
@@ -418,10 +422,49 @@ public sealed class RuntimePseudoStateMatrixRunner
             targetKind: "node"));
     }
 
+    private static async Task<CoreResult<StateTargetResolution>> ResolveCapturedStateTargetAsync(
+        LocalBridgeClient bridgeClient,
+        TreeResponse tree,
+        RuntimePseudoStateMatrixRequest request,
+        RuntimeTargetContext target,
+        bool allowReresolve,
+        CancellationToken cancellationToken)
+    {
+        // An omitted inline node is not evidence that the live target disappeared. Inspect only
+        // the pinned node; never deserialize an arbitrary full-tree artifact to bypass its budget.
+        if (tree.ResponseBudget?.Truncated == true && FindNodeById(tree.Root, target.NodeId) is null
+            && !string.IsNullOrWhiteSpace(target.NodeId) && target.TreeKind == TreeKinds.Visual)
+        {
+            var inspected = await bridgeClient.InspectNodeAsync(request.SessionId, request.TopLevelId,
+                TreeKinds.Visual, target.NodeId, cancellationToken, target);
+            if (inspected.Success)
+            {
+                var value = inspected.Value!;
+                var node = new TreeNodeSummary(value.NodeId, value.NodeType, value.Name, value.AutomationId,
+                    value.Text, value.Bounds, value.Classes, target: value.Target, accessibilityState: value.AccessibilityState);
+                return CoreResult<StateTargetResolution>.Ok(new(node, CreateEffectiveTarget(request, target, node), []));
+            }
+            if (!allowReresolve || !HasStableTargetFilters(request)
+                || inspected.Error!.Code is not ("node_not_found" or RuntimeInputErrorCodes.TargetStale))
+                return CoreResult<StateTargetResolution>.Fail(inspected.Error!);
+
+            var found = await bridgeClient.FindNodesAsync(request.SessionId, request.TopLevelId, TreeKinds.Visual,
+                request.NodeType, request.Name, request.AutomationId, request.Text, request.MaxDepth,
+                maxResults: 2, cancellationToken, includeAccessibility: true);
+            if (!found.Success) return CoreResult<StateTargetResolution>.Fail(found.Error!);
+            var matches = found.Value!.Matches.Select(match => match.Node).ToArray();
+            if (matches.Length > 0)
+                return CoreResult<StateTargetResolution>.Ok(new(matches[0], CreateEffectiveTarget(request, target, matches[0]),
+                    [CreateReresolvedTargetDiagnostic(request, target, matches)]));
+        }
+        return ResolveStateTarget(tree.Root, request, target, allowReresolve);
+    }
+
     private static CoreResult<StateTargetResolution> ResolveStateTarget(
         TreeNodeSummary root,
         RuntimePseudoStateMatrixRequest request,
-        RuntimeTargetContext target)
+        RuntimeTargetContext target,
+        bool allowReresolve)
     {
         var node = FindNodeById(root, target.NodeId);
         if (node is not null)
@@ -432,7 +475,7 @@ public sealed class RuntimePseudoStateMatrixRunner
                 []));
         }
 
-        if (HasStableTargetFilters(request))
+        if (allowReresolve && HasStableTargetFilters(request))
         {
             var matches = FindNodesByFilters(root, request, maxResults: 2);
             if (matches.Count > 0)

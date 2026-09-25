@@ -202,6 +202,48 @@ public sealed class RuntimePseudoStateMatrixRunnerTests : IDisposable
         Assert.Contains("selector fields", diagnostic.Details["nextAction"], StringComparison.OrdinalIgnoreCase);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task RunAsyncDoesNotReuseEarlierTargetEvidenceWhenItDisappearsAfterCapture(bool truncated)
+    {
+        var sessionId = SessionId.New();
+        const string topLevelId = "topLevel:matrix";
+        var target = new RuntimeTargetContext(sessionId, topLevelId, TreeKinds.Visual, "visual:target");
+        var pipeName = TestPipeNames.New();
+        WriteManifest("post-capture.json", new BridgeSessionManifest(sessionId, Environment.ProcessId,
+            pipeName, DateTimeOffset.UtcNow, "Matrix post-capture", processName: Process.GetCurrentProcess().ProcessName));
+        var server = RespondToBridgeRequestsAsync(pipeName, truncated ? 6 : 5, (index, request) =>
+        {
+            if (index == 0) return CreateTreeResponse(request, sessionId, topLevelId);
+            if (index == 1 || index == (truncated ? 5 : 4))
+                return CreateMutationResponse(request, sessionId, target, RuntimeMutationStatuses.Applied, applied: true);
+            if (index == 2) return CreateScreenshotResponse(request, sessionId, topLevelId, SKColors.LightGray);
+            if (index == 3)
+            {
+                var tree = CreateTreeResponse(request, sessionId, topLevelId, nodeId: "visual:replacement").GetValue<TreeResponse>()!;
+                return BridgeIpcResponse.Ok(request.RequestId, truncated ? ResponseBudgeter.Apply(tree, maxDepth: 0) : tree);
+            }
+            Assert.Equal(BridgeIpcMethods.InspectNode, request.Method);
+            Assert.Equal(target.NodeId, request.NodeId);
+            return BridgeIpcResponse.Fail(request.RequestId, new ProtocolError("node_not_found", "Target removed during capture."));
+        });
+        var result = await new RuntimePseudoStateMatrixRunner().RunAsync(
+            new LocalBridgeClient(_manifestDirectory, BridgePipeTestTimeout), new(sessionId, topLevelId, target,
+                [RuntimePseudoStates.Disabled], outputDirectory: Path.Combine(_testRoot, "post-capture"),
+                automationId: "state-target"));
+        var requests = await server;
+        Assert.True(result.Success);
+        Assert.Equal("failed", result.Value!.Status);
+        var entry = Assert.Single(result.Value.Entries);
+        Assert.Null(entry.Target);
+        Assert.NotNull(entry.Screenshot);
+        Assert.Single(entry.AppliedMutations);
+        Assert.Single(entry.ResetMutations);
+        Assert.Equal(RuntimeMutationOperationKinds.ResetMutation, requests[^1].Mutation!.Operation.Kind);
+        Assert.DoesNotContain(entry.Diagnostics, diagnostic => diagnostic.Code == "pseudo_state_target_reresolved");
+    }
+
     public void Dispose()
     {
         var elapsed = Stopwatch.StartNew();

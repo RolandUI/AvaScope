@@ -20,6 +20,80 @@ namespace AvaScope.Tests.Bridge;
 public sealed class RuntimePickingTests
 {
     [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task PseudoStateMatrixCapturesDeepTargetWithRealResponseBudget(bool pinnedTarget, bool replaceTarget)
+    {
+        await WithWindow(async (runtime, window, button, top, node, client, output) =>
+        {
+            window.Content = null;
+            Control nested = button;
+            // Detach from the original fixture parent before placing it below the inline depth budget.
+            ((Border)button.Parent!).Child = null;
+            for (var depth = 0; depth < 12; depth++) nested = new Border { Child = nested };
+            window.Content = nested;
+            window.UpdateLayout();
+            using var frame = window.CaptureRenderedFrame();
+            Assert.NotNull(frame);
+            var found = await client.FindNodesAsync(runtime.SessionId, top.TopLevelId, TreeKinds.Visual,
+                name: button.Name, maxDepth: 32, includeAccessibility: true);
+            var current = Assert.Single(found.Value!.Matches).Node;
+            var tree = await client.VisualTreeAsync(runtime.SessionId, top.TopLevelId, 32);
+            Assert.True(tree.Value!.ResponseBudget?.Truncated);
+            Assert.DoesNotContain(current.NodeId, JsonSerializer.Serialize(tree.Value.Root));
+            var requestedTarget = current.Target;
+            if (replaceTarget)
+            {
+                var parent = (Border)button.Parent!;
+                button = new Button { Name = button.Name, Content = "Replacement", Width = 160, Height = 60 };
+                parent.Child = button;
+                window.UpdateLayout();
+                using var replacementFrame = window.CaptureRenderedFrame();
+                Assert.NotNull(replacementFrame);
+                current = Assert.Single((await client.FindNodesAsync(runtime.SessionId, top.TopLevelId,
+                    TreeKinds.Visual, name: button.Name, maxDepth: 32)).Value!.Matches).Node;
+                Assert.NotEqual(requestedTarget!.NodeId, current.NodeId);
+            }
+
+            var result = await new RuntimePseudoStateMatrixRunner().RunAsync(client, new(
+                runtime.SessionId, top.TopLevelId, pinnedTarget ? requestedTarget : null,
+                [RuntimePseudoStates.Normal, RuntimePseudoStates.Disabled], outputDirectory: output,
+                maxDepth: 32, name: !pinnedTarget || replaceTarget ? button.Name : null));
+            Assert.True(result.Success, JsonSerializer.Serialize(result.Error));
+            Assert.Equal("passed", result.Value!.Status);
+            Assert.Equal(2, result.Value.Entries.Count);
+            Assert.All(result.Value.Entries, entry =>
+            {
+                Assert.Equal("passed", entry.Status);
+                Assert.Equal(current.NodeId, entry.Target!.NodeId);
+                Assert.True(File.Exists(entry.Screenshot!.FilePath));
+            });
+            Assert.True(result.Value.Entries[0].Target!.AccessibilityState!.IsEnabled);
+            Assert.False(result.Value.Entries[1].Target!.AccessibilityState!.IsEnabled);
+            Assert.Single(result.Value.Entries[1].AppliedMutations);
+            Assert.Single(result.Value.Entries[1].ResetMutations);
+            Assert.True(button.IsEnabled);
+            if (replaceTarget)
+                Assert.Contains(result.Value.Diagnostics, diagnostic => diagnostic.Code == "pseudo_state_target_reresolved");
+            if (pinnedTarget)
+            {
+                var stale = new RuntimeTargetContext(runtime.SessionId, top.TopLevelId, TreeKinds.Visual,
+                    current.NodeId, topLevelGeneration: "wrong-generation", nodeGeneration: current.Target!.NodeGeneration);
+                var refused = await new RuntimePseudoStateMatrixRunner().RunAsync(client, new(
+                    runtime.SessionId, top.TopLevelId, stale, [RuntimePseudoStates.Disabled],
+                    outputDirectory: Path.Combine(output, "stale"), maxDepth: 32));
+                Assert.Equal("failed", refused.Value!.Status);
+                var entry = Assert.Single(refused.Value.Entries);
+                Assert.Empty(entry.AppliedMutations);
+                Assert.Empty(entry.Inputs);
+                Assert.Contains(entry.Diagnostics, diagnostic => diagnostic.Code == RuntimeInputErrorCodes.TargetStale);
+                Assert.True(button.IsEnabled);
+            }
+        });
+    }
+
+    [Theory]
     [InlineData(false, InputActions.PointerMove)]
     [InlineData(true, InputActions.PointerMove)]
     [InlineData(false, InputActions.PointerDown)]
