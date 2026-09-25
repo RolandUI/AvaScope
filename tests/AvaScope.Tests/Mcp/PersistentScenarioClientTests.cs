@@ -4,6 +4,8 @@ using System.Text.Encodings.Web;
 using System.Text.Json;
 using Avalonia.Controls;
 using Avalonia.Headless;
+using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Threading;
 using AvaScope.Bridge;
 using AvaScope.Protocol;
@@ -12,7 +14,7 @@ using AvaScope.Tests.Bridge;
 namespace AvaScope.Tests.Mcp;
 
 [Collection(BridgeCollectionDefinition.Name)]
-public sealed class PersistentScenarioClientTests : IDisposable
+public sealed class PersistentScenarioClientTests(Xunit.Abstractions.ITestOutputHelper output) : IDisposable
 {
     private readonly string _root = Directory.CreateDirectory(Path.Combine(Path.GetTempPath(), "avascope-probe-utf8-" + Guid.NewGuid().ToString("N"))).FullName;
 
@@ -31,8 +33,36 @@ public sealed class PersistentScenarioClientTests : IDisposable
                 AvaScopeBridge.Deactivate(); var runtime = AvaScopeBridge.Activate();
                 var editor = new TextBox { Name = "UnicodeEditor", Text = "seed", AcceptsReturn = true };
                 var changes = new List<string?>();
-                editor.PropertyChanged += (_, change) => { if (change.Property == TextBox.TextProperty) changes.Add(editor.Text); };
+                var elapsed = new Stopwatch();
+                var stages = new List<object>();
+                var inputEvents = 0;
+                void Record(string stage)
+                {
+                    if (elapsed.IsRunning && stages.Count < 32) stages.Add(new { stage, elapsedMs = elapsed.Elapsed.TotalMilliseconds });
+                }
+                editor.PropertyChanged += (_, change) =>
+                {
+                    if (change.Property == TextBox.TextProperty) { changes.Add(editor.Text); Record("text_changed"); }
+                    else if (change.Property == TextBox.SelectionStartProperty) Record("selection_start_changed");
+                    else if (change.Property == TextBox.SelectionEndProperty) Record("selection_end_changed");
+                    else if (change.Property == TextBox.CaretIndexProperty) Record("caret_changed");
+                    else if (change.Property == InputElement.IsFocusedProperty) Record("focus_changed");
+                };
                 var window = new Window { Width = 400, Height = 200, Content = editor }; window.Show();
+                window.AddHandler(InputElement.TextInputEvent, (_, _) => { inputEvents++; Record("input_enter"); }, RoutingStrategies.Tunnel, handledEventsToo: true);
+                window.AddHandler(InputElement.TextInputEvent, (_, _) => Record("input_exit"), RoutingStrategies.Bubble, handledEventsToo: true);
+                string Observe(string requestId, string expected)
+                {
+                    using var frame = window.GetLastRenderedFrame();
+                    return JsonSerializer.Serialize(new
+                    {
+                        requestId, fullResult, elapsedMs = elapsed.Elapsed.TotalMilliseconds, stages,
+                        inputEvents, textChanges = changes.Count, textLength = editor.Text?.Length,
+                        expectedTextObserved = editor.Text == expected, seedTextObserved = editor.Text == "seed",
+                        editor.IsFocused, editor.CaretIndex, editor.SelectionStart, editor.SelectionEnd,
+                        editor.IsMeasureValid, editor.IsArrangeValid, frameAvailable = frame is not null
+                    });
+                }
                 try
                 {
                     using var registration = runtime.RegisterTopLevel(window);
@@ -60,14 +90,23 @@ public sealed class PersistentScenarioClientTests : IDisposable
                                 Assert.Contains(index == 0 ? "😀" : "🚀", line);
                             }
                             else Assert.All(line, character => Assert.True(character <= 127));
-                            await process.StandardInput.BaseStream.WriteAsync(Encoding.UTF8.GetBytes(line + "\n"));
-                            await process.StandardInput.BaseStream.FlushAsync();
-                            using var response = JsonDocument.Parse((await process.StandardOutput.ReadLineAsync().WaitAsync(TimeSpan.FromSeconds(30)))!);
+                            stages.Clear(); elapsed.Restart();
+                            string? responseLine;
+                            try
+                            {
+                                await process.StandardInput.BaseStream.WriteAsync(Encoding.UTF8.GetBytes(line + "\n"));
+                                await process.StandardInput.BaseStream.FlushAsync();
+                                responseLine = await process.StandardOutput.ReadLineAsync().WaitAsync(TimeSpan.FromSeconds(30));
+                            }
+                            finally { output.WriteLine(Observe("utf8-" + index, values[index])); }
+                            using var response = JsonDocument.Parse(responseLine!);
                             var result = fullResult ? response.RootElement.GetProperty("structuredContent") : response.RootElement;
-                            Assert.True(result.GetProperty("success").GetBoolean(), result.ToString());
+                            Assert.True(result.GetProperty("success").GetBoolean(), result + "\n" + Observe("utf8-" + index, values[index]));
                             Assert.Equal(values[index], result.GetProperty("value").GetProperty("after").GetProperty("value").GetString());
                             Assert.Equal(values[index], editor.Text);
                             Assert.Equal(index + 1, changes.Count);
+                            Assert.Equal(index + 1, inputEvents);
+                            elapsed.Stop();
                             lastLine = line;
                         }
                         await process.StandardInput.BaseStream.WriteAsync(Encoding.UTF8.GetBytes(lastLine + "\n"));
@@ -75,7 +114,7 @@ public sealed class PersistentScenarioClientTests : IDisposable
                         using var replay = JsonDocument.Parse((await process.StandardOutput.ReadLineAsync().WaitAsync(TimeSpan.FromSeconds(30)))!);
                         var replayResult = fullResult ? replay.RootElement.GetProperty("structuredContent") : replay.RootElement;
                         Assert.True(replayResult.GetProperty("value").GetProperty("replayed").GetBoolean());
-                        Assert.Equal(3, changes.Count);
+                        Assert.Equal(3, changes.Count); Assert.Equal(3, inputEvents);
                         process.StandardInput.Close();
                         await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(30));
                         Assert.True(process.ExitCode == 0, await stderr);
@@ -86,6 +125,7 @@ public sealed class PersistentScenarioClientTests : IDisposable
                     const string fromFile = "UTF-8 file — Árvíz 日本語 😀";
                     var fileArguments = new { request = new RuntimeDesiredStateRequest(target, "text", JsonSerializer.SerializeToElement(fromFile), "file-utf8"), manifestDirectory };
                     await File.WriteAllTextAsync(requestPath, JsonSerializer.Serialize(fileArguments, new JsonSerializerOptions { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping }));
+                    stages.Clear(); elapsed.Restart();
                     using var fileProcess = Start(requestPath, manifestDirectory, "ensure_state", fullResult);
                     var fileError = fileProcess.StandardError.ReadToEndAsync();
                     var fileOutput = fileProcess.StandardOutput.ReadToEndAsync();
@@ -96,9 +136,13 @@ public sealed class PersistentScenarioClientTests : IDisposable
                         Assert.True(fileProcess.ExitCode == 0, await fileError);
                         using var result = JsonDocument.Parse(await fileOutput);
                         Assert.True((fullResult ? result.RootElement.GetProperty("structuredContent") : result.RootElement).GetProperty("success").GetBoolean());
-                        Assert.Equal(fromFile, editor.Text); Assert.Equal(4, changes.Count);
+                        Assert.Equal(fromFile, editor.Text); Assert.Equal(4, changes.Count); Assert.Equal(4, inputEvents);
                     }
-                    finally { if (!fileProcess.HasExited) fileProcess.Kill(entireProcessTree: true); }
+                    finally
+                    {
+                        output.WriteLine(Observe("file-utf8", fromFile));
+                        if (!fileProcess.HasExited) fileProcess.Kill(entireProcessTree: true);
+                    }
                 }
                 finally { window.Close(); AvaScopeBridge.Deactivate(); }
             }, CancellationToken.None);

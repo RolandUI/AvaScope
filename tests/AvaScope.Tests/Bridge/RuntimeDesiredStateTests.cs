@@ -283,6 +283,44 @@ public sealed class RuntimeDesiredStateTests
     }
 
     [Fact]
+    public async Task CooperativeBudgetAfterTextInputRetainsUncertaintyAndNeverRepeatsTheEdit()
+    {
+        await WithWindow(async (runtime, root, top, client) =>
+        {
+            var box = new TextBox { Name = "SlowText", Text = "seed" };
+            root.Children.Add(box); Dispatcher.UIThread.RunJobs();
+            var request = Request(await Target(runtime, top, "SlowText"), "text", "Changed — ő 日本語 😀");
+            var calls = 0;
+            var changes = 0;
+            box.PropertyChanged += (_, change) => { if (change.Property == TextBox.TextProperty) changes++; };
+            box.AddHandler(InputElement.TextInputEvent, (_, _) =>
+            {
+                calls++;
+                // Deliberately slow application callback crosses the real cooperative budget.
+                // It returns normally after the edit; it is not an IPC timeout or an encoding fault.
+                Thread.Sleep(TimeSpan.FromMilliseconds(2100));
+            }, Avalonia.Interactivity.RoutingStrategies.Bubble, handledEventsToo: true);
+
+            var result = await runtime.EnsureStateAsync(request);
+            Assert.False(OperationResultMapper.ToToolResult(result).Success);
+            Assert.Equal("uncertain", result.Value!.Status); Assert.False(result.Value.Verified);
+            Assert.Contains(result.Value.Diagnostics, diagnostic => diagnostic.Code == "desired_state_budget");
+            Assert.Equal(1, result.Value.DispatchedOperations); Assert.True(result.Value.PreparationPerformed);
+            Assert.Equal("unavailable", result.Value.After.Status);
+            Assert.Equal(request.Desired.GetString(), box.Text); Assert.Equal(1, calls); Assert.Equal(1, changes);
+
+            var recovered = await new LocalBridgeClient(client.ManifestDirectory).EnsureStateAsync(request);
+            Assert.True(recovered.Value!.Replayed); Assert.False(recovered.Value.Verified);
+            Assert.Equal(result.Value.ObservedAt, recovered.Value.ObservedAt);
+            Assert.Equal("uncertain", recovered.Value.Status);
+            Assert.Equal(request.Desired.GetString(), box.Text); Assert.Equal(1, calls); Assert.Equal(1, changes);
+            var conflict = await client.EnsureStateAsync(new(request.Target, "text", JsonSerializer.SerializeToElement("different"), request.RequestId));
+            Assert.Equal("desired_state_id_conflict", conflict.Error!.Code);
+            Assert.Equal(1, calls); Assert.Equal(1, changes);
+        });
+    }
+
+    [Fact]
     public async Task CliAndMcpSharePolicyRedactionReplayAndOperationFailureSemantics()
     {
         await WithWindow(async (runtime, root, top, client) =>

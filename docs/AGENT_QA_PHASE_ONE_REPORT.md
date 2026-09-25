@@ -2,6 +2,49 @@
 
 Status: **in progress**, 2026-09-25. Tracking issue [#166](https://github.com/RolandUI/AvaScope/issues/166); expanded fixture #172, declared surfaces #173 and capability campaign #174. The full goal is not achieved and current applicable checks are not all passing. The owner expanded the original intake-only phase to include fixes, meaningful regressions and repeated comprehensive testing. Original failures remain distinct from post-fix verification. Version changes and release remain outside scope.
 
+## Desired-state budget and MCP lifecycle diagnosis (#191)
+
+CI `36100032601` is terminal failure on clean `3b82d1d`. Windows has 853
+passed/two failed/six explicit skips; its two failures are post-dispatch
+`desired_state_budget` responses in the persistent Unicode regression. All three
+native QA jobs pass, including Direct/standalone two-cycle validation and expiry.
+Downloaded `ci-3b82-native/verified-summary.json` verifies all six clean commit
+identities, stopped sessions and owned process termination. All scales are 1;
+only Linux observes 1920x1080 (Windows 1028x749, macOS 1920x649). Downstream
+Linux/macOS jobs are skipped, so #184/#185 Unix after-fix checks remain pending.
+
+The unchanged local two-case Unicode round passes (53 seconds). Test-only
+instrumentation now records bounded focus/selection/caret/text and routed-input
+timestamps, input/change counts and actual expected-versus-seed state even if
+the response wait fails. It preserves every existing success/content assertion
+and adds once-only event assertions. Initial instrumented validation passes all
+six persistent-client cases (1m54s); eight measured input spans are 0.85-131 ms
+and all intended texts are present. Evidence: `desired-budget-before-results`
+and `desired-budget-diagnostics-results`, including `verified-timings.json`.
+These passing measurements do not reproduce or explain the hosted budget failure.
+
+The [Avalonia 12.1.3 TextBox implementation](https://raw.githubusercontent.com/AvaloniaUI/Avalonia/12.1.3/src/Avalonia.Controls/TextBox.cs)
+changes text and synchronizes presenter/caret within the routed callback. A new
+controlled regression deliberately holds a callback for 2100 ms after the actual
+edit. It passes in 2.658 seconds: the unchanged cooperative budget returns
+uncertain/unverified, the editor changed exactly once, exact replay retains the
+original outcome without another event, and conflicting payload reuse refuses.
+This validates the safety boundary, not the original slowdown's cause. Production
+code, deadlines, test timeouts and retry behavior are unchanged.
+
+The expanded local group finishes 15 passed/five failed (6m19s). Its five failures
+are MCP connect/initial-health/first-response/process-exit waits, not a reproduced
+two-second operation failure. One first response times out with zero events and
+the seed intact; the other case completes all persistent requests/replay and the
+file edit, then times out waiting for process exit. Its independent text and all
+four events agree. These failures are separately tracked as #192. The retained
+host sample at 06:22:41 UTC shows 100% CPU, 4606 MiB available RAM and unrelated
+pre-existing TradeR.Mcp processes dominating resources; those processes are outside
+task ownership. Contention is observed, not a proven complete causal explanation.
+`desired-budget-after-results` retains full TRX, phase observations and host sample.
+The affected group is failed, not passed; independent hosted validation is next.
+No active local test/QA process remains after the group's cleanup.
+
 ## Expanded Direct form journey (#174, scoped evidence)
 
 Clean `3b82d1d` native Direct run `capabilities-direct-01` uses Avalonia 12.1.3,
