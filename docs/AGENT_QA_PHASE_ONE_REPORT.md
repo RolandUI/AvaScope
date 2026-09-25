@@ -1,6 +1,45 @@
-# First-phase native agent QA campaign
+# Native agent QA campaign
 
-Status: **blocked on missing acceptance evidence**, 2026-09-24. Tracking issue [#166](https://github.com/RolandUI/AvaScope/issues/166). All currently executable checks are complete and passing; the full goal is not declared achieved. This report separates actual agent exploration from scripted checks. The owner expanded the original intake-only phase to include fixes for existing and newly discovered defects, improved regression coverage and repeated comprehensive testing. Original failures remain recorded separately from post-fix verification. Version changes and release remain outside scope.
+Status: **in progress**, 2026-09-25. Tracking issue [#166](https://github.com/RolandUI/AvaScope/issues/166); expanded fixture #172, declared surfaces #173 and capability campaign #174. The full goal is not achieved and current applicable checks are not all passing. The owner expanded the original intake-only phase to include fixes, meaningful regressions and repeated comprehensive testing. Original failures remain distinct from post-fix verification. Version changes and release remain outside scope.
+
+## Expanded fixture checkpoint
+
+The capability map in [AGENT_QA_CAPABILITIES.md](AGENT_QA_CAPABILITIES.md) remains
+a coverage plan. The shared form/table/input fixture, stable list keys and reset
+guards compile for both host paths on Avalonia 12.1.3. At `8e36e2a`, all 12
+fixture/virtual-item Release tests pass (30 seconds). Those tests do not replace
+the native evidence below.
+
+Actual Windows Direct and standalone exploration at `8e36e2a`, standalone
+provider unchanged from `47034aa`, observed Win32 / 1120x800 DIP / 1x:
+
+| Journey | Outcome and independent evidence |
+| --- | --- |
+| V001–V011: original virtual list | Passed: unrealized `QA-175` lookup, CLI reveal without selection, MCP select, missing/stale/incomplete-search refusal and CLI reset. Journal index 174/key `QA-175`, table selection unchanged; reviewed native/public images agree. |
+| K001–K017: action map, text, focus, keyboard | Standalone passed. Direct persistent-client raw UTF-8 K004–K006 **failed, #187**; subsequent R004–R006 passed using standard JSON Unicode escapes. Other cases passed in both hosts: visible action discovery; desired text once/exact replay/CLI already-satisfied state; native Tab/Shift-Tab, CLI Enter once, CLI/MCP changed-focus refusal, Ctrl+A and `Árvíztűrő 😀 日本語`. Windows accessibility independently identifies the expected focused button/editor and final Unicode text; native images were reviewed. |
+| D001–D005: pointer input | Passed: synthetic click has no drag; CLI native drag has two total presses/releases, one 80x30 DIP drag, and no held input. Stale geometry refuses with zero events and unchanged journal. Native image and counters agree. |
+| D006/D007: pointer diagnostics | **Failed, #186**: both MCP center and CLI clear-pad point reconstruct a hit path ending at the full-window `PART_TransparencyFallback` instead of the actual pad. The CLI move metadata itself identifies the pad. Preserve both failures; no successful screenshot step followed the failed assertion. |
+| Direct G001–G003: independent public pick | Passed: current public `pick_node` returns `qa-pointer-pad` as the actual input hit at 150,390 with a complete 16-node ancestry, whereas pointer diagnostics chooses the fallback border at the same point. Stale geometry refuses. This narrows #186 without changing its failed status. |
+
+Evidence roots: `artifacts/agent-qa/keyed-standalone-01` and `keyed-direct-01`,
+including exact V/K/D/G requests/results, CLI exits, independent state snapshots, `V006-native-selected.png`,
+`K009-native-focus.json`/PNG, `K017-native-focus.json`/Unicode PNG and
+`D006-native-state.png`. Native input here is the declared
+`win32_owned_window_message` route, not global hardware injection or IME coverage.
+Final resets restored seed text, counters, page and selection in both hosts;
+owned PIDs 20960 and 21724 terminated. The Direct persistent MCP client completed
+31 calls and exited 0. Raw UTF-8 stdin was decoded using Windows cp852 by this
+test client; the file-request path preserved Unicode. `persistent-encoding-workaround.json`
+and the subsequent ASCII JSON wire log explain the temporary workaround.
+This is an infrastructure defect (#187), not a product desired-state replay bug.
+
+Earlier CI `36072375163` on `b90ca39` passed Windows and all three native labs,
+but failed Linux recovery (#184) and the macOS slider gesture (#185). It does not
+validate subsequent #182/#183 implementation or the new keyed fixture.
+#157/#161 still require real native Retina 2x evidence. The historical checkpoint
+below describes earlier source-specific validation only.
+
+## Earlier first-phase checkpoint (2026-09-24)
 
 Latest checkpoint: infrastructure #162/#163 and defects #158/#159/#160/#167/#168/
 #169/#170 are completed. #170 `678ac0b` passes 17 focused regressions in both
