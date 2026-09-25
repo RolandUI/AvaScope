@@ -2,13 +2,49 @@
 
 Status: **in progress**, 2026-09-25. Tracking issue [#166](https://github.com/RolandUI/AvaScope/issues/166); expanded fixture #172, declared surfaces #173 and capability campaign #174. The full goal is not achieved and current applicable checks are not all passing. The owner expanded the original intake-only phase to include fixes, meaningful regressions and repeated comprehensive testing. Original failures remain distinct from post-fix verification. Version changes and release remain outside scope.
 
+## Logical mutation evidence correction (#197)
+
+Commit `c6b11db` passes all 100 affected mutation/pseudo-state regressions
+(32 s, zero failures/skips). The prepared real-Avalonia baseline retains one
+visual pass/one logical failure. Thirteen protocol identity cases cover scoped,
+foreign, stale, missing, ambiguous and depth-limited captures plus legacy visual
+requests. An initial invalid null tree-kind in the new legacy fixture is retained
+as an agent test-input error, separately from product failures.
+
+Fresh `logical-evidence-{direct,standalone}-after-01` runs use clean `c6b11db`,
+Avalonia 12.1.3.0, Win32, 1120x800 and actual 1x. Each performs 14 MCP/three CLI
+calls and reviews seven native/rendered images. Direct passes 16 retained checks;
+standalone passes 17 including pure-host/provider isolation. Visual and logical
+requests identify the same public generation identity without rewriting opaque
+node IDs. The original CLI Unicode Content and MCP Background cases now include
+valid before/after visual summaries and changed pixels (2259/4652). A depth-0
+capture keeps one-node visual snapshots with precise before/after coverage
+diagnostics. Invalid depth creates no artifact directory; a missing logical
+target remains stale, applies nothing and changes zero pixels. Four actual
+mutations restore original Content/Background/Padding values and priorities,
+with no active overrides. Independent journals and six source hashes are unchanged.
+
+Exact requests/results, independent tree proofs, `artifact-audit.json` and
+`logical-evidence-summary.json` are retained in each directory. HTML source has
+both identities and correct target-found flags; visual browser review remains
+blocked by the existing tool policy and was not bypassed. The standalone
+verifier initially referenced a variable outside its persistent scope; it read
+the saved provider verification record to complete bookkeeping without repeating
+application requests. That agent error is retained separately. Clients 6148/5104
+exit 0 and owned apps 20308/15968 terminate. This is not native Retina coverage.
+
+#197 is review pending full CI `36130672354`, still in progress. #199 is the sole
+active issue: preserve safe bounded UIA stage/error/timing diagnostics and only
+choose a readiness correction from evidence. Current counts are 35 unique defects,
+26 closed; #181/#199 original causes remain unproven. No release.
+
 ## Animated-priority and native UIA discoveries (#198, #199)
 
 The fixture expansion also reopens #181: a fresh local run hits the same image
 lock boundary at the explicit exclusive-open assertion for `01-normal.png`,
 before teardown. Its owner is still unknown. The original failed result is
-retained; no retry or weaker assertion replaces it. Current unique-defect counts
-are 35 tickets/24 closed after reopening. The two new fixture-test expectation
+retained; no retry or weaker assertion replaces it. At that checkpoint the unique-defect counts
+were 35 tickets/24 closed after reopening. The two new fixture-test expectation
 mistakes (StyleTrigger priority and style detachment on window close) are recorded
 separately from product defects in `animation-fixture-*-error.json` and
 `animation-fixture-close-expectation.json`.
@@ -44,10 +80,11 @@ in `animation-{direct,standalone}-after-01/animation-summary.json`. The initial
 native screenshot data URLs were saved as their actual JPEG type; rendered
 captures are PNG. This is not native Retina coverage.
 
-Full `8803271` CI 36125594904 passes Windows Build/Test/Pack, including the UIA
-audit; downstream platform checks remain in progress. The fresh pass does not
-resolve #181's lock owner or #199's missing COM-stage/cause diagnostics. #198 is
-review pending the combined gate; #197 is the next sole active implementation.
+Full `8803271` CI 36125594904 is successful. Downloaded TRX verifies Windows
+923 passed/six skips, macOS 924 passed/five skips and Linux 33 passed. All six
+native integrations and three expiry checks pass with verified clean identity
+and owned cleanup at 1x. Acceptance closes #196/#198; the fresh pass does not
+resolve #181's lock owner or #199's missing COM-stage/cause diagnostics.
 
 Full `5fda3f9` CI 36118971656 finishes failed in the Windows Verify artifacts
 step, specifically the native UIA audit (#199). Main Windows TRX passes 895 with
@@ -58,7 +95,8 @@ nodes but zero native UIA nodes, `unavailable`, `truncated=true` and only a gene
 or COM/provider root cause. Linux/macOS downstream jobs skip. All three separate
 native-lab jobs pass; their retained identities/cleanup are audited separately.
 Evidence lives under `expanded-campaign/ci-5fda-windows` and the failed job log.
-#198 is sole active; #196 stays review and #197/#199 ready. No release.
+At that earlier failure checkpoint #198 was sole active, #196 review and
+#197/#199 ready; subsequent acceptance is recorded above. No release.
 
 ## Native precedence verification and combined acceptance audit
 
