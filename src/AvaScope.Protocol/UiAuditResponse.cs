@@ -93,9 +93,9 @@ public sealed record UiAuditResponse
 
     private AgentReviewSurface CreateAgentReview()
     {
-        var status = Issues.Count == 0 ? "clean" : "issues_found";
+        var status = Issues.Count == 0 ? Summary.SourceTruncated ? "partial" : "clean" : "issues_found";
         var headline = Issues.Count == 0
-            ? "No UI audit issues found."
+            ? Summary.SourceTruncated ? "UI audit coverage is incomplete; no issues found in available evidence." : "No UI audit issues found."
             : $"{Issues.Count.ToString(CultureInfo.InvariantCulture)} UI audit issues found.";
         var failures = Issues
             .Take(AgentReviewSurface.MaximumFailureSummaries)
@@ -115,7 +115,8 @@ public sealed record UiAuditResponse
                 $"inventory: {Summary.InventoryItemCount.ToString(CultureInfo.InvariantCulture)}",
                 $"accessibility: {Summary.AccessibilityStatus}",
                 $"validation: {Summary.ValidationStatus}",
-                $"focusOrder: {Summary.FocusOrderStatus}"
+                $"focusOrder: {Summary.FocusOrderStatus}",
+                $"sourceCoverage: {(Summary.SourceTruncated ? "partial" : "complete")}"
             ],
             failures,
             truncated: Summary.Truncated || Issues.Count > AgentReviewSurface.MaximumFailureSummaries);

@@ -38,6 +38,6 @@ public sealed class DesignQualityAuditRunner
             return CoreResult<DesignQualityAuditResponse>.Fail(tree.Error!);
         }
 
-        return new DesignQualityAuditBuilder().Create(tree.Value!, request);
+        return new DesignQualityAuditBuilder().Create(ResponseBudgeter.ReadTreeEvidence(tree.Value!), request);
     }
 }

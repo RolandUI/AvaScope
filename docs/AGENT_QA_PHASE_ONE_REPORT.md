@@ -4,6 +4,27 @@ Status: **in progress**, 2026-09-25. Tracking issue [#166](https://github.com/Ro
 
 ## Current validation checkpoint
 
+#214's local candidate preserves source truncation separately from report limits,
+verifies bounded full evidence before consuming it, distinguishes incomplete
+scope evidence from true absence and includes validation errors on noninteractive
+controls. `audit-coverage-01` preserves eight failing public CLI/MCP before cases,
+then all eight passing after correction. A real TextBlock validation case also
+fails before the actionable-only finding filter is repaired. The expanded set
+retains 109 passed/one obsolete depth8 CLI exit expectation; the corrected final
+affected set passes all 41 cases in 35s, with zero build warnings/errors. Its
+independent verifier checks every retained stage. Native Direct/standalone
+comparison and a full gate including this candidate remain required; #214 is
+sole active, #174 remains review.
+
+The prior exact `f2ab747` full CI [36219846271](https://github.com/RolandUI/AvaScope/actions/runs/36219846271)
+is successful across all six jobs. Independently downloaded results verify
+Windows 1021 passed/eight skipped, macOS 1019/nine, Linux 33 and all six native
+integration/three expiry runs at actual 1x. The common-state/frame-readiness,
+causal diagnostics, recording, transformed geometry and navigation regressions
+all pass on both Windows and macOS. #209/#210/#211/#212 acceptance is complete;
+the gate excludes later #213 controls and the #214 candidate. Scripted native
+lifecycle validation does not establish Retina or comprehensive agent exploration.
+
 Fresh native `audit-direct-01` on clean `69f6590` confirms #214: UI/design audit
 consumers discard tree coverage. Twenty-one public calls (14 MCP/seven CLI),
 90 independent evidence checks and four reviewed native images retain the

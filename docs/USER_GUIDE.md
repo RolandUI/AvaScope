@@ -487,7 +487,16 @@ Build a bounded accessibility, validation, and component inventory report from t
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll audit-ui --session session-id --top-level topLevel:1234 --tree-kind visual --max-depth 8 --max-issues 100 --max-inventory 100 --run-index .\artifacts\run-indexes --task runtime-audit-main
 ```
 
-`audit-ui` returns `ToolResult<UiAuditResponse>` with `summary`, bounded `issues`, bounded `inventory`, and `agentReview`. It reports actionable controls missing accessible names or stable automation ids, keyboard focus metadata, runtime validation errors, control/class/component-pattern counts, and explicit `not_available` inventory entries for style/resource/template/theme scopes that the runtime tree cannot prove reliably. When `--run-index <dir>` is supplied, the response includes `runIndex` with the audit command metadata, diagnostics, warnings, and latest pointer for the task.
+`audit-ui` returns `ToolResult<UiAuditResponse>` with `summary`, bounded `issues`, bounded `inventory`, and `agentReview`. It reports actionable controls missing accessible names or stable automation ids, keyboard focus metadata, runtime validation errors (including noninteractive controls), control/class/component-pattern counts, and explicit `not_available` inventory entries for style/resource/template/theme scopes that the runtime tree cannot prove reliably. When `--run-index <dir>` is supplied, the response includes `runIndex` with the audit command metadata, diagnostics, warnings, and latest pointer for the task.
+
+Check `summary.sourceTruncated` before interpreting the result: omitted descendants
+or unavailable complete evidence make the audit partial, even when no issue was
+found in the returned nodes. `summary.truncated` also includes report output
+limits. CLI `audit-ui` exits 1 for incomplete source coverage; complete audits
+retain exit 0 even when their report contains findings. Design audits likewise
+preserve partial coverage and exit 1 for partial results or active findings.
+An omitted deep scope is unavailable, not necessarily absent. See the
+[audit coverage contract](AGENT_WORKFLOW.md) for verified full evidence and bounds.
 
 Run a task-scoped design-quality audit when a UI change needs focused visual-quality review rather than a broad accessibility inventory:
 

@@ -691,7 +691,7 @@ public sealed class AvaScopeMcpTools
                 tree.Error.Details));
         }
 
-        return ToToolResult(new UiAuditBuilder().Create(tree.Value!, maxIssues, maxInventoryItems));
+        return ToToolResult(new UiAuditBuilder().Create(ResponseBudgeter.ReadTreeEvidence(tree.Value!), maxIssues, maxInventoryItems));
     }
 
     [McpServerTool(

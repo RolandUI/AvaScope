@@ -12,6 +12,49 @@ public static class ResponseBudgeter
     public const int DefaultMaxItems = 200;
     public const int DefaultMaxDepth = 8;
 
+    /// <summary>Reads verified, bounded full tree evidence for internal audit consumers.
+    /// Unavailable or mismatched evidence leaves the original partial response intact.</summary>
+    public static TreeResponse ReadTreeEvidence(TreeResponse response)
+    {
+        ArgumentNullException.ThrowIfNull(response);
+        var budget = response.ResponseBudget;
+        if (budget is not { Truncated: true, ArtifactPath: not null, EstimatedBytes: > 0 and <= 16 * 1024 * 1024,
+                TotalItems: > 0 and <= 8192, OriginalDepth: <= 64 }) return response;
+        try
+        {
+            using var stream = File.OpenRead(budget.ArtifactPath);
+            if (stream.Length != budget.EstimatedBytes) return response;
+            var payload = new byte[budget.EstimatedBytes];
+            stream.ReadExactly(payload);
+            if (stream.ReadByte() != -1) return response;
+            var hash = Convert.ToHexString(SHA256.HashData(payload)).ToLowerInvariant()[..16];
+            if (!string.Equals(Path.GetFileName(budget.ArtifactPath), $"tree-{hash}.json", StringComparison.Ordinal)) return response;
+            var full = JsonSerializer.Deserialize<TreeResponse>(payload, JsonOptions);
+            if (full is null || full.ResponseBudget is not null || full.SessionId != response.SessionId
+                || full.TopLevelId != response.TopLevelId || full.TreeKind != response.TreeKind
+                || full.DepthLimit != response.DepthLimit || full.Target != response.Target
+                || full.Root.NodeId != response.Root.NodeId || full.Root.Target != response.Root.Target
+                || CountNodes(full.Root) != budget.TotalItems || GetDepth(full.Root) != budget.OriginalDepth)
+                return response;
+            var pending = new Stack<TreeNodeSummary>();
+            pending.Push(full.Root);
+            while (pending.TryPop(out var node))
+            {
+                if (node.Target is { } target && (target.SessionId != full.SessionId
+                    || target.TopLevelId != full.TopLevelId || target.TreeKind != full.TreeKind
+                    || target.NodeId != node.NodeId || target.TopLevelGeneration != full.Target.TopLevelGeneration))
+                    return response;
+                foreach (var child in node.Children) pending.Push(child);
+            }
+            return full;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException
+            or ArgumentException or NotSupportedException)
+        {
+            return response;
+        }
+    }
+
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
         WriteIndented = true
@@ -382,7 +425,8 @@ public static class ResponseBudgeter
             compact ? null : node.ValidationState,
             compact ? null : node.SourceMap,
             compact ? null : node.BindingSummary,
-            node.InteractionState);
+            node.InteractionState,
+            childrenTruncated: node.ChildrenTruncated || children.Count != node.Children.Count);
     }
 
     private static int CountNodes(TreeNodeSummary node) =>

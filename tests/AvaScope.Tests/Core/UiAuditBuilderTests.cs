@@ -5,6 +5,32 @@ namespace AvaScope.Tests.Core;
 
 public sealed class UiAuditBuilderTests
 {
+    [Theory]
+    [InlineData("complete", false)]
+    [InlineData("complete", true)]
+    [InlineData("depth", false)]
+    [InlineData("depth", true)]
+    [InlineData("budget", false)]
+    [InlineData("budget", true)]
+    public void MissingSourceCoverageCannotEraseFindingsOrClaimClean(string coverage, bool hasErrors)
+    {
+        var tree = new TreeResponse(new SessionId("audit"), "window", TreeKinds.Visual, 0,
+            new TreeNodeSummary("root", "Avalonia.Controls.Window",
+                validationState: new RuntimeValidationState(hasErrors ? "has_errors" : "clean", "test",
+                    hasErrors: hasErrors, errorCount: hasErrors ? 1 : 0, errors: hasErrors ? ["Actual error"] : []),
+                childrenTruncated: coverage == "depth"),
+            responseBudget: coverage == "budget" ? new ResponseBudgetInfo(100, 200, 1, 2, 1, 0, 1, 0, true) : null);
+        var result = new UiAuditBuilder().Create(tree);
+        Assert.True(result.Success);
+        var incomplete = coverage != "complete";
+        Assert.Equal(incomplete, result.Value!.Summary.SourceTruncated);
+        Assert.Equal(incomplete, result.Value.Summary.Truncated);
+        Assert.Equal(hasErrors ? "errors_found" : incomplete ? "partial" : "clean", result.Value.Summary.ValidationStatus);
+        Assert.Equal(hasErrors ? "issues_found" : incomplete ? "partial" : "clean", result.Value.AgentReview.Status);
+        Assert.Equal(hasErrors ? 1 : 0, result.Value.Summary.NodesWithValidationErrors);
+        Assert.Equal(hasErrors, result.Value.Issues.Any(issue => issue.Code == "validation.errors_present"));
+    }
+
     [Fact]
     public void CreateReportsAccessibilityValidationAndInventory()
     {

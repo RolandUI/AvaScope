@@ -6,6 +6,66 @@ namespace AvaScope.Tests.Core;
 
 public sealed class ResponseBudgeterTests
 {
+    [Theory]
+    [InlineData("verified")]
+    [InlineData("missing")]
+    [InlineData("corrupt")]
+    [InlineData("generation")]
+    [InlineData("session")]
+    [InlineData("oversize")]
+    [InlineData("item_limit")]
+    [InlineData("foreign_child")]
+    public void TreeEvidenceRequiresBoundedContentAndMatchingIdentity(string scenario)
+    {
+        var id = new SessionId("audit-" + Guid.NewGuid().ToString("N"));
+        var target = new RuntimeTargetContext(id, "window", TreeKinds.Visual, targetKind: "tree", topLevelGeneration: "original");
+        var child = scenario == "foreign_child"
+            ? new TreeNodeSummary("child", "Control", target: new RuntimeTargetContext(new SessionId("foreign"), "other", TreeKinds.Visual, "child"))
+            : Node("child", [Node("deep")]);
+        var original = new TreeResponse(id, "window", TreeKinds.Visual, 8, Node("root", [child]), target);
+        var inline = ResponseBudgeter.Apply(original, maxItems: 1);
+        var budget = inline.ResponseBudget!;
+        try
+        {
+            Assert.True(inline.Root.ChildrenTruncated);
+            if (scenario == "missing") File.Delete(budget.ArtifactPath!);
+            if (scenario == "corrupt")
+            {
+                var bytes = File.ReadAllBytes(budget.ArtifactPath!); bytes[^2] ^= 1;
+                File.WriteAllBytes(budget.ArtifactPath!, bytes);
+            }
+            if (scenario is "generation" or "session")
+            {
+                var selectedId = scenario == "session" ? new SessionId("different") : id;
+                inline = new TreeResponse(selectedId, "window", TreeKinds.Visual, 8, inline.Root,
+                    new RuntimeTargetContext(selectedId, "window", TreeKinds.Visual, targetKind: "tree",
+                        topLevelGeneration: scenario == "generation" ? "replacement" : "original"), budget);
+            }
+            if (scenario is "oversize" or "item_limit")
+            {
+                inline = new TreeResponse(id, "window", TreeKinds.Visual, 8, inline.Root, target,
+                    new ResponseBudgetInfo(budget.MaxInlineBytes, scenario == "oversize" ? 16 * 1024 * 1024 + 1 : budget.EstimatedBytes,
+                        budget.MaxItems, scenario == "item_limit" ? 8193 : budget.TotalItems, budget.ReturnedItems,
+                        budget.MaxDepth, budget.OriginalDepth, budget.ReturnedDepth, true, budget.ArtifactPath, budget.Reasons));
+            }
+            var resolved = ResponseBudgeter.ReadTreeEvidence(inline);
+            if (scenario == "verified")
+            {
+                Assert.Null(resolved.ResponseBudget);
+                Assert.False(resolved.Root.ChildrenTruncated);
+                Assert.Equal("deep", Assert.Single(Assert.Single(resolved.Root.Children).Children).NodeId);
+                Assert.Equal(target, resolved.Target);
+            }
+            else
+            {
+                Assert.Same(inline, resolved);
+                Assert.True(resolved.ResponseBudget!.Truncated);
+                Assert.True(resolved.Root.ChildrenTruncated);
+            }
+        }
+        finally { if (File.Exists(budget.ArtifactPath)) File.Delete(budget.ArtifactPath!); }
+    }
+
     [Fact]
     public void TreeBudgetTruncatesInlineShapeAndPreservesCompleteArtifact()
     {

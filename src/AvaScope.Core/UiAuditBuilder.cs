@@ -59,6 +59,7 @@ public sealed class UiAuditBuilder
         }
 
         var nodes = Flatten(tree.Root).ToArray();
+        var sourceTruncated = tree.ResponseBudget?.Truncated == true || nodes.Any(static node => node.Node.ChildrenTruncated);
         var actionableNodes = nodes.Where(static node => IsActionable(node.Node)).ToArray();
         var issues = CreateIssues(actionableNodes, nodes).ToArray();
         var inventory = CreateInventory(nodes).ToArray();
@@ -80,10 +81,11 @@ public sealed class UiAuditBuilder
             inventory.Count(static item => item.Category == "component_pattern"),
             issues.Length,
             inventory.Length,
-            issues.Any(static issue => issue.Category == "accessibility") ? "issues_found" : "available",
-            validationMetadataCount == 0 ? "not_available" : validationErrorCount > 0 ? "errors_found" : "clean",
+            issues.Any(static issue => issue.Category == "accessibility") ? "issues_found" : sourceTruncated ? "partial" : "available",
+            validationErrorCount > 0 ? "errors_found" : sourceTruncated ? "partial" : validationMetadataCount == 0 ? "not_available" : "clean",
             actionableNodes.Length == 0 ? "not_available" : focusKnownCount == 0 ? "not_available" : focusKnownCount == actionableNodes.Length ? "available" : "partial",
-            truncated: issues.Length > issueLimit.Value || inventory.Length > inventoryLimit.Value || recommendations.Length > inventoryLimit.Value);
+            truncated: sourceTruncated || issues.Length > issueLimit.Value || inventory.Length > inventoryLimit.Value || recommendations.Length > inventoryLimit.Value,
+            sourceTruncated: sourceTruncated);
 
         return CoreResult<UiAuditResponse>.Ok(new UiAuditResponse(
             tree.SessionId,
@@ -168,7 +170,11 @@ public sealed class UiAuditBuilder
                         ["tabIndex"] = node.AccessibilityState.TabIndex?.ToString(CultureInfo.InvariantCulture) ?? "unknown"
                     });
             }
+        }
 
+        foreach (var item in nodes)
+        {
+            var node = item.Node;
             if (node.ValidationState?.HasErrors == true)
             {
                 yield return CreateIssue(

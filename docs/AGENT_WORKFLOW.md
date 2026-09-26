@@ -192,6 +192,21 @@ Use the `target` object returned by `visual-tree`, `logical-tree`, `find-nodes`,
 
 `audit-ui` builds a bounded accessibility, validation, and component inventory report from the runtime tree. It reports missing accessible names, missing stable automation ids, keyboard focus metadata, runtime validation errors, control/class/component-pattern inventory, and explicit `not_available` entries for style/resource/template/theme scopes that the runtime tree cannot prove reliably. With `--run-index`, the audit response writes a task latest pointer containing diagnostics and warnings for later agent handoff.
 
+Check audit coverage before interpreting a clean result. UI audit
+`summary.sourceTruncated` distinguishes incomplete source evidence from bounded
+issue/inventory output; tree nodes mark omitted descendants with
+`childrenTruncated`. Audits can consume the bridge's full tree artifact only after
+verifying its content hash, selected session/window/generation, size (16 MiB),
+node count (8192) and depth (64). Missing, mismatched or over-budget evidence
+remains partial. Requested depth limits are preserved. A missing design scope in
+partial evidence returns `design_quality_scope_unavailable`, not proof of absence.
+CLI `audit-ui` exits 1 for incomplete source coverage; its complete audit can
+still report findings with exit 0. CLI `design-audit` exits 1 for active findings,
+partial coverage or failure. MCP keeps available findings in successful partial
+results and exposes the coverage/diagnostics. Validation findings include
+noninteractive controls. Coverage applies to the captured runtime tree, not all
+unrealized model items or every possible application state.
+
 Use `design-audit` for task-scoped visual quality review after a UI change:
 
 ```powershell

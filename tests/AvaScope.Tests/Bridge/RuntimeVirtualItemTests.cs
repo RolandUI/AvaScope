@@ -189,7 +189,8 @@ public sealed class RuntimeVirtualItemTests(Xunit.Abstractions.ITestOutputHelper
                 output = auditProcess.StandardOutput.ReadToEndAsync(timeout.Token);
                 errors = auditProcess.StandardError.ReadToEndAsync(timeout.Token);
                 await auditProcess.WaitForExitAsync(timeout.Token);
-                Assert.Equal(0, auditProcess.ExitCode);
+                // The depth-eight snapshot ends inside the list template; it is a partial audit.
+                Assert.Equal(1, auditProcess.ExitCode);
                 Assert.True(string.IsNullOrWhiteSpace(await errors));
                 var audit = JsonSerializer.Deserialize<ToolResult<UiAuditResponse>>(await output)!;
                 var auditCall = await mcp.CallToolAsync("audit_ui", new Dictionary<string, object?>
@@ -199,6 +200,10 @@ public sealed class RuntimeVirtualItemTests(Xunit.Abstractions.ITestOutputHelper
                 var auditMcp = JsonSerializer.Deserialize<ToolResult<UiAuditResponse>>(JsonSerializer.Serialize(auditCall.StructuredContent))!;
                 Assert.True(audit.Success, audit.Error?.Message);
                 Assert.True(auditMcp.Success, auditMcp.Error?.Message);
+                Assert.True(audit.Value!.Summary.SourceTruncated);
+                Assert.True(auditMcp.Value!.Summary.SourceTruncated);
+                Assert.True(audit.Value.AgentReview.Truncated);
+                Assert.True(auditMcp.Value.AgentReview.Truncated);
                 Assert.Equal(JsonSerializer.Serialize(audit.Value!.SelectorRecommendations), JsonSerializer.Serialize(auditMcp.Value!.SelectorRecommendations));
                 Assert.Contains(audit.Value.SelectorRecommendations, recommendation => recommendation.Selector?.AutomationId == "Rows");
             }

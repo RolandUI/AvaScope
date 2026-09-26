@@ -5997,7 +5997,8 @@ public sealed partial class AvaScopeBridgeRuntime
                 .Select(child => SerializeVisualNode(child, topLevelId, topLevel, depth + 1, maxDepth))
                 .ToArray();
 
-        return CreateNodeSummary(topLevelId, visual, TreeKinds.Visual, topLevel, children);
+        return CreateNodeSummary(topLevelId, visual, TreeKinds.Visual, topLevel, children,
+            childrenTruncated: depth >= maxDepth && visual.GetVisualChildren().Any());
     }
 
     private TreeNodeSummary SerializeLogicalNode(ILogical logical, string topLevelId, TopLevel topLevel, int depth, int maxDepth, HashSet<ILogical>? visited = null)
@@ -6013,7 +6014,8 @@ public sealed partial class AvaScopeBridgeRuntime
                 .Select(child => SerializeLogicalNode(child, topLevelId, topLevel, depth + 1, maxDepth, visited))
                 .ToArray();
 
-        return CreateNodeSummary(topLevelId, logical, TreeKinds.Logical, topLevel, children);
+        return CreateNodeSummary(topLevelId, logical, TreeKinds.Logical, topLevel, children,
+            childrenTruncated: depth >= maxDepth && logical.GetLogicalChildren().Any(child => !visited.Contains(child)));
     }
 
     private TreeNodeSummary CreateNodeSummary(
@@ -6021,7 +6023,8 @@ public sealed partial class AvaScopeBridgeRuntime
         object node,
         string treeKind,
         TopLevel topLevel,
-        IReadOnlyList<TreeNodeSummary> children)
+        IReadOnlyList<TreeNodeSummary> children,
+        bool childrenTruncated = false)
     {
         var computedProperties = GetComputedProperties(node);
         return new TreeNodeSummary(
@@ -6037,7 +6040,8 @@ public sealed partial class AvaScopeBridgeRuntime
             GetAccessibilityState(node),
             GetValidationState(node),
             CreateRuntimeSourceMap(node, computedProperties),
-            interactionState: CreateInteractionState(topLevel, node));
+            interactionState: CreateInteractionState(topLevel, node),
+            childrenTruncated: childrenTruncated);
     }
 
     private RuntimeTargetContext CreateTopLevelTarget(string topLevelId, TopLevel topLevel)

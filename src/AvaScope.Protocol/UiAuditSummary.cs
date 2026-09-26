@@ -20,7 +20,8 @@ public sealed record UiAuditSummary
         string accessibilityStatus,
         string validationStatus,
         string focusOrderStatus,
-        bool truncated = false)
+        bool truncated = false,
+        bool sourceTruncated = false)
     {
         if (totalNodes < 0
             || actionableNodes < 0
@@ -67,6 +68,7 @@ public sealed record UiAuditSummary
         ValidationStatus = validationStatus.Trim();
         FocusOrderStatus = focusOrderStatus.Trim();
         Truncated = truncated;
+        SourceTruncated = sourceTruncated;
     }
 
     [JsonPropertyName("totalNodes")]
@@ -113,4 +115,7 @@ public sealed record UiAuditSummary
 
     [JsonPropertyName("truncated")]
     public bool Truncated { get; }
+
+    [JsonPropertyName("sourceTruncated")]
+    public bool SourceTruncated { get; }
 }

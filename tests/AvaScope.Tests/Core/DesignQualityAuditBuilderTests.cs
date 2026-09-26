@@ -5,6 +5,41 @@ namespace AvaScope.Tests.Core;
 
 public sealed class DesignQualityAuditBuilderTests
 {
+    [Theory]
+    [InlineData("complete")]
+    [InlineData("depth")]
+    [InlineData("budget")]
+    public void IncompleteTreesCannotClaimCleanOrProveMissingScopes(string coverage)
+    {
+        var tree = new TreeResponse(new SessionId("audit"), "window", TreeKinds.Visual, 0,
+            new TreeNodeSummary("root", "Avalonia.Controls.Window", childrenTruncated: coverage == "depth"),
+            responseBudget: coverage == "budget" ? new ResponseBudgetInfo(100, 200, 1, 2, 1, 0, 1, 0, true) : null);
+        var result = new DesignQualityAuditBuilder().Create(tree, new(tree.SessionId, tree.TopLevelId));
+        Assert.True(result.Success);
+        var incomplete = coverage != "complete";
+        Assert.Equal(incomplete ? "partial" : "clean", result.Value!.Summary.Status);
+        Assert.Equal(incomplete ? "partial_tree" : "full_tree", result.Value.Summary.ScopeStatus);
+        Assert.Equal(incomplete, result.Value.Summary.Truncated);
+        Assert.Equal(incomplete, result.Value.Diagnostics.Any(error => error.Code == "design_quality_tree_incomplete"));
+        var missing = new DesignQualityAuditBuilder().Create(tree, new(tree.SessionId, tree.TopLevelId, scopeName: "missing"));
+        Assert.False(missing.Success);
+        Assert.Equal(incomplete ? "design_quality_scope_unavailable" : CoreErrorCodes.InvalidBridgeRequest, missing.Error!.Code);
+    }
+
+    [Fact]
+    public void IncompleteTreeRetainsDetectedDesignFindings()
+    {
+        var original = CreateFlawedDesignTree();
+        var tree = new TreeResponse(original.SessionId, original.TopLevelId, original.TreeKind, original.DepthLimit,
+            original.Root, original.Target, new ResponseBudgetInfo(100, 200, 1, 2, 1, 0, 1, 0, true));
+        var result = new DesignQualityAuditBuilder().Create(tree, new(tree.SessionId, tree.TopLevelId, scopeName: "DesignRoot"));
+        Assert.True(result.Success);
+        Assert.Equal("issues_found", result.Value!.Summary.Status);
+        Assert.Equal("partial", result.Value.Metadata["sourceCoverage"]);
+        Assert.True(result.Value.Summary.Truncated);
+        Assert.Contains(result.Value.Findings, finding => finding.Code == "design.alignment.icon_center_mismatch");
+    }
+
     [Fact]
     public void CreateReportsTaskScopedDesignQualityFindings()
     {

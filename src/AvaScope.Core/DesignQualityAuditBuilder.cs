@@ -41,9 +41,10 @@ public sealed class DesignQualityAuditBuilder
         var scopeRoot = ResolveScopeRoot(nodes, request);
         if (scopeRoot is null)
         {
+            var incomplete = tree.ResponseBudget?.Truncated == true || nodes.Any(static node => node.Node.ChildrenTruncated);
             return CoreResult<DesignQualityAuditResponse>.Fail(new CoreError(
-                CoreErrorCodes.InvalidBridgeRequest,
-                "Design-quality audit scope did not match any node.",
+                incomplete ? "design_quality_scope_unavailable" : CoreErrorCodes.InvalidBridgeRequest,
+                incomplete ? "Design-quality audit scope is unavailable in the incomplete tree evidence." : "Design-quality audit scope did not match any node.",
                 CreateScopeDetails(request)));
         }
 
@@ -53,6 +54,14 @@ public sealed class DesignQualityAuditBuilder
             .Where(node => request.ScopeRegion is null || Intersects(node.Node.Bounds, request.ScopeRegion))
             .Where(node => MatchesChangeFilter(node, request))
             .ToArray();
+
+        var sourceTruncated = tree.ResponseBudget?.Truncated == true
+            || nodes.Any(node => scopedNodeIds.Contains(node.Node.NodeId) && node.Node.ChildrenTruncated);
+        if (sourceTruncated)
+        {
+            diagnostics.Add(new ProtocolError("design_quality_tree_incomplete",
+                "Audit coverage is partial because descendants or metadata are omitted; unavailable full evidence cannot establish a clean result."));
+        }
 
         if (request.HasChangeFilter && scopedNodes.Length == 0)
         {
@@ -88,10 +97,10 @@ public sealed class DesignQualityAuditBuilder
         var categoryCounts = activeFindings
             .GroupBy(static finding => finding.Category, StringComparer.Ordinal)
             .ToDictionary(static group => group.Key, static group => group.Count(), StringComparer.Ordinal);
-        var truncated = activeFindings.Count > activeLimit || ignoredFindings.Count > ignoredLimit;
+        var truncated = sourceTruncated || activeFindings.Count > activeLimit || ignoredFindings.Count > ignoredLimit;
         var status = activeFindings.Count > 0
             ? "issues_found"
-            : ignoredFindings.Count > 0
+            : sourceTruncated ? "partial" : ignoredFindings.Count > 0
                 ? "clean_with_ignored_findings"
                 : "clean";
         var summary = new DesignQualityAuditSummary(
@@ -104,7 +113,7 @@ public sealed class DesignQualityAuditBuilder
             ignoredFindings.Count,
             request.Suppressions.Count,
             status,
-            CreateScopeStatus(request),
+            sourceTruncated && CreateScopeStatus(request) == "full_tree" ? "partial_tree" : CreateScopeStatus(request),
             truncated,
             categoryCounts);
 
@@ -117,6 +126,7 @@ public sealed class DesignQualityAuditBuilder
             ["sourcePath"] = SourcePath(scopeRoot.Node) ?? "not_available",
             ["changeFilter"] = request.HasChangeFilter ? "enabled" : "disabled",
             ["auditKinds"] = request.AuditKinds.Count == 0 ? "all" : string.Join(",", request.AuditKinds),
+            ["sourceCoverage"] = sourceTruncated ? "partial" : "complete",
             ["provenance"] = "runtime_tree_bounds_metadata"
         };
 

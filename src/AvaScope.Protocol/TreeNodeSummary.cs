@@ -19,7 +19,8 @@ public sealed record TreeNodeSummary
         RuntimeValidationState? validationState = null,
         RuntimeNodeSourceMap? sourceMap = null,
         RuntimeBindingSummary? bindingSummary = null,
-        RuntimeNodeInteractionState? interactionState = null)
+        RuntimeNodeInteractionState? interactionState = null,
+        bool childrenTruncated = false)
     {
         if (string.IsNullOrWhiteSpace(nodeId))
         {
@@ -45,6 +46,7 @@ public sealed record TreeNodeSummary
         SourceMap = sourceMap;
         BindingSummary = bindingSummary;
         InteractionState = interactionState;
+        ChildrenTruncated = childrenTruncated;
     }
 
     [JsonPropertyName("nodeId")]
@@ -74,6 +76,10 @@ public sealed record TreeNodeSummary
 
     [JsonPropertyName("children")]
     public IReadOnlyList<TreeNodeSummary> Children { get; }
+
+    [JsonPropertyName("childrenTruncated")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool ChildrenTruncated { get; }
 
     [JsonPropertyName("target")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

@@ -1818,7 +1818,7 @@ internal static class Program
             return 1;
         }
 
-        var result = new UiAuditBuilder().Create(tree.Value!, maxIssues, maxInventory);
+        var result = new UiAuditBuilder().Create(ResponseBudgeter.ReadTreeEvidence(tree.Value!), maxIssues, maxInventory);
         UiAuditResponse? indexedAudit = null;
         ProtocolError? runIndexError = null;
         if (result.Success
@@ -1836,7 +1836,7 @@ internal static class Program
                 result.Error.Message,
                 result.Error.Details)));
 
-        return result.Success ? 0 : 1;
+        return result.Success && !result.Value!.Summary.SourceTruncated ? 0 : 1;
     }
 
     private static async Task<int> DesignAudit(string[] args)
@@ -1884,7 +1884,7 @@ internal static class Program
             return 1;
         }
 
-        return result.Value!.Findings.Count == 0 ? 0 : 1;
+        return result.Value!.Findings.Count == 0 && result.Value.Summary.Status != "partial" ? 0 : 1;
     }
 
     private static async Task<int> ExportWorkflow(string[] args, bool replay = false)

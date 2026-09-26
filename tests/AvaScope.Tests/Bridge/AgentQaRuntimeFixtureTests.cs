@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.Json;
 using Avalonia;
 using Avalonia.Controls;
@@ -8,12 +9,188 @@ using AvaScope.Bridge;
 using AvaScope.ComplexWorkflowApp;
 using AvaScope.Core;
 using AvaScope.Protocol;
+using ModelContextProtocol.Client;
 
 namespace AvaScope.Tests.Bridge;
 
 [Collection(BridgeCollectionDefinition.Name)]
 public sealed class AgentQaRuntimeFixtureTests
 {
+    [Fact]
+    public async Task PublicAuditReportsAndClearsRealNoninteractiveValidationErrors()
+    {
+        var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessSmokeTests.BridgeHeadlessTestApplication));
+        try
+        {
+            await BridgeHeadlessSmokeTests.DispatchAsync(session, async () =>
+            {
+                AvaScopeBridge.Deactivate(); var runtime = AvaScopeBridge.Activate();
+                var label = new TextBlock { Name = "ValidationLabel", Text = "Domain validation summary" };
+                var window = new Window { Width = 300, Height = 200, Content = label };
+                try
+                {
+                    window.Show(); using var registration = runtime.RegisterTopLevel(window);
+                    using var frame = window.CaptureRenderedFrame(); Assert.NotNull(frame);
+                    var top = Assert.Single(await runtime.ListTopLevelsAsync()).Id;
+                    var client = new LocalBridgeClient(Path.GetDirectoryName(runtime.SessionManifestPath)!);
+                    DataValidationErrors.SetErrors(label, ["Actual noninteractive validation error"]);
+                    Assert.True(DataValidationErrors.GetHasErrors(label));
+                    var audit = await AvaScope.Mcp.AvaScopeMcpTools.AuditUi(client, runtime.SessionId.Value, top, maxDepth: 32);
+                    Assert.True(audit.Success, JsonSerializer.Serialize(audit));
+                    Assert.True(audit.Value!.Summary.NodesWithValidationErrors > 0, JsonSerializer.Serialize(audit));
+                    Assert.Contains(audit.Value.Issues, issue => issue.Code == "validation.errors_present" && issue.Name == label.Name);
+                    Assert.Equal("issues_found", audit.Value.AgentReview.Status);
+                    DataValidationErrors.SetErrors(label, null);
+                    var cleared = await AvaScope.Mcp.AvaScopeMcpTools.AuditUi(client, runtime.SessionId.Value, top, maxDepth: 32);
+                    Assert.True(cleared.Success, JsonSerializer.Serialize(cleared));
+                    Assert.Equal(0, cleared.Value!.Summary.NodesWithValidationErrors);
+                    Assert.DoesNotContain(cleared.Value.Issues, issue => issue.Code == "validation.errors_present");
+                    Assert.Equal("clean", cleared.Value.AgentReview.Status);
+                }
+                finally { window.Close(); AvaScopeBridge.Deactivate(); }
+            }, CancellationToken.None);
+        }
+        finally { BridgeHeadlessSmokeTests.DisposeHeadlessSessionAfterExplicitCleanup(session); }
+    }
+
+    [Theory]
+    [InlineData(false, "deep_ui")]
+    [InlineData(true, "deep_ui")]
+    [InlineData(false, "shallow_ui")]
+    [InlineData(true, "shallow_ui")]
+    [InlineData(false, "deep_design")]
+    [InlineData(true, "deep_design")]
+    [InlineData(false, "shallow_design")]
+    [InlineData(true, "shallow_design")]
+    public async Task PublicAuditsKeepRealValidationDeepScopesAndPartialCoverage(bool useMcp, string scenario)
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "avascope-qa-audit-" + Guid.NewGuid().ToString("N"));
+        var previous = Environment.GetEnvironmentVariable("AVASCOPE_QA_OUTPUT");
+        Environment.SetEnvironmentVariable("AVASCOPE_QA_OUTPUT", directory);
+        var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessSmokeTests.BridgeHeadlessTestApplication));
+        try
+        {
+            await BridgeHeadlessSmokeTests.DispatchAsync(session, async () =>
+            {
+                AvaScopeBridge.Deactivate();
+                var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("QA audit coverage"));
+                var window = new QaWindow();
+                try
+                {
+                    window.Show();
+                    using var registration = runtime.RegisterTopLevel(window);
+                    window.FindControl<TabControl>("Pages")!.SelectedIndex = 7;
+                    window.FindControl<CheckBox>("DiagnosticToggle")!.IsChecked = true;
+                    using var frame = window.CaptureRenderedFrame(); Assert.NotNull(frame);
+                    Assert.True(DataValidationErrors.GetHasErrors(window.FindControl<TextBox>("DiagnosticEditor")!));
+                    var top = Assert.Single(await runtime.ListTopLevelsAsync()).Id;
+                    var scope = await runtime.FindNodesAsync(top, TreeKinds.Visual, automationId: "qa-diagnostic-clip", maxDepth: 32);
+                    Assert.True(scope.Success, JsonSerializer.Serialize(scope));
+                    var scopeId = Assert.Single(scope.Value!.Matches).Node.NodeId;
+                    var journalPath = Path.Combine(directory, "qa-state.json");
+                    var journal = File.ReadAllText(journalPath);
+                    var isDesign = scenario.EndsWith("design", StringComparison.Ordinal);
+                    var depth = scenario.StartsWith("deep", StringComparison.Ordinal) ? 32 : isDesign ? 0 : 2;
+                    var request = new DesignQualityAuditRequest(runtime.SessionId, top, maxDepth: depth,
+                        scopeAutomationId: scenario == "deep_design" ? "qa-diagnostic-clip" : null);
+                    var manifestDirectory = Path.GetDirectoryName(runtime.SessionManifestPath)!;
+                    string payload;
+                    int? exitCode = null;
+                    using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+                    if (useMcp)
+                    {
+                        var environment = TestEnvironment.McpEnvironment();
+                        if (Environment.GetEnvironmentVariable("TMPDIR") is { } temporary) environment["TMPDIR"] = temporary;
+                        await using var mcp = await McpClient.CreateAsync(new StdioClientTransport(new()
+                        {
+                            Command = "dotnet", Arguments = [Path.Combine(AppContext.BaseDirectory, "AvaScope.Mcp.dll")],
+                            Name = "QA audit coverage", InheritEnvironmentVariables = false,
+                            EnvironmentVariables = environment, ShutdownTimeout = TimeSpan.FromSeconds(3)
+                        }), cancellationToken: timeout.Token);
+                        var arguments = isDesign
+                            ? new Dictionary<string, object?> { ["request"] = JsonSerializer.SerializeToElement(request) }
+                            : new Dictionary<string, object?> { ["sessionId"] = runtime.SessionId.Value,
+                                ["topLevelId"] = top, ["maxDepth"] = depth, ["maxIssues"] = 200, ["maxInventoryItems"] = 200 };
+                        arguments["manifestDirectory"] = manifestDirectory;
+                        var result = await mcp.CallToolAsync(isDesign ? "design_quality_audit" : "audit_ui", arguments,
+                            cancellationToken: timeout.Token);
+                        payload = JsonSerializer.Serialize(result.StructuredContent);
+                    }
+                    else
+                    {
+                        var start = new ProcessStartInfo("dotnet")
+                        { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
+                        start.ArgumentList.Add(Path.Combine(AppContext.BaseDirectory, "avascope.dll"));
+                        if (isDesign)
+                        {
+                            var path = Path.Combine(directory, "design.json"); File.WriteAllText(path, JsonSerializer.Serialize(request));
+                            foreach (var arg in new[] { "design-audit", "--request", path }) start.ArgumentList.Add(arg);
+                        }
+                        else
+                        {
+                            foreach (var arg in new[] { "audit-ui", "--session", runtime.SessionId.Value, "--top-level", top,
+                                "--max-depth", depth.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                                "--max-issues", "200", "--max-inventory", "200" }) start.ArgumentList.Add(arg);
+                        }
+                        start.ArgumentList.Add("--manifest-dir"); start.ArgumentList.Add(manifestDirectory);
+                        using var process = Process.Start(start)!;
+                        var stdout = process.StandardOutput.ReadToEndAsync(timeout.Token);
+                        var stderr = process.StandardError.ReadToEndAsync(timeout.Token);
+                        try
+                        {
+                            await process.WaitForExitAsync(timeout.Token);
+                            payload = await stdout; Assert.True(string.IsNullOrWhiteSpace(await stderr));
+                            exitCode = process.ExitCode;
+                        }
+                        finally
+                        {
+                            if (!process.HasExited) { process.Kill(entireProcessTree: true); await process.WaitForExitAsync(); }
+                        }
+                    }
+                    Assert.Equal(journal, File.ReadAllText(journalPath));
+                    using var document = JsonDocument.Parse(payload);
+                    var response = document.RootElement;
+                    Assert.True(response.GetProperty("success").GetBoolean(), payload);
+                    var value = response.GetProperty("value"); var summary = value.GetProperty("summary");
+                    if (scenario == "deep_ui")
+                    {
+                        Assert.True(summary.GetProperty("nodesWithValidationErrors").GetInt32() > 0, payload);
+                        Assert.Equal("errors_found", summary.GetProperty("validationStatus").GetString());
+                        Assert.False(summary.GetProperty("truncated").GetBoolean(), payload);
+                        if (!useMcp) Assert.Equal(0, exitCode);
+                    }
+                    else if (scenario == "shallow_ui")
+                    {
+                        Assert.True(summary.GetProperty("truncated").GetBoolean(), payload);
+                        Assert.Equal("partial", summary.GetProperty("validationStatus").GetString());
+                        Assert.Equal("partial", value.GetProperty("agentReview").GetProperty("status").GetString());
+                        if (!useMcp) Assert.Equal(1, exitCode);
+                    }
+                    else if (scenario == "deep_design")
+                    {
+                        Assert.Equal(scopeId, value.GetProperty("scopeTarget").GetProperty("nodeId").GetString());
+                        Assert.False(summary.GetProperty("truncated").GetBoolean(), payload);
+                        if (!useMcp) Assert.Equal(value.GetProperty("findings").GetArrayLength() == 0 ? 0 : 1, exitCode);
+                    }
+                    else
+                    {
+                        Assert.Equal("partial", summary.GetProperty("status").GetString());
+                        Assert.Equal("partial_tree", summary.GetProperty("scopeStatus").GetString());
+                        Assert.True(summary.GetProperty("truncated").GetBoolean(), payload);
+                        if (!useMcp) Assert.Equal(1, exitCode);
+                    }
+                }
+                finally { window.Close(); AvaScopeBridge.Deactivate(); }
+            }, CancellationToken.None);
+        }
+        finally
+        {
+            BridgeHeadlessSmokeTests.DisposeHeadlessSessionAfterExplicitCleanup(session);
+            Environment.SetEnvironmentVariable("AVASCOPE_QA_OUTPUT", previous);
+            if (Directory.Exists(directory)) Directory.Delete(directory, recursive: true);
+        }
+    }
+
     [Theory]
     [InlineData(1120, 800)]
     [InlineData(680, 620)]
