@@ -54,7 +54,7 @@ jobs:
           $PSNativeCommandUseErrorActionPreference = $true
           ./eng/package-provider.ps1
           if ($env:AVASCOPE_MANAGED_WAYLAND_ONLY -eq 'true') {
-            ./eng/test-managed-wayland.ps1
+            pwsh -NoProfile -File ./eng/test-managed-wayland.ps1
           } else {
             ./eng/test-native-input.ps1
           }
