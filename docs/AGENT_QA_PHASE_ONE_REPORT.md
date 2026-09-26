@@ -4,6 +4,25 @@ Status: **in progress**, 2026-09-25. Tracking issue [#166](https://github.com/Ro
 
 ## Current validation checkpoint
 
+Fresh `names-direct-after-01` and `names-standalone-after-01` on clean
+`a8ba007507fb81efbe6c48b62ad39fa29a11f3e7` pass the scoped #215 native charter.
+Each retains twelve public calls (seven MCP/five CLI), 126 independent checks,
+four viewed native images and 31 verified binaries. All nine visual/logical tab
+peer names match independently captured Windows UIA names before and after
+reset. Raw declarations remain absent rather than fabricated; a truly unnamed
+edit control still produces the expected name finding, and real validation is
+reported only while enabled. Read-only calls preserve the app journal. Pure
+standalone host and fresh provider manifest
+`49723d9afe1fd2f71b9c337a20c0776e7c072058d578250cdb40e2516b6400fb`
+are verified. Owned apps 4628/17980 and all 24 original clients are absent.
+Standalone Stop succeeded; an agent shell guard subsequently misread a stale
+LASTEXITCODE. Structured termination and independent cleanup prove success;
+Stop was not repeated. Native scope remains Win32 1x, with other accessibility
+findings unclaimed. #215 moves to review until its full applicable gate; #174
+resumes the remaining capability inventory and exploration. The earlier #214
+de733c7 full CI 36222349163 has Windows 1050/eight skips, Linux 33 and all nine
+native/expiry runs verified; final macOS packaging is still running.
+
 #215's candidate passes all 166 affected tests in 85s, zero skips and zero build
 warnings/errors. Real peer controls cover changing tab headers, explicit names,
 label names, custom overrides, actual empty names and a throwing peer through
@@ -17,7 +36,8 @@ explicit available/empty/unavailable status; the old test remains unchanged.
 This follows the pinned public [ControlAutomationPeer](https://github.com/AvaloniaUI/Avalonia/blob/12.1.3/src/Avalonia.Controls/Automation/Peers/ControlAutomationPeer.cs)
 contract and [TextBlockAutomationPeer](https://github.com/AvaloniaUI/Avalonia/blob/12.1.3/src/Avalonia.Controls/Automation/Peers/TextBlockAutomationPeer.cs),
 whose name uses text even when an attached name differs. No OS COM call is added
-to UI-thread inspection. Fresh native comparison/full gate remain required.
+to UI-thread inspection. Native comparison is recorded above; full gate remains
+required.
 
 Fresh `audit-direct-after-01` and `audit-standalone-after-01` on clean `de733c7`
 each pass the selected #214 coverage/validation charter: 25 public calls (16 MCP,
