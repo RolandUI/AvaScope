@@ -5,6 +5,12 @@ using System.Text.Json;
 using AvaScope.Protocol;
 using AvaScope.Core;
 
+if (ReadOption(args, "--native-stream-probe-assembly") is { } captureAssembly)
+{
+    VerifyNativeStreamCapture(captureAssembly);
+    return;
+}
+
 var markerPath = ReadOption(args, "--marker");
 var failMethod = ReadOption(args, "--fail-method");
 var responseGate = ReadOption(args, "--response-gate");
@@ -204,4 +210,83 @@ static async Task<string> ReadLineAsync(Stream stream)
     }
 
     return Encoding.UTF8.GetString(bytes.ToArray());
+}
+
+static void VerifyNativeStreamCapture(string assemblyPath)
+{
+    if (!OperatingSystem.IsWindows()) throw new PlatformNotSupportedException();
+    Console.Error.WriteLine("native_stream_probe resolve_capture");
+    assemblyPath = Path.GetFullPath(assemblyPath);
+    System.Runtime.Loader.AssemblyLoadContext.Default.Resolving += (context, name) =>
+    {
+        var path = Path.Combine(Path.GetDirectoryName(assemblyPath)!, name.Name + ".dll");
+        return File.Exists(path) ? context.LoadFromAssemblyPath(path) : null;
+    };
+    var assembly = System.Reflection.Assembly.LoadFrom(assemblyPath);
+    var method = assembly.GetType("AvaScope.Tests.Bridge.NativeInputIntegrationTestsAccessibility", throwOnError: true)!
+        .GetMethod("ReadCapturedStream", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
+    var capture = method.CreateDelegate<Func<StreamReader, Task<string>>>();
+    Console.Error.WriteLine("native_stream_probe capture_resolved");
+    ThreadPool.GetMaxThreads(out _, out var ioMax); ThreadPool.GetMinThreads(out _, out var ioMin);
+    if (!ThreadPool.SetMinThreads(1, ioMin) || !ThreadPool.SetMaxThreads(4, ioMax))
+        throw new InvalidOperationException("The isolated fixture cannot constrain its worker pool.");
+
+    // Connect before occupying workers; the real writer remains open until explicitly closed.
+    var pipeName = "AvaScope.StreamProbe." + Guid.NewGuid().ToString("N");
+    using var writer = new NamedPipeServerStream(pipeName, PipeDirection.Out, 1, PipeTransmissionMode.Byte, PipeOptions.None);
+    using var pipe = new NamedPipeClientStream(".", pipeName, PipeDirection.In, PipeOptions.None);
+    var connected = writer.WaitForConnectionAsync(); pipe.Connect(5000);
+    connected.GetAwaiter().GetResult();
+    Console.Error.WriteLine("native_stream_probe pipe_connected");
+    using var heldReader = new StreamReader(pipe, Encoding.UTF8);
+    using var release = new ManualResetEventSlim(); using var entered = new CountdownEvent(4); using var finished = new CountdownEvent(4);
+    for (var i = 0; i < 4; i++)
+        ThreadPool.QueueUserWorkItem(_ => { entered.Signal(); release.Wait(TimeSpan.FromSeconds(30)); finished.Signal(); });
+
+    Process? child = null; Task<string>? stdout = null, stderr = null, held = null;
+    var closedComplete = false; var heldBefore = false; var heldAfter = false; var contentVerified = false;
+    var workersFinished = false; var childId = 0; var exited = false; var available = -1; long pending = -1; double elapsed = 0;
+    try
+    {
+        if (!entered.Wait(TimeSpan.FromSeconds(10))) throw new TimeoutException("Controlled workers did not start.");
+        Console.Error.WriteLine("native_stream_probe workers_occupied");
+        var info = new ProcessStartInfo("dotnet") { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
+        info.ArgumentList.Add("--version"); child = Process.Start(info)!; childId = child.Id;
+        stdout = capture(child.StandardOutput); stderr = capture(child.StandardError); held = capture(heldReader);
+        Console.Error.WriteLine("native_stream_probe capture_started");
+        if (!child.WaitForExit(10000)) throw new TimeoutException("Owned child did not exit.");
+        Console.Error.WriteLine("native_stream_probe child_exited");
+        exited = child.HasExited;
+        var timer = Stopwatch.StartNew(); closedComplete = Task.WhenAll(stdout, stderr).Wait(TimeSpan.FromSeconds(3));
+        elapsed = timer.Elapsed.TotalMilliseconds;
+        ThreadPool.GetAvailableThreads(out available, out _); pending = ThreadPool.PendingWorkItemCount;
+        heldBefore = held.Wait(TimeSpan.FromSeconds(3));
+        writer.Dispose(); heldAfter = held.Wait(TimeSpan.FromSeconds(3));
+    }
+    finally
+    {
+        release.Set(); writer.Dispose();
+        if (child is not null)
+        {
+            if (!child.HasExited) child.Kill(entireProcessTree: true);
+            child.WaitForExit(5000);
+            try
+            {
+                if (stdout is not null && stderr is not null && held is not null)
+                {
+                    if (!Task.WhenAll(stdout, stderr, held).Wait(TimeSpan.FromSeconds(10))) throw new TimeoutException("Capture tasks did not finish after releasing workers and closing the writer.");
+                    contentVerified = child.ExitCode == 0 && !string.IsNullOrWhiteSpace(stdout.Result)
+                        && stderr.Result.Length == 0 && held.Result.Length == 0;
+                }
+            }
+            finally { child.StandardOutput.Dispose(); child.StandardError.Dispose(); child.Dispose(); }
+        }
+        workersFinished = finished.Wait(TimeSpan.FromSeconds(5));
+    }
+    Console.WriteLine(JsonSerializer.Serialize(new { runtime = Environment.Version.ToString(), childId, childExited = exited,
+        captureAssemblySha256 = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(assemblyPath))),
+        streamTimeoutMs = 3000, closedStreamsCompleted = closedComplete, closedStreamsElapsedMs = elapsed,
+        heldStreamCompletedBeforeEof = heldBefore, heldStreamCompletedAfterEof = heldAfter,
+        availableWorkers = available, pendingWorkItems = pending, contentVerified, workersFinished }));
+    if (!closedComplete || heldBefore || !heldAfter || !contentVerified || !workersFinished) Environment.ExitCode = 1;
 }

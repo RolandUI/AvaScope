@@ -8,7 +8,7 @@ using ModelContextProtocol.Client;
 namespace AvaScope.Tests.Bridge;
 
 [Collection(BridgeCollectionDefinition.Name)]
-public sealed class NativeInputIntegrationTestsAccessibility
+public sealed class NativeInputIntegrationTestsAccessibility(Xunit.Abstractions.ITestOutputHelper output)
 {
     [NativeInputFact]
     public async Task NativeAccessibilityEvidenceDiagnosesTheOwnedSampleThroughCliAndMcp()
@@ -174,7 +174,52 @@ public sealed class NativeInputIntegrationTestsAccessibility
         Process Start(string name, string executable, string[] arguments)
         {
             var process = Process.Start(Info(executable, arguments))!;
-            owned.Add((process, process.StandardOutput.ReadToEndAsync(), process.StandardError.ReadToEndAsync(), name)); return process;
+            owned.Add((process, ReadCapturedStream(process.StandardOutput), ReadCapturedStream(process.StandardError), name)); return process;
+        }
+    }
+
+    private static Task<string> ReadCapturedStream(StreamReader reader) => OperatingSystem.IsWindows()
+        // Windows redirected process pipes are synchronous. Async-over-sync reads can stay
+        // queued after EOF when workers are occupied; each owned pipe gets its own reader.
+        ? Task.Factory.StartNew(reader.ReadToEnd, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default)
+        : reader.ReadToEndAsync();
+
+    [WindowsAccessibilityFact]
+    public async Task NativeStreamCaptureCompletesWithOccupiedWorkersAndRespectsRealEof()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "AvaScope.slnx"))) directory = directory.Parent;
+        Assert.NotNull(directory);
+        var configuration = new DirectoryInfo(AppContext.BaseDirectory).Parent!.Name;
+        var fixture = Path.Combine(directory!.FullName, "tests", "AvaScope.LifecycleTestApp", "bin", configuration, "net10.0", "AvaScope.LifecycleTestApp.dll");
+        Assert.True(File.Exists(fixture), "Build the solution's existing lifecycle fixture before running this test.");
+        var info = new ProcessStartInfo("dotnet") { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
+        foreach (var argument in new[] { fixture, "--native-stream-probe-assembly", typeof(NativeInputIntegrationTestsAccessibility).Assembly.Location })
+            info.ArgumentList.Add(argument);
+        using var process = Process.Start(info)!;
+        var stdout = process.StandardOutput.ReadToEndAsync(); var stderr = process.StandardError.ReadToEndAsync();
+        try
+        {
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(90));
+            await process.WaitForExitAsync(timeout.Token);
+            var json = await stdout.WaitAsync(timeout.Token); await stderr.WaitAsync(timeout.Token);
+            Assert.Equal(0, process.ExitCode);
+            using var evidence = JsonDocument.Parse(json);
+            Assert.True(evidence.RootElement.GetProperty("childExited").GetBoolean());
+            Assert.True(evidence.RootElement.GetProperty("closedStreamsCompleted").GetBoolean());
+            Assert.False(evidence.RootElement.GetProperty("heldStreamCompletedBeforeEof").GetBoolean());
+            Assert.True(evidence.RootElement.GetProperty("heldStreamCompletedAfterEof").GetBoolean());
+            Assert.Equal(0, evidence.RootElement.GetProperty("availableWorkers").GetInt32());
+            Assert.True(evidence.RootElement.GetProperty("contentVerified").GetBoolean());
+            Assert.True(evidence.RootElement.GetProperty("workersFinished").GetBoolean());
+        }
+        finally
+        {
+            if (!process.HasExited) process.Kill(entireProcessTree: true);
+            await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(5));
+            output.WriteLine(stdout.IsCompletedSuccessfully ? stdout.Result : "Probe stdout capture incomplete.");
+            output.WriteLine(stderr.IsCompletedSuccessfully ? stderr.Result : "Probe stderr capture incomplete.");
+            process.StandardOutput.Dispose(); process.StandardError.Dispose();
         }
     }
 

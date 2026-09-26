@@ -4,6 +4,31 @@ Status: **in progress**, 2026-09-25. Tracking issue [#166](https://github.com/Ro
 
 ## Current validation checkpoint
 
+#220 now corrects the native fixture's Windows capture dependency on queued
+worker-pool I/O. The two owned process streams use dedicated reader tasks;
+Unix retains asynchronous reading. The existing three-second drain bounds,
+primary-error aggregation, incomplete-log reporting and owned cleanup remain.
+The durable regression uses the existing LifecycleTestApp to invoke the actual
+capture method from the selected test assembly, constraining only its own
+worker pool. A real exited child plus a held-open named pipe distinguish queued
+completion from actual missing EOF. Before-02 fails after 3042 ms; the candidate
+completes closed streams in 0.733 ms, correctly waits while the writer exists,
+and completes when it closes. Contents and all owned worker completion verify.
+
+All nine native accessibility/cleanup cases pass (64 seconds, zero skips),
+including actual CLI/MCP, delayed UIA/deadline controls and error preservation.
+Nine existing lifecycle-verifier scenarios also pass (11 seconds). Builds have
+zero warnings/errors. Both selected capture assembly hashes, unchanged probe
+source, all 35 provider files, activated provider, response/TRX evidence and
+native cleanup independently verify in
+`D:/AvaScope-QA-active/native-eof-220/verified-regression.json`.
+The native stdout-drain phase records 2592 ms under its unchanged 3000 ms bound;
+this phase duration alone does not recover the original pool/pipe state.
+The initial new harness mistakenly wrote to its synchronous pipe before starting
+the reader and timed out before testing capture; its source/TRX and bounded
+phase trace remain explicitly invalid for the scheduling hypothesis. No new
+product defect is inferred from that agent setup error. Candidate full CI follows.
+
 #220 is the sole active investigation; #199's connection correction is pushed
 at `125b346a62b449c1ddb8db8615e40bb08eaeeb31` and review pending its own full
 CI `36237048712`. The previous exact `c079de6` full CI `36234263189` passes all
@@ -70,7 +95,7 @@ pending for 3027 ms (two queued work items); releasing the workers completes
 the streams. Dedicated reader threads capture both outputs under the same
 bound. This is a demonstrated possible scheduling boundary, not proof of the
 original native failure's machine state. No #220 capture code has changed yet;
-a durable isolated regression against the actual implementation follows.
+the actual implementation regression and correction are now recorded above.
 
 #219 now has a locally validated candidate: the filename is edited using
 `EM_SETSEL` plus `EM_REPLACESEL`, sharing one finite send deadline. A new real
