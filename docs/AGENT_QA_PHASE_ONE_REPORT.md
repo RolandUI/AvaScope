@@ -4,6 +4,20 @@ Status: **in progress**, 2026-09-25. Tracking issue [#166](https://github.com/Ro
 
 ## Current validation checkpoint
 
+#213 controlled deadline evidence is retained in `keyed-deadline-01`: all 23
+virtual-item/fixture tests pass in 15s, with zero build warnings/errors. A blocked
+UI queue times out with zero key reads/scroll requests; an enabled zero-height
+list times out after 5200 key reads and 26 scroll requests. Both retain the
+original selection, report `selectionDispatched=false`, and do not select later
+after restoring the viewport and draining the dispatcher. These controls use
+the existing default deadline and unchanged production implementation. The
+original QA failure now retains its complete response plus cycle, independent
+selection/geometry and journal evidence on recurrence. The original #213 cause
+remains unknown: its original counters were discarded, and passing reruns do
+not distinguish these mechanisms. The initial offline verifier assumed lowercase
+CoreError JSON fields; correcting it to the observed PascalCase required no
+test/input replay. #211 exact f2ab747 full CI 36219846271 is running.
+
 #211 first-frame investigation is retained in `first-frame-01`. On Avalonia
 12.1.3, a controlled same-UI-turn regression verifies actual blue RTB pixels while
 the compositor hit test still returns no target. Pointer move at (180,42) is

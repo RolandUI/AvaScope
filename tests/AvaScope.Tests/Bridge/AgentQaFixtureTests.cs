@@ -144,7 +144,16 @@ public sealed class AgentQaFixtureTests
                         Assert.Equal(174, lookup.Value.Index);
                         Assert.Null(rows.SelectedItem);
                         var selected = await client.VirtualItemAsync(new RuntimeVirtualItemRequest(target, "Id", "QA-175", "select"));
-                        Assert.True(selected.Success, JsonSerializer.Serialize(selected));
+                        Assert.True(selected.Success, JsonSerializer.Serialize(new
+                        {
+                            cycle, response = selected,
+                            listSelection = (rows.SelectedItem as QaRecord)?.Id,
+                            tableSelection = (table.SelectedItem as QaRecord)?.Id,
+                            containerBounds = rows.ContainerFromIndex(174)?.Bounds.ToString(),
+                            listBounds = rows.Bounds.ToString(),
+                            clientSize = window.ClientSize.ToString(),
+                            journal = JsonSerializer.Deserialize<JsonElement>(File.ReadAllText(Path.Combine(directory, "qa-state.json")))
+                        }));
                         Assert.True(selected.Value!.Rendered);
                         Assert.Same(seed[174], rows.SelectedItem);
                         Assert.Null(table.SelectedItem);

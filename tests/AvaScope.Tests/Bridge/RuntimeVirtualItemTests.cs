@@ -14,8 +14,62 @@ using ModelContextProtocol.Client;
 namespace AvaScope.Tests.Bridge;
 
 [Collection(BridgeCollectionDefinition.Name)]
-public sealed class RuntimeVirtualItemTests
+public sealed class RuntimeVirtualItemTests(Xunit.Abstractions.ITestOutputHelper output)
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task DeadlineEvidenceDistinguishesQueuedWorkFromUnrealizedItemsWithoutLateSelection(bool waitForRealization)
+    {
+        await WithList(async (runtime, window, list, rows, target, _) =>
+        {
+            list.SelectedIndex = 0;
+            Assert.Null(list.ContainerFromIndex(190));
+            var request = new RuntimeVirtualItemRequest(target, "Id", "row-190", "select");
+            CoreResult<RuntimeVirtualItemResponse> result;
+            if (waitForRealization)
+            {
+                list.Height = 0;
+                window.UpdateLayout();
+                // The visible/enabled collection has no viewport in which to realize the row.
+                result = await runtime.VirtualItemAsync(request);
+            }
+            else
+            {
+                // Keep the UI thread occupied until the queued operation's own deadline.
+                // The worker can report cancellation without dispatching any list access.
+                var queued = Task.Run(() => runtime.VirtualItemAsync(request));
+                var completedWhileUiWasBlocked = queued.Wait(TimeSpan.FromSeconds(5));
+                result = await queued;
+                Assert.True(completedWhileUiWasBlocked, JsonSerializer.Serialize(result));
+            }
+
+            Assert.False(result.Success, JsonSerializer.Serialize(result));
+            Assert.Equal("virtual_item_timeout", result.Error!.Code);
+            var details = result.Error.Details!;
+            Assert.Equal("false", details["selectionDispatched"]);
+            var scanned = int.Parse(details["scannedItems"]);
+            var scrolls = int.Parse(details["scrollRequests"]);
+            if (waitForRealization)
+            {
+                Assert.True(scanned >= rows.Count && scrolls > 0, JsonSerializer.Serialize(result));
+            }
+            else
+            {
+                Assert.Equal(0, scanned);
+                Assert.Equal(0, scrolls);
+            }
+            Assert.Same(rows[0], list.SelectedItem);
+            list.Height = 150;
+            using var frame = window.CaptureRenderedFrame();
+            Assert.NotNull(frame);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Same(rows[0], list.SelectedItem);
+            output.WriteLine(JsonSerializer.Serialize(new { waitForRealization, result,
+                selectedKeyAfterDispatcherDrain = ((Row)list.SelectedItem!).Id }));
+        });
+    }
+
     [Fact]
     public async Task OffscreenLogicalKeysSurviveRecyclingLocalizationAndCollectionReordering()
     {
