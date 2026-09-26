@@ -3387,8 +3387,10 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
         }
     }
 
-    [Fact]
-    public async Task RuntimeEvidencePolicyRedactsAndMasksWorkflowEvidenceEndToEnd()
+    [Theory]
+    [InlineData(0)]
+    [InlineData(12)]
+    public async Task RuntimeEvidencePolicyRedactsAndMasksWorkflowEvidenceEndToEnd(int nestingDepth)
     {
         var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessTestApplication));
         var artifactRoot = Path.Combine(
@@ -3410,11 +3412,16 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                     Child = new TextBlock { Text = secretText }
                 };
                 AutomationProperties.SetAutomationId(sensitive, secretAutomationId);
+                Control nested = sensitive;
+                for (var depth = 0; depth < nestingDepth; depth++)
+                {
+                    nested = new Border { Child = nested };
+                }
                 var window = new Window
                 {
                     Width = 360,
                     Height = 220,
-                    Content = new StackPanel { Children = { sensitive, new TextBlock { Text = "public" } } }
+                    Content = new StackPanel { Children = { nested, new TextBlock { Text = "public" } } }
                 };
                 var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Evidence policy"));
                 window.Show();
@@ -3425,10 +3432,16 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                 {
                     var topLevelId = Assert.Single(await runtime.ListTopLevelsAsync()).Id;
                     var client = new LocalBridgeClient(Path.GetDirectoryName(runtime.SessionManifestPath)!);
-                    var tree = await client.VisualTreeAsync(runtime.SessionId, topLevelId, 8);
-                    var rootBounds = tree.Value!.Root.Bounds!;
-                    var sensitiveNode = Enumerate(tree.Value.Root).Single(node => node.AutomationId == secretAutomationId);
+                    var tree = await client.VisualTreeAsync(runtime.SessionId, topLevelId, 32);
+                    Assert.True(tree.Success, tree.Error?.Message);
+                    var fullTree = ResponseBudgeter.ReadTreeEvidence(tree.Value!);
+                    var rootBounds = fullTree.Root.Bounds!;
+                    var sensitiveNode = Enumerate(fullTree.Root).Single(node => node.AutomationId == secretAutomationId);
                     var sensitiveBounds = sensitiveNode.Bounds!;
+                    var boundedTree = await client.VisualTreeAsync(runtime.SessionId, topLevelId, 8);
+                    Assert.True(boundedTree.Success, boundedTree.Error?.Message);
+                    Assert.Null(boundedTree.Value!.ResponseBudget);
+                    Assert.Equal(nestingDepth > 0, Enumerate(boundedTree.Value.Root).Any(node => node.ChildrenTruncated));
                     var runDirectory = Path.Combine(artifactRoot, "run");
                     var reports = Path.Combine(runDirectory, "reports");
                     var policy = new RuntimeEvidencePolicy(
@@ -3450,6 +3463,7 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                                 assertProperty: "text",
                                 expected: "not-the-secret")
                         ],
+                        maxDepth: 32,
                         outputDirectory: runDirectory,
                         evidence: new SemanticWorkflowEvidenceOptions(
                             reportDirectory: reports,
@@ -3511,6 +3525,125 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                     yield return descendant;
                 }
             }
+        }
+    }
+
+    [Theory]
+    [InlineData(0, false, "excluded", false)]
+    [InlineData(12, false, "excluded", false)]
+    [InlineData(12, false, "automationId", true)]
+    [InlineData(12, false, "text", false)]
+    [InlineData(0, true, "excluded", true)]
+    [InlineData(0, true, "automationId", false)]
+    [InlineData(0, true, "text", true)]
+    [InlineData(12, true, "text", true)]
+    public async Task WorkflowScreenshotPolicyMasksIncompleteSensitiveCoverage(
+        int nestingDepth, bool budgeted, string policyKind, bool useCli)
+    {
+        var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessTestApplication));
+        var artifactRoot = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", $"screenshot-coverage-{Guid.NewGuid():N}");
+        const string artifactVariable = "AVASCOPE_RESPONSE_ARTIFACT_DIR";
+        var previousArtifactDirectory = Environment.GetEnvironmentVariable(artifactVariable);
+        try
+        {
+            await DispatchAsync(session, async () =>
+            {
+                const string secret = "synthetic-private-pixel";
+                const string privateId = "private-pixel-control";
+                var sensitive = new Border
+                {
+                    Width = 180, Height = 64, Background = Brushes.Orange,
+                    Child = new TextBlock { Text = secret, Height = 64 }
+                };
+                AutomationProperties.SetAutomationId(sensitive, privateId);
+                Control nested = sensitive;
+                for (var depth = 0; depth < nestingDepth; depth++) nested = new Border { Child = nested };
+                var panel = new StackPanel { Children = { nested } };
+                if (budgeted)
+                {
+                    for (var index = 0; index < 240; index++) panel.Children.Add(new Border { Height = 1 });
+                }
+                var window = new Window { Width = 360, Height = 220, Background = Brushes.White, Content = panel };
+                var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Screenshot policy coverage"));
+                window.Show();
+                using var registration = runtime.RegisterTopLevel(window);
+                Dispatcher.UIThread.RunJobs();
+                try
+                {
+                    var top = Assert.Single(await runtime.ListTopLevelsAsync()).Id;
+                    var manifests = Path.GetDirectoryName(runtime.SessionManifestPath)!;
+                    var client = new LocalBridgeClient(manifests);
+                    var bounded = await client.VisualTreeAsync(runtime.SessionId, top, 8);
+                    Assert.True(bounded.Success, bounded.Error?.Message);
+                    Assert.Equal(budgeted, bounded.Value!.ResponseBudget?.Truncated == true);
+                    var run = Path.Combine(artifactRoot, "run");
+                    var policy = new RuntimeEvidencePolicy(artifactRoot,
+                        redactedText: policyKind == "text" ? [secret] : [],
+                        redactedAutomationIds: policyKind == "automationId" ? [privateId] : [],
+                        excludedControlAutomationIds: policyKind == "excluded" ? [privateId] : [],
+                        allowedActions: [SemanticWorkflowActions.Screenshot]);
+                    var request = new SemanticWorkflowRequest(runtime.SessionId, top,
+                        [new SemanticWorkflowStep(SemanticWorkflowActions.Screenshot, screenshotPath: Path.Combine(run, "capture.png"))],
+                        outputDirectory: run, evidence: new SemanticWorkflowEvidenceOptions(captureOnFailure: false, exportReports: false, policy: policy));
+                    // The bridge's bounded fallback belongs to this workflow; outside-run
+                    // references retain their separate fail-closed ownership contract.
+                    Environment.SetEnvironmentVariable(artifactVariable, Path.Combine(run, "responses"));
+                    SemanticWorkflowResponse response;
+                    if (useCli)
+                    {
+                        Directory.CreateDirectory(artifactRoot);
+                        var requestPath = Path.Combine(artifactRoot, "request.json");
+                        File.WriteAllText(requestPath, JsonSerializer.Serialize(request, new JsonSerializerOptions(JsonSerializerDefaults.Web)));
+                        var result = await RunCliInputAsync("run-workflow", "--request", requestPath, "--manifest-dir", manifests);
+                        Assert.Equal(0, result.ExitCode);
+                        Assert.True(string.IsNullOrWhiteSpace(result.StandardError), result.StandardError);
+                        using var json = JsonDocument.Parse(result.StandardOutput);
+                        Assert.True(json.RootElement.GetProperty("success").GetBoolean(), result.StandardOutput);
+                        response = json.RootElement.GetProperty("value").Deserialize<SemanticWorkflowResponse>()!;
+                    }
+                    else
+                    {
+                        var result = await AvaScopeMcpTools.RunWorkflow(client, request);
+                        Assert.True(result.Success, result.Error?.Message);
+                        response = result.Value!;
+                    }
+                    Assert.Equal("passed", response.Status);
+                    var step = Assert.Single(response.Steps);
+                    Assert.NotNull(step.Screenshot);
+                    using var screenshot = SKBitmap.Decode(step.Screenshot.FilePath);
+                    var incomplete = nestingDepth > 0 || budgeted;
+                    if (incomplete) Assert.True(screenshot.Pixels.All(color => color == SKColors.Black), "Incomplete sensitive coverage exported unmasked pixels.");
+                    else
+                    {
+                        Assert.Equal(SKColors.Black, screenshot.GetPixel(180, 32));
+                        Assert.Equal(SKColors.White, screenshot.GetPixel(359, 219));
+                    }
+                    Assert.Equal(incomplete ? "full_sensitive_mask" : "applied", step.Metadata["screenshotMasking"]);
+                    if (budgeted)
+                    {
+                        var artifacts = Directory.GetFiles(Path.Combine(run, "responses"), "tree-*.json");
+                        Assert.NotEmpty(artifacts);
+                        foreach (var artifact in artifacts)
+                        {
+                            var text = File.ReadAllText(artifact);
+                            Assert.DoesNotContain(policyKind == "text" ? secret : privateId, text, StringComparison.Ordinal);
+                        }
+                    }
+                }
+                finally
+                {
+                    Environment.SetEnvironmentVariable(artifactVariable, previousArtifactDirectory);
+                    window.Close();
+                    AvaScopeBridge.Deactivate();
+                    Dispatcher.UIThread.RunJobs();
+                }
+            }, CancellationToken.None);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(artifactVariable, previousArtifactDirectory);
+            DisposeHeadlessSessionAfterExplicitCleanup(session);
+            DeleteDirectoryIfExists(artifactRoot);
         }
     }
 

@@ -4,7 +4,24 @@ Status: **in progress**, 2026-09-25. Tracking issue [#166](https://github.com/Ro
 
 ## Current validation checkpoint
 
-#216 is sole active after #215's exact `1335a4c` full CI `36225116901` fails
+#217 is sole active: a real Skia regression confirms depth-truncated sensitive
+controls can retain original orange pixels instead of a black mask. The expanded
+baseline has two controls passing/eight pixel failures across depth/budget
+truncation and text/id/excluded-control policy through workflow/CLI/MCP methods.
+The candidate conservatively masks incomplete sensitive trees in full while
+preserving selective masks and ownership refusal; all 104 affected tests pass
+(23s, zero skips/build warnings/errors). Independent counts and original oracle
+correction remain under `deep-policy-mask-01`; fresh native validation follows.
+
+#216 is review after fresh Direct/standalone on clean `2f7c686`: each ten actual
+public calls (six MCP/four CLI), 102 independent checks, two viewed native images
+and 31 pinned binaries. Excluded-name failure steps/reports, passing policy
+assertions and reset verify. Outside-run bounded tree fallbacks correctly fail
+closed with PNG removal; no native masked-image pass is claimed. All twenty
+clients/apps 13692/18964 are absent. Full CI `36227569598` runs on that exact
+commit; do not cancel or duplicate it. Inventory: 52 defects, 36 closed.
+
+#216 followed #215's exact `1335a4c` full CI `36225116901` failure on
 Windows: 1055 passed, one failed, eight skipped. The existing end-to-end evidence
 policy test receives an empty fail-closed workflow instead of its failure step;
 all original masking and secret-free assertions remain required. A local
@@ -15,13 +32,11 @@ optional name status cannot deserialize a privacy placeholder. Candidate policy
 handling withholds that optional status while retaining all name and key
 redaction; all 221 affected tests pass in 3m04s, zero skips and zero build
 warnings/errors. The independent stage verifier retains before/after counts,
-all eight focused outcomes and exact CI evidence. Fresh native Direct/standalone
-verification follows before a new combined full gate. Original CI/TRX and local before result
+all eight focused outcomes and exact CI evidence. Original CI/TRX and local before result
 remain under `expanded-campaign/ci-1335a4c-windows` and
 `excluded-name-policy-01`. #215 remains review; the earlier full CI is now
 terminal failed with macOS/Linux full jobs skipped and all nine native/expiry
-runs verified at 1x. All six #215 name regressions passed on Windows. Inventory:
-51 defect tickets, 36 closed. No release.
+runs verified at 1x. All six #215 name regressions passed on Windows. No release.
 
 #174's fresh `inspection-direct-01` on clean `7c0b33c` independently verifies
 42 public calls (26 MCP/16 CLI), 250 checks, eleven native/two rendered viewed

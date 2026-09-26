@@ -402,6 +402,7 @@ public sealed class RuntimeEvidencePolicyEnforcer
             ownedArtifact = true;
 
             var masks = _policy.ScreenshotMaskRegions.ToList();
+            var incompleteSensitiveCoverage = false;
             var maskSensitiveControls = _policy.ExcludedControlAutomationIds.Count > 0
                 || _policy.RedactedAutomationIds.Count > 0
                 || _policy.RedactedText.Count > 0;
@@ -425,15 +426,26 @@ public sealed class RuntimeEvidencePolicyEnforcer
                     return MaskFailed("Screenshot masking could not map excluded controls; the unmasked artifact was removed.");
                 }
 
-                foreach (var node in EnumerateNodes(tree.Value.Root).Where(IsSensitiveNode))
+                incompleteSensitiveCoverage = tree.Value.ResponseBudget?.Truncated == true
+                    || EnumerateNodes(tree.Value.Root).Any(static node => node.ChildrenTruncated);
+                if (incompleteSensitiveCoverage)
                 {
-                    if (node.Bounds is null || node.Bounds.Width <= 0 || node.Bounds.Height <= 0)
+                    // An omitted subtree can contain any policy-protected control or text.
+                    // Preserve bounded collection without treating missing evidence as safe pixels.
+                    masks.Add(new ScreenshotRegion(0, 0, screenshot.PixelWidth, screenshot.PixelHeight, "incomplete-sensitive-tree"));
+                }
+                else
+                {
+                    foreach (var node in EnumerateNodes(tree.Value.Root).Where(IsSensitiveNode))
                     {
-                        DeleteUnmasked(screenshot.FilePath);
-                        return MaskFailed("An excluded control had no maskable bounds; the unmasked artifact was removed.");
-                    }
+                        if (node.Bounds is null || node.Bounds.Width <= 0 || node.Bounds.Height <= 0)
+                        {
+                            DeleteUnmasked(screenshot.FilePath);
+                            return MaskFailed("An excluded control had no maskable bounds; the unmasked artifact was removed.");
+                        }
 
-                    masks.Add(ToPixelRegion(node.Bounds, rootBounds, screenshot));
+                        masks.Add(ToPixelRegion(node.Bounds, rootBounds, screenshot));
+                    }
                 }
 
                 var responseArtifacts = SanitizeReferencedArtifacts(tree.Value);
@@ -451,7 +463,7 @@ public sealed class RuntimeEvidencePolicyEnforcer
 
             return CoreResult<IReadOnlyDictionary<string, string>>.Ok(new Dictionary<string, string>
             {
-                ["screenshotMasking"] = masks.Count == 0 ? "not_required" : "applied",
+                ["screenshotMasking"] = incompleteSensitiveCoverage ? "full_sensitive_mask" : masks.Count == 0 ? "not_required" : "applied",
                 ["maskedRegionCount"] = masks.Count.ToString(CultureInfo.InvariantCulture)
             });
         }

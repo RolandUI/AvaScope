@@ -302,6 +302,8 @@ For observe-act-verify, put `verify` only on a side-effecting semantic action. U
 
 Use `eng/test-complex-workflow.ps1` as the repository reference before release. Run it at least twice per surface against source and packaged assemblies. Its requests intentionally contain no coordinates, fixed `wait` step, persisted node id, or persisted top-level id; it alternates present and absent optional UI, and it verifies both the successful multi-window path and an intentional redacted failure. Treat any secret found in a referenced response-budget fallback, report, timeline, audit, build/launch log, or failure JSON as a gate failure even when the inline response is clean.
 
+For screenshot privacy, missing controls in a truncated tree are not evidence that masking is unnecessary. Sensitive-control/text policies conservatively mask the whole image when tree coverage is incomplete (`screenshotMasking: full_sensitive_mask`); complete coverage permits selective masks. Outside-run fallback artifacts still fail closed. Distinguish a safe omitted image from a successfully masked image in validation reports.
+
 Runtime input is intentionally narrow, local-only, and non-destructive. Unsupported actions return structured errors.
 
 For hover, tooltip, popup, or flyout failures, use a pointer diagnostics request instead of trying to infer everything from one screenshot:
