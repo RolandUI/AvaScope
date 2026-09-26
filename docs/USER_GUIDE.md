@@ -473,6 +473,14 @@ dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll explain-layout --sessio
 
 `inspect-node` includes bounded `computedProperties` for high-value visual, style, text, and layout properties, plus `sourceMap` when Avalonia XAML diagnostics or source snippets can identify file, line, column, `x:Name`, declared bindings, and style/template/resource origins. Provenance uses public Avalonia diagnostic priority where available and reports `unknown` or `not_available` instead of guessing private style/resource origins. For selected runtime nodes it can also include `layoutExplanation` for why a node is `0x0`, clipped, or constrained by parent layout, with desired size, bounds, available constraints, Grid row/column sizing, ScrollViewer viewport, clipping ancestors, and ancestor metrics; `scrollState` for `ScrollViewer` metrics; `bindingState` with `DataContext` type, binding expression/path, resolved-value status, converter/fallback/null status, compiled-binding status, and source mapping; `accessibilityState` from public automation/focus metadata; `validationState` from `DataValidationErrors`; and `debugState` fields from controls that implement the opt-in `IAvaScopeDebugStateProvider` bridge contract. Use `explain-layout` when an agent only needs the bounded measure/arrange explanation for one node.
 
+For controls, `accessibilityState.effectiveAutomationName` is the public Avalonia
+peer name, including header/label/custom-peer semantics. The existing
+`automationName` retains the declared attached-property value. `automationNameStatus`
+distinguishes `available`, genuinely `empty`, and `unavailable` after a peer read
+failure. Audits report unavailable names separately; an internal control name
+does not prove that assistive technology receives a name. Compare the actual OS
+tree separately with `audit-native-accessibility` when platform evidence matters.
+
 Find runtime tree nodes by identity and optional interaction state. State filters accept `true` or `false` and use the same semantics as workflow selectors and MCP `find_nodes`:
 
 ```powershell

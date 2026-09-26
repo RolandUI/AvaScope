@@ -121,18 +121,22 @@ public sealed class UiAuditBuilder
             var accessibleName = AccessibleName(node);
             if (string.IsNullOrWhiteSpace(accessibleName))
             {
+                var nameUnavailable = node.AccessibilityState?.AutomationNameStatus == "unavailable";
                 yield return CreateIssue(
                     sequence++,
                     "accessibility",
                     "warning",
-                    "accessibility.missing_accessible_name",
-                    "Actionable node has no automation name, text, or stable name metadata.",
+                    nameUnavailable ? "accessibility.name_unavailable" : "accessibility.missing_accessible_name",
+                    nameUnavailable ? "The control's effective accessible name could not be read from its automation peer."
+                        : "Actionable node has no effective accessible name in the available runtime metadata.",
                     node,
-                    "Add AutomationProperties.Name or visible text for this control before relying on agent or assistive-tool automation.",
+                    nameUnavailable ? "Check the control's public automation peer before concluding that its accessible name is missing."
+                        : "Provide a meaningful name through the control's automation peer, label, or AutomationProperties.Name.",
                     new Dictionary<string, string>
                     {
                         ["depth"] = item.Depth.ToString(CultureInfo.InvariantCulture),
-                        ["signal"] = "automationName,text,name"
+                        ["signal"] = node.AccessibilityState?.AutomationNameStatus is null ? "automationName,text,name" : "automation_peer_name",
+                        ["nameStatus"] = node.AccessibilityState?.AutomationNameStatus ?? "legacy_metadata"
                     });
             }
 
@@ -365,7 +369,9 @@ public sealed class UiAuditBuilder
 
     private static string? AccessibleName(TreeNodeSummary node)
     {
-        return FirstNonEmpty(node.AccessibilityState?.AutomationName, node.Text, node.Name);
+        return node.AccessibilityState?.AutomationNameStatus is not null
+            ? node.AccessibilityState.EffectiveAutomationName
+            : FirstNonEmpty(node.AccessibilityState?.AutomationName, node.Text, node.Name);
     }
 
     private static string IssueProvenance(TreeNodeSummary node)

@@ -4,6 +4,21 @@ Status: **in progress**, 2026-09-25. Tracking issue [#166](https://github.com/Ro
 
 ## Current validation checkpoint
 
+#215's candidate passes all 166 affected tests in 85s, zero skips and zero build
+warnings/errors. Real peer controls cover changing tab headers, explicit names,
+label names, custom overrides, actual empty names and a throwing peer through
+visual/logical search/inspection/audits; both actual public audit transports also
+remove the false tab warnings. Final evidence is `accessible-names-01` with an
+independent stage verifier. Original runs remain: six test-authoring omissions
+in the first 6/8 result, corrected before-fix 7/7, first candidate 70 passes and
+additional contracts 95/one failure. That compatibility failure is repaired by
+preserving declared `automationName` and adding `effectiveAutomationName` with
+explicit available/empty/unavailable status; the old test remains unchanged.
+This follows the pinned public [ControlAutomationPeer](https://github.com/AvaloniaUI/Avalonia/blob/12.1.3/src/Avalonia.Controls/Automation/Peers/ControlAutomationPeer.cs)
+contract and [TextBlockAutomationPeer](https://github.com/AvaloniaUI/Avalonia/blob/12.1.3/src/Avalonia.Controls/Automation/Peers/TextBlockAutomationPeer.cs),
+whose name uses text even when an attached name differs. No OS COM call is added
+to UI-thread inspection. Fresh native comparison/full gate remain required.
+
 Fresh `audit-direct-after-01` and `audit-standalone-after-01` on clean `de733c7`
 each pass the selected #214 coverage/validation charter: 25 public calls (16 MCP,
 nine CLI), 179 independent checks, four reviewed native images and 31 pinned

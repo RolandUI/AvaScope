@@ -6282,8 +6282,26 @@ public sealed partial class AvaScopeBridgeRuntime
 
         var labeledBy = AutomationProperties.GetLabeledBy(styledElement);
         var inputElement = node as InputElement;
+        string? effectiveAutomationName = null;
+        string? automationNameStatus = null;
+        var provenance = "avalonia_public_automation_properties";
+        if (node is Control control)
+        {
+            try
+            {
+                effectiveAutomationName = ControlAutomationPeer.CreatePeerForElement(control).GetName();
+                automationNameStatus = string.IsNullOrWhiteSpace(effectiveAutomationName) ? "empty" : "available";
+                provenance = "avalonia_public_automation_properties+automation_peer_name";
+            }
+            catch (Exception exception) when (exception is not OutOfMemoryException and not AccessViolationException)
+            {
+                // Custom peer failures must not become fabricated missing names or fail the whole tree.
+                effectiveAutomationName = null;
+                automationNameStatus = "unavailable";
+            }
+        }
         return new RuntimeAccessibilityState(
-            "avalonia_public_automation_properties",
+            provenance,
             AutomationProperties.GetName(styledElement),
             AutomationProperties.GetHelpText(styledElement),
             AutomationProperties.GetAccessKey(styledElement),
@@ -6292,7 +6310,9 @@ public sealed partial class AvaScopeBridgeRuntime
             inputElement?.Focusable,
             inputElement is null ? null : inputElement.GetValue(KeyboardNavigation.IsTabStopProperty),
             inputElement is null ? null : inputElement.GetValue(KeyboardNavigation.TabIndexProperty),
-            inputElement?.IsEnabled);
+            inputElement?.IsEnabled,
+            automationNameStatus,
+            effectiveAutomationName);
     }
 
     private static RuntimeValidationState? GetValidationState(object node)

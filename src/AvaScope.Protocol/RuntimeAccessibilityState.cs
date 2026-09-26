@@ -15,11 +15,18 @@ public sealed record RuntimeAccessibilityState
         bool? focusable = null,
         bool? isTabStop = null,
         int? tabIndex = null,
-        bool? isEnabled = null)
+        bool? isEnabled = null,
+        string? automationNameStatus = null,
+        string? effectiveAutomationName = null)
     {
         if (string.IsNullOrWhiteSpace(provenance))
         {
             throw new ArgumentException("Accessibility provenance cannot be empty.", nameof(provenance));
+        }
+
+        if (automationNameStatus is not null and not "available" and not "empty" and not "unavailable")
+        {
+            throw new ArgumentException("Automation name status must be available, empty, or unavailable.", nameof(automationNameStatus));
         }
 
         Provenance = provenance.Trim();
@@ -32,6 +39,8 @@ public sealed record RuntimeAccessibilityState
         IsTabStop = isTabStop;
         TabIndex = tabIndex;
         IsEnabled = isEnabled;
+        AutomationNameStatus = automationNameStatus;
+        EffectiveAutomationName = Normalize(effectiveAutomationName);
     }
 
     [JsonPropertyName("provenance")]
@@ -40,6 +49,14 @@ public sealed record RuntimeAccessibilityState
     [JsonPropertyName("automationName")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? AutomationName { get; }
+
+    [JsonPropertyName("automationNameStatus")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? AutomationNameStatus { get; }
+
+    [JsonPropertyName("effectiveAutomationName")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? EffectiveAutomationName { get; }
 
     [JsonPropertyName("automationHelpText")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

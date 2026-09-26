@@ -192,6 +192,17 @@ Use the `target` object returned by `visual-tree`, `logical-tree`, `find-nodes`,
 
 `audit-ui` builds a bounded accessibility, validation, and component inventory report from the runtime tree. It reports missing accessible names, missing stable automation ids, keyboard focus metadata, runtime validation errors, control/class/component-pattern inventory, and explicit `not_available` entries for style/resource/template/theme scopes that the runtime tree cannot prove reliably. With `--run-index`, the audit response writes a task latest pointer containing diagnostics and warnings for later agent handoff.
 
+Control accessibility metadata exposes `effectiveAutomationName` from Avalonia's
+public automation peer, including header, label and custom-peer behavior. The
+existing `automationName` retains the attached property's declared value. The optional
+`automationNameStatus` is `available`, `empty`, or `unavailable`; the last means
+the peer could not be read and produces `accessibility.name_unavailable` in an
+audit. An observed empty peer name remains missing even if the control has an
+internal `Name` or visible content. Older responses without this status retain
+the legacy metadata fallback. Other accessibility fields still describe their
+attached properties; peer-name provenance is explicit. This metadata does not
+replace comparison with the actual platform accessibility tree.
+
 Check audit coverage before interpreting a clean result. UI audit
 `summary.sourceTruncated` distinguishes incomplete source evidence from bounded
 issue/inventory output; tree nodes mark omitted descendants with

@@ -1,6 +1,8 @@
 using System.Diagnostics;
 using System.Text.Json;
 using Avalonia;
+using Avalonia.Automation;
+using Avalonia.Automation.Peers;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Input;
@@ -16,6 +18,87 @@ namespace AvaScope.Tests.Bridge;
 [Collection(BridgeCollectionDefinition.Name)]
 public sealed class AgentQaRuntimeFixtureTests
 {
+    [Theory]
+    [InlineData("header", "Header label")]
+    [InlineData("explicit", "Explicit label")]
+    [InlineData("labeled", "Label text")]
+    [InlineData("custom", "Custom peer label")]
+    [InlineData("empty", null)]
+    [InlineData("throwing", null)]
+    public async Task EffectiveAccessibleNamesMatchRealPeersAndPreserveUnavailableEvidence(string scenario, string? expected)
+    {
+        var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessSmokeTests.BridgeHeadlessTestApplication));
+        try
+        {
+            await BridgeHeadlessSmokeTests.DispatchAsync(session, async () =>
+            {
+                AvaScopeBridge.Deactivate(); var runtime = AvaScopeBridge.Activate();
+                var label = new TextBlock { Name = "InternalLabelName", Text = "Label text" };
+                Control control = scenario switch
+                {
+                    "header" or "explicit" => new TabItem { Header = "Header label", Content = "Page content" },
+                    "labeled" => new TextBox { Text = "Current value" },
+                    _ => new AccessibleNameButton { Content = "Visible content", PeerName = expected, ThrowName = scenario == "throwing" }
+                };
+                control.Name = "InternalControlName";
+                AutomationProperties.SetAutomationId(control, "effective-name-target");
+                if (scenario == "explicit") AutomationProperties.SetName(control, expected);
+                if (scenario is "custom" or "empty") AutomationProperties.SetName(control, "Attached name ignored by custom peer");
+                if (scenario == "labeled") AutomationProperties.SetLabeledBy(control, label);
+                var root = new StackPanel { Children = { label } };
+                root.Children.Add(control is TabItem tab ? new TabControl { Items = { tab } } : control);
+                var window = new Window { Width = 420, Height = 240, Content = root };
+                try
+                {
+                    window.Show(); using var registration = runtime.RegisterTopLevel(window);
+                    using var frame = window.CaptureRenderedFrame(); Assert.NotNull(frame);
+                    var peer = ControlAutomationPeer.CreatePeerForElement(control);
+                    if (scenario == "throwing") Assert.Throws<InvalidOperationException>(() => peer.GetName());
+                    else Assert.Equal(expected ?? string.Empty, peer.GetName());
+                    var top = Assert.Single(await runtime.ListTopLevelsAsync()).Id;
+                    var client = new LocalBridgeClient(Path.GetDirectoryName(runtime.SessionManifestPath)!);
+                    var context = control.DataContext; var focused = control.IsFocused;
+                    foreach (var kind in new[] { TreeKinds.Visual, TreeKinds.Logical })
+                    {
+                        var found = await client.FindNodesAsync(runtime.SessionId, top, kind, automationId: "effective-name-target", maxDepth: 32, includeAccessibility: true);
+                        Assert.True(found.Success, JsonSerializer.Serialize(found));
+                        var node = Assert.Single(found.Value!.Matches).Node;
+                        Assert.NotNull(node.AccessibilityState);
+                        Assert.Equal(expected, node.AccessibilityState.EffectiveAutomationName);
+                        Assert.Equal(AutomationProperties.GetName(control), node.AccessibilityState.AutomationName);
+                        Assert.Equal(scenario == "throwing" ? "unavailable" : expected is null ? "empty" : "available",
+                            node.AccessibilityState.AutomationNameStatus);
+                        var inspected = await client.InspectNodeAsync(runtime.SessionId, top, kind, node.NodeId);
+                        Assert.True(inspected.Success, JsonSerializer.Serialize(inspected));
+                        Assert.Equal(expected, inspected.Value!.AccessibilityState!.EffectiveAutomationName);
+                        Assert.Equal(AutomationProperties.GetName(control), inspected.Value.AccessibilityState.AutomationName);
+                        Assert.DoesNotContain("private-peer-error-sentinel", JsonSerializer.Serialize(inspected));
+                        var tree = kind == TreeKinds.Visual
+                            ? await client.VisualTreeAsync(runtime.SessionId, top, 32)
+                            : await client.LogicalTreeAsync(runtime.SessionId, top, 32);
+                        Assert.True(tree.Success, JsonSerializer.Serialize(tree));
+                        var audit = new UiAuditBuilder().Create(ResponseBudgeter.ReadTreeEvidence(tree.Value!));
+                        Assert.True(audit.Success, JsonSerializer.Serialize(audit));
+                        var findings = audit.Value!.Issues.Where(issue => issue.NodeId == node.NodeId).ToArray();
+                        Assert.Equal(scenario == "empty", findings.Any(issue => issue.Code == "accessibility.missing_accessible_name"));
+                        Assert.Equal(scenario == "throwing", findings.Any(issue => issue.Code == "accessibility.name_unavailable"));
+                    }
+                    Assert.Same(context, control.DataContext); Assert.Equal(focused, control.IsFocused);
+                    Assert.Equal("InternalControlName", control.Name);
+                    if (control is TabItem header && scenario == "header")
+                    {
+                        header.Header = "Updated header"; window.UpdateLayout();
+                        var updated = await client.FindNodesAsync(runtime.SessionId, top, TreeKinds.Visual, automationId: "effective-name-target", maxDepth: 32, includeAccessibility: true);
+                        Assert.True(updated.Success, JsonSerializer.Serialize(updated));
+                        Assert.Equal("Updated header", Assert.Single(updated.Value!.Matches).Node.AccessibilityState!.EffectiveAutomationName);
+                    }
+                }
+                finally { window.Close(); AvaScopeBridge.Deactivate(); }
+            }, CancellationToken.None);
+        }
+        finally { BridgeHeadlessSmokeTests.DisposeHeadlessSessionAfterExplicitCleanup(session); }
+    }
+
     [Fact]
     public async Task PublicAuditReportsAndClearsRealNoninteractiveValidationErrors()
     {
@@ -154,6 +237,9 @@ public sealed class AgentQaRuntimeFixtureTests
                     var value = response.GetProperty("value"); var summary = value.GetProperty("summary");
                     if (scenario == "deep_ui")
                     {
+                        Assert.DoesNotContain(value.GetProperty("issues").EnumerateArray(), issue =>
+                            issue.GetProperty("code").GetString() == "accessibility.missing_accessible_name"
+                            && issue.TryGetProperty("automationId", out var id) && id.GetString()?.EndsWith("-tab", StringComparison.Ordinal) == true);
                         Assert.True(summary.GetProperty("nodesWithValidationErrors").GetInt32() > 0, payload);
                         Assert.Equal("errors_found", summary.GetProperty("validationStatus").GetString());
                         Assert.False(summary.GetProperty("truncated").GetBoolean(), payload);
@@ -477,6 +563,18 @@ public sealed class AgentQaRuntimeFixtureTests
         {
             Environment.SetEnvironmentVariable("AVASCOPE_QA_OUTPUT", previous);
             if (Directory.Exists(directory)) Directory.Delete(directory, recursive: true);
+        }
+    }
+    private sealed class AccessibleNameButton : Button
+    {
+        public string? PeerName { get; init; }
+        public bool ThrowName { get; init; }
+        protected override AutomationPeer OnCreateAutomationPeer() => new Peer(this);
+        private sealed class Peer(AccessibleNameButton owner) : ButtonAutomationPeer(owner)
+        {
+            protected override string? GetNameCore() => owner.ThrowName
+                ? throw new InvalidOperationException("private-peer-error-sentinel")
+                : owner.PeerName;
         }
     }
 }
