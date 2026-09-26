@@ -4,6 +4,23 @@ Status: **in progress**, 2026-09-25. Tracking issue [#166](https://github.com/Ro
 
 ## Current validation checkpoint
 
+Fresh native `audit-direct-01` on clean `69f6590` confirms #214: UI/design audit
+consumers discard tree coverage. Twenty-one public calls (14 MCP/seven CLI),
+90 independent evidence checks and four reviewed native images retain the
+failure, rather than claim a passing charter. At Win32 1x, the full tree has
+195 nodes/depth 27; its inline response explicitly has only 27 nodes/depth 8
+with byte/depth truncation. UI audits nevertheless omit that limit and report
+clean review status, while both design transports reject the existing deep
+scope. At requested depth zero, design audits falsely report `clean/full_tree`
+and CLI exits zero. A shallow UI audit says validation is clean even while the
+native UI, independent journal, targeted validation query and retained full tree
+all expose the intentional error. Direct layout explanation correctly identifies
+the 800-wide child clipped by its 280-wide parent and clears after reset to 260.
+Reset/owned termination, app 15520/all 21 client absences and 31 source/binary
+identities verify. The initial reused `runtime-direct-01` path was refused before
+launch; the old run was untouched. #214 is the next sole implementation issue;
+#174 returns to review. Inventory is 49 defects/32 closed; no release.
+
 #213 controlled deadline evidence is retained in `keyed-deadline-01`: all 23
 virtual-item/fixture tests pass in 15s, with zero build warnings/errors. A blocked
 UI queue times out with zero key reads/scroll requests; an enabled zero-height
