@@ -4,7 +4,23 @@ Status: **in progress**, 2026-09-25. Tracking issue [#166](https://github.com/Ro
 
 ## Current validation checkpoint
 
-#218 is the sole active issue: exact `2f7c686` full CI `36227569598`
+#174 is the sole active issue. #218 is review with diagnostic hardening at
+`b377fb5`; full combined CI `36230336282` runs on that exact source and includes
+#217. Fresh `inspection-standalone-01` completes 46 public calls (30 MCP/16 CLI),
+276 independent checks, sixteen viewed native/two rendered images and eight
+native clicks. Logical trees, Unicode and ordered paged deltas, unchanged and
+resync/expiry/privacy responses, visible highlights and explicit/frame cleanup
+verify. All 31 pinned binaries agree; app 9560, 34 individual clients and
+persistent client 2092 are independently absent.
+
+This comparison has an explicit manual boundary: four attempts reached the
+native click after the highlight's five-second lifetime. Original images,
+responses and measured persistent-call timing remain retained; they do not prove
+active-overlay input transparency. Both native showing and removal are verified.
+The earlier Direct active-click evidence remains separate. No new product bug
+is inferred from agent/tool latency, and the whole charter is not marked passed.
+
+The preceding exact `2f7c686` full CI `36227569598`
 failed the macOS relationship disappearance wait. Windows has 1063 passed/eight
 skipped; macOS 1060 passed/one failed/nine skipped; Linux 33 passed. All fourteen
 #215/#216 focused regressions pass on both full hosts, and all nine native/expiry
