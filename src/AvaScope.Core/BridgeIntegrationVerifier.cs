@@ -194,23 +194,105 @@ public sealed class BridgeIntegrationVerifier
                     : "Host exited before the observation interval completed; disabled activation could not be verified.",
                 leaked ? "Remove the bootstrap/loader call from the production compilation." : observed ? null : "Keep the disabled fixture alive for the full observation interval."));
         }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException or InvalidOperationException or System.ComponentModel.Win32Exception or OperationCanceledException or JsonException)
+        {
+            // Record the observation outcome before cleanup, which can fail independently.
+            stages.Add(new("disabled_startup", exception is OperationCanceledException && cancellationToken.IsCancellationRequested ? "cancelled" : "failed", exception.Message));
+        }
         finally
         {
-            if (!process.HasExited) process.Kill(entireProcessTree: true);
-            using var cleanupTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-            await process.WaitForExitAsync(cleanupTimeout.Token);
-            await Task.WhenAll(stdout, stderr).WaitAsync(cleanupTimeout.Token);
-            RecoverStoppedResources(process.Id, manifests, environment);
-            stages.Add(new("cleanup", OwnedListeners(process.Id, environment).Length == 0 ? "passed" : "failed", "Stopped only the owned disabled host and recovered its isolated resources."));
+            await CleanupDisabledHostAsync(process, stdout, stderr, manifests, environment, stages);
         }
     }
 
-    private static void RecoverStoppedResources(int processId, string manifests, IReadOnlyDictionary<string, string> environment)
+    internal static async Task CleanupDisabledHostAsync(Process process, Task stdout, Task stderr, string manifests,
+        IReadOnlyDictionary<string, string> environment, List<IntegrationVerificationStage> stages)
+    {
+        var watch = Stopwatch.StartNew();
+        var phase = "terminate";
+        var failures = new List<object>();
+        string? failureMessage = null;
+        var recovered = false;
+        var captures = Task.WhenAll(stdout, stderr);
+        // A failed exit/drain wait must not leave a later capture fault unobserved.
+        _ = captures.ContinueWith(static task => { _ = task.Exception; }, CancellationToken.None,
+            TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+        using var cleanupTimeout = new CancellationTokenSource();
+        try
+        {
+            if (!process.HasExited) process.Kill(entireProcessTree: true);
+            // Preserve the existing shared five-second exit/output budget after termination.
+            cleanupTimeout.CancelAfter(TimeSpan.FromSeconds(5));
+            phase = "process_exit";
+            await process.WaitForExitAsync(cleanupTimeout.Token);
+            phase = "output_drain";
+            await captures.WaitAsync(cleanupTimeout.Token);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException or InvalidOperationException or System.ComponentModel.Win32Exception or OperationCanceledException)
+        {
+            Failed(exception);
+        }
+
+        // Output failure does not prevent recovery once this exact owned process has exited.
+        phase = "resource_recovery";
+        try
+        {
+            if (!process.HasExited) throw new InvalidOperationException("Owned process exit was not confirmed; resources were preserved.");
+            recovered = RecoverStoppedResources(process.Id, manifests, environment) && OwnedListeners(process.Id, environment).Length == 0;
+            if (!recovered) throw new IOException("Owned resource recovery could not be confirmed after shutdown.");
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException or InvalidOperationException or System.ComponentModel.Win32Exception or JsonException)
+        {
+            Failed(exception);
+        }
+
+        var evidencePath = Path.Combine(Path.GetDirectoryName(manifests)!, "disabled-cleanup.json");
+        var evidenceWritten = false;
+        phase = "evidence";
+        try
+        {
+            File.WriteAllText(evidencePath, JsonSerializer.Serialize(new
+            {
+                processId = process.Id, observedAt = DateTimeOffset.UtcNow, elapsedMs = watch.Elapsed.TotalMilliseconds,
+                cleanupTimeoutMs = 5000, processExited = process.HasExited, exitCode = process.HasExited ? (int?)process.ExitCode : null,
+                stdoutStatus = stdout.Status.ToString(), stderrStatus = stderr.Status.ToString(),
+                stdoutError = CaptureError(stdout), stderrError = CaptureError(stderr),
+                resourceRecovery = recovered ? "passed" : "failed", failures
+            }, JsonOptions));
+            evidenceWritten = true;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            Failed(exception);
+        }
+        stages.Add(new("cleanup", failureMessage is null ? "passed" : "failed",
+            failureMessage ?? "Stopped only the owned disabled host and recovered its isolated resources.",
+            failureMessage is null ? null : "Inspect the retained cleanup phase and process/output state before retrying.",
+            evidenceWritten ? [evidencePath] : null));
+
+        void Failed(Exception exception)
+        {
+            var message = exception.Message[..Math.Min(exception.Message.Length, 1024)];
+            failures.Add(new { phase, exceptionType = exception.GetType().Name, message,
+                timedOut = exception is OperationCanceledException && cleanupTimeout.IsCancellationRequested,
+                elapsedMs = watch.Elapsed.TotalMilliseconds });
+            failureMessage ??= $"Disabled host cleanup failed during {phase}: {message}";
+        }
+
+        static object? CaptureError(Task task)
+        {
+            var exception = task.Exception?.GetBaseException();
+            return exception is null ? null : new { exceptionType = exception.GetType().Name,
+                message = exception.Message[..Math.Min(exception.Message.Length, 1024)] };
+        }
+    }
+
+    private static bool RecoverStoppedResources(int processId, string manifests, IReadOnlyDictionary<string, string> environment)
     {
         if (LaunchOwnershipStore.TryGetProcessIdentity(processId, out var process, out _))
         {
             process.Dispose();
-            return;
+            return false;
         }
 
         // This directory was allocated for one owned run, and recovery requires the exact PID to have exited.
@@ -222,6 +304,7 @@ public sealed class BridgeIntegrationVerifier
         }
         if (!OperatingSystem.IsWindows())
             foreach (var path in OwnedListeners(processId, environment)) File.Delete(path);
+        return true;
     }
 
     private static string[] FindProductionAssemblies(string directory)
