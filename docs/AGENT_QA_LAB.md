@@ -229,6 +229,15 @@ edits verify the distinction while a separate 100 ms observation wait expires;
 the original regression budgets are unchanged. These are headless/process
 diagnostic checks, not a native journey or proof of historical host contention.
 
+The mutation-evidence identity fixture also retains bounded IPC phases in its
+TRX output: UTC/elapsed time, request index/method, response success and final
+capture status/error code, with no request/response payloads. It records the
+capture result before awaiting the expected five requests. A failed capture
+cancels and observes its own responder; distinct capture and cleanup failures
+remain together. The responder still has its original 30-second total deadline.
+Controlled failures before/after one mutation verify the error and lack of replay;
+they do not establish the original macOS listener/scheduling cause (#223).
+
 ## Continuing the blocked Retina cases
 
 The 2026-09-24 campaign observed 1× on local Windows and all three hosted lab

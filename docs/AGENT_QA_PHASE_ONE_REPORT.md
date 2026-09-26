@@ -1,8 +1,33 @@
 # Native agent QA campaign
 
-Status: **in progress**, 2026-09-25. Tracking issue [#166](https://github.com/RolandUI/AvaScope/issues/166); expanded fixture #172, declared surfaces #173 and capability campaign #174. The full goal is not achieved and current applicable checks are not all passing. The owner expanded the original intake-only phase to include fixes, meaningful regressions and repeated comprehensive testing. Original failures remain distinct from post-fix verification. Version changes and release remain outside scope.
+Status: **in progress**, 2026-09-26. Tracking issue [#166](https://github.com/RolandUI/AvaScope/issues/166); expanded fixture #172, declared surfaces #173 and capability campaign #174. The full goal is not achieved and current applicable checks are not all passing. The owner expanded the original intake-only phase to include fixes, meaningful regressions and repeated comprehensive testing. Original failures remain distinct from post-fix verification. Version changes and release remain outside scope.
 
 ## Current validation checkpoint
+
+#192 and #220 are closed after exact 4ffd1a2 full CI 36241933958 succeeds all six
+jobs. Independent downloaded evidence verifies Windows 1083 passed/eight skips,
+macOS 1080/ten, Linux 33, thirteen Windows native input cases/zero skips and
+nine native direct/standalone/expiry runs at actual 1x/Avalonia 12.1.3. Both hosts
+confirm #192's independent zero/one-edit oracles during controlled lifecycle
+holds. #220's actual occupied-worker closed/held-stream probe passes on hosted
+.NET 10.0.12 (closed EOF 0.4557ms; real open writer still blocks). Original
+contention/pipe state remains unproven. Inventory: 58 defects, 43 closed.
+
+#223 now preserves the completed capture result before awaiting a success-only
+five-request fixture, cancels/observes that responder on failure, and retains
+bounded UTC/elapsed/request-index/method/response phases without payloads.
+Controlled failures previously hid zero/one completed mutation behind 30.56/
+30.12-second timeouts; afterward they expose the original capture failure in
+178.56/254.79ms without repeating the edit. All 64 LocalBridgeClientTests pass
+(3m44s, zero skips; final build zero warnings/errors), including thirteen identity
+variants and simultaneous primary/cleanup failure preservation. Independent
+source/assembly/TRX/phase verification is retained at
+`D:/AvaScope-QA-active/mutation-ipc-223/verified-regression.json`. The original
+macOS listener/scheduling cause remains unknown; this corrects the demonstrated
+failure-masking boundary and preserves future evidence. A fresh combined full
+gate including #221–#223 is still required.
+
+## Prior checkpoints
 
 #222 is locally corrected by distinguishing declaration bodies and bodyless
 return-type headers from invocation sites. The final 41-case guide suite passes

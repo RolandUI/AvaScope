@@ -8,7 +8,7 @@ using SkiaSharp;
 
 namespace AvaScope.Tests.Core;
 
-public sealed class LocalBridgeClientTests : IDisposable
+public sealed class LocalBridgeClientTests(Xunit.Abstractions.ITestOutputHelper output) : IDisposable
 {
     private static readonly TimeSpan BridgePipeTestTimeout = TimeSpan.FromSeconds(30);
 
@@ -889,6 +889,7 @@ public sealed class LocalBridgeClientTests : IDisposable
         var mutationRequest = new RuntimeMutationRequest("core-evidence", requested,
             new RuntimeMutationOperation(RuntimeMutationOperationKinds.SetProperty,
                 propertyName: "Text", value: "After", valueType: "string"));
+        using var stopServer = new CancellationTokenSource();
         var server = RespondToBridgeRequestsAsync(pipeName, 5, (index, request) =>
         {
             if (index is 0 or 3)
@@ -922,12 +923,10 @@ public sealed class LocalBridgeClientTests : IDisposable
             }
             return BridgeIpcResponse.Ok(request.RequestId, new TreeResponse(sessionId, "topLevel:core",
                 TreeKinds.Visual, depth, new TreeNodeSummary("root", "Avalonia.Controls.Window", children: nodes)));
-        });
-        var result = await new RuntimeMutationEvidenceRunner().CaptureAsync(
+        }, stopServer.Token, output.WriteLine);
+        var result = await CompleteMutationEvidenceAsync(new RuntimeMutationEvidenceRunner().CaptureAsync(
             new LocalBridgeClient(_manifestDirectory, BridgePipeTestTimeout), sessionId, mutationRequest,
-            Path.Combine(_manifestDirectory, "evidence"), maxDepth: depth, includeDiff: false);
-        Assert.Equal(5, (await server).Count);
-        Assert.True(result.Success, result.Error?.Message);
+            Path.Combine(_manifestDirectory, "evidence"), maxDepth: depth, includeDiff: false), server, stopServer);
         var evidence = result.Value!;
         Assert.Equal(beforeFound, evidence.Summary.BeforeTargetFound);
         Assert.Equal(afterFound, evidence.Summary.AfterTargetFound);
@@ -1752,17 +1751,134 @@ public sealed class LocalBridgeClientTests : IDisposable
         }
     }
 
+    [Theory]
+    [InlineData(0, 0)]
+    [InlineData(3, 1)]
+    public async Task FailedMutationEvidencePreservesCaptureFailureAndDoesNotRepeatMutation(int failAt, int expectedMutations)
+    {
+        Directory.CreateDirectory(_manifestDirectory);
+        var sessionId = SessionId.New();
+        var pipeName = TestPipeNames.New();
+        WriteManifest("failure-evidence.json", new(sessionId, Environment.ProcessId, pipeName, DateTimeOffset.UtcNow));
+        var request = new RuntimeMutationRequest("core-evidence",
+            new(sessionId, "topLevel:core", TreeKinds.Visual, "visual:target"),
+            new(RuntimeMutationOperationKinds.SetProperty, propertyName: "Text", value: "After", valueType: "string"));
+        var mutations = 0;
+        var received = 0;
+        using var stopServer = new CancellationTokenSource();
+        var server = RespondToBridgeRequestsAsync(pipeName, 5, (index, bridgeRequest) =>
+        {
+            received++;
+            if (index == failAt) return BridgeIpcResponse.Fail(bridgeRequest.RequestId,
+                new ProtocolError("fixture_capture_failed", "Controlled fixture_capture_failed"));
+            if (index == 2) mutations++;
+            return index switch
+            {
+                0 => CreateEvidenceScreenshotResponse(bridgeRequest, sessionId, "topLevel:core", "core-evidence-before.png"),
+                1 => CreateEvidenceTreeResponse(bridgeRequest, sessionId, "topLevel:core", 4, "Before"),
+                2 => CreateEvidenceMutationResponse(bridgeRequest, sessionId, "topLevel:core"),
+                _ => throw new InvalidOperationException("Unexpected request after controlled failure.")
+            };
+        }, stopServer.Token, output.WriteLine);
+        var elapsed = Stopwatch.StartNew();
+        var failure = await Record.ExceptionAsync(() => CompleteMutationEvidenceAsync(
+            new RuntimeMutationEvidenceRunner().CaptureAsync(new(_manifestDirectory, BridgePipeTestTimeout), sessionId,
+                request, Path.Combine(_manifestDirectory, "evidence"), maxDepth: 4, includeDiff: false), server, stopServer));
+        output.WriteLine(JsonSerializer.Serialize(new { failAt, received, mutations, elapsedMs = elapsed.Elapsed.TotalMilliseconds, failureType = failure?.GetType().Name }));
+        var assertion = Assert.IsAssignableFrom<Xunit.Sdk.XunitException>(failure);
+        Assert.Contains("fixture_capture_failed", assertion.Message);
+        Assert.Equal(failAt + 1, received);
+        Assert.Equal(expectedMutations, mutations);
+        Assert.True(server.IsCompleted);
+    }
+
+    [Fact]
+    public async Task MutationEvidenceRetainsBothCaptureAndResponderFailures()
+    {
+        using var stopServer = new CancellationTokenSource();
+        var responderFailure = new IOException("fixture_responder_failure");
+        var failure = await Assert.ThrowsAsync<AggregateException>(() => CompleteMutationEvidenceAsync(
+            Task.FromResult(CoreResult<RuntimeMutationEvidenceResponse>.Fail(new("fixture_capture_failed", "private_capture_payload"))),
+            Task.FromException<IReadOnlyList<BridgeIpcRequest>>(responderFailure), stopServer));
+        Assert.Equal(2, failure.InnerExceptions.Count);
+        Assert.Contains("fixture_capture_failed", failure.InnerExceptions[0].Message);
+        Assert.DoesNotContain("private_capture_payload", failure.InnerExceptions[0].Message);
+        Assert.Same(responderFailure, failure.InnerExceptions[1]);
+    }
+
+    private async Task<CoreResult<RuntimeMutationEvidenceResponse>> CompleteMutationEvidenceAsync(
+        Task<CoreResult<RuntimeMutationEvidenceResponse>> capture,
+        Task<IReadOnlyList<BridgeIpcRequest>> server,
+        CancellationTokenSource stopServer)
+    {
+        Exception? primaryFailure = null;
+        try
+        {
+            var result = await capture;
+            output.WriteLine(JsonSerializer.Serialize(new
+            {
+                phase = "capture_completed", utc = DateTimeOffset.UtcNow, success = result.Success,
+                errorCode = result.Error?.Code, mutationApplied = result.Value?.Summary.MutationApplied
+            }));
+            // A failed capture stops issuing requests. Preserve that result before
+            // waiting for the responder's success-only request count.
+            Assert.True(result.Success, $"Mutation evidence capture failed: {result.Error?.Code}");
+            Assert.Equal(5, (await server).Count);
+            return result;
+        }
+        catch (Exception exception)
+        {
+            primaryFailure = exception;
+            output.WriteLine(JsonSerializer.Serialize(new { phase = "capture_or_responder_failed", utc = DateTimeOffset.UtcNow, failureType = exception.GetType().Name }));
+            throw;
+        }
+        finally
+        {
+            stopServer.Cancel();
+            try { await server; }
+            catch (OperationCanceledException) when (stopServer.IsCancellationRequested) { }
+            catch (Exception exception) when (ReferenceEquals(exception, primaryFailure)) { }
+            catch (Exception exception)
+            {
+                if (primaryFailure is not null) throw new AggregateException(primaryFailure, exception);
+                throw;
+            }
+            finally { output.WriteLine(JsonSerializer.Serialize(new { phase = "responder_observed", utc = DateTimeOffset.UtcNow, completed = server.IsCompleted })); }
+        }
+    }
+
     private static async Task<IReadOnlyList<BridgeIpcRequest>> RespondToBridgeRequestsAsync(
         string pipeName,
         int expectedCount,
-        Func<int, BridgeIpcRequest, BridgeIpcResponse> responseFactory)
+        Func<int, BridgeIpcRequest, BridgeIpcResponse> responseFactory,
+        CancellationToken stop = default,
+        Action<string>? trace = null)
     {
-        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(stop);
+        cancellation.CancelAfter(TimeSpan.FromSeconds(30));
         var requests = new List<BridgeIpcRequest>(expectedCount);
+        var elapsed = Stopwatch.StartNew();
+        var phase = "starting";
+        string? method = null;
+        var requestIndex = 0;
+        var events = 0;
+        void RecordPhase(string next, bool? responseSuccess = null, string? failureType = null)
+        {
+            phase = next;
+            if (trace is null || events++ >= 64) return;
+            trace(JsonSerializer.Serialize(new
+            {
+                phase, utc = DateTimeOffset.UtcNow, elapsedMs = elapsed.Elapsed.TotalMilliseconds,
+                requestIndex, received = requests.Count, expectedCount,
+                method = method is { Length: > 96 } ? method[..96] : method, responseSuccess, failureType
+            }));
+        }
         try
         {
             while (requests.Count < expectedCount)
             {
+                requestIndex = requests.Count;
+                method = null;
                 await using var pipe = new NamedPipeServerStream(
                     pipeName,
                     PipeDirection.InOut,
@@ -1770,7 +1886,9 @@ public sealed class LocalBridgeClientTests : IDisposable
                     PipeTransmissionMode.Byte,
                     PipeOptions.Asynchronous);
 
+                RecordPhase("listening");
                 await pipe.WaitForConnectionAsync(cancellation.Token);
+                RecordPhase("connected");
                 var requestLine = await ReadLineAsync(pipe, cancellation.Token);
                 if (string.IsNullOrWhiteSpace(requestLine))
                 {
@@ -1794,25 +1912,42 @@ public sealed class LocalBridgeClientTests : IDisposable
 
                 var index = requests.Count;
                 requests.Add(request);
+                method = request.Method;
+                RecordPhase("request_received");
+                var response = responseFactory(index, request);
+                RecordPhase("response_prepared", response.Success);
                 var responseBytes = Encoding.UTF8.GetBytes(
-                    JsonSerializer.Serialize(responseFactory(index, request)) + Environment.NewLine);
+                    JsonSerializer.Serialize(response) + Environment.NewLine);
                 try
                 {
+                    RecordPhase("writing");
                     await pipe.WriteAsync(responseBytes, cancellation.Token);
                     await pipe.FlushAsync(cancellation.Token);
+                    RecordPhase("response_sent");
                 }
                 catch (IOException) when (requests.Count == expectedCount)
                 {
+                    RecordPhase("final_client_disconnected");
                     return requests;
                 }
             }
 
+            RecordPhase("completed");
             return requests;
         }
-        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+        catch (OperationCanceledException) when (stop.IsCancellationRequested)
         {
-            throw new TimeoutException($"Timed out waiting for {expectedCount} bridge IPC requests on pipe '{pipeName}'.");
+            RecordPhase("canceled");
+            throw;
         }
+        catch (OperationCanceledException exception) when (cancellation.IsCancellationRequested)
+        {
+            var waitingPhase = phase;
+            RecordPhase("timeout");
+            throw new TimeoutException($"Timed out waiting for {expectedCount} bridge IPC requests on pipe '{pipeName}': received {requests.Count}, phase {waitingPhase}, method {method ?? "none"}.", exception);
+        }
+        catch (Exception exception) { RecordPhase("failed", failureType: exception.GetType().Name); throw; }
+        finally { RecordPhase("disposed"); }
     }
 
     private static async Task<IReadOnlyList<BridgeIpcRequest>> DisconnectFirstThenRespondAsync(
