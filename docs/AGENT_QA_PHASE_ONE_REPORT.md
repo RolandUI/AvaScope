@@ -56,8 +56,9 @@ phase trace remain explicitly invalid for the scheduling hypothesis. No new
 product defect is inferred from that agent setup error. The change is pushed at
 `cb7ca4597a1294cd346f8cc060383cb7ddb34b79`; its full CI `36239596341` runs.
 
-#192 is the sole active issue for MCP startup/request/exit diagnostics;
-#220 is review pending the fresh gate. #199 closes at
+#192 is pushed/review at `db6ac1407e9e4c39c4c7156879c6286550d89492`;
+#174 resumes as the sole active issue for the remaining integration/diagnostic
+and artifact boundaries. #220 is review pending its gate. #199 closes at
 `125b346a62b449c1ddb8db8615e40bb08eaeeb31` after full CI `36237048712`
 passes all six jobs. Downloaded evidence independently verifies Windows 1076
 passes/eight skips, macOS 1074/nine, Linux 33, Windows native input 12/zero skips
