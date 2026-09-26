@@ -4,6 +4,21 @@ Status: **in progress**, 2026-09-25. Tracking issue [#166](https://github.com/Ro
 
 ## Current validation checkpoint
 
+#211 first-frame investigation is retained in `first-frame-01`. On Avalonia
+12.1.3, a controlled same-UI-turn regression verifies actual blue RTB pixels while
+the compositor hit test still returns no target. Pointer move at (180,42) is
+undispatched and does not establish hover; an explicit rendered frame establishes
+the hit tree, and a deliberate subsequent move observes real hover followed by
+actual cleanup. This matches the retained macOS failure's no-hit signature.
+The common-state fixture now prepares and asserts the first frame and actual
+target ancestry before its unchanged six-state matrix. No product input behavior,
+deadline or retry was changed. The unchanged common case plus controlled boundary
+pass before (two tests); all 42 affected cases pass after, including eight #211
+diagnostic controls, deep recording/target and seven transformed-pixel cases,
+18 fixture cases including both #212 navigation viewports and #213 keyed list.
+Build has zero warnings/errors. Full hosted macOS confirmation is still pending;
+this local reproduction alone does not claim the hosted failure is resolved.
+
 Native #212 validation on exact clean `1ebaaa1` is complete in
 `navigation-direct-01` and `navigation-standalone-01`: 29 corrected calls each
 (17 MCP/12 CLI), 131/116 independently verified checks and five reviewed native

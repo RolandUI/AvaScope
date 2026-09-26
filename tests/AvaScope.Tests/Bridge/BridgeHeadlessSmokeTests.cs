@@ -4100,6 +4100,68 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
     }
 
     [Fact]
+    public async Task RenderTargetBitmapDoesNotEstablishCompositorHitTestingBeforeTheFirstFrame()
+    {
+        var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessTestApplication));
+        var outputDirectory = Path.Combine(Path.GetTempPath(), "avascope-first-frame-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            await DispatchAsync(session, async () =>
+            {
+                var item = new ListBoxItem { Content = "Pseudo state", Width = 180, Height = 36, Background = Brushes.Blue };
+                var window = new Window { Width = 360, Height = 220,
+                    Content = new StackPanel { Margin = new Thickness(24), Children = { item } } };
+                var runtime = AvaScopeBridge.Activate();
+                try
+                {
+                    window.Show(); using var registration = runtime.RegisterTopLevel(window);
+                    // Deliberately stay in this UI turn: arranged geometry and an RTB image
+                    // do not commit the compositor's presentation-source hit-test tree.
+                    window.UpdateLayout();
+                    var discovered = runtime.ListTopLevelsAsync(); Assert.True(discovered.IsCompleted);
+                    var top = Assert.Single(await discovered).Id;
+                    var point = item.TranslatePoint(new Point(item.Bounds.Width / 2, item.Bounds.Height / 2), window)!.Value;
+                    Assert.Equal(new Point(180, 42), point);
+                    Assert.Null(window.InputHitTest(point, enabledElementsOnly: false));
+                    var capture = runtime.CaptureScreenshotAsync(top, Path.Combine(outputDirectory, "normal.png"));
+                    Assert.True(capture.IsCompleted);
+                    var screenshot = await capture; Assert.True(screenshot.Success, JsonSerializer.Serialize(screenshot));
+                    using (var bitmap = SKBitmap.Decode(screenshot.Value!.FilePath))
+                    {
+                        Assert.NotNull(bitmap); Assert.Equal(360, bitmap.Width); Assert.Equal(220, bitmap.Height);
+                        Assert.True(bitmap.Pixels.Count(pixel => pixel.Blue > 200 && pixel.Red < 50 && pixel.Green < 50) > 100);
+                    }
+                    Assert.Null(window.InputHitTest(point, enabledElementsOnly: false));
+                    var beforeTask = runtime.InputAsync(top, InputActions.PointerMove, x: point.X, y: point.Y);
+                    Assert.True(beforeTask.IsCompleted);
+                    var before = await beforeTask; Assert.True(before.Success, JsonSerializer.Serialize(before));
+                    Assert.False(before.Value!.Handled); Assert.False(item.IsPointerOver);
+                    Assert.Equal("not_available", before.Value.Metadata["hitVisualNodeId"]);
+
+                    using var frame = window.CaptureRenderedFrame();
+                    Assert.NotNull(frame); Assert.Equal(new PixelSize(360, 220), frame.PixelSize);
+                    Assert.NotNull(window.InputHitTest(point, enabledElementsOnly: false));
+                    var after = await runtime.InputAsync(top, InputActions.PointerMove, x: point.X, y: point.Y);
+                    Assert.True(after.Success && after.Value!.Handled, JsonSerializer.Serialize(after));
+                    Assert.True(item.IsPointerOver); Assert.Contains(":pointerover", item.Classes);
+                    Assert.NotEqual("not_available", after.Value!.Metadata["hitVisualNodeId"]);
+                    var cleared = await runtime.InputAsync(top, InputActions.PointerMove, x: -1, y: -1);
+                    Assert.True(cleared.Success && cleared.Value!.Handled, JsonSerializer.Serialize(cleared));
+                    Assert.False(item.IsPointerOver); Assert.DoesNotContain(":pointerover", item.Classes);
+                    _output.WriteLine(JsonSerializer.Serialize(new { before, after, cleared,
+                        evidence = "RTB pixels exist before the compositor hit target; an explicit rendered frame establishes it." }));
+                }
+                finally { window.Close(); AvaScopeBridge.Deactivate(); }
+            }, CancellationToken.None);
+        }
+        finally
+        {
+            DisposeHeadlessSessionAfterExplicitCleanup(session);
+            if (Directory.Exists(outputDirectory)) Directory.Delete(outputDirectory, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task PseudoStateMatrixCapturesCommonStatesAndResetsRuntimeForcing()
     {
         var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessTestApplication));
@@ -4143,6 +4205,15 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                     window.Show();
                     using var registration = runtime.RegisterTopLevel(window);
                     Dispatcher.UIThread.RunJobs();
+
+                    // RTB screenshots can precede the compositor's hit-test tree.
+                    // Prepare the real first frame before exercising pointer states.
+                    using var preparedFrame = window.CaptureRenderedFrame();
+                    Assert.NotNull(preparedFrame);
+                    Assert.Equal(new PixelSize(360, 220), preparedFrame.PixelSize);
+                    var center = item.TranslatePoint(new Point(item.Bounds.Width / 2, item.Bounds.Height / 2), window)!.Value;
+                    var hit = Assert.IsAssignableFrom<Visual>(window.InputHitTest(center, enabledElementsOnly: false));
+                    Assert.True(hit == item || item.IsVisualAncestorOf(hit));
 
                     var client = new LocalBridgeClient(Path.GetDirectoryName(runtime.SessionManifestPath)!);
                     var topLevel = Assert.Single(await runtime.ListTopLevelsAsync());
