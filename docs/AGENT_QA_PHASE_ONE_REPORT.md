@@ -4,6 +4,29 @@ Status: **in progress**, 2026-09-25. Tracking issue [#166](https://github.com/Ro
 
 ## Current validation checkpoint
 
+#214 is now closed: exact `de733c7` full CI
+[36222349163](https://github.com/RolandUI/AvaScope/actions/runs/36222349163)
+passes all six jobs. Downloaded Windows 1050/eight skips, macOS 1048/nine and
+Linux 33 results independently verify, including all 27 audit regressions on
+Windows/macOS and all nine native integration/expiry runs at 1x. The verifier
+and final job record are under `accessible-names-01`; original failure evidence
+is preserved. #215 full CI
+[36225116901](https://github.com/RolandUI/AvaScope/actions/runs/36225116901)
+now runs on exact `1335a4cb949b6f419f6ac94d6ac20b7b40a66cd1`, whose production
+code is `a8ba007`. #174 remains sole active. Current inventory: 50 defects,
+36 closed; original unknown causes and Retina gaps remain open.
+
+The current source/schema inventory agrees on 75 MCP tools; the CLI dispatcher
+has 78 commands plus version flags. `expanded-campaign/reconcile-public-calls.py`
+recovers 1657 explicit requests from 84 native/preview runs, including older
+persistent-client wrappers and CLI adapter records missed by the prior scan.
+It records exact request/response hashes, source/integration where present and
+available independent oracle files. Fifty-six MCP tool names and 32 CLI command
+names have explicit invocations; forty raw CLI payloads without argv remain
+unclassified. Startup/scripted CI calls are excluded. These counts establish
+evidence discoverability, not passing coverage or final-source validation.
+Next: fresh logical-tree, observation-cursor and highlight native exploration.
+
 Fresh `names-direct-after-01` and `names-standalone-after-01` on clean
 `a8ba007507fb81efbe6c48b62ad39fa29a11f3e7` pass the scoped #215 native charter.
 Each retains twelve public calls (seven MCP/five CLI), 126 independent checks,

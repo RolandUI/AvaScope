@@ -7,6 +7,21 @@ report**. The expanded campaign must attach an exact source/artifact identity,
 request/response, independent oracle and outcome to every applicable journey.
 Historical passing tests do not validate newly added scenes.
 
+Source/schema reconciliation on `1335a4c` confirms 75 MCP tools and 78 CLI
+commands (plus version flags). The retained `expanded-campaign/public-call-inventory.json`
+indexes 1657 explicit calls in 84 native/preview runs, with request/response
+hashes, integration/source and available oracle records. It finds 56 MCP tool
+names and 32 CLI command names; forty raw CLI payloads lack explicit argv and
+remain unclassified. Startup and scripted CI calls are excluded. Invocation
+counts and transport success are not coverage passes. Older persistent-client
+wrappers are included; the original filename-only scan missed them.
+
+Immediate explicit-request gaps include logical-tree, observation changes and
+highlight lifecycle; these are the next native comparison. Integration/startup,
+native picker, runtime diagnostics and artifact/viewer CLI boundaries still need
+reconciliation or fresh exploration. The matrix below remains the scope and
+oracle plan, with only the recorded journeys supporting scoped outcomes.
+
 | MCP tools | Fixture / positive and negative journey | Independent oracle / constraint |
 | --- | --- | --- |
 | `health`, `capabilities` | Isolated current stdio server; compare advertised versions and capabilities with built artifacts. | Assembly identity and tool schema inventory. |
