@@ -4,6 +4,18 @@ Status: **in progress**, 2026-09-25. Tracking issue [#166](https://github.com/Ro
 
 ## Current validation checkpoint
 
+#220 is the sole active investigation; #199's connection correction is pushed
+at `125b346a62b449c1ddb8db8615e40bb08eaeeb31` and review pending its own full
+CI `36237048712`. The previous exact `c079de6` full CI `36234263189` passes all
+six jobs. Downloaded evidence independently verifies Windows 1072 passes/eight
+skips, macOS 1070/nine, Linux 33, Windows native input 12/zero skips and nine
+owned native/expiry lifecycle runs at actual 1x. All 21 name/policy/masking
+regressions pass on each full test host. #215/#216/#217/#219 are now closed with
+all acceptance checked and board done/100. Inventory is 55 defects, 40 closed,
+including five defect-specific CI issues. This gate does not include the later
+#199 change and does not establish native Retina coverage or #218's original
+timing cause. Evidence: `expanded-campaign/ci-c079de6-verified-summary.json`.
+
 #199's initial native connection boundary now has a reproduced local correction.
 The original provider fails `ElementFromHandle` with native `UIA_E_TIMEOUT` in
 256.318 ms while the real Avalonia root response takes 756.958 ms. With identical
@@ -32,11 +44,11 @@ the 250 ms cap with persistent delays; `uia-delay-after-01` reaches the overall
 five-second deadline under continuous delays and is not a passing comparison.
 The final finite-burst before/after test isolates the initial connection boundary.
 Original CI machine conditions remain unproven; full candidate CI is pending.
-#199 is sole active. Separate #220 tracks the before-run exited-host stdout drain
+#199 is review. Active #220 tracks the before-run exited-host stdout drain
 timeout; #200's completed diagnostic cleanup fix preserves both errors and all
 cleanup phases correctly. This does not count another accessibility defect.
 
-#219 is review at `c079de6`; its complementary manual
+#219 is completed at `c079de6`; its complementary manual
 MCP-select/CLI-confirm Save retest is complete on that clean source: eight public
 calls, 72 independent checks, six reviewed native images and one actual native
 click. Requested `manual-save-árvíz.txt` appears in the dialog pixels and final
@@ -47,9 +59,18 @@ such; the final UIA observation succeeds. Evidence:
 `artifacts/agent-qa/native-picker-save-after-01/verified-summary.json`.
 
 Full CI `36234263189` completes all six jobs successfully on exact
-`c079de61cfbd303f69350aedcac4fad952da9a08`; final downloaded macOS evidence is being
-verified before closing #219 and the earlier pending fixes. This gate excludes
+`c079de61cfbd303f69350aedcac4fad952da9a08`; downloaded macOS and other platform
+evidence verifies #219 and the earlier fixes as recorded above. This gate excludes
 the later #199 connection change. No release is authorized by this checkpoint.
+
+The next #220 investigation has an isolated Windows/.NET 10.0.7 scheduling
+probe in `D:/AvaScope-QA-active/native-eof-220`. After its own child exits,
+four blocked probe-only workers leave both actual `ReadToEndAsync` results
+pending for 3027 ms (two queued work items); releasing the workers completes
+the streams. Dedicated reader threads capture both outputs under the same
+bound. This is a demonstrated possible scheduling boundary, not proof of the
+original native failure's machine state. No #220 capture code has changed yet;
+a durable isolated regression against the actual implementation follows.
 
 #219 now has a locally validated candidate: the filename is edited using
 `EM_SETSEL` plus `EM_REPLACESEL`, sharing one finite send deadline. A new real
@@ -59,7 +80,7 @@ then passed on the freshly packaged provider with `selected-save-árvíz.txt`
 three prepared-picker tests pass separately. Forty-four independent checks
 verify original/fixed result evidence, source/Core identities and all 35 provider
 files. Both builds have zero warnings/errors. The complementary manual retest
-is recorded above; the fresh full CI remains pending.
+and completed full CI are recorded above.
 
 Two separate unsuccessful local attempts remain retained: initial manifest
 discovery failed before reaching the picker with empty host logs (cause unknown),
