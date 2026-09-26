@@ -17,6 +17,112 @@ public sealed class AgentQaRuntimeFixtureTests
     [Theory]
     [InlineData(1120, 800)]
     [InlineData(680, 620)]
+    public async Task DocumentNavigationUsesRealActionsAndSeparatesContextRevisionResetAndPrivacy(int width, int height)
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "avascope-qa-navigation-" + Guid.NewGuid().ToString("N"));
+        var previous = Environment.GetEnvironmentVariable("AVASCOPE_QA_OUTPUT");
+        Environment.SetEnvironmentVariable("AVASCOPE_QA_OUTPUT", directory);
+        try
+        {
+            using var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessSmokeTests.BridgeHeadlessTestApplication));
+            await BridgeHeadlessSmokeTests.DispatchAsync(session, async () =>
+            {
+                AvaScopeBridge.Deactivate();
+                var runtime = AvaScopeBridge.Activate();
+                var window = new QaWindow { Width = width, Height = height }; window.Show();
+                try
+                {
+                    using var registration = runtime.RegisterTopLevel(window);
+                    var top = Assert.Single(await runtime.ListTopLevelsAsync());
+                    var client = new LocalBridgeClient(Path.GetDirectoryName(runtime.SessionManifestPath)!);
+                    window.FindControl<TabControl>("Pages")!.SelectedIndex = 8;
+                    Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
+                    using var frame = window.CaptureRenderedFrame(); Assert.NotNull(frame);
+                    Assert.True((await runtime.ReadinessAsync(top.Id, options: new(waitForFrame: true, timeoutMs: 5000))).Success);
+                    var view = window.FindControl<QaNavigationView>("NavigationFixture")!;
+                    var identity = Assert.Single((await runtime.FindNodesAsync(top.Id, TreeKinds.Visual,
+                        automationId: "qa-navigation-identity", maxDepth: 32)).Value!.Matches).Target!;
+                    async Task Invoke(string automationId)
+                    {
+                        var target = Assert.Single((await runtime.FindNodesAsync(top.Id, TreeKinds.Visual,
+                            automationId: automationId, maxDepth: 32)).Value!.Matches).Target!;
+                        var input = await client.InputAsync(runtime.SessionId, top.Id, InputActions.Invoke, inputTarget: target);
+                        Assert.True(input.Success && input.Value!.Handled, JsonSerializer.Serialize(input));
+                        Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
+                    }
+                    async Task<RuntimeNavigationResponse> Observe(RuntimeNavigationResponse? prior = null)
+                    {
+                        var result = await client.NavigationAsync(new(runtime.SessionId, prior is null ? "start" : "record",
+                            runId: prior?.RunId, identityTarget: identity, previousVisitId: prior?.CurrentVisitId,
+                            transition: prior is null ? null : new("Fixture action completed", "succeeded")));
+                        Assert.True(result.Success, JsonSerializer.Serialize(result));
+                        var visit = result.Value!.Visits[0];
+                        Assert.Equal(new RuntimeNavigationIdentity(view.Surface, view.Context, view.Revision), visit.Identity);
+                        Assert.Contains("hidden_state_unverified", visit.Equivalence);
+                        using var state = JsonDocument.Parse(File.ReadAllText(Path.Combine(directory, "qa-state.json")));
+                        var journal = state.RootElement.GetProperty("navigation");
+                        Assert.Equal(visit.Identity!.Context, journal.GetProperty("context").GetString());
+                        Assert.Equal(visit.Identity.Surface, journal.GetProperty("surface").GetString());
+                        Assert.Equal(visit.Identity.Revision, journal.GetProperty("revision").GetString());
+                        Assert.Contains(view.Context, window.FindControl<TextBlock>("NavigationContent")!.Text);
+                        Assert.Equal(0, state.RootElement.GetProperty("form").GetProperty("saves").GetInt32());
+                        return result.Value;
+                    }
+                    var run = await Observe(); var first = run.Visits[0];
+                    await Invoke("qa-navigation-details"); run = await Observe(run);
+                    Assert.Equal("details", view.Surface); Assert.Equal(first.Identity!.Revision, view.Revision);
+                    Assert.NotEqual(first.StateKey, run.Visits[0].StateKey);
+                    await Invoke("qa-navigation-overview"); run = await Observe(run);
+                    Assert.Equal(first.StateKey, run.Visits[0].StateKey);
+                    Assert.NotEqual(first.VisitId, run.Visits[0].VisitId);
+                    Assert.Contains(run.Loops, loop => loop.Length == 2 && loop.Confidence == "host_declared_and_sampled_revisit");
+                    await Invoke("qa-navigation-document"); run = await Observe(run);
+                    var documentB = run.Visits[0]; Assert.Equal("document-b", view.Context);
+                    Assert.NotEqual(first.StateKey, documentB.StateKey);
+                    await Invoke("qa-navigation-edit"); run = await Observe(run);
+                    var edited = run.Visits[0]; Assert.Equal(1, view.DocumentRevision);
+                    Assert.NotEqual(documentB.StateKey, edited.StateKey);
+                    await Invoke("qa-navigation-document"); run = await Observe(run);
+                    Assert.Equal(0, view.DocumentRevision); Assert.Equal(first.StateKey, run.Visits[0].StateKey);
+                    await Invoke("qa-navigation-document"); run = await Observe(run);
+                    Assert.Equal(1, view.DocumentRevision); Assert.Equal(edited.StateKey, run.Visits[0].StateKey);
+
+                    var policy = new RuntimeEvidencePolicy(directory, excludedControlAutomationIds: ["qa-navigation-identity"],
+                        authorizedSessionIds: [runtime.SessionId.Value], allowedActions: [SemanticWorkflowActions.Inspect]);
+                    var privateRun = await client.NavigationAsync(new(runtime.SessionId, "start", identityTarget: identity, policy: policy));
+                    Assert.True(privateRun.Success, JsonSerializer.Serialize(privateRun));
+                    Assert.Null(privateRun.Value!.Visits[0].Identity);
+                    Assert.Contains("identity_excluded_by_policy", privateRun.Value.Visits[0].Unavailable);
+                    Assert.Equal("navigation_policy_changed", (await client.NavigationAsync(new(runtime.SessionId,
+                        runId: privateRun.Value.RunId))).Error!.Code);
+
+                    var generation = view.Generation;
+                    await Invoke("qa-reset");
+                    Assert.Equal(generation + 1, view.Generation); Assert.Equal(0, view.DocumentRevision);
+                    Assert.Equal("overview", view.Surface); Assert.Equal("document-a", view.Context);
+                    window.FindControl<TabControl>("Pages")!.SelectedIndex = 8;
+                    Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
+                    identity = Assert.Single((await runtime.FindNodesAsync(top.Id, TreeKinds.Visual,
+                        automationId: "qa-navigation-identity", maxDepth: 32)).Value!.Matches).Target!;
+                    run = await Observe(run); Assert.NotEqual(first.StateKey, run.Visits[0].StateKey);
+                    Assert.NotEqual(first.Identity.Revision, run.Visits[0].Identity!.Revision);
+                    Assert.True((await client.NavigationAsync(new(runtime.SessionId, "clear", run.RunId))).Success);
+                    Assert.Equal("navigation_run_unavailable", (await client.NavigationAsync(new(runtime.SessionId, runId: run.RunId))).Error!.Code);
+                    Assert.True((await client.NavigationAsync(new(runtime.SessionId, "clear", privateRun.Value.RunId, policy: policy))).Success);
+                }
+                finally { window.Close(); AvaScopeBridge.Deactivate(); }
+            }, CancellationToken.None);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("AVASCOPE_QA_OUTPUT", previous);
+            if (Directory.Exists(directory)) Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Theory]
+    [InlineData(1120, 800)]
+    [InlineData(680, 620)]
     public async Task DrawnRecordsUseTransformedPointerCoordinatesAndDiagnosticsResetToCleanState(int width, int height)
     {
         var directory = Path.Combine(Path.GetTempPath(), "avascope-qa-scene-" + Guid.NewGuid().ToString("N"));

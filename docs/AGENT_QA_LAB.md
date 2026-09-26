@@ -157,6 +157,26 @@ requires rendered row nodes plus realized query cells, and retains a table image
 These checks establish a usable surface; the agent must still inspect the images
 and perform the table interaction charter.
 
+### Navigation fixture charter (#212)
+
+Navigation (tab 8) contains `qa-navigation-identity`, a scoped synthetic document
+view. Overview/Details change its surface; Switch document alternates document-a
+and document-b; Edit document increments only that document's revision. Reset
+restores both documents and increments the generation included in the revision.
+The `navigation` journal object and visible content independently expose these
+values. Selecting a page/document does not edit it. This declaration covers only
+these synthetic documents, not the rest of the app's form/table/hidden state.
+
+Direct implements `IAvaScopeDebugStateProvider` in the existing host-only source.
+Find a fresh `qa-navigation-identity` target and pass it to `navigation` start and
+record. Explore Overview → Details → Overview, document A → B → A, edits and
+reset; compare distinct visit IDs, equivalent state keys where applicable, ordered
+routes and loop confidence with the journal and pixels. Check stale-tip refusal,
+excluded identity/policy mismatch, clear and unchanged unrelated counters.
+Standalone keeps ordinary controls and journal but has no declaration: identity
+must remain unavailable, visits distinct and sampled candidates uncertain.
+Even declared matches retain the product's `hidden_state_unverified` limitation.
+
 ## Report and cadence
 
 For each case record: ID/charter, goal, integration/backend/scale, exact request/response files, expected state, actual journal delta, native/rendered image observations, passed/failed/blocked/skipped, elapsed time, retries, workaround and ticket. Original `edit_text`/`ensure_state` failures remain failed even when a different tool finishes the user's broader task. Reuse existing defect tickets when the failure matches; add a new ticket only with distinct reproducible behavior.

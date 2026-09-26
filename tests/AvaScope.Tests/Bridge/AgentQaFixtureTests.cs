@@ -144,7 +144,7 @@ public sealed class AgentQaFixtureTests
                         Assert.Equal(174, lookup.Value.Index);
                         Assert.Null(rows.SelectedItem);
                         var selected = await client.VirtualItemAsync(new RuntimeVirtualItemRequest(target, "Id", "QA-175", "select"));
-                        Assert.True(selected.Success, selected.Error?.Message);
+                        Assert.True(selected.Success, JsonSerializer.Serialize(selected));
                         Assert.True(selected.Value!.Rendered);
                         Assert.Same(seed[174], rows.SelectedItem);
                         Assert.Null(table.SelectedItem);
@@ -156,7 +156,7 @@ public sealed class AgentQaFixtureTests
                             Assert.Equal("QA-175", journal.RootElement.GetProperty("selectedRowKey").GetString());
                         }
                         var reveal = await client.VirtualItemAsync(new RuntimeVirtualItemRequest(target, "Id", "QA-001", "reveal"));
-                        Assert.True(reveal.Success, reveal.Error?.Message);
+                        Assert.True(reveal.Success, JsonSerializer.Serialize(reveal));
                         Assert.True(reveal.Value!.Rendered);
                         Assert.Same(seed[174], rows.SelectedItem);
                         table.CollectionView.SortDescriptions.Add(DataGridSortDescription.FromPath("Id", ListSortDirection.Descending));

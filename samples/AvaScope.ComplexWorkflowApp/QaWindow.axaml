@@ -283,6 +283,29 @@
             </StackPanel>
           </ScrollViewer>
         </TabItem>
+        <TabItem Header="Navigation" AutomationProperties.AutomationId="qa-navigation-tab">
+          <ScrollViewer>
+            <local:QaNavigationView x:Name="NavigationFixture" Margin="12"
+                                    AutomationProperties.Name="Synthetic document navigation"
+                                    AutomationProperties.AutomationId="qa-navigation-identity">
+              <StackPanel Spacing="14" MaxWidth="600" HorizontalAlignment="Left">
+                <TextBlock Text="Document navigation" FontSize="22" />
+                <TextBlock Text="Two synthetic documents keep independent revisions. Page changes preserve content; editing changes only the current document. Reset starts a new generation."
+                           TextWrapping="Wrap" />
+                <WrapPanel ItemSpacing="10" LineSpacing="8">
+                  <Button x:Name="NavigationOverview" Content="Overview" AutomationProperties.AutomationId="qa-navigation-overview" />
+                  <Button x:Name="NavigationDetails" Content="Details" AutomationProperties.AutomationId="qa-navigation-details" />
+                  <Button x:Name="NavigationDocument" Content="Switch document" AutomationProperties.AutomationId="qa-navigation-document" />
+                  <Button x:Name="NavigationEdit" Content="Edit document" AutomationProperties.AutomationId="qa-navigation-edit" />
+                </WrapPanel>
+                <TextBlock x:Name="NavigationStatus" TextWrapping="Wrap" AutomationProperties.AutomationId="qa-navigation-status" />
+                <Border BorderThickness="1" BorderBrush="#69BFFF" Padding="18">
+                  <TextBlock x:Name="NavigationContent" TextWrapping="Wrap" FontSize="18" AutomationProperties.AutomationId="qa-navigation-content" />
+                </Border>
+              </StackPanel>
+            </local:QaNavigationView>
+          </ScrollViewer>
+        </TabItem>
       </TabControl>
       <TextBlock Grid.Row="3" x:Name="StateSummary" TextWrapping="Wrap" FontFamily="monospace" FontSize="12"
                  AutomationProperties.AutomationId="qa-state-summary" />

@@ -6,6 +6,19 @@ using AvaScope.Protocol;
 
 namespace AvaScope.ComplexWorkflowApp;
 
+// Only the Direct host declares domain identity. The pure standalone host shares
+// the ordinary view/journal, but cannot claim this declaration through injection.
+public partial class QaNavigationView : IAvaScopeDebugStateProvider
+{
+    public IReadOnlyDictionary<string, string?> GetAvaScopeDebugState() =>
+        new Dictionary<string, string?>
+        {
+            ["navigation.surface"] = Surface,
+            ["navigation.context"] = Context,
+            ["navigation.revision"] = Revision
+        };
+}
+
 // Host-owned declarations stay outside the pure fixture shared with the standalone host.
 public static class QaRuntimeRegistration
 {

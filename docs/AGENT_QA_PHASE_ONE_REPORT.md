@@ -4,6 +4,32 @@ Status: **in progress**, 2026-09-25. Tracking issue [#166](https://github.com/Ro
 
 ## Current validation checkpoint
 
+#212 adds a scoped synthetic-document navigation view: Overview/Details, two
+independent document revisions, reset generation, ordinary controls/journal in
+shared source and Direct-only declared identity. Both viewport regressions and
+all 24 existing affected cases pass after an explicit rebuild (26 total, 19s).
+The first two runs remain retained: 24 passed/two stale agent-expectation failures;
+then 23 passed/those two failures plus one existing keyed-list selection deadline.
+Editing during compilation made the first output newer than the corrected source,
+so incremental compilation reused the stale assertion; forced rebuild corrects
+that verification error. #213 retains the separate list deadline with unknown
+cause, and its assertions now preserve full responses without relaxing deadlines.
+Fresh native Direct/standalone validation follows. Current inventory: 48 defects,
+32 closed; #212 sole active. No full passing gate or release is claimed.
+
+The full `16a44ac` gate `36193600154` subsequently finishes **failed**: Windows
+1018 passed/eight skipped, macOS 1015 passed/one failed/nine skipped, Linux 33
+passed and all nine native/expiry runs verified on exact clean source at 1x.
+All eight #211 diagnostic controls and thirteen #209/#210 regressions pass on
+both full-test platforms. The repeated common-state matrix failure now retains
+its real primary error: initial pointerover at (180,42) has no hit visual and
+`handled=false`; later pressed/selected+pointerover at those coordinates hit a
+TextBlock and pass. This narrows the unresolved first-frame/hit-test boundary
+without proving its cause. Full JSON/TRX/logs are retained in
+`matrix-diagnostics-01`; downstream macOS runtime/package gates were skipped.
+#209/#210/#211 stay review. #212 is now sole active for the scoped navigation
+fixture gap, and #174 is review. Inventory remains 47 defects/32 closed.
+
 Fresh `windows-standalone-01` on clean `b650ca1` (production `16a44ac`)
 completes 46 public calls, 30 MCP/16 CLI, with nine reviewed native images at
 Win32 1x. Its 32 window calls pass 126 checks: resize/stale/restore, independently

@@ -17,6 +17,45 @@ using Avalonia.Threading;
 
 namespace AvaScope.ComplexWorkflowApp;
 
+// This isolated domain has two synthetic documents. Switching pages/documents does
+// not edit them; reset advances the generation so old states cannot alias new data.
+public partial class QaNavigationView : UserControl
+{
+    private readonly int[] _revisions = [0, 0];
+    private int _document;
+    public string Surface { get; private set; } = "overview";
+    public string Context => _document == 0 ? "document-a" : "document-b";
+    public int Generation { get; private set; }
+    public int DocumentRevision => _revisions[_document];
+    public string Revision => FormattableString.Invariant($"{Generation}:{DocumentRevision}");
+    public event Action? Changed;
+
+    public void ShowDetails(bool details)
+    {
+        Surface = details ? "details" : "overview";
+        Changed?.Invoke();
+    }
+
+    public void SwitchDocument()
+    {
+        _document = 1 - _document;
+        Changed?.Invoke();
+    }
+
+    public void EditDocument()
+    {
+        _revisions[_document]++;
+        Changed?.Invoke();
+    }
+
+    public void Reset()
+    {
+        Generation++; _document = 0; Surface = "overview";
+        Array.Clear(_revisions);
+        Changed?.Invoke();
+    }
+}
+
 public sealed record QaSceneItem(string Id, string Label, Rect Bounds);
 
 public sealed class QaSceneControl : Control
@@ -287,6 +326,11 @@ public partial class QaWindow : Window
         };
         KeyboardNext.Click += (_, _) => { _focusActions++; Record("focus_action"); };
         RuntimeScene.Changed += () => Record("scene_changed");
+        NavigationFixture.Changed += () => Record("navigation_state_changed");
+        NavigationOverview.Click += (_, _) => NavigationFixture.ShowDetails(false);
+        NavigationDetails.Click += (_, _) => NavigationFixture.ShowDetails(true);
+        NavigationDocument.Click += (_, _) => NavigationFixture.SwitchDocument();
+        NavigationEdit.Click += (_, _) => NavigationFixture.EditDocument();
         MoveSceneButton.Click += (_, _) => RuntimeScene.Shift();
         StartOperationButton.Click += async (_, _) => await RunFixtureOperationAsync("complete", 8);
         FailOperationButton.Click += async (_, _) => await RunFixtureOperationAsync("fail", 8);
@@ -359,6 +403,7 @@ public partial class QaWindow : Window
             _capturedPointer?.Capture(null);
             KeyboardEditor.Text = "Keyboard seed — Árvíztűrő 😀";
             RuntimeScene.Reset();
+            NavigationFixture.Reset();
             _operationStarts = _operationCompletions = _operationFailures = _operationCancellations = 0;
             _operationState = "idle";
             _animationStarts = _animationStops = 0;
@@ -640,6 +685,10 @@ public partial class QaWindow : Window
         TableStatus.Text = $"selected={(RecordsTable.SelectedItem as QaRecord)?.Id ?? "none"}; edits={_tableEdits}";
         InputStatus.Text = $"menu={_menuActions}; context={_contextActions}; presses={_pointerPresses}; releases={_pointerReleases}; drags={_drags}; delta={_dragDelta}; keys={_keyDowns}; last={_lastKey ?? "none"}; focus actions={_focusActions}";
         SceneStatus.Text = $"selected={RuntimeScene.SelectedId ?? "none"}; revision={RuntimeScene.Revision}; selections={RuntimeScene.SelectionCount}";
+        NavigationStatus.Text = $"{NavigationFixture.Context} · {NavigationFixture.Surface} · revision {NavigationFixture.Revision}";
+        NavigationContent.Text = NavigationFixture.Surface == "details"
+            ? $"Details for {NavigationFixture.Context}: synthetic document revision {NavigationFixture.DocumentRevision}."
+            : $"Overview of {NavigationFixture.Context}: synthetic document revision {NavigationFixture.DocumentRevision}.";
         if (string.IsNullOrWhiteSpace(_outputDirectory)) return;
         if (!_closed) _screenBounds = Screens.ScreenFromWindow(this)?.Bounds;
         Directory.CreateDirectory(_outputDirectory);
@@ -652,6 +701,9 @@ public partial class QaWindow : Window
             displayName = Bound(_editor.Text), textChanges = _textChanges, notes = Bound(NotesEditor.Text),
             lowercaseCount = _lowercaseCount, uppercaseCount = _uppercaseCount, templateCount = _templateCount,
             selectedPage = Pages.SelectedIndex, selectedRow = Rows.SelectedIndex, rowCount = Rows.ItemCount,
+            navigation = new { surface = NavigationFixture.Surface, context = NavigationFixture.Context,
+                revision = NavigationFixture.Revision, generation = NavigationFixture.Generation,
+                documentRevision = NavigationFixture.DocumentRevision },
             selectedRowKey = (Rows.SelectedItem as QaRecord)?.Id,
             loadStatus = LoadStatus.Text, childWindows = _children.Count, popupOpen = QaPopup.IsOpen,
             form = new { name = Bound(FormName.Text), email = Bound(FormEmail.Text), role = FormRole.SelectedItem,
