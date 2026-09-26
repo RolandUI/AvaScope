@@ -203,9 +203,11 @@ public sealed class AgentQaFixtureTests
     }
 
     [Theory]
-    [InlineData(1028, 749)]
-    [InlineData(680, 620)]
-    public async Task ContentStaysWithinObservedClientAfterReset(int width, int height)
+    [InlineData(1028, 749, false)]
+    [InlineData(680, 620, false)]
+    [InlineData(1028, 749, true)]
+    [InlineData(680, 620, true)]
+    public async Task ContentStaysWithinObservedClientAfterReset(int width, int height, bool renderHiddenReset)
     {
         using var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessSmokeTests.BridgeHeadlessTestApplication));
         await BridgeHeadlessSmokeTests.DispatchAsync(session, () =>
@@ -219,19 +221,45 @@ public sealed class AgentQaFixtureTests
                     window.ResetState();
                     window.Width = width; window.Height = height;
                     window.FindControl<TabControl>("Pages")!.SelectedIndex = 5;
-                    Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
+                    var reset = window.FindControl<Button>("ResetButton")!;
+                    if (renderHiddenReset)
+                    {
+                        // Retain a real scene without Reset while layout makes it visible.
+                        reset.IsVisible = false;
+                        using var previousFrame = window.CaptureRenderedFrame();
+                        Assert.NotNull(previousFrame);
+                        reset.IsVisible = true;
+                    }
+                    else Dispatcher.UIThread.RunJobs();
+                    window.UpdateLayout();
                     // Reproduce the native failure boundary: content is arranged at the
                     // requested 1120x800 while the actual client remains clamped.
                     var content = Assert.IsAssignableFrom<Control>(window.Content);
                     content.Measure(new Size(1120, 800));
                     content.Arrange(new Rect(0, 0, 1120, 800));
-                    var reset = window.FindControl<Button>("ResetButton")!;
                     var origin = reset.TranslatePoint(default, window)!.Value;
                     Assert.True(origin.X + reset.Bounds.Width <= window.ClientSize.Width,
                         $"Reset exceeds client at {width}, cycle {cycle}: {origin} + {reset.Bounds.Size}; client {window.ClientSize}.");
-                    var hit = window.GetVisualAt(origin + new Vector(reset.Bounds.Width / 2, reset.Bounds.Height / 2));
-                    Assert.True(hit == reset || hit?.GetVisualAncestors().Contains(reset) == true);
+                    // GetVisualAt reads the rendered scene, not just the current layout.
+                    // Keep the forced-arrangement assertion above so rendering cannot hide overflow.
+                    var resetBounds = reset.Bounds;
+                    var contentBounds = content.Bounds;
+                    using var frame = window.CaptureRenderedFrame();
+                    Assert.NotNull(frame);
+                    Assert.Equal(new Size(width, height), window.ClientSize);
+                    Assert.Equal(PixelSize.FromSize(window.ClientSize, window.RenderScaling), frame.PixelSize);
+                    Assert.Equal(contentBounds, content.Bounds);
+                    Assert.Equal(resetBounds, reset.Bounds);
+                    Assert.Equal(origin, reset.TranslatePoint(default, window)!.Value);
+                    var point = origin + new Vector(reset.Bounds.Width / 2, reset.Bounds.Height / 2);
+                    var hit = window.GetVisualAt(point);
+                    Assert.True(hit == reset || hit?.GetVisualAncestors().Contains(reset) == true,
+                        $"Reset hit failed at {width}x{height}, cycle {cycle}, hidden previous frame {renderHiddenReset}: " +
+                        $"origin {origin}, bounds {reset.Bounds}, client {window.ClientSize}, hit {hit?.GetType().Name ?? "null"}#{(hit as Control)?.Name}.");
                     Assert.NotEmpty(window.FindControl<DataGrid>("RecordsTable")!.GetVisualDescendants().OfType<DataGridRow>());
+                    window.MouseDown(point, MouseButton.Left);
+                    window.MouseUp(point, MouseButton.Left);
+                    Assert.Equal(0, window.FindControl<TabControl>("Pages")!.SelectedIndex);
                 }
             }
             finally { window.Close(); }
