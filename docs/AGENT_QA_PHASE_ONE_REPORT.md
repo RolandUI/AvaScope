@@ -4,6 +4,26 @@ Status: **in progress**, 2026-09-25. Tracking issue [#166](https://github.com/Ro
 
 ## Current validation checkpoint
 
+Fresh `audit-direct-after-01` and `audit-standalone-after-01` on clean `de733c7`
+each pass the selected #214 coverage/validation charter: 25 public calls (16 MCP,
+nine CLI), 179 independent checks, four reviewed native images and 31 pinned
+binaries. Full available visual/logical trees expose the real validation error;
+requested shallow trees remain explicitly partial, the valid deep design scope
+resolves, actually missing scope differs from unavailable scope, report limits
+remain separate from source coverage, and reset clears the validation/layout
+errors. All 50 original clients and owned apps 16504/17444 are absent. Native
+scope is Win32 1x. Exact `de733c7` full CI 36222349163 continues; #214 is review
+until that gate completes.
+
+This is not a passing whole accessibility audit: the recovered tree exposes a
+separate #215 defect. All nine named QA TabItems receive false missing-name
+findings in six public Direct/standalone audits. The independently captured
+Windows UIA tree contains all nine correct names with matching automation ids.
+`audit-coverage-01/verify-accessible-name-before.py` verifies the discrepancy;
+the original requests, full trees, native accessibility JSON and images remain
+intact. #215 is now sole active for public automation-peer name semantics,
+with #174/#214 review. Inventory: 50 defects/35 closed; no release.
+
 #214's local candidate preserves source truncation separately from report limits,
 verifies bounded full evidence before consuming it, distinguishes incomplete
 scope evidence from true absence and includes validation errors on noninteractive

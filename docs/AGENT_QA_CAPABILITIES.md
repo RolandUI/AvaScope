@@ -57,7 +57,7 @@ Exact calls, journals, images, limitations and cleanup are described in
 
 | Family | Native Direct | Native standalone | Remaining boundary |
 | --- | --- | --- | --- |
-| UI/design audit coverage | `audit-direct-01`, 69f6590: 21 public calls, 90 evidence checks, four viewed images and owned cleanup. Actual validation/clipping and full 195-node tree expose false complete/clean summaries and lost deep scopes (#214). | Pending native correction comparison. | #214 candidate passes 41 affected local tests, including both public transports, verified full evidence, explicit partial coverage and real noninteractive validation. Original failures retained; fresh native comparison/full gate still required before this family passes. |
+| UI/design audit coverage | Original `audit-direct-01` retains #214; corrected `audit-direct-after-01`, de733c7: 25 calls/179 checks/four viewed images. | `audit-standalone-after-01`, same source: 25 calls/179 checks/four viewed images, pure host/verified provider. | #214 source/report limits, validation, scope absence/unavailability, reset, 31 binaries and all owned cleanup pass; 41 local tests pass, full de733c7 gate pending. Separate #215 false TabItem name findings disagree with independent native UIA; whole accessibility family remains incomplete. |
 | Forms | `capabilities-direct-01`, 3b82d1d: 23 MCP/nine CLI, 29 passing checks; three classified agent mistakes. | `capabilities-standalone-01` SF001-SF019, 483fedb: 13 MCP/six CLI, 13 passing checks. | ComboBox inventory is partial; separate popup selection passed only in Direct. |
 | Tables | `capabilities-direct-table-01`, e3cf363: 29 MCP/11 CLI, 26 passing checks; independent images, source and cleanup. | Same standalone run T001-T051: 37 MCP/12 CLI, 27 passing checks; three classified agent mistakes. | Read/filter/page/edit/sort/privacy/draft recovery/reset/stale/replay are covered at Win32 1x; column replacement, duplicate-key fixtures and other backends are not claimed here. |
 | Mutation ordering | `mutation-order-direct-after-01`, 5d0df14: 21 MCP/15 CLI, 13 passing checks and one retained agent mistake. | `mutation-order-standalone-after-01`, 5d0df14: 16 MCP/12 CLI, 11 passing checks. | #194 fix: unsafe order, actual tree aliases, individual/reset_all restoration, class/resource independence, values/counters/pixels and cleanup. Native resource values use response/registry evidence; independent resource-value assertions are headless. Broader mutation-evidence/HTML review remains incomplete. |
@@ -141,6 +141,11 @@ Direct calls retain an agent depth-limit mistake and invalid caller-reported
 transition; that history was cleared and excluded from the corrected evidence.
 All 65 original clients and both apps are absent. Twenty-six affected tests pass;
 the complete hosted gate remains pending behind #211, so #212 stays review.
+
+Subsequent exact f2ab747 CI 36219846271 passes all six jobs: independently verified
+Windows 1021/eight skips, macOS 1019/nine, Linux 33 and six native/three expiry
+runs at actual 1x. #209/#210/#211/#212 are closed after their full acceptance;
+earlier pending/failing statements above describe retained historical stages.
 
 The separate `preview-campaign-01` journey on clean `0658716` uses Windows
 headless Skia / Avalonia 12.1.3: 22 MCP/six CLI calls, 17 positive checks, nine
