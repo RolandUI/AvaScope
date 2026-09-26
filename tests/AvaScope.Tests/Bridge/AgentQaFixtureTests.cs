@@ -203,11 +203,13 @@ public sealed class AgentQaFixtureTests
     }
 
     [Theory]
-    [InlineData(1028, 749, false)]
-    [InlineData(680, 620, false)]
-    [InlineData(1028, 749, true)]
-    [InlineData(680, 620, true)]
-    public async Task ContentStaysWithinObservedClientAfterReset(int width, int height, bool renderHiddenReset)
+    [InlineData(1028, 749, false, false)]
+    [InlineData(680, 620, false, false)]
+    [InlineData(1028, 749, true, false)]
+    [InlineData(680, 620, true, false)]
+    [InlineData(1028, 749, false, true)]
+    [InlineData(680, 620, true, true)]
+    public async Task ContentStaysWithinObservedClientAfterReset(int width, int height, bool renderHiddenReset, bool completePressTransform)
     {
         using var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessSmokeTests.BridgeHeadlessTestApplication));
         await BridgeHeadlessSmokeTests.DispatchAsync(session, () =>
@@ -237,6 +239,13 @@ public sealed class AgentQaFixtureTests
                     var content = Assert.IsAssignableFrom<Control>(window.Content);
                     content.Measure(new Size(1120, 800));
                     content.Arrange(new Rect(0, 0, 1120, 800));
+                    // Complete the Fluent pressed scale during frame preparation without
+                    // wall-clock timing or private animation-clock access.
+                    using var pressedTransform = completePressTransform
+                        ? reset.SetValue(Visual.RenderTransformProperty, new ScaleTransform(0.98, 0.98), BindingPriority.Animation)
+                        : null;
+                    if (completePressTransform)
+                        Dispatcher.UIThread.Post(() => pressedTransform!.Dispose(), DispatcherPriority.Send);
                     var origin = reset.TranslatePoint(default, window)!.Value;
                     Assert.True(origin.X + reset.Bounds.Width <= window.ClientSize.Width,
                         $"Reset exceeds client at {width}, cycle {cycle}: {origin} + {reset.Bounds.Size}; client {window.ClientSize}.");
@@ -250,12 +259,19 @@ public sealed class AgentQaFixtureTests
                     Assert.Equal(PixelSize.FromSize(window.ClientSize, window.RenderScaling), frame.PixelSize);
                     Assert.Equal(contentBounds, content.Bounds);
                     Assert.Equal(resetBounds, reset.Bounds);
-                    Assert.Equal(origin, reset.TranslatePoint(default, window)!.Value);
-                    var point = origin + new Vector(reset.Bounds.Width / 2, reset.Bounds.Height / 2);
+                    // Fluent's pressed transform can finish while capturing the frame even
+                    // when layout is unchanged. Validate its current extent and hit point.
+                    var renderedBounds = new Rect(reset.Bounds.Size).TransformToAABB(reset.TransformToVisual(window)!.Value);
+                    Assert.True(new Rect(window.ClientSize).Contains(renderedBounds),
+                        $"Rendered Reset exceeds client at {width}x{height}, cycle {cycle}: {renderedBounds}; client {window.ClientSize}.");
+                    if (completePressTransform)
+                        Assert.NotEqual(origin, reset.TranslatePoint(default, window)!.Value);
+                    var point = reset.TranslatePoint(new Point(reset.Bounds.Width / 2, reset.Bounds.Height / 2), window)!.Value;
                     var hit = window.GetVisualAt(point);
                     Assert.True(hit == reset || hit?.GetVisualAncestors().Contains(reset) == true,
                         $"Reset hit failed at {width}x{height}, cycle {cycle}, hidden previous frame {renderHiddenReset}: " +
-                        $"origin {origin}, bounds {reset.Bounds}, client {window.ClientSize}, hit {hit?.GetType().Name ?? "null"}#{(hit as Control)?.Name}.");
+                        $"prior origin {origin}, rendered bounds {renderedBounds}, point {point}, client {window.ClientSize}, " +
+                        $"hit {hit?.GetType().Name ?? "null"}#{(hit as Control)?.Name}.");
                     Assert.NotEmpty(window.FindControl<DataGrid>("RecordsTable")!.GetVisualDescendants().OfType<DataGridRow>());
                     window.MouseDown(point, MouseButton.Left);
                     window.MouseUp(point, MouseButton.Left);
