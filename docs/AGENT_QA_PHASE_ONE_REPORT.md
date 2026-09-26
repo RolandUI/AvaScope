@@ -4,9 +4,68 @@ Status: **in progress**, 2026-09-25. Tracking issue [#166](https://github.com/Ro
 
 ## Current validation checkpoint
 
-#174 is the sole active issue. #218 is review with diagnostic hardening at
-`b377fb5`; full combined CI `36230336282` runs on that exact source and includes
-#217. Fresh `inspection-standalone-01` completes 46 public calls (30 MCP/16 CLI),
+#219 now has a locally validated candidate: the filename is edited using
+`EM_SETSEL` plus `EM_REPLACESEL`, sharing one finite send deadline. A new real
+CLI-select/MCP-confirm regression first reproduced the suggested-name mismatch,
+then passed on the freshly packaged provider with `selected-save-árvíz.txt`
+(77 seconds). Open/cancel and the earlier native input controls also pass;
+three prepared-picker tests pass separately. Forty-four independent checks
+verify original/fixed result evidence, source/Core identities and all 35 provider
+files. Both builds have zero warnings/errors. Complementary manual native
+retest and fresh full CI remain required, so #219 stays active.
+
+Two separate unsuccessful local attempts remain retained: initial manifest
+discovery failed before reaching the picker with empty host logs (cause unknown),
+and a candidate run accidentally selected the old immutable provider. The latter
+did not execute the changed code. The corrected runner verifies the app-loaded
+provider path and Core hash; neither unsuccessful attempt is relabeled passed.
+Evidence: `D:/AvaScope-QA-active/save-picker-219`, including the before/after TRX,
+application observations, source/provider identities and `verified-regression.json`.
+
+The change uses documented [EM_SETSEL](https://learn.microsoft.com/en-us/windows/win32/controls/em-setsel)
+and [EM_REPLACESEL](https://learn.microsoft.com/en-us/windows/win32/controls/em-replacesel)
+messages through bounded `SendMessageTimeout`; confirmation and ownership rules
+remain in their existing paths. Native evidence establishes that repainting via
+WM_SETTEXT alone did not replace this Save dialog's stored suggestion.
+
+#219 is now the sole active issue; #174 is review. The standalone native picker
+round on pinned `b377fb5` completed 24 public calls (18 MCP/six CLI), 113
+independent checks, twelve viewed native images and five actual native clicks.
+Open/cancel, correlated one-shot consumption, expiry and path redaction pass.
+Save exposes a confirmed defect: the real dialog visibly receives
+`synthetic-output.txt` and the adapters report selected/confirmed, but the app
+receives its original `native-save.txt` suggestion. Original responses and
+independent UIA/pixels are retained in `native-picker-standalone-02`; this charter
+is not passed. Explicit owned close terminated app 10140; all 24 clients are
+independently absent. The requested 900000ms host lifetime exceeded the fixture's
+supported 120000ms maximum and armed no timer; this agent configuration error
+does not support an automatic-expiry claim. Inventory: 54 defects, 36 closed.
+
+Full `b377fb5` CI `36230336282` is terminal failed at existing #199. New retained
+UIA diagnostics identify native `ElementFromHandle` HRESULT `0x80131505` after
+913.521ms, with a 5000ms query and 250ms provider connection/transaction bounds;
+the original cause is still unproven. All three separate native lab jobs pass;
+full downstream Linux/macOS jobs were skipped. #218's diagnostic addition has
+therefore not yet run through this full macOS gate. #219 begins with a native
+regression asserting the final Save result before any production correction.
+
+Downloaded CI artifacts independently verify 1072 Windows passes/eight skips,
+all eight incomplete-sensitive-screenshot cases, eleven native-input passes/one
+#199 failure, nine native/expiry lifecycle runs at 1x and all three scripted
+lifecycle summaries with owned cleanup. These are scoped results, not a passing
+full gate or Retina validation.
+
+Storage housekeeping completed: 22 stopped historical QA roots (41.09 GiB) were
+copied to `D:/AvaScope-QA-archive/20260926` and checked file by file with SHA-256
+before replacing each original path with a junction. Final manifest/path
+readback passes and the archive worker exited. Current evidence remains readable
+at its original paths; new bulky #219 build output uses
+`D:/AvaScope-QA-active/save-picker-219`.
+
+The preceding inspection checkpoint remains scoped evidence:
+
+#218 is review with diagnostic hardening at `b377fb5`, which includes #217.
+Fresh `inspection-standalone-01` completes 46 public calls (30 MCP/16 CLI),
 276 independent checks, sixteen viewed native/two rendered images and eight
 native clicks. Logical trees, Unicode and ordered paged deltas, unchanged and
 resync/expiry/privacy responses, visible highlights and explicit/frame cleanup

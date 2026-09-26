@@ -9,7 +9,8 @@ namespace AvaScope.Core;
 
 internal static class NativePickerAutomation
 {
-    private const uint WmSetText = 0x000C;
+    private const uint EmSetSel = 0x00B1;
+    private const uint EmReplaceSel = 0x00C2;
     private const uint WmCommand = 0x0111;
     private const uint SmtoAbortIfHung = 0x0002;
     private const uint GwOwner = 4;
@@ -493,13 +494,23 @@ internal static class NativePickerAutomation
 
     private static bool TrySendText(IntPtr window, string text, int timeoutMs)
     {
-        return SendMessageTimeout(
+        // Replacing the selection lets the common dialog observe the edit. WM_SETTEXT
+        // can repaint its filename field without replacing the stored Save suggestion.
+        var deadline = Environment.TickCount64 + Math.Max(timeoutMs, 1);
+        if (SendMessageTimeout(window, EmSetSel, IntPtr.Zero, new IntPtr(-1),
+            SmtoAbortIfHung, (uint)Math.Max(timeoutMs, 1), out _) == IntPtr.Zero)
+        {
+            return false;
+        }
+
+        var remaining = deadline - Environment.TickCount64;
+        return remaining > 0 && SendMessageTimeout(
             window,
-            WmSetText,
-            IntPtr.Zero,
+            EmReplaceSel,
+            new IntPtr(1),
             text,
             SmtoAbortIfHung,
-            (uint)Math.Max(timeoutMs, 1),
+            (uint)remaining,
             out _) != IntPtr.Zero;
     }
 
@@ -530,6 +541,14 @@ internal static class NativePickerAutomation
     [DllImport("user32.dll")] private static extern IntPtr GetWindow(IntPtr window, uint command);
     [DllImport("user32.dll")] private static extern IntPtr GetDlgItem(IntPtr dialog, int controlId);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int GetClassName(IntPtr window, StringBuilder className, int maximumCount);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern IntPtr SendMessageTimeout(
+        IntPtr window,
+        uint message,
+        IntPtr wParam,
+        IntPtr lParam,
+        uint flags,
+        uint timeout,
+        out IntPtr result);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern IntPtr SendMessageTimeout(
         IntPtr window,
         uint message,

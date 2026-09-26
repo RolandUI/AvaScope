@@ -333,9 +333,38 @@ public sealed class NativeInputIntegrationTests
                 await WaitText("PickerState", "selected:" + Path.GetFileName(selectedPath));
             }
 
+            if (backend == "win32")
+            {
+                // The requested name must replace the Save dialog's native-save.txt suggestion.
+                var savePath = Path.Combine(output, "selected-save-árvíz.txt");
+                Assert.False(File.Exists(savePath));
+                await Invoke("SaveFilePicker");
+                Assert.True((await Picker("detect", evidencePrefix: "save-")).DialogDetected);
+                var saveStart = new ProcessStartInfo("dotnet") { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
+                foreach (var argument in new[] { Path.Combine(AppContext.BaseDirectory, "avascope.dll"), "native-picker", "--session", sessionId.Value,
+                    "--operation", "select_path", "--path", savePath, "--timeout-ms", "3000" }) saveStart.ArgumentList.Add(argument);
+                using (var cli = Process.Start(saveStart)!)
+                {
+                    var resultText = cli.StandardOutput.ReadToEndAsync(token); var errorText = cli.StandardError.ReadToEndAsync(token);
+                    await cli.WaitForExitAsync(token);
+                    var json = await resultText;
+                    await File.WriteAllTextAsync(Path.Combine(output, "cli-save-select.json"), json, token);
+                    var result = JsonSerializer.Deserialize<ToolResult<NativePickerResponse>>(json)!;
+                    Assert.True(result.Success, json + await errorText); Assert.Equal(0, cli.ExitCode);
+                    Assert.Equal("path_selected", result.Value!.Status); Assert.True(result.Value.PathRedacted);
+                    Assert.Equal("<redacted>" + Path.DirectorySeparatorChar + Path.GetFileName(savePath), result.Value.SelectedPath);
+                }
+                Assert.Equal("confirmed", (await Picker("confirm", evidencePrefix: "save-")).Status);
+                var saved = await Node("PickerState");
+                await File.WriteAllTextAsync(Path.Combine(output, "save-result-initial.json"), JsonSerializer.Serialize(saved), token);
+                await WaitText("PickerState", "selected:" + Path.GetFileName(savePath));
+                await File.WriteAllTextAsync(Path.Combine(output, "save-result-final.json"), JsonSerializer.Serialize(await Node("PickerState")), token);
+            }
+
             await File.WriteAllTextAsync(Path.Combine(output, "validation.json"), JsonSerializer.Serialize(new
             {
                 status = "passed", backend, nativeInputRoute = route, nativeDialog = backend == "x11" ? "gtk3" : backend,
+                saveSuggestedNameReplacement = backend == "win32" ? "passed" : "not_applicable",
                 checks = new[] { "rejected native precondition without dispatch", "accepted native precondition evidence", "CLI right double modifier click", "MCP middle triple click",
                     backend == "macos" ? "native drag refused before dispatch; explicit synthetic drag" : "bounded native drag",
                     backend == "macos" ? "interrupted native click cleanup" : "interrupted native drag cleanup",
@@ -354,6 +383,8 @@ public sealed class NativeInputIntegrationTests
                     if (actual == expected) return;
                     await Task.Delay(30, token);
                 }
+                await File.WriteAllTextAsync(Path.Combine(output, "failed-text-observation.json"),
+                    JsonSerializer.Serialize(new { name, expected, actual }), token);
                 Assert.Equal(expected, actual);
             }
             async Task Invoke(string name)
@@ -362,14 +393,14 @@ public sealed class NativeInputIntegrationTests
                 var invoked = await client.InputAsync(sessionId, top.Id, InputActions.Invoke, targetNodeId: node.NodeId, cancellationToken: token);
                 Assert.True(invoked.Success, invoked.Error?.Message);
             }
-            async Task<NativePickerResponse> Picker(string operation, string? path = null)
+            async Task<NativePickerResponse> Picker(string operation, string? path = null, string evidencePrefix = "")
             {
                 var call = await mcp.CallToolAsync("native_picker", new Dictionary<string, object?>
                 {
                     ["sessionId"] = sessionId.Value, ["topLevelId"] = top.Id, ["operation"] = operation, ["path"] = path, ["timeoutMs"] = 3000
                 }, cancellationToken: token);
                 var result = JsonSerializer.Deserialize<ToolResult<NativePickerResponse>>(JsonSerializer.Serialize(call.StructuredContent))!;
-                await File.WriteAllTextAsync(Path.Combine(output, "picker-" + operation + ".json"), JsonSerializer.Serialize(result), token);
+                await File.WriteAllTextAsync(Path.Combine(output, evidencePrefix + "picker-" + operation + ".json"), JsonSerializer.Serialize(result), token);
                 Assert.True(result.Success, result.Error?.Message);
                 Assert.NotEqual("app_predefined_result", result.Value!.Route);
                 return result.Value;

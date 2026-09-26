@@ -16,11 +16,19 @@ remain unclassified. Startup and scripted CI calls are excluded. Invocation
 counts and transport success are not coverage passes. Older persistent-client
 wrappers are included; the original filename-only scan missed them.
 
-Immediate explicit-request gaps include logical-tree, observation changes and
-highlight lifecycle; these are the next native comparison. Integration/startup,
-native picker, runtime diagnostics and artifact/viewer CLI boundaries still need
-reconciliation or fresh exploration. The matrix below remains the scope and
-oracle plan, with only the recorded journeys supporting scoped outcomes.
+The later retained scan covers 1796 explicit calls in 90 roots (60 MCP tool and
+36 CLI command names, forty raw CLI payloads still unclassified). It excludes
+startup and newer snapshot-reuse wrappers, so its missing-name list is not an
+untested-capability list. Logical-tree, observation changes and highlight
+lifecycle now have Direct/standalone evidence; the standalone active-overlay
+click remains unproved because actual input followed expiry.
+
+`native-picker-standalone-02` separately adds 24 explicit calls (18 MCP/six CLI),
+113 independent checks and twelve viewed native images with owned cleanup.
+Open/cancel/one-shot/expiry controls pass; changed Save filename fails and is
+tracked in #219. Integration/startup, runtime diagnostics and artifact/viewer CLI
+boundaries still need reconciliation or fresh exploration. The matrix below
+remains the scope and oracle plan; only recorded journeys support scoped results.
 
 | MCP tools | Fixture / positive and negative journey | Independent oracle / constraint |
 | --- | --- | --- |
