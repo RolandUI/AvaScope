@@ -23,6 +23,13 @@ Required target/version/configuration review takes precedence over the
 and no duplicate snippets are proposed; an activation call does not establish
 that the selected target or diagnostics configuration is supported.
 
+Loader declarations alone are excluded from activation sites, including local
+functions and bodyless members. The bounded recognizer distinguishes a method
+body or return-type header from an invocation; it preserves invocation line and
+file hashes. This follows the [C# method declaration forms](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/language-specification/classes#156-methods)
+without adding a compiler dependency or claiming semantic/reachability analysis.
+Use `verify-integration` to establish that a reported call actually runs.
+
 The `EnableUiInspection` property is host-owned and unset by default. Package guidance guards both the reference and call; standalone guidance guards the loader call and excludes its copied helper from normal compilation. Existing references require a reviewed migration before claiming dependency-free production output. Run the integration verification after applying a chosen mode, including its independent disabled-build lane.
 
 Run `avascope verify-integration --request integration.json` or MCP `verify_integration(request)` to exercise the selected host. A minimal enabled request is:

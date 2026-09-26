@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using System.Text.Json;
 using AvaScope.Core;
 using AvaScope.Mcp;
@@ -64,6 +65,65 @@ public sealed class BridgeIntegrationAdvisorTests : IDisposable
         Assert.Equal("already_integrated", guide.Status);
         Assert.Single(guide.ExistingIntegration);
         Assert.Empty(guide.Guidance);
+    }
+
+    [Theory]
+    [InlineData("class Loader { private static void LoadOptionalProvider() { } }")]
+    [InlineData("class Loader { object LoadOptionalProvider() => null; }")]
+    [InlineData("class Loader { void Initialize() { void LoadOptionalProvider() { } } }")]
+    [InlineData("abstract class Loader { public abstract object LoadOptionalProvider(); }")]
+    [InlineData("interface Loader { object LoadOptionalProvider(); }")]
+    [InlineData("delegate void LoadOptionalProvider();")]
+    [InlineData("interface Loader { System.Threading.Tasks.Task<object> LoadOptionalProvider(); }")]
+    [InlineData("interface Loader { (object Provider, bool Success) LoadOptionalProvider(); }")]
+    [InlineData("interface Loader { object[]? LoadOptionalProvider(); }")]
+    [InlineData("interface Loader { [System.Obsolete] object LoadOptionalProvider(); }")]
+    [InlineData("interface Loader {\n#if ENABLE_UI_INSPECTION\nobject LoadOptionalProvider();\n#endif\n}")]
+    [InlineData("class Loader { void LoadOptionalProvider(int value = (1 + 2)) { } }")]
+    [InlineData("class Loader { private static\nvoid\nLoadOptionalProvider\n(\n)\n{ } }")]
+    [InlineData("// LoadOptionalProvider();\n/* LoadOptionalProvider(); */\nclass Loader { string Example = \"LoadOptionalProvider();\"; }")]
+    public void UncalledLoaderDeclarationsDoNotSuppressGuidance(string declaration)
+    {
+        var path = Path.Combine(_root, "Loader.cs");
+        File.WriteAllText(path, declaration);
+        var before = Directory.GetFiles(_root).ToDictionary(file => file, File.ReadAllText);
+        var result = BridgeIntegrationAdvisor.Analyze(ProjectPath);
+        Assert.True(result.Success, result.Error?.Message);
+        var guide = result.Value!;
+        Assert.Equal("guidance_available", guide.Status);
+        Assert.Empty(guide.ExistingIntegration);
+        Assert.Equal(4, guide.Guidance.Count);
+        Assert.Equal(JsonSerializer.Serialize(guide), JsonSerializer.Serialize(AvaScopeMcpTools.IntegrationGuide(ProjectPath).Value));
+        foreach (var (file, content) in before) Assert.Equal(content, File.ReadAllText(file));
+        Assert.Equal(before.Count, Directory.GetFiles(_root).Length);
+    }
+
+    [Theory]
+    [InlineData("LoadOptionalProvider();")]
+    [InlineData("return LoadOptionalProvider();")]
+    [InlineData("await LoadOptionalProvider();")]
+    [InlineData("var provider = LoadOptionalProvider();")]
+    [InlineData("this.LoadOptionalProvider();")]
+    [InlineData("System.Func<object> factory = () => LoadOptionalProvider();")]
+    [InlineData("Use(LoadOptionalProvider());")]
+    [InlineData("if (LoadOptionalProvider() is not null) { }")]
+    [InlineData("if (enabled) { } else LoadOptionalProvider();")]
+    [InlineData("do LoadOptionalProvider(); while (enabled);")]
+    public void RealLoaderInvocationRetainsExactLocationWithoutCountingDeclaration(string call)
+    {
+        var path = Path.Combine(_root, "Loader.cs");
+        var source = "class Loader\n{\n    object LoadOptionalProvider() => null;\n    object Initialize()\n    {\n        " + call + "\n    }\n}";
+        File.WriteAllText(path, source);
+        var result = BridgeIntegrationAdvisor.Analyze(ProjectPath);
+        Assert.True(result.Success, result.Error?.Message);
+        var guide = result.Value!;
+        Assert.Equal("already_integrated", guide.Status);
+        Assert.Empty(guide.Guidance);
+        var location = Assert.Single(guide.ExistingIntegration);
+        Assert.Equal(path, location.Path);
+        Assert.Equal(6, location.Line);
+        Assert.Equal(Convert.ToHexStringLower(SHA256.HashData(File.ReadAllBytes(path))), location.Sha256);
+        Assert.Equal(source, File.ReadAllText(path));
     }
 
     [Fact]

@@ -112,7 +112,7 @@ public static class BridgeIntegrationAdvisor
                 var code = Regex.Replace(source, "//[^\r\n]*|/\\*[\\s\\S]*?\\*/|\"(?:\\\\.|[^\"\\\\])*\"|'(?:\\\\.|[^'\\\\])*'",
                     match => new string(match.Value.Select(character => character is '\n' or '\r' ? character : ' ').ToArray()), RegexOptions.None, RegexTimeout);
                 foreach (Match match in Regex.Matches(code, @"\b(?:AvaScopeBridge\s*\.\s*Activate|(?:AvaScope\s*\.\s*Bridge\s*\.\s*)?Bootstrap\s*\.\s*Start|OptionalProviderLoader\s*\.\s*TryStart(?:FromEnvironment)?|LoadOptionalProvider)\s*\(", RegexOptions.None, RegexTimeout))
-                    existing.Add(Location(path, source, match.Index));
+                    if (!IsMethodDeclaration(code, match)) existing.Add(Location(path, source, match.Index));
 
                 if (!Regex.IsMatch(code, @"\bclass\s+\w+\s*:\s*(?:Avalonia\.)?Application\b", RegexOptions.None, RegexTimeout) ||
                     !Regex.IsMatch(code, @"\boverride\s+void\s+OnFrameworkInitializationCompleted\s*\(\s*\)", RegexOptions.None, RegexTimeout)) continue;
@@ -160,6 +160,29 @@ public static class BridgeIntegrationAdvisor
         {
             return CoreResult<BridgeIntegrationGuidanceResponse>.Fail(new("integration_analysis_failed", exception.Message));
         }
+    }
+
+    private static bool IsMethodDeclaration(string code, Match candidate)
+    {
+        // The name/parenthesis match also occurs in loader declarations. A body is
+        // unambiguous; bodyless members additionally need a return-type header.
+        var depth = 1;
+        var index = candidate.Index + candidate.Length;
+        for (; index < code.Length && depth > 0; index++)
+        {
+            if (code[index] == '(') depth++;
+            else if (code[index] == ')') depth--;
+        }
+
+        if (depth != 0) return false;
+        var following = code.AsSpan(index).TrimStart();
+        if (following.StartsWith("{", StringComparison.Ordinal) || following.StartsWith("=>", StringComparison.Ordinal)) return true;
+        if (!following.StartsWith(";", StringComparison.Ordinal)) return false;
+
+        return Regex.IsMatch(code[..candidate.Index],
+            @"(?:^|[;{}\]])(?:\s|\#[^\r\n]*)*(?:(?:public|private|protected|internal|static|abstract|virtual|override|sealed|extern|partial|unsafe|async|new|ref|readonly|delegate)\s+)*" +
+            @"(?:\b(?!(?:return|await|throw|else|do|in)\b)[\w.:]+(?:\s*<[\w\s.,<>?\[\]]+>)?(?:\s*\[[,\s]*\])*\??|\([\w\s.,<>?\[\]]+\))\s+$",
+            RegexOptions.None, RegexTimeout);
     }
 
     private static XDocument LoadProject(string path)

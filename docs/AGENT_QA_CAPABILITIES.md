@@ -36,6 +36,9 @@ and Linux profile previews, selected/missing-target doctor and supported guide
 controls pass. Four observations reproduce #221's hidden target review and
 #222's declaration-as-activation error. Five calls in `integration-review-after-01`
 verify the #221 correction through both adapters and retain #222 as known open.
+The subsequent six CLI/MCP calls in `integration-declaration-after-01` verify
+#222's correction against the same declaration-only source, preserve both real
+standalone invocation locations and keep #221's required-review behavior.
 These are static/diagnostic checks with owned platform probes and unchanged
 source/provider files; no native app launch or UI journey is claimed. Actual
 integration startup, runtime diagnostics and artifact/viewer boundaries still

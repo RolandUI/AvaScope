@@ -4,6 +4,20 @@ Status: **in progress**, 2026-09-25. Tracking issue [#166](https://github.com/Ro
 
 ## Current validation checkpoint
 
+#222 is locally corrected by distinguishing declaration bodies and bodyless
+return-type headers from invocation sites. The final 41-case guide suite passes
+(1 second, zero skips/build warnings), after retained 21-failure and two-failure
+regressions. Six actual CLI/MCP calls in `integration-declaration-after-01` pass:
+the unchanged declaration-only fixture receives four applicable proposals; both
+real standalone invocation locations/hashes remain; required target review still
+takes precedence. All nine owned client/server processes exited. Independent
+source/binary/TRX/response evidence is in
+`D:/AvaScope-QA-active/integration-declaration-222/verified-regression.json`.
+An initial verifier assumption misidentified the standalone's second real call;
+direct source inspection corrected that oracle, with original responses retained.
+This scoped validation does not establish runtime activation or full C# semantic
+analysis. A fresh full gate on the committed fix remains required.
+
 #221 is locally corrected with one status-precedence change: required target or
 configuration review wins over an existing activation call. Nine new cases fail
 before while eight controls pass; the same test source passes all 17 afterward
