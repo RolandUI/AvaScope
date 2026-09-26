@@ -4,8 +4,39 @@ Status: **in progress**, 2026-09-25. Tracking issue [#166](https://github.com/Ro
 
 ## Current validation checkpoint
 
-#199 is now the sole active issue for evidence-backed investigation of the
-retained native UIA timeout. #219 is review at `c079de6`; its complementary manual
+#199's initial native connection boundary now has a reproduced local correction.
+The original provider fails `ElementFromHandle` with native `UIA_E_TIMEOUT` in
+256.318 ms while the real Avalonia root response takes 756.958 ms. With identical
+host and test binaries, the candidate completes two delayed root responses
+(760.225/753.692 ms) inside a 1620.957 ms native observation and returns 14 nodes.
+The real CLI/MCP integration passes, including mapping, redacted names, foreign
+target refusal and an explicitly rearmed 250 ms query that still times out.
+The test asserts timestamp correlation so an earlier unrelated UIA request
+cannot falsely satisfy the regression. Native result: one pass, zero skips,
+38 seconds; affected local suite: 68 passes, zero skips, 40 seconds. Host/test
+builds have zero warnings/errors. All 35 files in each selected provider and
+identical test/host/source hashes independently verify in
+`D:/AvaScope-QA-active/uia-timeout-199/verified-burst.json`.
+
+The connection budget is now the [documented Windows default of two seconds](https://learn.microsoft.com/en-us/windows/win32/api/uiautomationclient/nf-uiautomationclient-iuiautomation2-put_connectiontimeout),
+capped by the caller's query; individual property transactions retain 250 ms.
+The finite outer query deadline, one-worker guard, truthful partial/unavailable
+outcomes and ownership/privacy controls remain enforced. The opt-in standalone
+`--accessibility-fixture --uia-delay-fixture` uses public Avalonia 12.1.3
+`Win32Properties` hooks to delay only two initial real UIA root responses per
+arming. It neither synthesizes native nodes nor replaces the Avalonia provider.
+
+Earlier probes remain explicit: `uia-delay-before-01` is inconclusive because
+its single delay predates native collection; `uia-delay-before-02` reproduces
+the 250 ms cap with persistent delays; `uia-delay-after-01` reaches the overall
+five-second deadline under continuous delays and is not a passing comparison.
+The final finite-burst before/after test isolates the initial connection boundary.
+Original CI machine conditions remain unproven; full candidate CI is pending.
+#199 is sole active. Separate #220 tracks the before-run exited-host stdout drain
+timeout; #200's completed diagnostic cleanup fix preserves both errors and all
+cleanup phases correctly. This does not count another accessibility defect.
+
+#219 is review at `c079de6`; its complementary manual
 MCP-select/CLI-confirm Save retest is complete on that clean source: eight public
 calls, 72 independent checks, six reviewed native images and one actual native
 click. Requested `manual-save-árvíz.txt` appears in the dialog pixels and final
@@ -15,9 +46,10 @@ provider files reverify. Selection-stage UIA was unavailable and is retained as
 such; the final UIA observation succeeds. Evidence:
 `artifacts/agent-qa/native-picker-save-after-01/verified-summary.json`.
 
-Full CI `36234263189` runs on exact
-`c079de61cfbd303f69350aedcac4fad952da9a08`; #219 remains open until the applicable
-full gate is verified. No duplicate run or release is authorized by this checkpoint.
+Full CI `36234263189` completes all six jobs successfully on exact
+`c079de61cfbd303f69350aedcac4fad952da9a08`; final downloaded macOS evidence is being
+verified before closing #219 and the earlier pending fixes. This gate excludes
+the later #199 connection change. No release is authorized by this checkpoint.
 
 #219 now has a locally validated candidate: the filename is edited using
 `EM_SETSEL` plus `EM_REPLACESEL`, sharing one finite send deadline. A new real

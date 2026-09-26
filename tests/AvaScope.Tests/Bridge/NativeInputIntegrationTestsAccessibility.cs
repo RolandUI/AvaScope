@@ -23,6 +23,7 @@ public sealed class NativeInputIntegrationTestsAccessibility
         var owned = new List<(Process Process, Task<string> Out, Task<string> Error, string Name)>();
         var client = new LocalBridgeClient(manifests, TimeSpan.FromSeconds(10)); BridgeSessionManifest? manifest = null; int? accessibilityGroup = null;
         Exception? primaryFailure = null;
+        NativeAccessibilityAuditResponse? delayedObservation = null;
         try
         {
             Process? accessibility = null;
@@ -41,7 +42,7 @@ public sealed class NativeInputIntegrationTestsAccessibility
                 }
                 Assert.True(ready, "The owned AT-SPI service did not become ready.");
             }
-            var process = Start("host", "dotnet", [host, "--exit-after-ms=100000", "--accessibility-fixture"]);
+            var process = Start("host", "dotnet", [host, "--exit-after-ms=100000", "--accessibility-fixture", "--uia-delay-fixture"]);
             for (var i = 0; i < 200 && manifest is null && !process.HasExited; i++)
             { manifest = client.ListSessionManifests().SingleOrDefault(m => m.ProcessId == process.Id); if (manifest is null) await Task.Delay(50, token); }
             Assert.NotNull(manifest);
@@ -89,6 +90,36 @@ public sealed class NativeInputIntegrationTestsAccessibility
             var safeJson = JsonSerializer.Serialize(call.StructuredContent); Assert.DoesNotContain("private-document", safeJson);
             Assert.True(JsonSerializer.Deserialize<ToolResult<NativeAccessibilityAuditResponse>>(safeJson)!.Success, safeJson);
             await File.WriteAllTextAsync(Path.Combine(output, "mcp-redacted.json"), safeJson, token);
+            if (OperatingSystem.IsWindows())
+            {
+                var arm = Assert.Single((await client.FindNodesAsync(manifest.SessionId, top.Id, TreeKinds.Visual,
+                    name: "ArmNativeAccessibilityDelay", cancellationToken: token)).Value!.Matches).Node;
+                Assert.True((await client.InputAsync(manifest.SessionId, top.Id, "invoke", targetNodeId: arm.NodeId, cancellationToken: token)).Success);
+                try
+                {
+                    // A real Avalonia WM_GETOBJECT root response takes 750ms. Correlate the
+                    // provider log below so an unrelated earlier UIA request cannot satisfy this test.
+                    var delayedCall = await mcp.CallToolAsync("audit_native_accessibility", new Dictionary<string, object?>
+                    { ["request"] = JsonSerializer.SerializeToElement(request), ["manifestDirectory"] = manifests }, cancellationToken: token);
+                    var delayedJson = JsonSerializer.Serialize(delayedCall.StructuredContent);
+                    await File.WriteAllTextAsync(Path.Combine(output, "mcp-delayed-connection.json"), delayedJson, token);
+                    var delayed = JsonSerializer.Deserialize<ToolResult<NativeAccessibilityAuditResponse>>(delayedJson)!;
+                    Assert.True(delayed.Success, delayedJson);
+                    Assert.Equal("compared", delayed.Value!.Status); Assert.NotEmpty(delayed.Value.Native.Nodes);
+                    Assert.Equal("high_identity", delayed.Value.Comparisons.Single(c => c.Target.NodeId == expectations[0].Target.NodeId).Confidence);
+                    delayedObservation = delayed.Value;
+                    Assert.True((await client.InputAsync(manifest.SessionId, top.Id, "invoke", targetNodeId: arm.NodeId, cancellationToken: token)).Success);
+                    Assert.True((await client.InputAsync(manifest.SessionId, top.Id, "invoke", targetNodeId: arm.NodeId, cancellationToken: token)).Success);
+                    var shortQuery = await client.AuditNativeAccessibilityAsync(new(target, maxNodes: 128, timeoutMs: 250), token);
+                    await File.WriteAllTextAsync(Path.Combine(output, "short-query-deadline.json"), JsonSerializer.Serialize(shortQuery), token);
+                    Assert.False(shortQuery.Success);
+                    Assert.Equal("native_accessibility_timeout", shortQuery.Error!.Code);
+                }
+                finally
+                {
+                    Assert.True((await client.InputAsync(manifest.SessionId, top.Id, "invoke", targetNodeId: arm.NodeId, cancellationToken: token)).Success);
+                }
+            }
             if (accessibility is not null)
             {
                 StopAccessibilityGroup(); await accessibility.WaitForExitAsync(token);
@@ -105,6 +136,24 @@ public sealed class NativeInputIntegrationTestsAccessibility
             {
                 if (manifest is not null) await client.CloseSessionAsync(manifest.SessionId);
             }, StopAccessibilityGroup, primaryFailure);
+        }
+        if (delayedObservation is not null)
+        {
+            var providerLog = await File.ReadAllLinesAsync(Path.Combine(output, "host.stderr.log"));
+            DateTimeOffset? delayStarted = null; var correlated = false;
+            foreach (var line in providerLog)
+            {
+                if (line.StartsWith("AVASCOPE_UIA_DELAY start ", StringComparison.Ordinal))
+                    delayStarted = DateTimeOffset.Parse(line.Split(' ')[2], System.Globalization.CultureInfo.InvariantCulture);
+                if (line.StartsWith("AVASCOPE_UIA_DELAY end ", StringComparison.Ordinal) && delayStarted is { } begin)
+                {
+                    var end = DateTimeOffset.Parse(line.Split(' ')[2], System.Globalization.CultureInfo.InvariantCulture);
+                    correlated |= begin >= delayedObservation.BridgeObservedAt && end <= delayedObservation.Native.ObservedAt
+                        && (end - begin).TotalMilliseconds >= 750;
+                    delayStarted = null;
+                }
+            }
+            Assert.True(correlated, "No completed 750ms UIA root response was measured inside the delayed audit's native phase. See host.stderr.log and mcp-delayed-connection.json.");
         }
         void StopAccessibilityGroup()
         {

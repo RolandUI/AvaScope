@@ -9,7 +9,8 @@ namespace AvaScope.Bridge;
 // Native clients run off the UI thread: providers may marshal requests back to that thread.
 internal static partial class NativeAccessibilityReader
 {
-    private const int WindowsProviderTimeoutMs = 250;
+    private const int WindowsConnectionTimeoutMs = 2000;
+    private const int WindowsTransactionTimeoutMs = 250;
 
     internal static NativeAccessibilitySnapshot Read(string backend, nint handle, NodeBounds? bounds, NativeAccessibilityAuditRequest request, CancellationToken token)
     {
@@ -44,8 +45,10 @@ internal static partial class NativeAccessibilityReader
             Stage("create_automation"); Check(CoCreateInstance(ref clsid, 0, 1, ref iid, out automation));
             Stage("configure_auto_focus");
             Check(Call<PutInt>(automation, 59)(automation, 0)); // IUIAutomation2.AutoSetFocus = false.
-            Stage("configure_connection_timeout"); Check(Call<PutInt>(automation, 61)(automation, WindowsProviderTimeoutMs));
-            Stage("configure_transaction_timeout"); Check(Call<PutInt>(automation, 63)(automation, WindowsProviderTimeoutMs));
+            // Initial provider discovery uses the Windows SDK's default connection budget,
+            // capped by the caller's query. Individual property transactions stay short.
+            Stage("configure_connection_timeout"); Check(Call<PutInt>(automation, 61)(automation, Math.Min(request.TimeoutMs, WindowsConnectionTimeoutMs)));
+            Stage("configure_transaction_timeout"); Check(Call<PutInt>(automation, 63)(automation, WindowsTransactionTimeoutMs));
             Stage("get_control_view_walker");
             Check(Call<GetPointer>(automation, 14)(automation, out walker));
             Stage("element_from_handle");
@@ -143,8 +146,8 @@ internal static partial class NativeAccessibilityReader
                 ["stageElapsedMs"] = stageElapsedMs.ToString("0.###", CultureInfo.InvariantCulture),
                 ["cancellationRequested"] = cancellationRequested ? "true" : "false",
                 ["queryTimeoutMs"] = request.TimeoutMs.ToString(CultureInfo.InvariantCulture),
-                ["connectionTimeoutMs"] = WindowsProviderTimeoutMs.ToString(CultureInfo.InvariantCulture),
-                ["transactionTimeoutMs"] = WindowsProviderTimeoutMs.ToString(CultureInfo.InvariantCulture),
+                ["connectionTimeoutMs"] = Math.Min(request.TimeoutMs, WindowsConnectionTimeoutMs).ToString(CultureInfo.InvariantCulture),
+                ["transactionTimeoutMs"] = WindowsTransactionTimeoutMs.ToString(CultureInfo.InvariantCulture),
                 ["observedNodeCount"] = observedNodes.ToString(CultureInfo.InvariantCulture),
                 ["pendingNodeCount"] = pendingNodes.ToString(CultureInfo.InvariantCulture),
                 ["nextAction"] = "Inspect the failing stage, HRESULT and cancellation state before changing provider readiness or budgets; do not classify unobserved controls as absent."

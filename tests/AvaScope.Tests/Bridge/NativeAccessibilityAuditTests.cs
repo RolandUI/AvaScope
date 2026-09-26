@@ -73,7 +73,7 @@ public sealed class NativeAccessibilityAuditTests(Xunit.Abstractions.ITestOutput
         Assert.Equal("native_error", diagnostic.Details["failureKind"]);
         Assert.Equal("false", diagnostic.Details["cancellationRequested"]);
         Assert.Equal("5000", diagnostic.Details["queryTimeoutMs"]);
-        Assert.Equal("250", diagnostic.Details["connectionTimeoutMs"]);
+        Assert.Equal("2000", diagnostic.Details["connectionTimeoutMs"]);
         Assert.Equal("250", diagnostic.Details["transactionTimeoutMs"]);
         Assert.Equal("0", diagnostic.Details["observedNodeCount"]);
         Assert.Equal("0", diagnostic.Details["pendingNodeCount"]);
@@ -157,9 +157,27 @@ public sealed class NativeAccessibilityAuditTests(Xunit.Abstractions.ITestOutput
         Assert.Equal("3", details["observedNodeCount"]);
         Assert.Equal("2", details["pendingNodeCount"]);
         Assert.Equal("5000", details["queryTimeoutMs"]);
-        Assert.Equal("250", details["connectionTimeoutMs"]);
+        Assert.Equal("2000", details["connectionTimeoutMs"]);
         Assert.Equal("250", details["transactionTimeoutMs"]);
         Assert.NotEmpty(details["nextAction"]);
+    }
+
+    [Theory]
+    [InlineData(250, "250")]
+    [InlineData(750, "750")]
+    [InlineData(2000, "2000")]
+    [InlineData(5000, "2000")]
+    public void WindowsFailureReportsSeparateBoundedConnectionAndTransactionBudgets(int queryTimeoutMs, string connectionTimeoutMs)
+    {
+        var reader = typeof(AvaScopeBridge).Assembly.GetType("AvaScope.Bridge.NativeAccessibilityReader", throwOnError: true)!;
+        var describe = reader.GetMethod("WindowsFailure", BindingFlags.NonPublic | BindingFlags.Static)!;
+        var request = new NativeAccessibilityAuditRequest(new(new("native-budget"), "owned-window", topLevelGeneration: "current"), timeoutMs: queryTimeoutMs);
+        var diagnostic = (ProtocolError)describe.Invoke(null, [new COMException(), "element_from_handle", 300.0, 290.0,
+            unchecked((int)0x80131505), request, false, 0, 0])!;
+        Assert.Equal(queryTimeoutMs.ToString(CultureInfo.InvariantCulture), diagnostic.Details!["queryTimeoutMs"]);
+        Assert.Equal(connectionTimeoutMs, diagnostic.Details["connectionTimeoutMs"]);
+        Assert.Equal("250", diagnostic.Details["transactionTimeoutMs"]);
+        Assert.Equal("native_error", diagnostic.Details["failureKind"]);
     }
 
     [Fact]

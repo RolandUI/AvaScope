@@ -130,7 +130,7 @@ internal sealed class SampleApplication : Application
             if (desktop.Args?.Contains("--screen-fixture", StringComparer.Ordinal) == true)
                 ConfigureScreenFixture(desktop.MainWindow);
             if (desktop.Args?.Contains("--accessibility-fixture", StringComparer.Ordinal) == true)
-                ConfigureAccessibilityFixture(desktop.MainWindow);
+                ConfigureAccessibilityFixture(desktop.MainWindow, desktop.Args.Contains("--uia-delay-fixture", StringComparer.Ordinal));
 #if QA_FIXTURE
             if (desktop.Args?.Contains("--qa", StringComparer.Ordinal) == true)
                 desktop.MainWindow = new AvaScope.ComplexWorkflowApp.QaWindow();
@@ -204,7 +204,7 @@ internal sealed class SampleApplication : Application
         base.OnFrameworkInitializationCompleted();
     }
 
-    private static void ConfigureAccessibilityFixture(Window window)
+    private static void ConfigureAccessibilityFixture(Window window, bool enableNativeDelay)
     {
         window.Width = 420; window.Height = 360;
         var good = new Button { Name = "AuditGood", Content = "Save private-document", Width = 220, Height = 40 };
@@ -215,6 +215,31 @@ internal sealed class SampleApplication : Application
         AutomationProperties.SetName(good, "Save private-document");
         window.Content = new StackPanel { Spacing = 8, Children = { good, unnamed, wrongRole, absent,
             new Border { Name = "AuditDecoration", Background = Brushes.Blue, Height = 12 }, new TextBlock { Text = "Grouped decorative label" } } };
+        if (enableNativeDelay && OperatingSystem.IsWindows())
+        {
+            var armed = false; var remainingDelays = 0;
+            var arm = new Button { Name = "ArmNativeAccessibilityDelay", Content = "Toggle two delayed accessibility root responses" };
+            AutomationProperties.SetAutomationId(arm, arm.Name);
+            arm.Click += (_, _) => { armed = !armed; remainingDelays = armed ? 2 : 0; };
+            ((StackPanel)window.Content).Children.Add(arm);
+            Win32Properties.CustomWndProcHookCallback callback = (IntPtr handle, uint message, IntPtr wParam, IntPtr lParam, ref bool handled) =>
+            {
+                // Delay a finite initial connection burst, not every later property request.
+                // Avalonia still handles each real WM_GETOBJECT/UiaRootObjectId message.
+                if (message == 0x003D && unchecked((uint)lParam.ToInt64()) == unchecked((uint)-25) && remainingDelays > 0)
+                {
+                    remainingDelays--;
+                    var started = System.Diagnostics.Stopwatch.GetTimestamp();
+                    Console.Error.WriteLine(FormattableString.Invariant($"AVASCOPE_UIA_DELAY start {DateTimeOffset.UtcNow:O} {Environment.TickCount64}"));
+                    Thread.Sleep(750);
+                    Console.Error.WriteLine(FormattableString.Invariant(
+                        $"AVASCOPE_UIA_DELAY end {DateTimeOffset.UtcNow:O} {Environment.TickCount64} elapsedMs={System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds:0.###}"));
+                }
+                return IntPtr.Zero;
+            };
+            Win32Properties.AddWndProcHookCallback(window, callback);
+            window.Closed += (_, _) => Win32Properties.RemoveWndProcHookCallback(window, callback);
+        }
     }
 
     private sealed class WrongRoleAuditButton : Button
