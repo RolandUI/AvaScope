@@ -4,6 +4,30 @@ Status: **in progress**, 2026-09-25. Tracking issue [#166](https://github.com/Ro
 
 ## Current validation checkpoint
 
+Native #212 validation on exact clean `1ebaaa1` is complete in
+`navigation-direct-01` and `navigation-standalone-01`: 29 corrected calls each
+(17 MCP/12 CLI), 131/116 independently verified checks and five reviewed native
+images each at Win32 1x. Eight visits preserve actual page/context/revision/reset
+changes. Direct returns equivalent keys for unchanged document A and revised
+document B; standalone honestly retains unique visits and uncertain sampled
+candidates. Retrospective routes, stale-tip refusal, excluded identity, exact
+privacy-policy matching and clear guards pass. Coverage remains partial and
+hidden domain state unverified. Both runs preserve 31 selected binary/source
+identities; standalone remains a pure host with the verified provider. Reset and
+owned termination pass, apps 9836/6428 and all 65 original clients are absent,
+independently confirmed by process audits and the native window inventory.
+
+The corrected 58-call charter is separate from seven retained initial Direct
+calls. A depth-16 workflow missed the nested button, and an agent helper then
+incorrectly reported that failed action as successful to the navigation journal.
+The unchanged app journal and invalid transition are retained; that history was
+explicitly cleared. Corrected requests use depth 32 and validate each outcome
+before continuing. No original failure is overwritten or treated as a product
+success. #212 moves to review pending the full hosted gate; #211 resumes as sole
+active for the first-hit-test/frame boundary. #213 remains ready with its original
+deadline cause unknown. Inventory verified from GitHub: 48 defects/32 closed
+(44 `type:bug` tickets plus CI defects #171/#192/#193/#200). No release.
+
 #212 adds a scoped synthetic-document navigation view: Overview/Details, two
 independent document revisions, reset generation, ordinary controls/journal in
 shared source and Direct-only declared identity. Both viewport regressions and

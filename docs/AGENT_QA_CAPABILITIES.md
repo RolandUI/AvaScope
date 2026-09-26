@@ -123,9 +123,23 @@ modal, focus and lifecycle outcomes. Fourteen additional navigation calls/58
 checks/two images verify real page changes, ordered retrospective routes, stale
 tips, bounded queries and clear. Without a declared host identity, all visits
 retain distinct state keys and sampled loop candidates stay explicitly uncertain;
-the partial sample does not distinguish these pages. Declared context/revision
-and equivalent-state loop coverage need fixture expansion. Thirty-one binaries,
+the partial sample does not distinguish these pages. The missing declared
+context/revision coverage is addressed by the subsequent #212 journey below.
+Thirty-one binaries,
 pure host/verified provider, reset and all 46 original client/app absences verify.
+
+The #212 scoped document fixture on clean `1ebaaa1` is exercised in
+`navigation-direct-01` and `navigation-standalone-01`: 29 corrected public calls
+each (17 MCP/12 CLI), 131/116 checks and five viewed images per integration at
+Win32 1x. Overview/details/context/edit/reset, ordered routes and stale/privacy/
+clear guards agree with the independent journal and pixels. Direct recognizes
+declared revisits; standalone retains unique visits and explicitly uncertain
+sampled candidates. Both remain partial observations with hidden state unverified.
+All 31 selected binaries/source per run and owned cleanup verify. Seven earlier
+Direct calls retain an agent depth-limit mistake and invalid caller-reported
+transition; that history was cleared and excluded from the corrected evidence.
+All 65 original clients and both apps are absent. Twenty-six affected tests pass;
+the complete hosted gate remains pending behind #211, so #212 stays review.
 
 The separate `preview-campaign-01` journey on clean `0658716` uses Windows
 headless Skia / Avalonia 12.1.3: 22 MCP/six CLI calls, 17 positive checks, nine

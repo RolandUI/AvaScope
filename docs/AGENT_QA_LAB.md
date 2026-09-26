@@ -169,7 +169,9 @@ these synthetic documents, not the rest of the app's form/table/hidden state.
 
 Direct implements `IAvaScopeDebugStateProvider` in the existing host-only source.
 Find a fresh `qa-navigation-identity` target and pass it to `navigation` start and
-record. Explore Overview → Details → Overview, document A → B → A, edits and
+record. Use workflow `maxDepth: 32` for the nested action controls; verify the
+workflow passed before recording its outcome. Explore Overview → Details →
+Overview, document A → B → A, edits and
 reset; compare distinct visit IDs, equivalent state keys where applicable, ordered
 routes and loop confidence with the journal and pixels. Check stale-tip refusal,
 excluded identity/policy mismatch, clear and unchanged unrelated counters.
