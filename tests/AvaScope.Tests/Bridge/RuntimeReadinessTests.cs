@@ -7,12 +7,66 @@ using AvaScope.Bridge;
 using AvaScope.Core;
 using AvaScope.Mcp;
 using AvaScope.Protocol;
+using Xunit.Abstractions;
 
 namespace AvaScope.Tests.Bridge;
 
 [Collection(BridgeCollectionDefinition.Name)]
 public sealed class RuntimeReadinessTests
 {
+    private readonly ITestOutputHelper _output;
+
+    public RuntimeReadinessTests(ITestOutputHelper output) => _output = output;
+
+    [Theory]
+    [InlineData(false, true, "snapshot_dispatch")]
+    [InlineData(true, true, "frame_dispatch")]
+    [InlineData(true, false, "composition_render")]
+    public async Task ReadinessDeadlineDistinguishesQueuedDispatcherAndPendingComposition(bool waitForFrame, bool offDispatcher, string expectedPhase)
+    {
+        using var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessSmokeTests.BridgeHeadlessTestApplication));
+        await BridgeHeadlessSmokeTests.DispatchAsync(session, async () =>
+        {
+            AvaScopeBridge.Deactivate();
+            var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Bounded readiness phases"));
+            var window = new Window { Width = 220, Height = 160, Content = new Border { Background = Brushes.Green } };
+            try
+            {
+                window.Show();
+                using var registration = runtime.RegisterTopLevel(window);
+                var top = Assert.Single(await runtime.ListTopLevelsAsync());
+                using var initial = window.CaptureRenderedFrame();
+                Assert.NotNull(initial);
+                Task<CoreResult<RuntimeReadinessSnapshot>> Probe() => runtime.ReadinessAsync(top.Id,
+                    options: new(waitForFrame: waitForFrame, timeoutMs: 50));
+                var pending = offDispatcher
+                    ? Task.Factory.StartNew(Probe, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default).Unwrap()
+                    : Probe();
+                // Deliberately hold this UI callback so a queued dispatch or the next
+                // composition commit cannot progress; the owned deadline must still return.
+                var result = pending.WaitAsync(TimeSpan.FromSeconds(5)).GetAwaiter().GetResult();
+                _output.WriteLine(JsonSerializer.Serialize(result));
+                Assert.False(result.Success);
+                Assert.Equal("runtime_readiness_probe_timeout", result.Error!.Code);
+                Assert.Equal("50", result.Error.Details!["timeoutMs"]);
+                Assert.True(result.Error.Details.TryGetValue("readinessPhase", out var phase), JsonSerializer.Serialize(result));
+                Assert.Equal(expectedPhase, phase);
+                Assert.True(double.Parse(result.Error.Details["readinessElapsedMs"], System.Globalization.CultureInfo.InvariantCulture) > 0);
+                Assert.True(double.Parse(result.Error.Details["phaseElapsedMs"], System.Globalization.CultureInfo.InvariantCulture) > 0);
+                Assert.Equal(offDispatcher ? "not_observed" : "WaitingForActivation", result.Error.Details["frameProcessedStatus"]);
+                Assert.Equal(offDispatcher ? "not_observed" : "WaitingForActivation", result.Error.Details["frameRenderedStatus"]);
+                var recovered = await runtime.ReadinessAsync(top.Id, options: new(waitForFrame: true));
+                Assert.True(recovered.Success, JsonSerializer.Serialize(recovered));
+                Assert.Equal("rendered", recovered.Value!.Frame.Status);
+            }
+            finally
+            {
+                window.Close();
+                AvaScopeBridge.Deactivate();
+            }
+        }, CancellationToken.None);
+    }
+
     [Fact]
     public async Task MissingHookIsDistinctFromBusyAndAsyncStartupThroughIpcAndMcp()
     {

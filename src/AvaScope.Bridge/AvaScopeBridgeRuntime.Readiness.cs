@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
@@ -40,6 +41,11 @@ public sealed partial class AvaScopeBridgeRuntime
     {
         cancellationToken.ThrowIfCancellationRequested();
         options ??= new RuntimeReadinessProbeOptions();
+        var started = Stopwatch.GetTimestamp();
+        var phaseStarted = started;
+        var phase = options.WaitForFrame ? "frame_dispatch" : "snapshot_dispatch";
+        Task? frameProcessed = null;
+        Task? frameRendered = null;
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         deadline.CancelAfter(options.TimeoutMs);
         try
@@ -53,13 +59,19 @@ public sealed partial class AvaScopeBridgeRuntime
                     : await Dispatcher.UIThread.InvokeAsync(() => BeginReadinessFrame(topLevelId), DispatcherPriority.Background, deadline.Token);
                 frameStatus = frame.Status;
                 frameReason = frame.Reason;
+                frameProcessed = frame.Processed;
+                frameRendered = frame.Rendered;
                 if (frame.Rendered is not null)
                 {
+                    phase = "composition_render";
+                    phaseStarted = Stopwatch.GetTimestamp();
                     await frame.Rendered.WaitAsync(deadline.Token).ConfigureAwait(false);
                     frameStatus = "rendered";
                 }
             }
 
+            phase = "snapshot_dispatch";
+            phaseStarted = Stopwatch.GetTimestamp();
             var snapshot = Dispatcher.UIThread.CheckAccess()
                 ? ObserveReadiness(topLevelId, nodeId, frameStatus, frameReason, options.IncludeFrameHash)
                 : await Dispatcher.UIThread.InvokeAsync(
@@ -69,9 +81,20 @@ public sealed partial class AvaScopeBridgeRuntime
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
+            var observedAt = Stopwatch.GetTimestamp();
+            var renderedStatus = frameRendered?.Status.ToString() ?? "not_observed";
+            var processedStatus = frameProcessed?.Status.ToString() ?? "not_observed";
             return CoreResult<RuntimeReadinessSnapshot>.Fail(new CoreError("runtime_readiness_probe_timeout",
                 "The UI dispatcher or composition frame did not complete within the bounded readiness observation.",
-                new Dictionary<string, string> { ["timeoutMs"] = options.TimeoutMs.ToString(CultureInfo.InvariantCulture) }));
+                new Dictionary<string, string>
+                {
+                    ["timeoutMs"] = options.TimeoutMs.ToString(CultureInfo.InvariantCulture),
+                    ["readinessPhase"] = phase,
+                    ["readinessElapsedMs"] = Stopwatch.GetElapsedTime(started, observedAt).TotalMilliseconds.ToString("0.###", CultureInfo.InvariantCulture),
+                    ["phaseElapsedMs"] = Stopwatch.GetElapsedTime(phaseStarted, observedAt).TotalMilliseconds.ToString("0.###", CultureInfo.InvariantCulture),
+                    ["frameProcessedStatus"] = processedStatus,
+                    ["frameRenderedStatus"] = renderedStatus
+                }));
         }
         catch (Exception exception) when (exception is InvalidOperationException or NotSupportedException)
         {
@@ -79,17 +102,18 @@ public sealed partial class AvaScopeBridgeRuntime
         }
     }
 
-    private (Task? Rendered, string Status, string? Reason) BeginReadinessFrame(string topLevelId)
+    private (Task? Processed, Task? Rendered, string Status, string? Reason) BeginReadinessFrame(string topLevelId)
     {
         Dispatcher.UIThread.VerifyAccess();
         var topLevel = FindTopLevel(topLevelId);
         if (topLevel?.PlatformImpl is null || !topLevel.IsVisible || topLevel.ClientSize.Width <= 0 || topLevel.ClientSize.Height <= 0)
-            return (null, "pending", "The target window is not visible with positive client bounds.");
+            return (null, null, "pending", "The target window is not visible with positive client bounds.");
         var root = topLevel.GetPresentationSource()?.RootVisual ?? topLevel;
         var compositor = ElementComposition.GetElementVisual(root)?.Compositor;
-        return compositor is null
-            ? (null, "unavailable", "No public composition visual is available for the target window.")
-            : (compositor.RequestCompositionBatchCommitAsync().Rendered, "pending", null);
+        var batch = compositor?.RequestCompositionBatchCommitAsync();
+        return batch is null
+            ? (null, null, "unavailable", "No public composition visual is available for the target window.")
+            : (batch.Processed, batch.Rendered, "pending", null);
     }
 
     private async Task<CoreResult<ScreenshotResponse>> CaptureAfterRenderAsync(

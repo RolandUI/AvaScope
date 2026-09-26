@@ -8,13 +8,17 @@ on:
         type: choice
         options: [macos-latest, ubuntu-latest, windows-latest]
         default: macos-latest
+      wayland_only:
+        description: Run managed Wayland readiness and capture on ubuntu-24.04
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
 jobs:
   native-input:
-    runs-on: ${{ inputs.runner }}
+    runs-on: ${{ inputs.wayland_only && 'ubuntu-24.04' || inputs.runner }}
     timeout-minutes: 15
     env:
       DOTNET_CLI_TELEMETRY_OPTOUT: "1"
@@ -29,18 +33,31 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y xvfb x11-utils openbox dbus at-spi2-core libx11-6 libice6 libsm6 libfontconfig1 fonts-dejavu-core libgtk-3-0
+          if [ '${{ inputs.wayland_only }}' = 'true' ]; then
+            sudo apt-get install -y weston wayland-utils xkb-data libegl-mesa0 libgl1-mesa-dri
+          fi
       - name: Build
         run: dotnet build AvaScope.slnx -c Release
       - name: Validate local transport, owned builds and session recovery
+        if: ${{ !inputs.wayland_only }}
         env:
           AVASCOPE_RECOVERY_MANAGED_X11: ${{ runner.os == 'Linux' && '1' || '0' }}
         run: dotnet test tests/AvaScope.Tests/AvaScope.Tests.csproj -c Release --no-build --filter "FullyQualifiedName~AvaScopeBridgeTests|FullyQualifiedName~SessionControlTests|FullyQualifiedName~RuntimeScenarioLifecycleTests|FullyQualifiedName~AgentRunRecoveryTests"
+      - name: Validate readiness boundaries
+        if: inputs.wayland_only
+        run: dotnet test tests/AvaScope.Tests/AvaScope.Tests.csproj -c Release --no-build --filter FullyQualifiedName~RuntimeReadinessTests --logger "trx;LogFileName=readiness.trx" --results-directory artifacts/native-input/readiness
       - name: Validate external provider input and dialogs
         shell: pwsh
+        env:
+          AVASCOPE_MANAGED_WAYLAND_ONLY: ${{ inputs.wayland_only }}
         run: |
           $PSNativeCommandUseErrorActionPreference = $true
           ./eng/package-provider.ps1
-          ./eng/test-native-input.ps1
+          if ($env:AVASCOPE_MANAGED_WAYLAND_ONLY -eq 'true') {
+            ./eng/test-managed-wayland.ps1
+          } else {
+            ./eng/test-native-input.ps1
+          }
       - name: Preserve native diagnostics
         if: always()
         uses: actions/upload-artifact@v7
@@ -50,3 +67,7 @@ jobs:
           path: |
             artifacts/native-input/**/evidence/**
             artifacts/native-input/**/test.log
+            artifacts/native-input/readiness/**
+            artifacts/wayland-validation/**
+            !artifacts/wayland-validation/**/build/**
+            !artifacts/wayland-validation/**/host/**
