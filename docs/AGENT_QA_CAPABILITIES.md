@@ -44,6 +44,25 @@ source/provider files; no native app launch or UI journey is claimed. Actual
 integration startup, runtime diagnostics and artifact/viewer boundaries still
 need their remaining scoped journeys.
 
+Actual integration startup now has two retained eleven-call charters:
+`integration-startup-174-01` uses066192b (947 checks,399 hashes) and retains
+#182's first-tree timeout and #225's misclassified cleanup failure. The
+`integration-startup-225-01` comparison uses995046f verifier tools with those
+unchanged pinned hosts/provider/client (944 checks): disabled CLI/MCP cleanup,
+early exit and all guards pass; Direct MCP instead times out at screenshot IPC
+after successful tree/inspection, retained separately under182. Seven native
+and three rendered images are reviewed; all25 per-case owned process
+observations are absent. Three enabled routes pass; neither charter is a blanket
+pass. Runtime diagnostics and artifact/viewer boundaries remain pending.
+
+Targeted managed-Wayland CI36253239362 onf309708 additionally verifies four
+positive native CLI/MCP1x/2x journeys and four negative outcomes with retained
+responses, supported rendered-capture provenance,500x460/1000x920 images and
+owned cleanup. Seven hosted readiness tests distinguish queued dispatch from
+pending composition. The two distinct image contents were viewed and hashes
+match the successful run's images. This does not reproduce226's original
+1000ms delay or supply independent OS screenshots/native Retina evidence.
+
 | MCP tools | Fixture / positive and negative journey | Independent oracle / constraint |
 | --- | --- | --- |
 | `health`, `capabilities` | Isolated current stdio server; compare advertised versions and capabilities with built artifacts. | Assembly identity and tool schema inventory. |
