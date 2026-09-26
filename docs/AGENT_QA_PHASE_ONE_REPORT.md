@@ -24,8 +24,11 @@ variants and simultaneous primary/cleanup failure preservation. Independent
 source/assembly/TRX/phase verification is retained at
 `D:/AvaScope-QA-active/mutation-ipc-223/verified-regression.json`. The original
 macOS listener/scheduling cause remains unknown; this corrects the demonstrated
-failure-masking boundary and preserves future evidence. A fresh combined full
-gate including #221–#223 is still required.
+failure-masking boundary and preserves future evidence. Fresh combined full
+CI [36245199135](https://github.com/RolandUI/AvaScope/actions/runs/36245199135)
+now runs on exact de20cfbdaf354f4986597de5d07ff517f2b3c82f, including #221–#223.
+Those three issues remain review pending that gate; #174 resumes the remaining
+integration startup, runtime diagnostics and artifact/viewer exploration.
 
 ## Prior checkpoints
 
