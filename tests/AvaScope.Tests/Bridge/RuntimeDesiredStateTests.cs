@@ -13,12 +13,13 @@ using Avalonia.Threading;
 using AvaScope.Bridge;
 using AvaScope.Core;
 using AvaScope.Protocol;
+using AvaScope.Testing;
 using ModelContextProtocol.Client;
 
 namespace AvaScope.Tests.Bridge;
 
 [Collection(BridgeCollectionDefinition.Name)]
-public sealed class RuntimeDesiredStateTests
+public sealed class RuntimeDesiredStateTests(Xunit.Abstractions.ITestOutputHelper testOutput)
 {
     [Fact]
     public async Task CompleteQueryTargetsWorkAndIncompleteCoverageIsDistinctFromStaleIdentity()
@@ -326,6 +327,9 @@ public sealed class RuntimeDesiredStateTests
         await WithWindow(async (runtime, root, top, client) =>
         {
             var box = new TextBox { Name = "Text" }; root.Children.Add(box); Dispatcher.UIThread.RunJobs();
+            using var lifecycle = new ProbeLifecycleTrace(null, testOutput.WriteLine, expectsOutput: false);
+            var edits = 0;
+            box.PropertyChanged += (_, change) => { if (change.Property == TextBox.TextProperty) edits++; };
             var target = await Target(runtime, top, "Text");
             var policy = new RuntimeEvidencePolicy(Path.Combine(Path.GetTempPath(), "avascope-desired-state-tests"),
                 redactedText: ["desired-private-value"], authorizedSessionIds: [runtime.SessionId.Value], allowedDesiredStates: ["text"]);
@@ -336,28 +340,82 @@ public sealed class RuntimeDesiredStateTests
                 await File.WriteAllTextAsync(path, JsonSerializer.Serialize(request));
                 var start = new ProcessStartInfo("dotnet") { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
                 foreach (var arg in new[] { Path.Combine(AppContext.BaseDirectory, "avascope.dll"), "ensure-state", "--request", path, "--manifest-dir", client.ManifestDirectory }) start.ArgumentList.Add(arg);
+                lifecycle.Record("cli_starting");
                 using var process = Process.Start(start)!;
                 var output = process.StandardOutput.ReadToEndAsync(); var error = process.StandardError.ReadToEndAsync();
-                await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(20));
+                Exception? cliFailure = null;
+                try { await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(20)); }
+                catch (Exception exception) { cliFailure = exception; lifecycle.Record("cli_wait_failed", exception); throw; }
+                finally
+                {
+                    testOutput.WriteLine(JsonSerializer.Serialize(new { mode = "desired_state_cli", stage = "before_cleanup", processId = process.Id, exited = process.HasExited, edits, desiredTextObserved = box.Text == "desired-private-value" }));
+                    try
+                    {
+                        if (!process.HasExited) process.Kill(entireProcessTree: true);
+                        await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(5));
+                        testOutput.WriteLine(JsonSerializer.Serialize(new { mode = "desired_state_cli", stage = "after_cleanup", processId = process.Id, exited = process.HasExited, exitCode = process.ExitCode }));
+                    }
+                    catch (Exception exception)
+                    {
+                        lifecycle.Record("cli_cleanup_failed", exception);
+                        if (cliFailure is not null) throw new AggregateException(cliFailure, exception);
+                        throw;
+                    }
+                }
+                lifecycle.Record("cli_exited");
                 Assert.Equal(0, process.ExitCode);
                 var cli = JsonSerializer.Deserialize<ToolResult<RuntimeDesiredStateResponse>>(await output)!;
                 Assert.True(cli.Success, cli.Error?.Message + await error); Assert.DoesNotContain("desired-private-value", await output);
                 using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
-                await using var mcp = await McpClient.CreateAsync(new StdioClientTransport(new()
-                { Command = "dotnet", Arguments = [Path.Combine(AppContext.BaseDirectory, "AvaScope.Mcp.dll")], Name = "desired-state-test" }), cancellationToken: timeout.Token);
-                var call = await mcp.CallToolAsync("ensure_state", new Dictionary<string, object?>
-                { ["request"] = JsonSerializer.SerializeToElement(request), ["manifestDirectory"] = client.ManifestDirectory }, cancellationToken: timeout.Token);
-                var result = JsonSerializer.Deserialize<ToolResult<RuntimeDesiredStateResponse>>(JsonSerializer.Serialize(call.StructuredContent))!;
-                Assert.True(result.Success); Assert.True(result.Value!.Replayed);
-                Assert.DoesNotContain("desired-private-value", JsonSerializer.Serialize(result));
-                box.IsReadOnly = true;
-                var denied = Request(target, "text", "different");
-                call = await mcp.CallToolAsync("ensure_state", new Dictionary<string, object?>
-                { ["request"] = JsonSerializer.SerializeToElement(denied), ["manifestDirectory"] = client.ManifestDirectory }, cancellationToken: timeout.Token);
-                var failed = JsonSerializer.Deserialize<ToolResult<RuntimeDesiredStateResponse>>(JsonSerializer.Serialize(call.StructuredContent))!;
-                Assert.False(failed.Success); Assert.NotNull(failed.Value); Assert.Equal(0, failed.Value.DispatchedOperations);
-                var readOnlyPolicy = new RuntimeEvidencePolicy(policy.OwnedEvidenceRoot, authorizedSessionIds: [runtime.SessionId.Value]);
-                Assert.Equal("desired_state_policy_denied", (await client.EnsureStateAsync(new(target, "text", JsonSerializer.SerializeToElement("denied"), "policy-denied", readOnlyPolicy))).Error!.Code);
+                McpClient? mcp = null;
+                Exception? mcpFailure = null;
+                try
+                {
+                    lifecycle.Record("connecting");
+                    mcp = await McpClient.CreateAsync(new StdioClientTransport(new()
+                    { Command = "dotnet", Arguments = [Path.Combine(AppContext.BaseDirectory, "AvaScope.Mcp.dll")], Name = "desired-state-test" }), cancellationToken: timeout.Token);
+                    lifecycle.Record("ready");
+                    lifecycle.Record("request_started");
+                    var call = await mcp.CallToolAsync("ensure_state", new Dictionary<string, object?>
+                    { ["request"] = JsonSerializer.SerializeToElement(request), ["manifestDirectory"] = client.ManifestDirectory }, cancellationToken: timeout.Token);
+                    lifecycle.Record("response_received");
+                    var result = JsonSerializer.Deserialize<ToolResult<RuntimeDesiredStateResponse>>(JsonSerializer.Serialize(call.StructuredContent))!;
+                    Assert.True(result.Success); Assert.True(result.Value!.Replayed);
+                    Assert.DoesNotContain("desired-private-value", JsonSerializer.Serialize(result));
+                    lifecycle.Record("response_verified");
+                    box.IsReadOnly = true;
+                    var denied = Request(target, "text", "different");
+                    lifecycle.Record("request_started");
+                    call = await mcp.CallToolAsync("ensure_state", new Dictionary<string, object?>
+                    { ["request"] = JsonSerializer.SerializeToElement(denied), ["manifestDirectory"] = client.ManifestDirectory }, cancellationToken: timeout.Token);
+                    lifecycle.Record("response_received");
+                    var failed = JsonSerializer.Deserialize<ToolResult<RuntimeDesiredStateResponse>>(JsonSerializer.Serialize(call.StructuredContent))!;
+                    Assert.False(failed.Success); Assert.NotNull(failed.Value); Assert.Equal(0, failed.Value.DispatchedOperations);
+                    lifecycle.Record("response_verified");
+                    var readOnlyPolicy = new RuntimeEvidencePolicy(policy.OwnedEvidenceRoot, authorizedSessionIds: [runtime.SessionId.Value]);
+                    Assert.Equal("desired_state_policy_denied", (await client.EnsureStateAsync(new(target, "text", JsonSerializer.SerializeToElement("denied"), "policy-denied", readOnlyPolicy))).Error!.Code);
+                }
+                catch (Exception exception) { mcpFailure = exception; lifecycle.Record("failed", exception); throw; }
+                finally
+                {
+                    testOutput.WriteLine(JsonSerializer.Serialize(new { mode = "desired_state_oracle", edits, desiredTextObserved = box.Text == "desired-private-value", box.IsReadOnly }));
+                    if (mcp is not null)
+                    {
+                        lifecycle.Record("closing");
+                        try
+                        {
+                            await mcp.DisposeAsync();
+                            var completion = mcp.Completion.IsCompletedSuccessfully ? mcp.Completion.Result as StdioClientCompletionDetails : null;
+                            lifecycle.Record("closed", serverProcessId: completion?.ProcessId, serverExitCode: completion?.ExitCode);
+                        }
+                        catch (Exception exception)
+                        {
+                            lifecycle.Record("close_failed", exception);
+                            if (mcpFailure is not null) throw new AggregateException(mcpFailure, exception);
+                            throw;
+                        }
+                    }
+                }
             }
             finally { File.Delete(path); }
         });

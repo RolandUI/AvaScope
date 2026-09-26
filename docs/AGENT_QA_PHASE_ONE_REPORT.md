@@ -4,6 +4,32 @@ Status: **in progress**, 2026-09-25. Tracking issue [#166](https://github.com/Ro
 
 ## Current validation checkpoint
 
+#192 now retains bounded probe lifecycle evidence for startup, ready, real
+request invocation, response receipt, stdout delivery and client disposal.
+The direct SDK test uses the same metadata recorder with a separate application
+oracle. Parent cleanup records pre-cleanup versus final exit and retains a
+secondary cleanup exception alongside the original failure. No arguments,
+application text, command lines or raw exceptions enter this trace.
+
+The actual original probe completes health and exits 0, then fails the new
+missing-evidence regression (11 seconds). The first candidate passes 12 cases;
+the final candidate passes 14/14 in 3m12s with zero skips and build warnings.
+Controlled connecting/request/response/closing pauses prove zero edits before
+startup and one edit at the other boundaries, without redispatch. An occupied
+trace file remains untouched and cannot turn a successful tool result into a
+failure. A separate real schema probe returns 75 tools with complete phase
+evidence. Independent verification checks 384 records, all selected source and
+assembly hashes, original failure and both passing TRX sets in
+`D:/AvaScope-QA-active/mcp-lifecycle-192/verified-regression.json`.
+
+The SDK's recorded transport exit can be nonzero after its existing owned
+shutdown termination; it is retained rather than described as a natural server
+exit. Original probe instances have exited. PID 2860 was reused by Windows
+Search after the latest retained owned exit at 11:55:34 UTC; this later process
+was not touched. The original shared-host cause remains unproven, and fresh
+independent CI for this slice follows the still-running cb7ca45 gate below.
+These process/headless checks do not claim a new native UI journey.
+
 #220 now corrects the native fixture's Windows capture dependency on queued
 worker-pool I/O. The two owned process streams use dedicated reader tasks;
 Unix retains asynchronous reading. The existing three-second drain bounds,
@@ -27,19 +53,24 @@ this phase duration alone does not recover the original pool/pipe state.
 The initial new harness mistakenly wrote to its synchronous pipe before starting
 the reader and timed out before testing capture; its source/TRX and bounded
 phase trace remain explicitly invalid for the scheduling hypothesis. No new
-product defect is inferred from that agent setup error. Candidate full CI follows.
+product defect is inferred from that agent setup error. The change is pushed at
+`cb7ca4597a1294cd346f8cc060383cb7ddb34b79`; its full CI `36239596341` runs.
 
-#220 is the sole active investigation; #199's connection correction is pushed
-at `125b346a62b449c1ddb8db8615e40bb08eaeeb31` and review pending its own full
-CI `36237048712`. The previous exact `c079de6` full CI `36234263189` passes all
-six jobs. Downloaded evidence independently verifies Windows 1072 passes/eight
-skips, macOS 1070/nine, Linux 33, Windows native input 12/zero skips and nine
-owned native/expiry lifecycle runs at actual 1x. All 21 name/policy/masking
-regressions pass on each full test host. #215/#216/#217/#219 are now closed with
-all acceptance checked and board done/100. Inventory is 55 defects, 40 closed,
-including five defect-specific CI issues. This gate does not include the later
-#199 change and does not establish native Retina coverage or #218's original
-timing cause. Evidence: `expanded-campaign/ci-c079de6-verified-summary.json`.
+#192 is the sole active issue for MCP startup/request/exit diagnostics;
+#220 is review pending the fresh gate. #199 closes at
+`125b346a62b449c1ddb8db8615e40bb08eaeeb31` after full CI `36237048712`
+passes all six jobs. Downloaded evidence independently verifies Windows 1076
+passes/eight skips, macOS 1074/nine, Linux 33, Windows native input 12/zero skips
+and nine owned native/expiry lifecycle runs at actual 1x. Both full hosts pass
+all four connection-budget cases. Hosted native evidence correlates two real
+750.280/751.794 ms root responses within a successful 1531.56 ms, 14-node audit;
+the short query deadline and cleanup also pass. The diagnosed connection
+boundary has a retained causal before/after correction; original machine
+conditions remain unproven. #215/#216/#217/#219 were already closed against
+the preceding exact c079de6 gate. Inventory is 55 defects, 41 closed, including
+five defect-specific CI issues. Neither gate establishes native Retina coverage
+or #218's original timing cause. Evidence:
+`expanded-campaign/ci-125b346-windows-verified.json`.
 
 #199's initial native connection boundary now has a reproduced local correction.
 The original provider fails `ElementFromHandle` with native `UIA_E_TIMEOUT` in

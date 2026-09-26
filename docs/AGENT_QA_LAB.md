@@ -194,6 +194,41 @@ sizes remain the observed values. A clamped window does not establish Full HD
 coverage; record that limitation and use a capable dedicated desktop for that
 charter. Toggling again restores compact intent even on a smaller display.
 
+## Diagnosing probe startup, response and exit waits (#192)
+
+Set `AVASCOPE_PROBE_LIFECYCLE_FILE` to a new file in an existing owned evidence
+directory when using `AvaScope.McpScenarioClient`. It records UTC/monotonic time,
+local phase, request/response/output counts and process metadata, bounded at
+1024 events and 256 KiB. It excludes arguments, user text, command lines,
+environment values and exception messages. Unix files are created owner-only.
+Existing files are preserved. A failed trace write emits a bounded warning and
+does not change a completed tool result or trigger a retry.
+
+Read the ordered phases with the independent application journal or test oracle.
+`no_tool_request_started` means this probe has not called a tool yet;
+`request_outcome_unknown` does not establish whether the application changed.
+`response_received_output_pending` distinguishes a received MCP result from
+delivery on the probe's stdout. `responses_written` still does not prove that
+the parent consumed the output or that shutdown completed. `closed` records
+client disposal; transport PID/exit fields come from the MCP SDK's public
+completion metadata and remain null when unavailable. A missing file proves
+none of these outcomes. The direct SDK regression uses `expectsOutput: false`
+because it consumes responses directly rather than writing a stdout protocol.
+
+Persistent-client tests retain the bounded trace in their TRX output, along with
+the parent's exit observation before and after owned cleanup. They preserve the
+original failure if cleanup also fails. The CLI/MCP desired-state regression
+also records content-free edit counts and expected-state observations. Existing
+20/30-second waits, probe cancellation and transport shutdown bounds remain.
+
+Controlled regression cases use `AVASCOPE_PROBE_HOLD_STAGE` and
+`AVASCOPE_PROBE_HOLD_RELEASE` only in the probe, never the application/server.
+They hold connecting, a real started request, a received response or closing
+until the owned release file exists, with a five-second maximum. Actual fixture
+edits verify the distinction while a separate 100 ms observation wait expires;
+the original regression budgets are unchanged. These are headless/process
+diagnostic checks, not a native journey or proof of historical host contention.
+
 ## Continuing the blocked Retina cases
 
 The 2026-09-24 campaign observed 1× on local Windows and all three hosted lab

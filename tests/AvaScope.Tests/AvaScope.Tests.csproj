@@ -17,6 +17,7 @@
 
   <ItemGroup>
     <Using Include="Xunit" />
+    <Compile Include="../AvaScope.McpScenarioClient/ProbeLifecycleTrace.cs" Link="Mcp/ProbeLifecycleTrace.cs" />
     <None Update="xunit.runner.json" CopyToOutputDirectory="PreserveNewest" />
     <Compile Include="../../samples/AvaScope.ComplexWorkflowApp/QaWindow.axaml.cs" Link="Fixtures/QaWindow.axaml.cs" />
     <Compile Include="../../samples/AvaScope.ComplexWorkflowApp/QaRuntimeRegistration.cs" Link="Fixtures/QaRuntimeRegistration.cs" />
