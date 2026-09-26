@@ -18,6 +18,11 @@ Before editing a host, run `avascope integration-guide --project <absolute.cspro
 
 Conventional `Application.OnFrameworkInitializationCompleted` startup with a unique base call and a desktop/single-view lifetime receives concrete insertion guidance after window/view assignment. Existing activation receives no duplicate proposal. Unknown startup, unresolved/conditional frameworks, incompatible versions and AOT/trimmed configurations return `needs_review` diagnostics. Literal properties in the nearest `Directory.Build.props`, central package versions and `$(AvaloniaVersion)` are recognized; custom imports/conditions need an explicit review. Source scanning excludes generated/output/hidden directories and symlinks, with limits of 512 directories/files, depth 12, 1 MiB per file and 8 MiB total. Guidance is intentionally conservative and does not claim full C# or MSBuild semantic evaluation.
 
+Required target/version/configuration review takes precedence over the
+`already_integrated` status. Existing activation locations remain in the response
+and no duplicate snippets are proposed; an activation call does not establish
+that the selected target or diagnostics configuration is supported.
+
 The `EnableUiInspection` property is host-owned and unset by default. Package guidance guards both the reference and call; standalone guidance guards the loader call and excludes its copied helper from normal compilation. Existing references require a reviewed migration before claiming dependency-free production output. Run the integration verification after applying a chosen mode, including its independent disabled-build lane.
 
 Run `avascope verify-integration --request integration.json` or MCP `verify_integration(request)` to exercise the selected host. A minimal enabled request is:

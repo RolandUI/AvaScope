@@ -154,7 +154,7 @@ public static class BridgeIntegrationAdvisor
             }
 
             return CoreResult<BridgeIntegrationGuidanceResponse>.Ok(new(projectPath,
-                existing.Count > 0 ? "already_integrated" : ambiguous ? "needs_review" : "guidance_available", frameworks, selected, version, existing, guidance, diagnostics));
+                ambiguous ? "needs_review" : existing.Count > 0 ? "already_integrated" : "guidance_available", frameworks, selected, version, existing, guidance, diagnostics));
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or XmlException or ArgumentException or RegexMatchTimeoutException or InvalidDataException)
         {

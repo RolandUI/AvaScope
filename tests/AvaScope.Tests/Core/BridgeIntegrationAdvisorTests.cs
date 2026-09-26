@@ -76,6 +76,49 @@ public sealed class BridgeIntegrationAdvisorTests : IDisposable
         Assert.DoesNotContain(guide.Guidance, item => item.Snippet.Contains("PackageReference", StringComparison.Ordinal));
     }
 
+    [Theory]
+    [InlineData("undeclared_framework")]
+    [InlineData("unsupported_framework")]
+    [InlineData("multiple_frameworks")]
+    [InlineData("conditional_framework")]
+    [InlineData("old_avalonia")]
+    [InlineData("new_avalonia_line")]
+    [InlineData("unresolved_avalonia")]
+    [InlineData("aot")]
+    [InlineData("trimmed")]
+    public void ExistingActivationRetainsRequiredCompatibilityReview(string condition)
+    {
+        var project = File.ReadAllText(ProjectPath);
+        string? framework = null;
+        var expectedDiagnostic = "declared .NET 10";
+        switch (condition)
+        {
+            case "undeclared_framework": framework = "net9.0"; break;
+            case "unsupported_framework": project = project.Replace("net10.0", "net9.0", StringComparison.Ordinal); break;
+            case "multiple_frameworks": project = project.Replace("<TargetFramework>net10.0</TargetFramework>", "<TargetFrameworks>net10.0;net10.0-windows</TargetFrameworks>", StringComparison.Ordinal); break;
+            case "conditional_framework": project = project.Replace("<TargetFramework>", "<TargetFramework Condition=\"'$(Configuration)' == 'Diagnostics'\">", StringComparison.Ordinal); break;
+            case "old_avalonia": project = project.Replace("12.1.0", "11.3.12", StringComparison.Ordinal); expectedDiagnostic = "requires Avalonia"; break;
+            case "new_avalonia_line": project = project.Replace("12.1.0", "12.2.0", StringComparison.Ordinal); expectedDiagnostic = "requires Avalonia"; break;
+            case "unresolved_avalonia": project = project.Replace("12.1.0", "$(UnknownVersion)", StringComparison.Ordinal); expectedDiagnostic = "requires Avalonia"; break;
+            case "aot": project = project.Replace("</PropertyGroup>", "<PublishAot>true</PublishAot></PropertyGroup>", StringComparison.Ordinal); expectedDiagnostic = "NativeAOT/trimmed"; break;
+            case "trimmed": project = project.Replace("</PropertyGroup>", "<PublishTrimmed>true</PublishTrimmed></PropertyGroup>", StringComparison.Ordinal); expectedDiagnostic = "NativeAOT/trimmed"; break;
+        }
+        File.WriteAllText(ProjectPath, project);
+        File.WriteAllText(Path.Combine(_root, "App.cs"), Startup.Replace("base.OnFramework", "global::AvaScope.Bridge.Bootstrap.Start();\nbase.OnFramework", StringComparison.Ordinal));
+        var before = Directory.GetFiles(_root).ToDictionary(path => path, File.ReadAllText);
+        var result = BridgeIntegrationAdvisor.Analyze(ProjectPath, framework);
+        Assert.True(result.Success, result.Error?.Message);
+        var guide = result.Value!;
+        Assert.Equal("needs_review", guide.Status);
+        Assert.Single(guide.ExistingIntegration);
+        Assert.Empty(guide.Guidance);
+        Assert.True(guide.ReadOnly);
+        Assert.Contains(guide.Diagnostics, diagnostic => diagnostic.Contains(expectedDiagnostic, StringComparison.Ordinal));
+        Assert.Equal(JsonSerializer.Serialize(guide), JsonSerializer.Serialize(AvaScopeMcpTools.IntegrationGuide(ProjectPath, framework).Value));
+        foreach (var (path, content) in before) Assert.Equal(content, File.ReadAllText(path));
+        Assert.Equal(before.Count, Directory.GetFiles(_root).Length);
+    }
+
     [Fact]
     public void UnknownStartupAndMultipleFrameworksRequireReview()
     {

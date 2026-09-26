@@ -4,6 +4,38 @@ Status: **in progress**, 2026-09-25. Tracking issue [#166](https://github.com/Ro
 
 ## Current validation checkpoint
 
+#221 is locally corrected with one status-precedence change: required target or
+configuration review wins over an existing activation call. Nine new cases fail
+before while eight controls pass; the same test source passes all 17 afterward
+(1 second, zero skips/build warnings). `integration-review-after-01` adds five
+real calls: supported CLI/MCP remains already_integrated, undeclared-framework
+CLI/MCP now needs_review with the same existing locations and diagnostics, and
+the declaration-only #222 case deliberately remains open. Source/binary/TRX
+and public response evidence independently verifies in
+`D:/AvaScope-QA-active/integration-review-221/verified-regression.json`;
+all owned clients are gone. A premature first test selection ran only eight old
+cases while its build was live; that mismatched source/binary selection remains
+explicitly invalid in before-stale-selection, not counted as a regression pass.
+
+The preceding clean 4ffd1a2 integration-diagnostics-01 charter has 15 actual calls
+(nine MCP/six CLI), 199 independent checks and 35 pinned provider files. Eleven
+positive/negative cases pass; four observations reproduce #221 and #222 on both
+adapters. Profiles preserve platform overrides without launch; provider pins and
+missing-target controls agree with filesystem and doctor platform-probe evidence.
+No native application journey or synthetic project execution is claimed here.
+
+The full cb7ca45 gate 36239596341 is terminal failed solely at the macOS mutation
+evidence fixture (#223): 30.094s waiting for five IPC requests, with no retained
+request timeline or capture result. Original cause is unproven. Downloaded
+Windows 1077/eight skips, macOS 1073/one failure/ten skips, Linux 33, Windows native
+13/zero skips and nine native lab runs at 1x independently verify. #220's hosted
+real-stream probe passes with occupied workers and truthful held-writer EOF
+semantics on .NET 10.0.12 (0.6161ms closed-stream completion); its full gate remains
+failed. New required full CI 36241933958 runs on 4ffd1a2, including #192 and
+excluding the later #221 correction. Inventory is 58 defects/41 closed, including
+six defect-specific CI issues. #221 is the current slice; #222/#223 are ready.
+Native Retina remains unverified and no release is authorized.
+
 #192 now retains bounded probe lifecycle evidence for startup, ready, real
 request invocation, response receipt, stdout delivery and client disposal.
 The direct SDK test uses the same metadata recorder with a separate application

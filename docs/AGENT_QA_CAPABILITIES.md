@@ -30,6 +30,17 @@ tracked in #219. Integration/startup, runtime diagnostics and artifact/viewer CL
 boundaries still need reconciliation or fresh exploration. The matrix below
 remains the scope and oracle plan; only recorded journeys support scoped results.
 
+`integration-diagnostics-01` on clean 4ffd1a2 adds 15 real public calls (nine
+MCP/six CLI) and 199 independent checks. Provider identity/pin refusal, Windows
+and Linux profile previews, selected/missing-target doctor and supported guide
+controls pass. Four observations reproduce #221's hidden target review and
+#222's declaration-as-activation error. Five calls in `integration-review-after-01`
+verify the #221 correction through both adapters and retain #222 as known open.
+These are static/diagnostic checks with owned platform probes and unchanged
+source/provider files; no native app launch or UI journey is claimed. Actual
+integration startup, runtime diagnostics and artifact/viewer boundaries still
+need their remaining scoped journeys.
+
 | MCP tools | Fixture / positive and negative journey | Independent oracle / constraint |
 | --- | --- | --- |
 | `health`, `capabilities` | Isolated current stdio server; compare advertised versions and capabilities with built artifacts. | Assembly identity and tool schema inventory. |
