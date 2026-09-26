@@ -4,6 +4,38 @@ Status: **in progress**, 2026-09-26. Tracking issue [#166](https://github.com/Ro
 
 ## Current validation checkpoint
 
+Latest: #225 is sole active; #174 is review after the actual native integration
+startup charter. Clean066192b binaries (399 pinned files) execute eleven public
+calls, six MCP/five CLI, with947 independent checks: nine expected outcomes and
+two retained failures. Enabled Direct CLI and standalone CLI/MCP pass; Direct
+MCP reproduces #182 (first visual_tree read,5107ms at5000ms, zero response bytes).
+Disabled CLI passes; disabled MCP passes its15000ms no-endpoint observation then
+misreports cleanup cancellation as disabled_startup (#225). Missing discovery,
+provider pin, undeclared focus, contaminated production output and early-exit
+guards reject at the expected stages. All25 owned app/client/server processes
+are independently absent. Evidence:
+`D:/AvaScope-QA-active/integration-startup-174-01/verified-charter.json`.
+
+Five native and three rendered images were reviewed, plus three explicitly
+externalized tree artifacts for editor/focus identity. Case02's native observer
+ended before the window appeared; case07 closed between selection and capture;
+case11 uses its opened/closed journal without a native image or observed child
+exit code. Focus API dispatch is verified but no independent post-focus state
+was captured. These gaps and the verifier's corrected inline-tree/null/closed-
+handle assumptions remain explicit. This is not a whole-charter pass.
+
+#224 is pushed/review at71fc60a after15/15 fixture tests: a controlled hidden
+frame reproduces the stale Reset hit; rendering the current scene fixes it while
+retaining pre-render overflow checks, unchanged geometry and real headless mouse
+clicks in two cycles/sizes. The original incorrect resize control is retained
+separately. Full CI36247707296 runs on that exact commit, including #221–#224;
+do not cancel or duplicate it. Prior de20cfb gate failed only this Reset test
+(Windows1118/one/eight skips), with all105 #221–#223 cases and nine native/expiry
+1x runs passing. Inventory:60 defects,43 closed. Retina remains unverified; no
+version change or publication.
+
+Earlier verified checkpoints follow; their counts apply to their named commits.
+
 #192 and #220 are closed after exact 4ffd1a2 full CI 36241933958 succeeds all six
 jobs. Independent downloaded evidence verifies Windows 1083 passed/eight skips,
 macOS 1080/ten, Linux 33, thirteen Windows native input cases/zero skips and
