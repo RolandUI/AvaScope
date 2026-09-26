@@ -4,6 +4,21 @@ Status: **in progress**, 2026-09-25. Tracking issue [#166](https://github.com/Ro
 
 ## Current validation checkpoint
 
+#199 is now the sole active issue for evidence-backed investigation of the
+retained native UIA timeout. #219 is review at `c079de6`; its complementary manual
+MCP-select/CLI-confirm Save retest is complete on that clean source: eight public
+calls, 72 independent checks, six reviewed native images and one actual native
+click. Requested `manual-save-árvíz.txt` appears in the dialog pixels and final
+independent native UIA/public application result. App 4344 and all eight clients
+are independently absent after owned termination. All selected binaries and 35
+provider files reverify. Selection-stage UIA was unavailable and is retained as
+such; the final UIA observation succeeds. Evidence:
+`artifacts/agent-qa/native-picker-save-after-01/verified-summary.json`.
+
+Full CI `36234263189` runs on exact
+`c079de61cfbd303f69350aedcac4fad952da9a08`; #219 remains open until the applicable
+full gate is verified. No duplicate run or release is authorized by this checkpoint.
+
 #219 now has a locally validated candidate: the filename is edited using
 `EM_SETSEL` plus `EM_REPLACESEL`, sharing one finite send deadline. A new real
 CLI-select/MCP-confirm regression first reproduced the suggested-name mismatch,
@@ -11,8 +26,8 @@ then passed on the freshly packaged provider with `selected-save-árvíz.txt`
 (77 seconds). Open/cancel and the earlier native input controls also pass;
 three prepared-picker tests pass separately. Forty-four independent checks
 verify original/fixed result evidence, source/Core identities and all 35 provider
-files. Both builds have zero warnings/errors. Complementary manual native
-retest and fresh full CI remain required, so #219 stays active.
+files. Both builds have zero warnings/errors. The complementary manual retest
+is recorded above; the fresh full CI remains pending.
 
 Two separate unsuccessful local attempts remain retained: initial manifest
 discovery failed before reaching the picker with empty host logs (cause unknown),
