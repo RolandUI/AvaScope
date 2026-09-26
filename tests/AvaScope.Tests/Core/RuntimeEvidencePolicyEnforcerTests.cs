@@ -112,6 +112,60 @@ public sealed class RuntimeEvidencePolicyEnforcerTests : IDisposable
         }
     }
 
+    [Theory]
+    [InlineData("available", true)]
+    [InlineData("empty", true)]
+    [InlineData("unavailable", true)]
+    [InlineData("available", false)]
+    [InlineData("empty", false)]
+    [InlineData("unavailable", false)]
+    public void AccessibleNameEvidenceRemainsReadableWhenPolicyWithholdsNames(string status, bool exclude)
+    {
+        var enforcer = new RuntimeEvidencePolicyEnforcer(CreatePolicy(
+            redactedText: ["private declared name", "private effective name"],
+            excludedControlAutomationIds: exclude ? ["private-container"] : []));
+        var privateNode = new TreeNodeSummary("private-node", "Button",
+            accessibilityState: new RuntimeAccessibilityState("avalonia_public_automation_properties+automation_peer_name",
+                automationName: "private declared name", automationNameStatus: status,
+                effectiveAutomationName: status == "available" ? "private effective name" : null));
+        var publicState = new RuntimeAccessibilityState("avalonia_public_automation_properties+automation_peer_name",
+            automationName: "Public declaration", automationNameStatus: "available", effectiveAutomationName: "Public action");
+        var tree = new TreeNodeSummary("root", "Panel", children:
+        [
+            new TreeNodeSummary("private-parent", "Panel", automationId: "private-container", children: [privateNode]),
+            new TreeNodeSummary("public-node", "Button", accessibilityState: publicState)
+        ]);
+
+        var result = enforcer.Sanitize(tree);
+
+        Assert.True(result.Success, result.Error?.Message);
+        var sanitizedState = Assert.Single(result.Value!.Children[0].Children).AccessibilityState!;
+        Assert.Equal(exclude ? null : status, sanitizedState.AutomationNameStatus);
+        Assert.Equal(exclude ? "[EXCLUDED]" : "[REDACTED]", sanitizedState.AutomationName);
+        Assert.Equal(status == "available" ? exclude ? "[EXCLUDED]" : "[REDACTED]" : null,
+            sanitizedState.EffectiveAutomationName);
+        Assert.Equal(publicState, result.Value.Children[1].AccessibilityState);
+        var json = JsonSerializer.Serialize(result.Value);
+        Assert.DoesNotContain("private declared name", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("private effective name", json, StringComparison.Ordinal);
+        if (exclude) Assert.DoesNotContain("private-container", json, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void RedactedAccessibleNameAvailabilityIsWithheldInsteadOfInventingAState()
+    {
+        var enforcer = new RuntimeEvidencePolicyEnforcer(CreatePolicy(redactedText: ["available"]));
+        var state = new RuntimeAccessibilityState("public_peer", automationNameStatus: "available",
+            effectiveAutomationName: "Public action");
+
+        var result = enforcer.Sanitize(state);
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Null(result.Value!.AutomationNameStatus);
+        Assert.Equal("Public action", result.Value.EffectiveAutomationName);
+        Assert.DoesNotContain("available", JsonSerializer.Serialize(result.Value), StringComparison.Ordinal);
+    }
+
     [Fact]
     public void SanitizeRedactsOwnedResponseBudgetFallbackArtifacts()
     {

@@ -478,7 +478,9 @@ peer name, including header/label/custom-peer semantics. The existing
 `automationName` retains the declared attached-property value. `automationNameStatus`
 distinguishes `available`, genuinely `empty`, and `unavailable` after a peer read
 failure. Audits report unavailable names separately; an internal control name
-does not prove that assistive technology receives a name. Compare the actual OS
+does not prove that assistive technology receives a name. Evidence policy omits
+the optional status when that metadata is withheld, preserving name redaction
+without inventing an observed state. Compare the actual OS
 tree separately with `audit-native-accessibility` when platform evidence matters.
 
 Find runtime tree nodes by identity and optional interaction state. State filters accept `true` or `false` and use the same semantics as workflow selectors and MCP `find_nodes`:

@@ -3464,6 +3464,7 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                     var serialized = JsonSerializer.Serialize(result.Value);
                     Assert.DoesNotContain(secretText, serialized, StringComparison.Ordinal);
                     Assert.DoesNotContain(secretAutomationId, serialized, StringComparison.Ordinal);
+                    Assert.True(result.Value.Steps.Count == 1, serialized);
                     var failedStep = Assert.Single(result.Value.Steps);
                     Assert.NotNull(failedStep.FailureEvidence);
                     Assert.True(File.Exists(failedStep.FailureEvidence!.ScreenshotPath));

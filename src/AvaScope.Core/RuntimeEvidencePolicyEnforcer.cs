@@ -616,14 +616,25 @@ public sealed class RuntimeEvidencePolicyEnforcer
                 {
                     if (property.Value is JsonValue value && value.TryGetValue<string>(out var text))
                     {
-                        // Excluded subtrees can contain typed target timestamps. A textual
-                        // placeholder makes the sanitized protocol DTO unreadable; retain no
-                        // timestamp information while preserving its JSON date representation.
-                        obj[property.Key] = excludesObject
-                            && property.Key is "capturedAt" or "executedAt" or "evaluatedAt"
-                            && value.TryGetValue<DateTimeOffset>(out _)
-                                ? JsonValue.Create(DateTimeOffset.MinValue)
-                                : JsonValue.Create(SanitizeScalar(text, excludesObject));
+                        var sanitizedText = SanitizeScalar(text, excludesObject);
+                        if (property.Key == "automationNameStatus"
+                            && !string.Equals(text, sanitizedText, StringComparison.Ordinal))
+                        {
+                            // Withhold optional typed availability when policy replaces it;
+                            // a privacy placeholder is not a valid observed name state.
+                            obj[property.Key] = null;
+                        }
+                        else
+                        {
+                            // Excluded subtrees can contain typed target timestamps. A textual
+                            // placeholder makes the sanitized protocol DTO unreadable; retain no
+                            // timestamp information while preserving its JSON date representation.
+                            obj[property.Key] = excludesObject
+                                && property.Key is "capturedAt" or "executedAt" or "evaluatedAt"
+                                && value.TryGetValue<DateTimeOffset>(out _)
+                                    ? JsonValue.Create(DateTimeOffset.MinValue)
+                                    : JsonValue.Create(sanitizedText);
+                        }
                     }
                     else if (property.Value is not null)
                     {

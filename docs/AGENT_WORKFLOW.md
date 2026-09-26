@@ -199,7 +199,9 @@ existing `automationName` retains the attached property's declared value. The op
 the peer could not be read and produces `accessibility.name_unavailable` in an
 audit. An observed empty peer name remains missing even if the control has an
 internal `Name` or visible content. Older responses without this status retain
-the legacy metadata fallback. Other accessibility fields still describe their
+the legacy metadata fallback. Evidence policy omits the optional status when it
+withholds that metadata; absence does not establish an empty or unavailable peer.
+Excluded and redacted names retain their privacy markers. Other fields describe their
 attached properties; peer-name provenance is explicit. This metadata does not
 replace comparison with the actual platform accessibility tree.
 

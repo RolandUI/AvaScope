@@ -4,6 +4,41 @@ Status: **in progress**, 2026-09-25. Tracking issue [#166](https://github.com/Ro
 
 ## Current validation checkpoint
 
+#216 is sole active after #215's exact `1335a4c` full CI `36225116901` fails
+Windows: 1055 passed, one failed, eight skipped. The existing end-to-end evidence
+policy test receives an empty fail-closed workflow instead of its failure step;
+all original masking and secret-free assertions remain required. A local
+before-correction run reproduces five failures with three controls passing:
+excluded available/empty/unavailable names, explicitly redacted availability,
+and the actual workflow (`runtime_evidence_redaction_failed`). The strict
+optional name status cannot deserialize a privacy placeholder. Candidate policy
+handling withholds that optional status while retaining all name and key
+redaction; all 221 affected tests pass in 3m04s, zero skips and zero build
+warnings/errors. The independent stage verifier retains before/after counts,
+all eight focused outcomes and exact CI evidence. Fresh native Direct/standalone
+verification follows before a new combined full gate. Original CI/TRX and local before result
+remain under `expanded-campaign/ci-1335a4c-windows` and
+`excluded-name-policy-01`. #215 remains review; the earlier full CI is now
+terminal failed with macOS/Linux full jobs skipped and all nine native/expiry
+runs verified at 1x. All six #215 name regressions passed on Windows. Inventory:
+51 defect tickets, 36 closed. No release.
+
+#174's fresh `inspection-direct-01` on clean `7c0b33c` independently verifies
+42 public calls (26 MCP/16 CLI), 250 checks, eleven native/two rendered viewed
+images and two actual Windows clicks. Logical full/shallow/missing trees,
+Unicode observation changes, bounded ordered event draining, unchanged waits,
+scope/invalid/future/expired cursor resync, privacy and real highlight lifecycle
+pass at Win32 1x. The clicked editor gains actual OS focus through the visible
+highlight; explicit clear, expiry and screenshot capture remove it. Individual
+MCP-client shutdown exceeds the highlight lifetime, so that late image is
+explicitly excluded from active-state proof; eight calls on a retained public
+stdio connection supply actual active pixels and before-expiry cleanup. One
+agent request omitted required policy outputDirectory, was refused before
+dispatch, and has a separate corrected case. A verifier's missing nullable JSON
+key assumption was also corrected without redispatch. Source/31 binaries and
+owned app 14648/all 35 clients absent verify. This is a scoped Direct pass;
+standalone comparison remains pending while #216 is addressed.
+
 #214 is now closed: exact `de733c7` full CI
 [36222349163](https://github.com/RolandUI/AvaScope/actions/runs/36222349163)
 passes all six jobs. Downloaded Windows 1050/eight skips, macOS 1048/nine and
