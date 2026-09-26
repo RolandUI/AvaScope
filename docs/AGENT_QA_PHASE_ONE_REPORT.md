@@ -4,7 +4,26 @@ Status: **in progress**, 2026-09-26. Tracking issue [#166](https://github.com/Ro
 
 ## Current validation checkpoint
 
-Latest: #225 is sole active; #174 is review after the actual native integration
+Latest (15:19 UTC): #225 is pushed/review at995046f, with17/17 controlled tests
+and a fresh native comparison using unchanged066192b hosts/provider/client.
+Eleven real calls (six MCP/five CLI),944 checks and399 binary hashes verify ten
+expected outcomes and one retained #182 startup-transport finding: Direct MCP
+passes tree/inspect, then screenshot IPC read times out5023ms/5000ms/zero bytes.
+All disabled observation/cleanup and negative/early-exit guards pass. Seven
+native and three rendered images are reviewed, and all25 per-case owned process
+observations are absent (23 distinct PID numbers reused between cases).
+Evidence: `D:/AvaScope-QA-active/integration-startup-225-01/verified-charter.json`.
+
+Full CI36247707296 on71fc60a is terminal failed: Windows1121/eight skips,
+macOS1116/two #224 translated-origin equality failures/ten skips, Linux #226
+managed-Wayland screenshot readiness1000ms after a verified edit. Nine native
+lab/expiry1x runs pass. Independent `ci-71fc60a-verified-summary.json` retains
+the actual failed/partial-response contract and hashes. #224 is now sole active
+for the changing Fluent pressed transform; #225's fresh full hosted gate remains
+required, #226 ready. Inventory61 defects/43closed. No whole-campaign pass or
+native Retina claim. Earlier observations below retain their original status.
+
+Earlier: #225 was sole active; #174 was review after the actual native integration
 startup charter. Clean066192b binaries (399 pinned files) execute eleven public
 calls, six MCP/five CLI, with947 independent checks: nine expected outcomes and
 two retained failures. Enabled Direct CLI and standalone CLI/MCP pass; Direct
