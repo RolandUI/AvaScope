@@ -4,22 +4,49 @@ Status: **in progress**, 2026-09-25. Tracking issue [#166](https://github.com/Ro
 
 ## Current validation checkpoint
 
-#217 is sole active: a real Skia regression confirms depth-truncated sensitive
-controls can retain original orange pixels instead of a black mask. The expanded
-baseline has two controls passing/eight pixel failures across depth/budget
-truncation and text/id/excluded-control policy through workflow/CLI/MCP methods.
-The candidate conservatively masks incomplete sensitive trees in full while
-preserving selective masks and ownership refusal; all 104 affected tests pass
-(23s, zero skips/build warnings/errors). Independent counts and original oracle
-correction remain under `deep-policy-mask-01`; fresh native validation follows.
+#218 is the sole active issue: exact `2f7c686` full CI `36227569598`
+failed the macOS relationship disappearance wait. Windows has 1063 passed/eight
+skipped; macOS 1060 passed/one failed/nine skipped; Linux 33 passed. All fourteen
+#215/#216 focused regressions pass on both full hosts, and all nine native/expiry
+runs are verified at 1x. The failing assertion omitted its workflow diagnostics;
+the original cause remains unknown. Preserve its 200 ms deadline during diagnosis.
+Inventory: 53 defects, 36 closed. #215/#216/#217 remain review; no release.
 
-#216 is review after fresh Direct/standalone on clean `2f7c686`: each ten actual
-public calls (six MCP/four CLI), 102 independent checks, two viewed native images
-and 31 pinned binaries. Excluded-name failure steps/reports, passing policy
-assertions and reset verify. Outside-run bounded tree fallbacks correctly fail
-closed with PNG removal; no native masked-image pass is claimed. All twenty
-clients/apps 13692/18964 are absent. Full CI `36227569598` runs on that exact
-commit; do not cancel or duplicate it. Inventory: 52 defects, 36 closed.
+The #218 assertion now retains the complete workflow result on failure and
+requires a matched `missing` observation on success. Original 200/100 ms
+deadlines and production code are unchanged. All fourteen affected local
+relationship/readiness/protocol tests pass (32s), plus five real workflow and
+controlled expression-deadline cases (14s), zero skips/build warnings/errors.
+Independent counts and hashes preserve the original macOS failure separately
+under `relationship-wait-01`. A passing local rerun does not establish its cause.
+
+#217 scoped correction is `69244a1`: real Skia baseline two controls pass/eight
+pixel failures; all 104 affected tests pass after conservative masking, without
+changing complete-tree selective masks or ownership refusal. Native Direct and
+standalone child comparisons complete 16/15 public calls and 106/101 independent
+checks; each has two viewed native and three rendered images. Exact intended
+masks, every outside pixel, complete redacted failure evidence, reset and cleanup
+verify. A Direct close request without isolation was safely refused and retained.
+
+Real native main-tree masking also passes through Direct CLI profile and
+standalone stdio MCP explicit scenarios: each one public call, 59 independent
+checks, one actual native click, one native and one rendered viewed image.
+Actual incomplete coverage and owned fallback produce entirely black 1120x800
+images with `full_sensitive_mask`. The independent native view remains visible;
+the click changes exactly one journal counter before owned scenario termination.
+All four runs pin 31 selected binaries; all owned clients/apps are absent.
+Evidence roots are `deep-mask-{direct,standalone}-after-01`,
+`deep-mask-scenario-direct-04` and `deep-mask-scenario-standalone-03`.
+Four preceding configuration refusals and one unexecuted preparation remain
+agent errors, separately retained. Scope is Win32/Avalonia 12.1.3/1x.
+
+#216 native runs on `2f7c686` remain separately verified: each ten public calls,
+102 checks, two viewed native images and 31 binaries. Outside-run fallback
+correctly omits/deletes images there. The later #217 scenarios provide positive
+owned-fallback image evidence. The completed older full gate excludes #217;
+a combined gate is still required. Stopped historical QA runs are being archived
+file-by-file with SHA-256 comparison to `D:/AvaScope-QA-archive/20260926`;
+original paths remain readable through junctions. Current snapshots stay local.
 
 #216 followed #215's exact `1335a4c` full CI `36225116901` failure on
 Windows: 1055 passed, one failed, eight skipped. The existing end-to-end evidence

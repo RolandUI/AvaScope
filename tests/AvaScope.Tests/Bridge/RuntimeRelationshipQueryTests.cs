@@ -375,11 +375,14 @@ public sealed class RuntimeRelationshipQueryTests
             var missing = await new SemanticWorkflowRunner().RunAsync(client, new(runtime.SessionId, top,
                 [new(SemanticWorkflowActions.WaitForState, "gone", InGroup("Missing", "Shipping"), timeoutMs: 200,
                     waitCondition: new(SemanticWaitConditionKinds.Disappears))], maxDepth: 32));
-            Assert.Equal("passed", missing.Value!.Status);
+            Assert.True(missing.Success && missing.Value?.Status == "passed", JsonSerializer.Serialize(missing));
+            var missingStep = Assert.Single(missing.Value!.Steps);
+            Assert.Equal("missing", missingStep.WaitObservation!.Availability);
+            Assert.True(missingStep.WaitObservation.Matched);
             var partial = await new SemanticWorkflowRunner().RunAsync(client, new(runtime.SessionId, top,
                 [new(SemanticWorkflowActions.WaitForState, "unknown", InGroup("Missing", "Shipping"), timeoutMs: 100, pollIntervalMs: 25,
                     waitCondition: new(SemanticWaitConditionKinds.Disappears))], maxDepth: 1));
-            Assert.Equal("failed", partial.Value!.Status);
+            Assert.True(partial.Success && partial.Value?.Status == "failed", JsonSerializer.Serialize(partial));
         });
     }
 
