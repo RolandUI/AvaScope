@@ -1,5 +1,18 @@
 # Agent QA capability map
 
+The8968aad reconciliation preserves the older inventories and indexes2041
+explicit request/argv records across108 evidence roots;2037 have retained
+responses, four historical health attempts do not. There are no duplicate
+response identities. The index covers74 of75 MCP names and55 of78 CLI names;
+forty older raw CLI payloads remain unclassified. It now includes the external
+integration-startup charters, native pickers and recorded scenario process argv
+that the qa-run-only scan omitted. Missing names are index gaps, not proof that
+the feature was never exercised; neither a response nor a success flag is an
+independent passing oracle. Artifacts: expanded-campaign/public-call-inventory-
+8968aad-supplemented.json and its summary/audit. Explicit attach and the remaining
+CLI adapter boundaries are the next selected current-source journeys. Existing
+Retina/native observation limitations remain unchanged.
+
 `artifact-boundaries-01` on707e891 adds45 actual public calls (18MCP/27CLI),
 known64-pixel diff/crop controls, invalid inputs, full75/78 capability catalog
 comparison, private cleanup/sentinels, preview session/export/close and actual
