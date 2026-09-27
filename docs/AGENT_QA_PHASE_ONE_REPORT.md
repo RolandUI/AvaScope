@@ -1,10 +1,29 @@
 # Native agent QA campaign
 
-Status: **in progress**, 2026-09-26. Tracking issue [#166](https://github.com/RolandUI/AvaScope/issues/166); expanded fixture #172, declared surfaces #173 and capability campaign #174. The full goal is not achieved and current applicable checks are not all passing. The owner expanded the original intake-only phase to include fixes, meaningful regressions and repeated comprehensive testing. Original failures remain distinct from post-fix verification. Version changes and release remain outside scope.
+Status: **in progress**, 2026-09-27. Tracking issue [#166](https://github.com/RolandUI/AvaScope/issues/166); expanded fixture #172, declared surfaces #173 and capability campaign #174. The full goal is not achieved: current complete CI passes, but open defects and evidence/coverage gaps remain. The owner expanded the original intake-only phase to include fixes, meaningful regressions and repeated comprehensive testing. Original failures remain distinct from post-fix verification. Version changes and release remain outside scope.
 
 ## Current validation checkpoint
 
-Latest (15:19 UTC): #225 is pushed/review at995046f, with17/17 controlled tests
+Latest (2026-09-27): both complete4b47791 and0b2a7cf hosted gates pass all six
+jobs. Independent downloaded verification of0b2a7cf: Windows1134 passed/eight
+skipped, macOS1131/ten, Linux33; all affected advisor41, verifier17, fixture17,
+LocalBridgeClient64 and readiness7 cases pass on both full platforms. Nine
+native/expiry1x runs verify owned cleanup. #221–#225 are closed; #226's original
+timeout cause remains unknown. New #227 records full Linux artifact omissions:
+the four Wayland screenshots and missing-dependency response are not uploaded
+by the current path filters, so no visual/byte verification of them is claimed.
+
+Direct diagnostic exploration on clean0b2a7cf completes35 explicit calls,
+627 checks and510 pinned-file hashes. Six native/four rendered images verify
+intentional validation and clipping, disable and Reset; the diagnostic region
+changes6405 pixels and restores exactly. Binding metadata limitations and
+unrelated accessibility findings remain explicit. The app self-expired during
+interruption; subsequent Stop verifies owned already_exited, with app/35 callers
+absent. The standalone comparison is underway, with independent native capture
+currently unavailable after stale-window recovery failed. #174 remains sole
+active; inventory62 defects/48closed. No Retina or whole-campaign pass is claimed.
+
+Earlier checkpoint (2026-09-26,15:19 UTC): #225 is pushed/review at995046f, with17/17 controlled tests
 and a fresh native comparison using unchanged066192b hosts/provider/client.
 Eleven real calls (six MCP/five CLI),944 checks and399 binary hashes verify ten
 expected outcomes and one retained #182 startup-transport finding: Direct MCP

@@ -55,6 +55,30 @@ and three rendered images are reviewed; all25 per-case owned process
 observations are absent. Three enabled routes pass; neither charter is a blanket
 pass. Runtime diagnostics and artifact/viewer boundaries remain pending.
 
+`runtime-diagnostics-direct-01` on clean0b2a7cf now adds35 explicit public calls
+(18MCP/17CLI),627 independent checks and510 unchanged pinned binary files.
+Six native JPEGs and four rendered PNGs were opened and reviewed. Public and
+native toggle cycles expose the intentional validation error and800-DIP child
+inside a280-DIP clipping parent; targeted inspection/layout/audit agree with
+the app journal. Disabling and Reset restore the exact diagnostic image region
+(6405 changed pixels while enabled, zero after restoration). Missing-node/scope
+guards preserve the journal. One omitted manifest argument and one explicitly
+depth-limited empty discovery are retained as agent invocation/coverage limits.
+Binding expression/fallback text are observed, but binding-path/error metadata
+remain unavailable. Connection-health `diagnostics` and single-node design
+rules do not replace targeted validation/clipping checks. Unrelated accessibility
+findings and bounded inventory truncation remain explicit. The app expired and
+closed during interruption; subsequent owned Stop and independent process/
+manifest inspection verify cleanup. The standalone comparison is in progress;
+its independent native capture failed recovery and is not marked passed.
+
+Full4b47791 and0b2a7cf gates both pass; #221–#225 close after downloaded
+cross-platform verification. The latest gate has Windows1134/eight skips,
+macOS1131/ten skips, Linux33 and nine native/expiry1x runs. #227 records missing
+Wayland PNGs/prerequisite guard evidence in the full Linux artifact despite
+successful native responses; those missing images have not been reviewed.
+Targeted Wayland evidence below remains a separate source, not a substitute.
+
 Targeted managed-Wayland CI36253239362 onf309708 additionally verifies four
 positive native CLI/MCP1x/2x journeys and four negative outcomes with retained
 responses, supported rendered-capture provenance,500x460/1000x920 images and
