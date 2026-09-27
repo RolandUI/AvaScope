@@ -1,6 +1,6 @@
 # AvaScope Development Plan
 
-GitHub milestone v1.5.1 is the current backlog and acceptance source. #201 is the sole in-progress issue for truthful animation timing diagnostics; #174 is ready while this bounded slice runs. Deterministic animation timing remains blocked on a supported clock API, and #231 requires a captured failing publish to resolve its original cause. This file contains the latest handoff; older per-run history is intentionally omitted.
+GitHub milestone v1.5.1 is the current backlog and acceptance source. #174 is the sole in-progress issue. The #201 timing-reporting slice is committed in 926119d and locally validated; deterministic animation timing remains blocked on a supported clock API, and the new source awaits combined CI. #231 requires a captured failing publish to resolve its original cause. This file contains the latest handoff; older per-run history is intentionally omitted.
 
 ## Working policy (owner instruction, 2026-09-27)
 
