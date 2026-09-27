@@ -1,5 +1,17 @@
 # Agent QA capability map
 
+Current checkpoint: the shared d7562ed full CI is successful; #228/#229/#230 are
+closed. Source remains unchanged through documentation commit 731af68. The #231
+fresh-intermediate Direct publish completes in 251.372s under the original 300s
+deadline, then five actual CLI/MCP calls verify Win32 startup, tree, a reviewed
+1120x800 rendered image and owned shutdown. This does not establish the original
+publish-timeout cause or an independent native-pixel/Retina pass. The lab now
+reuses one binary set and build cache; historical local artifacts are discarded.
+`docs/DEVELOPMENT_PLAN.md` and GitHub carry current issue state. The scoped
+checkpoints below are historical observations, not still-pending batch statuses.
+
+## Historical scoped checkpoints
+
 At `af6e2f3`, held-work charters add 42 public calls across native Direct and
 standalone: actual cancellation after separate observations, explicit continuation
 and reset isolation are verified by operation results, independent journals and
