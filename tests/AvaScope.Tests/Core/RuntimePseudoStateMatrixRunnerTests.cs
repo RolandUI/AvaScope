@@ -5,6 +5,7 @@ using System.Text.Json;
 using AvaScope.Core;
 using AvaScope.Protocol;
 using SkiaSharp;
+using Xunit.Abstractions;
 
 namespace AvaScope.Tests.Core;
 
@@ -13,9 +14,11 @@ public sealed class RuntimePseudoStateMatrixRunnerTests : IDisposable
     private static readonly TimeSpan BridgePipeTestTimeout = TimeSpan.FromSeconds(30);
     private readonly string _testRoot = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));
     private readonly string _manifestDirectory;
+    private readonly ITestOutputHelper _output;
 
-    public RuntimePseudoStateMatrixRunnerTests()
+    public RuntimePseudoStateMatrixRunnerTests(ITestOutputHelper output)
     {
+        _output = output;
         _manifestDirectory = Path.Combine(_testRoot, "manifests");
         Directory.CreateDirectory(_manifestDirectory);
     }
@@ -83,18 +86,67 @@ public sealed class RuntimePseudoStateMatrixRunnerTests : IDisposable
         Assert.Equal(4, imagePaths.Length);
         foreach (var path in imagePaths)
         {
-            using (var stream = File.Open(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
-            using (var bitmap = SKBitmap.Decode(stream))
+            var observedPath = path;
+            try
             {
-                Assert.NotNull(bitmap);
-                Assert.True(bitmap.Width > 0 && bitmap.Height > 0, path);
-            }
+                using (var stream = File.Open(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+                using (var bitmap = SKBitmap.Decode(stream))
+                {
+                    Assert.NotNull(bitmap);
+                    Assert.True(bitmap.Width > 0 && bitmap.Height > 0, path);
+                }
 
-            // Require released file handles before teardown, without GC or cleanup retries.
-            var movedPath = path + ".released";
-            File.Move(path, movedPath);
-            File.Move(movedPath, path);
+                // Require released file handles before teardown, without GC or cleanup retries.
+                var movedPath = path + ".released";
+                File.Move(path, movedPath);
+                observedPath = movedPath;
+                File.Move(movedPath, path);
+            }
+            catch (IOException exception)
+            {
+                _output.WriteLine($"Image access failed: path={observedPath}, hresult=0x{exception.HResult:X8}");
+                _output.WriteLine(MatrixFileLockDiagnostics.Capture(observedPath));
+                throw;
+            }
         }
+    }
+
+    [Fact]
+    public void FileUserDiagnosticsIdentifiesHeldImageWithoutReleasingIt()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            Assert.Equal("fileUsers=unavailable, reason=platform", MatrixFileLockDiagnostics.Capture("unused"));
+            return;
+        }
+
+        var path = Path.Combine(_testRoot, "held.png");
+        WriteImage(path, SKColors.White);
+        using var process = Process.GetCurrentProcess();
+        var identity = $"[pid={Environment.ProcessId}, startFileTime={process.StartTime.ToUniversalTime().ToFileTimeUtc()}]";
+        using (var held = File.Open(path, FileMode.Open, FileAccess.Read, FileShare.Read))
+        {
+            Assert.Throws<IOException>(() =>
+            {
+                using var unexpected = File.Open(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+            });
+            var during = MatrixFileLockDiagnostics.Capture(path);
+            _output.WriteLine(during);
+            Assert.Contains("list=0", during);
+            Assert.Contains("end=0", during);
+            Assert.Contains(identity, during);
+            Assert.Throws<IOException>(() =>
+            {
+                using var unexpected = File.Open(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+            });
+        }
+
+        var after = MatrixFileLockDiagnostics.Capture(path);
+        _output.WriteLine(after);
+        Assert.Contains("list=0", after);
+        Assert.Contains("end=0", after);
+        Assert.DoesNotContain(identity, after);
+        using var released = File.Open(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
     }
 
     [Fact]
@@ -257,6 +309,19 @@ public sealed class RuntimePseudoStateMatrixRunnerTests : IDisposable
             catch (IOException exception)
             {
                 failures.Add($"attempt={attempt}, elapsedMs={elapsed.ElapsedMilliseconds}, hresult=0x{exception.HResult:X8}: {exception.Message}");
+                if (attempt == 1)
+                {
+                    try
+                    {
+                        _output.WriteLine(MatrixFileLockDiagnostics.Capture(
+                            Directory.EnumerateFiles(_testRoot, "*.png*", SearchOption.AllDirectories).Take(16).ToArray()));
+                    }
+                    catch (Exception diagnosticException)
+                    {
+                        _output.WriteLine($"Cleanup file-user observation unavailable: {diagnosticException.GetType().Name}");
+                    }
+                }
+
                 if (attempt == 5)
                 {
                     throw new IOException(
