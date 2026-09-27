@@ -407,7 +407,8 @@ jobs:
             artifacts/wayland-validation/**/environment.json
             artifacts/wayland-validation/*/cli-*.json
             artifacts/wayland-validation/*/mcp-*.json
-            artifacts/wayland-validation/**/workflow/**/*.png
+            artifacts/wayland-validation/*/missing-dependency.json
+            artifacts/wayland-validation/**/runs/**/*.png
 
   macos-runtime:
     name: macOS Runtime

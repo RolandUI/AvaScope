@@ -19,9 +19,13 @@ intentional validation and clipping, disable and Reset; the diagnostic region
 changes6405 pixels and restores exactly. Binding metadata limitations and
 unrelated accessibility findings remain explicit. The app self-expired during
 interruption; subsequent Stop verifies owned already_exited, with app/35 callers
-absent. The standalone comparison is underway, with independent native capture
-currently unavailable after stale-window recovery failed. #174 remains sole
-active; inventory62 defects/48closed. No Retina or whole-campaign pass is claimed.
+absent. The standalone comparison now completes29 explicit calls,672 checks,
+540 pinned-file hashes and35 provider hashes; four rendered images and the
+journal verify the same restoration and negative guards. App388 is terminated
+and30 original app/caller identities are absent. Independent native capture
+remains unavailable after stale-window recovery failed. #174 is review while
+#227 corrects artifact retention as the sole active issue; inventory62 defects/
+48closed. No Retina or whole-campaign pass is claimed.
 
 Earlier checkpoint (2026-09-26,15:19 UTC): #225 is pushed/review at995046f, with17/17 controlled tests
 and a fresh native comparison using unchanged066192b hosts/provider/client.

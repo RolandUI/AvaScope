@@ -69,8 +69,18 @@ remain unavailable. Connection-health `diagnostics` and single-node design
 rules do not replace targeted validation/clipping checks. Unrelated accessibility
 findings and bounded inventory truncation remain explicit. The app expired and
 closed during interruption; subsequent owned Stop and independent process/
-manifest inspection verify cleanup. The standalone comparison is in progress;
-its independent native capture failed recovery and is not marked passed.
+manifest inspection verify cleanup.
+
+`runtime-diagnostics-standalone-01` completes29 explicit calls (eightMCP/21CLI),
+672 checks,540 pinned-file hashes and35 provider file hashes. The pure host and
+current provider preserve the same validation/clipping/fallback and exact
+diagnostic-region restoration across enable/disable/Reset. Missing-node/scope
+guards leave the journal unchanged; all four rendered images were reviewed.
+Owned Stop terminates the app; private manifests are empty and30 original
+app/caller identities are absent (one PID reused by a later different process
+is distinguished by creation time). Independent native capture failed recovery
+and remains unavailable, so this is a scoped API/journal/rendered comparison,
+not a completed independent native visual pass. #227 artifact retention is next.
 
 Full4b47791 and0b2a7cf gates both pass; #221–#225 close after downloaded
 cross-platform verification. The latest gate has Windows1134/eight skips,
