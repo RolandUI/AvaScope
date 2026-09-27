@@ -2,6 +2,16 @@
 
 The first-phase lab implements #162/#163. It uses the existing profile/scenario engine and launch ownership, a shared QA screen in two existing sample hosts, and individual public MCP calls. The detailed defect campaign is #166; this is not a release command.
 
+## Local testing and retention policy
+
+The owner's 2026-09-27 instruction replaces per-investigation snapshot accumulation. Work on `master`, use one reusable local environment, and delete completed test data instead of archiving it. On the current Windows workstation that environment is `D:/AvaScope-QA-active/current`, with one `binaries` directory containing `tools`, `client`, `direct`, `standalone` and `provider`. Run public CLI/MCP calls against those binaries and direct manifests, journals and render outputs to a single current case directory. Keep one native app alive across related cases and reset its state between them; stop it before rebuilding or replacing its binaries.
+
+The selected source revision and binary identity are recorded once per rebuilt set. Use focused regression tests after changes, then exercise the affected real-app journey and negative cases. A full CI gate runs once per coherent batch; use its running time for independent local exploration. A successful response alone is not a pass: inspect the postcondition, independent journal and relevant pixels before discarding the raw case output.
+
+Keep only minimal evidence for unresolved defects or the pending batch. Delete successful screenshots/responses and temporary build trees after checking them; delete a fixed defect's remaining local evidence after validation. GitHub issues and source-controlled regression tests retain the lasting result. The local QA area has an 8 GiB budget, including reusable binaries. Inspect/download CI artifacts one at a time, record the result, then remove the unpacked artifact. Do not retain a full local CI history or move redundant snapshots to a second drive.
+
+The snapshot-based helper below remains available for bounded isolated/CI validation. It currently restricts its run directory to repository `artifacts/agent-qa` and copies binaries; `-SkipBuild` and `-HostDirectory` do **not** eliminate those copies. It is therefore not the repeated local exploration path. If an isolated helper run is necessary, stop its owned processes, review the result and remove its run directory before the next such run. Older instructions below to retain evidence apply only while the associated issue/batch is open, under this policy.
+
 ## Start and operate
 
 Requirements: .NET 10, PowerShell 7.4+, a selected native desktop and this checkout. Run from the repository root. Windows needs an interactive desktop, macOS a logged-in GUI session, and Linux an explicitly selected X11 `DISPLAY`. Missing native prerequisites fail; there is no implicit headless fallback. Existing managed X11/Wayland restrictions remain documented in [NATIVE_PLATFORM_MATRIX.md](NATIVE_PLATFORM_MATRIX.md). A retained session cannot outlive a managed desktop owner.

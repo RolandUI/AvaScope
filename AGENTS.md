@@ -16,6 +16,22 @@ Development in this repository is expected to be performed 100% by autonomous co
 - If external credentials, account access, publishing permissions, or product decisions block completion, state the blocker precisely and stop at the nearest validated state.
 - Each meaningful change should include relevant tests or an explicit validation note explaining why tests are not applicable.
 
+## Current Working And QA Policy
+
+User instructions from 2026-09-27:
+
+- Work directly on `master`. Do not create a task branch or worktree unless explicitly requested. Preserve existing work; never force-push or rewrite history to switch branches.
+- Batch fixes with focused local validation, then run one complete CI gate for the batch. Continue independent local work while that gate runs; do not dispatch CI per fix or commit.
+- Send the user's concise Hungarian Gmail status report after each completed repair/testing batch, with defect counts, short changes, validation and remaining gaps. Deduplicate reports.
+- Local testing uses one reusable binary set and one current output directory. On this machine use `D:/AvaScope-QA-active/current`; do not accumulate run directories on C: or move the same accumulation into an archive on D:.
+- Reuse the selected CLI/MCP/client, Direct host, standalone host and provider across cases. Record their source revision once and rebuild only affected components when source changes. Do not copy or hash whole build/runtime trees for every case. Stop owned apps before replacing binaries.
+- After checking a case, discard successful raw responses, repeated screenshots and temporary render/build outputs. After a defect is fixed and validated, delete its local historical artifacts. GitHub issues, commits and regression tests are the lasting record; no local archive is required.
+- While an issue or batch is still open, keep only the minimal failing request/response, relevant log excerpt and necessary image or TRX. Do not keep runtime dependencies, PDB trees, package copies or all prior successful runs as evidence. Delete pending batch artifacts when that batch closes.
+- Keep the reusable local QA area below 8 GiB. Check usage before builds/downloads, clear completed outputs first, and do not start another large run when that budget would be exceeded. Download CI artifacts individually for inspection, then delete each unpacked artifact after recording the result.
+- Before recursive cleanup, verify exact absolute targets belong to the selected AvaScope QA area and that no live process uses them. Do not clean other projects, global caches, installed AvaScope or user data.
+
+This policy supersedes older campaign instructions to preserve every attempt or create a fresh binary snapshot for each charter. Historical local artifact links may intentionally be unavailable after cleanup; do not recreate them merely for archival completeness.
+
 ## GitHub Project Workflow
 
 GitHub Issues, Milestones, and the `AvaScope Roadmap` Project board are the primary project-management and progress-tracking source for this repository. `docs/DEVELOPMENT_PLAN.md` is a compact local handoff and validation log, not the primary backlog.
