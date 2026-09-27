@@ -1,16 +1,31 @@
 # Agent QA capability map
 
-The8968aad reconciliation preserves the older inventories and indexes2041
-explicit request/argv records across108 evidence roots;2037 have retained
+At `db511f9`, `cli-adapters-standalone-01` adds 29 public calls (24 CLI/five MCP)
+with 540 unchanged binary pins, three reviewed rendered images and independent
+fixture state. Attach, capabilities, private run listing, bounded/full-artifact
+trees, Unicode state/replay/conflict/stale-edit guards, expressions, explanation
+and text restoration agree with their scoped oracles. The original 24-level
+expression request correctly returns incomplete coverage; a separate 32-level
+request passes, while a false assertion fails. All originals are retained.
+Owned app 13640 and all 35 recorded process observations are absent; manifests
+are empty. Focus remains after text restoration, so no exact image reset is
+claimed. Independent OS capture remains unavailable. The updated inventory has
+2070 records/2066 responses across 109 roots and names all 75 MCP/63 CLI commands;
+this is not a claim that all capabilities passed. Remaining CLI boundaries and
+the shared validation batch are still open. Evidence: `public-call-inventory-db511f9.json`
+and `cli-adapters-standalone-01/verified-charter.json` under `artifacts/agent-qa`.
+
+The `8968aad` reconciliation preserves the older inventories and indexes 2041
+explicit request/argv records across 108 evidence roots; 2037 have retained
 responses, four historical health attempts do not. There are no duplicate
-response identities. The index covers74 of75 MCP names and55 of78 CLI names;
+response identities. That index covers 74 of 75 MCP names and 55 of 78 CLI names;
 forty older raw CLI payloads remain unclassified. It now includes the external
 integration-startup charters, native pickers and recorded scenario process argv
 that the qa-run-only scan omitted. Missing names are index gaps, not proof that
 the feature was never exercised; neither a response nor a success flag is an
 independent passing oracle. Artifacts: expanded-campaign/public-call-inventory-
-8968aad-supplemented.json and its summary/audit. Explicit attach and the remaining
-CLI adapter boundaries are the next selected current-source journeys. Existing
+8968aad-supplemented.json and its summary/audit. The explicit attach/CLI comparison
+above extends that checkpoint. Existing
 Retina/native observation limitations remain unchanged.
 
 `artifact-boundaries-01` on707e891 adds45 actual public calls (18MCP/27CLI),
