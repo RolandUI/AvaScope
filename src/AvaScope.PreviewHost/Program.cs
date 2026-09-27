@@ -775,8 +775,11 @@ internal static class Program
             ? LayoutHelper.RoundLayoutThickness(visual.Margin, LayoutHelper.GetLayoutScale(visual))
             : visual.Margin;
         var desiredWithoutMargin = desiredSize.Deflate(margin);
-        if (desiredWithoutMargin.Width <= bounds.Width + TextLayoutWidthTolerance
-            && desiredWithoutMargin.Height <= bounds.Height + TextLayoutHeightTolerance)
+        // Zero after a negative margin is clamped, so the original measured axis is unknown.
+        double? knownDesiredWidth = desiredSize.Width == 0 && margin.Left + margin.Right < 0 ? null : desiredWithoutMargin.Width;
+        double? knownDesiredHeight = desiredSize.Height == 0 && margin.Top + margin.Bottom < 0 ? null : desiredWithoutMargin.Height;
+        if (!(knownDesiredWidth > bounds.Width + TextLayoutWidthTolerance)
+            && !(knownDesiredHeight > bounds.Height + TextLayoutHeightTolerance))
         {
             return;
         }
@@ -793,8 +796,8 @@ internal static class Program
             {
                 ["desiredWidth"] = desiredSize.Width.ToString(CultureInfo.InvariantCulture),
                 ["desiredHeight"] = desiredSize.Height.ToString(CultureInfo.InvariantCulture),
-                ["desiredWidthWithoutMargin"] = desiredWithoutMargin.Width.ToString(CultureInfo.InvariantCulture),
-                ["desiredHeightWithoutMargin"] = desiredWithoutMargin.Height.ToString(CultureInfo.InvariantCulture),
+                ["desiredWidthWithoutMargin"] = knownDesiredWidth?.ToString(CultureInfo.InvariantCulture) ?? "unavailable_clamped",
+                ["desiredHeightWithoutMargin"] = knownDesiredHeight?.ToString(CultureInfo.InvariantCulture) ?? "unavailable_clamped",
                 ["boundsWidth"] = bounds.Width.ToString(CultureInfo.InvariantCulture),
                 ["boundsHeight"] = bounds.Height.ToString(CultureInfo.InvariantCulture)
             }));

@@ -49,6 +49,40 @@ public sealed class PreviewHostSmokeTests
         }
     }
 
+    [Theory]
+    [InlineData("-100,0,-100,0")]
+    [InlineData("0,-30,0,-30")]
+    [InlineData("-100")]
+    public async Task PreviewTextClampedDesiredSizeDoesNotImplyClipping(string margin)
+    {
+        var testRoot = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(testRoot);
+        var viewPath = Path.Combine(testRoot, "ClampedMarginView.axaml");
+        var requestPath = Path.Combine(testRoot, "request.json");
+        await File.WriteAllTextAsync(viewPath, $$"""
+            <Border xmlns="https://github.com/avaloniaui" Background="White" Padding="150">
+              <TextBlock Text="Artifact QA" FontSize="14" Foreground="Black" Width="120" Height="40"
+                         Margin="{{margin}}" HorizontalAlignment="Left" VerticalAlignment="Top" />
+            </Border>
+            """);
+        await File.WriteAllTextAsync(requestPath, JsonSerializer.Serialize(
+            new PreviewRequest(Path.Combine(testRoot, "preview.png"), width: 500, height: 400, viewPath: viewPath), JsonOptions));
+        try
+        {
+            var result = await RunPreviewHostAsync(Path.Combine(AppContext.BaseDirectory, "AvaScope.PreviewHost.dll"), requestPath, expectedExitCode: 0);
+            Assert.NotNull(result);
+            Assert.True(result.Success, result.Error?.Message);
+            using var bitmap = SKBitmap.Decode(result.Value!.FilePath);
+            Assert.NotNull(bitmap);
+            Assert.Contains(bitmap.Pixels, pixel => pixel.Red < 128 && pixel.Green < 128 && pixel.Blue < 128);
+            Assert.DoesNotContain(result.Value.Diagnostics, diagnostic => diagnostic.Code is "text_clipped" or "text_truncated");
+        }
+        finally
+        {
+            await DeleteDirectoryWithRetryAsync(testRoot);
+        }
+    }
+
     [Fact]
     public async Task PreviewHostRendersStandaloneAxamlViewInChildProcess()
     {

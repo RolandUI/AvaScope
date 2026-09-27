@@ -102,15 +102,16 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
     }
 
     [Theory]
-    [InlineData("0")]
-    [InlineData("-20,0,-20,0")]
-    public async Task LayoutExplanationKeepsRealArrangeConstraintsWithMargins(string margin)
+    [InlineData("0", 14)]
+    [InlineData("-20,0,-20,0", 14)]
+    [InlineData("-100,0,-100,0", 28)]
+    public async Task LayoutExplanationKeepsRealArrangeConstraintsWithMargins(string margin, double fontSize)
     {
         using var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessTestApplication));
         await DispatchAsync(session, async () =>
         {
             var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Constrained margin regression"));
-            var text = new TextBlock { Name = "ConstrainedText", Text = "Artifact QA", FontSize = 14, Margin = Thickness.Parse(margin) };
+            var text = new TextBlock { Name = "ConstrainedText", Text = "Artifact QA", FontSize = fontSize, Margin = Thickness.Parse(margin) };
             var window = new Window { Width = 240, Height = 120, Content = new ConstrainedMeasurePanel { Children = { text } } };
             try
             {
@@ -127,6 +128,53 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
                 Assert.True(explained.Success, explained.Error?.Message);
                 _output.WriteLine(JsonSerializer.Serialize(explained.Value!.Explanation));
                 Assert.Contains(explained.Value.Explanation.Reasons, reason => reason.Code == "desired_size_exceeds_bounds");
+                if (text.DesiredSize.Width == 0)
+                {
+                    var reason = Assert.Single(explained.Value.Explanation.Reasons, reason => reason.Code == "desired_size_exceeds_bounds");
+                    Assert.Equal("unavailable_clamped", reason.Details["desiredWidthWithoutMargin"]);
+                }
+            }
+            finally
+            {
+                window.Close();
+                AvaScopeBridge.Deactivate();
+            }
+        }, CancellationToken.None);
+    }
+
+    [Theory]
+    [InlineData("-100,0,-100,0")]
+    [InlineData("0,-30,0,-30")]
+    [InlineData("-100")]
+    public async Task LayoutExplanationDoesNotInferLostSpaceFromClampedDesiredSize(string margin)
+    {
+        using var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessTestApplication));
+        await DispatchAsync(session, async () =>
+        {
+            var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Clamped margin regression"));
+            var text = new TextBlock
+            {
+                Name = "ClampedMarginText", Text = "Artifact QA", FontSize = 14,
+                Width = 120, Height = 40, Margin = Thickness.Parse(margin),
+                HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top
+            };
+            var window = new Window { Width = 500, Height = 400, Content = new Border { Padding = new Thickness(150), Child = text } };
+            try
+            {
+                window.Show();
+                using var registration = runtime.RegisterTopLevel(window);
+                using var frame = window.CaptureRenderedFrame();
+                Assert.NotNull(frame);
+                Assert.Equal(new Size(120, 40), text.Bounds.Size);
+                Assert.True(text.DesiredSize.Width == 0 || text.DesiredSize.Height == 0);
+                var top = Assert.Single(await runtime.ListTopLevelsAsync());
+                var found = await runtime.FindNodesAsync(top.Id, TreeKinds.Visual, name: text.Name, maxDepth: 8);
+                Assert.True(found.Success, found.Error?.Message);
+                var node = Assert.Single(found.Value!.Matches).Node;
+                var explained = await runtime.ExplainLayoutAsync(top.Id, TreeKinds.Visual, node.NodeId);
+                Assert.True(explained.Success, explained.Error?.Message);
+                _output.WriteLine(JsonSerializer.Serialize(explained.Value!.Explanation));
+                Assert.DoesNotContain(explained.Value.Explanation.Reasons, reason => reason.Code == "desired_size_exceeds_bounds");
             }
             finally
             {

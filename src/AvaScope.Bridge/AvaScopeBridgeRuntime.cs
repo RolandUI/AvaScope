@@ -7088,7 +7088,10 @@ public sealed partial class AvaScopeBridgeRuntime
             ? LayoutHelper.RoundLayoutThickness(layoutable.Margin, LayoutHelper.GetLayoutScale(layoutable))
             : layoutable.Margin;
         var desiredWithoutMargin = desired.Deflate(margin);
-        if (desiredWithoutMargin.Width > bounds.Width + 0.5 || desiredWithoutMargin.Height > bounds.Height + 0.5)
+        // A negative margin can clamp DesiredSize to zero, losing the original measured axis.
+        double? knownDesiredWidth = desired.Width == 0 && margin.Left + margin.Right < 0 ? null : desiredWithoutMargin.Width;
+        double? knownDesiredHeight = desired.Height == 0 && margin.Top + margin.Bottom < 0 ? null : desiredWithoutMargin.Height;
+        if (knownDesiredWidth > bounds.Width + 0.5 || knownDesiredHeight > bounds.Height + 0.5)
         {
             reasons.Add(new RuntimeLayoutReason(
                 "desired_size_exceeds_bounds",
@@ -7100,8 +7103,8 @@ public sealed partial class AvaScopeBridgeRuntime
                 {
                     ["desiredWidth"] = desired.Width.ToString(CultureInfo.InvariantCulture),
                     ["desiredHeight"] = desired.Height.ToString(CultureInfo.InvariantCulture),
-                    ["desiredWidthWithoutMargin"] = desiredWithoutMargin.Width.ToString(CultureInfo.InvariantCulture),
-                    ["desiredHeightWithoutMargin"] = desiredWithoutMargin.Height.ToString(CultureInfo.InvariantCulture),
+                    ["desiredWidthWithoutMargin"] = knownDesiredWidth?.ToString(CultureInfo.InvariantCulture) ?? "unavailable_clamped",
+                    ["desiredHeightWithoutMargin"] = knownDesiredHeight?.ToString(CultureInfo.InvariantCulture) ?? "unavailable_clamped",
                     ["boundsWidth"] = bounds.Width.ToString(CultureInfo.InvariantCulture),
                     ["boundsHeight"] = bounds.Height.ToString(CultureInfo.InvariantCulture)
                 }));
