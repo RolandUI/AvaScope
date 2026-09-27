@@ -41,6 +41,24 @@ two declared input routes, not global hardware-input coverage.
 
 ## Historical scoped checkpoints
 
+Completion audit at d31b4cb reconfirms 75 MCP tools and 78 CLI commands in source.
+The following boundaries control the next work; historical passes below do not
+override them.
+
+| Goal requirement | Authoritative result | Remaining work |
+| --- | --- | --- |
+| Real agent environment and expanded fixtures | #162/#163/#172/#173 are closed with explicit native/state/reset/cleanup acceptance; #230 adds held work for cancellation. | Keep the reusable environment and bounded retention policy. |
+| Original control defects #158/#159/#160/#167 | Closed issue acceptance, real Direct/standalone journeys and regressions are recorded. | Preserve these cases in combined validation; the tool-count inventory alone is not evidence of execution. |
+| Native Retina rendering/capture #157/#161 | Implemented mitigations and other-platform validation exist. Real macOS 2x acceptance is still unperformed. | Accessible logged-in Retina desktop, sufficient logical geometry and authorized independent capture. |
+| Animation timing #201 | Actual pixels still disagree with requested times. 926119d fixes reporting only; six focused tests and CLI/MCP validate that slice. | Supported deterministic clock or an explicitly revised contract; new code still awaits the next combined CI. |
+| Eleven original timing/build/IPC/lock causes | Diagnostic/safety changes and scoped later passes are verified; nine stale review/ready issue states are now blocked with individual evidence triggers. | Captured recurrence/reproducing environment, using existing bounded diagnostics. Passing repetitions are not causal proof. |
+| Fresh comprehensive applicable round | Earlier scoped charters and d7562ed full CI pass; known animation failure and platform/observer gaps remain. | This requirement is incomplete. Do not close #174 or the overall goal from the green CI or invocation count. |
+| Independent native pixels and HTML viewer review | Earlier native observations exist; current local OS/browser routes remain unavailable. | Restore an authorized supported observation route; do not bypass the recorded restrictions. |
+
+The existing Windows/macOS TRX was read in memory to verify the named diagnostic
+groups; no new CI, runtime replay or ZIP history was created. This bookkeeping
+audit finds no new product defect and closes none of the remaining 14.
+
 At `af6e2f3`, held-work charters add 42 public calls across native Direct and
 standalone: actual cancellation after separate observations, explicit continuation
 and reset isolation are verified by operation results, independent journals and
