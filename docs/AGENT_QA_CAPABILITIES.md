@@ -155,13 +155,13 @@ not a completed independent native visual pass. #227 artifact retention is next.
 
 Full4b47791 and0b2a7cf gates both pass; #221–#225 close after downloaded
 cross-platform verification. The latest gate has Windows1134/eight skips,
-macOS1131/ten skips, Linux33 and nine native/expiry1x runs. #227 records missing
+macOS1131/ten skips, Linux 33 and nine native/expiry1x runs. #227 records missing
 Wayland PNGs/prerequisite guard evidence in the full Linux artifact despite
 successful native responses; those missing images have not been reviewed.
 Targeted Wayland evidence below remains a separate source, not a substitute.
 
 Targeted managed-Wayland CI36253239362 onf309708 additionally verifies four
-positive native CLI/MCP1x/2x journeys and four negative outcomes with retained
+positive native CLI/MCP 1x/2x journeys and four negative outcomes with retained
 responses, supported rendered-capture provenance,500x460/1000x920 images and
 owned cleanup. Seven hosted readiness tests distinguish queued dispatch from
 pending composition. The two distinct image contents were viewed and hashes
@@ -335,6 +335,34 @@ the full c83e50c gate; project baseline comparison timeout remains #203. #205's
 ba07220 correction has twelve real pixel-backed scope cases and actual CLI/MCP
 verification; its full gate is pending. This is neither native Retina nor visual
 HTML validation.
+
+The final explicit CLI lifecycle/preview boundaries were exercised on the
+unchanged d7562ed production source, now on master. The native launch/close/mcp
+journey has 17 calls, two reviewed rendered images, an independent toggle journal,
+close-only keeping the app alive, later owned termination and an idempotent
+already-exited outcome. A short 1500ms missing-executable attempt times out in
+helper readiness; it is not executable-resolution-stage coverage.
+
+The reusable D: environment adds ten completed preview calls: session creation,
+source reload, malformed-XAML diagnostics, recovery, close/reload refusal,
+baseline-create at 500x320/640x360, invalid size, static animation offsets 0/100/100
+and invalid offset. Four images were reviewed. The initial malformed-XAML call
+was interrupted by the old outer 60s harness deadline before retaining a product
+response; the owned tree exited. A separate 90s observer permits the unchanged
+60s product deadline and cleanup, and returns the normal XAML failure in 29.675s.
+Its later success does not explain the original child delay. Registry success
+with `lastRender.success=false` is the existing documented metadata contract,
+not a successful render. Moving animation timing remains unresolved in #201;
+the static control is not timing coverage. This round does not repeat the
+previous public baseline-check journeys.
+
+The shared final d7562ed CI 36335386524 passes all six jobs: Windows 1166/eight
+skips, macOS 1163/ten, Linux 33/zero; nine scripted native lifecycle/expiry runs;
+managed Wayland CLI/MCP 1x/2x positives, expected failures and cleanup. The six
+Wayland PNGs contain three distinct reviewed images. These checks do not close
+the Retina or independent local OS-observation gaps. Historical local artifacts
+were deleted under the owner's 2026-09-27 retention policy; issue comments,
+commits and regressions retain the results. No reconstruction/archive is needed.
 
 All listed native apps and clients were cleaned up. Shared-host lifecycle failures
 are retained as #192; hosted desired-state timing failure is #191. Neither is
