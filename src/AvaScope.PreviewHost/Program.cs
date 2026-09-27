@@ -409,18 +409,19 @@ internal static class Program
         }
 
         AddDiagnostic(diagnostics, new PreviewDiagnostic(
-            PreviewDiagnosticSeverities.Info,
+            PreviewDiagnosticSeverities.Warning,
             PreviewDiagnosticCategories.Animation,
             "animation_frame_sampled",
-            "PreviewHost captured an explicit animation time-offset frame.",
+            "PreviewHost captured a render-tick sample; the requested animation time offset is not controlled or verified.",
             details: new Dictionary<string, string>
             {
                 ["phase"] = "animation_sampling",
                 ["provenance"] = "headless_render_timer",
                 ["timeOffsetMs"] = timeOffsetMs.Value.ToString(CultureInfo.InvariantCulture),
                 ["headlessRenderTicks"] = CalculateHeadlessRenderTicks(timeOffsetMs.Value).ToString(CultureInfo.InvariantCulture),
-                ["timeControl"] = "headless_render_timer_tick",
-                ["suggestedAction"] = "Compare sampled frames or generated motion diagnostics when validating animation state."
+                ["timeControl"] = "wall_clock_uncontrolled",
+                ["timingVerified"] = "false",
+                ["suggestedAction"] = "Do not use these frames to assert animation state at a requested time. Repeated offsets reuse pixels and do not establish timing accuracy."
             }));
     }
 

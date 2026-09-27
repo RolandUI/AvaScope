@@ -1,7 +1,7 @@
 # FEAT-0008: Animation diagnostics
 
-- Status: `Implemented`
-- Implementation Status: `Covered by v0.3.0`
+- Status: `Partially implemented; deterministic timing unresolved`
+- Implementation Status: `Artifacts shipped in v0.3.0; timing correctness tracked in #201`
 - Priority: `P4`
 - Stored: `2026-06-09`
 - Source Order: `8`
@@ -38,4 +38,6 @@ The feature should favor agent-readable state and deterministic frame comparison
 
 ## Notes
 
-This diagnostic capability was implemented and released in `v0.3.0`. The shipped scope covers deterministic PreviewHost animation sampling at explicit time offsets, bounded frame artifacts, frame strips, file-backed timeline viewers, CLI `preview-animation`, MCP `preview_axaml_animation`, pixel-motion diagnostics, explicit `not_available` provenance for unavailable animation metadata, and stable repeated-offset artifact reuse.
+The artifact and diagnostic workflow shipped in `v0.3.0`: bounded frames, frame strips, file-backed timeline viewers, CLI `preview-animation`, MCP `preview_axaml_animation`, pixel-motion diagnostics, explicit `not_available` metadata, and repeated-offset artifact reuse.
+
+The 1.5 stabilization investigation disproved the original deterministic-timing claim on Avalonia 12.1.3: forced render ticks use elapsed wall-clock time, and a supported controllable animation clock is unavailable. Requested offsets, including zero, are not verified animation times. Frames report this limitation as an `animation_frame_sampled` warning; identical cached frames and motion summaries do not prove animation time or completion. The deterministic-sampling acceptance criterion remains open in [#201](https://github.com/RolandUI/AvaScope/issues/201).

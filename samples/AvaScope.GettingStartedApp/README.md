@@ -20,13 +20,13 @@ dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll create-preview-session 
 
 The `main` profile declares `dark`, `hu`, and `compact` variants. Variants override the base profile before explicit CLI options, so a command can still pass `--width`, `--height`, or `--out` for one-off runs.
 
-Preview the animation sample as deterministic time-offset frames:
+Preview the animation sample with requested time offsets:
 
 ```powershell
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll preview-animation .\samples\AvaScope.GettingStartedApp\AvaScope.GettingStartedApp.csproj --profile animation
 ```
 
-The `animation` profile renders `Views\AnimationView.axaml` at `0,250,900,900ms`, writes per-offset PNG frames, writes a frame strip, and returns a file-backed viewer `previewUrl`. The repeated final offset reuses the first `900ms` frame so the final artifact is stable inside the request. Open the URL to inspect the sampled timeline, pixel motion summary, and animation diagnostics. Animation metadata is best-effort: AvaScope reports pixel deltas and explicit `not_available` provenance when public Avalonia APIs do not expose reliable moving-property metadata.
+The `animation` profile requests `Views\AnimationView.axaml` frames at `0,250,900,900ms`, writes per-offset PNGs and a frame strip, and returns a file-backed viewer `previewUrl`. Avalonia 12.1.3 uses wall-clock animation time, so these requested offsets are not controlled or verified; each frame reports an `animation_frame_sampled` warning. Do not use the images to assert exact animation timing ([#201](https://github.com/RolandUI/AvaScope/issues/201)). The repeated final offset reuses the first `900ms` image; this proves cache reuse, not final animation state. The viewer's pixel motion summary describes captured images only. Moving-property metadata remains explicitly `not_available` when public Avalonia APIs do not expose it reliably.
 
 Run the app with the local-only bridge enabled:
 

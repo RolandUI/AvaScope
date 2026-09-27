@@ -10,6 +10,18 @@ reuses one binary set and build cache; historical local artifacts are discarded.
 `docs/DEVELOPMENT_PLAN.md` and GitHub carry current issue state. The scoped
 checkpoints below are historical observations, not still-pending batch statuses.
 
+After that gate, #201's timing-provenance slice changes only PreviewHost's
+animation diagnostic and the MCP tool description. Six focused regressions pass;
+the two real moving-animation cases fail before the correction. Actual CLI/MCP
+requests for 0/500/500ms carry the warning on all six frames, including cached
+duplicates. Two strips were reviewed: independent red widths are CLI85/78/78 and
+MCP71/67/67 versus the animation's declared20/70/70. This directly confirms that
+deterministic timing is still broken; #201 stays open. Both callers exit0 and no
+selected tool/PreviewHost process remains; MCP server shutdown exits-1 at its
+existing transport bound. Only four shared DLL/PDB outputs were replaced in
+place, without a new binary snapshot. Full CI for this source change is pending
+the next combined batch; the prior green gate does not validate this new slice.
+
 The reused af6e2f3 standalone/provider set now verifies active-highlight input
 through a warm persistent MCP connection: synthetic and Win32 owned-window
 message clicks complete their show/inspect/click/inspect sequences in 516ms and

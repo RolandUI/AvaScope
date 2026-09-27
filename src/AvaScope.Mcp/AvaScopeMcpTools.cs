@@ -1719,7 +1719,7 @@ public sealed class AvaScopeMcpTools
         Destructive = false,
         OpenWorld = false,
         UseStructuredContent = true)]
-    [Description("Renders deterministic time-offset animation samples for an Avalonia .axaml preview through isolated preview host child processes.")]
+    [Description("Renders animation samples for requested offsets through isolated preview host child processes. Animation time is not controlled or verified; frames cannot prove state at a requested time, and repeated offsets reuse cached images.")]
     public static async Task<ToolResult<PreviewAnimationResponse>> PreviewAxamlAnimation(
         PreviewHostClient previewHostClient,
         string outputPath,

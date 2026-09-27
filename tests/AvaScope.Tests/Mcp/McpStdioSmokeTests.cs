@@ -60,6 +60,8 @@ public sealed class McpStdioSmokeTests
         Assert.Contains("preview_axaml", toolNames);
         Assert.Contains("preview_axaml_multi", toolNames);
         Assert.Contains("preview_axaml_animation", toolNames);
+        var animation = Assert.Single(tools, static tool => tool.Name == "preview_axaml_animation");
+        Assert.Contains("not controlled or verified", animation.ProtocolTool.Description, StringComparison.Ordinal);
         Assert.Contains("baseline_check", toolNames);
         Assert.Contains("semantic_diff", toolNames);
         Assert.Contains("create_preview_session", toolNames);

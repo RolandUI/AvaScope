@@ -75,6 +75,7 @@ public sealed class PreviewHostClientTests : IDisposable
         Assert.Equal(180, result.Value.PixelHeight);
         Assert.True(File.Exists(result.Value.FilePath));
         Assert.True(new FileInfo(result.Value.FilePath).Length > 0);
+        Assert.DoesNotContain(result.Value.Diagnostics, diagnostic => diagnostic.Code == "animation_frame_sampled");
     }
 
     [Fact]
@@ -433,6 +434,13 @@ public sealed class PreviewHostClientTests : IDisposable
         Assert.Equal(0, result.Value.Frames[0].Render.Value!.AnimationTimeOffsetMs);
         Assert.Equal(33, result.Value.Frames[1].Render.Value!.AnimationTimeOffsetMs);
         Assert.Equal(33, result.Value.Frames[2].Render.Value!.AnimationTimeOffsetMs);
+        Assert.All(result.Value.Frames, frame =>
+        {
+            var timing = Assert.Single(frame.Render.Value!.Diagnostics, diagnostic => diagnostic.Code == "animation_frame_sampled");
+            Assert.Equal(PreviewDiagnosticSeverities.Warning, timing.Severity);
+            Assert.Equal("wall_clock_uncontrolled", timing.Details["timeControl"]);
+            Assert.Equal("false", timing.Details["timingVerified"]);
+        });
         Assert.Contains(
             result.Value.Frames[2].Render.Value!.Diagnostics,
             static diagnostic => diagnostic.Code == "animation_frame_reused");
@@ -453,6 +461,52 @@ public sealed class PreviewHostClientTests : IDisposable
             result.Value.Diagnostics,
             static diagnostic => Assert.Equal(64, diagnostic.Fingerprint!.Length));
         Assert.Equal("unavailable", result.Value.DiagnosticSummary.ComparisonProvenance);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(500)]
+    public async Task MovingAnimationFramesReportUnverifiedTimingEvenAtZero(int offsetMs)
+    {
+        Directory.CreateDirectory(_testRoot);
+        var viewPath = Path.Combine(_testRoot, "MovingView.axaml");
+        await File.WriteAllTextAsync(viewPath, """
+            <UserControl xmlns="https://github.com/avaloniaui">
+              <UserControl.Styles>
+                <Style Selector="Border.moving">
+                  <Style.Animations>
+                    <Animation Duration="0:0:1" FillMode="Forward">
+                      <KeyFrame Cue="0%"><Setter Property="Width" Value="20" /></KeyFrame>
+                      <KeyFrame Cue="100%"><Setter Property="Width" Value="120" /></KeyFrame>
+                    </Animation>
+                  </Style.Animations>
+                </Style>
+              </UserControl.Styles>
+              <Border Classes="moving" Width="20" Height="20" Background="Red"
+                      HorizontalAlignment="Left" VerticalAlignment="Top" />
+            </UserControl>
+            """);
+
+        var client = new PreviewHostClient(Path.Combine(AppContext.BaseDirectory, "AvaScope.PreviewHost.dll"));
+        var result = await client.RenderAsync(new PreviewRequest(
+            Path.Combine(_testRoot, "moving.png"),
+            width: 160,
+            height: 40,
+            viewPath: viewPath,
+            animationTimeOffsetMs: offsetMs,
+            diagnosticOptions: new PreviewDiagnosticOptions(minimumSeverity: PreviewMinimumSeverities.Warning)));
+
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(offsetMs, result.Value!.AnimationTimeOffsetMs);
+        using var pixels = SkiaSharp.SKBitmap.Decode(result.Value.FilePath);
+        Assert.NotNull(pixels);
+        Assert.Equal(SkiaSharp.SKColors.Red, pixels.GetPixel(5, 5));
+        var timing = Assert.Single(result.Value.Diagnostics, diagnostic => diagnostic.Code == "animation_frame_sampled");
+        Assert.Equal(PreviewDiagnosticSeverities.Warning, timing.Severity);
+        Assert.Equal("wall_clock_uncontrolled", timing.Details["timeControl"]);
+        Assert.Equal("false", timing.Details["timingVerified"]);
+        Assert.Equal(offsetMs.ToString(CultureInfo.InvariantCulture), timing.Details["timeOffsetMs"]);
+        Assert.Contains("not controlled or verified", timing.Message);
     }
 
     [Fact]

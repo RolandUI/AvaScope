@@ -386,7 +386,7 @@ dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll preview path\to\App.csp
 
 The command writes a structured JSON `ToolResult<PreviewBatchResponse>`. Each `entries[]` item has a deterministic per-size output path and an independent `ToolResult<PreviewResponse>`, so one failed size does not discard successful screenshots. If every requested size fails, the top-level error reports the first underlying build/render root cause, a bounded per-viewport failure summary, and the first `buildLogPath` when the failure came from project build output.
 
-Render deterministic animation time-offset samples:
+Render animation samples for requested time offsets:
 
 ```powershell
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll preview-animation path\to\App.csproj --view Views\AnimatedView.axaml --out .\animation.png --time-offsets 0,150,900,900 --width 720 --height 420 --theme light --frame-strip .\animation-strip.png --viewer .\animation.html
@@ -394,7 +394,9 @@ dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll preview-animation path\
 
 The command writes per-offset PNG frames, an optional frame strip, and a structured `ToolResult<PreviewAnimationResponse>`. When `--viewer` is supplied, the response includes `viewer.previewUrl`, a `file://` URL for a self-contained HTML timeline viewer that embeds the sampled frames, motion summary, diagnostics, and JSON response.
 
-Animation sampling advances the public Avalonia headless render timer inside isolated PreviewHost child processes. Repeated offsets inside one request reuse the first successful frame for that offset so agents can produce stable duplicate artifacts. AvaScope reports pixel deltas and final-state stability diagnostics from sampled frames. Moving-node or property metadata is reported with explicit `not_available` provenance when reliable public Avalonia APIs do not expose it.
+Animation sampling requests headless render ticks inside isolated PreviewHost child processes. In Avalonia 12.1.3 these ticks use elapsed wall-clock time; they do not advance a controllable animation clock. Requested offsets, including zero, are therefore **not verified animation times**. Each frame carries an `animation_frame_sampled` warning with `timeControl=wall_clock_uncontrolled` and `timingVerified=false`. Do not use these frames or animation baselines to assert an animation's state at a requested time. This limitation remains tracked in [#201](https://github.com/RolandUI/AvaScope/issues/201).
+
+Repeated offsets inside one request reuse the first successful frame for that offset; identical duplicate artifacts demonstrate caching, not deterministic animation timing. Pixel deltas and static/final-stability diagnostics describe the captured images only and cannot establish that the application's animation is static or finished. Moving-node or property metadata is reported with explicit `not_available` provenance when reliable public Avalonia APIs do not expose it. Explicit diagnostic severity/fingerprint filters still apply, so an errors-only response can omit this warning.
 
 Create and manage durable preview sessions from the CLI:
 
