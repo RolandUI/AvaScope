@@ -1,5 +1,19 @@
 # Agent QA capability map
 
+At `af6e2f3`, held-work charters add 42 public calls across native Direct and
+standalone: actual cancellation after separate observations, explicit continuation
+and reset isolation are verified by operation results, independent journals and
+eight reviewed rendered images. Direct also verifies the previously missing
+fresh-sample wrong-node pointer assertion. The 43 local fixture regressions pass.
+Both apps are terminated, 47 process observations are absent and manifests empty.
+Direct uses a successful resumed publish after the original 300-second fresh
+publish timeout (#231); that original failure remains unexplained. Standalone
+fresh publish and its no-AvaScope-assembly boundary pass. Evidence is retained in
+`held-work-direct-230-02` and `held-work-standalone-230-01`. The updated explicit
+call index has 2163 records/2159 responses across 112 roots (75 MCP/70 CLI names).
+This is not a complete current-source capability pass; the shared CI, remaining
+CLI lifecycle/preview boundaries and native OS/Retina gaps remain.
+
 The clean `9c24651` Direct charter adds 51 public calls (49 CLI/two MCP),
 510 unchanged binary pins, nine expected negative results, 27 correlated trace
 events and five reviewed rendered images. Scene/stale-object behavior, successful
