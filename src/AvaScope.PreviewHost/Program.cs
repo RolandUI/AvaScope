@@ -765,13 +765,18 @@ internal static class Program
 
     private static void AddTextLayoutDiagnostics(
         List<PreviewDiagnostic> diagnostics,
-        Visual visual,
+        Layoutable visual,
         Size desiredSize,
         Rect bounds,
         bool hasTrimming)
     {
-        if (desiredSize.Width <= bounds.Width + TextLayoutWidthTolerance
-            && desiredSize.Height <= bounds.Height + TextLayoutHeightTolerance)
+        // MeasureCore includes the effective margin; Bounds describes only the arranged control.
+        var margin = visual.UseLayoutRounding
+            ? LayoutHelper.RoundLayoutThickness(visual.Margin, LayoutHelper.GetLayoutScale(visual))
+            : visual.Margin;
+        var desiredWithoutMargin = desiredSize.Deflate(margin);
+        if (desiredWithoutMargin.Width <= bounds.Width + TextLayoutWidthTolerance
+            && desiredWithoutMargin.Height <= bounds.Height + TextLayoutHeightTolerance)
         {
             return;
         }
@@ -788,6 +793,8 @@ internal static class Program
             {
                 ["desiredWidth"] = desiredSize.Width.ToString(CultureInfo.InvariantCulture),
                 ["desiredHeight"] = desiredSize.Height.ToString(CultureInfo.InvariantCulture),
+                ["desiredWidthWithoutMargin"] = desiredWithoutMargin.Width.ToString(CultureInfo.InvariantCulture),
+                ["desiredHeightWithoutMargin"] = desiredWithoutMargin.Height.ToString(CultureInfo.InvariantCulture),
                 ["boundsWidth"] = bounds.Width.ToString(CultureInfo.InvariantCulture),
                 ["boundsHeight"] = bounds.Height.ToString(CultureInfo.InvariantCulture)
             }));

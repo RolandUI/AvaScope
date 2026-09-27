@@ -7,6 +7,7 @@ using Avalonia.Diagnostics;
 using Avalonia.Headless;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Layout;
 using Avalonia.Markup.Xaml.Diagnostics;
 using Avalonia.Media;
 using Avalonia.Styling;
@@ -40,6 +41,114 @@ public sealed class BridgeHeadlessSmokeTests : IDisposable
     public void Dispose()
     {
         AvaScopeBridge.Deactivate();
+    }
+
+    [Theory]
+    [InlineData("12,40,7,9", true, 1, false)]
+    [InlineData("0.4", true, 1.5, false)]
+    [InlineData("-0.4", true, 1, false)]
+    [InlineData("-2,-3,-4,-5", false, 1, false)]
+    [InlineData("4.2,9.3,3.4,2.1", false, 1.25, false)]
+    [InlineData("0", true, 1, false)]
+    [InlineData("12,40,7,9", true, 1, true)]
+    public async Task LayoutExplanationDoesNotTreatMarginAsLostArrangeSpace(
+        string margin, bool useLayoutRounding, double scaling, bool textBox)
+    {
+        using var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessTestApplication));
+        await DispatchAsync(session, async () =>
+        {
+            var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Margin layout regression"));
+            Control target = textBox
+                ? new TextBox { Text = "Artifact QA", FontSize = 14 }
+                : new TextBlock { Text = "Artifact QA", FontSize = 14 };
+            target.Name = "MarginTarget";
+            target.Margin = Thickness.Parse(margin);
+            target.UseLayoutRounding = useLayoutRounding;
+            target.HorizontalAlignment = HorizontalAlignment.Left;
+            target.VerticalAlignment = VerticalAlignment.Top;
+            var window = new Window
+            {
+                Width = 320, Height = 200,
+                Content = new Border { Padding = new Thickness(20), Child = target }
+            };
+            window.Styles.Add(new FluentTheme());
+            window.SetRenderScaling(scaling);
+            try
+            {
+                window.Show();
+                using var registration = runtime.RegisterTopLevel(window);
+                using var frame = window.CaptureRenderedFrame();
+                Assert.NotNull(frame);
+                Assert.True(target.Bounds.Width > 0 && target.Bounds.Height > 0);
+                Assert.Equal(scaling, LayoutHelper.GetLayoutScale(target));
+                var top = Assert.Single(await runtime.ListTopLevelsAsync());
+                var found = await runtime.FindNodesAsync(top.Id, TreeKinds.Visual, name: target.Name, maxDepth: 8);
+                Assert.True(found.Success, found.Error?.Message);
+                var node = Assert.Single(found.Value!.Matches).Node;
+                var explained = await runtime.ExplainLayoutAsync(top.Id, TreeKinds.Visual, node.NodeId);
+                Assert.True(explained.Success, explained.Error?.Message);
+                var explanation = explained.Value!.Explanation;
+                Assert.Equal(target.DesiredSize.Width, explanation.Node!.DesiredSize!.Width);
+                Assert.Equal(target.DesiredSize.Height, explanation.Node.DesiredSize.Height);
+                _output.WriteLine(JsonSerializer.Serialize(explanation));
+                Assert.DoesNotContain(explanation.Reasons, reason => reason.Code == "desired_size_exceeds_bounds");
+            }
+            finally
+            {
+                window.Close();
+                AvaScopeBridge.Deactivate();
+            }
+        }, CancellationToken.None);
+    }
+
+    [Theory]
+    [InlineData("0")]
+    [InlineData("-20,0,-20,0")]
+    public async Task LayoutExplanationKeepsRealArrangeConstraintsWithMargins(string margin)
+    {
+        using var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessTestApplication));
+        await DispatchAsync(session, async () =>
+        {
+            var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("Constrained margin regression"));
+            var text = new TextBlock { Name = "ConstrainedText", Text = "Artifact QA", FontSize = 14, Margin = Thickness.Parse(margin) };
+            var window = new Window { Width = 240, Height = 120, Content = new ConstrainedMeasurePanel { Children = { text } } };
+            try
+            {
+                window.Show();
+                using var registration = runtime.RegisterTopLevel(window);
+                using var frame = window.CaptureRenderedFrame();
+                Assert.NotNull(frame);
+                Assert.True(text.Bounds.Width > 0);
+                var top = Assert.Single(await runtime.ListTopLevelsAsync());
+                var found = await runtime.FindNodesAsync(top.Id, TreeKinds.Visual, name: text.Name, maxDepth: 8);
+                Assert.True(found.Success, found.Error?.Message);
+                var node = Assert.Single(found.Value!.Matches).Node;
+                var explained = await runtime.ExplainLayoutAsync(top.Id, TreeKinds.Visual, node.NodeId);
+                Assert.True(explained.Success, explained.Error?.Message);
+                _output.WriteLine(JsonSerializer.Serialize(explained.Value!.Explanation));
+                Assert.Contains(explained.Value.Explanation.Reasons, reason => reason.Code == "desired_size_exceeds_bounds");
+            }
+            finally
+            {
+                window.Close();
+                AvaScopeBridge.Deactivate();
+            }
+        }, CancellationToken.None);
+    }
+
+    private sealed class ConstrainedMeasurePanel : Panel
+    {
+        protected override Size MeasureOverride(Size availableSize)
+        {
+            Children[0].Measure(new Size(200, 100));
+            return new Size(240, 120);
+        }
+
+        protected override Size ArrangeOverride(Size finalSize)
+        {
+            Children[0].Arrange(new Rect(50, 20, 20, 25));
+            return finalSize;
+        }
     }
 
     [Fact]

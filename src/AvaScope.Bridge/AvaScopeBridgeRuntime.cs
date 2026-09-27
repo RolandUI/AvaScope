@@ -7083,7 +7083,12 @@ public sealed partial class AvaScopeBridgeRuntime
                 }));
         }
 
-        if (desired.Width > bounds.Width + 0.5 || desired.Height > bounds.Height + 0.5)
+        // DesiredSize includes the same rounded margin used by MeasureCore, unlike Bounds.
+        var margin = layoutable.UseLayoutRounding
+            ? LayoutHelper.RoundLayoutThickness(layoutable.Margin, LayoutHelper.GetLayoutScale(layoutable))
+            : layoutable.Margin;
+        var desiredWithoutMargin = desired.Deflate(margin);
+        if (desiredWithoutMargin.Width > bounds.Width + 0.5 || desiredWithoutMargin.Height > bounds.Height + 0.5)
         {
             reasons.Add(new RuntimeLayoutReason(
                 "desired_size_exceeds_bounds",
@@ -7095,6 +7100,8 @@ public sealed partial class AvaScopeBridgeRuntime
                 {
                     ["desiredWidth"] = desired.Width.ToString(CultureInfo.InvariantCulture),
                     ["desiredHeight"] = desired.Height.ToString(CultureInfo.InvariantCulture),
+                    ["desiredWidthWithoutMargin"] = desiredWithoutMargin.Width.ToString(CultureInfo.InvariantCulture),
+                    ["desiredHeightWithoutMargin"] = desiredWithoutMargin.Height.ToString(CultureInfo.InvariantCulture),
                     ["boundsWidth"] = bounds.Width.ToString(CultureInfo.InvariantCulture),
                     ["boundsHeight"] = bounds.Height.ToString(CultureInfo.InvariantCulture)
                 }));
