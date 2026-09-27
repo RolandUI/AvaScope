@@ -5,9 +5,96 @@ using SkiaSharp;
 
 namespace AvaScope.Tests.PreviewHost;
 
-public sealed class PreviewHostSmokeTests
+public sealed class PreviewHostSmokeTests(Xunit.Abstractions.ITestOutputHelper output)
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+
+    [Fact]
+    public async Task PreviewHostTimeoutRetainsEvidenceAndStopsOwnedProcess()
+    {
+        Process? owned = null;
+        try
+        {
+            var failure = await Record.ExceptionAsync(() => RunPreviewHostAsync(
+                "controlled-capture", "controlled-request.json", expectedExitCode: 0, startProcess: () =>
+                {
+                    var process = StartPreviewCaptureProbe(new string('x', 12000) + "\npreview-fixture-ready", "preview-fixture-stderr", block: true);
+                    owned = Process.GetProcessById(process.Id);
+                    _ = owned.SafeHandle;
+                    return process;
+                }));
+            Assert.NotNull(failure);
+            Assert.IsAssignableFrom<OperationCanceledException>(failure);
+            Assert.NotNull(owned);
+            output.WriteLine(JsonSerializer.Serialize(new { failureType = failure.GetType().Name, processId = owned.Id, ownedExited = owned.HasExited, evidenceEntries = failure.Data.Count }));
+            Assert.True(owned.HasExited, "The timed-out preview test child is still running after the helper returned.");
+            Assert.Equal("process_wait", failure.Data["processPhase"]);
+            Assert.Equal(owned.Id, failure.Data["processId"]);
+            Assert.Equal(true, failure.Data["cleanupProcessExited"]);
+            Assert.Equal(60000, failure.Data["timeoutMs"]);
+            var stdout = Assert.IsType<string>(failure.Data["stdoutTail"]);
+            var stderr = Assert.IsType<string>(failure.Data["stderrTail"]);
+            Assert.Contains("preview-fixture-ready", stdout);
+            Assert.Contains("preview-fixture-stderr", stderr);
+            Assert.True(stdout.Length <= 4096);
+            Assert.True(stderr.Length <= 4096);
+        }
+        finally
+        {
+            // The unchanged-helper regression must also clean up its deliberately blocked child.
+            if (owned is not null)
+            {
+                if (!owned.HasExited) owned.Kill(entireProcessTree: true);
+                await owned.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(5));
+                owned.Dispose();
+            }
+        }
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(23)]
+    public async Task PreviewHostCapturePreservesCompletedResponseAndExitCode(int exitCode)
+    {
+        var payload = new string('x', 12000);
+        var json = JsonSerializer.Serialize(ToolResult<PreviewResponse>.Fail(
+            new ProtocolError("controlled_preview_response", "Completed capture fixture", new Dictionary<string, string> { ["payload"] = payload })), JsonOptions);
+        var result = await RunPreviewHostAsync("controlled-capture", "controlled-request.json", exitCode,
+            () => StartPreviewCaptureProbe(json, string.Empty, block: false, exitCode));
+        Assert.NotNull(result);
+        Assert.False(result.Success);
+        Assert.Equal("controlled_preview_response", result.Error!.Code);
+        Assert.NotNull(result.Error.Details);
+        Assert.Equal(payload, result.Error.Details["payload"]);
+    }
+
+    private static Process StartPreviewCaptureProbe(string stdout, string stderr, bool block, int exitCode = 0)
+    {
+        var info = new ProcessStartInfo
+        {
+            FileName = OperatingSystem.IsWindows() ? "powershell" : "/bin/sh",
+            WorkingDirectory = AppContext.BaseDirectory,
+            UseShellExecute = false, CreateNoWindow = true,
+            RedirectStandardOutput = true, RedirectStandardError = true
+        };
+        if (OperatingSystem.IsWindows())
+        {
+            info.ArgumentList.Add("-NoProfile");
+            info.ArgumentList.Add("-NonInteractive");
+            info.ArgumentList.Add("-Command");
+            info.ArgumentList.Add($"[Console]::Out.WriteLine('{stdout.Replace("'", "''")}'); [Console]::Error.Write('{stderr.Replace("'", "''")}'); "
+                + (block ? "Start-Sleep -Seconds 120" : $"exit {exitCode}"));
+        }
+        else
+        {
+            info.ArgumentList.Add("-c");
+            info.ArgumentList.Add($"printf '%s\\n' '{stdout.Replace("'", "'\"'\"'")}'; printf '%s' '{stderr.Replace("'", "'\"'\"'")}' >&2; "
+                + (block ? "exec sleep 120" : $"exit {exitCode}"));
+        }
+        var process = new Process { StartInfo = info };
+        Assert.True(process.Start());
+        return process;
+    }
 
     [Theory]
     [InlineData("12,40,7,9", true, 96)]
@@ -3349,27 +3436,111 @@ public sealed class PreviewHostSmokeTests
         }
     }
 
-    private static async Task<ToolResult<PreviewResponse>?> RunPreviewHostAsync(
+    private async Task<ToolResult<PreviewResponse>?> RunPreviewHostAsync(
         string hostAssembly,
         string requestPath,
-        int expectedExitCode)
+        int expectedExitCode,
+        Func<Process>? startProcess = null)
     {
-        using var process = StartPreviewHost(hostAssembly, requestPath);
+        using var process = startProcess is null ? StartPreviewHost(hostAssembly, requestPath) : startProcess();
+        var timer = Stopwatch.StartNew();
+        var phase = "process_wait";
         using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+        using var captureCancellation = new CancellationTokenSource();
+        var stdoutReader = process.StandardOutput;
+        var stderrReader = process.StandardError;
+        var streamsClosed = false;
+        // Keep readers alive through owned termination; the operation deadline must not erase output.
+        var stdoutTask = ReadCapturedStream(stdoutReader);
+        var stderrTask = ReadCapturedStream(stderrReader);
+        try
+        {
+            await process.WaitForExitAsync(cancellation.Token);
+            phase = "stdout_drain";
+            var stdout = await stdoutTask.WaitAsync(cancellation.Token);
+            phase = "stderr_drain";
+            var stderr = await stderrTask.WaitAsync(cancellation.Token);
+            phase = "exit_assertion";
+            Assert.True(
+                process.ExitCode == expectedExitCode,
+                $"Expected exit code {expectedExitCode}, got {process.ExitCode}.{Environment.NewLine}stdout: {Tail(stdout)}{Environment.NewLine}stderr: {Tail(stderr)}");
+            phase = "stderr_assertion";
+            Assert.True(string.IsNullOrWhiteSpace(stderr), Tail(stderr));
+            phase = "response_parse";
+            return JsonSerializer.Deserialize<ToolResult<PreviewResponse>>(stdout, JsonOptions);
+        }
+        catch (Exception primary)
+        {
+            var failedAfterMs = timer.Elapsed.TotalMilliseconds;
+            var cleanupFailures = new List<string>();
+            var exited = false;
+            var exitedBeforeCleanup = false;
+            int? exitCode = null;
+            try
+            {
+                exitedBeforeCleanup = process.HasExited;
+                if (!exitedBeforeCleanup) process.Kill(entireProcessTree: true);
+            }
+            catch (Exception failure) { cleanupFailures.Add("terminate:" + failure.GetType().Name); }
+            try
+            {
+                await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(3));
+                exited = true;
+                exitCode = process.ExitCode;
+            }
+            catch (Exception failure) { cleanupFailures.Add("exit:" + failure.GetType().Name); }
+            var stdout = await CaptureTailAsync(stdoutTask, "stdout");
+            var stderr = await CaptureTailAsync(stderrTask, "stderr");
+            captureCancellation.Cancel();
+            CloseReader(stdoutReader, "stdout");
+            CloseReader(stderrReader, "stderr");
+            streamsClosed = true;
+            var evidence = new Dictionary<string, object?>
+            {
+                ["operation"] = "preview_host_test_process", ["processId"] = process.Id,
+                ["requestFile"] = Path.GetFileName(requestPath), ["processPhase"] = phase,
+                ["failureType"] = primary.GetType().Name, ["elapsedMs"] = failedAfterMs,
+                ["timeoutMs"] = 60000, ["cleanupWaitMs"] = 3000,
+                ["exitedBeforeCleanup"] = exitedBeforeCleanup, ["cleanupProcessExited"] = exited,
+                ["exitCode"] = exitCode, ["cleanupFailures"] = cleanupFailures,
+                ["stdoutState"] = stdoutTask.Status.ToString(), ["stderrState"] = stderrTask.Status.ToString(),
+                ["stdoutTail"] = stdout, ["stderrTail"] = stderr
+            };
+            foreach (var entry in evidence) primary.Data[entry.Key] = entry.Value;
+            try { output.WriteLine(JsonSerializer.Serialize(evidence)); }
+            catch (Exception failure) { primary.Data["evidenceWriteFailureType"] = failure.GetType().Name; }
+            throw;
 
-        var stdoutTask = process.StandardOutput.ReadToEndAsync(cancellation.Token);
-        var stderrTask = process.StandardError.ReadToEndAsync(cancellation.Token);
+            async Task<string> CaptureTailAsync(Task<string> read, string stream)
+            {
+                try { return Tail(await read.WaitAsync(TimeSpan.FromSeconds(3))); }
+                catch (Exception failure)
+                {
+                    cleanupFailures.Add(stream + "_drain:" + failure.GetType().Name);
+                    _ = read.ContinueWith(task => { _ = task.Exception; }, CancellationToken.None,
+                        TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+                    return "[capture unavailable]";
+                }
+            }
 
-        await process.WaitForExitAsync(cancellation.Token);
-        var stdout = await stdoutTask;
-        var stderr = await stderrTask;
+            void CloseReader(StreamReader reader, string stream)
+            {
+                try { reader.Dispose(); }
+                catch (Exception failure) { cleanupFailures.Add(stream + "_close:" + failure.GetType().Name); }
+            }
+        }
+        finally
+        {
+            captureCancellation.Cancel();
+            if (!streamsClosed) { stdoutReader.Dispose(); stderrReader.Dispose(); }
+        }
 
-        Assert.True(
-            process.ExitCode == expectedExitCode,
-            $"Expected exit code {expectedExitCode}, got {process.ExitCode}.{Environment.NewLine}stdout: {stdout}{Environment.NewLine}stderr: {stderr}");
-        Assert.True(string.IsNullOrWhiteSpace(stderr), stderr);
+        Task<string> ReadCapturedStream(StreamReader reader) => OperatingSystem.IsWindows()
+            // Redirected Windows pipes use synchronous IO; dedicated readers also observe real EOF under worker contention.
+            ? Task.Factory.StartNew(reader.ReadToEnd, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default)
+            : reader.ReadToEndAsync(captureCancellation.Token);
 
-        return JsonSerializer.Deserialize<ToolResult<PreviewResponse>>(stdout, JsonOptions);
+        static string Tail(string text) => text.Length <= 4096 ? text : text[^4096..];
     }
 
     private static Process StartPreviewHost(string hostAssembly, string requestPath)
