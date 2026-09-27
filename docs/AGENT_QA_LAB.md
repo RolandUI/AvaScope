@@ -132,8 +132,18 @@ is an expected limitation, never a passing declared-operation journey.
 | Surface | Journey and independent oracle |
 | --- | --- |
 | `qa-scene` | Three drawn records (`blue`, `orange`, `green`) keep stable IDs, with generation changed by reset and revision changed by selection/shift/reset. Inspect declared object bounds; use geometry-pinned `pick_node` to locate the canvas and ordinary pointer input to select a drawn record. Shift by 20 DIP and repeat. Direct `scene` invocation uses `qa.scene.select` and the observed object token; stale tokens must be refused without journal changes. Selection outline, `scene.selectedId` and `scene.selections` are independent oracles. Scene declarations do not claim OS hit testing. |
-| `qa-operation-start` | Direct `qa.work` declares `mode` (`complete`/`fail`) and integer `steps` (1–10), each step taking 150 ms. Discover parameters, invoke once, observe progress, wait, fail deliberately and cancel. UI buttons run the same work on both hosts. `operation` journals starts/terminal counts, progress and visible status; reset or cleanup cancels old work before it can alter prepared state. Use retained operation IDs for terminal observation after reset. Background work leaves the UI interactive and does not declare the entire app busy. |
+| `qa-operation-start`, `qa-operation-hold`, `qa-operation-continue` | Direct `qa.work` declares `mode` (`complete`/`fail`/`hold`) and integer `steps` (1–10), each step taking 150 ms. Use `hold` for separate agent observations: it waits at zero progress until **Continue work**, **Cancel work**, operation cancellation, replacement, reset or cleanup. The `operation` journal exposes `state=waiting`, `waitingForRelease=true`, starts/terminal counts and visible status. UI buttons run the same ordinary work on both hosts; only Direct declares AvaScope operations. Continue is disabled outside held work. The fixture lease still bounds the app lifetime. Use retained operation IDs for terminal observation after reset. Background work leaves the UI interactive and does not declare the entire app busy. |
 | `qa-diagnostics-toggle` | Default is clean: validation off, no intentional missing binding, width 260 inside the 280 DIP clipping parent. Enable errors to introduce one explicit validation error, an unresolved `MissingQaDiagnosticProperty` binding with a visible fallback and an 800 DIP child inside that parent. Observe diagnostics/audit/layout findings and compare pixels plus `intentionalDiagnostics`; disable/reset must remove the intentional current errors. Historical diagnostic logs may retain earlier events and must be distinguished from current state. |
+
+For an agent cancellation charter, invoke `qa.work` with `mode=hold;steps=1`,
+retain the returned operation ID, then use separate CLI/MCP status calls and a
+rendered screenshot to confirm it remains active. Cancel that ID and check both
+its `cancelled` outcome and the independent journal's cancellation count. Start a
+second held operation, invoke `qa-operation-continue`, and verify completion and
+the completion count. A late cancellation of already completed short work is not
+a cancellation pass. Reset/replacement/close must not allow old continuations to
+overwrite newer fixture state. Standalone tests use the visible held/continue/
+cancel buttons and the journal; they cannot claim host-declared operation coverage.
 
 Retain trace correlation around declared actions, runtime expression/assertion
 results against independent journal values, and reversible mutation before/after/

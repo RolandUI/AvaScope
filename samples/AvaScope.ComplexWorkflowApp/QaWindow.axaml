@@ -266,6 +266,10 @@
                 <Button x:Name="FailOperationButton" Content="Run failing work" AutomationProperties.AutomationId="qa-operation-fail" />
                 <Button x:Name="CancelOperationButton" Content="Cancel work" AutomationProperties.AutomationId="qa-operation-cancel" />
               </StackPanel>
+              <StackPanel Orientation="Horizontal" Spacing="10">
+                <Button x:Name="HoldOperationButton" Content="Run held work" AutomationProperties.AutomationId="qa-operation-hold" />
+                <Button x:Name="ContinueOperationButton" Content="Continue work" IsEnabled="False" AutomationProperties.AutomationId="qa-operation-continue" />
+              </StackPanel>
               <ProgressBar x:Name="OperationProgress" Minimum="0" Maximum="100" Height="12"
                            AutomationProperties.AutomationId="qa-operation-progress" />
               <TextBlock x:Name="OperationStatus" Text="Idle" TextWrapping="Wrap" AutomationProperties.AutomationId="qa-operation-status" />

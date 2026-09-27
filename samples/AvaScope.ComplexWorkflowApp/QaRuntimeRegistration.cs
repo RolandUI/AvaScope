@@ -49,9 +49,9 @@ public static class QaRuntimeRegistration
                 var handle = context.BeginOperation();
                 _ = CompleteWorkAsync(handle, context.Parameters["mode"], steps);
                 return CustomActionOutcome.Succeeded("Fixture work accepted.");
-            }, description: "Run bounded fixture work with observable progress and cancellation.",
+            }, description: "Run fixture work; hold mode waits for Continue work or cancellation before its bounded steps.",
                 parameters:
-                [new("mode", required: true, allowedValues: ["complete", "fail"]),
+                [new("mode", required: true, allowedValues: ["complete", "fail", "hold"]),
                  new("steps", RuntimeCustomActionParameterTypes.Integer, required: true)],
                 supportsOperations: true, supportsCancellation: true))
         };

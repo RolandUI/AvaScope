@@ -1,5 +1,21 @@
 # Agent QA capability map
 
+The clean `9c24651` Direct charter adds 51 public calls (49 CLI/two MCP),
+510 unchanged binary pins, nine expected negative results, 27 correlated trace
+events and five reviewed rendered images. Scene/stale-object behavior, successful
+and deliberately failed work, bounded trace export, geometry/picking, sampled
+pointer assertions and selection of offscreen `QA-175` agree with the independent
+journal. The rendered capture matches the reviewed scene image byte for byte.
+The owned app is terminated; 54 process observations are accounted for, including
+one subsequent pwsh PID reuse; private manifests are empty.
+
+Two coverage limits remain explicit: cancellation arrived after the short work
+completed (zero cancellations), now tracked as the held-work fixture feature #230;
+and pointer case43 omitted a move in its request, so its `hit_unverified` result
+is not a wrong-node mismatch pass. Native desktop scope was refused and no OS
+pixels were exposed. Evidence: `cli-runtime-direct-01/verified-charter.json`.
+This charter does not close the shared validation batch or justify a Retina pass.
+
 At `db511f9`, `cli-adapters-standalone-01` adds 29 public calls (24 CLI/five MCP)
 with 540 unchanged binary pins, three reviewed rendered images and independent
 fixture state. Attach, capabilities, private run listing, bounded/full-artifact

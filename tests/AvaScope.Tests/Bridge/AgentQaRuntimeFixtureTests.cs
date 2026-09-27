@@ -456,6 +456,79 @@ public sealed class AgentQaRuntimeFixtureTests
         }
     }
 
+    [Theory]
+    [InlineData("continue")]
+    [InlineData("cancel")]
+    [InlineData("reset")]
+    [InlineData("replace")]
+    [InlineData("cleanup")]
+    [InlineData("close")]
+    public async Task HeldFixtureWorkWaitsForExplicitActionAndCannotOverwriteNewState(string ending)
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "avascope-qa-held-" + Guid.NewGuid().ToString("N"));
+        var previous = Environment.GetEnvironmentVariable("AVASCOPE_QA_OUTPUT");
+        Environment.SetEnvironmentVariable("AVASCOPE_QA_OUTPUT", directory);
+        try
+        {
+            using var session = HeadlessUnitTestSession.StartNew(typeof(BridgeHeadlessSmokeTests.BridgeHeadlessTestApplication));
+            await BridgeHeadlessSmokeTests.DispatchAsync(session, async () =>
+            {
+                var window = new QaWindow(); window.Show();
+                try
+                {
+                    var work = window.RunFixtureOperationAsync("hold", 1);
+                    // Wait past the entire previous ten-step fixture lifetime.
+                    await Task.Delay(1800);
+                    Assert.False(work.IsCompleted);
+                    var continueButton = window.FindControl<Button>("ContinueOperationButton")!;
+                    Assert.True(continueButton.IsEnabled);
+                    using (var journal = JsonDocument.Parse(File.ReadAllText(Path.Combine(directory, "qa-state.json"))))
+                    {
+                        var operation = journal.RootElement.GetProperty("operation");
+                        Assert.Equal("waiting", operation.GetProperty("state").GetString());
+                        Assert.True(operation.GetProperty("waitingForRelease").GetBoolean());
+                        Assert.Equal(0, operation.GetProperty("progress").GetDouble());
+                    }
+                    Task<string>? replacement = null;
+                    switch (ending)
+                    {
+                        case "continue": continueButton.RaiseEvent(new(Button.ClickEvent)); break;
+                        case "cancel": window.FindControl<Button>("CancelOperationButton")!.RaiseEvent(new(Button.ClickEvent)); break;
+                        case "reset": window.ResetState(); break;
+                        case "replace": replacement = window.RunFixtureOperationAsync("hold", 1); break;
+                        case "cleanup": window.CleanupState(); break;
+                        case "close": window.Close(); break;
+                    }
+                    var newState = File.ReadAllText(Path.Combine(directory, "qa-state.json"));
+                    Assert.Equal(ending == "continue" ? "completed" : "cancelled", await work.WaitAsync(TimeSpan.FromSeconds(5)));
+                    if (ending is "reset" or "replace" or "cleanup" or "close")
+                        Assert.Equal(newState, File.ReadAllText(Path.Combine(directory, "qa-state.json")));
+                    if (replacement is not null)
+                    {
+                        Assert.False(replacement.IsCompleted);
+                        Assert.True(continueButton.IsEnabled);
+                        continueButton.RaiseEvent(new(Button.ClickEvent));
+                        Assert.Equal("completed", await replacement.WaitAsync(TimeSpan.FromSeconds(5)));
+                    }
+                    Assert.False(continueButton.IsEnabled);
+                    var terminal = File.ReadAllText(Path.Combine(directory, "qa-state.json"));
+                    continueButton.RaiseEvent(new(Button.ClickEvent));
+                    Dispatcher.UIThread.RunJobs();
+                    Assert.Equal(terminal, File.ReadAllText(Path.Combine(directory, "qa-state.json")));
+                    using var final = JsonDocument.Parse(terminal);
+                    Assert.False(final.RootElement.GetProperty("operation").GetProperty("waitingForRelease").GetBoolean());
+                    if (ending == "cancel") Assert.Equal(1, final.RootElement.GetProperty("operation").GetProperty("cancellations").GetInt32());
+                }
+                finally { window.Close(); }
+            }, CancellationToken.None);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("AVASCOPE_QA_OUTPUT", previous);
+            if (Directory.Exists(directory)) Directory.Delete(directory, recursive: true);
+        }
+    }
+
     [Fact]
     public async Task RealHostDeclarationsRejectStaleSceneObjectsAndWorkCannotOverwriteResetOrCleanup()
     {
@@ -523,9 +596,15 @@ public sealed class AgentQaRuntimeFixtureTests
                     var failed = (await Start("fail", "1")).Operation!;
                     var failure = await client.OperationAsync(new(runtime.SessionId, failed.OperationId, "wait", 3000));
                     Assert.Equal("failed", failure.Value!.Operation.Status); Assert.Equal("qa_deliberate_failure", failure.Value.Operation.Error!.Code);
-                    var cancelled = (await Start("complete", "10")).Operation!;
+                    var cancelled = (await Start("hold", "1")).Operation!;
+                    var held = await client.OperationAsync(new(runtime.SessionId, cancelled.OperationId, "wait", 50));
+                    Assert.Equal("running", held.Value!.Operation.Status);
                     Assert.True((await client.OperationAsync(new(runtime.SessionId, cancelled.OperationId, "cancel"))).Success);
                     Assert.Equal("cancelled", (await client.OperationAsync(new(runtime.SessionId, cancelled.OperationId, "wait", 3000))).Value!.Operation.Status);
+                    var continued = (await Start("hold", "1")).Operation!;
+                    Assert.Equal("running", (await client.OperationAsync(new(runtime.SessionId, continued.OperationId))).Value!.Operation.Status);
+                    window.FindControl<Button>("ContinueOperationButton")!.RaiseEvent(new(Button.ClickEvent));
+                    Assert.Equal("completed", (await client.OperationAsync(new(runtime.SessionId, continued.OperationId, "wait", 3000))).Value!.Operation.Status);
                     var beforeInvalid = File.ReadAllText(Path.Combine(directory, "qa-state.json"));
                     foreach (var steps in new[] { "0", "11", "2147483648" })
                     {
@@ -533,7 +612,7 @@ public sealed class AgentQaRuntimeFixtureTests
                         Assert.Equal("failed", invalid.Status); Assert.Null(invalid.Operation);
                     }
                     Assert.Equal(beforeInvalid, File.ReadAllText(Path.Combine(directory, "qa-state.json")));
-                    var resetWork = (await Start("complete", "10")).Operation!;
+                    var resetWork = (await Start("hold", "1")).Operation!;
                     window.ResetState();
                     var reset = File.ReadAllText(Path.Combine(directory, "qa-state.json"));
                     Assert.Equal("cancelled", (await client.OperationAsync(new(runtime.SessionId, resetWork.OperationId, "wait", 3000))).Value!.Operation.Status);
@@ -545,7 +624,7 @@ public sealed class AgentQaRuntimeFixtureTests
                     }
                     window.FindControl<TabControl>("Pages")!.SelectedIndex = 7;
                     Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
-                    var cleanupWork = (await Start("complete", "10")).Operation!;
+                    var cleanupWork = (await Start("hold", "1")).Operation!;
                     window.CleanupState();
                     var cleanup = File.ReadAllText(Path.Combine(directory, "qa-state.json"));
                     Assert.Equal("cancelled", (await client.OperationAsync(new(runtime.SessionId, cleanupWork.OperationId, "wait", 3000))).Value!.Operation.Status);

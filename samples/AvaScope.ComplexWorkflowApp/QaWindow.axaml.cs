@@ -203,6 +203,7 @@ public partial class QaWindow : Window
     private Point _dragDelta;
     private object? _savedProfile;
     private CancellationTokenSource? _operation;
+    private TaskCompletionSource? _operationRelease;
     private IDisposable? _diagnosticBinding;
     private int _operationStarts;
     private int _operationCompletions;
@@ -334,6 +335,8 @@ public partial class QaWindow : Window
         MoveSceneButton.Click += (_, _) => RuntimeScene.Shift();
         StartOperationButton.Click += async (_, _) => await RunFixtureOperationAsync("complete", 8);
         FailOperationButton.Click += async (_, _) => await RunFixtureOperationAsync("fail", 8);
+        HoldOperationButton.Click += async (_, _) => await RunFixtureOperationAsync("hold", 8);
+        ContinueOperationButton.Click += (_, _) => _operationRelease?.TrySetResult();
         CancelOperationButton.Click += (_, _) => { _operation?.Cancel(); Record("operation_cancel_requested"); };
         DiagnosticToggle.PropertyChanged += (_, change) =>
         {
@@ -501,16 +504,29 @@ public partial class QaWindow : Window
         CancellationToken cancellationToken = default, Action<double, string>? report = null)
     {
         Dispatcher.UIThread.VerifyAccess();
-        if (mode is not ("complete" or "fail") || steps is < 1 or > 10)
-            throw new ArgumentException("Fixture work requires complete/fail and 1–10 steps.");
+        if (mode is not ("complete" or "fail" or "hold") || steps is < 1 or > 10)
+            throw new ArgumentException("Fixture work requires complete/fail/hold and 1–10 steps.");
         StopFixtureOperation();
         var operation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         _operation = operation;
-        _operationStarts++; _operationState = "running";
-        OperationProgress.Value = 0; OperationStatus.Text = "Running";
+        var release = mode == "hold" ? new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously) : null;
+        _operationRelease = release;
+        ContinueOperationButton.IsEnabled = release is not null;
+        _operationStarts++; _operationState = release is null ? "running" : "waiting";
+        OperationProgress.Value = 0; OperationStatus.Text = release is null ? "Running" : "Waiting for Continue work or cancellation";
         Record("operation_started");
         try
         {
+            if (release is not null)
+            {
+                report?.Invoke(0, OperationStatus.Text);
+                await release.Task.WaitAsync(operation.Token);
+                if (!ReferenceEquals(operation, _operation) || _closed) return "cancelled";
+                _operationRelease = null;
+                ContinueOperationButton.IsEnabled = false;
+                _operationState = "running"; OperationStatus.Text = "Running";
+                Record("operation_continued");
+            }
             for (var step = 1; step <= steps; step++)
             {
                 await Task.Delay(150, operation.Token);
@@ -532,6 +548,7 @@ public partial class QaWindow : Window
             if (ReferenceEquals(operation, _operation) && !_closed)
             {
                 _operationCancellations++; _operationState = "cancelled";
+                ContinueOperationButton.IsEnabled = false;
                 OperationStatus.Text = "Cancelled";
                 Record("operation_cancelled");
             }
@@ -539,7 +556,12 @@ public partial class QaWindow : Window
         }
         finally
         {
-            if (ReferenceEquals(operation, _operation)) _operation = null;
+            if (ReferenceEquals(operation, _operation))
+            {
+                _operation = null;
+                _operationRelease = null;
+                ContinueOperationButton.IsEnabled = false;
+            }
             operation.Dispose();
         }
     }
@@ -548,8 +570,10 @@ public partial class QaWindow : Window
     {
         var operation = _operation;
         _operation = null;
+        _operationRelease = null;
+        ContinueOperationButton.IsEnabled = false;
         operation?.Cancel();
-        if (_operationState == "running")
+        if (_operationState is "running" or "waiting")
         {
             _operationState = "cancelled";
             OperationStatus.Text = "Cancelled";
@@ -722,7 +746,7 @@ public partial class QaWindow : Window
                     x = item.Bounds.X, y = item.Bounds.Y, width = item.Bounds.Width, height = item.Bounds.Height }) },
             operation = new { state = _operationState, starts = _operationStarts, completions = _operationCompletions,
                 failures = _operationFailures, cancellations = _operationCancellations, progress = OperationProgress.Value,
-                status = OperationStatus.Text },
+                status = OperationStatus.Text, waitingForRelease = _operationState == "waiting" },
             animation = new { running = _animation is not null, starts = _animationStarts, stops = _animationStops,
                 status = AnimationStatus.Text, error = _animationError,
                 controls = new[] { AnimationStyleTarget, AnimationStyleReference, AnimationLocalTarget, AnimationLocalReference }
