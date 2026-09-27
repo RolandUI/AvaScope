@@ -1,5 +1,18 @@
 # Agent QA capability map
 
+`artifact-boundaries-01` on707e891 adds45 actual public calls (18MCP/27CLI),
+known64-pixel diff/crop controls, invalid inputs, full75/78 capability catalog
+comparison, private cleanup/sentinels, preview session/export/close and actual
+run-index resolution. Seven image files were opened; HTML source and embedded
+image bytes are verified but browser appearance remains unavailable. All63
+recorded caller/server observations are absent; original inputs and pinned
+204 tool/runtime plus70 sample/project files remain unchanged. PreviewHost child
+PIDs were not independently retained. One missing-selector invocation is
+preserved and separately corrected. The charter discovers228: identical PNGs
+with TextBlock Margin versus equivalent Canvas placement have different clipping
+warnings because DesiredSize includes Margin. Both adapters reproduce it; this
+is a campaign finding, not a clean pass. Source/binary provenance is retained.
+
 Inventory: 75 MCP tools from `src/AvaScope.Mcp/AvaScopeMcpTools.cs` on the
 #172 expansion branch; CLI commands from `src/AvaScope.Cli/Program.cs`.
 Execution tracker: #174, umbrella #166. This is a coverage plan, **not a pass
