@@ -74,14 +74,19 @@ The roadmap below records the release-shaped plan through `v1.0.0`. It is intent
 
 The owner authorized `1.5.1-rc.1` publication on 2026-09-28 to verify #157/#161 on
 their native Mac/Retina desktop. The scope is the stabilized master source through
-0cb3252, including measured animation validation, plus prerelease packaging support.
+0cb3252, including measured animation validation, plus prerelease packaging support
+and the #232 provider-version fix in 673c040.
 The six-job CI 36386091375 passed (Windows 1177 tests/eight skipped, macOS 1174/ten,
 Linux 33/zero). The exact RC still goes through the existing Release workflow's
 build, full tests, package/provider/installer checks and publication dry-runs.
-No duplicate six-job CI is required for the version and publication metadata.
+The first RC run 36394580274 stopped before publication on numeric-only provider
+version parsing (1175 passed/two failed/eight skipped). The #232 fix passes24
+focused checks plus actual CLI verification and standalone activation/refusal with
+clean shutdown. One corrected Release workflow validates the complete RC again;
+the unpublished version stays 1.5.1-rc.1 and no tag or package is overwritten.
 
-This is a testable prerelease, not final 1.5.1 acceptance: 65 defects are tracked,
-52 closed and 13 open. Two Retina reports await the owner's verification; eleven
+This is a testable prerelease, not final 1.5.1 acceptance: 66 defects are tracked,
+52 closed and 14 open while #232 awaits its release gate. Two Retina reports await the owner's verification; eleven
 original timing/build/IPC/lock causes remain unknown. #164/#174 and the stable
 tracker/milestone stay open. Latest stable remains v1.5.0. See the
 [RC notes and Mac checklist](RELEASE_NOTES_1_5_1_rc_1.md).

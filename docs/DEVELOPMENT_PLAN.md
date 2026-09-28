@@ -1,6 +1,6 @@
 # AvaScope Development Plan
 
-GitHub milestone v1.5.1 is the current backlog and acceptance source. The owner authorized v1.5.1-rc.1 publication on 2026-09-28 for their native Mac/Retina verification. #232 is the sole active fix after the first RC workflow found numeric-only provider version parsing; #165 tracks the RC in review. Stable 1.5.1 publication remains unapproved. #201 is CLOSED on 0cb3252 with all six jobs of combined CI 36386091375 passing. #174's broader coverage, the two native Retina checks and eleven unknown original causes remain open.
+GitHub milestone v1.5.1 is the current backlog and acceptance source. The owner authorized v1.5.1-rc.1 publication on 2026-09-28 for their native Mac/Retina verification. #232 is corrected in673c040 and in review after24 focused checks and real standalone activation/refusal pass; #165 resumes as the sole active RC tracker for the corrected Release workflow. Stable 1.5.1 publication remains unapproved. #201 is CLOSED on0cb3252 with all six jobs of combined CI36386091375 passing. #174's broader coverage, the two native Retina checks and eleven unknown original causes remain open.
 
 ## Working policy (owner instruction, 2026-09-27)
 
