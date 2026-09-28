@@ -5,15 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
       name="description"
-      content="AvaScope gives AI agents a clear view of your Avalonia app. Inspect the interface, try changes, automate tasks and check the results, locally."
+      content="AvaScope lets AI agents see, use and check your Avalonia app. Explore UI inspection, live previews, automation and visual checks."
     />
-    <meta name="theme-color" content="#101617" />
-    <title>AvaScope — A clear view of your app.</title>
-    <link
-      rel="icon"
-      type="image/svg+xml"
-      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2300787e'/%3E%3Cpath d='M7 24L16 7l9 17' fill='none' stroke='white' stroke-width='2.5'/%3E%3Ccircle cx='16' cy='21' r='4' fill='none' stroke='white' stroke-width='2'/%3E%3C/svg%3E"
-    />
+    <meta name="theme-color" content="#111516" />
+    <title>AvaScope — Give your agent eyes and hands.</title>
+    <link rel="icon" type="image/png" href="./assets/avascope-icon-dark.png" />
     <link rel="preload" href="./assets/manrope.ttf" as="font" type="font/ttf" crossorigin />
     <link rel="stylesheet" href="./styles.css" />
     <script src="./script.js" defer></script>
@@ -21,338 +17,1290 @@
   <body>
     <a class="skip-link" href="#main">Skip to content</a>
     <header class="site-header">
-      <div class="container header-inner">
-        <a class="brand" href="#" aria-label="AvaScope home"
-          ><img src="./assets/avascope-icon-dark.png" width="34" height="34" alt="" /><span
-            >AvaScope</span
-          ></a
+      <a class="brand" href="#top" aria-label="AvaScope home">
+        <img src="./assets/avascope-icon-dark.png" width="30" height="30" alt="" />
+        <span>AvaScope</span>
+      </a>
+      <nav aria-label="Main navigation">
+        <details class="feature-menu">
+          <summary>
+            Features
+            <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+              <path d="m3 4.5 3 3 3-3" />
+            </svg>
+          </summary>
+          <div class="menu-links">
+            <a href="#capabilities">See and understand the app</a
+            ><a href="#automate">Use the controls</a><a href="#workflows">Run complete workflows</a
+            ><a href="#forms">Fill forms</a><a href="#tables">Read and edit tables</a
+            ><a href="#diagnose">Investigate UI problems</a
+            ><a href="#experiment">Try temporary changes</a
+            ><a href="#preview">Render real previews</a><a href="#compare">Catch visual changes</a
+            ><a href="#quality">Review UI quality</a><a href="#motion">Inspect states and motion</a
+            ><a href="#canvases">Understand custom canvases</a><a href="#more">More capabilities</a>
+          </div>
+        </details>
+        <a class="github-link" href="https://github.com/RolandUI/AvaScope"
+          >GitHub <span aria-hidden="true">↗</span></a
         >
-        <nav aria-label="Main navigation">
-          <a href="#capabilities">Capabilities</a>
-          <a href="#more">More to explore</a>
-          <a class="nav-github" href="https://github.com/RolandUI/AvaScope"
-            >GitHub <span aria-hidden="true">↗</span></a
-          >
-        </nav>
-      </div>
+      </nav>
     </header>
 
     <main id="main">
-      <section class="hero container" aria-labelledby="hero-title">
-        <div class="hero-heading">
-          <div>
-            <p class="eyebrow">AVALONIA, THROUGH YOUR AGENT’S EYES.</p>
-            <h1 id="hero-title">Your app.<br /><span>In plain sight.</span></h1>
-          </div>
-          <div class="hero-intro">
-            <p>
-              AvaScope lets your AI agent see your desktop app, work with its controls and check the
-              result. All on your machine.
-            </p>
-            <a class="text-link" href="#capabilities"
-              >See both sides <span aria-hidden="true">↘</span></a
-            >
-          </div>
-        </div>
-      </section>
-
-      <section class="capabilities container" id="capabilities" aria-labelledby="scene-title">
-        <div class="scenario-picker" role="group" aria-label="Capability examples">
-          <button data-scene="inspect" aria-pressed="true">
-            <span>01</span> Understand the UI
-          </button>
-          <button data-scene="preview" aria-pressed="false">
-            <span>02</span> Preview a change
-          </button>
-          <button data-scene="automate" aria-pressed="false"><span>03</span> Fill in a form</button>
-          <button data-scene="compare" aria-pressed="false">
-            <span>04</span> Spot a difference
-          </button>
-        </div>
-        <div class="scene-intro">
-          <h2 id="scene-title">
-            A button to you.<br />
-            A clear target to your agent.
-          </h2>
-          <p id="scene-description">
-            AvaScope returns the interface as a tree of elements, together with a screenshot. Your
-            agent can identify a control and see where it belongs.
-          </p>
-        </div>
-
-        <div class="demo-pair" data-scene="inspect" data-phase="2">
-          <section class="demo-pane" aria-labelledby="app-pane-title">
-            <div class="pane-label">
-              <h3 id="app-pane-title">Your app</h3>
-              <span id="app-pane-subtitle">What you see on screen</span>
-            </div>
-            <div class="app-stage">
-              <div class="app-stage-label">
-                <span class="desktop-symbol" aria-hidden="true">▱</span
-                ><span id="app-context">Avalonia app · illustration</span>
-              </div>
-              <div
-                class="app-window"
-                role="img"
-                aria-label="Illustrated Northstar settings window with the Save changes button highlighted"
-              >
-                <div class="app-chrome">
-                  <span class="northstar-mark" aria-hidden="true">✳</span><span>Northstar</span
-                  ><span class="window-controls" aria-hidden="true">− &nbsp; □ &nbsp; ×</span>
-                </div>
-                <div class="app-layout">
-                  <div class="app-sidebar" aria-hidden="true">
-                    <span class="workspace-label">WORKSPACE</span><span>▦ &nbsp; Overview</span
-                    ><span>▤ &nbsp; Projects</span><span class="active">⚙ &nbsp; Settings</span
-                    ><span class="sidebar-account"><i>JD</i> Jamie Davis</span>
-                  </div>
-                  <div class="app-content">
-                    <span class="app-breadcrumb">Workspace / Settings</span>
-                    <h4>Workspace settings</h4>
-                    <p class="app-description">Make this space your own.</p>
-                    <div class="app-field">
-                      <span>Workspace name</span>
-                      <div id="app-name">Northstar</div>
-                    </div>
-                    <div class="app-notifications">
-                      <div>
-                        <strong>Email notifications</strong
-                        ><span>Updates about your projects.</span>
-                      </div>
-                      <span class="app-switch" aria-hidden="true"></span>
-                    </div>
-                    <div class="app-separator"></div>
-                    <div class="app-save-area">
-                      <div id="app-save" class="app-save">
-                        Save changes<span class="target-label" aria-hidden="true">SaveButton</span>
-                      </div>
-                      <span id="app-saved" hidden>✓ Changes saved</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <p class="app-observation" id="app-observation">
-                The highlighted button matches the element in the agent’s tree.
-              </p>
-            </div>
-          </section>
-
-          <section class="demo-pane" aria-labelledby="agent-pane-title">
-            <div class="pane-label">
-              <h3 id="agent-pane-title">Your agent</h3>
-              <span>What AvaScope makes available</span>
-            </div>
-            <div class="agent-window">
-              <div class="agent-chrome">
-                <span class="agent-mark" aria-hidden="true">✳</span
-                ><strong>Agent conversation</strong><span class="conversation-type">Example</span>
-              </div>
-              <div class="conversation">
-                <div class="user-message">
-                  <span class="message-label">You</span>
-                  <p id="user-prompt">Find the Save changes button.</p>
-                </div>
-                <div class="agent-message">
-                  <span class="agent-avatar" aria-hidden="true">✳</span>
-                  <div>
-                    <span class="message-label">Agent</span>
-                    <p id="agent-intent">I’ll read the interface and capture the current view.</p>
-                  </div>
-                </div>
-                <div class="agent-work" id="agent-work">
-                  <div id="tool-calls"></div>
-                  <div class="returned-evidence" id="returned-evidence">
-                    <p class="evidence-label">RETURNED TO THE AGENT</p>
-                    <div id="evidence-content"></div>
-                  </div>
-                </div>
-                <div class="agent-answer" id="agent-answer">
-                  <span class="answer-mark" aria-hidden="true">↳</span>
-                  <p id="answer-text">
-                    Found it: SaveButton. It’s visible, enabled and ready to use.
-                  </p>
-                </div>
-                <p class="conversation-wait" id="conversation-wait" hidden>
-                  Select the next step to see what AvaScope returns.
-                </p>
-              </div>
-            </div>
-          </section>
-        </div>
-
-        <div class="story-controls">
-          <div class="story-steps" role="group" aria-label="Walkthrough steps">
-            <button data-phase="0" aria-pressed="false"><span>1</span> The request</button
-            ><span class="step-connector" aria-hidden="true">→</span>
-            <button data-phase="1" aria-pressed="false"><span>2</span> AvaScope</button
-            ><span class="step-connector" aria-hidden="true">→</span>
-            <button data-phase="2" aria-pressed="true"><span>3</span> The result</button>
-          </div>
-          <button class="play-button" id="play-story">
-            <span aria-hidden="true">↻</span> Replay example
-          </button>
-          <span id="story-status" class="sr-only" role="status"
-            >Showing the result of the interface inspection example.</span
-          >
-        </div>
-        <div class="demo-footnote">
-          <span>Illustrated examples. No live app is connected.</span
-          ><a
-            id="scene-docs"
-            href="https://github.com/RolandUI/AvaScope/blob/master/docs/USER_GUIDE.md#runtime-inspection"
-            >Read about inspection <span aria-hidden="true">↗</span></a
-          >
-        </div>
-        <noscript
-          ><p class="noscript-note">
-            Enable JavaScript to switch examples and step through the agent’s actions.
-          </p></noscript
-        >
-      </section>
-
-      <section class="more-section" id="more" aria-labelledby="more-title">
-        <div class="container">
-          <div class="more-heading">
-            <div>
-              <p class="eyebrow">A LITTLE DEEPER</p>
-              <h2 id="more-title">More ways to work.</h2>
-            </div>
-            <p>
-              A few more capabilities.<br />
-              Open one for a closer look.
-            </p>
-          </div>
-          <div class="feature-list">
-            <details>
-              <summary>
-                <span class="list-category">INSPECT</span
-                ><span class="list-title">Understand a layout</span
-                ><span class="expand-icon" aria-hidden="true"></span>
-              </summary>
-              <div class="detail-body">
-                <p>
-                  See an element’s size, position and surrounding space. Help your agent investigate
-                  why a label gets cut off or a button sits in the wrong place.
-                </p>
-                <a href="https://github.com/RolandUI/AvaScope/blob/master/docs/USER_GUIDE.md"
-                  >Layout inspection in the guide <span aria-hidden="true">↗</span></a
-                >
-              </div>
-            </details>
-            <details>
-              <summary>
-                <span class="list-category">INSPECT</span
-                ><span class="list-title">Find available actions</span
-                ><span class="expand-icon" aria-hidden="true"></span>
-              </summary>
-              <div class="detail-body">
-                <p>
-                  Discover the actions, routes and shortcuts available in a window. Your agent can
-                  work out where to go and what it can do next, with unavailable areas called out.
-                </p>
-                <a href="https://github.com/RolandUI/AvaScope/blob/master/docs/ACTION_MAP.md"
-                  >Action discovery in the guide <span aria-hidden="true">↗</span></a
-                >
-              </div>
-            </details>
-            <details>
-              <summary>
-                <span class="list-category">INTERACT</span
-                ><span class="list-title">Work with tables</span
-                ><span class="expand-icon" aria-hidden="true"></span>
-              </summary>
-              <div class="detail-body">
-                <p>
-                  Read rows and columns from supported tables, then select, edit or sort with the
-                  right permissions. Check the resulting state after each action.
-                </p>
-                <a href="https://github.com/RolandUI/AvaScope/blob/master/docs/TABLE_WORKFLOWS.md"
-                  >Table workflows in the guide <span aria-hidden="true">↗</span></a
-                >
-              </div>
-            </details>
-            <details>
-              <summary>
-                <span class="list-category">EXPERIMENT</span
-                ><span class="list-title">Try a temporary change</span
-                ><span class="expand-icon" aria-hidden="true"></span>
-              </summary>
-              <div class="detail-body">
-                <p>
-                  Try supported changes to text, spacing or styling in a running app. Compare the
-                  result and reset the experiment. Source files stay untouched.
-                </p>
-                <a href="https://github.com/RolandUI/AvaScope/blob/master/docs/USER_GUIDE.md"
-                  >Runtime changes in the guide <span aria-hidden="true">↗</span></a
-                >
-              </div>
-            </details>
-            <details>
-              <summary>
-                <span class="list-category">CHECK</span
-                ><span class="list-title">Look at keyboard focus</span
-                ><span class="expand-icon" aria-hidden="true"></span>
-              </summary>
-              <div class="detail-body">
-                <p>
-                  Inspect which element has focus and explore keyboard navigation. Keep predicted
-                  movement separate from what an actual, explicitly requested probe observes.
-                </p>
-                <a href="https://github.com/RolandUI/AvaScope/blob/master/docs/FOCUS_NAVIGATION.md"
-                  >Focus inspection in the guide <span aria-hidden="true">↗</span></a
-                >
-              </div>
-            </details>
-            <details>
-              <summary>
-                <span class="list-category">REVIEW</span
-                ><span class="list-title">Keep the evidence</span
-                ><span class="expand-icon" aria-hidden="true"></span>
-              </summary>
-              <div class="detail-body">
-                <p>
-                  Collect screenshots, step results and reports for a workflow. Review what passed,
-                  what failed and what could not be verified, with local privacy and retention
-                  controls.
-                </p>
-                <a href="https://github.com/RolandUI/AvaScope/blob/master/docs/AGENT_WORKFLOW.md"
-                  >Evidence in the guide <span aria-hidden="true">↗</span></a
-                >
-              </div>
-            </details>
-          </div>
-          <p class="list-footnote">
-            A selection of what AvaScope can do.
-            <a href="https://github.com/RolandUI/AvaScope/blob/master/docs/STABLE_SURFACE.md"
-              >Explore the full reference <span aria-hidden="true">↗</span></a
-            >
-          </p>
-        </div>
-      </section>
-
-      <section class="closing container" aria-labelledby="closing-title">
-        <div>
-          <p class="eyebrow">YOUR APP. YOUR MACHINE.</p>
-          <h2 id="closing-title">Take a closer look.</h2>
+      <section class="hero container" id="top" aria-labelledby="hero-title">
+        <h1 id="hero-title">Give your agent<br /><span>eyes and hands.</span></h1>
+        <div class="hero-intro">
           <p>
-            AvaScope connects to apps you explicitly enable.<br />
-            Use it through your agent’s MCP connection or the command line.
+            AvaScope lets AI agents see, use and check your Avalonia app. All on your machine. For free.
           </p>
+          <a class="text-link" href="#capabilities"
+            >Explore the capabilities <span aria-hidden="true">↓</span></a
+          >
         </div>
-        <a class="primary-link" href="https://github.com/RolandUI/AvaScope"
-          >Explore AvaScope on GitHub <span aria-hidden="true">↗</span></a
+        <div class="hero-support">
+          <ul class="platform-list" aria-label="Supported operating systems" role="list">
+            <li>
+              <svg viewBox="2 2 20 20" width="14" height="14" aria-hidden="true">
+                <path d="M2 2h9v9H2zm11 0h9v9h-9zM2 13h9v9H2zm11 0h9v9h-9z" />
+              </svg>
+              Windows
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                <path
+                  d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701"
+                />
+              </svg>
+              macOS
+            </li>
+            <li>
+              <svg class="platform-linux" viewBox="0 0 24 24" width="17" height="17" aria-hidden="true">
+                <path
+                  d="M12.504 0c-.155 0-.315.008-.48.021-4.226.333-3.105 4.807-3.17 6.298-.076 1.092-.3 1.953-1.05 3.02-.885 1.051-2.127 2.75-2.716 4.521-.278.832-.41 1.684-.287 2.489a.424.424 0 00-.11.135c-.26.268-.45.6-.663.839-.199.199-.485.267-.797.4-.313.136-.658.269-.864.68-.09.189-.136.394-.132.602 0 .199.027.4.055.536.058.399.116.728.04.97-.249.68-.28 1.145-.106 1.484.174.334.535.47.94.601.81.2 1.91.135 2.774.6.926.466 1.866.67 2.616.47.526-.116.97-.464 1.208-.946.587-.003 1.23-.269 2.26-.334.699-.058 1.574.267 2.577.2.025.134.063.198.114.333l.003.003c.391.778 1.113 1.132 1.884 1.071.771-.06 1.592-.536 2.257-1.306.631-.765 1.683-1.084 2.378-1.503.348-.199.629-.469.649-.853.023-.4-.2-.811-.714-1.376v-.097l-.003-.003c-.17-.2-.25-.535-.338-.926-.085-.401-.182-.786-.492-1.046h-.003c-.059-.054-.123-.067-.188-.135a.357.357 0 00-.19-.064c.431-1.278.264-2.55-.173-3.694-.533-1.41-1.465-2.638-2.175-3.483-.796-1.005-1.576-1.957-1.56-3.368.026-2.152.236-6.133-3.544-6.139zm.529 3.405h.013c.213 0 .396.062.584.198.19.135.33.332.438.533.105.259.158.459.166.724 0-.02.006-.04.006-.06v.105a.086.086 0 01-.004-.021l-.004-.024a1.807 1.807 0 01-.15.706.953.953 0 01-.213.335.71.71 0 00-.088-.042c-.104-.045-.198-.064-.284-.133a1.312 1.312 0 00-.22-.066c.05-.06.146-.133.183-.198.053-.128.082-.264.088-.402v-.02a1.21 1.21 0 00-.061-.4c-.045-.134-.101-.2-.183-.333-.084-.066-.167-.132-.267-.132h-.016c-.093 0-.176.03-.262.132a.8.8 0 00-.205.334 1.18 1.18 0 00-.09.4v.019c.002.089.008.179.02.267-.193-.067-.438-.135-.607-.202a1.635 1.635 0 01-.018-.2v-.02a1.772 1.772 0 01.15-.768c.082-.22.232-.406.43-.533a.985.985 0 01.594-.2zm-2.962.059h.036c.142 0 .27.048.399.135.146.129.264.288.344.465.09.199.14.4.153.667v.004c.007.134.006.2-.002.266v.08c-.03.007-.056.018-.083.024-.152.055-.274.135-.393.2.012-.09.013-.18.003-.267v-.015c-.012-.133-.04-.2-.082-.333a.613.613 0 00-.166-.267.248.248 0 00-.183-.064h-.021c-.071.006-.13.04-.186.132a.552.552 0 00-.12.27.944.944 0 00-.023.33v.015c.012.135.037.2.08.334.046.134.098.2.166.268.01.009.02.018.034.024-.07.057-.117.07-.176.136a.304.304 0 01-.131.068 2.62 2.62 0 01-.275-.402 1.772 1.772 0 01-.155-.667 1.759 1.759 0 01.08-.668 1.43 1.43 0 01.283-.535c.128-.133.26-.2.418-.2zm1.37 1.706c.332 0 .733.065 1.216.399.293.2.523.269 1.052.468h.003c.255.136.405.266.478.399v-.131a.571.571 0 01.016.47c-.123.31-.516.643-1.063.842v.002c-.268.135-.501.333-.775.465-.276.135-.588.292-1.012.267a1.139 1.139 0 01-.448-.067 3.566 3.566 0 01-.322-.198c-.195-.135-.363-.332-.612-.465v-.005h-.005c-.4-.246-.616-.512-.686-.71-.07-.268-.005-.47.193-.6.224-.135.38-.271.483-.336.104-.074.143-.102.176-.131h.002v-.003c.169-.202.436-.47.839-.601.139-.036.294-.065.466-.065zm2.8 2.142c.358 1.417 1.196 3.475 1.735 4.473.286.534.855 1.659 1.102 3.024.156-.005.33.018.513.064.646-1.671-.546-3.467-1.089-3.966-.22-.2-.232-.335-.123-.335.59.534 1.365 1.572 1.646 2.757.13.535.16 1.104.021 1.67.067.028.135.06.205.067 1.032.534 1.413.938 1.23 1.537v-.043c-.06-.003-.12 0-.18 0h-.016c.151-.467-.182-.825-1.065-1.224-.915-.4-1.646-.336-1.77.465-.008.043-.013.066-.018.135-.068.023-.139.053-.209.064-.43.268-.662.669-.793 1.187-.13.533-.17 1.156-.205 1.869v.003c-.02.334-.17.838-.319 1.35-1.5 1.072-3.58 1.538-5.348.334a2.645 2.645 0 00-.402-.533 1.45 1.45 0 00-.275-.333c.182 0 .338-.03.465-.067a.615.615 0 00.314-.334c.108-.267 0-.697-.345-1.163-.345-.467-.931-.995-1.788-1.521-.63-.4-.986-.87-1.15-1.396-.165-.534-.143-1.085-.015-1.645.245-1.07.873-2.11 1.274-2.763.107-.065.037.135-.408.974-.396.751-1.14 2.497-.122 3.854a8.123 8.123 0 01.647-2.876c.564-1.278 1.743-3.504 1.836-5.268.048.036.217.135.289.202.218.133.38.333.59.465.21.201.477.335.876.335.039.003.075.006.11.006.412 0 .73-.134.997-.268.29-.134.52-.334.74-.4h.005c.467-.135.835-.402 1.044-.7zm2.185 8.958c.037.6.343 1.245.882 1.377.588.134 1.434-.333 1.791-.765l.211-.01c.315-.007.577.01.847.268l.003.003c.208.199.305.53.391.876.085.4.154.78.409 1.066.486.527.645.906.636 1.14l.003-.007v.018l-.003-.012c-.015.262-.185.396-.498.595-.63.401-1.746.712-2.457 1.57-.618.737-1.37 1.14-2.036 1.191-.664.053-1.237-.2-1.574-.898l-.005-.003c-.21-.4-.12-1.025.056-1.69.176-.668.428-1.344.463-1.897.037-.714.076-1.335.195-1.814.12-.465.308-.797.641-.984l.045-.022zm-10.814.049h.01c.053 0 .105.005.157.014.376.055.706.333 1.023.752l.91 1.664.003.003c.243.533.754 1.064 1.189 1.637.434.598.77 1.131.729 1.57v.006c-.057.744-.48 1.148-1.125 1.294-.645.135-1.52.002-2.395-.464-.968-.536-2.118-.469-2.857-.602-.369-.066-.61-.2-.723-.4-.11-.2-.113-.602.123-1.23v-.004l.002-.003c.117-.334.03-.752-.027-1.118-.055-.401-.083-.71.043-.94.16-.334.396-.4.69-.533.294-.135.64-.202.915-.47h.002v-.002c.256-.268.445-.601.668-.838.19-.201.38-.336.663-.336zm7.159-9.074c-.435.201-.945.535-1.488.535-.542 0-.97-.267-1.28-.466-.154-.134-.28-.268-.373-.335-.164-.134-.144-.333-.074-.333.109.016.129.134.199.2.096.066.215.2.36.333.292.2.68.467 1.167.467.485 0 1.053-.267 1.398-.466.195-.135.445-.334.648-.467.156-.136.149-.267.279-.267.128.016.034.134-.147.332a8.097 8.097 0 01-.69.468zm-1.082-1.583V5.64c-.006-.02.013-.042.029-.05.074-.043.18-.027.26.004.063 0 .16.067.15.135-.006.049-.085.066-.135.066-.055 0-.092-.043-.141-.068-.052-.018-.146-.008-.163-.065zm-.551 0c-.02.058-.113.049-.166.066-.047.025-.086.068-.14.068-.05 0-.13-.02-.136-.068-.01-.066.088-.133.15-.133.08-.031.184-.047.259-.005.019.009.036.03.03.05v.02h.003z"
+                />
+              </svg>
+              Linux
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <div class="features container">
+        <section
+          class="feature"
+          data-capabilities="runtime.observation runtime.trees runtime.inspect artifacts.screenshot"
+          id="capabilities"
+          aria-labelledby="inspect-title"
+        >
+          <div class="feature-copy">
+            <h2 id="inspect-title">Your agent can<br />see your app.</h2>
+            <p>
+              AvaScope gives your agent a screenshot, a readable tree of controls and their current
+              values. It can understand what is visible, enabled and ready to use.
+            </p>
+          </div>
+          <div
+            class="illustration inspect-illustration"
+            role="img"
+            aria-label="A simple workspace settings window beside its element tree. The Save changes button is highlighted in both, showing how the agent identifies the same control."
+          >
+            <div class="inspect-pair" aria-hidden="true">
+              <div class="visual-column">
+                <span class="visual-label">Your app</span>
+                <div class="mini-app">
+                  <div class="app-title"><span class="app-mark">n</span> Northstar</div>
+                  <div class="app-body">
+                    <strong class="app-heading">Workspace</strong>
+                    <span class="field-label">Name</span>
+                    <span class="mock-input">Northstar</span>
+                    <span class="mock-button selected-control">Save changes</span>
+                  </div>
+                </div>
+              </div>
+              <div class="visual-column tree-column">
+                <span class="visual-label">What your agent reads</span>
+                <div class="element-tree">
+                  <span class="tree-root">Window <em>Northstar</em></span>
+                  <div class="tree-branch">
+                    <span>StackPanel</span>
+                    <div class="tree-branch">
+                      <span>TextBox <em>Name</em></span>
+                      <span class="tree-selected">Button <em>Save changes</em></span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+        <section
+          class="feature"
+          data-capabilities="runtime.input runtime.semantic_automation runtime.desired_state"
+          id="automate"
+          aria-labelledby="automate-title"
+        >
+          <div class="feature-copy">
+            <h2 id="automate-title">Your agent can<br />use the controls.</h2>
+            <p>
+              Your agent can click, type, select, toggle, scroll and drag. It can request a specific
+              value or state, then read the result to check that the change worked.
+            </p>
+          </div>
+          <div
+            class="illustration automate-illustration"
+            role="img"
+            aria-label="An instruction to rename the workspace to Studio leads to a filled workspace form. A saved confirmation verifies the result."
+          >
+            <div class="action-example" aria-hidden="true">
+              <div class="action-request">
+                Rename this workspace<br />to <strong>Studio.</strong>
+              </div>
+              <svg class="action-arrow" width="48" height="24" viewBox="0 0 48 24">
+                <path d="M2 12h42m-8-8 8 8-8 8" />
+              </svg>
+              <div class="mini-app action-app">
+                <div class="app-title"><span class="app-mark">n</span> Northstar</div>
+                <div class="app-body">
+                  <strong class="app-heading">Workspace</strong>
+                  <span class="field-label">Name</span>
+                  <span class="mock-input filled-input"
+                    >Studio<span class="input-caret"></span
+                  ></span>
+                  <span class="saved-result"
+                    ><svg width="16" height="16" viewBox="0 0 16 16">
+                      <path d="m3.5 8 3 3 6-6" />
+                    </svg>
+                    Changes saved</span
+                  >
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+        <section
+          class="feature"
+          id="workflows"
+          data-capabilities="runtime.semantic_workflow runtime.workflow_evidence runtime.scenario_runner runtime.session_lifecycle"
+          aria-labelledby="workflows-title"
+        >
+          <div class="feature-copy">
+            <h2 id="workflows-title">Whole workflows.<br />Checked by your agent.</h2>
+            <p>
+              Let your agent build and launch the app, follow a sequence of actions, wait for the
+              expected state and verify the result. Conditions, reusable steps and variables support
+              longer journeys, with evidence and cleanup at the end.
+            </p>
+          </div>
+          <div
+            class="illustration"
+            role="img"
+            aria-label="A completed app journey: launch the app, create Studio, check that the project opens, and close the test app."
+          >
+            <div class="feature-art" aria-hidden="true">
+              <div class="journey-example small-surface">
+                <strong class="app-heading">Create a project</strong>
+                <div class="journey-step">
+                  <svg width="16" height="16" viewBox="0 0 16 16"><path d="m3 8 3 3 7-7" /></svg
+                  ><span>Launch the app</span>
+                </div>
+                <div class="journey-step">
+                  <svg width="16" height="16" viewBox="0 0 16 16"><path d="m3 8 3 3 7-7" /></svg
+                  ><span>Create “Studio”</span>
+                </div>
+                <div class="journey-step">
+                  <svg width="16" height="16" viewBox="0 0 16 16"><path d="m3 8 3 3 7-7" /></svg
+                  ><span>Check that it opens</span>
+                </div>
+                <div class="journey-step">
+                  <svg width="16" height="16" viewBox="0 0 16 16"><path d="m3 8 3 3 7-7" /></svg
+                  ><span>Close the test app</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+        <section
+          class="feature"
+          id="forms"
+          data-capabilities="runtime.forms"
+          aria-labelledby="forms-title"
+        >
+          <div class="feature-copy">
+            <h2 id="forms-title">Your agent can<br />fill the whole form.</h2>
+            <p>
+              AvaScope identifies supported fields, checks the requested values and reports the
+              result for each field. Your agent can see validation errors and dependent fields
+              changing. Submitting the form remains a separate action.
+            </p>
+          </div>
+          <div
+            class="illustration"
+            role="img"
+            aria-label="An illustrated profile form has a name, email and checked email-updates option, followed by a confirmation that all three fields were verified."
+          >
+            <div class="feature-art" aria-hidden="true">
+              <div class="mini-app form-example">
+                <div class="app-title"><span class="app-mark">n</span> Northstar</div>
+                <div class="app-body">
+                  <strong class="app-heading">Profile</strong><span class="field-label">Name</span
+                  ><span class="mock-input filled-input">Jamie Davis</span
+                  ><span class="field-label">Email</span
+                  ><span class="mock-input filled-input">jamie@example.test</span
+                  ><span class="form-checkbox"
+                    ><span
+                      ><svg width="16" height="16" viewBox="0 0 16 16">
+                        <path d="m3 8 3 3 7-7" /></svg></span
+                    >Email updates</span
+                  ><span class="saved-result"
+                    ><svg width="16" height="16" viewBox="0 0 16 16"><path d="m3 8 3 3 7-7" /></svg
+                    >3 fields verified</span
+                  >
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+        <section
+          class="feature"
+          id="tables"
+          data-capabilities="runtime.tables"
+          aria-labelledby="tables-title"
+        >
+          <div class="feature-copy">
+            <h2 id="tables-title">Real table data.<br />Ready for your agent.</h2>
+            <p>
+              Your agent can read, filter and page through rows, select records, edit cells and sort
+              supported Avalonia DataGrids. AvaScope returns structured values and checks the
+              resulting state.
+            </p>
+          </div>
+          <div
+            class="illustration table-illustration"
+            role="img"
+            aria-label="A table edit changes the Desktop app row from Draft to Ready while the surrounding rows remain unchanged."
+          >
+            <div class="feature-art" aria-hidden="true">
+              <div class="table-example small-surface" aria-hidden="true">
+                <div class="table-row table-head"><span>Project</span><span>Status</span></div>
+                <div class="table-row"><span>Website</span><span>Ready</span></div>
+                <div class="table-row">
+                  <span>Desktop app</span
+                  ><span class="edited-cell"
+                    ><del>Draft</del><span>→</span><strong>Ready</strong></span
+                  >
+                </div>
+                <div class="table-row"><span>Docs</span><span>Draft</span></div>
+              </div>
+            </div>
+          </div>
+        </section>
+        <section
+          class="feature"
+          id="diagnose"
+          data-capabilities="runtime.source_map runtime.binding_inspector runtime.layout_explain"
+          aria-labelledby="diagnose-title"
+        >
+          <div class="feature-copy">
+            <h2 id="diagnose-title">Help your agent<br />find the cause.</h2>
+            <p>
+              Inspect clipping, layout constraints, live bindings, validation and computed
+              properties. Where Avalonia exposes the information, your agent can trace a control
+              back to its XAML, style, template or resource.
+            </p>
+          </div>
+          <div
+            class="illustration diagnose-illustration"
+            role="img"
+            aria-label="A clipped Workspace name label is linked to its 96-pixel width and an illustrative XAML source location."
+          >
+            <div class="feature-art" aria-hidden="true">
+              <div class="diagnose-example small-surface">
+                <span class="visual-label">What is going wrong?</span>
+                <div class="clipped-example"><span>Workspace name</span></div>
+                <div class="diagnosis-result">
+                  <strong>The label needs more room.</strong
+                  ><span>96 px available · 184 px needed</span>
+                </div>
+                <div class="source-reference">
+                  <span>SettingsView.axaml · line 24</span><code>Width=&quot;96&quot;</code>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+        <section
+          class="feature"
+          id="experiment"
+          data-capabilities="runtime.mutation_contract runtime.style_layout_mutation runtime.mutation_evidence runtime.mutation_review runtime.source_suggestions"
+          aria-labelledby="experiment-title"
+        >
+          <div class="feature-copy">
+            <h2 id="experiment-title">Let your agent<br />try the change first.</h2>
+            <p>
+              Your agent can temporarily change text, layout, styles, classes and resources in the
+              running app. Review before-and-after images, inspect active overrides and restore the
+              original. Source suggestions help with a later code edit.
+            </p>
+          </div>
+          <div
+            class="illustration"
+            role="img"
+            aria-label="A Save button is temporarily made wider, with a reset arrow showing that the original can be restored."
+          >
+            <div class="feature-art" aria-hidden="true">
+              <div class="temporary-example" aria-hidden="true">
+                <div class="temporary-pair">
+                  <div>
+                    <span class="visual-label">Original</span
+                    ><span class="mock-button original-button">Save</span>
+                  </div>
+                  <svg width="28" height="18" viewBox="0 0 28 18">
+                    <path d="M2 9h23m-6-6 6 6-6 6" />
+                  </svg>
+                  <div>
+                    <span class="visual-label">Temporary</span
+                    ><span class="mock-button wider-button">Save</span>
+                  </div>
+                </div>
+                <span class="reset-hint"
+                  ><svg width="19" height="16" viewBox="0 0 19 16">
+                    <path d="M5 3H2v4m0-4 4 4m-3-3a7 7 0 1 1 0 8" /></svg
+                  >Reset</span
+                >
+              </div>
+            </div>
+          </div>
+        </section>
+        <section
+          class="feature"
+          data-capabilities="preview.axaml preview.multi_size preview.state_variants"
+          id="preview"
+          aria-labelledby="preview-title"
+        >
+          <div class="feature-copy">
+            <h2 id="preview-title">Real previews<br />for your agent.</h2>
+            <p>
+              AvaScope renders your project’s views with the real Avalonia engine. Your agent can
+              compare sizes, themes, languages and display scales, including loading, empty or error
+              states supplied by your project.
+            </p>
+          </div>
+          <div
+            class="illustration preview-illustration"
+            role="img"
+            aria-label="The same Northstar project view rendered side by side in light and dark themes, with matching content and layout."
+          >
+            <div class="theme-pair" aria-hidden="true">
+              <div class="visual-column">
+                <span class="visual-label">Light</span>
+                <div class="mini-app theme-app">
+                  <div class="app-title"><span class="app-mark">n</span> Northstar</div>
+                  <div class="app-body">
+                    <strong class="app-heading">Projects</strong>
+                    <div class="project-item">
+                      <span class="project-symbol">W</span
+                      ><span>Website<small>Updated today</small></span>
+                    </div>
+                    <div class="project-item">
+                      <span class="project-symbol">D</span
+                      ><span>Desktop app<small>Updated yesterday</small></span>
+                    </div>
+                    <span class="mock-button">New project</span>
+                  </div>
+                </div>
+              </div>
+              <div class="visual-column">
+                <span class="visual-label">Dark</span>
+                <div class="mini-app theme-app dark-app">
+                  <div class="app-title"><span class="app-mark">n</span> Northstar</div>
+                  <div class="app-body">
+                    <strong class="app-heading">Projects</strong>
+                    <div class="project-item">
+                      <span class="project-symbol">W</span
+                      ><span>Website<small>Updated today</small></span>
+                    </div>
+                    <div class="project-item">
+                      <span class="project-symbol">D</span
+                      ><span>Desktop app<small>Updated yesterday</small></span>
+                    </div>
+                    <span class="mock-button">New project</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+        <section
+          class="feature"
+          data-capabilities="preview.semantic_diff baseline.single baseline.suite baseline.comparison_rules artifacts.diff_image"
+          id="compare"
+          aria-labelledby="compare-title"
+        >
+          <div class="feature-copy">
+            <h2 id="compare-title">Help your agent<br />spot visual changes.</h2>
+            <p>
+              Your agent can compare screenshots with a reference or a saved baseline suite.
+              Highlight changed regions, check specific areas and set tolerances or exclusions.
+              Annotated images help it investigate shifts, spacing and wrapping.
+            </p>
+          </div>
+          <div
+            class="illustration compare-illustration"
+            role="img"
+            aria-label="Before and after views of a workspace form. In the after view, the Save changes button has moved downward; an amber outline marks the changed area."
+          >
+            <div class="compare-pair" aria-hidden="true">
+              <div class="visual-column">
+                <span class="visual-label">Before</span>
+                <div class="comparison-crop">
+                  <strong class="app-heading">Workspace</strong>
+                  <span class="field-label">Name</span>
+                  <span class="mock-input">Northstar</span>
+                  <div class="button-region"><span class="mock-button">Save changes</span></div>
+                </div>
+              </div>
+              <div class="visual-column">
+                <span class="visual-label">After</span>
+                <div class="comparison-crop">
+                  <strong class="app-heading">Workspace</strong>
+                  <span class="field-label">Name</span>
+                  <span class="mock-input">Northstar</span>
+                  <div class="button-region changed-region">
+                    <span class="original-position"></span
+                    ><span class="mock-button shifted-button">Save changes</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+        <section
+          class="feature"
+          id="quality"
+          data-capabilities="runtime.ui_audit runtime.design_quality_audit"
+          aria-labelledby="quality-title"
+        >
+          <div class="feature-copy">
+            <h2 id="quality-title">Give your agent<br />a second look.</h2>
+            <p>
+              AvaScope checks accessible names, stable identifiers and validation errors, plus
+              alignment, spacing, contrast, wrapping and component consistency. Your agent gets
+              focused findings and knows when the inspected evidence is incomplete.
+            </p>
+          </div>
+          <div
+            class="illustration"
+            role="img"
+            aria-label="A search-icon button is paired with an accessibility finding: its readable name is missing."
+          >
+            <div class="feature-art" aria-hidden="true">
+              <div class="audit-example small-surface">
+                <div class="audit-control">
+                  <svg width="25" height="25" viewBox="0 0 25 25">
+                    <circle cx="10" cy="10" r="6" />
+                    <path d="m15 15 6 6" />
+                  </svg>
+                </div>
+                <div class="audit-finding">
+                  <span class="visual-label">Button</span><strong>Accessible name missing</strong
+                  ><span>The icon needs a readable name.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+        <section
+          class="feature"
+          id="motion"
+          data-capabilities="runtime.pseudo_state_matrix runtime.interaction_animation preview.animation"
+          aria-labelledby="motion-title"
+        >
+          <div class="feature-copy">
+            <h2 id="motion-title">Your agent can<br />look between frames.</h2>
+            <p>
+              Compare supported hover, pressed and disabled states, or record animations in a
+              preview and after real app interactions. Your agent gets frame strips, motion and
+              geometry checks, with measured timing and explicit uncertainty when a capture is late.
+            </p>
+          </div>
+          <div
+            class="illustration motion-illustration"
+            role="img"
+            aria-label="Three sampled frames show a Saved notification moving into view, from partially hidden to settled."
+          >
+            <div class="feature-art" aria-hidden="true">
+              <div class="motion-example">
+                <div class="motion-frames">
+                  <div>
+                    <span class="visual-label">Start</span>
+                    <div class="motion-window">
+                      <span class="motion-toast frame-0"
+                        ><svg width="16" height="16" viewBox="0 0 16 16">
+                          <path d="m3 8 3 3 7-7" /></svg
+                        >Saved</span
+                      >
+                    </div>
+                  </div>
+                  <div>
+                    <span class="visual-label">In motion</span>
+                    <div class="motion-window">
+                      <span class="motion-toast frame-1"
+                        ><svg width="16" height="16" viewBox="0 0 16 16">
+                          <path d="m3 8 3 3 7-7" /></svg
+                        >Saved</span
+                      >
+                    </div>
+                  </div>
+                  <div>
+                    <span class="visual-label">Settled</span>
+                    <div class="motion-window">
+                      <span class="motion-toast frame-2"
+                        ><svg width="16" height="16" viewBox="0 0 16 16">
+                          <path d="m3 8 3 3 7-7" /></svg
+                        >Saved</span
+                      >
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+        <section
+          class="feature"
+          id="canvases"
+          data-capabilities="runtime.scenes"
+          aria-labelledby="canvases-title"
+        >
+          <div class="feature-copy">
+            <h2 id="canvases-title">Custom canvas.<br />Clear to your agent.</h2>
+            <p>
+              For apps that expose their canvas objects to AvaScope, your agent can inspect shapes,
+              graph nodes and connections, then use registered object actions. Drawn content can
+              have an identity even without ordinary child controls.
+            </p>
+          </div>
+          <div
+            class="illustration"
+            role="img"
+            aria-label="A custom graph has Input, Map and Output nodes. The selected Map object is described to the agent with its connection to Output."
+          >
+            <div class="feature-art" aria-hidden="true">
+              <div class="scene-example">
+                <div class="graph-row">
+                  <span>Input</span
+                  ><svg class="flow-arrow" width="28" height="18" viewBox="0 0 28 18">
+                    <path d="M2 9h23m-6-6 6 6-6 6" /></svg
+                  ><span class="graph-selected">Map</span
+                  ><svg class="flow-arrow" width="28" height="18" viewBox="0 0 28 18">
+                    <path d="M2 9h23m-6-6 6 6-6 6" /></svg
+                  ><span>Output</span>
+                </div>
+                <div class="scene-object small-surface">
+                  <span class="visual-label">What your agent reads</span><strong>Map</strong
+                  ><span>Connects to <b>Output</b></span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+      <section class="more container" id="more" aria-labelledby="more-title">
+        <h2 id="more-title">Your agent can also…</h2>
+        <div class="more-grid">
+          <article
+            id="targeting"
+            data-capabilities="runtime.find runtime.picking"
+            aria-labelledby="targeting-title"
+          >
+            <div
+              class="small-illustration"
+              role="img"
+              aria-label="The Country field inside Shipping address is highlighted as the exact target."
+            >
+              <div class="small-art" aria-hidden="true">
+                <div class="target-example small-surface">
+                  <span class="visual-label">Shipping address</span>
+                  <div class="target-row">
+                    <span>City</span><span class="mock-input">Budapest</span>
+                  </div>
+                  <div class="target-row target-selected">
+                    <span>Country</span><span class="mock-input">Hungary</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <h3 id="targeting-title">
+              <a
+                href="https://github.com/RolandUI/AvaScope/blob/master/docs/RELATIONSHIP_QUERIES.md"
+                >Find and highlight the exact control</a
+              >
+            </h3>
+            <p>
+              Your agent can search by identity, state or relationships, identify the control at a
+              point, and briefly highlight the target.
+            </p>
+          </article>
+          <article
+            id="action-blockers"
+            data-capabilities="runtime.action_explanation runtime.pointer_diagnostics"
+            aria-labelledby="action-blockers-title"
+          >
+            <div
+              class="small-illustration"
+              role="img"
+              aria-label="A disabled Save button is explained by an empty required field, an illustrative app-reported blocker."
+            >
+              <div class="small-art" aria-hidden="true">
+                <div class="blocker-example">
+                  <span class="mock-button disabled-example">Save</span>
+                  <div class="small-surface reason-note">
+                    <strong>Reason reported by the app</strong><span>A required field is empty.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <h3 id="action-blockers-title">
+              <a href="https://github.com/RolandUI/AvaScope/blob/master/docs/ACTION_EXPLANATIONS.md"
+                >Understand what blocks an action</a
+              >
+            </h3>
+            <p>
+              AvaScope explains disabled, hidden or obstructed targets. Your agent can inspect hit
+              paths, popup layers and pointer transitions before trying an action.
+            </p>
+          </article>
+          <article id="keyboard" data-capabilities="runtime.focus" aria-labelledby="keyboard-title">
+            <div
+              class="small-illustration focus-illustration"
+              role="img"
+              aria-label="Focus moves from Name to Team after Tab."
+            >
+              <div class="small-art" aria-hidden="true">
+                <div class="focus-example" aria-hidden="true">
+                  <div class="focus-field">
+                    <span class="field-label">Name</span
+                    ><span class="mock-input previous-focus">Jamie</span>
+                  </div>
+                  <div class="tab-step">
+                    <span>Tab</span
+                    ><svg width="30" height="16" viewBox="0 0 30 16">
+                      <path d="M2 8h25m-6-6 6 6-6 6" />
+                    </svg>
+                  </div>
+                  <div class="focus-field">
+                    <span class="field-label">Team</span
+                    ><span class="mock-input current-focus">Design</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <h3 id="keyboard-title">
+              <a href="https://github.com/RolandUI/AvaScope/blob/master/docs/FOCUS_NAVIGATION.md"
+                >Check keyboard navigation</a
+              >
+            </h3>
+            <p>
+              AvaScope shows your agent the focused control and navigation candidates. Explicit Tab
+              or Shift+Tab probes check the observed next step.
+            </p>
+          </article>
+          <article
+            id="text-editing"
+            data-capabilities="runtime.text_editing"
+            aria-labelledby="text-editing-title"
+          >
+            <div
+              class="small-illustration"
+              role="img"
+              aria-label="Only Northstar is selected and replaced with Studio; the surrounding sentence stays the same."
+            >
+              <div class="small-art" aria-hidden="true">
+                <div class="text-example small-surface">
+                  <span class="visual-label">Replace the selected text</span>
+                  <div>Welcome to <mark>Northstar</mark>.</div>
+                  <span class="edit-arrow">↓</span>
+                  <div>Welcome to <strong>Studio</strong>.</div>
+                </div>
+              </div>
+            </div>
+            <h3 id="text-editing-title">
+              <a href="https://github.com/RolandUI/AvaScope/blob/master/docs/TEXT_RANGE_EDITING.md"
+                >Edit just the text that matters</a
+              >
+            </h3>
+            <p>
+              Your agent can inspect the caret and selection, then insert or replace an exact text
+              range in supported text boxes while preserving the surrounding text.
+            </p>
+          </article>
+          <article
+            id="offscreen-items"
+            data-capabilities="runtime.virtual_items"
+            aria-labelledby="offscreen-items-title"
+          >
+            <div
+              class="small-illustration"
+              role="img"
+              aria-label="An off-screen invoice is brought into view and selected by its identity."
+            >
+              <div class="small-art" aria-hidden="true">
+                <div class="offscreen-example">
+                  <div class="list-crop small-surface">
+                    <span>Invoice 171</span><span>Invoice 172</span
+                    ><span class="faded-item">···</span>
+                  </div>
+                  <svg class="flow-arrow" width="28" height="18" viewBox="0 0 28 18">
+                    <path d="M2 9h23m-6-6 6 6-6 6" />
+                  </svg>
+                  <div class="revealed-item small-surface">
+                    <span class="visual-label">Revealed and selected</span
+                    ><strong>Invoice 173</strong>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <h3 id="offscreen-items-title">
+              <a
+                href="https://github.com/RolandUI/AvaScope/blob/master/docs/TESTABILITY_AND_VIRTUAL_ITEMS.md"
+                >Reach items outside the viewport</a
+              >
+            </h3>
+            <p>
+              Your agent can find an off-screen item by its stable key, bring it into view and
+              select it in supported virtualized lists.
+            </p>
+          </article>
+          <article
+            id="actions"
+            data-capabilities="runtime.action_map runtime.custom_actions"
+            aria-labelledby="actions-title"
+          >
+            <div
+              class="small-illustration actions-illustration"
+              role="img"
+              aria-label="An app action list shows New project, Save and Settings, with available shortcuts."
+            >
+              <div class="small-art" aria-hidden="true">
+                <div class="actions-example small-surface" aria-hidden="true">
+                  <div><span>New project</span><span class="shortcut">Ctrl N</span></div>
+                  <div><span>Save</span><span class="shortcut">Ctrl S</span></div>
+                  <div>
+                    <span>Settings</span
+                    ><svg width="14" height="14" viewBox="0 0 14 14"><path d="m5 3 4 4-4 4" /></svg>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <h3 id="actions-title">
+              <a href="https://github.com/RolandUI/AvaScope/blob/master/docs/ACTION_MAP.md"
+                >Discover app-specific actions</a
+              >
+            </h3>
+            <p>
+              Your agent can find commands, shortcuts and navigation routes, and invoke custom
+              actions explicitly exposed by the app.
+            </p>
+          </article>
+          <article
+            id="windows"
+            data-capabilities="runtime.windows runtime.native_picker"
+            aria-labelledby="windows-title"
+          >
+            <div
+              class="small-illustration"
+              role="img"
+              aria-label="An Open project file dialog is shown in front of the Northstar app window."
+            >
+              <div class="small-art" aria-hidden="true">
+                <div class="windows-example">
+                  <div class="window-back"><span>Northstar</span></div>
+                  <div class="window-front small-surface">
+                    <strong>Open project</strong><span class="file-choice">studio.project</span
+                    ><span class="mock-button">Open</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <h3 id="windows-title">
+              <a href="https://github.com/RolandUI/AvaScope/blob/master/docs/WINDOW_MANAGEMENT.md"
+                >Work across windows and dialogs</a
+              >
+            </h3>
+            <p>
+              Your agent can inspect, activate, move, resize and restore owned app windows, route
+              steps across them, and use supported native file pickers.
+            </p>
+          </article>
+          <article
+            id="navigation"
+            data-capabilities="runtime.navigation"
+            aria-labelledby="navigation-title"
+          >
+            <div
+              class="small-illustration"
+              role="img"
+              aria-label="A recorded route returns from Settings to Projects, making the repeat visible."
+            >
+              <div class="small-art" aria-hidden="true">
+                <div class="route-example">
+                  <span>Projects</span
+                  ><svg class="flow-arrow" width="28" height="18" viewBox="0 0 28 18">
+                    <path d="M2 9h23m-6-6 6 6-6 6" /></svg
+                  ><span>Settings</span
+                  ><svg class="flow-arrow" width="28" height="18" viewBox="0 0 28 18">
+                    <path d="M2 9h23m-6-6 6 6-6 6" /></svg
+                  ><span class="route-current">Projects</span>
+                </div>
+              </div>
+            </div>
+            <h3 id="navigation-title">
+              <a href="https://github.com/RolandUI/AvaScope/blob/master/docs/NAVIGATION_HISTORY.md"
+                >Keep track of navigation</a
+              >
+            </h3>
+            <p>
+              Your agent can record visited screens and observed routes, then look back at earlier
+              visits or repeated navigation loops.
+            </p>
+          </article>
+          <article
+            id="readiness"
+            data-capabilities="runtime.readiness runtime.observation_changes"
+            aria-labelledby="readiness-title"
+          >
+            <div
+              class="small-illustration"
+              role="img"
+              aria-label="Loading changes to a verified Ready state."
+            >
+              <div class="small-art" aria-hidden="true">
+                <div class="ready-example">
+                  <div class="readiness-loading"><span class="static-spinner"></span>Loading</div>
+                  <svg class="flow-arrow" width="28" height="18" viewBox="0 0 28 18">
+                    <path d="M2 9h23m-6-6 6 6-6 6" />
+                  </svg>
+                  <div class="readiness-done">
+                    <svg width="16" height="16" viewBox="0 0 16 16"><path d="m3 8 3 3 7-7" /></svg
+                    >Ready
+                  </div>
+                </div>
+              </div>
+            </div>
+            <h3 id="readiness-title">
+              <a href="https://github.com/RolandUI/AvaScope/blob/master/docs/RUNTIME_READINESS.md"
+                >Wait for the app to be ready</a
+              >
+            </h3>
+            <p>
+              AvaScope separates app readiness, rendering and stable UI state. Your agent can wait
+              for a condition and follow sampled changes as they appear.
+            </p>
+          </article>
+          <article
+            id="state-queries"
+            data-capabilities="runtime.expressions"
+            aria-labelledby="state-queries-title"
+          >
+            <div
+              class="small-illustration"
+              role="img"
+              aria-label="A structured check returns that all three required fields are filled."
+            >
+              <div class="small-art" aria-hidden="true">
+                <div class="query-example small-surface">
+                  <span>Are all required fields filled?</span
+                  ><strong class="query-result">3 of 3 <span>Yes</span></strong>
+                </div>
+              </div>
+            </div>
+            <h3 id="state-queries-title">
+              <a href="https://github.com/RolandUI/AvaScope/blob/master/docs/RUNTIME_EXPRESSIONS.md"
+                >Ask questions about app state</a
+              >
+            </h3>
+            <p>
+              Your agent can count matching controls, total numeric values and evaluate combined
+              conditions. Missing or incomplete evidence stays explicit.
+            </p>
+          </article>
+          <article
+            id="operations"
+            data-capabilities="runtime.operations"
+            aria-labelledby="operations-title"
+          >
+            <div
+              class="small-illustration"
+              role="img"
+              aria-label="An app-reported import operation is at 68 percent."
+            >
+              <div class="small-art" aria-hidden="true">
+                <div class="operation-example small-surface">
+                  <div><strong>Importing projects</strong><span>68%</span></div>
+                  <span class="progress-track"><span></span></span
+                  ><span class="visual-label">Progress reported by the app</span>
+                </div>
+              </div>
+            </div>
+            <h3 id="operations-title">
+              <a href="https://github.com/RolandUI/AvaScope/blob/master/docs/RUNTIME_OPERATIONS.md"
+                >Follow long-running work</a
+              >
+            </h3>
+            <p>
+              When the app exposes operation status, your agent can follow progress, read the result
+              and request cancellation when supported.
+            </p>
+          </article>
+          <article id="traces" data-capabilities="runtime.traces" aria-labelledby="traces-title">
+            <div
+              class="small-illustration"
+              role="img"
+              aria-label="An Import request and its correlated validation failure are grouped together."
+            >
+              <div class="small-art" aria-hidden="true">
+                <div class="trace-example small-surface">
+                  <div><span class="trace-dot"></span><span>Import requested</span></div>
+                  <div class="trace-related">
+                    <span class="trace-dot"></span><span>Validation failed</span>
+                  </div>
+                  <small>Same request</small>
+                </div>
+              </div>
+            </div>
+            <h3 id="traces-title">
+              <a href="https://github.com/RolandUI/AvaScope/blob/master/docs/RUNTIME_TRACES.md"
+                >Connect actions with diagnostics</a
+              >
+            </h3>
+            <p>
+              Your agent can collect bounded traces of requests, operations and opted-in app
+              diagnostics. Correlated events are distinguished from events that merely happened
+              nearby.
+            </p>
+          </article>
+          <article
+            id="preview-sessions"
+            data-capabilities="preview.sessions preview.reload preview.viewer preview.diagnostic_baseline"
+            aria-labelledby="preview-sessions-title"
+          >
+            <div
+              class="small-illustration"
+              role="img"
+              aria-label="A source spacing change leads to a refreshed preview."
+            >
+              <div class="small-art" aria-hidden="true">
+                <div class="reload-example">
+                  <div class="source-file small-surface">
+                    <span>View.axaml</span><code>Spacing=&quot;24&quot;</code>
+                  </div>
+                  <svg class="flow-arrow" width="28" height="18" viewBox="0 0 28 18">
+                    <path d="M2 9h23m-6-6 6 6-6 6" />
+                  </svg>
+                  <div class="refreshed-preview small-surface">
+                    <span></span><span></span
+                    ><svg width="16" height="16" viewBox="0 0 16 16"><path d="m3 8 3 3 7-7" /></svg>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <h3 id="preview-sessions-title">
+              <a
+                href="https://github.com/RolandUI/AvaScope/blob/master/docs/USER_GUIDE.md#preview-sessions"
+                >Keep previews up to date</a
+              >
+            </h3>
+            <p>
+              Your agent can reuse preview profiles, reload sessions and watch source changes. Local
+              viewers and diagnostic baselines help it review the result and spot new warnings.
+            </p>
+          </article>
+          <article
+            id="workflow-reuse"
+            data-capabilities="runtime.workflow_export"
+            aria-labelledby="workflow-reuse-title"
+          >
+            <div
+              class="small-illustration"
+              role="img"
+              aria-label="The same checked project-creation workflow is reused with a new project name."
+            >
+              <div class="small-art" aria-hidden="true">
+                <div class="reuse-example">
+                  <div class="workflow-file small-surface">
+                    <strong>Create a project</strong><span>Name: <em>Studio</em></span>
+                  </div>
+                  <svg class="flow-arrow" width="28" height="18" viewBox="0 0 28 18">
+                    <path d="M2 9h23m-6-6 6 6-6 6" />
+                  </svg>
+                  <div class="workflow-file small-surface">
+                    <strong>Same workflow</strong><span>Name: <em>Atlas</em></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <h3 id="workflow-reuse-title">
+              <a href="https://github.com/RolandUI/AvaScope/blob/master/docs/WORKFLOW_EXPORT.md"
+                >Reuse a verified workflow</a
+              >
+            </h3>
+            <p>
+              Your agent can export an executed workflow with stable targets and checks, then
+              validate or replay it with new parameters and fresh session authorization.
+            </p>
+          </article>
+          <article
+            id="test-setup"
+            data-capabilities="runtime.test_fixtures runtime.agent_test_profiles runtime.managed_x11 runtime.managed_wayland"
+            aria-labelledby="test-setup-title"
+          >
+            <div
+              class="small-illustration"
+              role="img"
+              aria-label="An app-provided test fixture resets project data to a fresh state."
+            >
+              <div class="small-art" aria-hidden="true">
+                <div class="fixture-example">
+                  <div class="fixture-state small-surface">
+                    <span class="visual-label">Test data</span><strong>2 projects</strong>
+                  </div>
+                  <span class="fixture-reset">↶<small>Reset</small></span>
+                  <div class="fixture-state small-surface">
+                    <span class="visual-label">Fresh state</span><strong>0 projects</strong>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <h3 id="test-setup-title">
+              <a href="https://github.com/RolandUI/AvaScope/blob/master/docs/TEST_FIXTURES.md"
+                >Start from a repeatable test state</a
+              >
+            </h3>
+            <p>
+              Your agent can resolve named test profiles, prepare host-provided fixtures and clean
+              up owned resources. Managed X11 and Wayland environments support isolated Linux
+              scenarios.
+            </p>
+          </article>
+          <article
+            id="evidence"
+            data-capabilities="reports.json reports.agent_review reports.evidence_pack artifacts.html_viewer artifacts.run_index artifacts.junit_sarif"
+            aria-labelledby="evidence-title"
+          >
+            <div
+              class="small-illustration"
+              role="img"
+              aria-label="A run report pairs a screenshot with verified field and save results."
+            >
+              <div class="small-art" aria-hidden="true">
+                <div class="evidence-example small-surface" aria-hidden="true">
+                  <strong>Run report</strong>
+                  <div class="evidence-content">
+                    <div class="evidence-preview">
+                      <span>Workspace</span><span class="mock-input">Studio</span
+                      ><span class="evidence-button"></span>
+                    </div>
+                    <div class="evidence-results">
+                      <span
+                        ><svg width="14" height="14" viewBox="0 0 14 14">
+                          <path d="m3 7 3 3 5-6" /></svg
+                        >Field updated</span
+                      ><span
+                        ><svg width="14" height="14" viewBox="0 0 14 14">
+                          <path d="m3 7 3 3 5-6" /></svg
+                        >Change saved</span
+                      >
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <h3 id="evidence-title">
+              <a href="https://github.com/RolandUI/AvaScope/blob/master/docs/AGENT_WORKFLOW.md"
+                >Save proof of what happened</a
+              >
+            </h3>
+            <p>
+              Your agent gets screenshots, diffs, step results and a latest-run index. HTML, JSON
+              and Markdown reports support review, with JUnit and SARIF exports for CI.
+            </p>
+          </article>
+          <article
+            id="recovery"
+            data-capabilities="runtime.session_control runtime.run_recovery"
+            aria-labelledby="recovery-title"
+          >
+            <div
+              class="small-illustration"
+              role="img"
+              aria-label="One agent controls the app while another observes; the run retains a recoverable record."
+            >
+              <div class="small-art" aria-hidden="true">
+                <div class="lease-example">
+                  <div class="agent-pair">
+                    <span class="agent-control">Agent A<small>Controlling</small></span
+                    ><span>Agent B<small>Observing</small></span>
+                  </div>
+                  <div class="run-checkpoint">Run saved · evidence retained</div>
+                </div>
+              </div>
+            </div>
+            <h3 id="recovery-title">
+              <a href="https://github.com/RolandUI/AvaScope/blob/master/docs/RUN_RECOVERY.md"
+                >Coordinate agents and recover runs</a
+              >
+            </h3>
+            <p>
+              A control lease gives one agent permission to act while others can observe. Durable
+              run records help agents inspect interrupted work and recover without blindly repeating
+              actions.
+            </p>
+          </article>
+          <article
+            id="privacy"
+            data-capabilities="safety.local_only runtime.dispatch_preconditions"
+            aria-labelledby="privacy-title"
+          >
+            <div
+              class="small-illustration"
+              role="img"
+              aria-label="A saved result remains readable while the sensitive email value is redacted."
+            >
+              <div class="small-art" aria-hidden="true">
+                <div class="privacy-example small-surface">
+                  <span class="visual-label">Saved evidence</span>
+                  <div><span>Email</span><strong>••••••••••••</strong></div>
+                  <div><span>Result</span><span class="privacy-result">Verified</span></div>
+                </div>
+              </div>
+            </div>
+            <h3 id="privacy-title">
+              <a
+                href="https://github.com/RolandUI/AvaScope/blob/master/docs/USER_GUIDE.md#workflow-evidence-and-privacy"
+                >Set boundaries and protect data</a
+              >
+            </h3>
+            <p>
+              AvaScope runs locally. Your agent can validate actions before dispatch, enforce
+              expected-state checks and apply permissions, text redaction, screenshot masks and
+              retention rules.
+            </p>
+          </article>
+          <article
+            id="desktop-evidence"
+            data-capabilities="runtime.screen_capture"
+            aria-labelledby="desktop-evidence-title"
+          >
+            <div
+              class="small-illustration"
+              role="img"
+              aria-label="The app render has a visible Save button, while an overlapping panel obscures part of the same region on screen."
+            >
+              <div class="small-art" aria-hidden="true">
+                <div class="screen-pair">
+                  <div>
+                    <span class="visual-label">App render</span>
+                    <div class="screen-mini"><span>Save</span></div>
+                  </div>
+                  <div>
+                    <span class="visual-label">On screen</span>
+                    <div class="screen-mini"><span>Save</span><i></i></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <h3 id="desktop-evidence-title">
+              <a href="https://github.com/RolandUI/AvaScope/blob/master/docs/SCREEN_EVIDENCE.md"
+                >Check the actual screen output</a
+              >
+            </h3>
+            <p>
+              On supported native backends, your agent can compare the rendered view with the
+              window’s actual screen region. Native capture requires explicit host authorization in
+              a test desktop.
+            </p>
+          </article>
+          <article
+            id="native-accessibility"
+            data-capabilities="runtime.native_accessibility"
+            aria-labelledby="native-accessibility-title"
+          >
+            <div
+              class="small-illustration"
+              role="img"
+              aria-label="A Search control is matched to the Button named Search exposed by the operating system."
+            >
+              <div class="small-art" aria-hidden="true">
+                <div class="native-access-example">
+                  <div class="small-surface">
+                    <span class="visual-label">App control</span><strong>Search</strong>
+                  </div>
+                  <svg class="flow-arrow" width="28" height="18" viewBox="0 0 28 18">
+                    <path d="M2 9h23m-6-6 6 6-6 6" />
+                  </svg>
+                  <div class="small-surface">
+                    <span class="visual-label">OS accessibility</span
+                    ><strong>Button · Search</strong>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <h3 id="native-accessibility-title">
+              <a
+                href="https://github.com/RolandUI/AvaScope/blob/master/docs/NATIVE_ACCESSIBILITY.md"
+                >Check what the OS exposes</a
+              >
+            </h3>
+            <p>
+              Your agent can compare Avalonia’s accessible controls with Windows UI Automation or
+              Linux X11 AT-SPI evidence, including names, roles and explicit exposure expectations.
+            </p>
+          </article>
+          <article
+            id="integration"
+            data-capabilities="protocol.tool_result_v1 protocol.additive_json_fields protocol.capability_discovery protocol.mcp_stdio_server runtime.attach runtime.standalone_provider runtime.integration_guidance runtime.integration_verification diagnostics.target_readiness runtime.effective_capabilities diagnostics.summary"
+            aria-labelledby="integration-title"
+          >
+            <div
+              class="small-illustration"
+              role="img"
+              aria-label="An agent connects to an Avalonia app through AvaScope’s MCP, CLI or .NET API."
+            >
+              <div class="small-art" aria-hidden="true">
+                <div class="connection-example">
+                  <span class="connection-agent">Your agent</span>
+                  <div class="connection-paths">
+                    <span>MCP</span><span>CLI</span><span>.NET API</span>
+                  </div>
+                  <span class="connection-app">Avalonia app</span>
+                </div>
+              </div>
+            </div>
+            <h3 id="integration-title">
+              <a href="https://github.com/RolandUI/AvaScope/blob/master/docs/USER_GUIDE.md"
+                >Connect your agent. Your way.</a
+              >
+            </h3>
+            <p>
+              Connect your agent through MCP, CLI or the .NET API. Add the Bridge NuGet package to
+              your app, or explicitly load an external provider. Integration checks, readiness
+              diagnostics and feature discovery help your agent connect, with structured, versioned
+              results.
+            </p>
+          </article>
+        </div>
+        <a
+          class="text-link"
+          href="https://github.com/RolandUI/AvaScope/blob/master/docs/USER_GUIDE.md"
+          >Explore the full documentation <span aria-hidden="true">↗</span></a
         >
       </section>
     </main>
-    <footer class="container site-footer">
-      <a class="brand footer-brand" href="#"
-        ><img src="./assets/avascope-icon-dark.png" width="26" height="26" alt="" /><span
-          >AvaScope</span
-        ></a
-      ><span>A clear view. A better next step.</span
-      ><a href="https://github.com/RolandUI/AvaScope/blob/master/docs/USER_GUIDE.md"
-        >Documentation <span aria-hidden="true">↗</span></a
-      >
+
+    <footer class="container footer">
+      <span>AvaScope</span>
+      <p>Avalonia 12.1.x · Runs locally. Visuals are simplified illustrations.</p>
+      <a href="#top">Back to top <span aria-hidden="true">↑</span></a>
     </footer>
   </body>
 </html>
