@@ -17,6 +17,7 @@ on:
 
 permissions:
   contents: write
+  issues: read
   packages: write
   id-token: write
 
@@ -88,6 +89,8 @@ jobs:
       - name: Validate release commit
         if: ${{ github.event_name == 'push' && steps.release_metadata.outputs.should_publish == 'true' }}
         shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-release-commit.ps1 -Version "${{ steps.release_metadata.outputs.version }}"
 
       - name: Install Inno Setup

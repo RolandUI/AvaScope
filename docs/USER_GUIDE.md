@@ -1,6 +1,6 @@
 # AvaScope User Guide
 
-Detailed usage notes for AvaScope. For the short public project overview, see the [root README](../README.md). For stable package, protocol, CLI, MCP, artifact, and release compatibility rules, see [STABLE_SURFACE.md](STABLE_SURFACE.md). For upgrade guidance, see [UPGRADE.md](UPGRADE.md). For v1 source and packaged workflow validation, see [END_TO_END_VALIDATION.md](END_TO_END_VALIDATION.md). For package, ZIP, manifest, hash, and publish dry-run validation, see [RELEASE_ARTIFACT_VERIFICATION.md](RELEASE_ARTIFACT_VERIFICATION.md). For post-1.0 deferrals, see [POST_1_0_BACKLOG.md](POST_1_0_BACKLOG.md). For failure triage, see [TROUBLESHOOTING.md](TROUBLESHOOTING.md). For stress budgets, see [PERFORMANCE_STRESS_AUDIT.md](PERFORMANCE_STRESS_AUDIT.md).
+Detailed usage notes for AvaScope. For the short public project overview, see the [root README](../README.md). For stable package, protocol, CLI, MCP, artifact, and release compatibility rules, see [STABLE_SURFACE.md](STABLE_SURFACE.md). For upgrade guidance, see [UPGRADE.md](UPGRADE.md). For validation procedures, see [VALIDATION.md](VALIDATION.md). For failure triage, see [TROUBLESHOOTING.md](TROUBLESHOOTING.md). For stress budgets, see [PERFORMANCE_STRESS_AUDIT.md](PERFORMANCE_STRESS_AUDIT.md).
 
 AvaScope is an agent-focused local control plane for Avalonia apps. It gives CLI and MCP clients structured ways to inspect running UI, render previews, drive narrow runtime actions, capture screenshots, collect diagnostics, and hand off evidence artifacts. It targets Avalonia 12 and `net10.0`.
 
@@ -51,7 +51,7 @@ The `v0.7.0` release line added the runtime control-plane layer: bounded reversi
 
 ## Project Management
 
-AvaScope execution is tracked in GitHub Issues, Milestones, and the public [AvaScope Roadmap](https://github.com/users/RolandUI/projects/4) Project board. Use [GITHUB_PROJECT_WORKFLOW.md](GITHUB_PROJECT_WORKFLOW.md) for labels, status flow, milestone rules, and board maintenance. [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md) is kept as a compact local handoff and validation log.
+AvaScope execution is tracked in GitHub Issues, Milestones, and the public [AvaScope Roadmap](https://github.com/users/RolandUI/projects/4) Project board. Use [GITHUB_PROJECT_WORKFLOW.md](GITHUB_PROJECT_WORKFLOW.md) for labels, status flow, milestone rules, and board maintenance. Do not mirror work status or validation history in tracked Markdown files.
 
 ## Build And Test
 
@@ -117,24 +117,11 @@ The `CI` workflow can be manually dispatched to run restore, Release build, Rele
 
 ## Release
 
-Development is release-based. Define and complete the next target in [RELEASE_PLAN.md](RELEASE_PLAN.md) before increasing the repository version. The version bump is the release commit, not a planning step.
+Release scope and acceptance are tracked in GitHub milestones and release issues. Follow [stable release validation](VALIDATION.md#stable-release-validation) for the readiness and publication procedure. The version bump is the final release commit; it does not replace acceptance or authorization. Hosted NuGet publication uses trusted publishing.
 
-Release publishing is handled by GitHub Actions. Add a repository secret named:
+The source version is `<Version>` in `Directory.Build.props`, and the release commit subject is `Release <version>`. The release guard verifies version identity and the milestone's release tracker through GitHub. Stable publication requires all other milestone work completed or explicitly moved; approved prereleases retain their documented limits.
 
-```text
-NUGET_API_KEY
-```
-
-The release version is the `<Version>` value in `Directory.Build.props`. To release, first move the target in [RELEASE_PLAN.md](RELEASE_PLAN.md) to `Release Candidate` after the release gate passes. Then increase the version, commit, and push to `master`:
-
-```powershell
-git add Directory.Build.props docs\RELEASE_PLAN.md docs\DEVELOPMENT_PLAN.md
-git commit -m "Release <version>"
-git push origin master
-```
-
-The `Release` workflow runs automatically only when a push changes `Directory.Build.props`, reads that version, checks whether `v<Version>` already exists on the remote, and only releases when that tag is missing. Automatic publish on push also requires the commit subject to be exactly `Release <Version>` and [RELEASE_PLAN.md](RELEASE_PLAN.md) to declare the same target version in `Release Candidate` state. If the version was already released, the workflow exits without publishing.
-
+Current workflow triggers and the pending explicit-dispatch migration are described in [validation](VALIDATION.md#ci-and-release-decisions). Work directly on `master` and do not create a PR to run validation.
 When a new version is detected, the workflow runs the full local release gate, dry-runs the publish set, publishes `AvaScope.Protocol`, `AvaScope.Core`, and `AvaScope.Bridge` to nuget.org and GitHub Packages in dependency order, then creates the `v<Version>` tag on the release commit.
 
 The same workflow creates or updates the GitHub Release for the tag and uploads these release assets:

@@ -142,6 +142,11 @@ jobs:
             "- ``$path``" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
           }
 
+      - name: Test release acceptance guard
+        if: ${{ steps.changes.outputs.requires_validation == 'true' }}
+        shell: pwsh
+        run: ./eng/test-release-commit.ps1
+
       - name: Setup .NET
         if: ${{ steps.changes.outputs.requires_validation == 'true' }}
         uses: actions/setup-dotnet@v5

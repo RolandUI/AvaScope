@@ -251,7 +251,7 @@ public sealed class StableSurfaceContractTests
 
         var releaseCommitGuard = File.ReadAllText(Path.Combine(root, "eng", "validate-release-commit.ps1"));
         Assert.Contains("$expectedSubject = \"Release $Version\"", releaseCommitGuard, StringComparison.Ordinal);
-        Assert.Contains("Release Candidate", releaseCommitGuard, StringComparison.Ordinal);
+        Assert.Contains("status:review", releaseCommitGuard, StringComparison.Ordinal);
 
         var installer = File.ReadAllText(Path.Combine(root, "eng", "install-avascope.ps1"));
         Assert.Contains("avascope.discovery.json", installer, StringComparison.Ordinal);

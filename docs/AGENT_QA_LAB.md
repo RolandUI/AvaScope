@@ -1,10 +1,10 @@
 # Native agent QA lab
 
-The first-phase lab implements #162/#163. It uses the existing profile/scenario engine and launch ownership, a shared QA screen in two existing sample hosts, and individual public MCP calls. The detailed defect campaign is #166; this is not a release command.
+The lab exercises package-integrated and standalone-provider hosts through the public CLI/MCP surfaces. This document owns fixture operation, independent checks and local retention; current work and results belong in GitHub issues.
 
 ## Local testing and retention policy
 
-The owner's 2026-09-27 instruction replaces per-investigation snapshot accumulation. Work on `master`, use one reusable local environment, and delete completed test data instead of archiving it. Keep the selected absolute QA location and machine-specific cleanup restrictions only in local context, as described in [AGENTS.md](../AGENTS.md#current-working-and-qa-policy). Use one `binaries` directory containing `tools`, `client`, `direct`, `standalone` and `provider`. Run public CLI/MCP calls against those binaries and direct manifests, journals and render outputs to a single current case directory. Keep one native app alive across related cases and reset its state between them; stop it before rebuilding or replacing its binaries.
+The owner's 2026-09-27 instruction replaces per-investigation snapshot accumulation. Work on `master`, use one reusable local environment, and delete completed test data instead of archiving it. Keep the selected absolute QA location and machine-specific cleanup restrictions only in local context, in the optional Git-metadata handoff described in [AGENTS.md](../AGENTS.md#development-entry-point). Use one `binaries` directory containing `tools`, `client`, `direct`, `standalone` and `provider`. Run public CLI/MCP calls against those binaries and direct manifests, journals and render outputs to a single current case directory. Keep one native app alive across related cases and reset its state between them; stop it before rebuilding or replacing its binaries.
 
 Evidence collection below is local. Before publishing any result, apply the [GitHub information policy](../AGENTS.md#github-information-policy): report only relevant outcomes and limitations, use portable reproductions, and share minimal sanitized evidence when needed. Do not upload raw QA bundles or copy local execution/cleanup notes into issues or tracked reports.
 
@@ -15,6 +15,11 @@ Keep only minimal evidence for unresolved defects or the pending batch. Delete s
 Use the existing `AvaScope.McpScenarioClient --stdio-session --full-result` mode for related MCP calls against one selected app. Warm the connection before timing a short-lived UI state; preserve each request/result and its own timing until checked. For a highlight/input journey, bracket the single input with inspections of the same active highlight id and verify the app's independent event count. Starting a new client for every call can consume the entire 100–5000ms highlight lifetime before input is dispatched. Do not extend product lifetimes or retry a possibly dispatched input to obtain a passing result. This persistent connection changes the observer overhead, not the public tools or their timeouts.
 
 The snapshot-based helper below remains available for bounded isolated/CI validation. It currently restricts its run directory to repository `artifacts/agent-qa` and copies binaries; `-SkipBuild` and `-HostDirectory` do **not** eliminate those copies. It is therefore not the repeated local exploration path. If an isolated helper run is necessary, stop its owned processes, review the result and remove its run directory before the next such run. Older instructions below to retain evidence apply only while the associated issue/batch is open, under this policy.
+
+
+Before builds/downloads, check the entire reusable QA area stays below 8 GiB and clear completed outputs first. Stop owned processes before replacing binaries. Before recursive cleanup, verify exact resolved targets belong to the selected QA area and are not used by live processes; do not touch global caches, installed AvaScope, other projects or user data. Preserve prior cleanup restrictions in local context. Never copy/hash whole runtime trees per case or create historical archives.
+
+Use both existing hosts because they exercise distinct deployment boundaries: `AvaScope.ComplexWorkflowApp` integrates the package, while `AvaScope.StandaloneHost` has no AvaScope reference and uses the external provider. Extend their shared scenes rather than create one executable per defect. Each scene needs known initial state, readiness, reset and independent postconditions. Preparation/reset must not perform the action under test. Keep test data synthetic; vary representative theme/locale/size boundaries rather than an unbounded Cartesian product. Compare native and rendered images at full resolution with explicit capture timing and tolerance; neither image dimensions nor a successful response establishes visual correctness.
 
 ## Start and operate
 
@@ -132,8 +137,7 @@ Save; changing a field does not itself commit the profile. Table status is
 free-form, Score is an integer, and Identifier/Name are read-only. Unsupported
 providers/operations must be recorded as unsupported, not silently replaced by a
 different successful action. Host-declared scenes/operations/diagnostics are
-described below; [the complete source-derived capability inventory](AGENT_QA_CAPABILITIES.md)
-and campaign are #174.
+described below; use the [capability scenarios](AGENT_QA_CAPABILITIES.md) to select further checks.
 
 ### Runtime fixture charters (#173)
 
@@ -162,7 +166,7 @@ cancel buttons and the journal; they cannot claim host-declared operation covera
 Retain trace correlation around declared actions, runtime expression/assertion
 results against independent journal values, and reversible mutation before/after/
 reset images. A successful operation response is insufficient if the journal or
-visible state disagrees. Fresh execution outcomes belong in the campaign report;
+visible state disagrees. Fresh execution outcomes belong in the relevant GitHub issue;
 this charter does not assert a passing test run.
 
 Use targeted inspection for these diagnostics: `inspect_node`/`find_nodes`
@@ -262,17 +266,9 @@ remain together. The responder still has its original 30-second total deadline.
 Controlled failures before/after one mutation verify the error and lack of replay;
 they do not establish the original macOS listener/scheduling cause (#223).
 
-## Continuing the blocked Retina cases
+## Native Retina Validation
 
-The 2026-09-24 campaign observed 1× on local Windows and all three hosted lab
-backends. #157's native Retina case therefore remains unverified, although
-the repeated-opacity/transform defect is now reproduced on headless Skia at
-1.5×/2× with Avalonia 12.1.0 and 12.1.3. #161's implementation has
-headless 2× and actual X11 4K coverage, but its native Retina acceptance is open.
-The agent needs access to a logged-in Mac desktop that actually provides a
-1920×1080 DIP client at 2×, plus an independent window-capture route. No such
-access is implied by the current CI runner labels.
-
+Use a logged-in Mac desktop with observed `RenderScaling=2`, sufficient room for the required logical client size and an authorized independent window-capture route. A hosted runner label, headless scale or rendered-image dimensions do not establish native Retina coverage. Required unavailable geometry or permissions are missing acceptance evidence; use the current issue to track that limitation.
 On an explicitly selected test desktop, use the same documented native lab
 entry point and freshly verified standalone provider; enable
 `-AuthorizeScreenCapture` only when that desktop is authorized. First inspect
@@ -286,8 +282,7 @@ MM rows must retain the same size and spacing. Compare the overlapping
 group-opacity rectangles and clipped green square as well as the existing
 localized/nested/template references. Run actual CLI and MCP paired capture,
 checking unchanged 1920×1080 DIP geometry, 3840×2160 image dimensions, native
-provenance, masking and authorization refusal. Preserve the complete transcripts,
-provider hashes, journal and cleanup in a fresh campaign directory. If the
+provenance, masking and authorization refusal. Retain only minimal unresolved failure evidence in the reusable QA area under the policy above. If the
 representative scene does not reproduce the customer's specific symptom,
 obtain the exact Avalonia patch and reduced view/font/template combination.
 The local mitigation of the confirmed opacity/transform defect does not by

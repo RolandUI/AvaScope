@@ -1,142 +1,54 @@
-# AvaScope GitHub Project Workflow
+# AvaScope Project Workflow
 
-GitHub is the source of truth for AvaScope project execution.
+GitHub Issues, Milestones and the [AvaScope Roadmap](https://github.com/users/RolandUI/projects/4) board are the only development tracking system. This document defines the process; it contains no current task list or release status.
 
-Use this document for issue, milestone, label, and project-board conventions. Follow the [GitHub information policy](../AGENTS.md#github-information-policy) for every published surface, including tracked documentation and attachments. Keep `docs/DEVELOPMENT_PLAN.md` as a compact public checkpoint, not a local work diary or the primary backlog.
+## Information Ownership
 
-## Source Of Truth
+| Information | Authoritative location |
+| --- | --- |
+| Problem, scope, acceptance, decisions and concise validation result | The relevant GitHub issue |
+| Work status and priority | Issue labels and project fields |
+| Release scope and remaining release work | GitHub milestone and release tracking issue |
+| Published version, assets and user-facing changes | GitHub Release; version-specific release notes are its source text |
+| Product behavior, contracts, architecture and security boundaries | Relevant technical documentation and executable tests |
+| Validation procedure and selection | [VALIDATION.md](VALIDATION.md) |
+| QA fixture operation, scenarios and retention | [AGENT_QA_LAB.md](AGENT_QA_LAB.md) |
+| Temporary execution details and machine-specific configuration | Chat or verified ignored local storage |
 
-- Backlog and implementation work: GitHub Issues.
-- Release grouping: GitHub Milestones named `v<version>`, for example `v0.7.0`.
-- Active work state: `status:*` labels and the GitHub Project board.
-- Roadmap intent and release scope: `docs/RELEASE_PLAN.md`.
-- Current release, active work and next-step links: `docs/DEVELOPMENT_PLAN.md`.
-- Machine-specific configuration and transient working notes: chat or verified untracked/ignored local storage, never tracked documentation.
+Do not create or maintain Markdown backlogs, current-work checkpoints, campaign diaries, issue-status inventories or release histories. Do not copy issue results into another document. Before retiring a record, retain any still-relevant technical knowledge in its existing reference document and move unresolved work into the appropriate issue. Git history retains historical records; do not create an archive copy.
 
-## What To Publish
+Update technical documentation when its behavior, contract or procedure changes, not after every execution. Keep a rule in its owning document and link to it elsewhere. Release notes explain user-visible changes and compatibility; they are not an agent activity log. Follow the [publication policy](../AGENTS.md#github-information-policy) for all text and attachments.
 
-An issue or completion update should explain the problem and impact, the resulting change and necessary rationale, the validation outcome, and any remaining acceptance limitation. Link the relevant commit/test/CI result; include only the reproduction steps or sanitized evidence needed to assess it.
+## Development Loop
 
-Use repository-relative source paths and portable commands. Replace machine-specific locations with neutral placeholders such as `<repo>` or `<qa-root>`. Do not publish workstation paths, usernames, hostnames, private links, local session/process identifiers, temporary directories, raw tool payloads, full logs, notification/account details or cleanup transcripts. Keep environment details only when needed to reproduce or interpret the result. Inspect screenshots and attachments for the same information before uploading; do not attach a whole local evidence bundle by default.
+1. Inspect the relevant issue, milestone and board. Select one issue and its current acceptance criteria. Search existing issues before creating another; keep at most one implementation issue in progress.
+2. Set `status:in-progress` and the matching board state. Update missing or changed acceptance/validation details in the issue body; no routine start comment is needed.
+3. Work directly on `master`. Do not create task branches, worktrees or pull requests. Preserve existing work; never force-push or rewrite history.
+4. Make a small coherent change and run the [risk-appropriate checks](VALIDATION.md#choose-validation-by-risk). Review the diff and outgoing information, then commit and push directly to `master`.
+5. Record one concise result in the issue with commit, validation outcome and necessary limitations. Comment earlier only for a material scope change or actionable blocker; no per-command, per-commit or unchanged-status reports.
+6. Close only when the issue's acceptance criteria pass, with `status:done` and board Done. Use `status:review` for pending required validation and `status:blocked` for an external dependency. A commit may be pushed before acceptance is complete; do not claim missing checks passed.
 
-The same rules apply to commit messages, PRs, release notes, project fields and versioned reports. A local artifact path is not durable evidence for another reader. Prefer a regression test or relevant CI link; use a minimal sanitized excerpt/image when that is needed to explain the defect. Do not hide failing checks or uncertain coverage when summarizing.
+For requested product work outside a milestone, create or update its issue first; assign a milestone only when release scope is agreed. Small explicitly requested documentation/policy corrections without product behavior changes need only a commit and validation summary; reuse a relevant issue if present, without creating bookkeeping tickets.
 
-## Update Frequency
+## Labels And Board
 
-- Labels and project fields record ordinary work-state changes. A start or unchanged-status comment is unnecessary.
-- Add one result per completed coherent slice, with its commit and concise validation outcome. Do not report every edit, command, test attempt or commit separately.
-- Before completion, comment only when scope/acceptance materially changes or an actionable blocker needs attention. Edit the existing description for corrections and current acceptance requirements instead of appending repetitive updates.
-- Give each result one authoritative home. The development plan and release trackers should link to it, not repeat the narrative. Replace stale checkpoint content rather than append a growing history.
-- Small documentation/policy corrections explicitly requested by the owner, without product behavior changes, can be recorded by their commit and validation summary. Reuse a relevant issue if one exists; do not create a ticket, milestone or plan entry only for bookkeeping.
+Use one status label and keep the board's `Workflow Status` aligned:
 
-## Required Agent Startup
+| Label | Workflow Status |
+| --- | --- |
+| `status:backlog` | Backlog |
+| `status:ready` | Ready |
+| `status:in-progress` | In Progress |
+| `status:review` | Review |
+| `status:done` | Done |
+| `status:blocked` | Blocked |
 
-All implementation commits and pushes go directly to `master`. Do not create task branches, worktrees or pull requests. Review the local diff before committing; preserve existing work and never force-push or rewrite history.
+Use one primary type: `type:feature`, `type:bug`, `type:release`, `type:ci` or `type:docs`. Add relevant `area:runtime`, `area:preview`, `area:visual-regression`, `area:cli`, `area:mcp` or `area:infra` labels. Priorities range from `priority:p0` (release/core blocker) through `priority:p1` (high), `priority:p2` (normal) and `priority:p3` (polish).
 
-Before starting issue-backed implementation work:
+The existing board also has `Progress`, `Release Phase` and `Roadmap Order`; maintain coarse values only when work state changes. Keep the default `Status` field aligned with Todo/In Progress/Done. Completed items may be archived from the board while their issues remain available. Do not maintain another board-state table in the repository.
 
-1. Inspect the current milestone and ready issues:
+## Releases
 
-   ```powershell
-   gh issue list --repo RolandUI/AvaScope --state open --json number,title,labels,milestone,url
-   ```
+Create one `type:release` tracker in the numeric release milestone `v<major>.<minor>.<patch>`. Keep scope, acceptance decisions and relevant evidence there. Prerelease candidates use that same milestone; record any specifically authorized acceptance gaps in the tracker. Follow [stable release validation](VALIDATION.md#stable-release-validation) for readiness, commit and publication checks.
 
-2. Pick exactly one issue to work on.
-3. Move it from `status:ready` or `status:backlog` to `status:in-progress`.
-4. Select local, targeted CI or full CI using the [risk-based validation rules](VALIDATION.md#choose-validation-by-risk). Check the issue's acceptance description and update it only if missing or changed. Do not add a routine start comment.
-5. Update `docs/DEVELOPMENT_PLAN.md` only if its current-work checkpoint changes, using issue/result links and a short next step.
-
-For product work outside the active milestone, create or update the relevant issue first. Do not assign a release milestone without release scope. The small documentation/policy exception above does not require an issue.
-
-## Status Labels
-
-Use exactly one status label on active backlog issues:
-
-- `status:backlog`: accepted but not ready for active implementation.
-- `status:ready`: ready for an agent to start.
-- `status:in-progress`: currently being implemented.
-- `status:review`: implementation is complete, validation or review is pending.
-- `status:done`: completed and validated.
-- `status:blocked`: blocked on external access, credentials, or a product decision.
-
-Keep at most one issue marked `status:in-progress` unless the user explicitly asks for parallel work.
-
-## Type, Area, And Priority Labels
-
-Use one primary type label:
-
-- `type:feature`
-- `type:bug`
-- `type:release`
-- `type:ci`
-- `type:docs`
-
-Use one or more area labels:
-
-- `area:runtime`
-- `area:preview`
-- `area:visual-regression`
-- `area:cli`
-- `area:mcp`
-- `area:infra`
-
-Use one priority label:
-
-- `priority:p0`: blocks release or a core workflow.
-- `priority:p1`: high priority release work.
-- `priority:p2`: normal priority release work.
-- `priority:p3`: lower priority or polish work.
-
-## Milestones
-
-Release milestones use `v<major>.<minor>.<patch>` names.
-
-- A release tracking issue should be created for each active release.
-- Each release milestone should contain vertical-slice issues such as `R0.7.0-M1 Baseline Suite Manifest`.
-- Close the milestone only after the release is published and all milestone issues are closed or explicitly moved.
-
-## Project Board
-
-Use the public `AvaScope Roadmap` GitHub Project for human-readable roadmap state:
-
-- https://github.com/users/RolandUI/projects/4
-
-The active board should stay focused on open release work. Completed historical items may be archived from the project after their GitHub issues and milestones remain closed.
-
-The project includes these board-support fields:
-
-- `Workflow Status`: kanban column/status field.
-- `Progress`: coarse completion marker for cards.
-- `Release Phase`: release tracker, current slice, planned slice, or completed work.
-- `Roadmap Order`: numeric ordering inside a release.
-
-`Workflow Status` values:
-
-- Backlog
-- Ready
-- In Progress
-- Review
-- Done
-- Blocked
-
-Keep `status:*` labels aligned with `Workflow Status` when moving work. The default GitHub `Status` field is also populated so the built-in board view separates open Todo work from Done items.
-
-GitHub's public Projects API currently supports project fields and items, but not saved view layout creation or saved view layout edits. If a board view is missing in the GitHub UI, create it manually with:
-
-- Layout: `Board`
-- Column/group field: `Workflow Status`
-- Sort: `Roadmap Order`
-- Visible card fields: `Progress`, `Release Phase`, `Milestone`, `Labels`
-
-## Completion Rules
-
-When a slice is complete:
-
-1. Run the issue-specific validation at the level justified by the change and its dependents. Neither completion of a slice/batch nor issue closure requires full CI by default. Documentation-only edits use the focused checks in [validation](VALIDATION.md).
-2. Review the staged diff, commit message and any outgoing text/attachments against the information policy, then commit and push the locally validated slice directly to `master` without a branch or PR.
-3. Record one concise issue result with commit, validation outcome and any remaining limitation. Include portable validation commands only when needed for reproduction; do not duplicate an existing result comment.
-4. If required acceptance evidence is still pending, keep `status:review` (or `status:blocked` for an external dependency) and leave the issue open. A commit may be pushed before a required hosted check completes; do not present it as fully accepted.
-5. Once the issue's acceptance criteria pass, set `status:done` and close with reason `completed`. Local validation is sufficient when it establishes all required acceptance; a full CI run is not a universal prerequisite.
-6. Update `docs/DEVELOPMENT_PLAN.md` only if the active work, release or next step changed. Keep a current checkpoint with links, not the execution history.
-
-Release issues are closed only after the exact release candidate has complete applicable validation and the GitHub Release tag and assets exist. Release authorization and readiness are separate from committing or closing an implementation issue.
+Release authorization is separate from implementation completion. Close the tracker and milestone only after publication and verification, with remaining work explicitly moved or deferred in GitHub. A release does not resolve unrelated investigations or prove untested coverage.

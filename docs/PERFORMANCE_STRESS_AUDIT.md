@@ -1,6 +1,6 @@
 # AvaScope Performance And Stress Audit
 
-This document records the `v0.9.0` beta stress audit for agent-facing AvaScope workflows. The goal is bounded, repeatable local validation rather than benchmark-grade timing numbers.
+This reference describes bounded outputs and repeatable stress checks for agent-facing workflows. Record execution results in the relevant issue; update this document when budgets or test procedures change.
 
 ## Automation Coverage
 
@@ -39,7 +39,7 @@ The sample does not require project-specific source edits beyond the documented 
 - Repeated previews are intentionally one-shot isolated child-process renders. `PersistentHostEnabled=false` is expected until a separate long-lived host model is designed and validated.
 - Large responses should be consumed by `agentReview`, summary counts, and artifact paths first. Agents should request deeper trees or reports only when the summary indicates they need them.
 - Runtime mutation is temporary and local-only. Use `mutation-review` before cleanup and `reset_mutation` or `reset_all` before closing a session when evidence is still needed.
-- Baseline report packs are safe to upload as CI artifacts, but baseline approval remains a manual reviewed workflow.
+- Review and sanitize relevant report excerpts before publishing under the [information policy](../AGENTS.md#github-information-policy). Baseline approval remains a reviewed workflow.
 
 ## Validation Commands
 
@@ -49,10 +49,4 @@ Run the focused stress audit first:
 dotnet test AvaScope.slnx --no-build --filter "FullyQualifiedName~PerformanceStressAuditTests|FullyQualifiedName~BridgeHeadlessSmokeTests.RuntimeMutationRepeatedSetPropertyAndResetAllKeepsReviewBounded|FullyQualifiedName~PerformanceStressAuditDocumentationTests"
 ```
 
-Then run the normal slice validation:
-
-```powershell
-dotnet build AvaScope.slnx --no-restore -v:minimal
-dotnet test AvaScope.slnx --no-build
-git diff --check
-```
+Select any additional checks using [risk-based validation](VALIDATION.md#choose-validation-by-risk); a focused stress change does not itself require a full suite.

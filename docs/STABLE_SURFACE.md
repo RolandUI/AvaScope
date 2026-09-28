@@ -401,7 +401,7 @@ Stable release workflow behavior:
 - `Directory.Build.props` `<Version>` is the release version source.
 - The GitHub Release tag is `v<Version>`.
 - The release commit subject is `Release <Version>`.
-- `docs/RELEASE_PLAN.md` must declare the same target version in `Release Candidate` state before the release commit can publish.
+- The release guard reads the numeric version milestone from GitHub and requires one open `type:release` tracker with only `status:review`. Stable acceptance requires all other milestone issues closed or moved; an authorized prerelease can retain documented gaps.
 - `eng/create-local-release.ps1` is the local release gate.
 - `eng/verify-artifacts.ps1` verifies package and executable artifact coverage and writes `artifacts/release-manifest.json`.
 - `eng/publish-github-release.ps1 -Tag v<Version> -DryRun` verifies the GitHub Release asset set without publishing.

@@ -88,18 +88,14 @@ Per-user Windows, Linux, and macOS installers, portable executable ZIPs, and pac
 - [Agent recipes and evaluation](docs/AGENT_RECIPES.md): executable MCP/CLI recipes, clean-project onboarding and separate conformance/agent measurements.
 - [Stable surface](docs/STABLE_SURFACE.md): v1 package, protocol, CLI, MCP, exit-code, artifact, and release compatibility rules.
 - [Upgrade and compatibility](docs/UPGRADE.md): version alignment, bridge-package upgrades, CLI/MCP replacement, and capability-gated client behavior.
-- [End-to-end validation](docs/END_TO_END_VALIDATION.md): v1 source, packaged CLI, packaged MCP, runtime bridge, report, and release-readiness validation record.
-- [Release artifact verification](docs/RELEASE_ARTIFACT_VERIFICATION.md): v1 package, ZIP, manifest, hash, publish dry-run, packaged CLI, and packaged MCP verification ledger.
-- [Post-1.0 backlog](docs/POST_1_0_BACKLOG.md): explicit non-blocking deferrals and release-blocking audit.
 - [Security threat model](docs/SECURITY_THREAT_MODEL.md): local-only transport, bridge activation, mutation, preview, artifact, and compatibility boundaries.
 - [Performance and stress audit](docs/PERFORMANCE_STRESS_AUDIT.md): bounded output budgets and stress validation coverage for agent workflows.
 - [Troubleshooting](docs/TROUBLESHOOTING.md): attach, preview, mutation, report, and package failure triage.
 - [Validation](docs/VALIDATION.md): local validation commands and release checks.
 - [Visual regression CI](docs/VISUAL_REGRESSION_CI.md): baseline-check artifact collection for GitHub Actions.
-- [Release plan](docs/RELEASE_PLAN.md): release goals, milestones, non-goals, and roadmap.
 - [Project workflow](docs/GITHUB_PROJECT_WORKFLOW.md): GitHub Issues, Milestones, labels, and Project board conventions.
 - [Security policy](SECURITY.md): private vulnerability reporting and supported-version policy.
-- [Contributing](CONTRIBUTING.md): issue, development, validation, and pull-request expectations.
+- [Contributing](CONTRIBUTING.md): contribution entry points and development policies.
 - [Trademark policy](TRADEMARKS.md): permitted use of the AvaScope name and official branding.
 
 ## Safety Model

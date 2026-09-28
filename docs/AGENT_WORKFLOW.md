@@ -142,7 +142,7 @@ For another app, pass explicit offsets and viewer paths:
 & $avascope preview-animation path\to\App.csproj --view Views\AnimatedView.axaml --out .\artifacts\samples\animation.png --time-offsets 0,150,900,900 --width 720 --height 420 --theme light --frame-strip .\artifacts\samples\animation-strip.png --viewer .\artifacts\samples\animation.html
 ```
 
-Animation sampling advances Avalonia headless render timer ticks inside isolated PreviewHost child processes. Repeated offsets inside one request reuse the first successful frame for that offset so duplicate final artifacts are stable. It reports pixel deltas from sampled frames and uses `not_available` provenance where reliable public animation metadata is unavailable.
+Animation sampling uses one isolated PreviewHost instance with measured real-time deadlines. Requested offsets and measured capture intervals are distinct; repeated offsets reuse one observation and do not count as independent stability samples. See the [user guide](USER_GUIDE.md) for trigger, timing-tolerance and assertion semantics. Publicly unavailable animation metadata remains `not_available`; rendered frames do not establish native presentation timing.
 
 ## 5. Use Durable Preview Sessions
 

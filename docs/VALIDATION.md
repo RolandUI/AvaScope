@@ -39,11 +39,11 @@ Prefer the existing targeted native-input workflow when it covers the required c
 
 Commit/push, issue closure and release publication are separate decisions. Close an issue after its specific acceptance criteria pass; full CI is not a universal closure requirement. Keep an issue in review when required validation is pending, or blocked for an external dependency. Release publication requires complete applicable validation for the exact candidate and its artifacts, plus publication authorization. A Windows Release workflow alone does not establish the full native platform matrix.
 
-The target workflow design uses explicit dispatch, selectable platform/job groups and build reuse within each compatible platform/configuration. Coordinate CI and Release validation so identical checks are not repeated without cause; verify the actual release artifacts even when source-level results can be reused. Parallelize independent jobs to reduce waiting, and omit unnecessary work to reduce cost. This policy update does not implement those YAML changes; see the [current checkpoint](DEVELOPMENT_PLAN.md).
+The target workflow design uses explicit dispatch, selectable platform/job groups and build reuse within each compatible platform/configuration. Coordinate CI and Release validation so identical checks are not repeated without cause; verify the actual release artifacts even when source-level results can be reused. Parallelize independent jobs to reduce waiting, and omit unnecessary work to reduce cost. Workflow optimization is tracked in [#234](https://github.com/RolandUI/AvaScope/issues/234).
 
 ## Validation Reference
 
-For the `v1.0.0` end-to-end release-readiness ledger, keep [END_TO_END_VALIDATION.md](END_TO_END_VALIDATION.md) updated with source, packaged CLI, packaged MCP, runtime bridge, report-pack, release artifact, and blocker-audit results. Record package, ZIP, manifest, hash, publish dry-run, packaged CLI, and packaged MCP release artifact checks in [RELEASE_ARTIFACT_VERIFICATION.md](RELEASE_ARTIFACT_VERIFICATION.md). Record final non-blocking post-1.0 deferrals in [POST_1_0_BACKLOG.md](POST_1_0_BACKLOG.md).
+Record each necessary validation result once in its GitHub issue. This document contains repeatable procedures, not execution reports.
 
 Run build and test commands sequentially. Parallel build/test invocations can contend for the same `bin/` and `obj/` outputs.
 
@@ -297,7 +297,7 @@ For performance, stress, samples, and troubleshooting audit work, include:
 dotnet test AvaScope.slnx --no-build --filter "FullyQualifiedName~PerformanceStressAuditTests|FullyQualifiedName~BridgeHeadlessSmokeTests.RuntimeMutationRepeatedSetPropertyAndResetAllKeepsReviewBounded|FullyQualifiedName~PerformanceStressAuditDocumentationTests"
 ```
 
-Record observed budgets in [PERFORMANCE_STRESS_AUDIT.md](PERFORMANCE_STRESS_AUDIT.md) and keep attach, preview, mutation, report, and package failure triage in [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
+Use [performance budgets and focused stress checks](PERFORMANCE_STRESS_AUDIT.md) and [failure triage](TROUBLESHOOTING.md). Update those references only when the contract or procedure changes; record observed run results in the relevant issue.
 
 For `v0.7.0` runtime experiment review work, include:
 
@@ -399,19 +399,23 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.p
 
 ## Stable Release Validation
 
-Before marking a stable release-readiness or release-workflow slice complete, run:
+For actual stable release readiness, run the complete candidate checks, including:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1
 ```
 
-For release-based development, do not bump `Directory.Build.props` until the current target in `docs\RELEASE_PLAN.md` is ready to move to `Release Candidate`. The automatic publish path validates that the release commit subject is `Release <version>` and the release plan targets the same version:
+Release scope and acceptance live in the GitHub milestone and its `type:release` tracker. After required checks and publication authorization, set the tracker to `status:review`; stable publication requires all other milestone issues closed or explicitly moved. An explicitly authorized prerelease can retain documented acceptance gaps in the same numeric milestone; it must not promote Latest or close unresolved stable acceptance.
+
+The version source is `Directory.Build.props`; the release commit subject must be `Release <version>`. The guard uses GitHub's open milestone issues, not a local status document. It requires exactly one release tracker in review, rejects incomplete stable acceptance and fails closed when GitHub cannot be verified. The GitHub CLI needs read access to issues. Read the [stable surface](STABLE_SURFACE.md) for package/protocol compatibility boundaries.
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-release-commit.ps1 -Version 1.0.0 -CommitSubject "Release 1.0.0" -RequiredState "Release Candidate"
+powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-release-commit.ps1 -Version <version> -CommitSubject "Release <version>"
 ```
 
-The script wraps the release gate:
+Run `eng/test-release-commit.ps1 -OutputDirectory <qa-root>` for isolated guard regression checks; it mocks GitHub responses and never publishes or changes issues. Version-specific release notes remain the source consumed by `eng/publish-github-release.ps1`, not a second release-status record.
+
+`eng/create-local-release.ps1` wraps the release gate:
 
 ```powershell
 dotnet restore AvaScope.slnx

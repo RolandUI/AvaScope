@@ -2,7 +2,7 @@
 
 AvaScope is an agent-focused local control plane for Avalonia apps.
 
-This repository starts from an empty project. Preserve this file as the project context for future agents.
+Keep this file as the agent entry point and durable product context. Work state belongs in GitHub.
 
 Target Avalonia line: `Avalonia 12`. Do not default implementation work to Avalonia 11.x guidance. Avalonia-facing projects should target `net10.0` by default and use the latest stable Avalonia 12.x patch unless a narrower compatibility target is explicitly required. When package versions, APIs, or breaking changes matter, verify against current Avalonia 12 sources or official documentation before implementing.
 
@@ -16,30 +16,15 @@ Development in this repository is expected to be performed 100% by autonomous co
 - If external credentials, account access, publishing permissions, or product decisions block completion, state the blocker precisely and stop at the nearest validated state.
 - Each meaningful change should include relevant tests or an explicit validation note explaining why tests are not applicable.
 
-## Current Working And QA Policy
+## Development Entry Point
 
-Owner policy updated on 2026-09-28:
+Read [the project workflow](docs/GITHUB_PROJECT_WORKFLOW.md) before implementation and follow the selected GitHub issue and milestone. It owns branch/commit rules, issue and board transitions, and documentation ownership. [Validation](docs/VALIDATION.md) owns risk-based check selection and release acceptance. Keep at most one implementation issue in progress.
 
-- Commit and push directly to `master`. Do not create task branches, worktrees or pull requests. Preserve existing work; never force-push or rewrite history.
-- Develop in small changes: reproduce the defect where applicable, add a relevant regression, build affected components and run focused tests plus the affected CLI/MCP or native journey. Include dependent behavior in the scope; reuse valid builds and rebuild only affected components.
-- Select validation by risk using `docs/VALIDATION.md`: local checks by default, targeted CI for necessary coverage unavailable locally, full CI before release or when cross-cutting risk cannot be covered by narrower checks. Completing a commit, issue or batch does not itself require full CI or a full local solution test run.
-- Dispatch CI deliberately from `master` only for an identified validation gap. State the source revision, relevant platforms/tests and reason briefly in the existing work context; do not add a separate reporting ritual. Do not introduce automatic push, PR or scheduled validation. Workflow alignment is tracked in `docs/DEVELOPMENT_PLAN.md`; existing YAML triggers are not authority to create PRs or run unnecessary gates.
-- Separate commit/push, issue acceptance and release readiness. Push locally validated coherent changes; close an issue when its specific acceptance criteria pass, without a blanket full-CI requirement. Keep missing required platform evidence pending and never imply that a later commit was covered by an earlier run.
-- Reuse successful checks only while their relevant source, tests, dependencies, configuration and environment remain applicable. On failure, diagnose and rerun the affected checks first; repeat a full gate only when the remaining risk requires it. Continue independent local work during a necessary CI run.
-- Report release status in chat; do not recreate previously cancelled status automations.
-- Local testing uses one reusable binary set and one current output directory. Keep its absolute location in local context, never in tracked documentation. Do not accumulate run directories or move the same accumulation to another drive.
-- Before local QA or cleanup, read any existing machine-specific handoff at the path returned by `git rev-parse --git-path info/avascope-local.md`. This optional file stays in Git metadata and must never be committed or uploaded; preserve local ownership and cleanup restrictions there when needed.
-- Reuse the selected CLI/MCP/client, Direct host, standalone host and provider across cases. Record their source revision once and rebuild only affected components when source changes. Do not copy or hash whole build/runtime trees for every case. Stop owned apps before replacing binaries.
-- After checking a case, discard successful raw responses, repeated screenshots and temporary render/build outputs. After a defect is fixed and validated, delete its local historical artifacts. GitHub issues, commits and regression tests are the lasting record; no local archive is required.
-- While an issue or batch is still open, keep only the minimal failing request/response, relevant log excerpt and necessary image or TRX. Do not keep runtime dependencies, PDB trees, package copies or all prior successful runs as evidence. Delete pending batch artifacts when that batch closes.
-- Keep the reusable local QA area below 8 GiB. Check usage before builds/downloads, clear completed outputs first, and do not start another large run when that budget would be exceeded. Download CI artifacts individually for inspection, then delete each unpacked artifact after recording the result.
-- Before recursive cleanup, verify exact absolute targets belong to the selected AvaScope QA area and that no live process uses them. Do not clean other projects, global caches, installed AvaScope or user data.
-
-This policy supersedes older blanket requirements for CI per batch or full local tests per slice, as well as campaign instructions to preserve every attempt or create a fresh binary snapshot for each charter. Specific acceptance and release evidence requirements still apply. Historical local artifact links may intentionally be unavailable after cleanup; do not recreate them merely for archival completeness.
+For local QA, follow [the lab operating and retention policy](docs/AGENT_QA_LAB.md#local-testing-and-retention-policy). Before QA or cleanup, read any existing machine-specific handoff at the path returned by `git rev-parse --git-path info/avascope-local.md`. This optional file stays in Git metadata; never commit or upload it. Report release status in chat and do not recreate cancelled status automations.
 
 ## GitHub Information Policy
 
-GitHub records the development rationale and verified result, not the agent's local work diary. This policy applies to tracked files (including this file and `docs/DEVELOPMENT_PLAN.md`), commit messages, issues, comments, pull requests, project updates, release notes and uploaded evidence. It supersedes older reporting instructions that request more detail.
+GitHub records the development rationale and verified result, not the agent's local work diary. This policy applies to tracked files (including this file), commit messages, issues, comments, pull requests, project updates, release notes and uploaded evidence. It supersedes older reporting instructions that request more detail.
 
 - Publish only information needed to understand the problem, scope, solution, important decisions, validation outcome and remaining limitations. Include minimal reproduction steps when useful, with relevant commit, source or CI links.
 - Never publish workstation-specific absolute paths, local usernames, hostnames, private URLs, local session/process identifiers, temporary QA locations, unrelated machine inventory or personal notification/account details. Use repository-relative paths or neutral placeholders such as `<repo>` and `<qa-root>`; retain OS/runtime/version details only when they explain behavior or validation coverage.
@@ -48,20 +33,6 @@ GitHub records the development rationale and verified result, not the agent's lo
 - Report meaningful outcomes, scope changes or actionable blockers. Use labels/project fields for ordinary state transitions; no mandatory start comments, per-commit reports, unchanged status updates or duplicated results across issues and docs.
 - Keep validation failures, uncertainty and missing coverage explicit when they affect acceptance. Concision must not turn an unverified result into a passing claim.
 - These are publication rules, not changes to AvaScope's local tool response or evidence contracts. Historical cleanup is a separately scoped task; adding this policy does not remove prior GitHub content or Git history.
-
-## GitHub Project Workflow
-
-GitHub Issues, Milestones, and the `AvaScope Roadmap` Project board are the primary project-management and progress-tracking source for this repository. `docs/DEVELOPMENT_PLAN.md` is a compact, publishable checkpoint with current work and links to authoritative results, not a local log or duplicate backlog.
-
-- Every agent must inspect the relevant GitHub issue, GitHub milestone, `docs/GITHUB_PROJECT_WORKFLOW.md`, and `docs/DEVELOPMENT_PLAN.md` before starting meaningful implementation work.
-- Development must follow the selected GitHub issue's scope, acceptance criteria, milestone, labels, and validation notes unless the requested task explicitly changes that scope.
-- Keep at most one issue marked `status:in-progress` unless the user explicitly asks for parallel work.
-- Before implementation, move the selected issue to `status:in-progress`. Record intended validation in the issue's existing scope/acceptance description only if it is missing or changed; do not add a routine start comment.
-- At a completed coherent slice, record one concise issue result with commit, validation outcome and any necessary decision or limitation. Comment earlier only for a material scope change or actionable blocker. Update `docs/DEVELOPMENT_PLAN.md` only when its current-work, release or next-step checkpoint changes; link to the result instead of copying it.
-- For a small, explicitly requested documentation or policy correction with no product behavior change, a commit and validation summary are sufficient. Do not create an issue, milestone, start/completion comment or plan entry solely to log the agent's activity; use a relevant existing issue if there is one.
-- If GitHub issues or milestones conflict with tracked docs, treat GitHub as current and correct the stale summary. Record a necessary explanation once in the authoritative issue, without duplicating the work history.
-- Do not close an issue until its acceptance criteria and validation commands have passed.
-- Commit and push each completed vertical slice or coherent milestone part; do not leave commit, push, test, validation, issue updates, or release handoff for the user.
 
 ## Product Goal
 
@@ -193,17 +164,6 @@ avascope preview path/to/App.csproj --view Views/MainWindow.axaml --width 1440 -
 avascope inspect --process <pid>
 avascope screenshot --session <id> --out screenshot.png
 ```
-
-## Initial Milestones
-
-1. Scaffold a .NET solution with the project layout above.
-2. Implement shared protocol models and session IDs.
-3. Implement a minimal MCP server with `list_sessions` and health/version info.
-4. Implement a minimal Avalonia bridge package that can expose open top-levels.
-5. Add screenshot capture for a running app.
-6. Add visual tree serialization with stable node IDs.
-7. Add preview host for a simple `.axaml` view in an isolated process.
-8. Add integration tests with a tiny sample Avalonia app.
 
 ## Development Rules
 

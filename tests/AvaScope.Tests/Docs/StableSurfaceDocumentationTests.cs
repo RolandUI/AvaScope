@@ -71,11 +71,11 @@ public sealed class StableSurfaceDocumentationTests
         var root = FindRepositoryRoot();
         var readme = File.ReadAllText(Path.Combine(root, "README.md"));
         var userGuide = File.ReadAllText(Path.Combine(root, "docs", "USER_GUIDE.md"));
-        var releasePlan = File.ReadAllText(Path.Combine(root, "docs", "RELEASE_PLAN.md"));
+        var validation = File.ReadAllText(Path.Combine(root, "docs", "VALIDATION.md"));
 
         Assert.Contains("docs/STABLE_SURFACE.md", readme, StringComparison.Ordinal);
         Assert.Contains("STABLE_SURFACE.md", userGuide, StringComparison.Ordinal);
-        Assert.Contains("STABLE_SURFACE.md", releasePlan, StringComparison.Ordinal);
+        Assert.Contains("STABLE_SURFACE.md", validation, StringComparison.Ordinal);
     }
 
     private static string FindRepositoryRoot()

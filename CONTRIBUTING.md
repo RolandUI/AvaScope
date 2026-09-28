@@ -26,15 +26,13 @@ Every meaningful change should include relevant tests, or a clear validation not
 
 ## Published Information
 
-Follow the [GitHub information policy](AGENTS.md#github-information-policy). Issues, PRs, commits, documentation and attachments should contain only the problem, relevant change/rationale, validation outcome and necessary limitations. Use repository-relative paths or neutral placeholders in reproductions; omit local usernames, workstation paths and identifiers, private links and temporary QA details. Review logs and screenshots before sharing and include only the relevant sanitized excerpt. Keep execution notes local and link to existing results instead of repeating them.
+Follow the [GitHub information policy](AGENTS.md#github-information-policy) for all outgoing text and evidence, and the [information ownership rules](docs/GITHUB_PROJECT_WORKFLOW.md#information-ownership) to avoid duplicate records.
 
 Small documentation or policy corrections explicitly requested by the owner do not need a new tracking issue when there is no product behavior change. Record the result and focused validation with the commit; see the [project workflow](docs/GITHUB_PROJECT_WORKFLOW.md) for when issue updates are needed.
 
 ## Direct Commits
 
-Review the local diff, run the selected checks, then commit and push directly to `master`. Do not create a branch or PR. Keep the change narrowly scoped, preserve existing work and do not force-push or rewrite history.
-
-Describe the related issue when applicable, behavior changed, validation outcome and necessary compatibility or security decision. Full CI is reserved for release readiness or cross-cutting risk that narrower checks cannot establish; use targeted CI for required coverage unavailable locally. A commit or completed batch does not itself justify CI. Keep required but missing acceptance evidence explicit.
+Use the [development loop](docs/GITHUB_PROJECT_WORKFLOW.md#development-loop) for direct `master` commits, validation, acceptance and concise issue updates.
 
 ## License
 

@@ -67,7 +67,7 @@ The visual-regression GitHub Actions example uses read-only repository permissio
 
 ## Package, API, CLI, And MCP Compatibility
 
-For v1.0.0, compatibility risk is tracked through GitHub issues, [STABLE_SURFACE.md](STABLE_SURFACE.md), and `docs/RELEASE_PLAN.md`. Public protocol changes should be additive within major version `1`. `ToolResult<T>` keeps the stable `success`, `value`, and `error` JSON shape.
+Compatibility risk is tracked through GitHub issues and [STABLE_SURFACE.md](STABLE_SURFACE.md). Public protocol changes should be additive within major version `1`. `ToolResult<T>` keeps the stable `success`, `value`, and `error` JSON shape.
 
 Clients should call `capabilities` and gate workflows by capability id rather than guessing from package versions. Unknown JSON fields must be ignored by clients. Unsupported required capability ids fail with `capability_not_supported` and details that include `requestedCapabilities`, `unsupportedCapabilities`, `availableCapabilities`, `protocolVersion`, and `nextAction`.
 
@@ -94,6 +94,6 @@ Clients should call `capabilities` and gate workflows by capability id rather th
 - Remote inspection/control, no-code attach, process injection, CLR profiling, and private Avalonia hooks remain post-1.0 unless a separate threat model is designed.
 - Generated screenshots and reports may contain sensitive UI data when the optional evidence policy is not configured. Upload remains an explicit external user/CI decision; AvaScope itself has no network-upload path.
 
-The final non-blocking post-1.0 backlog and release-blocking audit is recorded in [POST_1_0_BACKLOG.md](POST_1_0_BACKLOG.md).
+Release-specific accepted risks and deferrals belong in the GitHub release tracker and milestone. Keep durable security boundaries here; do not maintain a second backlog.
 
 No release-blocking security risk is accepted for v1.0.0. A new P0/P1 security issue blocks the stable release until fixed, moved out of scope with explicit rationale, or accepted by a separate release decision.
