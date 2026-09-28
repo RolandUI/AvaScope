@@ -22,7 +22,8 @@ public sealed record PreviewResponse
         string? stateVariant = null,
         ArtifactRunIndexResponse? runIndex = null,
         PreviewDiagnosticSummary? diagnosticSummary = null,
-        string? diagnosticsArtifactPath = null)
+        string? diagnosticsArtifactPath = null,
+        AnimationSampleTiming? animationTiming = null)
     {
         if (string.IsNullOrWhiteSpace(filePath))
         {
@@ -61,6 +62,7 @@ public sealed record PreviewResponse
         DesignDataType = string.IsNullOrWhiteSpace(designDataType) ? null : designDataType;
         Diagnostics = diagnostics ?? [];
         AnimationTimeOffsetMs = animationTimeOffsetMs;
+        AnimationTiming = animationTiming;
         ProjectInfo = projectInfo;
         StateVariant = string.IsNullOrWhiteSpace(stateVariant) ? null : stateVariant;
         RunIndex = runIndex;
@@ -111,6 +113,10 @@ public sealed record PreviewResponse
     [JsonPropertyName("animationTimeOffsetMs")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public int? AnimationTimeOffsetMs { get; }
+
+    [JsonPropertyName("animationTiming")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public AnimationSampleTiming? AnimationTiming { get; }
 
     [JsonPropertyName("projectInfo")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

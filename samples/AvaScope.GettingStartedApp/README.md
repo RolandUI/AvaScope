@@ -26,7 +26,7 @@ Preview the animation sample with requested time offsets:
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll preview-animation .\samples\AvaScope.GettingStartedApp\AvaScope.GettingStartedApp.csproj --profile animation
 ```
 
-The `animation` profile requests `Views\AnimationView.axaml` frames at `0,250,900,900ms`, writes per-offset PNGs and a frame strip, and returns a file-backed viewer `previewUrl`. Avalonia 12.1.3 uses wall-clock animation time, so these requested offsets are not controlled or verified; each frame reports an `animation_frame_sampled` warning. Do not use the images to assert exact animation timing ([#201](https://github.com/RolandUI/AvaScope/issues/201)). The repeated final offset reuses the first `900ms` image; this proves cache reuse, not final animation state. The viewer's pixel motion summary describes captured images only. Moving-property metadata remains explicitly `not_available` when public Avalonia APIs do not expose it reliably.
+The `animation` profile records `Views\AnimationView.axaml` at requested `0,250,900,900ms` offsets in one running preview, writes PNGs and a strip, and returns a timeline viewer. Inspect each frame's `animationTiming` and the response's `timingStatus`: playback uses measured real time relative to window attachment/show, not virtual seeking. A late frame is inconclusive; use `--timing-tolerance-ms` to declare the acceptable timing window. The repeated `900ms` offset reuses one observation and cannot prove stability; use distinct final offsets such as `900,1100` for that. The viewer shows requested and actual capture times. Explicit class-triggered playback and runtime geometry assertions are documented in the user guide.
 
 Run the app with the local-only bridge enabled:
 

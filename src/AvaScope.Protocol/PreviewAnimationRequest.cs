@@ -25,7 +25,10 @@ public sealed record PreviewAnimationRequest
         string? buildOutputRoot = null,
         string? assemblyPath = null,
         bool noBuild = false,
-        PreviewDiagnosticOptions? diagnosticOptions = null)
+        PreviewDiagnosticOptions? diagnosticOptions = null,
+        int timingToleranceMs = 100,
+        string? triggerClass = null,
+        string? triggerTargetName = null)
     {
         if (string.IsNullOrWhiteSpace(outputPath))
         {
@@ -87,6 +90,13 @@ public sealed record PreviewAnimationRequest
         AssemblyPath = string.IsNullOrWhiteSpace(assemblyPath) ? null : assemblyPath;
         NoBuild = noBuild;
         DiagnosticOptions = diagnosticOptions;
+        if (timingToleranceMs is < 0 or > 5000)
+            throw new ArgumentOutOfRangeException(nameof(timingToleranceMs), "Timing tolerance must be between 0 and 5000 milliseconds.");
+        TimingToleranceMs = timingToleranceMs;
+        TriggerClass = string.IsNullOrWhiteSpace(triggerClass) ? null : triggerClass.Trim();
+        TriggerTargetName = string.IsNullOrWhiteSpace(triggerTargetName) ? null : triggerTargetName.Trim();
+        if (TriggerClass?.Any(char.IsWhiteSpace) == true || TriggerTargetName is not null && TriggerClass is null)
+            throw new ArgumentException("Specify one trigger class; triggerTargetName requires triggerClass.");
     }
 
     [JsonPropertyName("outputPath")]
@@ -94,6 +104,20 @@ public sealed record PreviewAnimationRequest
 
     [JsonPropertyName("timeOffsetsMs")]
     public IReadOnlyList<int> TimeOffsetsMs { get; }
+
+    [JsonPropertyName("timingToleranceMs")]
+    public int TimingToleranceMs { get; }
+
+    [JsonPropertyName("triggerClass"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? TriggerClass { get; }
+
+    [JsonPropertyName("triggerTargetName"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? TriggerTargetName { get; }
+
+    public PreviewRequest ToPreviewRequest() => new(OutputPath, Width, Height, Dpi,
+        ProjectPath, ViewPath, ThemeVariant, Culture, DesignDataType, stateVariant: StateVariant,
+        buildOutputRoot: BuildOutputRoot, assemblyPath: AssemblyPath, noBuild: NoBuild,
+        diagnosticOptions: DiagnosticOptions);
 
     [JsonPropertyName("width")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

@@ -42,9 +42,9 @@ public sealed record PreviewRequest
             throw new ArgumentOutOfRangeException(nameof(dpi), dpi, "DPI must be positive.");
         }
 
-        if (animationTimeOffsetMs is < 0)
+        if (animationTimeOffsetMs is < 0 or > PreviewAnimationRequest.MaximumTimeOffsetMs)
         {
-            throw new ArgumentOutOfRangeException(nameof(animationTimeOffsetMs), animationTimeOffsetMs, "Animation time offset must be zero or greater.");
+            throw new ArgumentOutOfRangeException(nameof(animationTimeOffsetMs), animationTimeOffsetMs, "Animation time offset must be between 0 and 60000 milliseconds.");
         }
 
         OutputPath = outputPath;

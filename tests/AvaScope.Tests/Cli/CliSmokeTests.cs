@@ -487,7 +487,7 @@ public sealed class CliSmokeTests
 
         await File.WriteAllTextAsync(viewPath, """
             <UserControl xmlns="https://github.com/avaloniaui">
-              <Border Background="#FFFFFFFF">
+              <Border Name="Mover" Background="#FFFFFFFF">
                 <TextBlock Text="CLI animation preview smoke" />
               </Border>
             </UserControl>
@@ -505,6 +505,9 @@ public sealed class CliSmokeTests
                 outputPath,
                 "--time-offsets",
                 "0,33",
+                "--trigger-class", "play",
+                "--trigger-target-name", "Mover",
+                "--timing-tolerance-ms", "250",
                 "--frame-strip",
                 stripPath,
                 "--viewer",
@@ -538,6 +541,11 @@ public sealed class CliSmokeTests
             Assert.Equal(0, payload.Value.Frames[0].Render.Value!.AnimationTimeOffsetMs);
             Assert.Equal(33, payload.Value.Frames[1].Render.Value!.AnimationTimeOffsetMs);
             Assert.Equal("static", payload.Value.Motion.Status);
+            Assert.All(payload.Value.Frames, frame =>
+            {
+                Assert.Equal("class_added", frame.Render.Value!.AnimationTiming!.Origin);
+                Assert.Equal(250, frame.Render.Value.AnimationTiming.ToleranceMs);
+            });
         }
         finally
         {
@@ -1488,7 +1496,6 @@ public sealed class CliSmokeTests
                 dpis: [96],
                 themes: ["light"],
                 cultures: ["en-US"],
-                animationFramesMs: [0],
                 mutationPresetIds: ["wide"],
                 comparisonRules: new PreviewComparisonRules(
                     tolerance: 1,
@@ -1542,7 +1549,7 @@ public sealed class CliSmokeTests
             Assert.Equal("main", first.SuiteEntryId);
             Assert.Equal("light", first.ThemeVariant);
             Assert.Equal("en-US", first.Culture);
-            Assert.Equal(0, first.AnimationTimeOffsetMs);
+            Assert.Null(first.AnimationTimeOffsetMs);
             Assert.Equal("wide", Assert.Single(first.MutationPresetIds));
             Assert.Equal(runtimeTarget, first.RuntimeTarget);
             Assert.NotNull(first.ComparisonRules);
@@ -3855,6 +3862,7 @@ public sealed class CliSmokeTests
                     frameOffsetsMs: [0, 1])
             ],
             requestId: "cli-interaction",
+            timingToleranceMs: 5000,
             outputDirectory: artifactDirectory,
             frameStripPath: frameStripPath,
             assertions:

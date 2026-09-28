@@ -98,9 +98,10 @@ public sealed class PreviewHostClientTests : IDisposable
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task RenderAsyncInterruptedRequestCleansChildAndRetainsSafeTimeoutEvidence(bool cancelRequest)
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task RenderAsyncInterruptedRequestCleansChildAndRetainsSafeTimeoutEvidence(bool cancelRequest, bool animation)
     {
         Directory.CreateDirectory(_testRoot);
         var markerPath = Path.Combine(_testRoot, "blocked.pid");
@@ -116,7 +117,7 @@ public sealed class PreviewHostClientTests : IDisposable
         using var cancellation = new CancellationTokenSource();
         try
         {
-            var renderTask = client.RenderAsync(new PreviewRequest(
+            var renderTask = animation ? CancelAnimationAsync() : client.RenderAsync(new PreviewRequest(
                 Path.Combine(_testRoot, "blocked.png"),
                 width: 80,
                 height: 60,
@@ -125,6 +126,15 @@ public sealed class PreviewHostClientTests : IDisposable
                 noBuild: true,
                 designDataType: typeof(BlockingDesignData).FullName,
                 stateVariant: markerPath), cancellation.Token);
+
+            async Task<CoreResult<PreviewResponse>> CancelAnimationAsync()
+            {
+                await client.RenderAnimationAsync(new(Path.Combine(_testRoot, "blocked.png"), [0, 60000],
+                    width: 80, height: 60, projectPath: projectPath,
+                    assemblyPath: typeof(PreviewHostClientTests).Assembly.Location, noBuild: true,
+                    designDataType: typeof(BlockingDesignData).FullName, stateVariant: markerPath), cancellation.Token);
+                throw new InvalidOperationException("Animation recording should have been cancelled.");
+            }
 
             if (cancelRequest)
             {
@@ -436,11 +446,12 @@ public sealed class PreviewHostClientTests : IDisposable
         Assert.Equal(33, result.Value.Frames[2].Render.Value!.AnimationTimeOffsetMs);
         Assert.All(result.Value.Frames, frame =>
         {
-            var timing = Assert.Single(frame.Render.Value!.Diagnostics, diagnostic => diagnostic.Code == "animation_frame_sampled");
-            Assert.Equal(PreviewDiagnosticSeverities.Warning, timing.Severity);
-            Assert.Equal("wall_clock_uncontrolled", timing.Details["timeControl"]);
-            Assert.Equal("false", timing.Details["timingVerified"]);
+            var timing = Assert.IsType<AnimationSampleTiming>(frame.Render.Value!.AnimationTiming);
+            Assert.Equal(frame.TimeOffsetMs, timing.RequestedOffsetMs);
+            Assert.True(timing.LatestElapsedMs >= timing.EarliestElapsedMs);
+            Assert.Equal("window_attach_show", timing.Origin);
         });
+        Assert.Equal(result.Value.Frames[1].Render.Value!.AnimationTiming, result.Value.Frames[2].Render.Value!.AnimationTiming);
         Assert.Contains(
             result.Value.Frames[2].Render.Value!.Diagnostics,
             static diagnostic => diagnostic.Code == "animation_frame_reused");
@@ -466,7 +477,7 @@ public sealed class PreviewHostClientTests : IDisposable
     [Theory]
     [InlineData(0)]
     [InlineData(500)]
-    public async Task MovingAnimationFramesReportUnverifiedTimingEvenAtZero(int offsetMs)
+    public async Task MovingAnimationFramesReportMeasuredIntervalsEvenWithDiagnosticFilters(int offsetMs)
     {
         Directory.CreateDirectory(_testRoot);
         var viewPath = Path.Combine(_testRoot, "MovingView.axaml");
@@ -501,12 +512,94 @@ public sealed class PreviewHostClientTests : IDisposable
         using var pixels = SkiaSharp.SKBitmap.Decode(result.Value.FilePath);
         Assert.NotNull(pixels);
         Assert.Equal(SkiaSharp.SKColors.Red, pixels.GetPixel(5, 5));
-        var timing = Assert.Single(result.Value.Diagnostics, diagnostic => diagnostic.Code == "animation_frame_sampled");
-        Assert.Equal(PreviewDiagnosticSeverities.Warning, timing.Severity);
-        Assert.Equal("wall_clock_uncontrolled", timing.Details["timeControl"]);
-        Assert.Equal("false", timing.Details["timingVerified"]);
-        Assert.Equal(offsetMs.ToString(CultureInfo.InvariantCulture), timing.Details["timeOffsetMs"]);
-        Assert.Contains("not controlled or verified", timing.Message);
+        var timing = Assert.IsType<AnimationSampleTiming>(result.Value.AnimationTiming);
+        Assert.Equal(offsetMs, timing.RequestedOffsetMs);
+        Assert.True(timing.EarliestElapsedMs >= offsetMs - 2);
+        Assert.True(timing.LatestElapsedMs >= timing.EarliestElapsedMs);
+        Assert.Equal("window_attach_show", timing.Origin);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task TriggeredPlaybackSamplesOneRealAnimationAndDetectsStoppedMotion(bool stopped)
+    {
+        Directory.CreateDirectory(_testRoot);
+        var view = Path.Combine(_testRoot, "Triggered.axaml");
+        await File.WriteAllTextAsync(view, $$"""
+            <UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+              <UserControl.Styles>
+                <Style Selector="Border.play">
+                  <Style.Animations>
+                    <Animation Duration="0:0:0.8" FillMode="Forward">
+                      <KeyFrame Cue="0%"><Setter Property="Width" Value="20" /></KeyFrame>
+                      <KeyFrame Cue="100%"><Setter Property="Width" Value="{{(stopped ? 20 : 120)}}" /></KeyFrame>
+                    </Animation>
+                  </Style.Animations>
+                </Style>
+              </UserControl.Styles>
+              <Border x:Name="Mover" Width="20" Height="20" Background="Red"
+                      HorizontalAlignment="Left" VerticalAlignment="Top" />
+            </UserControl>
+            """);
+        var client = new PreviewHostClient(Path.Combine(AppContext.BaseDirectory, "AvaScope.PreviewHost.dll"));
+        var result = await client.RenderAnimationAsync(new(Path.Combine(_testRoot, "triggered.png"),
+            [0, 400, 1000, 1200, 400], width: 160, height: 40, viewPath: view,
+            triggerClass: "play", triggerTargetName: "Mover", timingToleranceMs: 250));
+        Assert.True(result.Success, result.Error?.Message);
+        var frames = result.Value!.Frames;
+        Assert.Equal(5, frames.Count);
+        var widths = frames.Select(frame =>
+        {
+            var render = frame.Render.Value!;
+            var timing = Assert.IsType<AnimationSampleTiming>(render.AnimationTiming);
+            Assert.Equal("class_added", timing.Origin);
+            using var pixels = SkiaSharp.SKBitmap.Decode(render.FilePath);
+            return Enumerable.Range(0, pixels.Width).Count(x => pixels.GetPixel(x, 10) == SkiaSharp.SKColors.Red);
+        }).ToArray();
+        Assert.Equal(stopped ? "static" : "changed", result.Value.Motion.Status);
+        if (stopped) Assert.All(widths, width => Assert.Equal(20, width));
+        else
+        {
+            Assert.InRange(widths[0], 20, 45);
+            Assert.InRange(widths[1], 55, 105);
+            Assert.Equal(120, widths[2]);
+            Assert.Equal(120, widths[3]);
+        }
+        Assert.Equal(widths[1], widths[4]);
+        Assert.Equal(frames[1].Render.Value!.AnimationTiming, frames[4].Render.Value!.AnimationTiming);
+        Assert.Equal(await File.ReadAllBytesAsync(frames[1].OutputPath), await File.ReadAllBytesAsync(frames[4].OutputPath));
+        Assert.All(frames, frame => Assert.True(frame.Render.Value!.AnimationTiming!.WithinTolerance,
+            JsonSerializer.Serialize(frame.Render.Value.AnimationTiming)));
+        Assert.Equal("within_tolerance", result.Value.TimingStatus);
+
+        // A zero tolerance cannot establish an exact virtual-clock sample, even
+        // when pixels render successfully and all warnings are filtered out.
+        var late = await client.RenderAnimationAsync(new(Path.Combine(_testRoot, "late.png"), [0],
+            width: 160, height: 40, viewPath: view, triggerClass: "play", triggerTargetName: "Mover",
+            timingToleranceMs: 0, diagnosticOptions: new PreviewDiagnosticOptions(errorsOnly: true)));
+        Assert.True(late.Success, late.Error?.Message);
+        Assert.Equal("inconclusive", late.Value!.TimingStatus);
+        Assert.False(late.Value.Frames[0].Render.Value!.AnimationTiming!.WithinTolerance);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task AnimationTriggerRejectsMissingOrAlreadyActiveTargets(bool alreadyActive)
+    {
+        Directory.CreateDirectory(_testRoot);
+        var view = Path.Combine(_testRoot, "Trigger.axaml");
+        await File.WriteAllTextAsync(view, """
+            <Border xmlns="https://github.com/avaloniaui" Name="Mover" Classes="play" Width="20" Height="20" Background="Red" />
+            """);
+        var client = new PreviewHostClient(Path.Combine(AppContext.BaseDirectory, "AvaScope.PreviewHost.dll"));
+        var result = await client.RenderAnimationAsync(new(Path.Combine(_testRoot, "invalid.png"), [0],
+            viewPath: view, width: 40, height: 40, triggerClass: "play",
+            triggerTargetName: alreadyActive ? "Mover" : "Missing"));
+        Assert.False(result.Success);
+        Assert.Contains("class that is not already active", result.Error!.Message);
+        Assert.Empty(Directory.GetFiles(_testRoot, "*.png"));
     }
 
     [Fact]

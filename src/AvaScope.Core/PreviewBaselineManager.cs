@@ -40,6 +40,13 @@ public sealed class PreviewBaselineManager
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(viewports);
 
+        if (request.AnimationTimeOffsetMs is not null)
+        {
+            return CoreResult<PreviewBaselineCreateResponse>.Fail(new CoreError(
+                CoreErrorCodes.InvalidPreviewRequest,
+                "Timed animation baselines cannot establish equivalent playback times. Use preview-animation or record-interaction-animation with measured intervals and timing tolerance."));
+        }
+
         if (viewports.Count == 0)
         {
             return CoreResult<PreviewBaselineCreateResponse>.Fail(new CoreError(
@@ -113,6 +120,12 @@ public sealed class PreviewBaselineManager
         }
 
         var expansions = expansionResult.Value!;
+        if (expansions.Any(static expansion => expansion.AnimationTimeOffsetMs is not null))
+        {
+            return CoreResult<PreviewBaselineCreateResponse>.Fail(new CoreError(
+                CoreErrorCodes.InvalidPreviewRequest,
+                "Timed animation baselines cannot establish equivalent playback times. Remove animationFramesMs/animationTimeOffsetMs from the suite and use measured animation recording instead."));
+        }
         var renderEntries = new List<PreviewBatchEntry>(expansions.Count);
         var baselineEntries = new List<PreviewBaselineEntry>(expansions.Count);
         foreach (var expansion in expansions)
@@ -225,6 +238,12 @@ public sealed class PreviewBaselineManager
         }
 
         var manifest = manifestResult.Value!;
+        if (manifest.Entries.Any(static entry => entry.AnimationTimeOffsetMs is not null))
+        {
+            return CoreResult<PreviewBaselineCheckResponse>.Fail(new CoreError(
+                CoreErrorCodes.InvalidPreviewRequest,
+                "This legacy animation baseline has no measured playback intervals. Use measured animation recording; regenerate static baselines without animation offsets."));
+        }
         var entries = new List<PreviewBaselineCheckEntry>(manifest.Entries.Count);
         var fullOutputDirectory = Path.GetFullPath(outputDirectory);
         var fullDiffDirectory = Path.GetFullPath(diffDirectory);

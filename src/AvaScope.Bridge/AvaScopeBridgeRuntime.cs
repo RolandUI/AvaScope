@@ -1149,7 +1149,9 @@ public sealed partial class AvaScopeBridgeRuntime
             var dpi = new Vector(96 * GetRenderScaling(topLevel), 96 * GetRenderScaling(topLevel));
             using var bitmap = new RenderTargetBitmap(pixelSize, dpi);
             var renderRoot = topLevel.GetPresentationSource()?.RootVisual ?? topLevel;
+            var started = Stopwatch.GetTimestamp();
             RenderRuntimeVisual(bitmap, renderRoot);
+            var completed = Stopwatch.GetTimestamp();
 
             using (var stream = File.Create(fullPath))
             {
@@ -1165,7 +1167,10 @@ public sealed partial class AvaScopeBridgeRuntime
                 DateTimeOffset.UtcNow,
                 CreateTopLevelTarget(topLevelId, topLevel),
                 RuntimePlatformEvidence.Operation(topLevel, RuntimeOperationRoutes.RenderTargetBitmap,
-                    coordinateSpace: "top_level_pixel")));
+                    coordinateSpace: "top_level_pixel"))
+            {
+                Timing = new(started, completed, Stopwatch.Frequency, Environment.ProcessId)
+            });
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or NotSupportedException or InvalidOperationException)
         {
@@ -1209,6 +1214,7 @@ public sealed partial class AvaScopeBridgeRuntime
 
         var normalizedDepth = depthLimit.Value;
 
+        var started = Stopwatch.GetTimestamp();
         var response = new TreeResponse(
             SessionId,
             topLevelId,
@@ -1217,7 +1223,10 @@ public sealed partial class AvaScopeBridgeRuntime
             SerializeVisualNode(topLevel, topLevelId, topLevel, depth: 0, normalizedDepth),
             CreateTreeTarget(topLevelId, TreeKinds.Visual, topLevel));
         return CoreResult<TreeResponse>.Ok(
-            applyResponseBudget ? ResponseBudgeter.Apply(response) : response);
+            (applyResponseBudget ? ResponseBudgeter.Apply(response) : response) with
+            {
+                Timing = new(started, Stopwatch.GetTimestamp(), Stopwatch.Frequency, Environment.ProcessId)
+            });
     }
 
     private CoreResult<TreeResponse> GetLogicalTree(
@@ -1506,7 +1515,8 @@ public sealed partial class AvaScopeBridgeRuntime
             && InputBlocker(topLevel, topLevelId, guarded, action) is { } blocker)
             return CoreResult<InputResponse>.Fail(blocker);
 
-        return action switch
+        var started = Stopwatch.GetTimestamp();
+        var result = action switch
         {
             InputActions.PointerMove => PointerMove(topLevel, topLevelId, x, y),
             InputActions.PointerDown => PointerButton(topLevel, topLevelId, x, y, InputActions.PointerDown, isPressed: true),
@@ -1534,6 +1544,10 @@ public sealed partial class AvaScopeBridgeRuntime
                     ["nextAction"] = "Read runtime.input capability metadata for parameter requirements and examples."
                 }))
         };
+        return result.Success ? CoreResult<InputResponse>.Ok(result.Value! with
+        {
+            Timing = new(started, Stopwatch.GetTimestamp(), Stopwatch.Frequency, Environment.ProcessId)
+        }) : result;
     }
 
     private CoreResult<InputResponse> ValidateInput(

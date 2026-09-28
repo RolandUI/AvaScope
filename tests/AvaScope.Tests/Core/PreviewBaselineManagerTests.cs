@@ -12,6 +12,45 @@ public sealed class PreviewBaselineManagerTests
     };
 
     [Fact]
+    public async Task TimedBaselinesAreRejectedBeforeRenderingOrWritingOutputs()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            var manager = new PreviewBaselineManager(new PreviewHostClient(Path.Combine(root, "missing-host.dll")));
+            var output = Path.Combine(root, "output");
+            var baselinePath = Path.Combine(root, "baseline.json");
+            var create = await manager.CreateAsync(new(Path.Combine(output, "image.png"), animationTimeOffsetMs: 0),
+                [new(80, 40)], baselinePath, output);
+            Assert.False(create.Success);
+            Assert.Equal(CoreErrorCodes.InvalidPreviewRequest, create.Error!.Code);
+            Assert.False(File.Exists(baselinePath));
+
+            var suitePath = Path.Combine(root, "suite.json");
+            await File.WriteAllTextAsync(suitePath, JsonSerializer.Serialize(new PreviewBaselineSuiteManifest(1, "animation",
+                [new("motion", "Sample.csproj", "Motion.axaml", sizes: [new(80, 40)])],
+                new(animationFramesMs: [0, 100])), JsonOptions));
+            var suite = await manager.CreateSuiteAsync(suitePath, baselinePath, output);
+            Assert.False(suite.Success);
+            Assert.Equal(CoreErrorCodes.InvalidPreviewRequest, suite.Error!.Code);
+            Assert.False(File.Exists(baselinePath));
+
+            await File.WriteAllTextAsync(baselinePath, JsonSerializer.Serialize(new PreviewBaselineManifest(1, DateTimeOffset.UtcNow,
+                [new(0, new(80, 40), Path.Combine(root, "legacy.png"), 96, animationTimeOffsetMs: 0)]), JsonOptions));
+            var check = await manager.CheckAsync(baselinePath, output, Path.Combine(output, "diff"), 0);
+            Assert.False(check.Success);
+            Assert.Equal(CoreErrorCodes.InvalidPreviewRequest, check.Error!.Code);
+            Assert.Contains("no measured playback intervals", check.Error.Message);
+            Assert.False(Directory.Exists(output));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public void ExpandSuiteManifestCreatesDeterministicVariantsAndMetadata()
     {
         var testRoot = Path.Combine(Path.GetTempPath(), "AvaScope.Tests", Guid.NewGuid().ToString("N"));

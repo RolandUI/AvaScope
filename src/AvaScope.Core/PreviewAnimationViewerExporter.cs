@@ -295,10 +295,13 @@ public sealed class PreviewAnimationViewerExporter
     private static string CreateFrameHtml(PreviewAnimationFrame frame)
     {
         var render = frame.Render.Value!;
+        var timing = render.AnimationTiming is { } measured
+            ? $"Observed {measured.EarliestElapsedMs:0.0}–{measured.LatestElapsedMs:0.0} ms; {(measured.WithinTolerance ? "within tolerance" : "inconclusive")}."
+            : "Timing unavailable.";
         return $$"""
             <figure>
-              <img alt="Animation frame at {{frame.TimeOffsetMs}}ms" src="data:image/png;base64,{{ReadImageData(render.FilePath)}}">
-              <figcaption>{{frame.TimeOffsetMs}}ms<br>{{Html(render.FilePath)}}</figcaption>
+              <img alt="Animation sample requested at {{frame.TimeOffsetMs}}ms" src="data:image/png;base64,{{ReadImageData(render.FilePath)}}">
+              <figcaption>Requested {{frame.TimeOffsetMs}}ms<br>{{Html(timing)}}<br>{{Html(render.FilePath)}}</figcaption>
             </figure>
             """;
     }

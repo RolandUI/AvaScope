@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Diagnostics;
 using AvaScope.Protocol;
 using SkiaSharp;
 
@@ -8,7 +9,8 @@ public sealed class RuntimeInteractionAnimationRunner
 {
     private const string Passed = "passed";
     private const string Failed = "failed";
-    private const int FrameStripLabelHeight = 34;
+    private const string Inconclusive = "inconclusive";
+    private const int FrameStripLabelHeight = 64;
     private const int FrameStripPadding = 8;
 
     public async Task<CoreResult<RuntimeInteractionAnimationResponse>> RunAsync(
@@ -48,7 +50,7 @@ public sealed class RuntimeInteractionAnimationRunner
             stepResults.Add(result);
             diagnostics.AddRange(result.Diagnostics);
 
-            if (result.Status == Failed)
+            if (result.Status != Passed)
             {
                 break;
             }
@@ -85,11 +87,9 @@ public sealed class RuntimeInteractionAnimationRunner
             frameStripPath = null;
         }
 
-        var status = stepResults.All(static step => step.Status == Passed)
-            && assertionResults.All(static assertion => assertion.Status == Passed)
-            && diagnostics.Count == 0
-                ? Passed
-                : Failed;
+        var status = diagnostics.Count > 0 || stepResults.Any(step => step.Status == Failed) || assertionResults.Any(assertion => assertion.Status == Failed)
+            ? Failed : stepResults.Any(step => step.Status == Inconclusive) || assertionResults.Any(assertion => assertion.Status == Inconclusive)
+                ? Inconclusive : Passed;
 
         return CoreResult<RuntimeInteractionAnimationResponse>.Ok(new RuntimeInteractionAnimationResponse(
             request.RequestId,
@@ -127,6 +127,8 @@ public sealed class RuntimeInteractionAnimationRunner
         };
         InputResponse? input = null;
         var frames = new List<RuntimeInteractionAnimationFrame>();
+        var elapsed = Stopwatch.StartNew();
+        var triggerCompletedMs = 0d;
 
         try
         {
@@ -157,6 +159,7 @@ public sealed class RuntimeInteractionAnimationRunner
                 }
 
                 input = inputResult.Value!;
+                triggerCompletedMs = elapsed.Elapsed.TotalMilliseconds;
                 if (step.WaitMs is > 0)
                 {
                     await Task.Delay(step.WaitMs.Value, cancellationToken);
@@ -171,15 +174,18 @@ public sealed class RuntimeInteractionAnimationRunner
                     outputDirectory,
                     step,
                     stepIndex,
+                    elapsed, triggerCompletedMs, input?.Timing,
                     cancellationToken);
                 frames.AddRange(captured.Frames);
                 diagnostics.AddRange(captured.Diagnostics);
             }
 
             metadata["capturedFrames"] = frames.Count.ToString(CultureInfo.InvariantCulture);
-            var status = diagnostics.Count == 0 ? Passed : Failed;
+            var status = diagnostics.Count > 0 ? Failed
+                : frames.Any(frame => frame.Timing?.WithinTolerance != true) ? Inconclusive : Passed;
             var message = status == Passed
                 ? $"Interaction step '{step.Id}' captured {frames.Count} frame(s)."
+                : status == Inconclusive ? "Animation timing could not be validated within the requested window; inspect measured intervals."
                 : diagnostics[0].Message;
 
             return new RuntimeInteractionAnimationStepResult(
@@ -210,6 +216,7 @@ public sealed class RuntimeInteractionAnimationRunner
         string outputDirectory,
         RuntimeInteractionAnimationStep step,
         int stepIndex,
+        Stopwatch elapsed, double triggerCompletedMs, RuntimeOperationTiming? trigger,
         CancellationToken cancellationToken)
     {
         var frames = new List<RuntimeInteractionAnimationFrame>();
@@ -222,17 +229,15 @@ public sealed class RuntimeInteractionAnimationRunner
             .Where(static nodeId => !string.IsNullOrWhiteSpace(nodeId))
             .Distinct(StringComparer.Ordinal)
             .ToArray();
-        var previousOffset = 0;
         var observedTargets = new Dictionary<string, RuntimeTargetContext>(StringComparer.Ordinal);
 
         for (var offsetIndex = 0; offsetIndex < offsets.Count; offsetIndex++)
         {
             var offset = offsets[offsetIndex];
-            var waitDelta = offsetIndex == 0 ? offset : offset - previousOffset;
-            previousOffset = offset;
+            var waitDelta = offset + (step.WaitMs ?? 0) + triggerCompletedMs - elapsed.Elapsed.TotalMilliseconds;
             if (waitDelta > 0)
             {
-                await Task.Delay(waitDelta, cancellationToken);
+                await Task.Delay(TimeSpan.FromMilliseconds(waitDelta), cancellationToken);
             }
 
             var frameId = $"{SanitizeFileToken(step.Id)}-{offsetIndex.ToString("00", CultureInfo.InvariantCulture)}-{offset.ToString(CultureInfo.InvariantCulture)}ms";
@@ -240,6 +245,7 @@ public sealed class RuntimeInteractionAnimationRunner
                 outputDirectory,
                 $"{(stepIndex + 1).ToString("00", CultureInfo.InvariantCulture)}-{frameId}.png");
 
+            var observationStartedMs = elapsed.Elapsed.TotalMilliseconds;
             var treeResult = await bridgeClient.VisualTreeAsync(
                 request.SessionId,
                 request.TopLevelId,
@@ -308,6 +314,31 @@ public sealed class RuntimeInteractionAnimationRunner
                     }));
             }
 
+            var observationCompletedMs = elapsed.Elapsed.TotalMilliseconds;
+            // The client interval conservatively includes trigger dispatch, IPC, tree,
+            // capture and any truncated-tree fallback. Prefer application-side monotonic
+            // spans when all samples originate from the same process/clock.
+            var timing = new AnimationSampleTiming(offset + (step.WaitMs ?? 0),
+                Math.Max(0, observationStartedMs - triggerCompletedMs), observationCompletedMs,
+                request.TimingToleranceMs, triggerCompletedMs == 0 ? "wait_step_client_interval" : "input_request_client_interval");
+            var treeTiming = treeResult.Value!.Timing;
+            var imageTiming = screenshotResult.Value!.Timing;
+            if (trigger is not null && treeResult.Value.ResponseBudget?.Truncated != true
+                && treeTiming is not null && imageTiming is not null
+                && trigger.TimestampFrequency > 0 && trigger.CompletedTimestamp >= trigger.StartedTimestamp
+                && treeTiming.TimestampFrequency == trigger.TimestampFrequency && imageTiming.TimestampFrequency == trigger.TimestampFrequency
+                && treeTiming.ProcessId == trigger.ProcessId && imageTiming.ProcessId == trigger.ProcessId
+                && treeTiming.StartedTimestamp >= trigger.CompletedTimestamp
+                && treeTiming.CompletedTimestamp >= treeTiming.StartedTimestamp
+                && imageTiming.StartedTimestamp >= treeTiming.CompletedTimestamp
+                && imageTiming.CompletedTimestamp >= imageTiming.StartedTimestamp)
+            {
+                timing = new AnimationSampleTiming(offset + (step.WaitMs ?? 0),
+                    (treeTiming.StartedTimestamp - trigger.CompletedTimestamp) * 1000d / trigger.TimestampFrequency,
+                    (imageTiming.CompletedTimestamp - trigger.StartedTimestamp) * 1000d / trigger.TimestampFrequency,
+                    request.TimingToleranceMs, "application_input_dispatch_interval");
+            }
+
             var overlayPath = Path.Combine(
                 outputDirectory,
                 $"{(stepIndex + 1).ToString("00", CultureInfo.InvariantCulture)}-{frameId}-geometry.png");
@@ -323,15 +354,16 @@ public sealed class RuntimeInteractionAnimationRunner
                 frameId,
                 offsetIndex,
                 offset,
-                DateTimeOffset.UtcNow,
+                screenshotResult.Value!.CapturedAt,
                 screenshotResult.Value!,
                 string.IsNullOrWhiteSpace(overlayPath) ? null : overlayPath,
                 geometry,
                 new Dictionary<string, string>
                 {
                     ["treeRoot"] = treeResult.Value!.Root.NodeId,
-                    ["geometrySnapshotCount"] = geometry.Count.ToString(CultureInfo.InvariantCulture)
-                }));
+                    ["geometrySnapshotCount"] = geometry.Count.ToString(CultureInfo.InvariantCulture),
+                    ["timingStatus"] = timing.WithinTolerance ? "within_tolerance" : Inconclusive
+                }) { Timing = timing });
         }
 
         return new FrameCaptureResult(frames, diagnostics);
@@ -347,6 +379,8 @@ public sealed class RuntimeInteractionAnimationRunner
                 steps
                     .Where(step => assertion.StepId is null || string.Equals(step.StepId, assertion.StepId, StringComparison.Ordinal))
                     .SelectMany(static step => step.Frames)
+                    .Where(frame => (assertion.FromOffsetMs is null || frame.OffsetMs >= assertion.FromOffsetMs)
+                        && (assertion.ToOffsetMs is null || frame.OffsetMs <= assertion.ToOffsetMs))
                     .ToArray()))
             .ToArray();
     }
@@ -386,13 +420,41 @@ public sealed class RuntimeInteractionAnimationRunner
 
         if (samples.Length == 0)
         {
-            status = Failed;
+            status = Inconclusive;
             message = $"Geometry assertion '{assertion.AssertionId}' did not match any captured frames.";
+        }
+        else if (values.Length != samples.Length)
+        {
+            status = Failed;
+            message = "Requested geometry was missing or unreadable in a captured observation.";
+        }
+        else if (frames.Any(frame => frame.Timing?.WithinTolerance != true))
+        {
+            status = Inconclusive;
+            message = "The sampled intervals do not establish this assertion within its timing window.";
         }
         else
         {
             switch (assertion.Mode)
             {
+                case RuntimeInteractionGeometryAssertionModes.Changed:
+                case RuntimeInteractionGeometryAssertionModes.Increasing:
+                case RuntimeInteractionGeometryAssertionModes.Decreasing:
+                    if (values.Length < 2 || values.Length != samples.Length)
+                    {
+                        status = Failed;
+                        message = "Motion requires at least two readable samples.";
+                        break;
+                    }
+                    var delta = values[^1] - values[0];
+                    var moving = assertion.Mode == RuntimeInteractionGeometryAssertionModes.Changed
+                        ? values.Max() - values.Min() > assertion.Tolerance
+                        : assertion.Mode == RuntimeInteractionGeometryAssertionModes.Increasing
+                            ? delta > assertion.Tolerance && values.Zip(values.Skip(1)).All(pair => pair.Second >= pair.First - assertion.Tolerance)
+                            : delta < -assertion.Tolerance && values.Zip(values.Skip(1)).All(pair => pair.Second <= pair.First + assertion.Tolerance);
+                    status = moving ? Passed : Failed;
+                    message = moving ? "Observed motion matches the requested direction." : "Expected motion was absent or changed in the wrong direction.";
+                    break;
                 case RuntimeInteractionGeometryAssertionModes.Stable:
                     if (values.Length != samples.Length)
                     {
@@ -656,12 +718,18 @@ public sealed class RuntimeInteractionAnimationRunner
 
                     canvas.DrawText(decoded[index].Frame.StepId, x, y + 16, SKTextAlign.Left, labelFont, labelPaint);
                     canvas.DrawText(
-                        $"{decoded[index].Frame.OffsetMs.ToString(CultureInfo.InvariantCulture)} ms",
+                        $"Requested {decoded[index].Frame.Timing?.RequestedOffsetMs ?? decoded[index].Frame.OffsetMs} ms",
                         x,
                         y + 31,
                         SKTextAlign.Left,
                         detailFont,
                         detailPaint);
+                    var timing = decoded[index].Frame.Timing;
+                    canvas.DrawText(timing is null ? "Timing unavailable"
+                        : FormattableString.Invariant($"Measured {timing.EarliestElapsedMs:0}-{timing.LatestElapsedMs:0} ms"),
+                        x, y + 46, SKTextAlign.Left, detailFont, detailPaint);
+                    canvas.DrawText(timing?.WithinTolerance == true ? "Within tolerance" : "Inconclusive timing",
+                        x, y + 61, SKTextAlign.Left, detailFont, detailPaint);
 
                     if (decoded[index].Bitmap is null)
                     {

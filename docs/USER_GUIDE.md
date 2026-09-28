@@ -394,9 +394,11 @@ dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll preview-animation path\
 
 The command writes per-offset PNG frames, an optional frame strip, and a structured `ToolResult<PreviewAnimationResponse>`. When `--viewer` is supplied, the response includes `viewer.previewUrl`, a `file://` URL for a self-contained HTML timeline viewer that embeds the sampled frames, motion summary, diagnostics, and JSON response.
 
-Animation sampling requests headless render ticks inside isolated PreviewHost child processes. In Avalonia 12.1.3 these ticks use elapsed wall-clock time; they do not advance a controllable animation clock. Requested offsets, including zero, are therefore **not verified animation times**. Each frame carries an `animation_frame_sampled` warning with `timeControl=wall_clock_uncontrolled` and `timingVerified=false`. Do not use these frames or animation baselines to assert an animation's state at a requested time. This limitation remains tracked in [#201](https://github.com/RolandUI/AvaScope/issues/201).
+Animation playback runs in one isolated PreviewHost instance. The real Avalonia dispatcher/render loop advances between absolute elapsed-time deadlines; loading, capture and PNG writing are not added as new delays before each frame. This is measured real time, not a virtual clock or seek API. `--timing-tolerance-ms` (default 100, range 0..5000) sets the allowed interval around each requested offset. Every frame's `animationTiming` contains `requestedOffsetMs`, `earliestElapsedMs`, `latestElapsedMs`, `toleranceMs`, `origin` and `withinTolerance`, even when diagnostic filters hide warnings. The complete response's `timingStatus` is `within_tolerance` only when every frame's capture interval fits; otherwise it is `inconclusive`. A successful tool call means recording completed, not that an animation assertion passed.
 
-Repeated offsets inside one request reuse the first successful frame for that offset; identical duplicate artifacts demonstrate caching, not deterministic animation timing. Pixel deltas and static/final-stability diagnostics describe the captured images only and cannot establish that the application's animation is static or finished. Moving-node or property metadata is reported with explicit `not_available` provenance when reliable public Avalonia APIs do not expose it. Explicit diagnostic severity/fingerprint filters still apply, so an errors-only response can omit this warning.
+By default, the origin is `window_attach_show`, measured just before attachment/show. Constructor work or arbitrary async application work may have started earlier. For an explicit trigger, pass `--trigger-class play --trigger-target-name Mover`: AvaScope warms the view, locates exactly one named control, then adds the previously absent class once and starts the measurement (`class_added`). Without a target name the content root is used. An already active class or missing/ambiguous target is rejected. For example, a style selected by `Border.play` can animate a named Border from width 20 to 120 over 800ms; sample `0,400,1000,1200` to inspect the beginning, middle, end and a later stability sample. MCP exposes the same `triggerClass`, `triggerTargetName` and `timingToleranceMs` arguments.
+
+Repeated offsets reuse the same observation and timing; cached duplicates are excluded from motion/stability analysis. Pixel deltas describe rendered observations, not compositor/native presentation or what happened between samples. Late observations cannot establish a timing assertion. Moving-property metadata remains `not_available` where public Avalonia APIs do not expose it. Exact-offset animation baseline creation/checking is refused because old manifests contain no measured timing; use this recording or runtime assertions instead. Ordinary static previews/baselines are unchanged.
 
 Create and manage durable preview sessions from the CLI:
 
@@ -974,7 +976,12 @@ Record frames after a real runtime interaction and assert geometry across the tr
 dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll record-interaction-animation --request .\interaction-animation.json
 ```
 
-`record-interaction-animation` returns `ToolResult<RuntimeInteractionAnimationResponse>` with one result per scripted input/wait step, per-frame screenshot paths, geometry overlay PNG paths, a labeled frame strip, and structured geometry assertion samples linked back to the triggering step and frame offset. Assertion modes include `stable`, `equals`, `within_range`, `final_stable`, and `not_clipped`; metrics include `x`, `y`, `width`, `height`, `left`, `top`, `right`, `bottom`, `center_x`, and `center_y`.
+`record-interaction-animation` returns `ToolResult<RuntimeInteractionAnimationResponse>` with one result per scripted input/wait step, per-frame screenshot paths, geometry overlay PNG paths, a labeled frame strip, and structured geometry assertion samples linked back to the triggering step and frame offset. Assertion modes include `changed`, `increasing`, `decreasing`, `stable`, `equals`, `within_range`, `final_stable`, and `not_clipped`; metrics include `x`, `y`, `width`, `height`, `left`, `top`, `right`, `bottom`, `center_x`, and `center_y`.
+
+Recording is armed before each input dispatch and triggers that input once. Offsets use absolute deadlines, so capture/IPC time does not accumulate into additional requested delays. Each frame has a measured `timing` interval and provenance. New bridges provide monotonic application-side input/tree/capture spans (`application_input_dispatch_interval`); older bridges or truncated-tree fallbacks use a conservative client interval. The interval includes uncertainty about the trigger point inside its handler and the time between geometry inspection and screenshot. It is not a native presentation timestamp. `waitMs`, if present, is added to the requested trigger-relative offset; assertion `fromOffsetMs`/`toOffsetMs` select the original frame offsets after that wait.
+
+Use `timingToleranceMs` separately from an assertion's numeric `tolerance`. `fromOffsetMs` and `toOffsetMs` bound which samples participate: assert `increasing` across the motion, `within_range` at the middle, `equals` in a final window, and `final_stable` across two later distinct samples. Assertions describe observed geometry only, not an arbitrary animated property or continuous stability between frames. If selected measurements miss their timing window, the assertion and recording report `inconclusive` and later scripted inputs are not dispatched. Check `value.status`, not only the outer `success` field. Missing/unreadable target geometry or transport/capture errors remain explicit failures; an empty assertion sample window is inconclusive.
+
 
 Apply a reversible runtime mutation and capture an agent evidence package:
 
@@ -1068,7 +1075,7 @@ dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll latest-run --run-index 
 
 The CLI/MCP response returns `agentReview` for first-pass triage, then `reportPack` for status, counts, metadata, and asset paths. It does not inline large images or unbounded report payloads.
 
-For agent repeatability across multiple views, sizes, themes, cultures, animation frames, and later runtime handoff, put the collection in a named suite manifest:
+For agent repeatability across multiple views, sizes, themes, cultures, and later runtime handoff, put the collection in a named suite manifest:
 
 ```json
 {
@@ -1079,7 +1086,6 @@ For agent repeatability across multiple views, sizes, themes, cultures, animatio
     "dpis": [96],
     "themes": ["light", "dark"],
     "cultures": ["en-US"],
-    "animationFramesMs": [0],
     "mutationPresetIds": ["wide-layout"],
     "comparisonRules": {
       "tolerance": 2,

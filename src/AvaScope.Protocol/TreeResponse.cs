@@ -4,6 +4,8 @@ namespace AvaScope.Protocol;
 
 public sealed record TreeResponse
 {
+    [JsonPropertyName("timing"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public RuntimeOperationTiming? Timing { get; init; }
     [JsonConstructor]
     public TreeResponse(
         SessionId sessionId,

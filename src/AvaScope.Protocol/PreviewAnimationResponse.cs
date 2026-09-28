@@ -32,6 +32,11 @@ public sealed record PreviewAnimationResponse
     [JsonPropertyName("frames")]
     public IReadOnlyList<PreviewAnimationFrame> Frames { get; }
 
+    [JsonPropertyName("timingStatus")]
+    public string TimingStatus => Frames.Count > 0 && Frames.All(frame =>
+        frame.Render.Success && frame.Render.Value?.AnimationTiming?.WithinTolerance == true)
+        ? "within_tolerance" : "inconclusive";
+
     [JsonPropertyName("frameStripPath")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? FrameStripPath { get; }

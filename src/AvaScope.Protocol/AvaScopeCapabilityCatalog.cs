@@ -448,7 +448,8 @@ public static class AvaScopeCapabilityCatalog
                 {
                     ["defaultFrameOffsetsMs"] = "0,100,250",
                     ["maximumFrameOffsets"] = RuntimeInteractionAnimationRequest.MaximumFrameCount.ToString(CultureInfo.InvariantCulture),
-                    ["assertionModes"] = "stable,equals,within_range,final_stable,not_clipped"
+                    ["assertionModes"] = "changed,increasing,decreasing,stable,equals,within_range,final_stable,not_clipped",
+                    ["timing"] = "measured_real_time; late_or_uncertain=inconclusive; defaultToleranceMs=100"
                 }),
             Capability(
                 AvaScopeCapabilityIds.RuntimeMutationContract,
@@ -521,7 +522,7 @@ public static class AvaScopeCapabilityCatalog
             Capability(
                 AvaScopeCapabilityIds.PreviewAnimation,
                 "preview",
-                "Render selected animation time offsets with optional frame strip and HTML viewer artifacts.",
+                "Record real-time playback in one preview with optional class trigger, measured capture intervals, timing tolerance, frame strip and HTML viewer. Late timing is inconclusive.",
                 ["preview-animation", "preview_axaml_animation"],
                 requires: [AvaScopeCapabilityIds.PreviewAxaml, AvaScopeCapabilityIds.ArtifactsHtmlViewer]),
             Capability(

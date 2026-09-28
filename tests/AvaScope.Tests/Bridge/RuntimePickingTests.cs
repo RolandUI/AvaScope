@@ -76,7 +76,7 @@ public sealed class RuntimePickingTests
             var recorded = await new RuntimeInteractionAnimationRunner().RunAsync(client, new(
                 runtime.SessionId, top.TopLevelId,
                 [new(RuntimeInteractionAnimationActions.Wait, targetNodeId: found.NodeId, frameOffsetsMs: [0])],
-                outputDirectory: output, maxDepth: 32,
+                outputDirectory: output, maxDepth: 32, timingToleranceMs: 5000,
                 assertions: [new(found.NodeId, "width", "not_clipped")]));
             Assert.True(recorded.Success && recorded.Value!.Status == "passed", JsonSerializer.Serialize(recorded));
             var frame = Assert.Single(Assert.Single(recorded.Value!.Steps).Frames);
@@ -143,7 +143,7 @@ public sealed class RuntimePickingTests
             var result = await new RuntimeInteractionAnimationRunner().RunAsync(client, new(
                 runtime.SessionId, top.TopLevelId,
                 [new(RuntimeInteractionAnimationActions.Wait, targetNodeId: found.NodeId, frameOffsetsMs: [0, 1])],
-                outputDirectory: output, maxDepth: 32, assertions:
+                outputDirectory: output, maxDepth: 32, timingToleranceMs: 5000, assertions:
                 [new(found.NodeId, "width", "equals", expectedValue: 80, tolerance: 0),
                  new(found.NodeId, "width", "not_clipped")]));
             Assert.True(result.Success, JsonSerializer.Serialize(result.Error));

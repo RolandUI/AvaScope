@@ -27,7 +27,7 @@
       <TextBlock Text="Animation sampling"
                  FontSize="26"
                  FontWeight="SemiBold" />
-      <TextBlock Text="AvaScope renders deterministic time-offset frames for agent-readable motion diagnostics."
+      <TextBlock Text="AvaScope samples real playback and reports measured capture times for motion validation."
                  TextWrapping="Wrap"
                  Opacity="0.78" />
     </StackPanel>

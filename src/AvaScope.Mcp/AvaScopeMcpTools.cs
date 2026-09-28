@@ -1040,7 +1040,7 @@ public sealed class AvaScopeMcpTools
         Destructive = false,
         OpenWorld = false,
         UseStructuredContent = true)]
-    [Description("Runs scripted local runtime input, records frame sequences after selected steps, writes geometry overlays and a frame strip, and returns per-frame geometry assertion results.")]
+    [Description("Arms observation before scripted local input, then samples real playback at absolute deadlines. Reports measured input/tree/capture intervals, geometry overlays and phase-window assertions. Check value.status: late or uncertain timing is inconclusive, distinct from a geometry failure; subsequent inputs are not dispatched.")]
     public static async Task<ToolResult<RuntimeInteractionAnimationResponse>> RecordInteractionAnimation(
         LocalBridgeClient bridgeClient,
         RuntimeInteractionAnimationRequest request,
@@ -1719,7 +1719,7 @@ public sealed class AvaScopeMcpTools
         Destructive = false,
         OpenWorld = false,
         UseStructuredContent = true)]
-    [Description("Renders animation samples for requested offsets through isolated preview host child processes. Animation time is not controlled or verified; frames cannot prove state at a requested time, and repeated offsets reuse cached images.")]
+    [Description("Records real-time animation playback in one isolated preview instance. Optionally add a trigger class after warm-up. Reports actual capture intervals and timing tolerance separately from requested offsets; late samples are inconclusive. Repeated offsets reuse the same observation, not independent evidence.")]
     public static async Task<ToolResult<PreviewAnimationResponse>> PreviewAxamlAnimation(
         PreviewHostClient previewHostClient,
         string outputPath,
@@ -1742,7 +1742,10 @@ public sealed class AvaScopeMcpTools
         McpMinimumSeverity minimumSeverity = McpMinimumSeverity.All,
         string? diagnosticsBaselinePath = null,
         IReadOnlyList<string>? diagnosticsBaselineFingerprints = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        int timingToleranceMs = 100,
+        string? triggerClass = null,
+        string? triggerTargetName = null)
     {
         ArgumentNullException.ThrowIfNull(previewHostClient);
 
@@ -1777,7 +1780,8 @@ public sealed class AvaScopeMcpTools
                     minimumSeverity.ToProtocolName(),
                     errorsOnly,
                     diagnosticsBaselinePath,
-                    diagnosticsBaselineFingerprints));
+                    diagnosticsBaselineFingerprints),
+                timingToleranceMs: timingToleranceMs, triggerClass: triggerClass, triggerTargetName: triggerTargetName);
         }
         catch (Exception exception) when (exception is ArgumentException or ArgumentOutOfRangeException)
         {

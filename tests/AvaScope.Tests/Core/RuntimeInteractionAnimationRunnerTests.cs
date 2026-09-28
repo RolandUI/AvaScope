@@ -62,6 +62,7 @@ public sealed class RuntimeInteractionAnimationRunnerTests : IDisposable
                     frameOffsetsMs: [0, 1, 2])
             ],
             requestId: "animation-core",
+            timingToleranceMs: 5000,
             outputDirectory: outputDirectory,
             frameStripPath: frameStripPath,
             assertions:

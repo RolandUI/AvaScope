@@ -10,17 +10,16 @@ reuses one binary set and build cache; historical local artifacts are discarded.
 `docs/DEVELOPMENT_PLAN.md` and GitHub carry current issue state. The scoped
 checkpoints below are historical observations, not still-pending batch statuses.
 
-After that gate, #201's timing-provenance slice changes only PreviewHost's
-animation diagnostic and the MCP tool description. Six focused regressions pass;
-the two real moving-animation cases fail before the correction. Actual CLI/MCP
-requests for 0/500/500ms carry the warning on all six frames, including cached
-duplicates. Two strips were reviewed: independent red widths are CLI85/78/78 and
-MCP71/67/67 versus the animation's declared20/70/70. This directly confirms that
-deterministic timing is still broken; #201 stays open. Both callers exit0 and no
-selected tool/PreviewHost process remains; MCP server shutdown exits-1 at its
-existing transport bound. Only four shared DLL/PDB outputs were replaced in
-place, without a new binary snapshot. Full CI for this source change is pending
-the next combined batch; the prior green gate does not validate this new slice.
+The owner revised #201 on 2026-09-28 to measured real-time validation. One preview
+instance samples absolute deadlines with an optional class trigger; actual capture
+intervals and timing tolerance remain visible even when diagnostics are filtered.
+Runtime input recording distinguishes successful motion/geometry assertions,
+observed failures and inconclusive timing, with phase-window selection. The local
+moving/stopped/delayed regressions and public CLI/MCP moving pixels are recorded
+in the development plan. Native Win32 recording demonstrates both an inconclusive
+200ms interval and a declared500ms pass; independent app state confirms triggering
+and stopping. This batch awaits one combined CI, including earlier926119d. No
+Retina or independent native-presentation coverage is inferred.
 
 The reused af6e2f3 standalone/provider set now verifies active-highlight input
 through a warm persistent MCP connection: synthetic and Win32 owned-window
@@ -50,9 +49,9 @@ override them.
 | Real agent environment and expanded fixtures | #162/#163/#172/#173 are closed with explicit native/state/reset/cleanup acceptance; #230 adds held work for cancellation. | Keep the reusable environment and bounded retention policy. |
 | Original control defects #158/#159/#160/#167 | Closed issue acceptance, real Direct/standalone journeys and regressions are recorded. | Preserve these cases in combined validation; the tool-count inventory alone is not evidence of execution. |
 | Native Retina rendering/capture #157/#161 | Implemented mitigations and other-platform validation exist. Real macOS 2x acceptance is still unperformed. | Accessible logged-in Retina desktop, sufficient logical geometry and authorized independent capture. |
-| Animation timing #201 | Actual pixels still disagree with requested times. 926119d fixes reporting only; six focused tests and CLI/MCP validate that slice. | Supported deterministic clock or an explicitly revised contract; new code still awaits the next combined CI. |
+| Animation timing #201 | Owner accepted measured real-time playback; moving/stopped/delayed local tests and actual CLI/MCP journeys validate the replacement. | One combined CI must pass before closure; no virtual seeking or native-presentation guarantee. |
 | Eleven original timing/build/IPC/lock causes | Diagnostic/safety changes and scoped later passes are verified; nine stale review/ready issue states are now blocked with individual evidence triggers. | Captured recurrence/reproducing environment, using existing bounded diagnostics. Passing repetitions are not causal proof. |
-| Fresh comprehensive applicable round | Earlier scoped charters and d7562ed full CI pass; known animation failure and platform/observer gaps remain. | This requirement is incomplete. Do not close #174 or the overall goal from the green CI or invocation count. |
+| Fresh comprehensive applicable round | Earlier scoped charters and d7562ed full CI pass; the pending animation gate and platform/observer gaps remain. | This requirement is incomplete. Do not close #174 or the overall goal from the green CI or invocation count. |
 | Independent native pixels and HTML viewer review | Earlier native observations exist; current local OS/browser routes remain unavailable. | Restore an authorized supported observation route; do not bypass the recorded restrictions. |
 
 The existing Windows/macOS TRX was read in memory to verify the named diagnostic
@@ -411,8 +410,8 @@ response; the owned tree exited. A separate 90s observer permits the unchanged
 60s product deadline and cleanup, and returns the normal XAML failure in 29.675s.
 Its later success does not explain the original child delay. Registry success
 with `lastRender.success=false` is the existing documented metadata contract,
-not a successful render. Moving animation timing remains unresolved in #201;
-the static control is not timing coverage. This round does not repeat the
+not a successful render. At that historical checkpoint #201 was unresolved;
+the static control was not timing coverage. See the revised contract above. This round does not repeat the
 previous public baseline-check journeys.
 
 The shared final d7562ed CI 36335386524 passes all six jobs: Windows 1166/eight

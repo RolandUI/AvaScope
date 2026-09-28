@@ -4,6 +4,8 @@ namespace AvaScope.Protocol;
 
 public sealed record InputResponse
 {
+    [JsonPropertyName("timing"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public RuntimeOperationTiming? Timing { get; init; }
     [JsonPropertyName("correlationId")] public string? CorrelationId { get; init; }
     [JsonConstructor]
     public InputResponse(

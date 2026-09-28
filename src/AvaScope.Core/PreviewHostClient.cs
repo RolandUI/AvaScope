@@ -60,11 +60,22 @@ public sealed class PreviewHostClient
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
+        var result = await RunRequestAsync<PreviewResponse>(request, false,
+            TimeSpan.FromMilliseconds(request.AnimationTimeOffsetMs ?? 0), cancellationToken);
+        return result.Success
+            ? CoreResult<PreviewResponse>.Ok(await BoundDiagnosticsAsync(result.Value!, request.DiagnosticOptions, cancellationToken))
+            : result;
+    }
+
+    private async Task<CoreResult<T>> RunRequestAsync<T>(object request, bool animation,
+        TimeSpan playbackDuration, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
 
         if (!File.Exists(HostAssemblyPath))
         {
             var fullHostAssemblyPath = Path.GetFullPath(HostAssemblyPath);
-            return CoreResult<PreviewResponse>.Fail(new CoreError(
+            return CoreResult<T>.Fail(new CoreError(
                 CoreErrorCodes.PreviewHostUnavailable,
                 $"Preview host assembly '{fullHostAssemblyPath}' was not found.",
                 CreateHostReadinessDetails(fullHostAssemblyPath, "host_assembly")));
@@ -84,17 +95,11 @@ public sealed class PreviewHostClient
                 JsonSerializer.Serialize(request, JsonOptions),
                 cancellationToken);
 
-            var result = await RunPreviewHostAsync(requestPath, cancellationToken);
-            return result.Success
-                ? CoreResult<PreviewResponse>.Ok(await BoundDiagnosticsAsync(
-                    result.Value!,
-                    request.DiagnosticOptions,
-                    cancellationToken))
-                : result;
+            return await RunPreviewHostAsync<T>(requestPath, animation, playbackDuration, cancellationToken);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException)
         {
-            return CoreResult<PreviewResponse>.Fail(new CoreError(
+            return CoreResult<T>.Fail(new CoreError(
                 CoreErrorCodes.PreviewHostFailed,
                 exception.Message));
         }
@@ -133,7 +138,8 @@ public sealed class PreviewHostClient
             response.StateVariant,
             response.RunIndex,
             processed.Summary,
-            processed.ArtifactPath);
+            processed.ArtifactPath,
+            response.AnimationTiming);
     }
 
     public async Task<CoreResult<PreviewBatchResponse>> RenderBatchAsync(
@@ -270,54 +276,25 @@ public sealed class PreviewHostClient
     {
         ArgumentNullException.ThrowIfNull(request);
 
+        var recorded = await RunRequestAsync<IReadOnlyList<PreviewAnimationFrame>>(request, true,
+            TimeSpan.FromMilliseconds(request.TimeOffsetsMs.Max()), cancellationToken);
+        if (!recorded.Success)
+            return CoreResult<PreviewAnimationResponse>.Fail(recorded.Error!);
+
         var frames = new List<PreviewAnimationFrame>(request.TimeOffsetsMs.Count);
-        var cachedFrames = new Dictionary<int, PreviewAnimationFrame>();
+        var captured = recorded.Value!.ToDictionary(frame => frame.TimeOffsetMs);
         foreach (var offset in request.TimeOffsetsMs)
         {
+            if (!captured.TryGetValue(offset, out var sample))
+                return CoreResult<PreviewAnimationResponse>.Fail(new CoreError(CoreErrorCodes.PreviewHostFailed,
+                    "Preview host did not return every requested animation sample."));
             var outputPath = CreateAnimationFrameOutputPath(request.OutputPath, offset, frames.Count);
-            if (cachedFrames.TryGetValue(offset, out var cachedFrame))
-            {
-                var copiedFrame = TryCreateCachedAnimationFrame(cachedFrame, outputPath);
-                if (!copiedFrame.Success)
-                {
-                    return CoreResult<PreviewAnimationResponse>.Fail(copiedFrame.Error!);
-                }
-
-                frames.Add(copiedFrame.Value!);
-                continue;
-            }
-
-            var frameRequest = new PreviewRequest(
-                outputPath,
-                request.Width,
-                request.Height,
-                request.Dpi,
-                request.ProjectPath,
-                request.ViewPath,
-                request.ThemeVariant,
-                request.Culture,
-                request.DesignDataType,
-                offset,
-                request.StateVariant,
-                request.BuildOutputRoot,
-                request.AssemblyPath,
-                request.NoBuild,
-                request.DiagnosticOptions);
-
-            var result = await RenderAsync(frameRequest, cancellationToken);
-            frames.Add(new PreviewAnimationFrame(
-                offset,
-                outputPath,
-                result.Success
-                    ? ToolResult<PreviewResponse>.Ok(result.Value!)
-                    : ToolResult<PreviewResponse>.Fail(new ProtocolError(
-                        result.Error!.Code,
-                        result.Error.Message,
-                        result.Error.Details))));
-            if (result.Success)
-            {
-                cachedFrames[offset] = frames[^1];
-            }
+            var frame = string.Equals(sample.OutputPath, Path.GetFullPath(outputPath), StringComparison.Ordinal)
+                ? CoreResult<PreviewAnimationFrame>.Ok(sample)
+                : TryCreateCachedAnimationFrame(sample, outputPath);
+            if (!frame.Success) return CoreResult<PreviewAnimationResponse>.Fail(frame.Error!);
+            frames.Add(new PreviewAnimationFrame(offset, outputPath, ToolResult<PreviewResponse>.Ok(
+                await BoundDiagnosticsAsync(frame.Value!.Render.Value!, request.DiagnosticOptions, cancellationToken))));
         }
 
         var diagnostics = new List<PreviewDiagnostic>();
@@ -370,8 +347,10 @@ public sealed class PreviewHostClient
         return CoreResult<PreviewAnimationResponse>.Ok(response);
     }
 
-    private async Task<CoreResult<PreviewResponse>> RunPreviewHostAsync(
+    private async Task<CoreResult<T>> RunPreviewHostAsync<T>(
         string requestPath,
+        bool animation,
+        TimeSpan playbackDuration,
         CancellationToken cancellationToken)
     {
         using var process = new Process
@@ -387,14 +366,14 @@ public sealed class PreviewHostClient
         };
 
         process.StartInfo.ArgumentList.Add(HostAssemblyPath);
-        process.StartInfo.ArgumentList.Add("--request");
+        process.StartInfo.ArgumentList.Add(animation ? "--animation-request" : "--request");
         process.StartInfo.ArgumentList.Add(requestPath);
 
         try
         {
             if (!process.Start())
             {
-                return CoreResult<PreviewResponse>.Fail(new CoreError(
+                return CoreResult<T>.Fail(new CoreError(
                     CoreErrorCodes.PreviewHostUnavailable,
                     $"Could not start preview host '{HostAssemblyPath}'.",
                     CreateHostReadinessDetails(HostAssemblyPath, "dotnet_cli")));
@@ -402,7 +381,7 @@ public sealed class PreviewHostClient
         }
         catch (Exception exception) when (exception is System.ComponentModel.Win32Exception or InvalidOperationException)
         {
-            return CoreResult<PreviewResponse>.Fail(new CoreError(
+            return CoreResult<T>.Fail(new CoreError(
                 CoreErrorCodes.PreviewHostUnavailable,
                 $"Could not start preview host '{HostAssemblyPath}': {exception.Message}",
                 CreateHostReadinessDetails(HostAssemblyPath, "dotnet_cli", exception)));
@@ -413,7 +392,7 @@ public sealed class PreviewHostClient
         var stderrTask = process.StandardError.ReadToEndAsync(outputCancellation.Token);
         var elapsed = Stopwatch.StartNew();
 
-        using var deadline = new CancellationTokenSource(_operationTimeout, _timeProvider);
+        using var deadline = new CancellationTokenSource(_operationTimeout + playbackDuration, _timeProvider);
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, deadline.Token);
 
         string stdout;
@@ -431,14 +410,14 @@ public sealed class PreviewHostClient
             {
                 ["hostProcessId"] = process.Id.ToString(CultureInfo.InvariantCulture),
                 ["hostElapsedMs"] = elapsed.ElapsedMilliseconds.ToString(CultureInfo.InvariantCulture),
-                ["operationTimeoutMs"] = _operationTimeout.TotalMilliseconds.ToString(CultureInfo.InvariantCulture),
+                ["operationTimeoutMs"] = (_operationTimeout + playbackDuration).TotalMilliseconds.ToString(CultureInfo.InvariantCulture),
                 ["outputContent"] = "withheld",
                 ["nextAction"] = "Inspect the retained host phase and build-log availability. The timed-out request was not retried."
             };
             ReadHostProgress(requestPath, process.Id, details);
             await StopPreviewHostAsync(process, stdoutTask, stderrTask, outputCancellation, details);
             cancellationToken.ThrowIfCancellationRequested();
-            return CoreResult<PreviewResponse>.Fail(new CoreError(
+            return CoreResult<T>.Fail(new CoreError(
                 CoreErrorCodes.PreviewHostUnavailable,
                 "Preview host request timed out.",
                 details));
@@ -446,7 +425,7 @@ public sealed class PreviewHostClient
 
         if (!string.IsNullOrWhiteSpace(stderr))
         {
-            return CoreResult<PreviewResponse>.Fail(new CoreError(
+            return CoreResult<T>.Fail(new CoreError(
                 CoreErrorCodes.PreviewHostFailed,
                 stderr.Trim(),
                 new Dictionary<string, string>(StringComparer.Ordinal)
@@ -458,14 +437,14 @@ public sealed class PreviewHostClient
                 }));
         }
 
-        ToolResult<PreviewResponse>? result;
+        ToolResult<T>? result;
         try
         {
-            result = JsonSerializer.Deserialize<ToolResult<PreviewResponse>>(stdout, JsonOptions);
+            result = JsonSerializer.Deserialize<ToolResult<T>>(stdout, JsonOptions);
         }
         catch (JsonException exception)
         {
-            return CoreResult<PreviewResponse>.Fail(new CoreError(
+            return CoreResult<T>.Fail(new CoreError(
                 CoreErrorCodes.PreviewHostFailed,
                 exception.Message,
                 new Dictionary<string, string>(StringComparer.Ordinal)
@@ -480,7 +459,7 @@ public sealed class PreviewHostClient
 
         if (result is null)
         {
-            return CoreResult<PreviewResponse>.Fail(new CoreError(
+            return CoreResult<T>.Fail(new CoreError(
                 CoreErrorCodes.PreviewHostFailed,
                 "Preview host returned an empty response.",
                 CreateHostReadinessDetails(HostAssemblyPath, "host_response")));
@@ -488,7 +467,7 @@ public sealed class PreviewHostClient
 
         if (!result.Success)
         {
-            return CoreResult<PreviewResponse>.Fail(new CoreError(
+            return CoreResult<T>.Fail(new CoreError(
                 result.Error!.Code,
                 result.Error.Message,
                 result.Error.Details));
@@ -496,7 +475,7 @@ public sealed class PreviewHostClient
 
         if (process.ExitCode != 0)
         {
-            return CoreResult<PreviewResponse>.Fail(new CoreError(
+            return CoreResult<T>.Fail(new CoreError(
                 CoreErrorCodes.PreviewHostFailed,
                 $"Preview host exited with code {process.ExitCode}.",
                 new Dictionary<string, string>(StringComparer.Ordinal)
@@ -509,11 +488,11 @@ public sealed class PreviewHostClient
         }
 
         return result.Value is null
-            ? CoreResult<PreviewResponse>.Fail(new CoreError(
+            ? CoreResult<T>.Fail(new CoreError(
                 CoreErrorCodes.PreviewHostFailed,
                 "Preview host success response did not contain a value.",
                 CreateHostReadinessDetails(HostAssemblyPath, "host_response")))
-            : CoreResult<PreviewResponse>.Ok(result.Value);
+            : CoreResult<T>.Ok(result.Value);
     }
 
     private static IReadOnlyDictionary<string, string> CreateHostReadinessDetails(
@@ -638,7 +617,9 @@ public sealed class PreviewHostClient
             cachedRender.DesignDataType,
             diagnostics,
             cachedRender.AnimationTimeOffsetMs,
-            stateVariant: cachedRender.StateVariant);
+            projectInfo: cachedRender.ProjectInfo,
+            stateVariant: cachedRender.StateVariant,
+            animationTiming: cachedRender.AnimationTiming);
 
         return CoreResult<PreviewAnimationFrame>.Ok(new PreviewAnimationFrame(
             cachedFrame.TimeOffsetMs,
@@ -794,6 +775,8 @@ public sealed class PreviewHostClient
             .Where(static frame => frame.Render.Success
                 && frame.Render.Value is not null
                 && File.Exists(frame.Render.Value.FilePath))
+            .DistinctBy(static frame => frame.TimeOffsetMs)
+            .OrderBy(static frame => frame.TimeOffsetMs)
             .ToArray();
 
         if (successfulFrames.Length < 2)

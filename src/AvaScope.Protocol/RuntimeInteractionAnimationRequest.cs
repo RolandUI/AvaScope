@@ -14,6 +14,9 @@ public static class RuntimeInteractionGeometryAssertionModes
     public const string WithinRange = "within_range";
     public const string FinalStable = "final_stable";
     public const string NotClipped = "not_clipped";
+    public const string Changed = "changed";
+    public const string Increasing = "increasing";
+    public const string Decreasing = "decreasing";
 }
 
 public static class RuntimeInteractionGeometryMetrics
@@ -49,7 +52,8 @@ public sealed record RuntimeInteractionAnimationRequest
         string? frameStripPath = null,
         int maxDepth = 16,
         IReadOnlyList<int>? defaultFrameOffsetsMs = null,
-        IReadOnlyList<RuntimeInteractionGeometryAssertion>? assertions = null)
+        IReadOnlyList<RuntimeInteractionGeometryAssertion>? assertions = null,
+        int timingToleranceMs = 100)
     {
         SessionId = sessionId ?? throw new ArgumentNullException(nameof(sessionId));
 
@@ -86,6 +90,9 @@ public sealed record RuntimeInteractionAnimationRequest
         MaxDepth = maxDepth;
         DefaultFrameOffsetsMs = NormalizeOffsets(defaultFrameOffsetsMs, nameof(defaultFrameOffsetsMs));
         Assertions = assertions ?? [];
+        if (timingToleranceMs is < 0 or > 5000)
+            throw new ArgumentOutOfRangeException(nameof(timingToleranceMs), "Timing tolerance must be between 0 and 5000 milliseconds.");
+        TimingToleranceMs = timingToleranceMs;
     }
 
     [JsonPropertyName("requestId")]
@@ -116,6 +123,9 @@ public sealed record RuntimeInteractionAnimationRequest
 
     [JsonPropertyName("assertions")]
     public IReadOnlyList<RuntimeInteractionGeometryAssertion> Assertions { get; }
+
+    [JsonPropertyName("timingToleranceMs")]
+    public int TimingToleranceMs { get; }
 
     internal static IReadOnlyList<int> NormalizeOffsets(IReadOnlyList<int>? offsets, string parameterName)
     {
@@ -260,7 +270,9 @@ public sealed record RuntimeInteractionGeometryAssertion
         double? expectedValue = null,
         double? minValue = null,
         double? maxValue = null,
-        double tolerance = 1)
+        double tolerance = 1,
+        int? fromOffsetMs = null,
+        int? toOffsetMs = null)
     {
         if (string.IsNullOrWhiteSpace(targetNodeId))
         {
@@ -291,6 +303,10 @@ public sealed record RuntimeInteractionGeometryAssertion
         MinValue = minValue;
         MaxValue = maxValue;
         Tolerance = tolerance;
+        if (fromOffsetMs is < 0 || toOffsetMs is < 0 || fromOffsetMs > toOffsetMs)
+            throw new ArgumentOutOfRangeException(nameof(fromOffsetMs), "Assertion offset window must be ordered and nonnegative.");
+        FromOffsetMs = fromOffsetMs;
+        ToOffsetMs = toOffsetMs;
     }
 
     [JsonPropertyName("assertionId")]
@@ -323,4 +339,10 @@ public sealed record RuntimeInteractionGeometryAssertion
 
     [JsonPropertyName("tolerance")]
     public double Tolerance { get; }
+
+    [JsonPropertyName("fromOffsetMs"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? FromOffsetMs { get; }
+
+    [JsonPropertyName("toOffsetMs"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? ToOffsetMs { get; }
 }

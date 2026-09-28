@@ -89,7 +89,8 @@ public sealed record RuntimeInteractionAnimationResponse
     {
         var assertionFailures = Assertions
             .Where(static assertion => assertion.Status != "passed")
-            .Select(static assertion => new AgentReviewFailure("interaction_animation", assertion.Message, "interaction_geometry_assertion_failed"));
+            .Select(static assertion => new AgentReviewFailure("interaction_animation", assertion.Message,
+                assertion.Status == "inconclusive" ? "interaction_geometry_assertion_inconclusive" : "interaction_geometry_assertion_failed"));
         var diagnosticFailures = Diagnostics
             .Select(static diagnostic => new AgentReviewFailure("interaction_animation", diagnostic.Message, diagnostic.Code));
         var failures = assertionFailures
@@ -208,6 +209,8 @@ public sealed record RuntimeInteractionAnimationStepResult
 
 public sealed record RuntimeInteractionAnimationFrame
 {
+    [JsonPropertyName("timing"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public AnimationSampleTiming? Timing { get; init; }
     public const int MaximumSnapshots = 64;
 
     [JsonConstructor]

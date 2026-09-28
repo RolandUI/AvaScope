@@ -69,7 +69,7 @@ internal static class Program
         {
             WriteResult(ToolResult<PreviewResponse>.Fail(new ProtocolError(
                 PreviewHostErrorCodes.InvalidArguments,
-                "Usage: AvaScope.PreviewHost --request <request.json>")));
+                "Usage: AvaScope.PreviewHost --request <request.json> | --animation-request <request.json>")));
             return 2;
         }
 
@@ -77,18 +77,26 @@ internal static class Program
         {
             _progressPath = Path.GetFullPath(requestPath) + ".progress.json";
             ReportProgress("request");
-            var request = await ReadRequestAsync(requestPath);
+            var animation = args[0] == "--animation-request"
+                ? JsonSerializer.Deserialize<PreviewAnimationRequest>(await File.ReadAllTextAsync(requestPath), JsonOptions)
+                    ?? throw new JsonException("Animation request is missing.")
+                : null;
+            var request = animation?.ToPreviewRequest() ?? await ReadRequestAsync(requestPath);
+            var animationFrames = new List<PreviewAnimationFrame>();
             ReportProgress("avalonia_setup");
             BuildAvaloniaApp(request.ProjectPath).SetupWithoutStarting();
 
             var result = Dispatcher.UIThread.CheckAccess()
-                ? Render(request)
+                ? Render(request, animation, animationFrames)
                 : await Dispatcher.UIThread
-                    .InvokeAsync(() => Render(request), DispatcherPriority.Send)
+                    .InvokeAsync(() => Render(request, animation, animationFrames), DispatcherPriority.Send)
                     .GetTask();
 
             ReportProgress("response");
-            WriteResult(result);
+            if (animation is null) WriteResult(result);
+            else WriteResult(result.Success
+                ? ToolResult<IReadOnlyList<PreviewAnimationFrame>>.Ok(animationFrames)
+                : ToolResult<IReadOnlyList<PreviewAnimationFrame>>.Fail(result.Error!));
             return result.Success ? 0 : 1;
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException or ArgumentException)
@@ -151,7 +159,7 @@ internal static class Program
 
     private static string? GetRequestPath(IReadOnlyList<string> args)
     {
-        if (args.Count != 2 || !string.Equals(args[0], "--request", StringComparison.Ordinal))
+        if (args.Count != 2 || args[0] is not ("--request" or "--animation-request"))
         {
             return null;
         }
@@ -237,7 +245,8 @@ internal static class Program
         }
     }
 
-    private static ToolResult<PreviewResponse> Render(PreviewRequest request)
+    private static ToolResult<PreviewResponse> Render(PreviewRequest request,
+        PreviewAnimationRequest? animation = null, List<PreviewAnimationFrame>? animationFrames = null)
     {
         ReportProgress("paths");
         var pathsResult = ResolvePreviewPaths(request);
@@ -344,6 +353,9 @@ internal static class Program
         }
 
         var resolvedThemeVariant = ResolveThemeVariant(request.ThemeVariant);
+        // Attachment/show is the declared trigger. Construction and code-behind before
+        // this point are not represented as animation time zero.
+        var playback = Stopwatch.StartNew();
         var window = CreateRenderWindow(
             content,
             dimensions,
@@ -357,42 +369,63 @@ internal static class Program
             Dispatcher.UIThread.RunJobs();
             EnsurePreviewBackground(content, window, resolvedThemeVariant);
             Dispatcher.UIThread.RunJobs();
-            AddAnimationSamplingDiagnostic(diagnostics, request.AnimationTimeOffsetMs);
-            AdvanceAnimationOffset(request.AnimationTimeOffsetMs);
             AddSourceDiagnostics(diagnostics, sourceMetadata, content, window, resolvedThemeVariant, fullProjectPath, projectInfo);
             AddLayoutDiagnostics(diagnostics, window);
 
-            ReportProgress("capture");
-            using var frame = window.CaptureRenderedFrame();
-            if (frame is null)
+            var timingOrigin = "window_attach_show";
+            if (animation?.TriggerClass is { } triggerClass)
             {
-                return ToolResult<PreviewResponse>.Fail(new ProtocolError(
-                    PreviewHostErrorCodes.RenderFailed,
-                    "Preview host did not produce a rendered frame.",
-                    CreateRenderDetails(fullProjectPath, fullViewPath, fullOutputPath)));
+                using var initialFrame = window.CaptureRenderedFrame();
+                var targets = animation.TriggerTargetName is null ? [content]
+                    : content.GetVisualDescendants().OfType<Control>().Prepend(content)
+                        .Where(control => control.Name == animation.TriggerTargetName).ToArray();
+                if (targets.Length != 1 || targets[0].Classes.Contains(triggerClass))
+                    return ToolResult<PreviewResponse>.Fail(new ProtocolError(PreviewHostErrorCodes.InvalidArguments,
+                        "Animation trigger requires one target and a class that is not already active."));
+                timingOrigin = "class_added";
+                playback.Restart();
+                targets[0].Classes.Add(triggerClass);
             }
 
-            ReportProgress("save");
-            using (var stream = File.Create(fullOutputPath))
+            var offsets = animation?.TimeOffsetsMs.Distinct().Order().ToArray()
+                ?? [request.AnimationTimeOffsetMs ?? 0];
+            PreviewResponse? last = null;
+            foreach (var offset in offsets)
             {
-                frame.Save(stream, PngBitmapEncoderOptions.Default);
-            }
+                if (animation is not null || request.AnimationTimeOffsetMs is not null)
+                    WaitForAnimationOffset(playback, offset);
+                ReportProgress("capture");
+                var captureStarted = playback.Elapsed.TotalMilliseconds;
+                using var frame = window.CaptureRenderedFrame();
+                var captureCompleted = playback.Elapsed.TotalMilliseconds;
+                if (frame is null)
+                    return ToolResult<PreviewResponse>.Fail(new ProtocolError(
+                        PreviewHostErrorCodes.RenderFailed, "Preview host did not produce a rendered frame.",
+                        CreateRenderDetails(fullProjectPath, fullViewPath, fullOutputPath)));
 
-            return ToolResult<PreviewResponse>.Ok(new PreviewResponse(
-                fullOutputPath,
-                frame.PixelSize.Width,
-                frame.PixelSize.Height,
-                request.Dpi,
-                DateTimeOffset.UtcNow,
-                fullProjectPath,
-                fullViewPath,
-                request.ThemeVariant,
-                request.Culture,
-                request.DesignDataType,
-                diagnostics,
-                request.AnimationTimeOffsetMs,
-                projectInfo,
-                request.StateVariant));
+                var timing = animation is not null || request.AnimationTimeOffsetMs is not null
+                    ? new AnimationSampleTiming(offset, captureStarted, captureCompleted,
+                        animation?.TimingToleranceMs ?? 100, timingOrigin) : null;
+                var frameDiagnostics = new List<PreviewDiagnostic>(diagnostics);
+                AddAnimationSamplingDiagnostic(frameDiagnostics, timing);
+                var output = fullOutputPath;
+                if (animation is not null)
+                {
+                    var index = animation.TimeOffsetsMs.ToList().IndexOf(offset);
+                    var extension = Path.GetExtension(fullOutputPath);
+                    if (string.IsNullOrEmpty(extension)) extension = ".png";
+                    output = Path.Combine(Path.GetDirectoryName(fullOutputPath)!,
+                        $"{Path.GetFileNameWithoutExtension(fullOutputPath)}-{index + 1:00}-{offset}ms{extension}");
+                }
+                ReportProgress("save");
+                using (var stream = File.Create(output)) frame.Save(stream, PngBitmapEncoderOptions.Default);
+                last = new PreviewResponse(output, frame.PixelSize.Width, frame.PixelSize.Height,
+                    request.Dpi, DateTimeOffset.UtcNow, fullProjectPath, fullViewPath, request.ThemeVariant,
+                    request.Culture, request.DesignDataType, frameDiagnostics,
+                    timing is null ? null : offset, projectInfo, request.StateVariant, animationTiming: timing);
+                animationFrames?.Add(new PreviewAnimationFrame(offset, output, ToolResult<PreviewResponse>.Ok(last)));
+            }
+            return ToolResult<PreviewResponse>.Ok(last!);
         }
         finally
         {
@@ -401,28 +434,39 @@ internal static class Program
         }
     }
 
-    private static void AddAnimationSamplingDiagnostic(List<PreviewDiagnostic> diagnostics, int? timeOffsetMs)
+    private static void AddAnimationSamplingDiagnostic(List<PreviewDiagnostic> diagnostics, AnimationSampleTiming? timing)
     {
-        if (timeOffsetMs is null)
-        {
-            return;
-        }
-
+        if (timing is null) return;
         AddDiagnostic(diagnostics, new PreviewDiagnostic(
-            PreviewDiagnosticSeverities.Warning,
+            timing.WithinTolerance ? PreviewDiagnosticSeverities.Info : PreviewDiagnosticSeverities.Warning,
             PreviewDiagnosticCategories.Animation,
-            "animation_frame_sampled",
-            "PreviewHost captured a render-tick sample; the requested animation time offset is not controlled or verified.",
+            timing.WithinTolerance ? "animation_frame_sampled" : "animation_sample_late",
+            timing.WithinTolerance
+                ? "Captured real playback within the requested timing window; this is not virtual-time seeking."
+                : "Capture missed the requested timing window. Timing validation is inconclusive, not an animation failure.",
             details: new Dictionary<string, string>
             {
                 ["phase"] = "animation_sampling",
-                ["provenance"] = "headless_render_timer",
-                ["timeOffsetMs"] = timeOffsetMs.Value.ToString(CultureInfo.InvariantCulture),
-                ["headlessRenderTicks"] = CalculateHeadlessRenderTicks(timeOffsetMs.Value).ToString(CultureInfo.InvariantCulture),
-                ["timeControl"] = "wall_clock_uncontrolled",
-                ["timingVerified"] = "false",
-                ["suggestedAction"] = "Do not use these frames to assert animation state at a requested time. Repeated offsets reuse pixels and do not establish timing accuracy."
+                ["timeControl"] = "measured_real_time",
+                ["timingOrigin"] = timing.Origin,
+                ["timeOffsetMs"] = timing.RequestedOffsetMs.ToString(CultureInfo.InvariantCulture),
+                ["earliestElapsedMs"] = timing.EarliestElapsedMs.ToString("R", CultureInfo.InvariantCulture),
+                ["latestElapsedMs"] = timing.LatestElapsedMs.ToString("R", CultureInfo.InvariantCulture),
+                ["toleranceMs"] = timing.ToleranceMs.ToString(CultureInfo.InvariantCulture),
+                ["timingVerified"] = timing.WithinTolerance ? "within_tolerance" : "inconclusive",
+                ["scope"] = "Rendered capture interval relative to the declared origin; not compositor presentation or constructor/async-code start."
             }));
+    }
+
+    private static void WaitForAnimationOffset(Stopwatch playback, int offset)
+    {
+        var remaining = TimeSpan.FromMilliseconds(offset) - playback.Elapsed;
+        if (remaining <= TimeSpan.Zero) return;
+        var dispatcherFrame = new DispatcherFrame();
+        // Pump the real dispatcher/render loop while waiting. Never block the UI
+        // thread or reinterpret a count of render ticks as elapsed animation time.
+        using var timer = DispatcherTimer.RunOnce(() => dispatcherFrame.Continue = false, remaining);
+        Dispatcher.UIThread.PushFrame(dispatcherFrame);
     }
 
     private static void AddProjectDiagnostics(List<PreviewDiagnostic> diagnostics, PreviewProjectInfo projectInfo)
@@ -524,33 +568,6 @@ internal static class Program
             details: designData.StateVariantDetails));
     }
 
-    private static void AdvanceAnimationOffset(int? timeOffsetMs)
-    {
-        if (timeOffsetMs is null)
-        {
-            return;
-        }
-
-        Dispatcher.UIThread.RunJobs();
-        var renderTicks = CalculateHeadlessRenderTicks(timeOffsetMs.Value);
-        if (renderTicks > 0)
-        {
-            AvaloniaHeadlessPlatform.ForceRenderTimerTick(renderTicks);
-        }
-
-        Dispatcher.UIThread.RunJobs();
-    }
-
-    private static int CalculateHeadlessRenderTicks(int timeOffsetMs)
-    {
-        if (timeOffsetMs <= 0)
-        {
-            return 0;
-        }
-
-        const double frameDurationMs = 1000d / 60d;
-        return Math.Max(1, (int)Math.Ceiling(timeOffsetMs / frameDurationMs));
-    }
 
     private static void AddSourceDiagnostics(
         List<PreviewDiagnostic> diagnostics,
@@ -3397,7 +3414,7 @@ internal static class Program
         };
     }
 
-    private static void WriteResult(ToolResult<PreviewResponse> result)
+    private static void WriteResult<T>(ToolResult<T> result)
     {
         Console.WriteLine(JsonSerializer.Serialize(result, JsonOptions));
     }
