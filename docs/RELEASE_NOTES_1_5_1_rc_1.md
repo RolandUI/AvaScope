@@ -73,8 +73,13 @@ The stabilization source passed all six jobs of
 [CI 36386091375](https://github.com/RolandUI/AvaScope/actions/runs/36386091375):
 Windows 1177 passed/eight skipped, macOS 1174/ten, Linux 33/zero. Nine scripted
 native lifecycle cases passed at scale 1; they do not establish Retina fidelity.
-The RC release workflow separately rebuilds and validates its exact versioned
-packages, provider, executable ZIPs and installers before publication.
+The exact RC at `842e752` passed
+[Release 36397875663](https://github.com/RolandUI/AvaScope/actions/runs/36397875663):
+1189 tests passed, eight skipped, zero failed; build had zero warnings/errors.
+The separate Windows installer test, package/provider/manifest checks, preview
+smoke and publication dry-runs passed. After publication, tag identity, artifact
+digests, both Mac ZIP architecture/version identities, provider file hashes and
+all three public NuGet package versions were independently verified.
 
 Remaining stabilization gaps include the two Retina acceptance reports above and
 eleven unresolved original timing/build/IPC/lock causes
