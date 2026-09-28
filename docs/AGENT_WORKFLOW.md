@@ -1,374 +1,51 @@
 # AvaScope Agent Workflow
 
-This workflow is for agents using AvaScope as a local control plane for an Avalonia project. It uses the packaged CLI path when available because that is closest to the stable public release shape.
+Use this decision loop when controlling an Avalonia application. The [user guide](USER_GUIDE.md) owns command examples and options; [executable recipes](AGENT_RECIPES.md) cover onboarding and repeatable scenarios. Repository development follows the separate [project workflow](GITHUB_PROJECT_WORKFLOW.md).
 
-The intended agent loop is: check readiness, preview the UI, inspect a running app, act through bounded local commands, capture evidence, and clean up explicit local state. AvaScope returns structured JSON and file paths so an agent can make follow-up decisions without parsing screenshots or terminal text as the source of truth.
+## 1. Select Tools And Check Readiness
 
-For a short entry path, executable examples and measured clean/environment/application trials, use [agent recipes and evaluation](AGENT_RECIPES.md). Recipe conformance and agent outcomes are reported separately.
-
-Use the session's observed backends and each input/screenshot's [runtime provenance](RUNTIME_PROVENANCE.md) when assessing test coverage. Headless, automation-provider, synthetic input, and control rendering have different guarantees; missing or unknown evidence does not establish native desktop coverage.
-
-Use [explicit input strategies](INPUT_STRATEGIES.md) for compound/native actions and [session control and run recovery](RUN_RECOVERY.md) when coordinating clients or recovering an interrupted scenario.
-
-Use [action explanations](ACTION_EXPLANATIONS.md) when a target is blocked or its activation point is uncertain. Separate proven blockers from correlated validation and app-declared reasons; revalidate geometry before pointer dispatch.
-
-Use [action maps](ACTION_MAP.md) to find an operation by label, route, description or shortcut before acting. Open lazy routes explicitly, then re-observe their current targets. Distinguish declared key bindings from menu text that only displays a shortcut.
-
-Use [focus and navigation evidence](FOCUS_NAVIGATION.md) to explain where keyboard input goes. Compare framework focus with native activation and distinguish predictions from explicit state-changing Tab probes.
-
-Use [relationship selectors and typed projections](RELATIONSHIP_QUERIES.md) to distinguish repeated controls by their container, row or explicit label, and to request only selected field values. Treat partial coverage and missing/redacted values explicitly before deciding an action.
-
-Use [typed runtime expressions](RUNTIME_EXPRESSIONS.md) for counts, numeric relationships and compound assertions across controls. Reuse the same definition in a workflow wait or action postcondition; incomplete/redacted observations remain indeterminate.
-
-Use [dispatch preconditions](DISPATCH_PRECONDITIONS.md) when the selected document, row or expected value matters to an action. Check the returned dispatch status; preserve idempotency and inspect uncertain outcomes before another decision.
-
-Use [desired-state actions](DESIRED_STATE_ACTIONS.md) to ensure a check, expansion, value, text or selection state without reversing an already satisfied result. Preserve the exact request ID/payload after a lost response and inspect partial or uncertain outcomes before another intent.
-
-Use [form workflows](FORM_WORKFLOWS.md) to read explicit field labels, values, choices and validation, then fill a bounded plan with per-field verification. Inspect appearing or changing fields before a subsequent plan; submit remains a separate explicit operation.
-
-Use [table workflows](TABLE_WORKFLOWS.md) for typed DataGrid filters, projections and bounded paging. Select or edit by observed row key and generation, and inspect coverage before drawing conclusions about the available data. A complete public collection view does not establish complete application or server data.
-
-Use [workflow export and replay](WORKFLOW_EXPORT.md) to turn a recorded AvaScope workflow into a parameterized regression. Review missing assertions and unstable targets, validate against fresh bindings, then explicitly execute with the existing runner.
-
-The [native platform matrix](NATIVE_PLATFORM_MATRIX.md) provides repeatable packaged CLI/MCP lifecycle, modal, popup, focus, resize, failure-evidence and cleanup checks for Headless, Windows, Linux X11 and macOS.
-
-Use [runtime readiness](RUNTIME_READINESS.md) to distinguish bridge availability, window creation, a completed frame and optional application readiness. Scoped stability waits and capture-after-render are bounded and do not require global application idleness.
-
-Use [`observe`](RUNTIME_OBSERVATIONS.md) for one bounded request containing selected windows, focus, visual fragments, available actions, validation and optional screenshot evidence. Check per-part availability and sampled consistency before acting.
-
-Use [`observe_changes`](RUNTIME_OBSERVATION_CHANGES.md) to continue a scoped cursor with bounded changes and compact unchanged results. Check resynchronization and artifact requirements before advancing the cursor; intermediate states between samples may coalesce.
-
-Use the [testability audit and virtual item workflow](TESTABILITY_AND_VIRTUAL_ITEMS.md) when selectors are ambiguous or list/table rows are unrealized. Prefer verified scoped recommendations and explicit stable logical keys.
-
-Use [host-declared test fixtures](TEST_FIXTURES.md) for repeatable seeded, empty or offline test state. Select a declared test-resource identity and let the scenario runner verify readiness and perform required cleanup.
-
-## 1. Create And Install A Local Release
+Use an installed or unpacked release; build only when validating changed source. Follow [installation and discovery](USER_GUIDE.md#install-from-release-artifacts), then:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1
-.\artifacts\executables\AvaScopeSetup.exe
+avascope --version
+avascope capabilities
+avascope doctor
+avascope diagnostics --max-sessions 10 --mode active-only
 ```
 
-Use the installed command when it is available:
+Gate features by capability IDs, not descriptions or version guesses. Select the exact project/provider/backend with [target readiness](TARGET_READINESS.md). After attach, query `session-capabilities`: the server catalog does not prove the connected app's support. Use isolated manifest/preview stores for fixture validation and default stores only when diagnosing the current installation.
+
+## 2. Observe The Selected App Or Preview
+
+For a view without a running app, use [preview profiles](USER_GUIDE.md#preview-and-profiles), [animation sampling](USER_GUIDE.md#preview-animation) or [preview sessions](USER_GUIDE.md#preview-sessions). Preview executes project code in an isolated process; it does not run the application's full startup lifecycle.
+
+For runtime work, activate the bridge explicitly and select the returned session. Inspect windows, then request a bounded [observation](RUNTIME_OBSERVATIONS.md) or find a target by stable selector. Carry generation-scoped node IDs only into immediate follow-ups. Use [relationship queries](RELATIONSHIP_QUERIES.md) for repeated controls and [action explanations](ACTION_EXPLANATIONS.md) for blocked targets.
+
+Check availability, truncation, geometry and [runtime provenance](RUNTIME_PROVENANCE.md) before deciding. A partial tree or empty audit is not proof of absence; [audit coverage](USER_GUIDE.md#audits) and [native accessibility](NATIVE_ACCESSIBILITY.md) have distinct limits.
+
+## 3. Act Once And Verify
+
+Prefer [desired-state actions](DESIRED_STATE_ACTIONS.md) or a [semantic workflow](USER_GUIDE.md#semantic-workflows) with stable selectors, typed waits and an explicit `verify` postcondition. Re-resolve targets immediately before dispatch. Use [dispatch preconditions](DISPATCH_PRECONDITIONS.md) when document, row or value identity matters.
+
+Choose [input strategy](INPUT_STRATEGIES.md) explicitly when native behavior is required. Successful dispatch does not establish the application outcome. Do not repeat an uncertain side effect; preserve request IDs/idempotency keys and inspect the result through [run recovery](RUN_RECOVERY.md).
+
+For an owned build/launch/workflow, use [run-scenario](USER_GUIDE.md#scenario-lifecycle) and check `failureStage`, workflow status and cleanup separately. Follow the user guide's [task reference](USER_GUIDE.md#task-reference) for forms, tables, text editing, focus, windows and declared application actions.
+
+## 4. Review Evidence
+
+Inspect operation status and bounded `agentReview` first, then relevant referenced artifacts. Compare expected application state with the actual observation; retain missing evidence as an explicit limitation. Use [screen evidence](SCREEN_EVIDENCE.md) when desktop presentation matters: a rendered screenshot or headless result does not establish native visibility.
+
+For visual changes use [diffs/baselines](USER_GUIDE.md#visual-comparison); never accept a changed baseline automatically. For timing assertions inspect measured intervals and `inconclusive` outcomes in [runtime animation](USER_GUIDE.md#interaction-animation).
+
+Runtime mutations are [reversible experiments](USER_GUIDE.md#runtime-mutations). Review before/after evidence, reset overlapping overrides in reverse order, and inspect advisory source suggestions before editing source.
+
+Apply [evidence policy](USER_GUIDE.md#workflow-evidence-and-privacy) to all referenced artifacts as well as inline output. Incomplete trees cannot prove that selective screenshot masking covered every sensitive control.
+
+## 5. Close Owned State
 
 ```powershell
-$avascope = "avascope"
-& $avascope --version
+avascope close-session --session <session-id>
+avascope close-preview-session --session <preview-session-id>
 ```
 
-If the current shell has not picked up the user `PATH` change yet, read `%LOCALAPPDATA%\AvaScope\avascope.discovery.json` and use `commandPath`, or fall back to the packaged Windows CLI printed by the release script:
-
-```powershell
-$avascope = ".\artifacts\executables\avascope-win-x64-framework-dependent\avascope.exe"
-```
-
-Agent discovery order is `PATH` command first, `%LOCALAPPDATA%\AvaScope\avascope.discovery.json` second, `%LOCALAPPDATA%\AvaScope\bin` and `%LOCALAPPDATA%\AvaScope\current` third, and repository or unpacked artifact paths last.
-
-On macOS, select `osx-arm64` for Apple Silicon or `osx-x64` for Intel. Before execution, match the installer's SHA-256 to its entry in `release-manifest.json`; then run `chmod +x avascope-osx-<architecture>-installer` and the installer. It installs under `~/Library/Application Support/AvaScope`, writes the managed shim to `~/.local/bin/avascope`, does not use `sudo`, and does not edit shell profiles. Agent discovery order is `PATH`, `~/Library/Application Support/AvaScope/avascope.discovery.json`, `~/.local/bin/avascope`, then the unpacked artifact. The artifacts are unsigned and unnotarized. If the verified installer is quarantined, use `xattr -d com.apple.quarantine <installer>` or macOS Privacy & Security > Open Anyway; stop and report the boundary if MDM or administrator policy still blocks execution.
-
-## 2. Run Readiness Checks
-
-Use isolated paths when validating package health so old local sessions do not affect the result:
-
-```powershell
-& $avascope doctor --manifest-dir .\artifacts\samples\agent-workflow\sessions --preview-session-store .\artifacts\samples\agent-workflow\preview-sessions
-```
-
-Use default paths when diagnosing the user's current machine state:
-
-```powershell
-& $avascope capabilities
-& $avascope --version
-& $avascope doctor
-& $avascope diagnostics --max-sessions 10 --mode active-only
-```
-
-`--version`, `capabilities.productVersion`, `doctor.productVersion`, and MCP `serverInfo.version` report the same product version for bug reports and artifact provenance. `capabilities` returns the current protocol/tool manifest, including runtime mutation, preview, diagnostics, baseline, report, and artifact feature ids. Treat capability descriptions as planning hints and use `capabilities[].id`, `tools[]`, and `--require` for compatibility decisions. Use `capabilities --require <id>[,<id>...]` before newer workflows when an agent needs an explicit compatibility gate; unsupported requirements return `capability_not_supported` with actionable details instead of relying on package-version guessing. `doctor` exits non-zero when co-located AvaScope assemblies are missing or stale diagnostic records need attention. `diagnostics --mode active-only` returns useful active bridge/preview sessions while summarizing stale/invalid counts in `summary` and `nextCommands`; use `--mode all` when detailed stale records are needed. Diagnostics responses include `componentOrigins` for `cli`, `mcp`, and `previewHost` assembly/base/root/source metadata and report `diagnostics_mixed_install_roots` when those components resolve from different roots.
-
-## 3. Preview A View
-
-The getting-started sample includes `avascope.preview.json` with a `main` profile and named variants:
-
-```powershell
-& $avascope preview .\samples\AvaScope.GettingStartedApp\AvaScope.GettingStartedApp.csproj --profile main --out .\artifacts\samples\agent-workflow\main-preview.png --run-index .\artifacts\samples\agent-workflow\run-indexes --task main-preview
-& $avascope preview .\samples\AvaScope.GettingStartedApp\AvaScope.GettingStartedApp.csproj --profile main --variant dark
-& $avascope latest-run --run-index .\artifacts\samples\agent-workflow\run-indexes --task main-preview
-```
-
-For another app, either pass explicit options:
-
-```powershell
-& $avascope preview path\to\App.csproj --view Views\MainView.axaml --out .\artifacts\samples\app-preview.png --width 1440 --height 900 --theme light
-```
-
-or add `avascope.preview.json` beside the project:
-
-```json
-{
-  "profiles": {
-    "main": {
-      "view": "Views/MainView.axaml",
-      "out": "../../artifacts/samples/main-preview.png",
-      "width": 1440,
-      "height": 900,
-      "theme": "light",
-      "designDataType": "MyApp.Design.PreviewData",
-      "variants": {
-        "dark": {
-          "theme": "dark",
-          "out": "../../artifacts/samples/main-preview-dark.png"
-        }
-      }
-    }
-  }
-}
-```
-
-Variants are applied after the base profile and before explicit CLI options. Preview responses include `projectInfo` for project path, assembly name, target framework selection, build configuration, output assembly path, and App.axaml path when available. When `--run-index <dir>` is supplied, responses also include `runIndex` pointing at `run-index.json`, `run-index.html`, and `latest-run.json`; agents can call `latest-run` by task or project/view selector instead of scanning artifact directories.
-
-## 4. Sample An Animation
-
-The getting-started sample also includes an `animation` profile:
-
-```powershell
-& $avascope preview-animation .\samples\AvaScope.GettingStartedApp\AvaScope.GettingStartedApp.csproj --profile animation
-```
-
-The command returns `ToolResult<PreviewAnimationResponse>` with per-offset frame paths, an optional frame strip, motion diagnostics, and an optional `viewer.previewUrl`. Open the returned `file://` URL in the Codex in-app browser to review the sampled timeline without starting a server.
-
-For another app, pass explicit offsets and viewer paths:
-
-```powershell
-& $avascope preview-animation path\to\App.csproj --view Views\AnimatedView.axaml --out .\artifacts\samples\animation.png --time-offsets 0,150,900,900 --width 720 --height 420 --theme light --frame-strip .\artifacts\samples\animation-strip.png --viewer .\artifacts\samples\animation.html
-```
-
-Animation sampling uses one isolated PreviewHost instance with measured real-time deadlines. Requested offsets and measured capture intervals are distinct; repeated offsets reuse one observation and do not count as independent stability samples. See the [user guide](USER_GUIDE.md) for trigger, timing-tolerance and assertion semantics. Publicly unavailable animation metadata remains `not_available`; rendered frames do not establish native presentation timing.
-
-## 5. Use Durable Preview Sessions
-
-```powershell
-& $avascope create-preview-session .\samples\AvaScope.GettingStartedApp\AvaScope.GettingStartedApp.csproj --profile main
-& $avascope list-preview-sessions
-& $avascope reload-preview-session --session <preview-session-id>
-& $avascope preview-viewer --session <preview-session-id> --out .\artifacts\samples\main-preview-viewer.html
-& $avascope watch-preview-session --session <preview-session-id> --timeout-ms 30000 --settle-ms 250 --max-reloads 1
-& $avascope close-preview-session --session <preview-session-id>
-```
-
-Preview sessions persist request metadata only. Each render still runs through an isolated `AvaScope.PreviewHost` child process. Duplicate watcher bursts that leave the watched input snapshot unchanged are reported as `skipped` instead of launching another host process.
-
-`preview-viewer` returns a `previewUrl` pointing at a generated file-backed HTML viewer. Open that URL in the Codex in-app browser to review the rendered screenshot, preview metadata, diagnostics, and session JSON beside the thread without starting a server. Agents should read `agentReview.previewUrls` and `agentReview.reportPaths` first, then load the full session payload only when deeper context is needed.
-
-Preview failures include bounded `error.details.phase` values. Treat `readiness` as a local prerequisite problem, `build` as user project build output, and `render` as isolated view loading or rendering failure.
-
-`watch-preview-session` also returns `lifecycle`. In the stable v1 surface, persistent preview hosts are disabled; the lifecycle status documents one-shot child-process rendering plus the deferred close, TTL, crash, and cleanup requirements.
-
-## 6. Inspect A Running App
-
-Start the sample with the opt-in bridge:
-
-```powershell
-$env:AVASCOPE_SAMPLE_BRIDGE = "1"
-dotnet run --project .\samples\AvaScope.GettingStartedApp\AvaScope.GettingStartedApp.csproj
-```
-
-In another terminal:
-
-```powershell
-& $avascope diagnostics --max-sessions 10
-& $avascope attach --session <runtime-session-id>
-& $avascope attach --process-name AvaScope.GettingStartedApp
-& $avascope list-top-levels --session <runtime-session-id> --manifest-dir <manifest-dir>
-& $avascope visual-tree --session <runtime-session-id> --top-level <topLevel:id> --max-depth 4
-& $avascope find-nodes --session <runtime-session-id> --top-level <topLevel:id> --type TextBlock --max-depth 6
-& $avascope find-nodes --session <runtime-session-id> --top-level <topLevel:id> --automation-id save-button --visible true --enabled true --rendered true --actionable true
-& $avascope inspect-node --session <runtime-session-id> --top-level <topLevel:id> --node <node-id>
-& $avascope audit-ui --session <runtime-session-id> --top-level <topLevel:id> --max-depth 8 --max-issues 100 --max-inventory 100 --run-index .\artifacts\samples\agent-workflow\run-indexes --task runtime-audit
-```
-
-Use `--manifest-dir` on follow-up runtime commands when the inspected app writes bridge manifests outside the default temp location. `attach` also accepts `--process`, `--process-name`, `--session`, and `--manifest` so agents can avoid ambiguous selection when multiple bridge-enabled apps are running.
-
-Use the `target` object returned by `visual-tree`, `logical-tree`, `find-nodes`, `inspect-node`, `audit-ui`, `screenshot`, and `input` only as the handoff source for an immediate follow-up command. It contains the current generation context; raw `visual:*` and `logical:*` node ids are diagnostic evidence, not persistent workflow identity. Tree/search/inspect nodes expose `interactionState` with `visible`, `enabled`, `rendered`, `actionable`, and `availableActions`. Repeated workflows should use stable identity fields plus `actionable: true` where input is intended.
-
-`audit-ui` builds a bounded accessibility, validation, and component inventory report from the runtime tree. It reports missing accessible names, missing stable automation ids, keyboard focus metadata, runtime validation errors, control/class/component-pattern inventory, and explicit `not_available` entries for style/resource/template/theme scopes that the runtime tree cannot prove reliably. With `--run-index`, the audit response writes a task latest pointer containing diagnostics and warnings for later agent handoff.
-
-Control accessibility metadata exposes `effectiveAutomationName` from Avalonia's
-public automation peer, including header, label and custom-peer behavior. The
-existing `automationName` retains the attached property's declared value. The optional
-`automationNameStatus` is `available`, `empty`, or `unavailable`; the last means
-the peer could not be read and produces `accessibility.name_unavailable` in an
-audit. An observed empty peer name remains missing even if the control has an
-internal `Name` or visible content. Older responses without this status retain
-the legacy metadata fallback. Evidence policy omits the optional status when it
-withholds that metadata; absence does not establish an empty or unavailable peer.
-Excluded and redacted names retain their privacy markers. Other fields describe their
-attached properties; peer-name provenance is explicit. This metadata does not
-replace comparison with the actual platform accessibility tree.
-
-Check audit coverage before interpreting a clean result. UI audit
-`summary.sourceTruncated` distinguishes incomplete source evidence from bounded
-issue/inventory output; tree nodes mark omitted descendants with
-`childrenTruncated`. Audits can consume the bridge's full tree artifact only after
-verifying its content hash, selected session/window/generation, size (16 MiB),
-node count (8192) and depth (64). Missing, mismatched or over-budget evidence
-remains partial. Requested depth limits are preserved. A missing design scope in
-partial evidence returns `design_quality_scope_unavailable`, not proof of absence.
-CLI `audit-ui` exits 1 for incomplete source coverage; its complete audit can
-still report findings with exit 0. CLI `design-audit` exits 1 for active findings,
-partial coverage or failure. MCP keeps available findings in successful partial
-results and exposes the coverage/diagnostics. Validation findings include
-noninteractive controls. Coverage applies to the captured runtime tree, not all
-unrealized model items or every possible application state.
-
-Use `design-audit` for task-scoped visual quality review after a UI change:
-
-```powershell
-@{
-  sessionId = "<runtime-session-id>"
-  topLevelId = "<topLevel:id>"
-  scopeName = "ChangedSurface"
-  onlyChangedNodes = $false
-  excludeTypes = @("Popup")
-  suppressions = @(
-    @{ code = "design.surface.unintended_1px_seam"; reason = "intentional separator" }
-  )
-} | ConvertTo-Json -Depth 8 | Set-Content .\artifacts\samples\design-audit.json
-
-& $avascope design-audit --request .\artifacts\samples\design-audit.json
-```
-
-The response separates active `findings` from `ignoredFindings`. Findings cover alignment, spacing, repeated heights, low-contrast indicators, unintended thin seams, radius/layering mismatch, and wrapping/density issues using runtime bounds plus available source/property metadata. Scope filters by node id, name, automation id, source path, region, or changed node/source lists; exclusions and suppressions are echoed in ignored findings instead of disappearing silently.
-
-Runtime bridge activation is always explicit and local-only. AvaScope does not open a network listener.
-
-## 7. Capture And Compare
-
-```powershell
-& $avascope screenshot --session <runtime-session-id> --top-level <topLevel:id> --out .\artifacts\samples\runtime-screenshot.png
-& $avascope diff --baseline .\artifacts\samples\main-preview.png --current .\artifacts\samples\runtime-screenshot.png --out .\artifacts\samples\runtime-diff.png --tolerance 2
-& $avascope semantic-diff --reference .\artifacts\samples\main-preview.png --current .\artifacts\samples\runtime-screenshot.png --out-dir .\artifacts\samples\semantic-diff --tolerance 2
-```
-
-Use `semantic-diff` when a user asks what looks wrong compared with a supplied reference screenshot. It keeps raw connected pixel regions separate from heuristic findings such as center mismatch, padding difference, border or seam difference, and wrapping difference. Treat finding `provenance` and `confidence` as visual evidence, not source-level certainty.
-
-For preview-only visual regression:
-
-```powershell
-& $avascope baseline-create .\samples\AvaScope.GettingStartedApp\AvaScope.GettingStartedApp.csproj --view Views\MainView.axaml --manifest .\artifacts\samples\baselines\getting-started.json --sizes 720x420,360x240 --theme light --design-data-type AvaScope.GettingStartedApp.SamplePreviewData
-& $avascope baseline-check --manifest .\artifacts\samples\baselines\getting-started.json --out-dir .\artifacts\samples\baselines\current --diff-dir .\artifacts\samples\baselines\diff --report .\artifacts\samples\baselines\report.json --report-pack .\artifacts\samples\baselines\report-pack --run-index .\artifacts\samples\agent-workflow\run-indexes --task getting-started-baseline --tolerance 0
-& $avascope latest-run --run-index .\artifacts\samples\agent-workflow\run-indexes --task getting-started-baseline
-```
-
-For repeatable agent validation suites, use `baseline-create --suite <suite.json> --manifest <baseline.json>`. The suite manifest can name multiple entries, variant defaults, explicit variants, profiles, runtime target metadata, mutation preset references, animation frame offsets, and `comparisonRules`. Rules support `tolerance`, `maxChangedPixels`, `maxChangedPercent`, `ignoredRegions`, and `requiredRegions`; defaults remain strict when no rules are configured. The generated baseline manifest remains compatible with `baseline-check --manifest`; runtime target and mutation preset fields are structured handoff metadata in this slice.
-
-For agent or CI review, prefer `--report-pack <dir>` and `--run-index <dir>`. The response includes `reportPack.status`, pass/fail counts, environment metadata, and asset paths for JSON, HTML, JUnit XML, and SARIF-style summaries. It also includes `agentReview` with a bounded failure shortlist, report paths, failed-entry current/diff artifact paths, local review URLs, and `runIndex` with the latest pointer. Upload the report-pack directory with the current/diff image directories and run-index directory; agents should inspect `agentReview` and `runIndex` first and then read the JSON/HTML paths instead of relying on terminal output.
-
-For older JSON-only report workflows, collect the report/current/diff outputs into a single artifact directory:
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\collect-baseline-artifacts.ps1 -Report .\artifacts\samples\baselines\report.json -OutDir .\artifacts\samples\baselines\upload
-```
-
-## 8. Send Narrow Runtime Input
-
-```powershell
-& $avascope input --session <runtime-session-id> --top-level <topLevel:id> --action focus --target-node <node-id>
-& $avascope input --session <runtime-session-id> --top-level <topLevel:id> --action key_text --target-node <textBox-node-id> --text "hello"
-& $avascope input --session <runtime-session-id> --top-level <topLevel:id> --action clear_text --target-node <textBox-node-id>
-& $avascope input --session <runtime-session-id> --top-level <topLevel:id> --action click --x 120 --y 40
-& $avascope input --session <runtime-session-id> --top-level <topLevel:id> --action click --target-node <button-node-id>
-& $avascope input --session <runtime-session-id> --top-level <topLevel:id> --action select --target-node <tabItem-node-id>
-& $avascope input --session <runtime-session-id> --top-level <topLevel:id> --action toggle --target-node <toggle-node-id>
-& $avascope input --session <runtime-session-id> --top-level <topLevel:id> --action expand --target-node <expander-node-id>
-& $avascope input --session <runtime-session-id> --top-level <topLevel:id> --action drag --target-node <slider-node-id> --direction end --duration-ms 300
-& $avascope input --session <runtime-session-id> --top-level <topLevel:id> --action swipe --target-node <card-node-id> --direction left --distance-percent 75 --duration-ms 200
-& $avascope input --session <runtime-session-id> --top-level <topLevel:id> --action drag --target-node <card-node-id> --destination-target-node <column-node-id> --duration-ms 350
-& $avascope input --session <runtime-session-id> --top-level <topLevel:id> --action press_and_hold --target-node <menu-node-id> --duration-ms 800
-```
-
-Selector-resolved workflow `click` steps and direct target-only clicks use the center of current target bounds automatically. Supply both explicit coordinates only when an offset inside the selected Button is required; explicit coordinates take precedence. Prefer semantic workflow steps with stable selectors for repeated scenarios: `invoke`, `select`, `toggle`, `expand`, and `collapse` resolve the selected node and use its public Avalonia automation provider. `drag`, `swipe`, `long_press`, and `press_and_hold` also derive their coordinates from the target's current bounds. Directional gestures accept an optional distance percentage; source-to-target workflow steps use `destinationSelector`. Range controls prefer public `IRangeValueProvider`, with a bounded routed-pointer fallback for custom controls. Pointer fallback keeps the initial pressed element or its current public Avalonia capture as the move/release route, then clears residual capture; this lets a narrow template part finish a gesture whose endpoint lies elsewhere in the parent control. Gesture results report path, bounds, duration, and provider provenance; invalid or stale targets fail before dispatch, and cancellation releases a pressed pointer.
-
-For an owned app lifecycle, prefer one `run-scenario` request with an optional structured `build`, a command or project `launch`, tokenized `argumentList`, bounded readiness timeout, and `terminateLaunchedProcess: true`. Treat `failureStage` as the recovery key: inspect the referenced build or launch stdout/stderr before retrying build, launch, readiness, or attach failures. Use returned `topLevels` and the attached session for workflow evidence. Cleanup is exact-process only and verifies session, PID, and process start time; never work around `not_owned` or PID-reuse evidence by killing a process separately.
-
-For an app-defined custom-control operation, call `custom-actions` for the current node first, inspect `executable`, `requiredState`, `parameters`, and `safetyClassification`, then call `invoke-custom-action`. Prefer workflow `custom_actions` and `custom_action` steps when a stable selector is available. The bridge is disabled for custom actions unless the app explicitly opts in and allowlists the exact names; destructive classifications additionally require app and request authorization. Unknown, unavailable, non-executable, disallowed, ambiguous, and stale targets remain structured failures with candidate or capability diagnostics.
-
-For asynchronous UI state, put bounded `wait_for_node`, `wait_for_state`, or `wait_for_dialog` steps in the workflow instead of client polling. `waitCondition.kind` covers existence/disappearance, visible/hidden, enabled/disabled, checked/unchecked, selected/text/value, non-zero rendered bounds, command executability, binding value, top-level open/close, and change from an explicit or first-observed baseline. Use typed `equals`, `not_equals`, numeric ordering, or `changed` comparisons. The runner re-resolves selectors on every poll; disappearance and top-level close do not require a surviving runtime id. Inspect `waitObservation` on success and the bounded last observation/candidates/elapsed/next-action metadata on failure; unavailable public state is distinct from a false condition timeout. Search, waits, validation, and semantic actions share `visible`, `enabled`, `rendered`, and `actionable` selector semantics. Selectors are resolved immediately before validation/dispatch; the Bridge rejects changed generations before dispatch, and the runner retries once only when the stale diagnostic explicitly reports `dispatched=false`. It never retries a possible post-dispatch side effect. Ambiguity errors include a bounded candidate list with identity, interaction state, bounds, top-level, and available actions. Add an `idempotencyKey` to side-effecting steps; an exact replay returns the original bounded result without dispatching again, while conflicting content is rejected. Before execution, `validate_action` and `validate_mutation` run the same selector and capability/property checks without sending input or changing runtime state.
-
-For multiple windows, declare workflow-level `topLevelAliases` using semantic `title`, `kind`, and optional `isActive` selectors, then put `topLevelAlias` on every affected action, wait, assertion, screenshot, or evidence-producing step. You may omit the root `topLevelId` when every step is alias-scoped. Aliases never search outside the workflow `sessionId`, are resolved on each use and wait poll, and therefore follow a unique close/reopen replacement without persisting its runtime id. Check `topLevelAlias` and `resolvedTopLevelId` in each step result. Treat `semantic_workflow_top_level_alias_missing`, `_ambiguous`, `_unknown`, and `_session_mismatch` as selector/configuration failures; bounded active top-level candidates identify the refinement required.
-
-For bounded composition, use typed `if` steps with `then`/`else`, leaf `optional: true`, `retry_until` with required `maxAttempts`, request `variables`, and acyclic `fragments` invoked by `use_fragment`. Conditions share the wait evaluator and alias/selector re-resolution. Put an `idempotencyKey` on every side-effecting retry-body step; the same execution path replays instead of duplicating dispatch. Run the exact request first with `validateOnly: true`: `validated` includes the expanded plan without Bridge calls, while `validation_failed` returns all bounded static errors and dispatches nothing. Treat `executionPath` as timeline identity and `stepId` as the preserved authored id; inspect `parentStepId`, `attempt`, `sourceFragment`, and `skipped`/`retried` statuses. Never synthesize loops or recursion around the limits advertised by `runtime.semantic_workflow`.
-
-For observe-act-verify, put `verify` only on a side-effecting semantic action. Use its typed `condition`, optional observation `selector`/`topLevelAlias`, and bounded timeout; enable pre/post screenshots only when visual evidence is necessary. Add request `evidence` when failures must be self-explaining. Start with `failureEvidence.status` and `unavailableEvidence`, then inspect the referenced inspection, bounded visual tree, selector candidates, active top levels, adjacent workflow context, and screenshot. Use `reportPack` JSON for machine processing, Markdown for handoff, and JUnit for CI; their workflow and step status must agree. A `partial` artifact status means the action/verification result is still authoritative and the missing evidence is named explicitly.
-
-Use `eng/test-complex-workflow.ps1` as the repository reference before release. Run it at least twice per surface against source and packaged assemblies. Its requests intentionally contain no coordinates, fixed `wait` step, persisted node id, or persisted top-level id; it alternates present and absent optional UI, and it verifies both the successful multi-window path and an intentional redacted failure. Treat any secret found in a referenced response-budget fallback, report, timeline, audit, build/launch log, or failure JSON as a gate failure even when the inline response is clean.
-
-For screenshot privacy, missing controls in a truncated tree are not evidence that masking is unnecessary. Sensitive-control/text policies conservatively mask the whole image when tree coverage is incomplete (`screenshotMasking: full_sensitive_mask`); complete coverage permits selective masks. Outside-run fallback artifacts still fail closed. Distinguish a safe omitted image from a successfully masked image in validation reports.
-
-Runtime input is intentionally narrow, local-only, and non-destructive. Unsupported actions return structured errors.
-
-For hover, tooltip, popup, or flyout failures, use a pointer diagnostics request instead of trying to infer everything from one screenshot:
-
-```powershell
-& $avascope pointer-diagnostics --request .\artifacts\samples\pointer-diagnostics.json
-```
-
-`pointer-diagnostics` accepts move, wait, screenshot, and assert-hit steps. Coordinates are DIP in the requested primary top-level. Hit paths come from the existing generation/geometry-pinned `pick_node` API, using public Avalonia input hit testing, and retain root-to-leaf order. `maxDepth` bounds the separate nearest-node tree; nearest rectangle distance does not prove a hit. The active layer's `pointer` is its own local DIP coordinate and `metadata` reports hit coverage, geometry, occlusion and layer selection. Other roots require validated desktop-origin/scale mapping. Partial/unavailable picks or ambiguous root ordering cannot pass `assert_hit`; select the intended root with `includeAllTopLevels=false`. Native desktop delivery/occlusion remains unverified. Transition diagnostics use `avalonia_hit_test_snapshot_inference`: they compare current samples, not observed routed enter/exit events. Set `parentHoverNodeId` to examine possible parent-hover exits. Screenshots retain pointer overlays mapped into that root's rendered pixels.
-
-For style regressions that only appear in specific control states, run a pseudo-state matrix instead of manually driving each state:
-
-```powershell
-& $avascope pseudo-state-matrix --request .\artifacts\samples\pseudo-state-matrix.json
-```
-
-`pseudo-state-matrix` targets a runtime node by supported find filters first, or by `target`/`nodeId` for immediate follow-ups. Prefer selector-first request fields (`automationId`, `name`, `nodeType`, `text`) for repeatable multi-step workflows; if a raw generation-scoped node id disappears, diagnostics report the scope and the selector fields needed to retry. The tool captures states such as `normal`, `pointerover`, `pressed`, `disabled`, `selected`, and `selected+pointerover`, and writes one screenshot per state plus a labeled contact sheet. Results include applied mutation ids, reset mutation responses, pointer input evidence, per-state diagnostics, and explicit `unsupported` entries when a state cannot be safely forced on the selected control.
-
-Pointer states require the requested `:pointerover` or `:pressed` class on the current target after capture. Dispatch alone cannot pass: an absent class produces a failed entry with `pseudo_state_not_observed`, while retaining its screenshot and observed classes. Pointer cleanup moves/releases outside the top-level, including when the target fills the entire window. Hover uses public synthetic enter/exit events; it does not certify OS cursor position or native desktop delivery. A state may render identically under an application's theme, so pixel differences alone are not required for state success.
-
-When the inline visual tree is truncated, the matrix can inspect its exact target separately without expanding the tree response. A missing or stale target after capture fails that state and omits its target summary; an existing screenshot alone does not establish successful state capture. Applied mutations are still reset, and reset outcomes remain in the entry.
-
-For animation bugs that only happen after real input, record frames after the scripted interaction instead of relying on a static preview time offset:
-
-```powershell
-& $avascope record-interaction-animation --request .\artifacts\samples\interaction-animation.json
-```
-
-`record-interaction-animation` runs input or wait steps, captures requested frame offsets after each selected step, writes per-frame screenshots, geometry overlays, and a labeled frame strip, and evaluates geometry assertions such as stable width, fixed x/y alignment, final stability, range checks, or not-clipped checks. Each frame and assertion sample includes the triggering `stepId` and `offsetMs`.
-
-Runtime mutations use the same local bridge boundary and are reversible UI experiments, not implicit source edits:
-
-```powershell
-& $avascope mutate-node --session <runtime-session-id> --top-level <topLevel:id> --node <node-id> --operation set_property --property Width --value 240 --value-type double
-& $avascope mutate-node --session <runtime-session-id> --top-level <topLevel:id> --node <node-id> --operation add_class --class agent-selected
-& $avascope mutate-node --session <runtime-session-id> --top-level <topLevel:id> --node <node-id> --operation set_resource --resource-key AccentBrush --value "#0066ff" --value-type brush
-& $avascope mutate-node --session <runtime-session-id> --top-level <topLevel:id> --node <node-id> --operation reset_mutation --mutation-id <mutation-id>
-& $avascope mutate-node --session <runtime-session-id> --top-level <topLevel:id> --node <node-id> --operation reset_all
-```
-
-For agent review, prefer the evidence wrapper when the result should be auditable:
-
-```powershell
-& $avascope mutate-node-evidence --session <runtime-session-id> --top-level <topLevel:id> --node <node-id> --operation set_property --property Background --value "#0066ff" --value-type brush --out-dir .\artifacts\samples\mutation-evidence --request-id runtime-background-check
-& $avascope mutation-review --session <runtime-session-id> --max-results 20 --out .\artifacts\samples\mutation-evidence\runtime-review.html --source-project path\to\App.csproj --source-view Views\MainView.axaml --source-app App.axaml --source-profile avascope.preview.json
-```
-
-Applied mutation responses include mutation ids, original/effective metadata, diagnostics, active mutation count, explicit reset metadata, and `agentReview.mutations` for quick handoff. Evidence responses add before/after screenshots, before/after visual-tree JSON snapshots, optional diff PNGs, changed-pixel metrics, target summaries, and a local HTML review artifact so an agent can explain what changed without relying on terminal text or manual screenshot reading. The evidence HTML lets an agent click before/after screenshots to select the nearest bounded visual-tree node and inspect available source/property/binding provenance from the captured snapshots. `mutation-review` returns a bounded session-local history, active override list, reset handoff, optional HTML artifact, `sourceSuggestions` for conservative source-level handoff, and `agentReview.reviewUrls` for local review.
-
-`sourceSuggestions` are advisory. They use runtime mutation metadata plus optional source context to suggest likely XAML, style, class, or resource follow-up locations with confidence and limitations. AvaScope does not automatically edit source files from runtime mutations.
-
-Runtime mutations are temporary local overrides. Prefer `reset_mutation` or `reset_all` when keeping a session open; `close-session`, bridge deactivation, and top-level unregister also clear AvaScope's active mutation registry and attempt to restore active overrides.
-
-Reset overlapping overrides in reverse application order. If a newer active mutation changes the same property, class, or resource on the same object, `reset_mutation` and its dry-run validation return `rejected` with `runtime_mutation_reset_order_conflict`, without changing the value or active registry. Reset the returned `blockingMutationId` first, or use `reset_all` to restore the session's original values in reverse order. Independent objects and values can be reset separately; visual/logical aliases of the same object share this ordering rule.
-
-## 9. Close And Clean Up
-
-```powershell
-& $avascope close-session --session <runtime-session-id>
-& $avascope cleanup
-& $avascope cleanup-bridge-sessions --manifest-dir <manifest-dir>
-```
-
-`cleanup` removes stale or invalid AvaScope-owned preview-session metadata. `cleanup-bridge-sessions` removes stale or invalid local bridge manifest JSON files. Neither command terminates processes by name.
-
-For app-reported asynchronous work, discover operation-capable custom actions and monitor their returned ids with the [operation lifecycle contract](RUNTIME_OPERATIONS.md). A successful dispatch or cancellation request does not prove completion.
-
-For failure analysis, explicitly start a [bounded diagnostic trace](RUNTIME_TRACES.md) before acting. Follow input correlationId or custom-action/operation request ids and inspect source availability; temporal proximity alone is not evidence of causation.
+When AvaScope launched and owns the app, explicitly request `--terminate-launched-process true` if termination is intended. Respect `not_owned` and process-start identity checks; never work around them by killing a process by name. Use [cleanup](USER_GUIDE.md#cleanup-and-reload) for stale AvaScope metadata and the [QA retention policy](AGENT_QA_LAB.md#local-testing-and-retention-policy) for repository testing.

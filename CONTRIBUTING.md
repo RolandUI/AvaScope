@@ -28,12 +28,6 @@ Every meaningful change should include relevant tests, or a clear validation not
 
 Follow the [GitHub information policy](AGENTS.md#github-information-policy) for all outgoing text and evidence, and the [information ownership rules](docs/GITHUB_PROJECT_WORKFLOW.md#information-ownership) to avoid duplicate records.
 
-Small documentation or policy corrections explicitly requested by the owner do not need a new tracking issue when there is no product behavior change. Record the result and focused validation with the commit; see the [project workflow](docs/GITHUB_PROJECT_WORKFLOW.md) for when issue updates are needed.
-
-## Direct Commits
-
-Use the [development loop](docs/GITHUB_PROJECT_WORKFLOW.md#development-loop) for direct `master` commits, validation, acceptance and concise issue updates.
-
 ## License
 
 By contributing, you agree that your contribution is licensed under the [Apache License 2.0](LICENSE). AvaScope does not currently require a Contributor License Agreement.

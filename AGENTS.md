@@ -34,146 +34,25 @@ GitHub records the development rationale and verified result, not the agent's lo
 - Keep validation failures, uncertainty and missing coverage explicit when they affect acceptance. Concision must not turn an unverified result into a passing claim.
 - These are publication rules, not changes to AvaScope's local tool response or evidence contracts. Historical cleanup is a separately scoped task; adding this policy does not remove prior GitHub content or Git history.
 
-## Product Goal
+## Product And Architecture
 
-Build an Avalonia UI control-plane stack that helps agents inspect, preview, safely control, validate, and explain local Avalonia applications through structured tool calls.
+AvaScope helps agents inspect, preview, control and validate local Avalonia applications through structured CLI and MCP calls. Keep the product name `AvaScope`, CLI command and MCP server name `avascope`.
 
-Primary users and surfaces:
+- `AvaScope.Protocol` owns transport-neutral DTOs and versioned JSON contracts.
+- `AvaScope.Core` owns reusable runtime/preview clients, sessions, workflows and evidence handling. CLI and MCP remain thin adapters over it.
+- `AvaScope.Bridge` is explicitly activated in the host, through package integration or the external provider.
+- `AvaScope.PreviewHost` builds/loads project views and renders through the real Avalonia runtime in an isolated child process.
+- `AvaScope.Installer` and `eng/installer` own distribution; `samples` and `tests` exercise public behavior.
 
-- MCP clients such as Codex, Claude, Cursor, Rider, VS Code, and Visual Studio.
-- A CLI for local agent and developer workflows.
-- Future editor integrations.
-- Future visual regression or CI workflows.
+Use the [user guide](docs/USER_GUIDE.md) for usage and [stable surface](docs/STABLE_SURFACE.md) for supported commands, tools and compatibility. Future scope belongs in issues, not a second roadmap here.
 
-## Name and Positioning
+## Technical Boundaries
 
-- Product/repo name: `AvaScope`.
-- CLI command target: `avascope`.
-- MCP server name target: `avascope`.
-- Suggested tagline: `Agent control plane for Avalonia apps.`
-- Keep naming AvaScope-specific. Do not introduce alternate product names.
-
-## Core Architecture
-
-Do not make the MCP server the core engine. Keep MCP as a thin adapter over reusable libraries.
-
-Preferred architecture:
-
-```text
-Agent / IDE / CLI
-  -> AvaScope.Mcp or AvaScope.Cli
-    -> AvaScope.Protocol
-      -> AvaScope runtime/preview engine
-        -> Running app bridge
-        -> Preview host process
-        -> Headless Skia renderer
-        -> MSBuild/project loader
-```
-
-Suggested projects:
-
-- `AvaScope.Protocol`: shared request/response DTOs and transport-neutral contracts.
-- `AvaScope.Core`: shared inspection/control model, session management, node identity, serialization, and evidence plumbing.
-- `AvaScope.Bridge`: opt-in package loaded by Avalonia applications for runtime inspection and local control.
-- `AvaScope.PreviewHost`: isolated process that loads projects/views and renders previews.
-- `AvaScope.Headless`: headless Avalonia rendering and screenshot helpers.
-- `AvaScope.Mcp`: stdio MCP server exposing the reusable engine to AI clients.
-- `AvaScope.Cli`: local command line interface.
-- `AvaScope.Tests`: unit and integration tests.
-
-## Main Capabilities
-
-Near-term target:
-
-- Attach to a running Avalonia app that includes the AvaScope bridge.
-- List inspectable windows and top-levels.
-- Capture screenshots.
-- Read visual tree and logical tree.
-- Inspect node properties, classes, bounds, resources, and binding diagnostics where possible.
-- Find nodes by type, name, automation id, text, or path.
-- Send basic input: click, pointer move, key text.
-- Apply reversible runtime UI mutations for selected safe style/layout/text properties, with mutation history, reset semantics, and before/after evidence artifacts.
-
-Design-time target:
-
-- Preview a `.axaml` file from a `.csproj`.
-- Build or design-time-build the project.
-- Load app resources, themes, styles, custom controls, and code-behind through the real Avalonia runtime.
-- Render through headless Skia.
-- Support variants: size, theme, DPI, culture, and optional design data.
-
-Long-term target:
-
-- Hot reload or reload a changed `.axaml` into a preview session.
-- Show binding errors, layout warnings, missing resource diagnostics, and style resolution details.
-- Derive source-aware suggestions from runtime mutations, diagnostics, preview metadata, and visual evidence without automatically editing source files unless a later guarded workflow explicitly allows it.
-- Optional no-code attach mode may be explored later, but it is not the default foundation.
-
-## Important Technical Principles
-
-- Always prefer the real Avalonia runtime over custom XAML interpretation.
-- Use public Avalonia APIs first.
-- Keep process injection, CLR profiling, or private runtime hooks out of the MVP.
-- Keep all UI access on `Dispatcher.UIThread`.
-- Isolate preview sessions in child processes so failed user code cannot kill the MCP server.
-- Keep protocols stable and versioned.
-- Keep the bridge opt-in, local-only, and disabled by default in production builds.
-- Do not couple MCP schemas directly to Avalonia internals.
-- Do not add Robot Framework/PlatynUI interoperability, foreign workflow import or a Python/Robot compatibility adapter distribution. Useful individual features may inspire AvaScope capabilities through its own Core/CLI/MCP contracts. Issue #154 was explicitly cancelled for this reason.
-- Do not make assumptions from one sample app that break normal Avalonia project usage.
-
-## Security and Safety
-
-AvaScope can execute or load user application code. Treat that as a security boundary.
-
-- Default transports should bind to stdio, localhost, or named pipes only.
-- Do not expose unauthenticated remote inspection.
-- Never enable production remote control by default.
-- Prefer explicit project/session selection.
-- Make bridge activation obvious and opt-in.
-- Keep destructive actions out of the first tool set.
-
-## MCP Tool Shape
-
-Agent-facing MCP tools should be small and composable:
-
-- `list_sessions`
-- `attach_to_app`
-- `preview_axaml`
-- `close_session`
-- `screenshot`
-- `visual_tree`
-- `logical_tree`
-- `inspect_node`
-- `find_nodes`
-- `input`
-- `reload`
-- `diagnostics`
-
-Tool results should favor structured JSON plus file paths for generated screenshots, reports, and review artifacts. Avoid returning huge unbounded trees by default; support depth limits and node filters.
-
-Runtime mutation tool names and schemas are finalized through the `v0.7.0` issues, but the shape must stay aligned with the agent control-plane model: explicit targets, bounded operations, mutation ids, validation diagnostics, reset semantics, and before/after evidence.
-
-## CLI Shape
-
-Target examples:
-
-```bash
-avascope mcp
-avascope preview path/to/App.csproj --view Views/MainWindow.axaml --width 1440 --height 900
-avascope inspect --process <pid>
-avascope screenshot --session <id> --out screenshot.png
-```
-
-## Development Rules
-
-- Prefer small, working vertical slices over broad skeletons.
-- Keep the core reusable outside MCP.
-- Keep naming explicit and boring.
-- Add tests for protocol contracts and process/session behavior.
-- When behavior depends on current Avalonia APIs or MCP SDK APIs, verify against official sources before implementing.
-- Record non-obvious design decisions in docs, not only in chat.
-
-## Context From Project Creation
-
-AvaScope is a standalone project for Avalonia inspection, preview, and automation workflows. The chosen architecture is an MSBuild-integrated opt-in bridge plus a preview host, with MCP as one adapter over the engine.
+- Prefer the real Avalonia runtime and public APIs over custom XAML interpretation or private hooks. Keep UI access on `Dispatcher.UIThread`.
+- Keep Core reusable outside MCP; do not couple public schemas to Avalonia internals. Bound tree depth, response size and operation lifetimes; return explicit unavailable evidence rather than guesses.
+- Keep protocols versioned, with regression coverage for contracts, process ownership and session lifecycle. Verify relevant current Avalonia/MCP SDK APIs before implementing against them.
+- Keep bridge activation explicit, local-only and disabled by default in production. Select projects/sessions explicitly; never add unauthenticated remote inspection or implicit process injection.
+- Loading project code is an execution boundary. Preserve PreviewHost isolation and the [security threat model](docs/SECURITY_THREAT_MODEL.md), including action authorization, evidence privacy and owned cleanup.
+- Runtime mutations are bounded reversible experiments. Source suggestions do not authorize automatic source edits.
+- Do not add Robot Framework/PlatynUI interoperability, foreign workflow import or a Python/Robot adapter distribution. Implement useful capabilities through AvaScope's own contracts.
+- Prefer small working changes, existing patterns and explicit names. Do not generalize assumptions from one fixture to all Avalonia projects.

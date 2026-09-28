@@ -1,278 +1,39 @@
 # AvaScope User Guide
 
-Detailed usage notes for AvaScope. For the short public project overview, see the [root README](../README.md). For stable package, protocol, CLI, MCP, artifact, and release compatibility rules, see [STABLE_SURFACE.md](STABLE_SURFACE.md). For upgrade guidance, see [UPGRADE.md](UPGRADE.md). For validation procedures, see [VALIDATION.md](VALIDATION.md). For failure triage, see [TROUBLESHOOTING.md](TROUBLESHOOTING.md). For stress budgets, see [PERFORMANCE_STRESS_AUDIT.md](PERFORMANCE_STRESS_AUDIT.md).
-
-AvaScope is an agent-focused local control plane for Avalonia apps. It gives CLI and MCP clients structured ways to inspect running UI, render previews, drive narrow runtime actions, capture screenshots, collect diagnostics, and hand off evidence artifacts. It targets Avalonia 12 and `net10.0`.
-
-## Current Capabilities
-
-For explicit external-provider activation and project onboarding, see [STANDALONE_PROVIDER.md](STANDALONE_PROVIDER.md). Reuse the same named build/launch workflow through CLI, MCP and CI with [agent test profiles](AGENT_TEST_PROFILES.md). Check selected application dependencies and desktop prerequisites with [target readiness diagnostics](TARGET_READINESS.md).
-
-- Agent-oriented inspect, preview, act, evidence, and cleanup workflows through CLI and MCP.
-- Opt-in runtime bridge for Avalonia apps.
-- Local bridge discovery through session manifests and named pipes.
-- Runtime top-level listing, screenshots, bounded visual/logical trees, node search, and basic input.
-- Reversible runtime `mutate-node`, `mutate-node-evidence`, and `mutation-review` workflows for selected safe style, layout, text, class, and resource experiments against bridge-enabled apps.
-- Isolated preview host process for `.axaml` rendering.
-- Preview project/build-output metadata, binding/resource diagnostics, and advisory layout warnings.
-- Runtime `inspect_node` computed visual/style/layout property values.
-- Multi-size preview, contact-sheet output, screenshot diff, and scoped preview-session cleanup workflows.
-- File-backed preview viewer export with `previewUrl` handoff for Codex in-app browser workflows.
-- Optional per-run JSON/HTML artifact indexes with latest-run pointers for preview, runtime audit, and visual-regression runs.
-- MCP stdio server with structured tools.
-- `avascope` CLI with doctor, preview, runtime inspection, diagnostics, and MCP handoff commands.
-- Explicit `capabilities` discovery for protocol, CLI/MCP tools, runtime mutation, preview, diagnostics, baselines, reports, and artifact support.
-- Getting-started sample app for the first preview and bridge workflow.
-
-## Agent Control Model
-
-AvaScope is designed around small, composable tool calls that an agent can chain safely:
-
-1. Discover or launch a local bridge-enabled app.
-2. Inspect top-levels, visual/logical trees, node state, diagnostics, and preview metadata.
-3. Act through bounded local commands such as focus, text input, selection, scrolling, screenshots, and baseline checks.
-4. Capture evidence as structured JSON plus file paths for screenshots, diffs, reports, or local HTML viewers.
-5. Close sessions and clean stale AvaScope-owned metadata explicitly.
-
-The `v0.7.0` release line added the runtime control-plane layer: bounded reversible style/layout/text/class/resource mutations with mutation ids, reset operations, and before/after evidence packages containing screenshots, visual tree snapshots, and optional pixel diffs. The `v0.8.0` line turned those agent experiments into repeatable validation workflows with baseline suites, comparison rules, and reviewable report packs. The `v0.9.0` line hardened source guidance, audit reports, capabilities, security, compatibility, and stress validation. The `v1.0.0` stable release freezes the package, protocol, CLI, MCP, artifact, and release surfaces in [STABLE_SURFACE.md](STABLE_SURFACE.md).
-
-## Project Layout
-
-- `src/AvaScope.Protocol`: transport-neutral DTOs and stable JSON contracts.
-- `src/AvaScope.Core`: reusable session registry, local bridge client, and preview host client.
-- `src/AvaScope.Installer`: single-file, per-user Linux/macOS installer host.
-- `eng/installer`: Windows Inno Setup wizard definition and command shim.
-- `src/AvaScope.Bridge`: opt-in package loaded by Avalonia apps for runtime inspection.
-- `src/AvaScope.PreviewHost`: child process that builds/loads views and renders previews.
-- `src/AvaScope.Mcp`: stdio MCP adapter over Core.
-- `src/AvaScope.Cli`: local `avascope` command.
-- `samples/AvaScope.GettingStartedApp`: tiny Avalonia app for first preview and bridge workflows.
-- `tests/AvaScope.Tests`: protocol, core, MCP, bridge, preview host, and CLI tests.
-
-## Project Management
-
-AvaScope execution is tracked in GitHub Issues, Milestones, and the public [AvaScope Roadmap](https://github.com/users/RolandUI/projects/4) Project board. Use [GITHUB_PROJECT_WORKFLOW.md](GITHUB_PROJECT_WORKFLOW.md) for labels, status flow, milestone rules, and board maintenance. Do not mirror work status or validation history in tracked Markdown files.
-
-## Build And Test
-
-```powershell
-dotnet restore AvaScope.slnx
-dotnet build AvaScope.slnx
-dotnet test AvaScope.slnx
-```
-
-Targeted checks:
-
-```powershell
-dotnet test AvaScope.slnx --no-build --filter Protocol
-dotnet test AvaScope.slnx --no-build --filter Core
-dotnet test AvaScope.slnx --no-build --filter Mcp
-dotnet test AvaScope.slnx --no-build --filter Bridge
-dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewHost
-dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli
-```
-
-One-command local Release build for external project testing:
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1
-```
-
-The script runs Release restore/build/test, creates local NuGet packages, creates framework-dependent executable ZIPs plus a graphical Windows setup and single-file Linux/macOS installers, verifies `artifacts\release-manifest.json`, and smoke-tests release-shaped workflows. Building the Windows setup requires Inno Setup 6 or 7; install it with `winget install --id JRSoftware.InnoSetup -e`. macOS provides separate `osx-arm64` (Apple Silicon) and `osx-x64` (Intel) ZIPs/installers. Those artifacts are unsigned and unnotarized: verify the manifest SHA-256 before execution, use the checksum-scoped Gatekeeper remediation documented in the README only when required, and never attempt to bypass MDM or administrator policy.
-
-Local package validation:
-
-```powershell
-dotnet build AvaScope.slnx -c Release
-dotnet pack .\src\AvaScope.Protocol\AvaScope.Protocol.csproj -c Release --no-build --output .\artifacts\packages
-dotnet pack .\src\AvaScope.Core\AvaScope.Core.csproj -c Release --no-build --output .\artifacts\packages
-dotnet pack .\src\AvaScope.Bridge\AvaScope.Bridge.csproj -c Release --no-build --output .\artifacts\packages
-```
-
-The library package slice produces local NuGet packages for `AvaScope.Protocol`, `AvaScope.Core`, and `AvaScope.Bridge`. `AvaScope.Mcp`, `AvaScope.Cli`, and `AvaScope.PreviewHost` are explicitly not packable; executable distribution uses the local publish/ZIP workflow below.
-
-Local executable package validation:
-
-```powershell
-dotnet build AvaScope.slnx -c Release
-powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\package-executables.ps1
-powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\verify-artifacts.ps1
-```
-
-The executable package slice produces framework-dependent portable artifacts by default, such as `artifacts\executables\avascope-win-x64-framework-dependent.zip` and `artifacts\executables\avascope-linux-x64-framework-dependent.zip`. `eng\package-installers.ps1` embeds those exact payloads into the graphical `AvaScopeSetup.exe` Windows wizard and the terminal-based `avascope-linux-x64-installer`. Each installed payload keeps the `avascope` CLI, `AvaScope.Mcp`, and `AvaScope.PreviewHost` co-located. Framework-dependent packages and installers require a compatible local .NET 10 runtime and do not publish to any feed.
-
-Self-contained executable ZIPs are available as an explicit local/package validation lane:
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1 -RuntimeIdentifiers win-x64 -ExecutablePackageKind self-contained -SkipTests -SkipSampleSmoke
-```
-
-This produces artifacts such as `artifacts\executables\avascope-win-x64-self-contained.zip`. Self-contained ZIPs are not the default CI or release asset set yet; use the package kind parameter intentionally when validating or publishing that artifact shape.
-
-`eng\verify-artifacts.ps1` writes `artifacts\release-manifest.json`, a local ignored JSON manifest with artifact names, relative paths, byte sizes, SHA-256 hashes, runtime identifiers, Windows signature status, and executable package kind for the three NuGet packages, portable executable ZIPs, and installer artifacts.
-
-The default executable package targets are `win-x64` and `linux-x64`. Pass `-RuntimeIdentifiers win-x64` or `-ExecutableRuntimeIdentifiers win-x64` to the package and verify scripts when validating a narrower local artifact set. Pass `-PackageKind self-contained` to `package-executables.ps1`, or `-ExecutablePackageKind self-contained` to `create-local-release.ps1`, `verify-artifacts.ps1`, or `publish-github-release.ps1` when working with the opt-in self-contained lane.
-
-The `CI` workflow can be manually dispatched to run restore, Release build, Release test, local library pack, local executable package, and artifact verification commands in GitHub Actions. Development slices should still be validated locally before commit; the automated publish path is reserved for release commits.
-
-## Release
-
-Release scope and acceptance are tracked in GitHub milestones and release issues. Follow [stable release validation](VALIDATION.md#stable-release-validation) for the readiness and publication procedure. The version bump is the final release commit; it does not replace acceptance or authorization. Hosted NuGet publication uses trusted publishing.
-
-The source version is `<Version>` in `Directory.Build.props`, and the release commit subject is `Release <version>`. The release guard verifies version identity and the milestone's release tracker through GitHub. Stable publication requires all other milestone work completed or explicitly moved; approved prereleases retain their documented limits.
-
-Current workflow triggers and the pending explicit-dispatch migration are described in [validation](VALIDATION.md#ci-and-release-decisions). Work directly on `master` and do not create a PR to run validation.
-When a new version is detected, the workflow runs the full local release gate, dry-runs the publish set, publishes `AvaScope.Protocol`, `AvaScope.Core`, and `AvaScope.Bridge` to nuget.org and GitHub Packages in dependency order, then creates the `v<Version>` tag on the release commit.
-
-The same workflow creates or updates the GitHub Release for the tag and uploads these release assets:
-
-- `AvaScope.Protocol`, `AvaScope.Core`, and `AvaScope.Bridge` `.nupkg` files.
-- `avascope-win-x64-framework-dependent.zip`.
-- `avascope-linux-x64-framework-dependent.zip`.
-- `AvaScopeSetup.exe`.
-- `avascope-linux-x64-installer`.
-- `release-manifest.json`.
-
-The default workflow publishes framework-dependent executable ZIPs. To manually validate or publish a self-contained GitHub Release asset set, create local artifacts with `-ExecutablePackageKind self-contained` and pass the same package kind to `eng\publish-github-release.ps1`.
-
-Manual local publish is still available when needed. Create and verify the Release artifacts first:
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1
-```
-
-Dry-run the NuGet publish inputs:
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-nuget.ps1 -DryRun
-```
-
-Publish the public library packages to nuget.org with an API key from nuget.org:
-
-```powershell
-$env:AVASCOPE_NUGET_API_KEY = "<nuget-api-key>"
-powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-nuget.ps1
-```
-
-The publish script pushes `AvaScope.Protocol`, `AvaScope.Core`, and `AvaScope.Bridge` from `artifacts\packages` in dependency order. It reads the version from `Directory.Build.props`, rejects missing or stale `AvaScope.*.nupkg` artifacts, and never stores the API key in source.
-
-The workflow can also be run manually. Manual runs validate by default; set `publish=true` only when intentionally republishing the current `Directory.Build.props` version. Package pushes use duplicate skipping so a manual run can still create or update the GitHub Release assets for an existing version.
+AvaScope provides local CLI/MCP inspection, preview, bounded runtime control and evidence for Avalonia 12 on `net10.0`. Start with the [agent workflow](AGENT_WORKFLOW.md); use [stable surface](STABLE_SURFACE.md) for the command/tool catalog and compatibility, [upgrade guidance](UPGRADE.md) for version alignment, and [troubleshooting](TROUBLESHOOTING.md) for failures. Contributor build, validation and release procedures belong in [CONTRIBUTING.md](../CONTRIBUTING.md) and [VALIDATION.md](VALIDATION.md).
 
 ## Install From Release Artifacts
 
-AvaScope release artifacts include non-admin, per-user Windows and Linux installers plus the framework-dependent portable ZIPs. The installers embed the same multi-file payload as the matching ZIP, support idempotent reinstall/repair and complete payload replacement on upgrade, write discovery metadata, and install an uninstaller. Self-contained ZIPs remain an explicit local/publish-script artifact lane.
+Use the [release installation instructions](../README.md#install-from-a-release) for Windows, Linux and macOS, including runtime requirements, checksums and unsigned-installer handling. Portable ZIPs keep CLI, MCP and PreviewHost together. On macOS, run `bash prepare-macos.sh` after extracting a ZIP to restore apphost execute permissions.
 
-Create and verify local Release artifacts:
+Installers support per-user repair/upgrade and write `avascope.discovery.json` with `schemaVersion`, `version`, `installRoot`, `commandPath`, `executablePath`, `uninstallPath`, `pathEntryManaged` and an `mcp` stdio entry (`serverName`, `commandPath`, `arguments`). Read returned paths rather than constructing them.
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1
-```
+Agent discovery order:
 
-Install on Windows:
+1. Use `avascope` from `PATH`.
+2. Read the platform's `avascope.discovery.json`: Windows `%LOCALAPPDATA%\AvaScope`; Linux `$XDG_DATA_HOME/avascope` or `~/.local/share/avascope`; macOS `~/Library/Application Support/AvaScope`.
+3. Use its `commandPath` or the documented shim: Windows `%LOCALAPPDATA%\AvaScope\bin\avascope.cmd`; Linux/macOS `~/.local/bin/avascope`.
+4. Fall back to the selected unpacked release or source build.
 
-```powershell
-.\artifacts\executables\AvaScopeSetup.exe
-avascope --version
-avascope doctor
-```
-
-The Windows installer is a modern light/dark-aware setup wizard. It shows the Apache-2.0 license, lets the user choose the destination and whether to add AvaScope to `PATH`, uses `%LOCALAPPDATA%\AvaScope` by default, registers a current-user Apps & Features uninstaller, and writes `%LOCALAPPDATA%\AvaScope\bin\avascope.cmd`. The final page offers a `Verify the AvaScope installation` checkbox. When selected, it opens a persistent ASCII status terminal showing the installed version and a clear `SUCCESS` or `FAILED` result; only that status marker is green or red while all other text remains white, and the window closes only after a keypress. Open a new terminal after installation. Installation and uninstall do not require administrator rights.
-
-Install on Linux:
-
-```bash
-chmod +x ./avascope-linux-x64-installer
-./avascope-linux-x64-installer
-~/.local/bin/avascope --version
-~/.local/bin/avascope doctor
-```
-
-The Linux installer uses `$XDG_DATA_HOME/avascope` when `XDG_DATA_HOME` is set, otherwise `~/.local/share/avascope`, and writes the command shim to `~/.local/bin/avascope`. It does not modify shell profiles or require `sudo`; add `~/.local/bin` to `PATH` if the distribution does not already include it.
-
-On Windows, uninstall AvaScope from Settings > Apps > Installed apps or launch `%LOCALAPPDATA%\AvaScope\unins000.exe`.
-
-```bash
-~/.local/share/avascope/uninstall/avascope-uninstall --uninstall
-```
-
-The portable ZIPs remain supported when installation or PATH/Apps & Features registration is not wanted. The repository-owned `eng\install-avascope.ps1` remains available for Windows development installs from an unpacked directory or ZIP.
-
-Windows release installers may be Authenticode-signed by passing `-WindowsSignToolPath` and `-WindowsSignToolArguments` to `eng\package-installers.ps1`. Local and dry-run artifacts remain buildable unsigned; `release-manifest.json` records the observed Windows signature status. Signing credentials and certificates are never stored in the repository.
-
-The discovery manifest is stable machine-readable install metadata:
-
-```json
-{
-  "schemaVersion": 1,
-  "product": "AvaScope",
-  "serviceName": "avascope",
-  "version": "<version>",
-  "installMode": "per-user",
-  "installRoot": "%LOCALAPPDATA%\\AvaScope",
-  "commandPath": "%LOCALAPPDATA%\\AvaScope\\bin\\avascope.cmd",
-  "executablePath": "%LOCALAPPDATA%\\AvaScope\\current\\avascope.exe",
-  "uninstallPath": "%LOCALAPPDATA%\\AvaScope\\uninstall\\avascope-uninstall.exe",
-  "pathEntryManaged": true,
-  "mcp": {
-    "transport": "stdio",
-    "serverName": "avascope",
-    "commandPath": "%LOCALAPPDATA%\\AvaScope\\bin\\avascope.cmd",
-    "arguments": ["mcp"]
-  }
-}
-```
-
-Agent discovery order should be:
-
-1. Run `avascope` from `PATH`.
-2. Read `%LOCALAPPDATA%\AvaScope\avascope.discovery.json`, `$XDG_DATA_HOME/avascope/avascope.discovery.json`, or `~/.local/share/avascope/avascope.discovery.json`.
-3. Probe the documented Windows or Linux command/install paths.
-4. Fall back to repository or unpacked release artifact paths.
+Windows uninstall is available through Settings > Apps. Use the discovered `uninstallPath` for other installs. The repository's `eng/install-avascope.ps1` supports Windows development installs from an unpacked directory or ZIP.
 
 ## Version Discovery
 
-Use the standard CLI flag for human bug reports:
-
 ```powershell
 avascope --version
-avascope -v
+avascope capabilities
 ```
 
-The same product version is available in structured output as `service.productVersion` on `health`/`doctor`, root `productVersion` on `capabilities` and `doctor`, capability metadata for `protocol.capability_discovery`, and MCP `serverInfo.version`.
-
-Run the packaged Windows CLI/MCP bundle directly from the publish directory:
-
-```powershell
-.\artifacts\executables\avascope-win-x64-framework-dependent\avascope.exe doctor
-.\artifacts\executables\avascope-win-x64-framework-dependent\avascope.exe mcp
-.\artifacts\executables\avascope-win-x64-framework-dependent\avascope.exe preview .\samples\AvaScope.GettingStartedApp\AvaScope.GettingStartedApp.csproj --view Views\MainView.axaml --out .\artifacts\samples\getting-started-preview-packaged.png --width 720 --height 420 --theme light --design-data-type AvaScope.GettingStartedApp.SamplePreviewData
-```
-
-For external app checks, use the same packaged Release executable path:
-
-```powershell
-.\artifacts\executables\avascope-win-x64-framework-dependent\avascope.exe preview path\to\App.csproj --view Views\MainWindow.axaml --out .\artifacts\samples\external-preview.png --width 1440 --height 900 --theme dark
-```
-
-Use the local or published NuGet package for an Avalonia app that wants the opt-in bridge. Replace `<AvaScope-version>` with the package version being validated, for example the current `Directory.Build.props` version during local release validation or the published `1.0.0` stable release:
-
-```powershell
-dotnet add path\to\YourApp.csproj package AvaScope.Bridge --version <AvaScope-version> --source .\artifacts\packages
-```
+The product version is also exposed by `health`/`doctor` service metadata, `capabilities.productVersion`, `doctor.productVersion` and MCP `serverInfo.version`. Gate optional behavior by capability IDs; see [upgrade and compatibility](UPGRADE.md).
 
 ## Getting Started Sample
 
 The repository includes a tiny Avalonia 12 sample app at `samples\AvaScope.GettingStartedApp`.
 
-For a full packaged-CLI runbook covering doctor, preview profiles, preview sessions, runtime bridge inspection, screenshots, input, and diff/baseline workflows, use [AGENT_WORKFLOW.md](AGENT_WORKFLOW.md).
-
-For concise capability-first recipes, schema-checked examples, seeded failure diagnosis and measured tool use, see [AGENT_RECIPES.md](AGENT_RECIPES.md).
-
-Build AvaScope and render the sample preview:
+Use the installed CLI with the repository sample (or build from source as described in [CONTRIBUTING.md](../CONTRIBUTING.md)):
 
 ```powershell
-dotnet build AvaScope.slnx
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll preview .\samples\AvaScope.GettingStartedApp\AvaScope.GettingStartedApp.csproj --view Views\MainView.axaml --out .\artifacts\samples\getting-started-preview.png --width 720 --height 420 --theme light --design-data-type AvaScope.GettingStartedApp.SamplePreviewData
+avascope preview .\samples\AvaScope.GettingStartedApp\AvaScope.GettingStartedApp.csproj --view Views\MainView.axaml --out .\artifacts\samples\getting-started-preview.png --width 720 --height 420 --theme light --design-data-type AvaScope.GettingStartedApp.SamplePreviewData
 ```
 
 Run the sample with the opt-in local bridge enabled:
@@ -285,38 +46,40 @@ dotnet run --project .\samples\AvaScope.GettingStartedApp\AvaScope.GettingStarte
 In another terminal, inspect local bridge sessions and use the reported session id with runtime commands:
 
 ```powershell
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll diagnostics --max-sessions 10
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll list-top-levels --session <session-id>
+avascope diagnostics --max-sessions 10
+avascope list-top-levels --session <session-id>
 ```
 
 The bridge is not enabled unless `AVASCOPE_SAMPLE_BRIDGE` is set to `1` or `true`.
 
 ## CLI
 
-Build first, then run the CLI assembly from the build output:
+Examples use `avascope` from the selected install. For source builds, substitute `dotnet <build-output>/avascope.dll`.
+
+### Preview And Profiles
 
 ```powershell
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll preview path\to\App.csproj --view Views\MainView.axaml --out .\preview.png --width 1440 --height 900 --dpi 96 --theme light --culture ja-JP --design-data-type MyApp.Design.PreviewData --state-variant loading
+avascope preview path\to\App.csproj --view Views\MainView.axaml --out .\preview.png --width 1440 --height 900 --dpi 96 --theme light --culture ja-JP --design-data-type MyApp.Design.PreviewData --state-variant loading
 ```
 
-Query supported protocol and tool features before relying on newer agent workflows:
+Query supported features before relying on a workflow:
 
 ```powershell
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll capabilities
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll capabilities --require runtime.ui_audit,reports.evidence_pack
+avascope capabilities
+avascope capabilities --require runtime.ui_audit,reports.evidence_pack
 ```
 
 `capabilities` writes `ToolResult<AvaScopeCapabilitiesResponse>` with `productVersion`, `capabilities[]`, `tools[]`, `runtimeMutationCapabilities[]`, and `compatibilityPolicy`. The capability descriptions are agent-facing discovery text: clients should use them for planning, but gate behavior by `capabilities[].id`, `tools[]`, and `--require` instead of prose parsing. Unsupported required feature ids fail with `capability_not_supported`, `unsupportedCapabilities`, and a `nextAction` detail so clients can branch by feature id rather than guessing from package versions.
 
-The command writes a structured JSON `ToolResult<PreviewResponse>` to stdout. On success, `value.filePath` points to the generated PNG.
+`preview` writes a structured JSON `ToolResult<PreviewResponse>` to stdout. On success, `value.filePath` points to the generated PNG.
 `--width` and `--height` can be omitted when the root AXAML declares design-time dimensions with `d:DesignWidth`/`d:DesignHeight` or `Design.Width`/`Design.Height`. Project previews also apply root design-time data from `Design.DataContext` or `d:DataContext="{x:Static ...}"`; an explicit `--design-data-type` still takes precedence.
 `--state-variant` selects an explicit design-data state such as `empty`, `loading`, `error`, `long-text`, `many-rows`, `validation-errors`, or `narrow`. PreviewHost applies it by using a public `ForState(string)`, `Create(string)`, string constructor, `StateVariant` property, or `ApplyState(string)` member on the configured design-data type. AvaScope does not invent arbitrary ViewModel states; the project or preview profile supplies the variants. The response echoes `stateVariant` and includes `state_variant_applied` or `state_variant_not_applied` diagnostics.
 
 Use `--run-index <dir>` on `preview` when an agent needs a durable per-run artifact index:
 
 ```powershell
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll preview .\samples\AvaScope.GettingStartedApp\AvaScope.GettingStartedApp.csproj --profile main --out .\artifacts\samples\getting-started-preview.png --run-index .\artifacts\samples\run-indexes --task getting-started-main
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll latest-run --run-index .\artifacts\samples\run-indexes --task getting-started-main
+avascope preview .\samples\AvaScope.GettingStartedApp\AvaScope.GettingStartedApp.csproj --profile main --out .\artifacts\samples\getting-started-preview.png --run-index .\artifacts\samples\run-indexes --task getting-started-main
+avascope latest-run --run-index .\artifacts\samples\run-indexes --task getting-started-main
 ```
 
 The preview response includes `runIndex` with `run-index.json`, `run-index.html`, `latest-run.json`, screenshot paths, diagnostics, warnings, and generated report paths. `latest-run` resolves the pointer without scanning artifact directories manually. If `--task` is omitted, AvaScope groups the latest pointer by project, view, profile, variant, and state variant.
@@ -358,9 +121,9 @@ Repeated preview settings can live in `avascope.preview.json` beside the project
 Use the profile from preview or durable preview-session commands:
 
 ```powershell
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll preview path\to\App.csproj --profile main
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll preview path\to\App.csproj --profile main --variant dark
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll create-preview-session path\to\App.csproj --profile main
+avascope preview path\to\App.csproj --profile main
+avascope preview path\to\App.csproj --profile main --variant dark
+avascope create-preview-session path\to\App.csproj --profile main
 ```
 
 Named variants are applied after the base profile and before explicit CLI options, so `--height 600` still overrides a variant height. Profiles and variants can include `stateVariant`, `buildOutputRoot`, `assemblyPath`, and `noBuild` for repeatable state injection and build isolation. Profile `out`, `contactSheet`, `frameStripPath`, `viewerPath`, `buildOutputRoot`, and `assemblyPath` paths are resolved relative to the profile file; `--profile-file <path>` can point to a non-default profile file.
@@ -368,15 +131,17 @@ Named variants are applied after the base profile and before explicit CLI option
 Render multiple viewport sizes from one preview request:
 
 ```powershell
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll preview path\to\App.csproj --view Views\MainView.axaml --out .\preview.png --sizes 1440x900,1280x720,900x700 --theme light --contact-sheet .\preview-contact-sheet.png
+avascope preview path\to\App.csproj --view Views\MainView.axaml --out .\preview.png --sizes 1440x900,1280x720,900x700 --theme light --contact-sheet .\preview-contact-sheet.png
 ```
 
 The command writes a structured JSON `ToolResult<PreviewBatchResponse>`. Each `entries[]` item has a deterministic per-size output path and an independent `ToolResult<PreviewResponse>`, so one failed size does not discard successful screenshots. If every requested size fails, the top-level error reports the first underlying build/render root cause, a bounded per-viewport failure summary, and the first `buildLogPath` when the failure came from project build output.
 
+### Preview Animation
+
 Render animation samples for requested time offsets:
 
 ```powershell
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll preview-animation path\to\App.csproj --view Views\AnimatedView.axaml --out .\animation.png --time-offsets 0,150,900,900 --width 720 --height 420 --theme light --frame-strip .\animation-strip.png --viewer .\animation.html
+avascope preview-animation path\to\App.csproj --view Views\AnimatedView.axaml --out .\animation.png --time-offsets 0,150,900,900 --width 720 --height 420 --theme light --frame-strip .\animation-strip.png --viewer .\animation.html
 ```
 
 The command writes per-offset PNG frames, an optional frame strip, and a structured `ToolResult<PreviewAnimationResponse>`. When `--viewer` is supplied, the response includes `viewer.previewUrl`, a `file://` URL for a self-contained HTML timeline viewer that embeds the sampled frames, motion summary, diagnostics, and JSON response.
@@ -387,14 +152,16 @@ By default, the origin is `window_attach_show`, measured just before attachment/
 
 Repeated offsets reuse the same observation and timing; cached duplicates are excluded from motion/stability analysis. Pixel deltas describe rendered observations, not compositor/native presentation or what happened between samples. Late observations cannot establish a timing assertion. Moving-property metadata remains `not_available` where public Avalonia APIs do not expose it. Exact-offset animation baseline creation/checking is refused because old manifests contain no measured timing; use this recording or runtime assertions instead. Ordinary static previews/baselines are unchanged.
 
-Create and manage durable preview sessions from the CLI:
+### Preview Sessions
+
+Create and manage durable preview sessions:
 
 ```powershell
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll create-preview-session path\to\App.csproj --view Views\MainView.axaml --out .\preview.png --width 1440 --height 900 --theme light --display-name "Main preview"
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll list-preview-sessions
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll reload-preview-session --session <preview-session-id>
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll preview-viewer --session <preview-session-id> --out .\preview-viewer.html
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll close-preview-session --session <preview-session-id>
+avascope create-preview-session path\to\App.csproj --view Views\MainView.axaml --out .\preview.png --width 1440 --height 900 --theme light --display-name "Main preview"
+avascope list-preview-sessions
+avascope reload-preview-session --session <preview-session-id>
+avascope preview-viewer --session <preview-session-id> --out .\preview-viewer.html
+avascope close-preview-session --session <preview-session-id>
 ```
 
 Preview-session CLI commands persist metadata in the same local AvaScope preview-session store used by MCP. They store the original request and latest render result, then re-render through `AvaScope.PreviewHost` child processes on reload.
@@ -404,26 +171,22 @@ Preview-session CLI commands persist metadata in the same local AvaScope preview
 Watch a preview session and reload when project or view files change:
 
 ```powershell
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll watch-preview-session --session <preview-session-id> --timeout-ms 30000 --settle-ms 250 --max-reloads 1
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll watch-preview-session --session <preview-session-id> --timeout-ms 30000 --watch Views\MainView.axaml
+avascope watch-preview-session --session <preview-session-id> --timeout-ms 30000 --settle-ms 250 --max-reloads 1
+avascope watch-preview-session --session <preview-session-id> --timeout-ms 30000 --watch Views\MainView.axaml
 ```
 
 Watch mode is bounded by `--timeout-ms`. It emits a structured `ToolResult<PreviewWatchResponse>` with changed/reloaded events and does not keep user project code loaded in the CLI process.
 
-Start the MCP server through the CLI:
-
-```powershell
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll mcp
-```
+### Runtime Inspection
 
 Attach to an active local bridge session:
 
 ```powershell
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll attach --process 1234
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll attach --process-name MyApp
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll attach --latest true --process-name MyApp
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll attach --session session-id
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll attach --manifest C:\Temp\AvaScope\sessions\session-id.json
+avascope attach --process 1234
+avascope attach --process-name MyApp
+avascope attach --latest true --process-name MyApp
+avascope attach --session session-id
+avascope attach --manifest .\artifacts\sessions\session-id.json
 ```
 
 Use `--manifest-dir <dir>` on runtime CLI commands when the inspected app writes bridge manifests to a selected local directory. AvaScope never silently picks between multiple matching live manifests; retry with `--session`, `--process`, `--process-name`, or `--manifest` when attach is ambiguous. `--latest true` selects the newest active matching manifest while excluding stale process records and still fails if multiple candidates are equivalently latest.
@@ -431,7 +194,7 @@ Use `--manifest-dir <dir>` on runtime CLI commands when the inspected app writes
 Launch an explicitly bridge-enabled local app and wait for its bridge session:
 
 ```powershell
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll launch-app --command dotnet --args "run --project path\to\App.csproj" --env AVASCOPE_SAMPLE_BRIDGE=1 --manifest-dir C:\Temp\AvaScope\sessions --out-dir .\artifacts\launch
+avascope launch-app --command dotnet --args "run --project path\to\App.csproj" --env AVASCOPE_SAMPLE_BRIDGE=1 --manifest-dir .\artifacts\sessions --out-dir .\artifacts\launch
 ```
 
 The helper sets `AVASCOPE_BRIDGE_MANIFEST_DIR` for the child process, captures stdout/stderr to deterministic files, waits for a bridge manifest from the launched process, and returns session, top-level when available, process, manifest, stdout, and stderr details. It does not inject into apps; the app must explicitly enable `AvaScopeBridge.Activate`.
@@ -441,25 +204,25 @@ Keep activation in development-only host code and behind an explicit local featu
 List top-level windows/views and capture a runtime screenshot from an active bridge session:
 
 ```powershell
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll list-top-levels --session session-id --manifest-dir C:\Temp\AvaScope\sessions
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll screenshot --session session-id --top-level topLevel:1234 --out screenshot.png --manifest-dir C:\Temp\AvaScope\sessions
+avascope list-top-levels --session session-id --manifest-dir .\artifacts\sessions
+avascope screenshot --session session-id --top-level topLevel:1234 --out screenshot.png --manifest-dir .\artifacts\sessions
 ```
 
 Read bounded runtime trees from an active bridge session:
 
 ```powershell
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll visual-tree --session session-id --top-level topLevel:1234 --max-depth 4
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll logical-tree --session session-id --top-level topLevel:1234 --max-depth 4
+avascope visual-tree --session session-id --top-level topLevel:1234 --max-depth 4
+avascope logical-tree --session session-id --top-level topLevel:1234 --max-depth 4
 ```
 
 Runtime tree, search, inspect, input, and screenshot responses include a `target` object with the current `sessionId`, `topLevelId`, `targetKind`, `capturedAt`, top-level generation metadata, and, when applicable, `treeKind`, `nodeId`, and node generation metadata. Tree, search, and inspect nodes also expose `interactionState`: effective visibility, enabled state, finite unclipped rendering, semantic actionability, and the currently available built-in or registered actions. Carry a target object only into an immediate follow-up; raw `visual:*` and `logical:*` ids are generation-scoped evidence, not durable workflow identity. Persist stable selectors such as `automationId`, `name`, `nodeType`, `text`, binding, or command identity instead. Missing or stale node references return structured details with the requested target and a `nextAction`.
 
-Inspect a single runtime tree node by stable node id:
+Inspect a current runtime tree node by its generation-scoped id:
 
 ```powershell
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll inspect-node --session session-id --top-level topLevel:1234 --node visual:5678
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll inspect-node --session session-id --top-level topLevel:1234 --node logical:5678 --tree-kind logical
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll explain-layout --session session-id --top-level topLevel:1234 --node visual:5678
+avascope inspect-node --session session-id --top-level topLevel:1234 --node visual:5678
+avascope inspect-node --session session-id --top-level topLevel:1234 --node logical:5678 --tree-kind logical
+avascope explain-layout --session session-id --top-level topLevel:1234 --node visual:5678
 ```
 
 `inspect-node` includes bounded `computedProperties` for high-value visual, style, text, and layout properties, plus `sourceMap` when Avalonia XAML diagnostics or source snippets can identify file, line, column, `x:Name`, declared bindings, and style/template/resource origins. Provenance uses public Avalonia diagnostic priority where available and reports `unknown` or `not_available` instead of guessing private style/resource origins. For selected runtime nodes it can also include `layoutExplanation` for why a node is `0x0`, clipped, or constrained by parent layout, with desired size, bounds, available constraints, Grid row/column sizing, ScrollViewer viewport, clipping ancestors, and ancestor metrics; `scrollState` for `ScrollViewer` metrics; `bindingState` with `DataContext` type, binding expression/path, resolved-value status, converter/fallback/null status, compiled-binding status, and source mapping; `accessibilityState` from public automation/focus metadata; `validationState` from `DataValidationErrors`; and `debugState` fields from controls that implement the opt-in `IAvaScopeDebugStateProvider` bridge contract. Use `explain-layout` when an agent only needs the bounded measure/arrange explanation for one node.
@@ -471,33 +234,42 @@ distinguishes `available`, genuinely `empty`, and `unavailable` after a peer rea
 failure. Audits report unavailable names separately; an internal control name
 does not prove that assistive technology receives a name. Evidence policy omits
 the optional status when that metadata is withheld, preserving name redaction
-without inventing an observed state. Compare the actual OS
+without inventing an observed state. Older responses without this status use
+the legacy metadata fallback; a missing status does not establish an empty name. Compare the actual OS
 tree separately with `audit-native-accessibility` when platform evidence matters.
 
 Find runtime tree nodes by identity and optional interaction state. State filters accept `true` or `false` and use the same semantics as workflow selectors and MCP `find_nodes`:
 
 ```powershell
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll find-nodes --session session-id --top-level topLevel:1234 --type TextBlock --max-depth 6
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll find-nodes --session session-id --top-level topLevel:1234 --tree-kind logical --automation-id save-button --max-results 10
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll find-nodes --session session-id --top-level topLevel:1234 --automation-id save-button --visible true --enabled true --rendered true --actionable true
+avascope find-nodes --session session-id --top-level topLevel:1234 --type TextBlock --max-depth 6
+avascope find-nodes --session session-id --top-level topLevel:1234 --tree-kind logical --automation-id save-button --max-results 10
+avascope find-nodes --session session-id --top-level topLevel:1234 --automation-id save-button --visible true --enabled true --rendered true --actionable true
 ```
 
-Build a bounded accessibility, validation, and component inventory report from the runtime tree:
+### Audits
+
+Build a bounded accessibility, validation, and component inventory report:
 
 ```powershell
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll audit-ui --session session-id --top-level topLevel:1234 --tree-kind visual --max-depth 8 --max-issues 100 --max-inventory 100 --run-index .\artifacts\run-indexes --task runtime-audit-main
+avascope audit-ui --session session-id --top-level topLevel:1234 --tree-kind visual --max-depth 8 --max-issues 100 --max-inventory 100 --run-index .\artifacts\run-indexes --task runtime-audit-main
 ```
 
 `audit-ui` returns `ToolResult<UiAuditResponse>` with `summary`, bounded `issues`, bounded `inventory`, and `agentReview`. It reports actionable controls missing accessible names or stable automation ids, keyboard focus metadata, runtime validation errors (including noninteractive controls), control/class/component-pattern counts, and explicit `not_available` inventory entries for style/resource/template/theme scopes that the runtime tree cannot prove reliably. When `--run-index <dir>` is supplied, the response includes `runIndex` with the audit command metadata, diagnostics, warnings, and latest pointer for the task.
 
-Check `summary.sourceTruncated` before interpreting the result: omitted descendants
-or unavailable complete evidence make the audit partial, even when no issue was
-found in the returned nodes. `summary.truncated` also includes report output
-limits. CLI `audit-ui` exits 1 for incomplete source coverage; complete audits
-retain exit 0 even when their report contains findings. Design audits likewise
-preserve partial coverage and exit 1 for partial results or active findings.
-An omitted deep scope is unavailable, not necessarily absent. See the
-[audit coverage contract](AGENT_WORKFLOW.md) for verified full evidence and bounds.
+Check audit coverage before interpreting a clean result. UI audit
+`summary.sourceTruncated` distinguishes incomplete source evidence from bounded
+issue/inventory output; tree nodes mark omitted descendants with
+`childrenTruncated`. Audits can consume the bridge's full tree artifact only after
+verifying its content hash, selected session/window/generation, size (16 MiB),
+node count (8192) and depth (64). Missing, mismatched or over-budget evidence
+remains partial. Requested depth limits are preserved. A missing design scope in
+partial evidence returns `design_quality_scope_unavailable`, not proof of absence.
+CLI `audit-ui` exits 1 for incomplete source coverage; its complete audit can
+still report findings with exit 0. CLI `design-audit` exits 1 for active findings,
+partial coverage or failure. MCP keeps available findings in successful partial
+results and exposes the coverage/diagnostics. Validation findings include
+noninteractive controls. Coverage applies to the captured runtime tree, not all
+unrealized model items or every possible application state.
 
 Run a task-scoped design-quality audit when a UI change needs focused visual-quality review rather than a broad accessibility inventory:
 
@@ -513,30 +285,32 @@ Run a task-scoped design-quality audit when a UI change needs focused visual-qua
   )
 } | ConvertTo-Json -Depth 8 | Set-Content .\design-audit.json
 
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll design-audit --request .\design-audit.json
+avascope design-audit --request .\design-audit.json
 ```
 
 `design-audit` returns `ToolResult<DesignQualityAuditResponse>` with active `findings`, separate `ignoredFindings`, scope metadata, and `agentReview`. It checks runtime-tree bounds and source/property metadata for icon center mismatch, inconsistent spacing and repeated item heights, low-contrast indicators, unintended 1px seams, corner-radius/layering mismatch, and wrapping/density problems. Scope can target a node/name/automation id/source path/region or changed node/source filters; exclusions and suppression rules are reflected as ignored findings so agents can distinguish a clean audit from intentionally ignored noise.
 
-Send local-only runtime input to an active bridge session:
+### Runtime Input
+
+Send local runtime input to the selected bridge session:
 
 ```powershell
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll input --session session-id --top-level topLevel:1234 --action click --x 120 --y 40
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll input --session session-id --top-level topLevel:1234 --action click --target-node visual:button
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll input --session session-id --top-level topLevel:1234 --action focus --target-node visual:5678
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll input --session session-id --top-level topLevel:1234 --action clear_text --target-node visual:5678
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll input --session session-id --top-level topLevel:1234 --action key_down --key Enter --modifiers Control+Shift --target-node visual:5678
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll input --session session-id --top-level topLevel:1234 --action invoke --target-node visual:button
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll input --session session-id --top-level topLevel:1234 --action select --target-node visual:tabItem
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll input --session session-id --top-level topLevel:1234 --action toggle --target-node visual:toggleButton
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll input --session session-id --top-level topLevel:1234 --action expand --target-node visual:expander
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll input --session session-id --top-level topLevel:1234 --action collapse --target-node visual:expander
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll input --session session-id --top-level topLevel:1234 --action select --target-node visual:tabControl --text 1
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll input --session session-id --top-level topLevel:1234 --action scroll --target-node visual:scrollViewer --y 120
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll input --session session-id --top-level topLevel:1234 --action drag --target-node visual:slider --direction end --duration-ms 300
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll input --session session-id --top-level topLevel:1234 --action swipe --target-node visual:card --direction left --distance-percent 75 --duration-ms 200
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll input --session session-id --top-level topLevel:1234 --action drag --target-node visual:card --destination-target-node visual:column --duration-ms 350
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll input --session session-id --top-level topLevel:1234 --action long_press --target-node visual:menuItem --duration-ms 800
+avascope input --session session-id --top-level topLevel:1234 --action click --x 120 --y 40
+avascope input --session session-id --top-level topLevel:1234 --action click --target-node visual:button
+avascope input --session session-id --top-level topLevel:1234 --action focus --target-node visual:5678
+avascope input --session session-id --top-level topLevel:1234 --action clear_text --target-node visual:5678
+avascope input --session session-id --top-level topLevel:1234 --action key_down --key Enter --modifiers Control+Shift --target-node visual:5678
+avascope input --session session-id --top-level topLevel:1234 --action invoke --target-node visual:button
+avascope input --session session-id --top-level topLevel:1234 --action select --target-node visual:tabItem
+avascope input --session session-id --top-level topLevel:1234 --action toggle --target-node visual:toggleButton
+avascope input --session session-id --top-level topLevel:1234 --action expand --target-node visual:expander
+avascope input --session session-id --top-level topLevel:1234 --action collapse --target-node visual:expander
+avascope input --session session-id --top-level topLevel:1234 --action select --target-node visual:tabControl --text 1
+avascope input --session session-id --top-level topLevel:1234 --action scroll --target-node visual:scrollViewer --y 120
+avascope input --session session-id --top-level topLevel:1234 --action drag --target-node visual:slider --direction end --duration-ms 300
+avascope input --session session-id --top-level topLevel:1234 --action swipe --target-node visual:card --direction left --distance-percent 75 --duration-ms 200
+avascope input --session session-id --top-level topLevel:1234 --action drag --target-node visual:card --destination-target-node visual:column --duration-ms 350
+avascope input --session session-id --top-level topLevel:1234 --action long_press --target-node visual:menuItem --duration-ms 800
 ```
 
 Targeted `click` derives top-level DIP coordinates from the center of the selected node's current bounds. If both `x` and `y` are supplied they take precedence; coordinate-only clicks still require both. Stale, invisible, zero-sized, fully clipped, or non-Button targets fail before click dispatch with bounded target/hit-test diagnostics.
@@ -565,13 +339,15 @@ runtime.RegisterCustomAction(
 Discover the current action descriptors before invoking one. Descriptors include the target, required state, current executability, parameter schema, safety classification, and unavailability reason. Results include bounded audit evidence. A destructive action runs only when activation set `allowDestructiveCustomActions: true` and the invocation sets `--allow-destructive true`; an action name cannot bypass this classification.
 
 ```powershell
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll custom-actions --session session-id --top-level topLevel:1234 --node visual:customControl
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll invoke-custom-action --session session-id --top-level topLevel:1234 --node visual:customControl --action confirm --parameters "mode=accept"
+avascope custom-actions --session session-id --top-level topLevel:1234 --node visual:customControl
+avascope invoke-custom-action --session session-id --top-level topLevel:1234 --node visual:customControl --action confirm --parameters "mode=accept"
 ```
 
 Input responses include `pointerButton` for supported pointer/click actions, `inputKey`/`keyModifiers` for routed key actions, wheel/scroll deltas for scroll actions, and bounded metadata such as the automation peer/pattern, previous/current automation state, selected index/item, or before/after scroll offsets.
 
-Run semantic workflow steps by stable runtime selectors instead of coordinates:
+### Semantic Workflows
+
+Run semantic workflow steps by stable selectors:
 
 ```json
 {
@@ -613,7 +389,7 @@ Run semantic workflow steps by stable runtime selectors instead of coordinates:
 ```
 
 ```powershell
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll run-workflow --request .\workflow.json
+avascope run-workflow --request .\workflow.json
 ```
 
 Workflow selectors can target `nodeId`, `automationId`, `text`, `name`, `nodeType`, `role`, `bindingPath`, or `commandName`, and can filter `visible`, `enabled`, `rendered`, or `actionable` state. Prefer `"actionable": true` for semantic input targets. Every selector is resolved again immediately before validation or execution, so template recreation and navigation do not make a persisted runtime id authoritative. Generation context is checked atomically on the Bridge UI thread; one retry is allowed only for a stale response that proves `dispatched=false`, while any post-dispatch failure is never repeated. Ambiguous selectors fail with a bounded candidate list containing identity, state, bounds, top-level, and available actions. The semantic action set includes `invoke`, `select`, `toggle`, `expand`, `collapse`, `drag`, `swipe`, `long_press`, `press_and_hold`, `custom_actions`, and `custom_action`. A `custom_action` step supplies `customActionName` and optional `customActionParameters`; AvaScope re-resolves the selector, discovers the descriptor, and enforces its executability and safety classification before dispatch. Gesture steps use `direction`, `distancePercentage`, and `durationMs`; bounds-derived pointer fallback measures directional percentages over the full safe target span, while source-to-target gestures add a `destinationSelector` that is resolved independently and must match exactly one current visual node. Add `verify` to a side-effecting gesture step when successful dispatch must also be followed by a proven application state or command transition. Destructive-looking built-in targets and destructive registered actions are rejected unless the request declares `allowDestructive` or an `isolatedStateDirectory`.
@@ -716,6 +492,8 @@ Compose bounded workflows with `if`, `retry_until`, `optional`, request-level `v
 ```
 
 Compilation happens before output-directory creation or Bridge dispatch. Set `validateOnly: true` to return status `validated`, an empty runtime step list, and the fully expanded `plan`; static failures return `validation_failed` with every bounded diagnostic found. Execution results remain chronological and add `executionPath`, `parentStepId`, `attempt`, and `sourceFragment`; branch exclusions and optional failures are `skipped`, while a non-final failed retry condition is `retried`. Cycles, missing fragments/arguments/variables, invalid shapes, unbounded retries, retry side effects without idempotency, and limit violations prevent all execution. Fixed limits are: nesting `8`, expanded plan steps `256`, estimated results `512`, fragments `32`, variables `64`, fragment parameters/arguments `16`, retry attempts `10`, total retry iterations `64`, artifacts `64`, and workflow timeout `300000` ms maximum. Existing response budgeting still writes the complete oversized JSON to a hash-addressed local artifact.
+
+### Workflow Evidence And Privacy
 
 Side-effecting semantic actions may add `verify`. AvaScope optionally captures the selected pre-state, executes the action once, then uses the same typed selector/wait evaluator to bound the postcondition. The action step is `passed` only when the postcondition matches; timeout or unavailable state changes the step to `failed` while preserving the action result, last observation, and pre/post evidence. `verify.selector` and `verify.topLevelAlias` override the action target for observation; otherwise they inherit the action selector and alias. `captureBefore` and `captureAfter` default to `true`, while `captureScreenshots` is explicitly opt-in.
 
@@ -839,6 +617,8 @@ Use `validate_action` with `inputAction`, or `validate_mutation` with a structur
 }
 ```
 
+### Scenario Lifecycle
+
 Use `run-scenario` when the workflow should launch or attach before running steps and produce a human-readable evidence timeline:
 
 ```json
@@ -884,7 +664,7 @@ Use `run-scenario` when the workflow should launch or attach before running step
 ```
 
 ```powershell
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll run-scenario --request .\scenario.json
+avascope run-scenario --request .\scenario.json
 ```
 
 `run-scenario` returns `ToolResult<RuntimeScenarioResponse>` with `status`, optional `build`, launch and `attach` metadata, bridge `readiness`, all registered `topLevels`, the nested workflow result, optional `cleanup`, `failureStage`, `timelinePath`, diagnostics, and isolated-state metadata. `failureStage` distinguishes `validation`, `build`, `launch`, `bridge_readiness`, `attach`, `top_levels`, `workflow`, and `cleanup`; build and launch stdout/stderr remain in referenced local files even when a later stage fails. Build and launch environment values and tokenized arguments are never echoed in normal response metadata: only environment-variable names and argument counts are reported.
@@ -893,7 +673,9 @@ Project launch uses the conventional built `bin/<configuration>/<framework>/<pro
 
 Set `terminateLaunchedProcess: true` when the scenario owns the app lifecycle. Cleanup closes the bridge and terminates the process tree only when the saved session, process id, and process start time still match; foreign processes, manually attached apps, and PID-reused processes are never terminated. Cancellation and readiness timeout terminate only the directly started process tree before returning their partial logs and readiness evidence. The default remains `false` for compatibility with scenarios that intentionally leave an app running.
 
-Diagnose hover, popup, tooltip, and pointer transition behavior with a pointer-path request:
+### Pointer Diagnostics
+
+Diagnose hover, popup, tooltip and pointer transitions:
 
 ```json
 {
@@ -913,10 +695,12 @@ Diagnose hover, popup, tooltip, and pointer transition behavior with a pointer-p
 ```
 
 ```powershell
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll pointer-diagnostics --request .\pointer-diagnostics.json
+avascope pointer-diagnostics --request .\pointer-diagnostics.json
 ```
 
 `pointer-diagnostics` returns `ToolResult<RuntimePointerDiagnosticsResponse>` with per-step primary top-level DIP coordinates, the sampled layer's local `pointer`, actual Avalonia hit path, nearest node, mismatch diagnostics, screenshot and pointer-overlay paths. Hit paths use generation/geometry-pinned `pick_node` samples in root-to-leaf order; `maxDepth` limits only the separate nearest-node tree. Nearest rectangle distance is not hit evidence. Layer metadata reports complete/partial/unavailable coverage, geometry and occlusion. Cross-window samples require desktop-origin/scale mapping; ambiguous native z-order is reported, and `assert_hit` refuses ambiguous or incomplete evidence. Use `includeAllTopLevels=false` with an explicit target root for a local hit assertion. Native desktop delivery remains unverified. Enter/exit diagnostics use `avalonia_hit_test_snapshot_inference` because they compare samples rather than observe routed events. `parentHoverNodeId` can identify possible parent-hover exits. Pointer overlay coordinates are mapped to the selected root's rendered pixels.
+
+### Pseudo-State Matrix
 
 Capture a selected runtime control across common pseudo-states:
 
@@ -935,12 +719,18 @@ Capture a selected runtime control across common pseudo-states:
 ```
 
 ```powershell
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll pseudo-state-matrix --request .\pseudo-state-matrix.json
+avascope pseudo-state-matrix --request .\pseudo-state-matrix.json
 ```
 
 `pseudo-state-matrix` returns `ToolResult<RuntimePseudoStateMatrixResponse>` with one entry per requested state, state screenshot paths, applied/reset mutation responses, input actions used for pointer states, per-state diagnostics, diff metadata against the normal baseline when available, and a labeled contact sheet path. Runtime forcing is local and reset per state. Prefer selector fields over raw `visual:*` node ids for repeatable requests; raw node ids are generation-scoped and diagnostics report that scope or re-resolve through selector fields when possible. Unsupported states or unsupported target properties are reported in the relevant entry instead of being inferred from screenshots.
 
-Record frames after a real runtime interaction and assert geometry across the transition:
+Pointer states require the requested `:pointerover` or `:pressed` class on the current target after capture. Dispatch alone cannot pass: an absent class produces a failed entry with `pseudo_state_not_observed`, while retaining its screenshot and observed classes. Pointer cleanup moves/releases outside the top-level, including when the target fills the entire window. Hover uses public synthetic enter/exit events; it does not certify OS cursor position or native desktop delivery. A state may render identically under an application's theme, so pixel differences alone are not required for state success.
+
+When the inline visual tree is truncated, the matrix can inspect its exact target separately without expanding the tree response. A missing or stale target after capture fails that state and omits its target summary; an existing screenshot alone does not establish successful state capture. Applied mutations are still reset, and reset outcomes remain in the entry.
+
+### Interaction Animation
+
+Record frames after input and assert geometry across the transition:
 
 ```json
 {
@@ -960,7 +750,7 @@ Record frames after a real runtime interaction and assert geometry across the tr
 ```
 
 ```powershell
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll record-interaction-animation --request .\interaction-animation.json
+avascope record-interaction-animation --request .\interaction-animation.json
 ```
 
 `record-interaction-animation` returns `ToolResult<RuntimeInteractionAnimationResponse>` with one result per scripted input/wait step, per-frame screenshot paths, geometry overlay PNG paths, a labeled frame strip, and structured geometry assertion samples linked back to the triggering step and frame offset. Assertion modes include `changed`, `increasing`, `decreasing`, `stable`, `equals`, `within_range`, `final_stable`, and `not_clipped`; metrics include `x`, `y`, `width`, `height`, `left`, `top`, `right`, `bottom`, `center_x`, and `center_y`.
@@ -970,13 +760,15 @@ Recording is armed before each input dispatch and triggers that input once. Offs
 Use `timingToleranceMs` separately from an assertion's numeric `tolerance`. `fromOffsetMs` and `toOffsetMs` bound which samples participate: assert `increasing` across the motion, `within_range` at the middle, `equals` in a final window, and `final_stable` across two later distinct samples. Assertions describe observed geometry only, not an arbitrary animated property or continuous stability between frames. If selected measurements miss their timing window, the assertion and recording report `inconclusive` and later scripted inputs are not dispatched. Check `value.status`, not only the outer `success` field. Missing/unreadable target geometry or transport/capture errors remain explicit failures; an empty assertion sample window is inconclusive.
 
 
-Apply a reversible runtime mutation and capture an agent evidence package:
+### Runtime Mutations
+
+Apply a reversible runtime mutation and capture an evidence package:
 
 ```powershell
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll mutate-node --session session-id --top-level topLevel:1234 --node visual:5678 --operation set_property --property Width --value 240 --value-type double
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll mutate-node --session session-id --top-level topLevel:1234 --node visual:5678 --operation reset_mutation --mutation-id mutation-id
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll mutate-node-evidence --session session-id --top-level topLevel:1234 --node visual:5678 --operation set_property --property Background --value "#0066ff" --value-type brush --out-dir .\artifacts\mutation-evidence --request-id background-check
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll mutation-review --session session-id --max-results 20 --out .\artifacts\mutation-evidence\review.html --source-project path\to\App.csproj --source-view Views\MainView.axaml --source-app App.axaml --source-profile avascope.preview.json
+avascope mutate-node --session session-id --top-level topLevel:1234 --node visual:5678 --operation set_property --property Width --value 240 --value-type double
+avascope mutate-node --session session-id --top-level topLevel:1234 --node visual:5678 --operation reset_mutation --mutation-id mutation-id
+avascope mutate-node-evidence --session session-id --top-level topLevel:1234 --node visual:5678 --operation set_property --property Background --value "#0066ff" --value-type brush --out-dir .\artifacts\mutation-evidence --request-id background-check
+avascope mutation-review --session session-id --max-results 20 --out .\artifacts\mutation-evidence\review.html --source-project path\to\App.csproj --source-view Views\MainView.axaml --source-app App.axaml --source-profile avascope.preview.json
 ```
 
 `mutate-node-evidence` runs a fixed local loop: before screenshot, before visual tree, mutation, after screenshot, after visual tree, optional image diff, and local HTML review artifact generation. The response is `ToolResult<RuntimeMutationEvidenceResponse>` with artifact file paths, mutation status, before/after target summaries, bounded diagnostics, changed-pixel metrics when diffing is enabled, `reviewArtifact` with a file URL for human inspection, and `agentReview` with a mutation summary plus bounded artifact/review URL handoff. The generated evidence HTML maps clicks on before/after screenshots to the nearest bounded visual-tree node and shows available source/property/binding provenance from the captured tree snapshots. Use `--diff false` to skip pixel comparison and `--tolerance <0-255>` to allow channel tolerance in the diff.
@@ -996,8 +788,8 @@ Use `--source-project`, `--source-view`, `--source-app`, and `--source-profile` 
 Close an active local bridge session:
 
 ```powershell
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll close-session --session session-id
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll close-session --session session-id --terminate-launched-process true
+avascope close-session --session session-id
+avascope close-session --session session-id --terminate-launched-process true
 ```
 
 The opt-in termination flag only affects an app started by AvaScope
@@ -1006,22 +798,26 @@ terminating the owned process tree; otherwise it reports `not_owned`. The
 default remains session-only close. Outcomes are `closed_only`, `terminated`,
 `already_exited`, `not_owned`, and `termination_failed`.
 
+### Diagnostics
+
 Read local bridge and preview-host diagnostics:
 
 ```powershell
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll doctor
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll diagnostics
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll diagnostics --session session-id --max-sessions 10
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll diagnostics --manifest C:\Temp\AvaScope\sessions\session-id.json
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll diagnostics --mode active-only
+avascope doctor
+avascope diagnostics
+avascope diagnostics --session session-id --max-sessions 10
+avascope diagnostics --manifest .\artifacts\sessions\session-id.json
+avascope diagnostics --mode active-only
 ```
 
 `doctor` reports CLI/MCP/PreviewHost co-location, bridge manifest discovery, preview-session store state, preview host readiness, and actionable issues without building or loading user projects. It exits non-zero when required co-located AvaScope assemblies or diagnostic records need attention. `diagnostics` distinguishes active, stale, invalid, unauthorized, unavailable, and incompatible local bridge records, includes health-check request ids, reports duplicate manifest records, and preserves protocol mismatch details. The response includes `summary` counts plus `nextCommands` and `componentOrigins` entries for `cli`, `mcp`, and `previewHost` assembly paths, base directories, resolved roots, source kind, and file existence. If those components resolve from different roots, diagnostics reports `diagnostics_mixed_install_roots` so repo-local and packaged tool mixes are explicit. `--mode active-only` lists only useful active bridge/preview sessions while keeping stale/invalid counts in `summary`; `--mode minimal` and `--mode json-minimal` suppress detailed session lists for concise agent triage.
 
+### Visual Comparison
+
 Compare screenshots with an explicit diff artifact:
 
 ```powershell
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll diff --baseline .\baseline.png --current .\preview.png --out .\preview-diff.png --tolerance 2
+avascope diff --baseline .\baseline.png --current .\preview.png --out .\preview-diff.png --tolerance 2
 ```
 
 The command returns a structured `ToolResult<PreviewDiffResponse>`. A changed image exits non-zero while still returning the changed pixel count, changed percentage, max channel delta, and diff path.
@@ -1029,7 +825,7 @@ The command returns a structured `ToolResult<PreviewDiffResponse>`. A changed im
 Compare a current screenshot against an arbitrary reference and ask AvaScope to produce bounded likely visual deltas:
 
 ```powershell
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll semantic-diff --reference .\reference.png --current .\preview.png --out-dir .\artifacts\semantic-diff --tolerance 2 --max-findings 12 --max-raw-regions 8
+avascope semantic-diff --reference .\reference.png --current .\preview.png --out-dir .\artifacts\semantic-diff --tolerance 2 --max-findings 12 --max-raw-regions 8
 ```
 
 `semantic-diff` returns `ToolResult<SemanticScreenshotComparisonResponse>` with the raw `PreviewDiffResponse`, separate connected raw pixel regions, heuristic semantic findings, annotated crops, and an annotated overview image. Finding kinds include `center_mismatch`, `edge_mismatch`, `padding_difference`, `border_or_seam_difference`, and `wrapping_difference`. Each semantic finding includes confidence and provenance such as `content_bounds_heuristic`, `edge_band_heuristic`, or `line_band_heuristic`; these are visual-delta hints, not proof of source-level intent.
@@ -1037,8 +833,8 @@ dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll semantic-diff --referen
 Check a focused screenshot region without mutating baselines:
 
 ```powershell
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll assert-region --image .\screenshot.png --assert non_empty --x 20 --y 40 --width 200 --height 80 --crop-out .\region.png
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll assert-region --image .\current.png --baseline .\baseline.png --assert changed --x 0 --y 0 --width 300 --height 160 --min-changed-pixels 5 --tolerance 2
+avascope assert-region --image .\screenshot.png --assert non_empty --x 20 --y 40 --width 200 --height 80 --crop-out .\region.png
+avascope assert-region --image .\current.png --baseline .\baseline.png --assert changed --x 0 --y 0 --width 300 --height 160 --min-changed-pixels 5 --tolerance 2
 ```
 
 Supported assertions are `non_empty`, `mostly_blank`, `changed`, and `unchanged`. The command returns `ToolResult<ScreenshotRegionAssertionResponse>` with bounded pixel metrics and optional crop artifacts.
@@ -1046,9 +842,9 @@ Supported assertions are `non_empty`, `mostly_blank`, `changed`, and `unchanged`
 Create and check a visual regression baseline set:
 
 ```powershell
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll baseline-create path\to\App.csproj --view Views\MainView.axaml --manifest .\baselines\main.json --sizes 1440x900,1280x720 --out-dir .\baselines\main-images --theme light
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll baseline-check --manifest .\baselines\main.json --out-dir .\artifacts\visual-current --diff-dir .\artifacts\visual-diff --report .\artifacts\visual-report.json --report-pack .\artifacts\visual-report-pack --run-index .\artifacts\run-indexes --task visual-main --tolerance 2
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll latest-run --run-index .\artifacts\run-indexes --task visual-main
+avascope baseline-create path\to\App.csproj --view Views\MainView.axaml --manifest .\baselines\main.json --sizes 1440x900,1280x720 --out-dir .\baselines\main-images --theme light
+avascope baseline-check --manifest .\baselines\main.json --out-dir .\artifacts\visual-current --diff-dir .\artifacts\visual-diff --report .\artifacts\visual-report.json --report-pack .\artifacts\visual-report-pack --run-index .\artifacts\run-indexes --task visual-main --tolerance 2
+avascope latest-run --run-index .\artifacts\run-indexes --task visual-main
 ```
 
 `baseline-create` writes explicit baseline screenshots plus a JSON manifest. `baseline-check` re-renders the manifest variants, writes current and diff images to explicit output directories, can write a stable JSON report with `--report`, can write an agent evidence pack with `--report-pack <dir>`, can write a run index with `--run-index <dir>`, returns bounded `agentReview` triage metadata, and exits non-zero when any variant changes. It does not update or replace baseline files.
@@ -1058,7 +854,7 @@ dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll latest-run --run-index 
 - `baseline-report.json`: machine-readable pack summary, baseline check result, grouped failures, and image paths.
 - `baseline-report.html`: local review page with grouped failures, environment metadata, baseline/current/diff image links, and suite/mutation provenance.
 - `baseline-junit.xml`: CI-friendly pass/fail summary.
-- `baseline.sarif.json`: SARIF-style failure summary for code-scanning or PR review surfaces.
+- `baseline.sarif.json`: SARIF-style failure summary for code-scanning review.
 
 The CLI/MCP response returns `agentReview` for first-pass triage, then `reportPack` for status, counts, metadata, and asset paths. It does not inline large images or unbounded report payloads.
 
@@ -1107,18 +903,20 @@ For agent repeatability across multiple views, sizes, themes, cultures, and late
 ```
 
 ```powershell
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll baseline-create --suite .\baselines\agent-main-suite.json --manifest .\baselines\agent-main.json --out-dir .\baselines\agent-main-images
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll baseline-check --manifest .\baselines\agent-main.json --out-dir .\artifacts\visual-current --diff-dir .\artifacts\visual-diff --report .\artifacts\visual-report.json --report-pack .\artifacts\visual-report-pack --tolerance 2
+avascope baseline-create --suite .\baselines\agent-main-suite.json --manifest .\baselines\agent-main.json --out-dir .\baselines\agent-main-images
+avascope baseline-check --manifest .\baselines\agent-main.json --out-dir .\artifacts\visual-current --diff-dir .\artifacts\visual-diff --report .\artifacts\visual-report.json --report-pack .\artifacts\visual-report-pack --tolerance 2
 ```
 
-Suite creation expands to the same baseline manifest shape that `baseline-check` already consumes. `comparisonRules` can be declared in suite defaults, entries, or explicit variants. Scalar values such as `tolerance`, `maxChangedPixels`, and `maxChangedPercent` are overridden by the more specific level, while `ignoredRegions` and `requiredRegions` are combined. If no rules are configured, baseline checks keep the existing strict behavior. In this slice, `runtimeTarget`, `profileName`, `profileVariant`, `profileFilePath`, and `mutationPresetIds` are recorded as structured provenance and agent handoff metadata; suite creation does not execute runtime mutations.
+Suite creation expands to the same baseline manifest shape that `baseline-check` already consumes. `comparisonRules` can be declared in suite defaults, entries, or explicit variants. Scalar values such as `tolerance`, `maxChangedPixels`, and `maxChangedPercent` are overridden by the more specific level, while `ignoredRegions` and `requiredRegions` are combined. If no rules are configured, baseline checks keep the existing strict behavior. `runtimeTarget`, `profileName`, `profileVariant`, `profileFilePath`, and `mutationPresetIds` are recorded as structured provenance and agent handoff metadata; suite creation does not execute runtime mutations.
 
 For CI artifact upload, prefer `baseline-check --report-pack <dir>` and upload that directory plus the configured current/diff directories. The older `eng\collect-baseline-artifacts.ps1` helper remains available for `--report` JSON-only workflows. See [VISUAL_REGRESSION_CI.md](VISUAL_REGRESSION_CI.md).
+
+### Cleanup And Reload
 
 Delete stale AvaScope-owned preview-session metadata:
 
 ```powershell
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll cleanup
+avascope cleanup
 ```
 
 Cleanup only removes stale or invalid JSON records from the local AvaScope preview-session store. It does not terminate processes by name.
@@ -1126,7 +924,7 @@ Cleanup only removes stale or invalid JSON records from the local AvaScope previ
 Delete stale or invalid AvaScope-owned bridge manifests:
 
 ```powershell
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll cleanup-bridge-sessions --manifest-dir C:\Temp\AvaScope\sessions
+avascope cleanup-bridge-sessions --manifest-dir .\artifacts\sessions
 ```
 
 Bridge cleanup deletes only stale or invalid local manifest JSON files. It does not kill processes and leaves live but unavailable or incompatible bridge-enabled apps in place for diagnostics.
@@ -1134,68 +932,15 @@ Bridge cleanup deletes only stale or invalid local manifest JSON files. It does 
 Check reload support for a runtime bridge session:
 
 ```powershell
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll reload --session session-id
+avascope reload --session session-id
 ```
 
 Runtime bridge reload currently returns an explicit `runtime_reload_not_supported` result after verifying the local bridge session is active. CLI preview renders are one-shot and are not persisted across CLI processes.
 Use `create-preview-session` when a CLI workflow needs persisted preview-session metadata and reload support across CLI processes.
 
-After creating or extracting the local executable package, the same command shape can be run from the artifact directory:
-
-```powershell
-.\artifacts\executables\avascope-win-x64-framework-dependent\avascope.exe mcp
-dotnet .\artifacts\executables\avascope-win-x64-framework-dependent\avascope.dll mcp
-```
-
 ## MCP
 
-The MCP server runs over stdio:
-
-```powershell
-dotnet .\src\AvaScope.Mcp\bin\Debug\net10.0\AvaScope.Mcp.dll
-```
-
-Implemented tools:
-
-- `health`
-- `capabilities`
-- `list_sessions`
-- `attach_to_app`
-- `launch_app`
-- `list_top_levels`
-- `screenshot`
-- `assert_region`
-- `visual_tree`
-- `logical_tree`
-- `inspect_node`
-- `explain_layout`
-- `find_nodes`
-- `audit_ui`
-- `design_quality_audit`
-- `input`
-- `run_workflow`
-- `run_scenario`
-- `pointer_diagnostics`
-- `pseudo_state_matrix`
-- `mutate_node`
-- `mutate_node_evidence`
-- `mutation_review`
-- `close_session`
-- `session_capabilities`
-- `native_picker`
-- `diagnostics`
-- `preview_axaml`
-- `preview_axaml_multi`
-- `preview_axaml_animation`
-- `cleanup`
-- `cleanup_bridge_sessions`
-- `create_preview_session`
-- `list_preview_sessions`
-- `preview_viewer`
-- `close_preview_session`
-- `reload`
-
-Post-1.0 deferrals: runtime hot reload, native Avalonia drag-and-drop data transfer, full preview startup orchestration, native signed installers, and broader hosted review integrations. Bounds-derived routed-pointer gestures and public range-provider adjustment are supported; arbitrary drag payload exchange remains deferred.
+Start the stdio server with `avascope mcp` or `dotnet <install-root>/AvaScope.Mcp.dll`. Use the [client configuration example](AGENT_RECIPES.md#connect-any-stdio-mcp-client) and [tool catalog](STABLE_SURFACE.md#mcp-tools). CLI examples above have equivalent structured MCP requests; discover their actual schemas before calling.
 
 Runtime input capability metadata is the canonical action reference. It lists
 all pointer, keyboard, text, focus, scroll, and automation-pattern actions
@@ -1242,7 +987,7 @@ deterministic outcomes are `success`, `cancelled`, `unavailable_path`, and
   "topLevelId": "topLevel:main",
   "pickerResult": {
     "result": "deleted_path",
-    "path": "C:\\temp\\removed",
+    "path": "<absolute-test-path>",
     "ttlMs": 30000
   },
   "steps": [
@@ -1297,7 +1042,7 @@ Preview readiness/build/render failures preserve the stable `error.code` and `er
 
 ## Runtime Bridge
 
-The bridge is opt-in. A host app must activate it explicitly and register top-levels that should be inspectable:
+Activate the bridge only behind a host-owned development/test flag, then register the intended top-level:
 
 ```csharp
 using AvaScope.Bridge;
@@ -1306,36 +1051,9 @@ var runtime = AvaScopeBridge.Activate(new BridgeActivationOptions("My app"));
 using var registration = runtime.RegisterTopLevel(window);
 ```
 
-The bridge currently uses local session manifests and local named pipes. It accepts new local connections while earlier requests are processed, bounds active request handling, and keeps each newline-delimited response on its originating connection with the matching request id. It does not expose unauthenticated remote inspection.
+For automatic lifetime registration or an app with no AvaScope package reference, use the [standalone provider](STANDALONE_PROVIDER.md). The local manifest/named-pipe transport handles bounded concurrent requests and correlates each response to its connection/request. Activation, custom actions and desktop capture have separate explicit authorization boundaries; see the [threat model](SECURITY_THREAT_MODEL.md).
 
-Runtime safety boundary:
-
-- The bridge is inactive until the host app calls `AvaScopeBridge.Activate(...)`.
-- Session manifests are local discovery metadata and include `transportScope: "local_only"`.
-- Bridge IPC uses local named pipes; the server is created with current-user-only pipe access where the platform supports it.
-- CLI and MCP runtime commands only attach to active local manifests and do not open network listeners.
-- Runtime control remains intentionally narrow, local-only, and non-destructive in the stable v1 surface.
-- Runtime mutations are temporary local overrides. They are not source edits and are not persisted by AvaScope.
-- Mutation review history is session-local and bounded; it is intended for current agent handoff, not durable audit storage.
-- `reset_mutation`, `reset_all`, top-level unregister, `close-session`, and bridge deactivation attempt to restore active runtime mutations and clear AvaScope's active mutation registry.
-- Runtime target handoff uses structured `target` context in command output; it does not add remote control or private Avalonia hooks.
-
-The release threat model is tracked in [SECURITY_THREAT_MODEL.md](SECURITY_THREAT_MODEL.md). It records the local-only transport boundary, opt-in bridge activation, runtime mutation permissions, PreviewHost execution boundary, generated artifact/log handling, and package/API/CLI/MCP compatibility risks for the v1.0.0 stable release.
-
-Runtime input support is intentionally narrow:
-
-- `pointer_move` raises a routed Avalonia `PointerMovedEvent` on the hit-tested input target.
-- `pointer_down` and `pointer_up` raise routed Avalonia pointer press/release events on the hit-tested input target.
-- `click` supports Button targets in the current MVP.
-- `focus` focuses an input element by visual/logical node id or hit-tested coordinates.
-- `key_down` and `key_up` raise routed Avalonia key events on a focused input element or explicit target node id.
-- `key_text` writes to a focused `TextBox` or explicit `targetNodeId`, respects read-only targets, and replaces the current selection when one exists.
-- `clear_text` clears a focused or targeted writable `TextBox`, resets caret/selection to 0, and rejects read-only targets.
-- `select` sets `SelectedIndex` on targeted `SelectingItemsControl` instances such as `TabControl`, `ListBox`, and `ComboBox` using either an item index or exact item text.
-- `scroll` adjusts a targeted `ScrollViewer` offset through public Avalonia state and reports before/after offsets.
-- `invoke`, target-only `select`, `toggle`, `expand`, and `collapse` use public Avalonia automation providers.
-- `drag` and `swipe` derive a bounded path from the current source/destination bounds or a direction and percentage; writable range controls prefer `IRangeValueProvider` before routed-pointer fallback.
-- `long_press` and `press_and_hold` hold a routed pointer at the current target center for a bounded duration and always release it on completion or cancellation.
+Input behavior and provider/fallback limits are documented under [runtime input](#runtime-input) and [input strategies](INPUT_STRATEGIES.md). Mutation reset and history semantics are under [runtime mutations](#runtime-mutations).
 
 ## Preview Host
 
@@ -1359,11 +1077,7 @@ Animation preview responses use the same isolated PreviewHost boundary and add e
 
 Preview session tools store the original preview request, latest render result, bounded session events, and lifecycle status as Core metadata. MCP-backed and CLI-created preview session records are also persisted as JSON under the local AvaScope temp preview-session store so they can be restored after the MCP server or CLI process restarts. They do not keep user project code loaded inside MCP or CLI; each render still goes through `AvaScope.PreviewHost`.
 
-`preview_viewer` and CLI `preview-viewer` export a local file-backed HTML viewer for a preview session's latest successful render. The response includes a `previewUrl` that can be opened in the Codex in-app browser. The generated viewer embeds the screenshot and bounded session metadata, so it remains local and does not require a preview server.
-
-`reload` re-runs stored preview-session requests through the isolated preview host and updates the existing session's latest render result. Runtime bridge session ids are health-checked locally and return `runtime_reload_not_supported`; AvaScope does not restart apps, inject code, or claim runtime hot reload. The one-shot CLI `preview` command remains one-shot; CLI preview-session commands provide the durable preview path, and `watch-preview-session` can trigger bounded reloads from file changes. Watch events that leave the watched input snapshot unchanged are reported as `skipped` instead of launching another PreviewHost child process.
-
-`watch-preview-session` responses include a `lifecycle` object. In the stable v1 surface, `lifecycle.hostProcessMode` is `one_shot_isolated_child_process` and `persistentHostEnabled` is `false`. Persistent preview hosts remain deferred until explicit ownership, `close`, TTL, crash recovery, and cleanup semantics are designed and validated; current cleanup is limited to request temp directories and AvaScope preview-session metadata.
+See [preview sessions](#preview-sessions) for viewer, reload and bounded watch commands. Watch responses report `lifecycle.hostProcessMode: one_shot_isolated_child_process` and `persistentHostEnabled: false`; unchanged input snapshots produce `skipped` events without another render.
 
 Current preview limitations:
 
@@ -1383,3 +1097,19 @@ requires a separate host-only test-desktop grant and applies evidence masks befo
 - The MCP server is a thin adapter over Core.
 - Tool results use structured JSON and file paths instead of unbounded payloads where practical.
 - Runtime mutations remain local-only, reversible, bounded, and auditable. The current safe mutation set is intentionally limited to selected public Avalonia properties, classes, and local resource overrides.
+
+
+## Task Reference
+
+Use the guide for the selected task rather than loading every tool description:
+
+| Task | Detailed contract and examples |
+| --- | --- |
+| Integrate or launch an app | [Standalone/package onboarding](STANDALONE_PROVIDER.md), [test profiles](AGENT_TEST_PROFILES.md), [target readiness](TARGET_READINESS.md), [test fixtures](TEST_FIXTURES.md) |
+| Observe current state or changes | [Readiness](RUNTIME_READINESS.md), [observations](RUNTIME_OBSERVATIONS.md), [change cursors](RUNTIME_OBSERVATION_CHANGES.md), [provenance](RUNTIME_PROVENANCE.md) |
+| Find and validate a target | [Relationships/projections](RELATIONSHIP_QUERIES.md), [virtual items/testability](TESTABILITY_AND_VIRTUAL_ITEMS.md), [picking/highlights](PICKING_AND_HIGHLIGHTS.md), [action maps](ACTION_MAP.md), [action explanations](ACTION_EXPLANATIONS.md) |
+| Apply and verify state | [Input strategies](INPUT_STRATEGIES.md), [desired state](DESIRED_STATE_ACTIONS.md), [dispatch preconditions](DISPATCH_PRECONDITIONS.md), [runtime expressions](RUNTIME_EXPRESSIONS.md) |
+| Work with fields and records | [Forms](FORM_WORKFLOWS.md), [tables](TABLE_WORKFLOWS.md), [text ranges](TEXT_RANGE_EDITING.md), [focus](FOCUS_NAVIGATION.md) |
+| Coordinate windows and app work | [Windows](WINDOW_MANAGEMENT.md), [navigation](NAVIGATION_HISTORY.md), [scenes](SEMANTIC_SCENES.md), [operations](RUNTIME_OPERATIONS.md), [traces](RUNTIME_TRACES.md) |
+| Recover or replay | [Run recovery](RUN_RECOVERY.md), [workflow export/replay](WORKFLOW_EXPORT.md) |
+| Assess native behavior | [Screen evidence](SCREEN_EVIDENCE.md), [native accessibility](NATIVE_ACCESSIBILITY.md), [platform matrix](NATIVE_PLATFORM_MATRIX.md), [managed X11](MANAGED_X11.md), [managed Wayland](MANAGED_WAYLAND.md) |

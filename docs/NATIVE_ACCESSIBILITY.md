@@ -123,17 +123,4 @@ AT-SPI server state or integrate with another test framework.
 
 ### Native integration test lifecycle evidence
 
-The owned native accessibility fixture retains `cleanup.json` separately from
-`initial.json`, `cli.json` and `mcp-redacted.json`. A compared audit is not evidence
-that cleanup succeeded. Session close, service stop, process termination/exit,
-both output captures, reader closure and disposal each retain their outcome and
-elapsed time. Stream capture keeps its three-second bound; process exit has an
-independent three-second cancellation bound. A failed capture produces an explicit
-unavailable marker, while the other stream and remaining owned processes still
-receive cleanup. Primary and cleanup exceptions are retained together; the safe
-JSON contains exception types/HRESULTs, not messages, stacks or environment data.
-
-The test explicitly disposes readers obtained through `Process.StandardOutput`
-and `StandardError`, following the [.NET 10 Process ownership implementation](https://github.com/dotnet/runtime/blob/v10.0.0/src/libraries/System.Diagnostics.Process/src/System/Diagnostics/Process.cs).
-Exit and stream EOF are separate observations. A later pass or short drain does
-not establish the cause of an earlier delayed capture.
+The fixture writes `cleanup.json` separately from audit results: a successful audit does not establish successful cleanup. It records session/service/process, output-capture and disposal outcomes. Stream capture and process exit have separate three-second bounds; EOF and exit are distinct observations. Preserve primary and cleanup failures, with exception types/HRESULTs but no messages, stacks or environment data. Apply the [QA retention policy](AGENT_QA_LAB.md#local-testing-and-retention-policy) after inspection.

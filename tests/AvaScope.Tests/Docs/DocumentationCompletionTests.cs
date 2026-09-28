@@ -96,9 +96,10 @@ public sealed class DocumentationCompletionTests
         Assert.Contains("test-complex-workflow.ps1", userGuide, StringComparison.Ordinal);
 
         var agentWorkflow = File.ReadAllText(Path.Combine(root, "docs", "AGENT_WORKFLOW.md"));
-        Assert.Contains("--distance-percent", agentWorkflow, StringComparison.Ordinal);
-        Assert.Contains("cancellation releases a pressed pointer", agentWorkflow, StringComparison.Ordinal);
-        Assert.Contains("test-complex-workflow.ps1", agentWorkflow, StringComparison.Ordinal);
+        Assert.Contains("USER_GUIDE.md#semantic-workflows", agentWorkflow, StringComparison.Ordinal);
+        Assert.Contains("INPUT_STRATEGIES.md", agentWorkflow, StringComparison.Ordinal);
+        Assert.Contains("--distance-percent", userGuide, StringComparison.Ordinal);
+        Assert.Contains("cancellation releases any pressed pointer", userGuide, StringComparison.Ordinal);
 
         Assert.Contains("# AvaScope Upgrade And Compatibility", upgrade, StringComparison.Ordinal);
         Assert.Contains("AvaScope.Protocol", upgrade, StringComparison.Ordinal);
@@ -120,18 +121,20 @@ public sealed class DocumentationCompletionTests
         var stableSurface = File.ReadAllText(Path.Combine(root, "docs", "STABLE_SURFACE.md"));
         var troubleshooting = File.ReadAllText(Path.Combine(root, "docs", "TROUBLESHOOTING.md"));
         var validation = File.ReadAllText(Path.Combine(root, "docs", "VALIDATION.md"));
+        var userGuide = File.ReadAllText(Path.Combine(root, "docs", "USER_GUIDE.md"));
 
-        foreach (var document in new[] { readme, agentWorkflow, troubleshooting })
-        {
-            Assert.Contains("unsigned and unnotarized", document, StringComparison.OrdinalIgnoreCase);
-            Assert.Contains("release-manifest.json", document, StringComparison.Ordinal);
-            Assert.Contains("xattr -d com.apple.quarantine", document, StringComparison.Ordinal);
-        }
-
+        Assert.Contains("unsigned and unnotarized", readme, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("release-manifest.json", readme, StringComparison.Ordinal);
+        Assert.Contains("xattr -d com.apple.quarantine", readme, StringComparison.Ordinal);
         Assert.Contains("Open Anyway", readme, StringComparison.Ordinal);
         Assert.Contains("MDM", readme, StringComparison.Ordinal);
         Assert.Contains("does not use `sudo`", readme, StringComparison.Ordinal);
-        Assert.Contains("does not edit shell profiles", agentWorkflow, StringComparison.Ordinal);
+        Assert.Contains("does not edit shell profiles", readme, StringComparison.Ordinal);
+        Assert.Contains("USER_GUIDE.md#install-from-release-artifacts", agentWorkflow, StringComparison.Ordinal);
+        Assert.Contains("../README.md#install-from-a-release", userGuide, StringComparison.Ordinal);
+        Assert.Contains("../README.md#install-from-a-release", troubleshooting, StringComparison.Ordinal);
+        Assert.Contains("~/Library/Application Support/AvaScope", userGuide, StringComparison.Ordinal);
+        Assert.Contains("prepare-macos.sh", userGuide, StringComparison.Ordinal);
         Assert.Contains("avascope-osx-arm64-framework-dependent.zip", stableSurface, StringComparison.Ordinal);
         Assert.Contains("avascope-osx-x64-framework-dependent.zip", stableSurface, StringComparison.Ordinal);
         Assert.Contains("avascope-osx-arm64-installer", stableSurface, StringComparison.Ordinal);

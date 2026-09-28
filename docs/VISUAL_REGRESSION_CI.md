@@ -7,7 +7,7 @@ The baseline commands keep their local behavior:
 - `baseline-create` writes the baseline manifest and baseline images.
 - `baseline-check` renders current images, writes diff images, prints the structured result to stdout, and exits non-zero when a variant changed.
 - `--report <report.json>` adds a stable JSON report file without changing the check result or exit code.
-- `--report-pack <dir>` writes JSON, HTML, JUnit XML, and SARIF-style summaries for agent and pull-request review.
+- `--report-pack <dir>` writes JSON, HTML, JUnit XML, and SARIF-style summaries for agent review.
 
 ## Artifact Collection
 
@@ -39,43 +39,7 @@ The CLI response includes `agentReview` for bounded failure triage, plus `report
 
 The sample workflow is intentionally not installed under `.github/workflows/` so it does not change this repository's CI behavior. Copy it into a consuming repository as `.github/workflows/avascope-visual-regression.yml`, then set `baseline_manifest` to a committed AvaScope baseline manifest. If the project uses suite manifests, generate and commit the expanded baseline manifest with `baseline-create --suite <suite.json> --manifest <baseline.json>` before enabling the check.
 
-Minimal job shape:
-
-```yaml
-- name: Run AvaScope visual baseline check
-  shell: pwsh
-  run: |
-    $avascope = ".\artifacts\executables\avascope-win-x64-framework-dependent\avascope.exe"
-    $report = ".\artifacts\visual-regression\report\baseline-check.json"
-    $reportPack = ".\artifacts\visual-regression\report-pack"
-
-    & $avascope baseline-check `
-      --manifest .\baselines\main.json `
-      --out-dir .\artifacts\visual-regression\current `
-      --diff-dir .\artifacts\visual-regression\diff `
-      --report $report `
-      --report-pack $reportPack `
-      --tolerance 2
-
-    $baselineExitCode = $LASTEXITCODE
-
-    if (-not (Test-Path -LiteralPath (Join-Path $reportPack "baseline-report.json"))) {
-      throw "AvaScope did not produce baseline-report.json."
-    }
-
-    exit $baselineExitCode
-
-- name: Upload AvaScope visual regression artifacts
-  if: always()
-  uses: actions/upload-artifact@v4
-  with:
-    name: avascope-visual-regression
-    path: |
-      artifacts/visual-regression/report
-      artifacts/visual-regression/report-pack
-      artifacts/visual-regression/current
-      artifacts/visual-regression/diff
-```
+Use the linked YAML as the executable example; its command and upload paths are maintained there.
 
 The upload step uses `if: always()` so changed baselines still publish report assets and images for review. The baseline step preserves the original `baseline-check` exit code, so changed variants fail the job while still leaving reviewable artifacts.
 
@@ -84,7 +48,7 @@ The upload step uses `if: always()` so changed baselines still publish report as
 - A passing baseline check exits `0` and uploads the report pack, current images, and diff images for auditability.
 - A changed baseline exits non-zero, but the upload step still runs; review `report-pack/baseline-report.html` first, then inspect `report-pack/baseline-report.json` or `baseline-junit.xml` for machine-readable failure details.
 - Missing or invalid manifests fail before meaningful artifacts exist; the workflow should treat that as setup failure, not a visual-regression failure.
-- Do not update committed baselines from this CI job. Refreshing baselines should be an explicit local or reviewed workflow, not an automatic pull-request side effect.
+- Do not update committed baselines from this CI job. Refreshing baselines should be an explicit local or reviewed workflow, not an automatic CI side effect.
 
 ## Release Workflow Separation
 

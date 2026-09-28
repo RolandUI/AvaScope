@@ -52,13 +52,6 @@ avascope capabilities --require protocol.capability_discovery,preview.axaml,prev
 avascope diagnostics --max-sessions 10
 ```
 
-For source-tree validation after an upgrade:
-
-```powershell
-dotnet restore AvaScope.slnx
-dotnet build AvaScope.slnx --no-restore -v:minimal
-dotnet test AvaScope.slnx --no-build
-powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1
-```
+For source-tree changes after an upgrade, select affected dependency, protocol and runtime checks using [validation](VALIDATION.md#choose-validation-by-risk). Release packaging is required only when validating release artifacts.
 
 If a bridge-enabled app reports `bridge_protocol_incompatible`, align the app package and CLI/MCP release to the same major version, then restart the app so it writes a fresh local bridge manifest.

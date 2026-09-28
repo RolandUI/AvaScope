@@ -4,22 +4,18 @@ The lab exercises package-integrated and standalone-provider hosts through the p
 
 ## Local testing and retention policy
 
-The owner's 2026-09-27 instruction replaces per-investigation snapshot accumulation. Work on `master`, use one reusable local environment, and delete completed test data instead of archiving it. Keep the selected absolute QA location and machine-specific cleanup restrictions only in local context, in the optional Git-metadata handoff described in [AGENTS.md](../AGENTS.md#development-entry-point). Use one `binaries` directory containing `tools`, `client`, `direct`, `standalone` and `provider`. Run public CLI/MCP calls against those binaries and direct manifests, journals and render outputs to a single current case directory. Keep one native app alive across related cases and reset its state between them; stop it before rebuilding or replacing its binaries.
+- Use one reusable binary set and one current case directory. Record revision/binary identity once per rebuild; rebuild only affected components. Keep tools, client, Direct host, standalone host and provider aligned. Reuse the app and reset between related cases; stop owned apps before replacing binaries.
+- Keep the absolute QA location and cleanup restrictions in the optional Git-metadata handoff described in [AGENTS.md](../AGENTS.md#development-entry-point). Never publish local paths or raw QA bundles; follow the [publication policy](../AGENTS.md#github-information-policy).
+- Keep only minimal failing requests/responses, relevant logs and necessary images/TRX while a defect or batch remains open. Discard checked successful output and delete resolved evidence. Issues, commits and regression tests are the lasting record; do not archive local runs.
+- Keep the entire QA area below 8 GiB. Check usage before builds/downloads and clear completed outputs first. Inspect CI artifacts individually, then delete each unpacked artifact. Never copy/hash whole runtime trees per case.
+- Before recursive cleanup, verify exact resolved targets remain in the selected QA area and no live process uses them. Preserve local cleanup restrictions; do not touch other projects, global caches, installed AvaScope or user data.
+- Select checks through [risk-based validation](VALIDATION.md#choose-validation-by-risk). Verify application postconditions, journal and relevant pixels; transport success is insufficient.
 
-Evidence collection below is local. Before publishing any result, apply the [GitHub information policy](../AGENTS.md#github-information-policy): report only relevant outcomes and limitations, use portable reproductions, and share minimal sanitized evidence when needed. Do not upload raw QA bundles or copy local execution/cleanup notes into issues or tracked reports.
+Use both existing hosts: `AvaScope.ComplexWorkflowApp` integrates the package; `AvaScope.StandaloneHost` uses an external provider without an AvaScope reference. Extend their shared scenes instead of adding an executable per defect. Reset/preparation must not perform the action under test. Keep data synthetic and vary relevant theme/locale/size boundaries.
 
-The selected source revision and binary identity are recorded once per rebuilt set. Use focused regression tests after changes, then exercise the affected real-app journey and negative cases. Select local, targeted CI or full CI using the [risk-based validation rules](VALIDATION.md#choose-validation-by-risk); a completed batch does not itself require a full gate. Use targeted CI for required coverage unavailable locally and full CI for release readiness or risk that narrower checks cannot cover. Continue independent local exploration during a necessary CI run. A successful response alone is not a pass: inspect the postcondition, independent journal and relevant pixels before discarding the raw case output.
+For related MCP calls, reuse `AvaScope.McpScenarioClient --stdio-session --full-result`. Warm the connection before observing short-lived UI, bracket an input with observations of the same target/highlight, and verify independent event counts. Client startup can consume a highlight's 100–5000 ms lifetime; do not extend product lifetimes or repeat a possibly dispatched action to obtain a pass.
 
-Keep only minimal evidence for unresolved defects or the pending batch. Delete successful screenshots/responses and temporary build trees after checking them; delete a fixed defect's remaining local evidence after validation. GitHub issues and source-controlled regression tests retain the lasting result. The local QA area has an 8 GiB budget, including reusable binaries. Inspect/download CI artifacts one at a time, record the result, then remove the unpacked artifact. Do not retain a full local CI history or move redundant snapshots to a second drive.
-
-Use the existing `AvaScope.McpScenarioClient --stdio-session --full-result` mode for related MCP calls against one selected app. Warm the connection before timing a short-lived UI state; preserve each request/result and its own timing until checked. For a highlight/input journey, bracket the single input with inspections of the same active highlight id and verify the app's independent event count. Starting a new client for every call can consume the entire 100–5000ms highlight lifetime before input is dispatched. Do not extend product lifetimes or retry a possibly dispatched input to obtain a passing result. This persistent connection changes the observer overhead, not the public tools or their timeouts.
-
-The snapshot-based helper below remains available for bounded isolated/CI validation. It currently restricts its run directory to repository `artifacts/agent-qa` and copies binaries; `-SkipBuild` and `-HostDirectory` do **not** eliminate those copies. It is therefore not the repeated local exploration path. If an isolated helper run is necessary, stop its owned processes, review the result and remove its run directory before the next such run. Older instructions below to retain evidence apply only while the associated issue/batch is open, under this policy.
-
-
-Before builds/downloads, check the entire reusable QA area stays below 8 GiB and clear completed outputs first. Stop owned processes before replacing binaries. Before recursive cleanup, verify exact resolved targets belong to the selected QA area and are not used by live processes; do not touch global caches, installed AvaScope, other projects or user data. Preserve prior cleanup restrictions in local context. Never copy/hash whole runtime trees per case or create historical archives.
-
-Use both existing hosts because they exercise distinct deployment boundaries: `AvaScope.ComplexWorkflowApp` integrates the package, while `AvaScope.StandaloneHost` has no AvaScope reference and uses the external provider. Extend their shared scenes rather than create one executable per defect. Each scene needs known initial state, readiness, reset and independent postconditions. Preparation/reset must not perform the action under test. Keep test data synthetic; vary representative theme/locale/size boundaries rather than an unbounded Cartesian product. Compare native and rendered images at full resolution with explicit capture timing and tolerance; neither image dimensions nor a successful response establishes visual correctness.
+The helper below is for bounded isolated/CI checks: it restricts runs to repository `artifacts/agent-qa` and copies binaries even with `-SkipBuild` or `-HostDirectory`. It is not the repeated local exploration path. Stop its owned processes and remove completed output before another isolated run, subject to the same budget and cleanup checks.
 
 ## Start and operate
 
@@ -39,16 +35,16 @@ pwsh -NoProfile -File eng/agent-qa.ps1 -Integration Standalone
 
 `test-agent-qa-lab.ps1` also accepts `-ProviderDirectory` and forwards it to the standalone run. Build the provider from the source being validated before using `-SkipBuild`; a valid manifest proves distribution integrity, not that an older local distribution contains current fixes. Retain the chosen provider's hash with the run.
 
-The shared fixture constrains its content to observed `ClientSize`, independently of requested scene dimensions. Native window managers may reject a repeated oversized request without changing the client area; Reset and tabular content must remain inside that actual viewport (#177). Requested Full HD dimensions remain distinct in the journal. Geometry regressions exercise this content/client mismatch; native CI is still required to validate platform behavior.
+The shared fixture constrains its content to observed `ClientSize`, independently of requested scene dimensions. Native window managers may reject a repeated oversized request without changing the client area; Reset and tabular content must remain inside that actual viewport. Requested Full HD dimensions remain distinct in the journal. Geometry regressions exercise this content/client mismatch; native backend validation is required to establish platform behavior.
 
-The Rendering tab includes real `Animation.RunAsync` brush timelines (#198). `qa-animation-start`, `qa-animation-stop` and `qa-animation-sample` control a finite 20-minute blue pulse and record independent state. The `qa-animation-style-target`/`qa-animation-style-reference` pair starts from a red Style; the `qa-animation-local-target`/`qa-animation-local-reference` pair starts from red LocalValue. Mutate only the targets, compare against their untouched references, and record after a rendered frame and after stopping. `qa-state.json.animation` reports actual brushes, priorities, `isAnimating`, lifecycle counts and any fixture error. No per-frame disk writes occur. Repeat Start does not stack animations; Reset, cleanup and window closure cancel them before recording final state. Reset/cleanup do not silently clear AvaScope mutations: reset those through the public mutation API when verifying restoration.
+The Rendering tab includes real `Animation.RunAsync` brush timelines. `qa-animation-start`, `qa-animation-stop` and `qa-animation-sample` control a finite 20-minute blue pulse and record independent state. The `qa-animation-style-target`/`qa-animation-style-reference` pair starts from a red Style; the `qa-animation-local-target`/`qa-animation-local-reference` pair starts from red LocalValue. Mutate only the targets, compare against their untouched references, and record after a rendered frame and after stopping. `qa-state.json.animation` reports actual brushes, priorities, `isAnimating`, lifecycle counts and any fixture error. No per-frame disk writes occur. Repeat Start does not stack animations; Reset, cleanup and window closure cancel them before recording final state. Reset/cleanup do not silently clear AvaScope mutations: reset those through the public mutation API when verifying restoration.
 
 Exercise both orders: an already running animation must cause a truthful unsupported mutation with zero effects; a supported mutation followed by animation must reset its hidden base without interrupting the timeline. Stop then exposes the restored red source. Preserve the request/response, sampled journal and viewed native/rendered images for each integration; the headless priority matrix alone does not validate a native timeline.
 
 Copy the returned `root` into `$qa`. All subsequent operations require this exact directory:
 
 ```powershell
-$qa = '/absolute/path/returned/by/start'
+$qa = '<root returned by start>'
 $run = Get-Content (Join-Path $qa 'qa-run.json') -Raw | ConvertFrom-Json
 pwsh -File eng/agent-qa.ps1 -Operation Status -RunDirectory $qa
 pwsh -File eng/agent-qa.ps1 -Operation Schemas -RunDirectory $qa
@@ -96,13 +92,13 @@ Startup separately establishes bridge, application and rendered-frame readiness 
 
 Use three observations together: public response, app-owned `qa-state.json`, and OS-native pixels. The journal records seed, counters, editor replacement generation, bounded event history, readiness, theme, locale, font, backend handle, actual scale and client/screen geometry. It is read-only to the agent. Never change it to make a test pass. Reset is preparation, not the tested user action.
 
-On Windows, the agent's Computer Use `sky.list_windows` / `get_window_state` captures the selected QA window independently of AvaScope. Select the uniquely observed window titled `AvaScope Agent QA`, open the native screenshot, and save the returned image in the run directory. Keep only one interactive QA main window open to avoid ambiguous window selection. On another worker, use its independent OS window-capture facility (for example macOS `screencapture` against an observed window ID, or X11 window capture against the selected owned window). Save the original full-resolution image and source/window identity; never substitute an AvaScope RTB image as the native reference. If the agent cannot view the worker or its images, hands-on visual validation is **blocked**, even if scripted assertions pass.
+Use an available, authorized OS window-capture facility independent of AvaScope. Select the uniquely observed window titled `AvaScope Agent QA`, open the native screenshot, and save the returned image in the run directory. Keep only one interactive QA main window open to avoid ambiguous window selection. On another worker, use its independent OS window-capture facility (for example macOS `screencapture` against an observed window ID, or X11 window capture against the selected owned window). Save the original full-resolution image and source/window identity; never substitute an AvaScope RTB image as the native reference. If the agent cannot view the worker or its images, hands-on visual validation is **blocked**, even if scripted assertions pass.
 
 Open the AvaScope screenshot too. Record capture times, time skew and whether the scene was stable. Align the client area (OS captures can include window borders), inspect full-resolution text/card regions, clipping, focus, popups and layout. Compare within the same OS/font/theme/scale; antialiasing differences alone are not text-size failures. Do not automatically accept new baselines. A machine-readable screenshot path or correct dimensions does not count as visual review.
 
 Product `capture_screen` is an additional route under test. `-AuthorizeScreenCapture` opts the fixture into its declared test-desktop scope and requests the corresponding doctor probe. Use it only on a dedicated test desktop. Requests still need their explicit native capture policy/scope. Default runs do not authorize product desktop capture; independent selected-window observation remains possible.
 
-Mac Retina cases require **observed** `renderScaling=2` and sufficient actual client geometry for 1920×1080 DIP. A worker label, forced headless scale or downsized window does not meet that requirement. Missing display capacity or capture/input permissions is a recorded blocked case.
+For Retina scale/geometry requirements, follow [Native Retina Validation](#native-retina-validation).
 
 ## Agent task charters
 
@@ -119,17 +115,15 @@ Start with reset seed 42, Light/en-US, notifications off, display name Ada, zero
 
 Apply charters to both integrations. Vary one relevant condition at a time. Run at least two clean prepare/action/reset/cleanup cycles, one deliberate failure, and interrupted/expired-session recovery. `eng/test-agent-qa-lab.ps1` checks lifecycle/evidence plumbing and retained public MCP regressions for exact case-distinct IDs and consistent query bounds with geometry-pinned picking; its scripted result does not count as these agent tasks.
 
-### Expanded fixture charters (#172)
+### Expanded fixture charters
 
-The original four tabs retain their indices and IDs. Form (4), Table (5) and
-Input (6) extend the shared Direct/standalone fixture. Their existence is not
-evidence that a tool journey passed; retain fresh calls, state and reviewed images.
+Form (4), Table (5) and Input (6) share the same fixture on both integrations.
 
 | Scene | Public-tool journeys and independent oracle |
 | --- | --- |
 | `qa-form` | Inspect explicit labels, sensitive redaction, read-only/disabled fields, role choices, consent and priority range. Fill a valid profile; inspect focus and desired-state repetition; save through ordinary input. `form.savedProfile` and `form.saves` prove submission. Empty name/invalid email must expose validation and preserve the last saved profile. Reset clears errors and saves. The synthetic password never enters the app journal. |
 | `qa-rows` | The original Identity and items tab (index 2) exposes 200 `QaRecord` items with public `Id` keys `QA-001`–`QA-200`; visible text stays `Record 001 — seeded QA data`. Use `virtual_item` with `keyProperty: Id` to find an unrealized row, reveal without selecting, then select. `selectedRow` preserves the zero-based index; `selectedRowKey` independently records the stable identity. Missing/stale/over-budget requests must leave selection unchanged. The list shares seeded records with the table but keeps its own order and selection; table sorting must not reorder it. Reset reseeds both and clears selection. |
-| `qa-table` | Query the real DataGrid with `keyProperty: Id`; select offscreen `QA-175`, edit Status/Score, reject Identifier edits, sort Identifier descending and rediscover fresh row evidence. `table.rows` preserves seed order, `table.viewOrder` exposes actual sort order, `selectedKey` and `edits` prove mutations. Reset restores 200 rows, ascending seed order, no selection/edits. DataGrid has its own 12.1.2 package version alongside Avalonia 12.1.3, matching the existing native table fixture. |
+| `qa-table` | Query the real DataGrid with `keyProperty: Id`; select offscreen `QA-175`, edit Status/Score, reject Identifier edits, sort Identifier descending and rediscover fresh row evidence. `table.rows` preserves seed order, `table.viewOrder` exposes actual sort order, `selectedKey` and `edits` prove mutations. Reset restores 200 rows, ascending seed order, no selection/edits. |
 | `qa-pointer-pad`, `qa-menu`, `qa-keyboard-editor` | Query action map and pointer diagnostics; click versus drag at least 20 DIP, release capture, right-click/context action, menu action, keyboard text/chords, Tab/Shift-Tab and focus activation. `input` counts menu/context/press/release/drag/key/focus events; an ordinary click must leave `drags=0`. Compare visible text/status and focus with the journal. Reset closes menus, clears counts and restores editor text. |
 
 All data is local and synthetic. Form validation is intentionally triggered by
@@ -139,7 +133,7 @@ providers/operations must be recorded as unsupported, not silently replaced by a
 different successful action. Host-declared scenes/operations/diagnostics are
 described below; use the [capability scenarios](AGENT_QA_CAPABILITIES.md) to select further checks.
 
-### Runtime fixture charters (#173)
+### Runtime fixture charters
 
 Runtime (tab 7) adds a shared pure Avalonia scene, bounded background work and
 opt-in diagnostic errors. Direct additionally registers the scene and custom
@@ -177,15 +171,9 @@ binding path/error/fallback details unavailable; do not infer a healthy binding
 or full error coverage from that partial metadata. `operation` currently accepts
 status/wait/cancel for a retained ID, not an operation-list action.
 
-The #175 regression requires an applied DataGrid template and realized rows;
-reading its backing collection alone can succeed even when the entire grid is
-visually blank. Register implicit control themes before XAML attaches controls.
-The lifecycle check now visits Table in both reset cycles on both host paths,
-requires rendered row nodes plus realized query cells, and retains a table image.
-These checks establish a usable surface; the agent must still inspect the images
-and perform the table interaction charter.
+Table checks require an applied DataGrid template and realized rows/cells; reading the backing collection alone can pass with a blank grid. Register implicit themes before XAML attaches controls, then inspect the rendered table and perform its interaction charter.
 
-### Navigation fixture charter (#212)
+### Navigation fixture charter
 
 Navigation (tab 8) contains `qa-navigation-identity`, a scoped synthetic document
 view. Overview/Details change its surface; Switch document alternates document-a
@@ -207,13 +195,9 @@ Standalone keeps ordinary controls and journal but has no declaration: identity
 must remain unavailable, visits distinct and sampled candidates uncertain.
 Even declared matches retain the product's `hidden_state_unverified` limitation.
 
-## Report and cadence
+## Assessing Results
 
-For each case record: ID/charter, goal, integration/backend/scale, exact request/response files, expected state, actual journal delta, native/rendered image observations, passed/failed/blocked/skipped, elapsed time, retries, workaround and ticket. Original `edit_text`/`ensure_state` failures remain failed even when a different tool finishes the user's broader task. Reuse existing defect tickets when the failure matches; add a new ticket only with distinct reproducible behavior.
-
-Evidence includes `qa-run.json`, `artifact-identity.json`, `doctor*.log`, `dotnet-info*.log`, session capabilities, startup workflow reports, exact MCP requests/full responses/stderr, before/after journal snapshots and `calls.jsonl`. Synthetic fixture content may be retained; do not introduce customer data or secrets. The ledger counts task outcomes separately from expected negative responses and tool-call totals. Preserve cleanup evidence.
-
-During development, reproduce the affected task, implement a focused regression, then repeat the relevant native task after the change. At a coherent checkpoint, run the lab lifecycle check and affected deterministic suite. The later #164 work owns broader packaged/candidate gates; it must consume the exact hashes and platform gaps rather than converting missing coverage into success.
+Compare the expected state with the journal delta, public result and reviewed images. Distinguish passed, failed, blocked and skipped; a workaround does not turn the original failed operation into a pass. Preserve only unresolved evidence under the retention policy and report the concise result in the relevant issue. Reuse existing defects when behavior matches.
 
 The fixture retains requested scene dimensions separately from observed client
 geometry. The Full HD button means a 1920x1080 DIP request even if the desktop
@@ -222,49 +206,21 @@ sizes remain the observed values. A clamped window does not establish Full HD
 coverage; record that limitation and use a capable dedicated desktop for that
 charter. Toggling again restores compact intent even on a smaller display.
 
-## Diagnosing probe startup, response and exit waits (#192)
+## Diagnosing Probe Waits
 
-Set `AVASCOPE_PROBE_LIFECYCLE_FILE` to a new file in an existing owned evidence
-directory when using `AvaScope.McpScenarioClient`. It records UTC/monotonic time,
-local phase, request/response/output counts and process metadata, bounded at
-1024 events and 256 KiB. It excludes arguments, user text, command lines,
-environment values and exception messages. Unix files are created owner-only.
-Existing files are preserved. A failed trace write emits a bounded warning and
-does not change a completed tool result or trigger a retry.
+Set `AVASCOPE_PROBE_LIFECYCLE_FILE` to a new file in an owned evidence directory. The client records content-free UTC/monotonic phases and request/response/output counts, bounded to 1024 events and 256 KiB. It excludes arguments, user text, environment values and exception messages; existing files are preserved and trace-write failure never retries an action.
 
-Read the ordered phases with the independent application journal or test oracle.
-`no_tool_request_started` means this probe has not called a tool yet;
-`request_outcome_unknown` does not establish whether the application changed.
-`response_received_output_pending` distinguishes a received MCP result from
-delivery on the probe's stdout. `responses_written` still does not prove that
-the parent consumed the output or that shutdown completed. `closed` records
-client disposal; transport PID/exit fields come from the MCP SDK's public
-completion metadata and remain null when unavailable. A missing file proves
-none of these outcomes. The direct SDK regression uses `expectsOutput: false`
-because it consumes responses directly rather than writing a stdout protocol.
+Interpret phases with the independent journal:
 
-Persistent-client tests retain the bounded trace in their TRX output, along with
-the parent's exit observation before and after owned cleanup. They preserve the
-original failure if cleanup also fails. The CLI/MCP desired-state regression
-also records content-free edit counts and expected-state observations. Existing
-20/30-second waits, probe cancellation and transport shutdown bounds remain.
+| Phase | Meaning |
+| --- | --- |
+| `no_tool_request_started` | No tool call has started in this probe. |
+| `request_outcome_unknown` | Application effects remain unknown. |
+| `response_received_output_pending` | MCP returned; stdout delivery is pending. |
+| `responses_written` | Output was written; parent consumption and shutdown are not established. |
+| `closed` | Client disposal completed; unavailable transport exit metadata remains null. |
 
-Controlled regression cases use `AVASCOPE_PROBE_HOLD_STAGE` and
-`AVASCOPE_PROBE_HOLD_RELEASE` only in the probe, never the application/server.
-They hold connecting, a real started request, a received response or closing
-until the owned release file exists, with a five-second maximum. Actual fixture
-edits verify the distinction while a separate 100 ms observation wait expires;
-the original regression budgets are unchanged. These are headless/process
-diagnostic checks, not a native journey or proof of historical host contention.
-
-The mutation-evidence identity fixture also retains bounded IPC phases in its
-TRX output: UTC/elapsed time, request index/method, response success and final
-capture status/error code, with no request/response payloads. It records the
-capture result before awaiting the expected five requests. A failed capture
-cancels and observes its own responder; distinct capture and cleanup failures
-remain together. The responder still has its original 30-second total deadline.
-Controlled failures before/after one mutation verify the error and lack of replay;
-they do not establish the original macOS listener/scheduling cause (#223).
+A missing trace establishes none of these outcomes. Keep primary and cleanup failures separate. Controlled probe tests can use `AVASCOPE_PROBE_HOLD_STAGE` / `AVASCOPE_PROBE_HOLD_RELEASE` with a five-second maximum; they do not prove a historical scheduling cause or native behavior.
 
 ## Native Retina Validation
 

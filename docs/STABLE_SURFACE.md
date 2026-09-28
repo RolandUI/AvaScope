@@ -396,18 +396,9 @@ The caller-controlled request id prefix, absolute output path, image contents, S
 
 ## Release Workflow
 
-Stable release workflow behavior:
+The release version comes from `Directory.Build.props` `<Version>`, the commit subject is `Release <Version>` and the tag is `v<Version>`. `eng/verify-artifacts.ps1` verifies the artifact set and writes `artifacts/release-manifest.json`.
 
-- `Directory.Build.props` `<Version>` is the release version source.
-- The GitHub Release tag is `v<Version>`.
-- The release commit subject is `Release <Version>`.
-- The release guard reads the numeric version milestone from GitHub and requires one open `type:release` tracker with only `status:review`. Stable acceptance requires all other milestone issues closed or moved; an authorized prerelease can retain documented gaps.
-- `eng/create-local-release.ps1` is the local release gate.
-- `eng/verify-artifacts.ps1` verifies package and executable artifact coverage and writes `artifacts/release-manifest.json`.
-- `eng/publish-github-release.ps1 -Tag v<Version> -DryRun` verifies the GitHub Release asset set without publishing.
-- The development CI workflow runs for pull requests targeting `master` and by manual dispatch. Pull-request runs use read-only repository permissions and never use `pull_request_target`.
-- Automatic GitHub Release publishing is scoped to pushes that change `Directory.Build.props` or to manual workflow dispatch.
-- The GitHub Release workflow no-ops when the remote tag already exists for the current version.
+Read [stable release validation](VALIDATION.md#stable-release-validation) for acceptance, packaging, guard and publication procedures, including current workflow triggers. CI triggers are repository process, not a public compatibility guarantee.
 
 ## Non-Stable Surfaces
 

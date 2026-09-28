@@ -12,12 +12,6 @@ AvaScope is a local-first agent tool for understanding, validating, and controll
 
 AvaScope targets Avalonia 12 and `net10.0`.
 
-The [1.5.0 feature guide](docs/RELEASE_NOTES_1_5_0.md) covers standalone provider
-loading, automatic window registration, reproducible X11/Wayland environments,
-and the expanded tools for connected agents.
-
-For paired Avalonia/native desktop screenshots, see [screen evidence, host authorization and platform limits](docs/SCREEN_EVIDENCE.md).
-
 ## What It Provides
 
 - Agent-oriented control loops: inspect UI state, preview variants, act through local runtime commands, capture evidence, and decide the next step from structured results.
@@ -66,9 +60,7 @@ The current Windows installer is not Authenticode-signed, so Windows SmartScreen
 ## Quick Start From Source
 
 ```powershell
-dotnet restore AvaScope.slnx
 dotnet build AvaScope.slnx
-dotnet test AvaScope.slnx
 ```
 
 Run a local health check:
@@ -83,8 +75,8 @@ Per-user Windows, Linux, and macOS installers, portable executable ZIPs, and pac
 
 ## Documentation
 
-- [User guide](docs/USER_GUIDE.md): detailed CLI, MCP, runtime bridge, preview, screenshot, diff, baseline, packaging, and release commands.
-- [Agent workflow](docs/AGENT_WORKFLOW.md): packaged CLI runbooks for agent-driven local workflows.
+- [User guide](docs/USER_GUIDE.md): installation discovery, CLI/MCP usage, runtime workflows, previews and task references.
+- [Agent workflow](docs/AGENT_WORKFLOW.md): readiness, observe/act/verify decisions, evidence review and owned cleanup.
 - [Agent recipes and evaluation](docs/AGENT_RECIPES.md): executable MCP/CLI recipes, clean-project onboarding and separate conformance/agent measurements.
 - [Stable surface](docs/STABLE_SURFACE.md): v1 package, protocol, CLI, MCP, exit-code, artifact, and release compatibility rules.
 - [Upgrade and compatibility](docs/UPGRADE.md): version alignment, bridge-package upgrades, CLI/MCP replacement, and capability-gated client behavior.

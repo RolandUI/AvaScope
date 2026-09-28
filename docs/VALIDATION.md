@@ -43,427 +43,91 @@ The target workflow design uses explicit dispatch, selectable platform/job group
 
 ## Validation Reference
 
-Record each necessary validation result once in its GitHub issue. This document contains repeatable procedures, not execution reports.
-
-Run build and test commands sequentially. Parallel build/test invocations can contend for the same `bin/` and `obj/` outputs.
-
-The [native agent QA lab](AGENT_QA_LAB.md) complements these tests with actual agent-operated desktop tasks and independent native image review. `pwsh -File eng/test-agent-qa-lab.ps1 -SkipBuild -TestExpiry` checks its two-host lifecycle and failure-evidence plumbing on an available desktop; that scripted check is not an exploratory test result. CI records the observed native backend/scale separately on Windows, X11 and macOS.
-
-Headless asynchronous test bodies must use `BridgeHeadlessSmokeTests.DispatchAsync`
-or the explicit `HeadlessUnitTestSession.Dispatch<T>(Func<Task<T>>, CancellationToken)`
-overload. Avalonia has no `Func<Task>` overload: `Dispatch(async () => { ... })`
-without a return value can select the synchronous generic overload and produce
-`Task<Task>`, leaving assertions after the first suspension unobserved. The
-`TestSessionPropagatesAnExceptionAfterAnAsynchronousBoundary` regression verifies
-that the shared helper propagates such failures. A green run with unobserved test
-bodies is not release evidence.
-
-The test process and its CLI/MCP children use isolated recovery and bridge session
-registries under the test temporary directory. Explicit `AVASCOPE_RUN_STORE_DIR`
-and `AVASCOPE_BRIDGE_MANIFEST_DIR` overrides are honored. Validation must not depend on or add records to a developer's normal run
-store; accumulated real records can otherwise introduce path conflicts and lock
-contention unrelated to the fixture.
-
-For the standalone-provider foundation (#117/#119/#121), batch the bootstrap/provider regressions with the real external-host gate:
+Use the affected test class or method as a filter, after building the relevant configuration:
 
 ```powershell
-dotnet test tests/AvaScope.Tests/AvaScope.Tests.csproj -c Release --filter "FullyQualifiedName~Bridge|FullyQualifiedName~ProviderVerifierTests"
-pwsh -File eng/test-standalone-provider.ps1
-pwsh -File eng/test-standalone-provider.ps1 -Native -SkipBuild
+dotnet test tests/AvaScope.Tests/AvaScope.Tests.csproj -c Release --no-build --filter "FullyQualifiedName~<affected-test>"
 ```
 
-The gate records the actual headless/native mode and exercises CLI plus MCP stdio against the no-PackageReference sample, isolated enabled/disabled/incompatible builds, window lifecycle, screenshot, malformed/missing/tampered providers, pins, normal shutdown and remote transport cleanup. On Linux, run the native lane inside an owned X11 display. Hosted Windows/Linux/macOS evidence is required before closing cross-platform acceptance. See [STANDALONE_PROVIDER.md](STANDALONE_PROVIDER.md) for artifact pinning and compatibility boundaries.
+The table locates coverage; select applicable cases, not every row. Include affected CLI/MCP adapters when changing shared behavior. Run builds and tests sequentially when they share `bin`/`obj` outputs.
 
-For project guidance, integration verification and shared profiles (#118/#120/#122), batch `BridgeIntegration*`, `AgentTestProfileTests`, `RuntimeScenarioLifecycleTests` and `StableSurface*` tests, then run `pwsh -File eng/test-integration-onboarding.ps1` (or `-Native -SkipBuild` after packaging). The gate applies the returned file-specific snippets only to disposable clean fixtures, packs local bridge dependencies into an isolated NuGet feed/cache, builds both package/standalone integration modes with the flag enabled and disabled, repeats analysis to reject duplicate guidance, and verifies all four outputs through CLI and MCP. It also runs the same named profile through both adapters for each integration mode and checks actual host log redaction. Its eight lifecycle reports, four profile reports and final `validation.json` remain under `artifacts/onboarding-validation`. These local fixture packages never overwrite the user's NuGet cache or publish a package. Native platform CI runs this gate alongside the standalone-provider gate.
+| Change | Test entry points |
+| --- | --- |
+| Protocol, versions and capability discovery | `ProtocolContractTests`, `CapabilityCompatibilityCheckerTests`, relevant `CliSmokeTests` / `AvaScopeMcpToolsTests`, `McpStdioSmokeTests` |
+| Bridge transport, discovery and ownership | `AvaScopeBridgeTests`, `LocalBridgeClientTests`, `BridgeHeadlessSmokeTests`; attach/launch/close/cleanup adapter cases |
+| Input, selectors, workflows and state | Affected Core runner and bridge cases; corresponding CLI/MCP cases and the real application postcondition |
+| Preview build, diagnostics and animation | `PreviewHostClientTests`, `PreviewHostSmokeTests`, matching preview adapter cases |
+| Preview profiles, sessions, viewer and watch | `PreviewSessionRegistryTests` and matching `CliSmokeTests` / `AvaScopeMcpToolsTests` |
+| Mutation apply, reset, evidence and source suggestions | `RuntimeMutation` / `MutationReview` cases across Protocol/Core/Bridge/adapters; `RuntimeSourceSuggestionBuilderTests` |
+| Pseudo-states and interaction animation | `RuntimePseudoStateMatrixRunnerTests`, `RuntimeInteractionAnimationRunnerTests` and bridge/adapter cases |
+| UI/design audit | `UiAuditBuilderTests`, `DesignQualityAuditBuilderTests` and bridge/adapter cases, including incomplete evidence |
+| Image comparison and baselines | `PreviewImageDifferTests`, `SemanticScreenshotComparerTests`, `PreviewBaselineManagerTests`, `PreviewBaselineReportPackExporterTests` and adapter cases |
+| Evidence privacy and action policy | `RuntimeEvidencePolicyEnforcerTests`, `RuntimeEvidencePolicyRedactsAndMasksWorkflowEvidenceEndToEnd` |
+| Performance and response limits | `PerformanceStressAuditTests`; [budgets and stress cases](PERFORMANCE_STRESS_AUDIT.md) |
+| Installers | `InstallerWorkflowTests`; artifact-backed `PackagedInstallerSupportsInstallRepairDoctorMcpAndUninstall` |
+| Documentation and public contract | Affected `Documentation` tests and `StableSurfaceContractTests`; links, anchors and publication-policy review |
+| Release guard | `eng/test-release-commit.ps1 -OutputDirectory <qa-root>`, using mocked GitHub responses |
 
-For controlled native Wayland (#155), Linux Ubuntu 24.04 CI installs Weston 13,
-wayland-utils, xkb-data and Mesa EGL. Batch `WaylandTestEnvironmentTests` with
-X11/profile/run-recovery tests, then run `eng/test-managed-wayland.ps1` after the
-Release solution build and provider packaging. The gate checks real CLI/MCP
-text/capture at 1x/2x, wrong-backend and dependency failures, and cleanup. Native
-Wayland is separate from X11/XWayland and does not imply native input coverage.
-See [controlled Wayland](MANAGED_WAYLAND.md).
+For bridge onboarding, profiles and native behavior, select the relevant integration gate:
 
-For protocol-only work, also run:
+| Gate | Purpose / prerequisites |
+| --- | --- |
+| `eng/test-standalone-provider.ps1` | Enabled/disabled/incompatible hosts, provider pins/tampering, real CLI/MCP loading and owned shutdown. `-Native -SkipBuild` uses a prepared native environment and current binaries/provider. See [provider integration](STANDALONE_PROVIDER.md). |
+| `eng/test-integration-onboarding.ps1` | Disposable clean projects, both integration modes, enabled/disabled builds, returned snippets, named profiles and log redaction. `-Native -SkipBuild` selects native validation after preparation. |
+| `eng/test-managed-wayland.ps1` | Built Release tools/provider and Linux Weston dependencies; real 1x/2x capture/text, refusal and cleanup. [Wayland limits](MANAGED_WAYLAND.md) differ from X11. |
+| `eng/test-agent-qa-lab.ps1 -SkipBuild -TestExpiry` | Two-host lifecycle, lease expiry and failure-evidence plumbing on the selected desktop; does not substitute for [agent-operated tasks](AGENT_QA_LAB.md). |
+| `eng/test-packaged-lifecycle.ps1 -CliAssembly <package>/avascope.dll -Configuration Release` | Packaged build/launch, readiness, attach, workflow, evidence and exact process cleanup on each required OS. |
+| `eng/test-complex-workflow.ps1` | Source and packaged CLI/MCP multi-window workflows; invocation and required assertions below. |
+| `eng/test-linux-installer.sh <installer> <version>` | Linux install, repair, diagnostics and uninstall. |
+| `eng/test-macos-packaged-workflow.sh` | Native macOS installed CLI/PreviewHost, runtime tree/screenshot, preview and uninstall. Execution of each architecture requires a compatible runner. |
+
+The [native platform matrix](NATIVE_PLATFORM_MATRIX.md) owns backend-specific commands and coverage limits. For an artifact-backed installer test, package only the required runtime, set `AVASCOPE_INSTALLER_ARTIFACT` to that exact installer and run the installer test above. Windows packaging needs Inno Setup 6 or 7. Packaging all platforms is not a prerequisite for editing documentation.
+
+### Test Execution Invariants
+
+- Await headless asynchronous bodies through `BridgeHeadlessSmokeTests.DispatchAsync` or `HeadlessUnitTestSession.Dispatch<T>(Func<Task<T>>, CancellationToken)`. A void-returning async lambda can select the synchronous overload and leave a nested task unobserved. `TestSessionPropagatesAnExceptionAfterAnAsynchronousBoundary` protects this boundary.
+- Tests and CLI/MCP children use isolated run/bridge registries. Preserve explicit `AVASCOPE_RUN_STORE_DIR` and `AVASCOPE_BRIDGE_MANIFEST_DIR` overrides; never depend on a developer's normal run store.
+- A transport success is insufficient: verify the requested state, coverage and owned cleanup. Native claims need observed backend/scale and independently reviewed images under the [lab policy](AGENT_QA_LAB.md).
+- Privacy checks cover inline output and referenced JSON, screenshots, Markdown, JUnit, audit, timeline and lifecycle logs. Test masks, fail-closed removal, owned retention, traversal and authorization refusals. A clean inline result does not excuse a secret in a fallback artifact.
+- For visual reports, confirm stdout and JSON agree on `passed`/`entries`, and that JSON/HTML/JUnit/SARIF outputs report the same result. Collection/upload examples live in [visual regression CI](VISUAL_REGRESSION_CI.md).
+
+### Complex Workflow Gate
 
 ```powershell
-dotnet test AvaScope.slnx --filter Protocol
+pwsh -NoProfile -File eng/test-complex-workflow.ps1 -CliAssembly <cli>/avascope.dll -Surface Cli -Configuration Release
+pwsh -NoProfile -File eng/test-complex-workflow.ps1 -CliAssembly <cli>/avascope.dll -Surface Mcp -McpAssembly <mcp>/AvaScope.Mcp.dll -McpScenarioClientAssembly <client>/AvaScope.McpScenarioClient.dll -Configuration Release
 ```
 
-For protocol capability/versioning work, include:
-
-```powershell
-dotnet test AvaScope.slnx --no-build --filter "FullyQualifiedName~ProtocolContractTests.CapabilitiesResponseSerializesStableDiscoveryShape|FullyQualifiedName~CapabilityCompatibilityCheckerTests|FullyQualifiedName~CliSmokeTests.CapabilitiesCommandReportsProtocolAndToolCapabilities|FullyQualifiedName~CliSmokeTests.CapabilitiesCommandRejectsUnsupportedRequiredCapability|FullyQualifiedName~AvaScopeMcpToolsTests.Capabilities|FullyQualifiedName~McpStdioSmokeTests.ServerStartsOverStdioAndListsInitialTools"
-```
-
-For core-only work, also run:
-
-```powershell
-dotnet test AvaScope.slnx --filter Core
-```
-
-For MCP adapter work, also run:
-
-```powershell
-dotnet test AvaScope.slnx --filter Mcp
-```
-
-For Avalonia bridge work, also run:
-
-```powershell
-dotnet test AvaScope.slnx --filter Bridge
-```
-
-For runtime input work, include the bridge path and CLI adapter path:
-
-```powershell
-dotnet test AvaScope.slnx --filter Bridge
-dotnet test AvaScope.slnx --filter FullyQualifiedName~Cli
-```
-
-For preview host work, also run:
-
-```powershell
-dotnet test AvaScope.slnx --filter FullyQualifiedName~PreviewHost
-```
-
-For source-backed preview diagnostics work, include the typed-binding smoke path:
-
-```powershell
-dotnet test AvaScope.slnx --filter FullyQualifiedName~PreviewHostSmokeTests.PreviewHostReturnsDataTypeBindingPathDiagnostics
-```
-
-For preview failure triage/readiness work, include:
-
-```powershell
-dotnet test AvaScope.slnx --filter FullyQualifiedName~PreviewHostClientTests
-dotnet test AvaScope.slnx --filter FullyQualifiedName~PreviewHostSmokeTests
-dotnet test AvaScope.slnx --filter "FullyQualifiedName~CliSmokeTests.PreviewCommandPreservesPreviewReadinessFailureDetails|FullyQualifiedName~CliSmokeTests.PreviewCommandPreservesPreviewFailureDetails"
-```
-
-For CLI work, also run:
-
-```powershell
-dotnet test AvaScope.slnx --filter FullyQualifiedName~Cli
-```
-
-For installer and CLI discovery work, include:
-
-```powershell
-dotnet test AvaScope.slnx --filter FullyQualifiedName~InstallerWorkflowTests
-powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1 -RuntimeIdentifiers win-x64 -SkipTests -SkipSampleSmoke
-$env:AVASCOPE_INSTALLER_ARTIFACT = ".\artifacts\executables\AvaScopeSetup.exe"
-dotnet test AvaScope.slnx -c Release --no-build --filter FullyQualifiedName~PackagedInstallerSupportsInstallRepairDoctorMcpAndUninstall
-```
-
-On Linux, package `linux-x64`, then run `bash ./eng/test-linux-installer.sh ./artifacts/executables/avascope-linux-x64-installer <version>` and the same artifact-backed .NET test with `AVASCOPE_INSTALLER_ARTIFACT` set to that path. These checks cover embedded payload/legal verification, clean install, `--version`, `doctor`, MCP stdio startup, repair/upgrade replacement, unsafe-uninstall rejection, and uninstall.
-
-For CLI doctor/self-test work, include:
-
-```powershell
-dotnet test AvaScope.slnx --filter FullyQualifiedName~CliSmokeTests.DoctorCommandReportsLocalReadiness
-dotnet test AvaScope.slnx --filter FullyQualifiedName~ProtocolContractTests.DoctorResponseSerializesStableReadinessShape
-```
-
-For product version discovery surface work, include:
-
-```powershell
-dotnet test AvaScope.slnx --no-build --filter "FullyQualifiedName~CliSmokeTests.VersionCommandReportsProductVersion|FullyQualifiedName~CliSmokeTests.CapabilitiesCommandReportsProtocolAndToolCapabilities|FullyQualifiedName~CliSmokeTests.DoctorCommandReportsLocalReadiness|FullyQualifiedName~ProtocolContractTests.HealthResponseUsesCurrentProtocolMetadata|FullyQualifiedName~ProtocolContractTests.CapabilitiesResponseSerializesStableDiscoveryShape|FullyQualifiedName~ProtocolContractTests.DoctorResponseSerializesStableReadinessShape|FullyQualifiedName~AvaScopeMcpToolsTests.HealthReturnsCurrentProtocolMetadata|FullyQualifiedName~AvaScopeMcpToolsTests.CapabilitiesReturnsCurrentCapabilityManifest|FullyQualifiedName~McpStdioSmokeTests.ServerStartsOverStdioAndListsInitialTools"
-```
-
-For diagnostics shape work, include:
-
-```powershell
-dotnet test AvaScope.slnx --filter Protocol
-dotnet test AvaScope.slnx --filter Core
-dotnet test AvaScope.slnx --filter Mcp
-dotnet test AvaScope.slnx --filter FullyQualifiedName~Cli
-```
-
-For diagnostics and artifact run-index ergonomics work, include:
-
-```powershell
-dotnet test AvaScope.slnx --no-build --filter "FullyQualifiedName~ArtifactRunIndexStoreTests|FullyQualifiedName~ProtocolContractTests|FullyQualifiedName~LocalBridgeClientTests.Diagnostics|FullyQualifiedName~CliSmokeTests.PreviewCommandRendersAxamlThroughPreviewHostClient|FullyQualifiedName~AvaScopeMcpToolsTests.CapabilitiesReturnsCurrentCapabilityManifest"
-dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~StableSurfaceContractTests
-```
-
-For runtime target handoff work, include:
-
-```powershell
-dotnet test AvaScope.slnx --filter FullyQualifiedName~ProtocolContractTests
-dotnet test AvaScope.slnx --filter FullyQualifiedName~BridgeHeadlessSmokeTests.McpToolsListTopLevelsAndCaptureScreenshotThroughLocalBridgePipe
-dotnet test AvaScope.slnx --filter FullyQualifiedName~BridgeHeadlessSmokeTests.McpInputClicksButtonAndTypesTextThroughLocalBridgePipe
-dotnet test AvaScope.slnx --filter "FullyQualifiedName~CliSmokeTests.TreeCommandReadsTreeThroughBridgePipe|FullyQualifiedName~CliSmokeTests.FindNodesCommandReadsMatchesThroughBridgePipe|FullyQualifiedName~CliSmokeTests.InputCommandSendsClickThroughBridgePipe"
-```
-
-For runtime bridge reliability release work, include:
-
-```powershell
-dotnet test AvaScope.slnx --filter "FullyQualifiedName~LocalBridgeClientTests|FullyQualifiedName~ProtocolContractTests|FullyQualifiedName~CliSmokeTests.AttachCommandSelectsManifestPathAndProcessName|FullyQualifiedName~CliSmokeTests.ListTopLevelsCommandUsesCustomManifestDirectory|FullyQualifiedName~CliSmokeTests.CleanupBridgeSessionsCommandDeletesStaleAndInvalidCustomManifestRecords|FullyQualifiedName~AvaScopeMcpToolsTests.CleanupBridgeSessionsDeletesStaleManifestFromSelectedDirectory|FullyQualifiedName~AvaScopeMcpBridgeToolsTests.AttachToAppUsesProcessNameAndManifestDirectory|FullyQualifiedName~McpStdioSmokeTests.ServerStartsOverStdioAndListsInitialTools|FullyQualifiedName~BridgeHeadlessSmokeTests.McpInputClicksButtonAndTypesTextThroughLocalBridgePipe"
-```
-
-For `v0.6.0` runtime input/state, session ergonomics, launch helper, screenshot region assertion, and preview-session lifecycle-event work, include:
-
-```powershell
-dotnet test AvaScope.slnx --no-build --filter "FullyQualifiedName~ProtocolContractTests.InspectNodeResponseSerializesRuntimeStateShape|FullyQualifiedName~ProtocolContractTests.ScreenshotRegionAssertionResponseSerializesStableShape|FullyQualifiedName~ScreenshotRegionAsserterTests|FullyQualifiedName~BridgeHeadlessSmokeTests.McpExpandedInputAndRuntimeStateInspectionUseBridgeOnly|FullyQualifiedName~CliSmokeTests.InputCommandSendsExpandedInputThroughBridgePipe|FullyQualifiedName~CliSmokeTests.AssertRegionCommandChecksNonEmptyRegion|FullyQualifiedName~CliSmokeTests.LaunchAppCommandReturnsStructuredErrorWhenNoBridgeSessionAppears|FullyQualifiedName~LocalBridgeClientTests.AttachLatestToAppSelectsNewestActiveMatchingManifest"
-dotnet test AvaScope.slnx --no-build --filter "FullyQualifiedName~PreviewSessionRegistryTests.CreateAsyncRendersAndRegistersPreviewSession|FullyQualifiedName~PreviewSessionRegistryTests.ReloadAsyncRerendersExistingPreviewSession|FullyQualifiedName~ProtocolContractTests.PreviewSessionSummarySerializesRequestAndLastRender"
-```
-
-For CLI preview-session work, include the persistent-session smoke path:
-
-```powershell
-dotnet test AvaScope.slnx --filter FullyQualifiedName~CliSmokeTests.PreviewSessionCommandsCreateListReloadAndClosePersistedSession
-dotnet test AvaScope.slnx --filter FullyQualifiedName~CliSmokeTests.ReloadPreviewSessionCommandReturnsStructuredErrorWhenNoPreviewSessionMatches
-dotnet test AvaScope.slnx --filter FullyQualifiedName~CliSmokeTests.WatchPreviewSessionCommandReloadsWhenWatchedFileChanges
-```
-
-For Codex preview-viewer handoff work, include:
-
-```powershell
-dotnet test AvaScope.slnx --filter FullyQualifiedName~ProtocolContractTests.PreviewViewerResponseSerializesStableShape
-dotnet test AvaScope.slnx --filter FullyQualifiedName~PreviewSessionRegistryTests.PreviewViewerExporter
-dotnet test AvaScope.slnx --filter FullyQualifiedName~CliSmokeTests.PreviewSessionCommandsCreateListReloadAndClosePersistedSession
-dotnet test AvaScope.slnx --filter FullyQualifiedName~AvaScopeMcpToolsTests.PreviewViewerExportsFileBackedUrlForPreviewSession
-dotnet test AvaScope.slnx --filter FullyQualifiedName~McpStdioSmokeTests.ServerStartsOverStdioAndListsInitialTools
-```
-
-For animation preview work, include:
-
-```powershell
-dotnet test AvaScope.slnx --filter FullyQualifiedName~ProtocolContractTests.PreviewAnimationRequestAndResponseSerializeStableShapes
-dotnet test AvaScope.slnx --filter FullyQualifiedName~PreviewHostClientTests.RenderAnimationAsyncCreatesOffsetFramesStripAndMotionSummary
-dotnet test AvaScope.slnx --filter FullyQualifiedName~CliSmokeTests.PreviewAnimationCommandRendersOffsetFramesAndStrip
-dotnet test AvaScope.slnx --filter "FullyQualifiedName~McpStdioSmokeTests.ServerStartsOverStdioAndListsInitialTools|FullyQualifiedName~AvaScopeMcpToolsTests.PreviewAxamlAnimationRejectsInvalidOffsets"
-dotnet .\src\AvaScope.Cli\bin\Debug\net10.0\avascope.dll preview-animation .\samples\AvaScope.GettingStartedApp\AvaScope.GettingStartedApp.csproj --profile animation
-```
-
-For live preview watcher changes, include:
-
-```powershell
-dotnet test AvaScope.slnx --filter FullyQualifiedName~ProtocolContractTests.PreviewWatchResponseSerializesEvents
-dotnet test AvaScope.slnx --filter FullyQualifiedName~PreviewSessionRegistryTests
-dotnet test AvaScope.slnx --filter FullyQualifiedName~PreviewHost
-dotnet test AvaScope.slnx --filter FullyQualifiedName~CliSmokeTests.WatchPreviewSessionCommandReloadsWhenWatchedFileChanges
-```
-
-For live preview lifecycle decision work, also confirm the watch response lifecycle shape:
-
-```powershell
-dotnet test AvaScope.slnx --filter FullyQualifiedName~ProtocolContractTests.PreviewWatchResponseSerializesEventsAndLatestSession
-dotnet test AvaScope.slnx --filter FullyQualifiedName~PreviewSessionRegistryTests.PreviewSessionWatcher
-dotnet test AvaScope.slnx --filter FullyQualifiedName~CliSmokeTests.WatchPreviewSessionCommandReloadsWhenWatchedFileChanges
-```
-
-For CLI preview profile work, include:
-
-```powershell
-dotnet test AvaScope.slnx --filter FullyQualifiedName~CliSmokeTests.PreviewCommandUsesProjectPreviewProfileAndAllowsExplicitOverrides
-dotnet test AvaScope.slnx --filter FullyQualifiedName~CliSmokeTests.PreviewCommandUsesProjectPreviewProfileVariantAndAllowsExplicitOverrides
-dotnet test AvaScope.slnx --filter FullyQualifiedName~CliSmokeTests.CreatePreviewSessionCommandUsesProjectPreviewProfile
-```
-
-For feature-ticket work covering preview diagnostics, computed inspection, multi-size preview, diff, or cleanup, run the targeted smoke checks first and then the full suite:
-
-```powershell
-dotnet test AvaScope.slnx --no-build --filter Protocol
-dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~PreviewHost
-dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~Cli
-dotnet test AvaScope.slnx --no-build --filter Bridge
-dotnet test AvaScope.slnx --no-build --filter Mcp
-dotnet test AvaScope.slnx --no-build
-```
-
-For `v0.7.0` runtime mutation evidence work, include:
-
-```powershell
-dotnet test AvaScope.slnx --no-build --filter "FullyQualifiedName~ProtocolContractTests.RuntimeMutationEvidenceResponseSerializesStableShape|FullyQualifiedName~LocalBridgeClientTests.RuntimeMutationEvidenceRunnerCapturesSequencedArtifactsThroughBridgePipe|FullyQualifiedName~CliSmokeTests.MutateNodeEvidenceCommandCapturesSequencedArtifactsThroughBridgePipe|FullyQualifiedName~BridgeHeadlessSmokeTests.McpMutateNodeEvidenceCapturesScreenshotsTreesAndDiffThroughLocalBridgePipe|FullyQualifiedName~McpStdioSmokeTests.ServerStartsOverStdioAndListsInitialTools"
-```
-
-For `v0.7.0` runtime mutation safety and reset semantics work, include:
-
-```powershell
-dotnet test AvaScope.slnx --no-build --filter "FullyQualifiedName~ProtocolContractTests.RuntimeMutationRequestAndResponseSerializeStableShapes|FullyQualifiedName~LocalBridgeClientTests.MutateNodeSendsStructuredMutationThroughBridgePipe|FullyQualifiedName~CliSmokeTests.MutateNodeCommandSendsResetMutationThroughBridgePipe|FullyQualifiedName~BridgeHeadlessSmokeTests.RuntimeMutationDeactivateResetsActiveMutationsAndRejectsFurtherMutation|FullyQualifiedName~BridgeHeadlessSmokeTests.RuntimeMutationTopLevelRegistrationDisposeResetsScopedMutations|FullyQualifiedName~BridgeHeadlessSmokeTests.McpMutateNodeReturnsBoundedMutationContractResultsThroughLocalBridgePipe|FullyQualifiedName~BridgeHeadlessSmokeTests.RuntimeMutationAppliesClassesResourcesTextAndScreenshotObservableBackgroundThenResetAll"
-```
-
-For security, safety, and compatibility audit work, include:
-
-```powershell
-dotnet test AvaScope.slnx --no-build --filter "FullyQualifiedName~SecurityThreatModelDocumentationTests|FullyQualifiedName~AvaScopeBridgeTests.BridgeIsInactiveByDefault|FullyQualifiedName~AvaScopeBridgeTests.ActivateCreatesLocalOnlyRuntimeSession|FullyQualifiedName~ProtocolContractTests.BridgeSessionManifestRejectsUnsupportedTransportScope|FullyQualifiedName~LocalBridgeClientTests.MutateNodeRejectsSessionMismatchWithoutIpc|FullyQualifiedName~LocalBridgeClientTests.DiagnosticsReportsInvalidAndStaleManifestsWithoutThrowing|FullyQualifiedName~CapabilityCompatibilityCheckerTests"
-```
-
-For performance, stress, samples, and troubleshooting audit work, include:
-
-```powershell
-dotnet test AvaScope.slnx --no-build --filter "FullyQualifiedName~PerformanceStressAuditTests|FullyQualifiedName~BridgeHeadlessSmokeTests.RuntimeMutationRepeatedSetPropertyAndResetAllKeepsReviewBounded|FullyQualifiedName~PerformanceStressAuditDocumentationTests"
-```
-
-Use [performance budgets and focused stress checks](PERFORMANCE_STRESS_AUDIT.md) and [failure triage](TROUBLESHOOTING.md). Update those references only when the contract or procedure changes; record observed run results in the relevant issue.
-
-For `v0.7.0` runtime experiment review work, include:
-
-```powershell
-dotnet test AvaScope.slnx --no-build --filter "FullyQualifiedName~ProtocolContractTests.RuntimeMutationReviewResponseSerializesStableShape|FullyQualifiedName~ProtocolContractTests.RuntimeMutationEvidenceResponseSerializesStableShape|FullyQualifiedName~LocalBridgeClientTests.MutationReviewReadsBoundedHistoryThroughBridgePipe|FullyQualifiedName~LocalBridgeClientTests.RuntimeMutationEvidenceRunnerCapturesSequencedArtifactsThroughBridgePipe|FullyQualifiedName~CliSmokeTests.MutationReviewCommandReadsHistoryAndWritesArtifactThroughBridgePipe|FullyQualifiedName~CliSmokeTests.MutateNodeEvidenceCommandCapturesSequencedArtifactsThroughBridgePipe|FullyQualifiedName~BridgeHeadlessSmokeTests.McpMutateNodeReturnsBoundedMutationContractResultsThroughLocalBridgePipe|FullyQualifiedName~BridgeHeadlessSmokeTests.McpMutateNodeEvidenceCapturesScreenshotsTreesAndDiffThroughLocalBridgePipe|FullyQualifiedName~McpStdioSmokeTests.ServerStartsOverStdioAndListsInitialTools"
-```
-
-For runtime pseudo-state matrix work, include:
-
-```powershell
-dotnet test AvaScope.slnx --no-build --filter "FullyQualifiedName~ProtocolContractTests.RuntimePseudoStateMatrixRequestAndResponseSerializeStableShapes|FullyQualifiedName~RuntimePseudoStateMatrixRunnerTests|FullyQualifiedName~CliSmokeTests.PseudoStateMatrixCommandCapturesContactSheetThroughBridgePipe|FullyQualifiedName~BridgeHeadlessSmokeTests.PseudoStateMatrixCapturesCommonStatesAndResetsRuntimeForcing|FullyQualifiedName~McpStdioSmokeTests.ServerStartsOverStdioAndListsInitialTools|FullyQualifiedName~StableSurfaceContractTests"
-```
-
-For interaction-triggered runtime animation recording work, include:
-
-```powershell
-dotnet test AvaScope.slnx --no-build --filter "FullyQualifiedName~ProtocolContractTests.RuntimeInteractionAnimationRequestAndResponseSerializeStableShapes|FullyQualifiedName~RuntimeInteractionAnimationRunnerTests|FullyQualifiedName~CliSmokeTests.RecordInteractionAnimationCommandCapturesFrameStripAndAssertionsThroughBridgePipe|FullyQualifiedName~CliSmokeTests.CapabilitiesCommandReportsProtocolAndToolCapabilities|FullyQualifiedName~AvaScopeMcpToolsTests.CapabilitiesReturnsCurrentCapabilityManifest|FullyQualifiedName~McpStdioSmokeTests.ServerStartsOverStdioAndListsInitialTools|FullyQualifiedName~StableSurfaceContractTests"
-```
-
-For semantic screenshot comparison work, include:
-
-```powershell
-dotnet test AvaScope.slnx --no-build --filter "FullyQualifiedName~ProtocolContractTests.SemanticScreenshotComparisonRequestAndResponseSerializeStableShapes|FullyQualifiedName~SemanticScreenshotComparerTests|FullyQualifiedName~CliSmokeTests.SemanticDiffCommandWritesAnnotatedArtifactsAndBoundedFindings|FullyQualifiedName~CliSmokeTests.CapabilitiesCommandReportsProtocolAndToolCapabilities|FullyQualifiedName~AvaScopeMcpToolsTests.SemanticDiffWritesAnnotatedArtifactsAndFindings|FullyQualifiedName~AvaScopeMcpToolsTests.CapabilitiesReturnsCurrentCapabilityManifest|FullyQualifiedName~McpStdioSmokeTests.ServerStartsOverStdioAndListsInitialTools|FullyQualifiedName~StableSurfaceContractTests"
-```
-
-For `v0.9.0` source-aware runtime suggestion work, include:
-
-```powershell
-dotnet test AvaScope.slnx --no-build --filter "FullyQualifiedName~ProtocolContractTests.RuntimeMutationReviewResponseSerializesStableShape|FullyQualifiedName~RuntimeSourceSuggestionBuilderTests|FullyQualifiedName~CliSmokeTests.MutationReviewCommandReadsHistoryAndWritesArtifactThroughBridgePipe|FullyQualifiedName~BridgeHeadlessSmokeTests.McpMutateNodeReturnsBoundedMutationContractResultsThroughLocalBridgePipe|FullyQualifiedName~McpStdioSmokeTests.ServerStartsOverStdioAndListsInitialTools"
-```
-
-For `v0.9.0` accessibility, validation, and component inventory work, include:
-
-```powershell
-dotnet test AvaScope.slnx --no-build --filter "FullyQualifiedName~ProtocolContractTests.TreeResponseSerializesBoundedNodeShape|FullyQualifiedName~ProtocolContractTests.UiAuditResponseSerializesStableShape|FullyQualifiedName~UiAuditBuilderTests|FullyQualifiedName~CliSmokeTests.AuditUiCommandBuildsBoundedReportFromVisualTreeThroughBridgePipe|FullyQualifiedName~AvaScopeMcpToolsTests.AuditUiRejectsEmptySessionId|FullyQualifiedName~BridgeHeadlessSmokeTests.McpToolsListTopLevelsAndCaptureScreenshotThroughLocalBridgePipe|FullyQualifiedName~McpStdioSmokeTests.ServerStartsOverStdioAndListsInitialTools"
-```
-
-For task-scoped design-quality audit work, include:
-
-```powershell
-dotnet test AvaScope.slnx --no-build --filter "FullyQualifiedName~ProtocolContractTests.DesignQualityAuditRequestAndResponseSerializeStableShapes|FullyQualifiedName~DesignQualityAuditBuilderTests|FullyQualifiedName~CliSmokeTests.DesignAuditCommandBuildsScopedReportFromVisualTreeThroughBridgePipe|FullyQualifiedName~AvaScopeMcpToolsTests.CapabilitiesReturnsCurrentCapabilityManifest|FullyQualifiedName~McpStdioSmokeTests.ServerStartsOverStdioAndListsInitialTools|FullyQualifiedName~StableSurfaceContractTests"
-```
-
-For visual regression workflow work, include:
-
-```powershell
-dotnet test AvaScope.slnx --filter FullyQualifiedName~CliSmokeTests.BaselineCommandsCreateManifestPassCheckAndFailChangedCheck
-dotnet test AvaScope.slnx --filter FullyQualifiedName~CliSmokeTests.BaselineSuiteCommandCreatesManifestAndCheckPasses
-dotnet test AvaScope.slnx --filter FullyQualifiedName~PreviewImageDifferTests
-dotnet test AvaScope.slnx --filter FullyQualifiedName~PreviewBaselineManagerTests
-dotnet test AvaScope.slnx --filter FullyQualifiedName~PreviewBaselineReportPackExporterTests
-dotnet test AvaScope.slnx --filter FullyQualifiedName~ProtocolContractTests.PreviewBaselineResponsesSerializeStableShapes
-dotnet test AvaScope.slnx --filter FullyQualifiedName~ProtocolContractTests.PreviewBaselineSuiteManifestSerializesStableShape
-dotnet test AvaScope.slnx --filter FullyQualifiedName~ProtocolContractTests.PreviewComparisonRulesAndRegionResultsSerializeStableShape
-dotnet test AvaScope.slnx --filter FullyQualifiedName~AvaScopeMcpToolsTests.BaselineCheckWritesReportAndReportPackPathsThroughPreviewHost
-dotnet test AvaScope.slnx --filter FullyQualifiedName~McpStdioSmokeTests.ServerStartsOverStdioAndListsInitialTools
-```
-
-For CI report validation, run a sample baseline check with `--report <report.json> --report-pack <dir>`, verify the JSON report exists and contains the same `passed` and `entries` shape as stdout, then verify the report pack contains `baseline-report.json`, `baseline-report.html`, `baseline-junit.xml`, and `baseline.sarif.json`. The CLI response should include `agentReview` bounded failure/report/artifact handoff plus `reportPack.status`, pass/fail counts, metadata, and asset paths without inlining image payloads.
-
-For the packaged lifecycle gate, run `pwsh -NoProfile -File ./eng/test-packaged-lifecycle.ps1 -CliAssembly <framework-dependent-package>/avascope.dll -Configuration Release` on Windows, Linux, and macOS. The gate must complete explicit build, direct project launch, bridge readiness and attach, top-level discovery, workflow execution, local evidence, and exact owned-process cleanup while proving launch environment values are absent from normal JSON output.
-
-For the v1.4 complex workflow gate, run the source and packaged CLI/MCP surfaces. Each invocation performs at least two successful runs with alternating optional UI plus one intentional failure:
-
-```powershell
-pwsh -NoProfile -File ./eng/test-complex-workflow.ps1 -CliAssembly <cli>/avascope.dll -Surface Cli -Configuration Release
-pwsh -NoProfile -File ./eng/test-complex-workflow.ps1 -CliAssembly <cli>/avascope.dll -Surface Mcp -McpAssembly <mcp>/AvaScope.Mcp.dll -McpScenarioClientAssembly ./tests/AvaScope.McpScenarioClient/bin/Release/net10.0/AvaScope.McpScenarioClient.dll -Configuration Release
-```
-
-The gate must prove two distinct aliases resolve without persisted runtime ids; provider and bounds-derived drag modes both execute without caller coordinates; the custom action, bounded retry, conditional branches, fragments, typed waits, automatic screenshots, and cross-window verification pass; JSON/Markdown/JUnit and the intentional failure screenshot are redacted; response-budget fallback JSON contains no configured secret; count retention removes only marked prior runs; the launched process is terminated; and unrelated files and the calling process remain. CI runs the source gate on Windows and the packaged gate on Windows, Linux, and macOS; the existing native macOS runtime gate remains responsible for Retina scaling coverage.
-
-For the v1.4 runtime evidence privacy and action policy, run the focused policy and real Bridge evidence tests. They must cover inline/tree/JSON/Markdown/JUnit/audit redaction, explicit and control-derived screenshot masks, fail-closed removal, safe retention ownership, path traversal, action/gesture/custom-action gates, foreign session/PID authorization, and the unavailable network-upload boundary:
-
-```powershell
-dotnet test tests/AvaScope.Tests/AvaScope.Tests.csproj --filter "FullyQualifiedName~RuntimeEvidencePolicyEnforcerTests|FullyQualifiedName~RuntimeEvidencePolicyRedactsAndMasksWorkflowEvidenceEndToEnd"
-dotnet test tests/AvaScope.Tests/AvaScope.Tests.csproj --filter "FullyQualifiedName~SecurityThreatModelDocumentationTests|FullyQualifiedName~StableSurfaceDocumentationTests"
-```
-
-For visual-regression GitHub Actions example work, include:
-
-```powershell
-dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~VisualRegressionWorkflowDocumentationTests
-```
-
-For legacy JSON-only artifact collection, run:
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\collect-baseline-artifacts.ps1 -Report <report.json> -OutDir .\artifacts\visual-regression\upload
-```
-
-For agent workflow documentation work, validate the packaged CLI examples that do not require a live runtime bridge:
-
-```powershell
-dotnet test AvaScope.slnx --no-build --filter FullyQualifiedName~DocumentationCompletionTests
-powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1 -SkipTests
-.\artifacts\executables\avascope-win-x64-framework-dependent\avascope.exe doctor --manifest-dir .\artifacts\samples\agent-workflow\sessions --preview-session-store .\artifacts\samples\agent-workflow\preview-sessions
-.\artifacts\executables\avascope-win-x64-framework-dependent\avascope.exe preview .\samples\AvaScope.GettingStartedApp\AvaScope.GettingStartedApp.csproj --profile main --out .\artifacts\samples\agent-workflow\main-preview.png
-```
+Each invocation runs two successful cases with alternating optional UI and one intentional failure. Required evidence covers fresh window aliases; provider and bounds-derived gestures without stored coordinates; custom actions, bounded retry, branches, fragments, typed waits and postconditions; redacted reports and fallback artifacts; owned retention and process termination with unrelated resources preserved. Run the required source/packaged surfaces. These headless cases do not establish native Retina coverage.
 
 ## Stable Release Validation
 
-For actual stable release readiness, run the complete candidate checks, including:
+Release scope and acceptance live in the GitHub milestone and its `type:release` tracker. Validate the exact candidate across the required platform matrix and packaged CLI/MCP/provider/installers. After required checks and publication authorization, set the tracker to `status:review`. Stable publication requires all other milestone issues closed or explicitly moved. An authorized prerelease may retain documented gaps in that numeric milestone; it must not promote Latest or close unresolved stable acceptance.
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1
-```
-
-Release scope and acceptance live in the GitHub milestone and its `type:release` tracker. After required checks and publication authorization, set the tracker to `status:review`; stable publication requires all other milestone issues closed or explicitly moved. An explicitly authorized prerelease can retain documented acceptance gaps in the same numeric milestone; it must not promote Latest or close unresolved stable acceptance.
-
-The version source is `Directory.Build.props`; the release commit subject must be `Release <version>`. The guard uses GitHub's open milestone issues, not a local status document. It requires exactly one release tracker in review, rejects incomplete stable acceptance and fails closed when GitHub cannot be verified. The GitHub CLI needs read access to issues. Read the [stable surface](STABLE_SURFACE.md) for package/protocol compatibility boundaries.
-
-```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\validate-release-commit.ps1 -Version <version> -CommitSubject "Release <version>"
 ```
 
-Run `eng/test-release-commit.ps1 -OutputDirectory <qa-root>` for isolated guard regression checks; it mocks GitHub responses and never publishes or changes issues. Version-specific release notes remain the source consumed by `eng/publish-github-release.ps1`, not a second release-status record.
+`create-local-release.ps1` restores, builds and tests Release, packs the three public libraries, packages executable ZIPs/installers, writes and verifies `artifacts/release-manifest.json`, and smoke-tests packaged sample workflows. Default executable runtimes are `win-x64`, `linux-x64`, `osx-arm64` and `osx-x64`. The provider has its own packaging/verification gate in [STANDALONE_PROVIDER.md](STANDALONE_PROVIDER.md). The local release script alone does not prove every native platform.
 
-`eng/create-local-release.ps1` wraps the release gate:
+The version source is `Directory.Build.props`; the commit subject must be `Release <version>`. The guard requires GitHub issue read access, exactly one open release tracker in review and completed stable acceptance. It fails closed when GitHub cannot be verified. Version-specific release notes supply publication text. The [stable surface](STABLE_SURFACE.md) owns package, artifact and compatibility contracts.
 
-```powershell
-dotnet restore AvaScope.slnx
-dotnet build AvaScope.slnx -c Release
-dotnet test AvaScope.slnx -c Release --no-build
-dotnet pack .\src\AvaScope.Protocol\AvaScope.Protocol.csproj -c Release --no-build --output .\artifacts\packages
-dotnet pack .\src\AvaScope.Core\AvaScope.Core.csproj -c Release --no-build --output .\artifacts\packages
-dotnet pack .\src\AvaScope.Bridge\AvaScope.Bridge.csproj -c Release --no-build --output .\artifacts\packages
-powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\package-executables.ps1
-powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\package-installers.ps1
-powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\verify-artifacts.ps1
-```
+For narrower packaging validation, select `-RuntimeIdentifiers <rid>`. Opt-in self-contained ZIPs use `-ExecutablePackageKind self-contained` on `create-local-release.ps1`, `verify-artifacts.ps1` and `publish-github-release.ps1` (or `-PackageKind` on `package-executables.ps1`). `-SkipTests` / `-SkipSampleSmoke` deliberately omit checks; do not report them as complete release validation.
 
-It also validates the getting-started preview path from the packaged Windows CLI:
+### Current Publication Triggers
 
-```powershell
-.\artifacts\executables\avascope-win-x64-framework-dependent\avascope.exe doctor
-.\artifacts\executables\avascope-win-x64-framework-dependent\avascope.exe preview .\samples\AvaScope.GettingStartedApp\AvaScope.GettingStartedApp.csproj --view Views\MainView.axaml --out .\artifacts\samples\getting-started-preview-release.png --width 720 --height 420 --theme light --design-data-type AvaScope.GettingStartedApp.SamplePreviewData
-```
+Current YAML has not yet been aligned with explicit dispatch: `CI` declares pull-request and manual triggers; `Release` reacts to `Directory.Build.props` pushes on `master`/`main` and manual dispatch. Ordinary `master` source pushes do not start `CI`. A version change without an existing remote `v<Version>` tag can start release validation and publication. Inspect triggers before touching release inputs and make version changes only for authorized releases. The pending change is tracked in [#234](https://github.com/RolandUI/AvaScope/issues/234).
 
-Use `.\artifacts\executables\avascope-win-x64-framework-dependent\avascope.exe` for external project testing after the script completes.
+Manual workflow runs validate by default; select `publish=true` only for authorized publication. Hosted NuGet publishing uses trusted publishing. The release workflow publishes libraries to nuget.org and GitHub Packages in dependency order, creates the version tag and uploads the verified release assets. An existing tag prevents automatic duplicate publication.
 
-For the opt-in self-contained executable lane, validate a narrow local artifact set with:
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.ps1 -RuntimeIdentifiers win-x64 -ExecutablePackageKind self-contained -SkipTests -SkipSampleSmoke
-powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v1.0.0 -ExecutableRuntimeIdentifiers win-x64 -ExecutablePackageKind self-contained -DryRun
-```
-
-Current YAML has not yet been aligned with the explicit-dispatch policy: `CI` still declares a pull-request trigger alongside manual dispatch, and `Release` still reacts to `Directory.Build.props` pushes on `master`/`main`. Do not create a PR to trigger checks. Ordinary `master` source pushes do not start `CI`. A version change without an existing remote `v<Version>` tag can still start release validation and publication; make such changes only as part of authorized release work. The target removes automatic validation/publication triggers and preserves explicit publication intent. Until that change is implemented, inspect the existing triggers before touching release inputs. Hosted NuGet publication currently uses trusted publishing; manual API-key publishing is described below.
-
-The release workflow publishes library packages to nuget.org and GitHub Packages, creates the `v<Version>` tag, creates or updates the matching GitHub Release, and uploads the three `.nupkg` files, `avascope-win-x64-framework-dependent.zip`, `avascope-linux-x64-framework-dependent.zip`, `avascope-osx-arm64-framework-dependent.zip`, `avascope-osx-x64-framework-dependent.zip`, Windows/Linux installer artifacts, and `artifacts\release-manifest.json`.
-
-The macOS ZIPs and `avascope-osx-arm64-installer` / `avascope-osx-x64-installer` terminal installers are framework-dependent, unsigned, and unnotarized. They are not App Store, `.app`, or DMG distributions and do not require paid Apple Developer Program membership. After extracting a ZIP, run `bash prepare-macos.sh` from the artifact directory to deterministically restore execute permission on the CLI, MCP server, and PreviewHost apphosts. Before running a downloaded installer, compare its SHA-256 with `release-manifest.json`, run `chmod +x avascope-osx-<architecture>-installer`, and only if Gatekeeper reports quarantine after checksum verification use `xattr -d com.apple.quarantine avascope-osx-<architecture>-installer`. The installer writes only below the user profile (by default `~/Library/Application Support/AvaScope` and `~/.local/bin`), never invokes `sudo`, and never edits shell profiles.
-
-The hosted macOS lane runs `eng/test-macos-packaged-workflow.sh` after manifest verification and installer lifecycle validation. On the native Apple Silicon runner it installs the release-shaped artifact, attaches to the bridged sample, captures visual-tree JSON plus runtime screenshot evidence, renders preview evidence through the installed PreviewHost, and uninstalls. The Intel artifact is cross-packaged and covered by the same payload, manifest, hash, and stable-surface checks; execution requires a compatible Intel macOS runner.
-
-Before publishing library packages manually, validate the exact publish set without pushing:
+Before manual publication, dry-run the exact asset set:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-nuget.ps1 -DryRun
-powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v1.0.0 -DryRun
+powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v<version> -DryRun
 ```
 
-Manual NuGet publishing requires a nuget.org API key supplied by `AVASCOPE_NUGET_API_KEY`, `NUGET_API_KEY`, or the `-ApiKey` parameter.
+Manual NuGet publication uses `AVASCOPE_NUGET_API_KEY`, `NUGET_API_KEY` or `-ApiKey`. Never store credentials in source. Omit `-DryRun` only after publication is authorized. Verify generated artifacts remain ignored, and apply the [publication policy](../AGENTS.md#github-information-policy) before uploading evidence.
 
-Then verify generated artifacts are ignored:
-
-```powershell
-git check-ignore -v artifacts\release-manifest.json artifacts\packages\AvaScope.Protocol.1.0.0.nupkg artifacts\executables\avascope-win-x64-framework-dependent.zip artifacts\executables\AvaScopeSetup.exe artifacts\samples\getting-started-preview-release.png
-```
+macOS assets are framework-dependent and unsigned/unnotarized; the [installation guide](USER_GUIDE.md#install-from-release-artifacts) owns checksum, Gatekeeper and execution-permission instructions. Hosted Apple Silicon execution does not establish Intel execution. Keep missing platform evidence explicit.

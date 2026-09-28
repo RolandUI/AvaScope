@@ -25,7 +25,6 @@ Use this server entry inside the client's own server-configuration wrapper:
 }
 ```
 
-On Windows, the assembly path can be `C:/Tools/AvaScope/AvaScope.Mcp.dll`.
 For an installed CLI, the equivalent entry is `command: "avascope"` and
 `args: ["mcp"]`. Use an absolute command path when that client has a different
 PATH. Do not start a TCP server. The recipe runner performs a real stdio
@@ -143,8 +142,7 @@ CLI timings include process startup. MCP recipes share one live connection for
 their session; closing a probe between actions can terminate the server's owned
 process tree. Do not use a sequence of one-shot MCP probes to test a persistent app.
 Successful onboarding is measured separately, including its actual calls.
-Reports and redacted tool outputs are retained; transient request binding files
-are removed. Independent repetitions are not retries. The fixed script performs
+The runner retains reports/redacted output and removes transient request bindings; apply the [QA retention policy](AGENT_QA_LAB.md#local-testing-and-retention-policy) after review. Independent repetitions are not retries. The fixed script performs
 no automatic retry, so its unnecessary retry count is zero.
 
 These results are labeled `deterministic_conformance`, with `model: null` and
@@ -157,8 +155,7 @@ Give the agent the generated project's path, its explicit provider/profile,
 and one task: establish inspection on a fresh build, complete the two-window
 flow, or diagnose why it cannot complete. Reset application state between
 trials and keep the original condition. Use the same recipe revision/backend,
-tool budget and seed schedule when comparing clients/models. Preserve any
-failed trials instead of silently rerunning until success.
+tool budget and seed schedule when comparing clients/models. Record failed trial outcomes instead of silently rerunning until success; retain only unresolved raw evidence under the same policy.
 
 The repository MCP probe can record **actual agent-chosen** calls while retaining
 normal request/response behavior. Set these variables on the probe process:
