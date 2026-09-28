@@ -1,0 +1,483 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="AvaScope gives AI agents a clear view of your Avalonia app. Inspect the interface, try changes, automate tasks and check the results, locally."
+    />
+    <meta name="theme-color" content="#fafbfb" />
+    <title>AvaScope — A clear view of your app.</title>
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2300787e'/%3E%3Cpath d='M7 24L16 7l9 17' fill='none' stroke='white' stroke-width='2.5'/%3E%3Ccircle cx='16' cy='21' r='4' fill='none' stroke='white' stroke-width='2'/%3E%3C/svg%3E"
+    />
+    <link rel="preload" href="./assets/manrope.ttf" as="font" type="font/ttf" crossorigin />
+    <link rel="stylesheet" href="./styles.css" />
+    <script src="./script.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header class="site-header">
+      <div class="container header-inner">
+        <a class="brand" href="#" aria-label="AvaScope home"
+          ><img src="./assets/avascope-icon.png" width="34" height="34" alt="" /><span
+            >AvaScope</span
+          ></a
+        >
+        <nav aria-label="Main navigation">
+          <a href="#capabilities">Capabilities</a>
+          <a href="#more">More to explore</a>
+          <a class="nav-github" href="https://github.com/RolandUI/AvaScope"
+            >GitHub <span aria-hidden="true">↗</span></a
+          >
+        </nav>
+      </div>
+    </header>
+
+    <main id="main">
+      <section class="hero container" aria-labelledby="hero-title">
+        <div class="hero-heading">
+          <div>
+            <p class="eyebrow">BUILT FOR AVALONIA. MADE FOR AGENTS.</p>
+            <h1 id="hero-title">Your app.<br /><span>In plain sight.</span></h1>
+          </div>
+          <div class="hero-intro">
+            <p>
+              Give your AI agent a clear view of your desktop app. Understand the interface, try
+              changes and check what works.
+            </p>
+            <a class="text-link" href="#capabilities"
+              >See what it can do <span aria-hidden="true">↘</span></a
+            >
+          </div>
+        </div>
+
+        <figure class="hero-demo">
+          <div class="demo-toolbar">
+            <span class="demo-title"
+              ><span class="scope-symbol" aria-hidden="true">◎</span> A closer look at your
+              app</span
+            ><span class="demo-label">Interactive illustration</span>
+          </div>
+          <div class="inspection-demo">
+            <div class="sample-window">
+              <div class="sample-titlebar">
+                <span class="window-mark" aria-hidden="true">N</span> Northstar
+                <span class="window-controls" aria-hidden="true">− &nbsp; □ &nbsp; ×</span>
+              </div>
+              <div class="sample-body">
+                <div class="sample-sidebar" aria-hidden="true">
+                  <span>WORKSPACE</span>
+                  <div>▦ &nbsp; Overview</div>
+                  <div>▤ &nbsp; Projects</div>
+                  <div class="sidebar-selected">⚙ &nbsp; Settings</div>
+                  <div class="sidebar-bottom">N &nbsp; Northstar workspace</div>
+                </div>
+                <div class="sample-settings">
+                  <p class="sample-breadcrumb">Workspace <span>/</span> Settings</p>
+                  <h2>Make it yours.</h2>
+                  <p class="sample-subtitle">A few details for your workspace.</p>
+                  <div class="sample-form">
+                    <button class="inspectable sample-field" data-node="name" aria-pressed="false">
+                      <span>Workspace name</span><strong>Northstar</strong>
+                    </button>
+                    <button
+                      class="inspectable sample-toggle-row"
+                      data-node="notifications"
+                      aria-pressed="false"
+                    >
+                      <span
+                        ><strong>Email notifications</strong
+                        ><small>A little less checking in.</small></span
+                      ><span class="fake-toggle" aria-hidden="true"></span>
+                    </button>
+                    <div class="sample-save-row">
+                      <button
+                        class="inspectable sample-save selected"
+                        data-node="save"
+                        aria-pressed="true"
+                      >
+                        Save changes<span class="selection-tag" aria-hidden="true">Button</span
+                        ><span class="selection-corner top-left"></span
+                        ><span class="selection-corner top-right"></span
+                        ><span class="selection-corner bottom-left"></span
+                        ><span class="selection-corner bottom-right"></span></button
+                      ><span class="selection-dimension" aria-hidden="true">144 × 40</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <aside class="inspector" aria-label="Illustrated element inspection">
+              <div class="inspector-heading">
+                <span>ELEMENT INSPECTOR</span><span aria-hidden="true">⌖</span>
+              </div>
+              <div class="inspector-path">MainWindow <span>›</span> Settings</div>
+              <div class="tree-item">⌄ <span>▧</span> StackPanel</div>
+              <div class="tree-children">
+                <button data-node="name" aria-pressed="false">
+                  <span>Ｔ</span> Workspace name
+                </button>
+                <button data-node="notifications" aria-pressed="false">
+                  <span>◐</span> Email notifications
+                </button>
+                <button class="selected" data-node="save" aria-pressed="true">
+                  <span>▣</span> Save changes <span class="tree-target" aria-hidden="true">⌖</span>
+                </button>
+              </div>
+              <div class="node-detail" aria-live="polite" aria-atomic="true">
+                <div class="node-heading">
+                  <h3 id="node-type">Button</h3>
+                  <span class="state-badge">Enabled</span>
+                </div>
+                <dl>
+                  <div>
+                    <dt>Name</dt>
+                    <dd id="node-name">SaveButton</dd>
+                  </div>
+                  <div>
+                    <dt>Size</dt>
+                    <dd id="node-size">144 × 40</dd>
+                  </div>
+                  <div>
+                    <dt>Visible</dt>
+                    <dd>True</dd>
+                  </div>
+                  <div>
+                    <dt id="node-extra-label">Action</dt>
+                    <dd id="node-extra">Invoke</dd>
+                  </div>
+                </dl>
+              </div>
+              <p class="inspector-hint">
+                <span aria-hidden="true">↖</span> Pick an element. See what’s behind it.
+              </p>
+            </aside>
+          </div>
+          <figcaption>
+            <span>More than pixels. A view your agent can understand.</span
+            ><span>Runs locally <span aria-hidden="true">/</span> CLI + MCP</span>
+          </figcaption>
+        </figure>
+      </section>
+
+      <section
+        class="capabilities container"
+        id="capabilities"
+        aria-labelledby="capabilities-title"
+      >
+        <div class="section-heading">
+          <p class="eyebrow">THE BIG PICTURE</p>
+          <h2 id="capabilities-title">Less guesswork.<br />More understanding.</h2>
+          <p>From the first look to the final check.</p>
+        </div>
+
+        <article class="feature" id="preview">
+          <div class="feature-copy">
+            <span class="feature-number">01 / PREVIEW</span>
+            <h3>
+              See the change.<br />
+              Before you commit.
+            </h3>
+            <p>
+              Preview a view in different themes and sizes, rendered by Avalonia itself. Give your
+              agent a way to check its work as it goes.
+            </p>
+            <a
+              class="text-link subtle-link"
+              href="https://github.com/RolandUI/AvaScope/blob/master/docs/USER_GUIDE.md#preview-sessions"
+              >About previews <span aria-hidden="true">↗</span></a
+            >
+          </div>
+          <figure class="feature-visual preview-visual">
+            <div class="visual-toolbar">
+              <span>Appearance</span>
+              <div class="segmented" role="group" aria-label="Illustration theme">
+                <button class="active" data-theme="light" aria-pressed="true">Light</button
+                ><button data-theme="dark" aria-pressed="false">Dark</button>
+              </div>
+            </div>
+            <div class="preview-stage">
+              <div class="preview-card" id="preview-card">
+                <div class="preview-card-heading">
+                  <span class="preview-monogram">N</span
+                  ><span class="preview-menu" aria-hidden="true">···</span>
+                </div>
+                <h4>A space for good work.</h4>
+                <p>Your projects, a little more organised.</p>
+                <div class="preview-project">
+                  <span class="project-swatch" aria-hidden="true"></span>
+                  <div><strong>Website refresh</strong><small>Design · 8 tasks</small></div>
+                  <span aria-hidden="true">↗</span>
+                </div>
+                <div class="preview-progress"><span></span></div>
+                <div class="preview-card-footer"><span>5 of 8 completed</span><span>62%</span></div>
+              </div>
+            </div>
+            <figcaption>
+              <span>Same view. A different perspective.</span><span>Illustration</span>
+            </figcaption>
+          </figure>
+        </article>
+
+        <article class="feature feature-reverse" id="automate">
+          <div class="feature-copy">
+            <span class="feature-number">02 / AUTOMATE</span>
+            <h3>
+              Put the everyday<br />
+              steps on repeat.
+            </h3>
+            <p>
+              Fill in a form. Press a button. Check the result. Let your agent carry out a sequence
+              and verify what actually happened.
+            </p>
+            <a
+              class="text-link subtle-link"
+              href="https://github.com/RolandUI/AvaScope/blob/master/docs/FORM_WORKFLOWS.md"
+              >About form workflows <span aria-hidden="true">↗</span></a
+            >
+          </div>
+          <figure class="feature-visual workflow-visual">
+            <div class="visual-toolbar">
+              <span>A simple workspace setup</span><span class="small-label">Illustration</span>
+            </div>
+            <ol class="workflow-steps">
+              <li data-step="0">
+                <span class="step-marker">1</span>
+                <div><strong>Find the form</strong><span>Workspace settings</span></div>
+                <span class="step-status">Ready</span>
+              </li>
+              <li data-step="1">
+                <span class="step-marker">2</span>
+                <div><strong>Fill in the details</strong><span>Name → Northstar</span></div>
+                <span class="step-status">Ready</span>
+              </li>
+              <li data-step="2">
+                <span class="step-marker">3</span>
+                <div><strong>Save the changes</strong><span>A separate, explicit action</span></div>
+                <span class="step-status">Ready</span>
+              </li>
+              <li data-step="3">
+                <span class="step-marker">4</span>
+                <div><strong>Check the result</strong><span>Confirm the saved name</span></div>
+                <span class="step-status">Ready</span>
+              </li>
+            </ol>
+            <div class="workflow-bottom">
+              <p id="workflow-status" role="status">Four steps. One repeatable flow.</p>
+              <button class="run-button" id="run-workflow">
+                <span aria-hidden="true">▶</span> Run example
+              </button>
+            </div>
+          </figure>
+        </article>
+
+        <article class="feature" id="compare">
+          <div class="feature-copy">
+            <span class="feature-number">03 / COMPARE</span>
+            <h3>
+              Small changes.<br />
+              Clearly visible.
+            </h3>
+            <p>
+              Compare the interface with a saved reference. Spot shifted elements, unexpected
+              spacing and other visual changes that deserve a closer look.
+            </p>
+            <a
+              class="text-link subtle-link"
+              href="https://github.com/RolandUI/AvaScope/blob/master/docs/VISUAL_REGRESSION_CI.md"
+              >About visual checks <span aria-hidden="true">↗</span></a
+            >
+          </div>
+          <figure class="feature-visual compare-visual">
+            <div class="visual-toolbar">
+              <span>Spot the spacing change</span><span class="small-label">Illustration</span>
+            </div>
+            <div class="comparison" id="comparison">
+              <div class="comparison-layer comparison-after">
+                <span class="comparison-badge">Changed</span>
+                <div class="comparison-card">
+                  <span class="comparison-eyebrow">WORKSPACE</span>
+                  <h4>All set for the day.</h4>
+                  <p>Everything you need, in one place.</p>
+                  <div class="comparison-button">
+                    Open workspace <span aria-hidden="true">↗</span>
+                  </div>
+                </div>
+              </div>
+              <div class="comparison-layer comparison-before">
+                <span class="comparison-badge">Reference</span>
+                <div class="comparison-card">
+                  <span class="comparison-eyebrow">WORKSPACE</span>
+                  <h4>All set for the day.</h4>
+                  <p>Everything you need, in one place.</p>
+                  <div class="comparison-button">
+                    Open workspace <span aria-hidden="true">↗</span>
+                  </div>
+                </div>
+              </div>
+              <div class="comparison-divider" aria-hidden="true"><span>‹ ›</span></div>
+              <input
+                id="comparison-range"
+                type="range"
+                min="0"
+                max="100"
+                value="52"
+                aria-label="Compare reference and changed spacing"
+                aria-valuetext="52% reference visible"
+              />
+            </div>
+            <figcaption>
+              <span>Drag to compare</span
+              ><span>Reference <span aria-hidden="true">↔</span> Changed</span>
+            </figcaption>
+          </figure>
+        </article>
+      </section>
+
+      <section class="more-section" id="more" aria-labelledby="more-title">
+        <div class="container">
+          <div class="more-heading">
+            <div>
+              <p class="eyebrow">A LITTLE DEEPER</p>
+              <h2 id="more-title">More ways to work.</h2>
+            </div>
+            <p>A few more capabilities.<br /> Open one for a closer look.</p>
+          </div>
+          <div class="feature-list">
+            <details>
+              <summary>
+                <span class="list-category">INSPECT</span
+                ><span class="list-title">Understand a layout</span
+                ><span class="expand-icon" aria-hidden="true"></span>
+              </summary>
+              <div class="detail-body">
+                <p>
+                  See an element’s size, position and surrounding space. Help your agent investigate
+                  why a label gets cut off or a button sits in the wrong place.
+                </p>
+                <a href="https://github.com/RolandUI/AvaScope/blob/master/docs/USER_GUIDE.md"
+                  >Layout inspection in the guide <span aria-hidden="true">↗</span></a
+                >
+              </div>
+            </details>
+            <details>
+              <summary>
+                <span class="list-category">INSPECT</span
+                ><span class="list-title">Find available actions</span
+                ><span class="expand-icon" aria-hidden="true"></span>
+              </summary>
+              <div class="detail-body">
+                <p>
+                  Discover the actions, routes and shortcuts available in a window. Your agent can
+                  work out where to go and what it can do next, with unavailable areas called out.
+                </p>
+                <a href="https://github.com/RolandUI/AvaScope/blob/master/docs/ACTION_MAP.md"
+                  >Action discovery in the guide <span aria-hidden="true">↗</span></a
+                >
+              </div>
+            </details>
+            <details>
+              <summary>
+                <span class="list-category">INTERACT</span
+                ><span class="list-title">Work with tables</span
+                ><span class="expand-icon" aria-hidden="true"></span>
+              </summary>
+              <div class="detail-body">
+                <p>
+                  Read rows and columns from supported tables, then select, edit or sort with the
+                  right permissions. Check the resulting state after each action.
+                </p>
+                <a href="https://github.com/RolandUI/AvaScope/blob/master/docs/TABLE_WORKFLOWS.md"
+                  >Table workflows in the guide <span aria-hidden="true">↗</span></a
+                >
+              </div>
+            </details>
+            <details>
+              <summary>
+                <span class="list-category">EXPERIMENT</span
+                ><span class="list-title">Try a temporary change</span
+                ><span class="expand-icon" aria-hidden="true"></span>
+              </summary>
+              <div class="detail-body">
+                <p>
+                  Try supported changes to text, spacing or styling in a running app. Compare the
+                  result and reset the experiment. Source files stay untouched.
+                </p>
+                <a href="https://github.com/RolandUI/AvaScope/blob/master/docs/USER_GUIDE.md"
+                  >Runtime changes in the guide <span aria-hidden="true">↗</span></a
+                >
+              </div>
+            </details>
+            <details>
+              <summary>
+                <span class="list-category">CHECK</span
+                ><span class="list-title">Look at keyboard focus</span
+                ><span class="expand-icon" aria-hidden="true"></span>
+              </summary>
+              <div class="detail-body">
+                <p>
+                  Inspect which element has focus and explore keyboard navigation. Keep predicted
+                  movement separate from what an actual, explicitly requested probe observes.
+                </p>
+                <a href="https://github.com/RolandUI/AvaScope/blob/master/docs/FOCUS_NAVIGATION.md"
+                  >Focus inspection in the guide <span aria-hidden="true">↗</span></a
+                >
+              </div>
+            </details>
+            <details>
+              <summary>
+                <span class="list-category">REVIEW</span
+                ><span class="list-title">Keep the evidence</span
+                ><span class="expand-icon" aria-hidden="true"></span>
+              </summary>
+              <div class="detail-body">
+                <p>
+                  Collect screenshots, step results and reports for a workflow. Review what passed,
+                  what failed and what could not be verified, with local privacy and retention
+                  controls.
+                </p>
+                <a href="https://github.com/RolandUI/AvaScope/blob/master/docs/AGENT_WORKFLOW.md"
+                  >Evidence in the guide <span aria-hidden="true">↗</span></a
+                >
+              </div>
+            </details>
+          </div>
+          <p class="list-footnote">
+            A selection of what AvaScope can do.
+            <a href="https://github.com/RolandUI/AvaScope/blob/master/docs/STABLE_SURFACE.md"
+              >Explore the full reference <span aria-hidden="true">↗</span></a
+            >
+          </p>
+        </div>
+      </section>
+
+      <section class="closing container" aria-labelledby="closing-title">
+        <div>
+          <p class="eyebrow">YOUR APP. YOUR MACHINE.</p>
+          <h2 id="closing-title">Take a closer look.</h2>
+          <p>
+            AvaScope connects to apps you explicitly enable.<br /> Use it through your agent’s MCP
+            connection or the command line.
+          </p>
+        </div>
+        <a class="primary-link" href="https://github.com/RolandUI/AvaScope"
+          >Explore AvaScope on GitHub <span aria-hidden="true">↗</span></a
+        >
+      </section>
+    </main>
+    <footer class="container site-footer">
+      <a class="brand footer-brand" href="#"
+        ><img src="./assets/avascope-icon.png" width="26" height="26" alt="" /><span
+          >AvaScope</span
+        ></a
+      ><span>A clear view. A better next step.</span
+      ><a href="https://github.com/RolandUI/AvaScope/blob/master/docs/USER_GUIDE.md"
+        >Documentation <span aria-hidden="true">↗</span></a
+      >
+    </footer>
+  </body>
+</html>
