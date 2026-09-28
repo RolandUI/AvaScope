@@ -118,6 +118,9 @@ if ($Tag -ne $expectedTag) {
     throw "Release tag '$Tag' does not match package version '$version'. Expected tag '$expectedTag'."
 }
 
+$isPrerelease = ($version -split '\+', 2)[0].Contains('-')
+$releaseNotesPath = Join-Path $repoRoot ("docs/RELEASE_NOTES_" + ($version -replace '[.-]', '_') + ".md")
+
 $assetPaths = @(
     (Join-Path $providerRootPath 'avascope-bridge-provider.zip'),
     (Join-Path $providerRootPath 'avascope-bridge-provider.zip.sha256'),
@@ -165,6 +168,7 @@ foreach ($assetPath in $assetPaths) {
 
 Write-Host "GitHub Release tag: $Tag"
 Write-Host "Version: $version"
+Write-Host "Prerelease: $isPrerelease"
 Write-Host "Assets:"
 $assetPaths | ForEach-Object {
     Write-Host "  $_"
@@ -196,10 +200,20 @@ if ($releaseExists) {
         $Tag
     ) + $assetPaths + @(
         "--title",
-        "AvaScope $version",
-        "--generate-notes",
-        "--latest"
+        "AvaScope $version"
     )
+
+    if (Test-Path -LiteralPath $releaseNotesPath -PathType Leaf) {
+        $arguments += @("--notes-file", $releaseNotesPath)
+    } else {
+        $arguments += "--generate-notes"
+    }
+
+    if ($isPrerelease) {
+        $arguments += @("--prerelease", "--latest=false")
+    } else {
+        $arguments += "--latest"
+    }
 
     Invoke-GitHubCli -Arguments $arguments
 }

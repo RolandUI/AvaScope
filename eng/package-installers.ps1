@@ -146,9 +146,11 @@ try {
 
             [xml]$buildProps = Get-Content -LiteralPath (Join-Path $repoRoot "Directory.Build.props")
             $version = [string]$buildProps.Project.PropertyGroup.Version
+            $numericVersion = ($version -split '[-+]', 2)[0]
             & $compilerPath `
                 "/Qp" `
                 "/DAppVersion=$version" `
+                "/DAppNumericVersion=$numericVersion" `
                 "/DPayloadDir=$payloadDirectory" `
                 "/DRepoRoot=$repoRoot" `
                 "/O$outputDirectory" `

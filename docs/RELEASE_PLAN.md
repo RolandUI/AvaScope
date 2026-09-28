@@ -14,6 +14,12 @@ AvaScope development is release-based from `2026-06-09` onward and GitHub-driven
 
 The release commit must not include unfinished feature work. It should contain only the version bump and release-readiness metadata required to publish the already validated scope.
 
+An explicitly owner-authorized prerelease may precede final platform acceptance so
+the owner can perform that validation. Record its limited acceptance and known gaps,
+use a SemVer prerelease version, mark GitHub prerelease without promoting Latest,
+and keep the stable release tracker, milestone and unresolved defects open. This
+does not waive the final stable-release gate.
+
 ## Release States
 
 - `Planned`: scope is defined, implementation has not started.
@@ -56,9 +62,9 @@ The roadmap below records the release-shaped plan through `v1.0.0`. It is intent
 
 ## Current Release Target
 
-- Release: `v1.5.1`
-- Target Version: `1.5.1`
-- Release State: `Planned`
+- Release: `v1.5.1-rc.1`
+- Target Version: `1.5.1-rc.1`
+- Release State: `Release Candidate`
 - Scope Defined: `2026-09-24`
 - GitHub Milestone: [v1.5.1](https://github.com/RolandUI/AvaScope/milestone/20)
 - Release Tracker: [#165](https://github.com/RolandUI/AvaScope/issues/165)
@@ -66,7 +72,19 @@ The roadmap below records the release-shaped plan through `v1.0.0`. It is intent
 - Regression infrastructure: #162–#164
 - Previous Release: `v1.5.0`
 
-Stabilize the shipped runtime and validate the public agent workflows against representative native applications before adding product features. This intake defines the work; it does not implement fixes, change the package version or publish a release. The full infrastructure rationale and development/release cadence are in [Agent QA Plan](AGENT_QA_PLAN.md).
+The owner authorized `1.5.1-rc.1` publication on 2026-09-28 to verify #157/#161 on
+their native Mac/Retina desktop. The scope is the stabilized master source through
+0cb3252, including measured animation validation, plus prerelease packaging support.
+The six-job CI 36386091375 passed (Windows 1177 tests/eight skipped, macOS 1174/ten,
+Linux 33/zero). The exact RC still goes through the existing Release workflow's
+build, full tests, package/provider/installer checks and publication dry-runs.
+No duplicate six-job CI is required for the version and publication metadata.
+
+This is a testable prerelease, not final 1.5.1 acceptance: 65 defects are tracked,
+52 closed and 13 open. Two Retina reports await the owner's verification; eleven
+original timing/build/IPC/lock causes remain unknown. #164/#174 and the stable
+tracker/milestone stay open. Latest stable remains v1.5.0. See the
+[RC notes and Mac checklist](RELEASE_NOTES_1_5_1_rc_1.md).
 
 ### v1.5.1 Scope
 

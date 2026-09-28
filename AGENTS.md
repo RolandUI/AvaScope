@@ -22,7 +22,7 @@ User instructions from 2026-09-27:
 
 - Work directly on `master`. Do not create a task branch or worktree unless explicitly requested. Preserve existing work; never force-push or rewrite history to switch branches.
 - Batch fixes with focused local validation, then run one complete CI gate for the batch. Continue independent local work while that gate runs; do not dispatch CI per fix or commit.
-- Send the user's concise Hungarian Gmail status report after each completed repair/testing batch, with defect counts, short changes, validation and remaining gaps. Deduplicate reports.
+- The owner deleted the scheduled Gmail status monitor on 2026-09-28. Do not recreate it; report the requested release candidate in this chat.
 - Local testing uses one reusable binary set and one current output directory. On this machine use `D:/AvaScope-QA-active/current`; do not accumulate run directories on C: or move the same accumulation into an archive on D:.
 - Reuse the selected CLI/MCP/client, Direct host, standalone host and provider across cases. Record their source revision once and rebuild only affected components when source changes. Do not copy or hash whole build/runtime trees for every case. Stop owned apps before replacing binaries.
 - After checking a case, discard successful raw responses, repeated screenshots and temporary render/build outputs. After a defect is fixed and validated, delete its local historical artifacts. GitHub issues, commits and regression tests are the lasting record; no local archive is required.

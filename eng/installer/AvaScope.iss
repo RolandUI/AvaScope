@@ -1,6 +1,9 @@
 #ifndef AppVersion
   #error AppVersion must be supplied by eng/package-installers.ps1
 #endif
+#ifndef AppNumericVersion
+  #define AppNumericVersion AppVersion
+#endif
 #ifndef PayloadDir
   #error PayloadDir must be supplied by eng/package-installers.ps1
 #endif
@@ -38,11 +41,13 @@ CloseApplications=yes
 RestartApplications=no
 UninstallDisplayName=AvaScope
 UninstallDisplayIcon={app}\AvaScope.ico
-VersionInfoVersion={#AppVersion}
+VersionInfoVersion={#AppNumericVersion}
+VersionInfoTextVersion={#AppVersion}
 VersionInfoCompany=RolandUI
 VersionInfoDescription=AvaScope Setup
 VersionInfoProductName=AvaScope
-VersionInfoProductVersion={#AppVersion}
+VersionInfoProductVersion={#AppNumericVersion}
+VersionInfoProductTextVersion={#AppVersion}
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
