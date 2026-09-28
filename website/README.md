@@ -1,8 +1,16 @@
 # AvaScope showcase
 
 Local, English-language design preview for the AvaScope capability website. This
-first version covers a selection of capabilities. The browser demonstrations are
-labelled illustrations, not a live AvaScope connection or recorded product evidence.
+version covers a selection of capabilities. The default theme is dark; light
+application and conversation panels distinguish the examples from the website.
+Four selectable stories pair the same app with an agent's request, AvaScope tool
+calls and returned evidence. Each story supports manual steps and bounded replay.
+
+The browser demonstrations are labelled illustrations, not a live AvaScope
+connection or recorded product evidence. The `northstar-*.png` images are captures
+of the website's fictional application illustration. They show the same interface
+in the agent's returned screenshot, theme preview and comparison example; they
+are not images rendered by Avalonia or results from an actual agent run.
 
 Open `index.html` directly in a browser, or serve this directory locally:
 
@@ -21,8 +29,9 @@ pending explicit approval of the design.
 
 ## Local validation
 
-Check desktop and narrow mobile layouts, keyboard focus, the element inspector,
-theme selector, workflow replay, comparison slider and feature disclosures. Check
+Check desktop and narrow mobile layouts, keyboard focus, all four stories,
+manual steps, replay/pause, switching stories during playback, returned images,
+tool-call details and feature disclosures. Check
 JavaScript syntax with `node --check website/script.js` from the repository root.
 Product .NET builds are not applicable to this standalone static website.
 
