@@ -62,67 +62,61 @@ The roadmap below records the release-shaped plan through `v1.0.0`. It is intent
 
 ## Current Release Target
 
-- Release: `v1.5.1-rc.1`
-- Target Version: `1.5.1-rc.1`
-- Release State: `Released` (prerelease; stable v1.5.1 acceptance remains open)
-- Scope Defined: `2026-09-24`
+- Release: `v1.5.1`
+- Target Version: `1.5.1`
+- Release State: `Release Candidate`
+- Owner Approval: `2026-09-28`, after testing v1.5.1-rc.1 on their Mac
 - GitHub Milestone: [v1.5.1](https://github.com/RolandUI/AvaScope/milestone/20)
 - Release Tracker: [#165](https://github.com/RolandUI/AvaScope/issues/165)
-- Defects: #157–#161
-- Regression infrastructure: #162–#164
-- Previous Release: `v1.5.0`
+- Tested Candidate: [v1.5.1-rc.1](https://github.com/RolandUI/AvaScope/releases/tag/v1.5.1-rc.1), source `842e752`
+- Previous Stable Release: `v1.5.0`
 
-The owner authorized `1.5.1-rc.1` publication on 2026-09-28 to verify #157/#161 on
-their native Mac/Retina desktop. The scope is the stabilized master source through
-0cb3252, including measured animation validation, plus prerelease packaging support
-and the #232 provider-version fix in 673c040.
-The six-job CI 36386091375 passed (Windows 1177 tests/eight skipped, macOS 1174/ten,
-Linux 33/zero). The exact RC passes [Release 36397875663](https://github.com/RolandUI/AvaScope/actions/runs/36397875663):
-build has zero warnings/errors, 1189 tests pass/eight skip/zero fail, and the separate
-installer test, package/provider/manifest checks, preview smoke and publication
-dry-runs pass.
-The first RC run 36394580274 stopped before publication on numeric-only provider
-version parsing (1175 passed/two failed/eight skipped). The #232 fix passes24
-focused checks plus actual CLI verification and standalone activation/refusal with
-clean shutdown. The corrected Release workflow publishes
-[v1.5.1-rc.1](https://github.com/RolandUI/AvaScope/releases/tag/v1.5.1-rc.1) at
-842e7529e0ae5c5c7715e76944761e990e7073f5. Remote tag, prerelease/Latest state,
-13 artifact lengths/digests, both Mac ZIP identities, provider file hashes and all
-three NuGet public indexes are independently verified. No tag or package was overwritten.
+Promote the accepted RC implementation to stable 1.5.1 with new versioned assets;
+no additional runtime changes are included. The owner reported that the earlier
+Mac bugs improved in their real-Mac test and authorized stable publication.
+#157/#161 close on owner acceptance alongside the already validated mitigations
+and regressions. Exact native requests, geometry and images were not supplied;
+this is not a new independently measured agent Retina pass or proof of the
+original rendering cause.
 
-This is a testable prerelease, not final 1.5.1 acceptance: 66 defects are tracked,
-53 closed and 13 open after #232 closure. Two Retina reports await the owner's verification; eleven
-original timing/build/IPC/lock causes remain unknown. #164/#174 and the stable
-tracker/milestone stay open. Latest stable remains v1.5.0. See the
-[RC notes and Mac checklist](RELEASE_NOTES_1_5_1_rc_1.md).
+The six-job stabilization CI 36386091375 passed (Windows 1177 tests/eight skipped,
+macOS 1174/ten, Linux 33/zero). The exact RC passed Release 36397875663: 1189 tests,
+eight skips, zero failures, zero build warnings/errors, plus installer,
+package/provider/manifest, preview and publish dry-run checks. All RC assets,
+provider files, Mac architecture/version identities and NuGet indexes were
+verified after publication. One exact stable Release workflow repeats the
+version-sensitive build, tests, packaging and publication gate.
 
-### v1.5.1 Scope
+### Accepted scope and remaining work
 
-| Issue | Deliverable |
-| --- | --- |
-| [#157](https://github.com/RolandUI/AvaScope/issues/157) | Reproduce and correct oversized text in complex macOS Retina runtime screenshots. |
-| [#158](https://github.com/RolandUI/AvaScope/issues/158) | Accept freshly resolved stable targets in `ensure_state`, preserving genuine stale-target guards. |
-| [#159](https://github.com/RolandUI/AvaScope/issues/159) | Restore revision-safe `edit_text` insertion and actionable structured failures through real MCP. |
-| [#160](https://github.com/RolandUI/AvaScope/issues/160) | Make exact AutomationID identity matching case-sensitive consistently. |
-| [#161](https://github.com/RolandUI/AvaScope/issues/161) | Support bounded paired capture of a 1920×1080 DIP viewport at 2× without resizing the app. |
-| [#162](https://github.com/RolandUI/AvaScope/issues/162) | Extend the existing complex and standalone sample hosts with representative, resettable native QA scenes. |
-| [#163](https://github.com/RolandUI/AvaScope/issues/163) | Provide reproducible native sessions and a usable exploratory agent workflow. |
-| [#164](https://github.com/RolandUI/AvaScope/issues/164) | Gate release on packaged public MCP journeys, CLI parity and native Retina visual evidence. |
+The release includes the implemented fixes for target identity, desired-state
+actions, text editing, capture, diagnostics, mutations, agent workflows, measured
+animation validation and prerelease provider identities, with the expanded QA
+fixtures and regression tests. See [stable notes](RELEASE_NOTES_1_5_1.md).
 
-The report was received on `2026-09-24` for AvaScope 1.5.0, .NET 10, Avalonia 12.1.x, macOS Avalonia.Native/NSWindow, actual render scaling 2, a standalone local bridge and an untrimmed app. No native controls or external rendering surfaces are required. Exact Avalonia patch, complex-view fixture and runtime root causes remain to be established. Static inspection supports the reported case-insensitive comparison and 4,194,304-pixel guard; it is not a runtime reproduction.
+The owner's stable approval supersedes the original requirement to complete all
+broader campaign/evidence work before this release. It does not mark that work
+passed. Keep eleven original timing/build/IPC/file-lock investigations open:
+#171, #181, #182, #191, #203, #204, #208, #213, #218, #226, #231. Also keep the
+remaining reusable native evidence gate, broad campaign and comprehensive
+coverage work (#164/#166/#174) open. On verified publication, move these explicit
+deferrals from this milestone into the unversioned backlog; preserve their
+priorities, statuses and evidence. No new target version is promised.
 
-### Execution And Release Gate
+Defect inventory: 66 total, 55 closed (including two owner-accepted Mac reports),
+11 open. No unknown original cause is relabeled fixed because later tests pass.
+Close #165 and the milestone only after stable tag/assets/packages, Latest
+classification and remote package availability are verified and the remaining
+issues are moved. Scheduled Gmail monitoring stays deleted; report in chat.
 
-Start with #162 and minimal failing cases, then implement individual fixes with focused tests. #163 depends on the representative fixtures; #164 integrates the fixes and native environment. Keep one issue in progress. Follow issue-level acceptance criteria and the existing release gate; avoid repeating unchanged broad suites after each edit.
+## Published Candidate: v1.5.1-rc.1
 
-- Verify each defect through the public request path and independent app state or native pixels. A workaround cannot count as a pass for the original operation.
-- Run the exact MCP tool calls through a real packaged stdio server, with package-integrated and standalone-provider hosts plus CLI parity.
-- Require real macOS native `RenderScaling=2`, a `1920×1080` DIP client area, text-sensitive native/rendered comparisons and paired-capture evidence. Headless 2×, correct PNG dimensions or a 1× hosted Mac do not satisfy this gate.
-- Record pass, fail, blocked and skipped separately. Missing required native evidence prevents Release Candidate; unavailable desktops/permissions are precise infrastructure blockers.
-- Run focused checks during development and one consolidated full Debug/Release, Windows/Linux/macOS, existing Wayland support-boundary, exact-version packaging/installer/manifest and publish dry-run gate before release. Preserve failure evidence and review the exact candidate in a bounded exploratory agent session.
-- Close #165 and the milestone only after the final release commit and verified remote publication, following the normal release workflow.
-
-No feature expansion, new remote transport, foreign-framework adapter or automatic customer-source modification is in scope. No new hardware purchase or provisioned macOS Retina host is assumed by this plan.
+Published 2026-09-28 at `842e7529e0ae5c5c7715e76944761e990e7073f5` through
+[Release 36397875663](https://github.com/RolandUI/AvaScope/actions/runs/36397875663).
+The owner tested this RC on their Mac before approving stable promotion. The RC
+remains a distinct prerelease; its assets are not renamed or overwritten.
+[Historical RC notes](RELEASE_NOTES_1_5_1_rc_1.md) preserve the original acceptance
+checklist and validation context.
 
 ## Released Target: v1.5.0
 
