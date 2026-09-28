@@ -50,8 +50,13 @@ The stabilization baseline passed all six jobs of
 The exact RC passed
 [Release 36397875663](https://github.com/RolandUI/AvaScope/actions/runs/36397875663):
 1189 tests passed, eight skipped, zero failed, with successful installer,
-package/provider/manifest, preview and publication checks. Stable 1.5.1 is rebuilt
-and passes the version-specific Release gate before publication.
+package/provider/manifest, preview and publication checks. Exact stable source
+`5c9cad3` passed [Release 36415197323](https://github.com/RolandUI/AvaScope/actions/runs/36415197323):
+1189 tests passed, eight skipped, zero failed; build had zero warnings/errors.
+The separate installer test, package/provider/manifest, preview and publication
+checks also passed. After publication, all artifact digests, all four executable
+architecture/version identities, all three NuGet package identities and all 35
+provider files were independently checked against the released manifest/source.
 
 Mac acceptance is the owner's report. Detailed native captures, geometry and
 environment versions were not supplied; no additional agent-run Retina coverage

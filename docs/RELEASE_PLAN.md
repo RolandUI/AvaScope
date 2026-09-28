@@ -64,10 +64,13 @@ The roadmap below records the release-shaped plan through `v1.0.0`. It is intent
 
 - Release: `v1.5.1`
 - Target Version: `1.5.1`
-- Release State: `Release Candidate`
+- Release State: `Released`
+- Release Commit: `5c9cad38161607d64290073293597634319412f7`
+- Published At: `2026-09-28T11:44:12Z`
+- GitHub Release: [v1.5.1](https://github.com/RolandUI/AvaScope/releases/tag/v1.5.1) (stable, Latest)
 - Owner Approval: `2026-09-28`, after testing v1.5.1-rc.1 on their Mac
-- GitHub Milestone: [v1.5.1](https://github.com/RolandUI/AvaScope/milestone/20)
-- Release Tracker: [#165](https://github.com/RolandUI/AvaScope/issues/165)
+- GitHub Milestone: [v1.5.1](https://github.com/RolandUI/AvaScope/milestone/20) (closed)
+- Release Tracker: [#165](https://github.com/RolandUI/AvaScope/issues/165) (completed)
 - Tested Candidate: [v1.5.1-rc.1](https://github.com/RolandUI/AvaScope/releases/tag/v1.5.1-rc.1), source `842e752`
 - Previous Stable Release: `v1.5.0`
 
@@ -84,8 +87,13 @@ macOS 1174/ten, Linux 33/zero). The exact RC passed Release 36397875663: 1189 te
 eight skips, zero failures, zero build warnings/errors, plus installer,
 package/provider/manifest, preview and publish dry-run checks. All RC assets,
 provider files, Mac architecture/version identities and NuGet indexes were
-verified after publication. One exact stable Release workflow repeats the
-version-sensitive build, tests, packaging and publication gate.
+verified after publication. The exact stable [Release 36415197323](https://github.com/RolandUI/AvaScope/actions/runs/36415197323)
+passes: 1189 tests/eight skipped/zero failed, zero build warnings/errors, plus the
+separate installer test, package/provider/manifest, preview and publication
+checks. Remote tag/source identity, stable/Latest classification, 13 artifact
+digests, four executable ZIP architecture/version identities, three package
+identities and all 35 provider files are independently verified. All three public
+NuGet indexes and version-specific nuspecs expose 1.5.1.
 
 ### Accepted scope and remaining work
 
@@ -99,15 +107,15 @@ broader campaign/evidence work before this release. It does not mark that work
 passed. Keep eleven original timing/build/IPC/file-lock investigations open:
 #171, #181, #182, #191, #203, #204, #208, #213, #218, #226, #231. Also keep the
 remaining reusable native evidence gate, broad campaign and comprehensive
-coverage work (#164/#166/#174) open. On verified publication, move these explicit
-deferrals from this milestone into the unversioned backlog; preserve their
-priorities, statuses and evidence. No new target version is promised.
+coverage work (#164/#166/#174) open. These explicit deferrals were moved from
+this milestone into the unversioned backlog after verified publication; their
+priorities, statuses and evidence remain unchanged. No new target version is promised.
 
 Defect inventory: 66 total, 55 closed (including two owner-accepted Mac reports),
 11 open. No unknown original cause is relabeled fixed because later tests pass.
-Close #165 and the milestone only after stable tag/assets/packages, Latest
-classification and remote package availability are verified and the remaining
-issues are moved. Scheduled Gmail monitoring stays deleted; report in chat.
+#165 and the milestone are closed after stable tag/assets/packages, Latest
+classification and remote package availability were verified and the remaining
+issues were moved. Scheduled Gmail monitoring stays deleted; report in chat.
 
 ## Published Candidate: v1.5.1-rc.1
 
