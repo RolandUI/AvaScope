@@ -1,6 +1,6 @@
 # AvaScope Development Plan
 
-GitHub milestone v1.5.1 is the current backlog and acceptance source. The owner authorized v1.5.1-rc.1 publication on 2026-09-28 for their native Mac/Retina verification. #165 is the sole active tracker for this RC slice; stable 1.5.1 publication remains unapproved. #201 is CLOSED on 0cb3252 with all six jobs of combined CI 36386091375 passing. #174's broader coverage, the two native Retina checks and eleven unknown original causes remain open.
+GitHub milestone v1.5.1 is the current backlog and acceptance source. The owner authorized v1.5.1-rc.1 publication on 2026-09-28 for their native Mac/Retina verification. #232 is the sole active fix after the first RC workflow found numeric-only provider version parsing; #165 tracks the RC in review. Stable 1.5.1 publication remains unapproved. #201 is CLOSED on 0cb3252 with all six jobs of combined CI 36386091375 passing. #174's broader coverage, the two native Retina checks and eleven unknown original causes remain open.
 
 ## Working policy (owner instruction, 2026-09-27)
 
@@ -11,6 +11,8 @@ GitHub milestone v1.5.1 is the current backlog and acceptance source. The owner 
 - The owner deleted the scheduled Gmail heartbeat on 2026-09-28; deletion is confirmed by the app. Do not recreate it. The animation batch report was already sent as Gmail 1a0e6e51d973a770 (65 defects/52 closed/13 open); do not resend it. Report RC completion in the chat.
 
 ## Current validation and next work
+
+- First RC Release run36394580274 on0fc1368 stopped before packaging/publication: build has zero warnings/errors; full tests1175 passed/two failed/eight skipped. #232 identifies the copied BCL loader's System.Version parsing of `1.5.1-rc.1`. Added focused cases reproduce five failures/19 passes before correction; afterward all24 pass. The fix validates bounded version/suffix syntax, uses the numeric portion for assembly identity and preserves full exact version/hash pins. Actual public CLI verification and a rebuilt standalone headless host load the RC successfully; a wrong rc.2 pin is rejected before activation. Both owned hosts exit0 with no remaining session manifests. Only affected provider files and the shared standalone binaries were refreshed; QA totals6.04GiB. Old copied host loaders must be updated for an RC. Inventory is now66 defects/52 closed/14 open pending the corrected Release workflow; no duplicate broad CI.
 
 - #165 RC preparation: GitHub publication distinguishes SemVer prereleases from stable releases, preserves Latest for v1.5.0 and uses version-specific notes. Windows installer binary version fields use the numeric version while text/product metadata retain the RC suffix, as required by Inno Setup. Three isolated Windows PowerShell 5.1 publisher runs (stable, RC, stable with hyphenated build metadata) verify the actual captured gh arguments, notes selection and no-network dry-runs. No new Avalonia source change or broad local rebuild is needed; exact RC packaging/installer validation is owned by the Release workflow. Local QA remains 5.052 GiB.
 

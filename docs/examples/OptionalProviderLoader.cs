@@ -5,6 +5,7 @@ using System.Runtime.InteropServices;
 using System.Runtime.Loader;
 using System.Security.Cryptography;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace OptionalDiagnostics;
 
@@ -124,7 +125,11 @@ public static class OptionalProviderLoader
 
         var manifest = JsonSerializer.Deserialize<ProviderManifest>(bytes, new JsonSerializerOptions(JsonSerializerDefaults.Web))
             ?? throw new InvalidDataException("AVASCOPE_PROVIDER_MANIFEST_INVALID: Empty provider manifest.");
-        if (manifest.SchemaVersion != 1 || !Version.TryParse(manifest.ProviderVersion, out _)
+        if (manifest.SchemaVersion != 1 || manifest.ProviderVersion is not { Length: > 0 and <= 128 }
+            || !Regex.IsMatch(manifest.ProviderVersion,
+                @"\A[0-9]+(?:\.[0-9]+){2,3}(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?\z",
+                RegexOptions.CultureInvariant | RegexOptions.NonBacktracking)
+            || !Version.TryParse(manifest.ProviderVersion.Split('-', '+')[0], out var providerVersion)
             || manifest.DotnetMajor != 10 || manifest.BootstrapAssembly != "AvaScope.Bridge.dll"
             || manifest.BootstrapType != "AvaScope.Bridge.Bootstrap" || manifest.BootstrapMethod != "Start"
             || manifest.Files is not { Length: > 0 and <= 512 }
@@ -228,7 +233,7 @@ public static class OptionalProviderLoader
             }
         }
 
-        var providerVersion = Version.Parse(manifest.ProviderVersion);
+        // Assembly versions are numeric; exact pins above retain the full prerelease/build identity.
         foreach (var name in new[] { "AvaScope.Bridge", "AvaScope.Core", "AvaScope.Protocol" })
         {
             var identity = AssemblyName.GetAssemblyName(Path.Combine(directory, name + ".dll"));

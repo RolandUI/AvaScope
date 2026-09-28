@@ -15,6 +15,8 @@ Release candidate for native macOS Retina verification on .NET 10 / Avalonia
   actual capture intervals, timing tolerances and motion/state/stability checks.
   Late or uncertain measurements are inconclusive (#201). This is not virtual
   seeking; legacy exact-offset animation baselines are refused.
+- Standalone provider validation accepts RC/build suffixes while retaining exact
+  version/hash pins and numeric assembly checks (#232).
 
 ## Install the matching Mac components
 
@@ -35,6 +37,10 @@ Stop the existing diagnostic app/MCP processes before upgrading. Replace the who
 CLI/MCP directory and, for standalone loading, the whole provider directory.
 Update any provider version/hash pins and restart the host. Updating only the CLI
 does not update the bridge running inside the application.
+
+If your host copied or linked `OptionalProviderLoader.cs` from 1.5.0, update that
+file from this RC's provider ZIP and rebuild the host before loading the RC.
+The old loader rejects prerelease version identifiers even with a new provider.
 
 ```bash
 chmod +x avascope-osx-arm64-installer
@@ -70,8 +76,8 @@ native lifecycle cases passed at scale 1; they do not establish Retina fidelity.
 The RC release workflow separately rebuilds and validates its exact versioned
 packages, provider, executable ZIPs and installers before publication.
 
-Of 65 tracked defects, 52 are closed and 13 remain open: the two Retina acceptance
-gaps above and eleven unresolved original timing/build/IPC/lock causes
+Remaining stabilization gaps include the two Retina acceptance reports above and
+eleven unresolved original timing/build/IPC/lock causes
 (#171, #181, #182, #191, #203, #204, #208, #213, #218, #226, #231). Later passing
 tests do not prove those original causes fixed. The broader #174 campaign and
 stable 1.5.1 release acceptance remain incomplete.

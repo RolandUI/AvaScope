@@ -6,6 +6,12 @@ The stable entry point is the public static, parameterless `AvaScope.Bridge.Boot
 
 The initial supported compatibility range is untrimmed .NET 10 and Avalonia 12.1.x on desktop platforms. NativeAOT, trimmed host applications and mixed Avalonia versions are unsupported. Runtime/Avalonia version, UI-thread and lifetime failures have explicit `AVASCOPE_*` diagnostics before activation. The external loader must validate provider files and host-shared assembly identity before invoking this entry point; it must never load a second Avalonia runtime to satisfy the bridge.
 
+For a prerelease provider such as `1.5.1-rc.1`, update any copied/linked
+`OptionalProviderLoader.cs` from the matching provider ZIP and rebuild the host.
+The 1.5.0 loader accepted only numeric versions. The revised loader keeps exact
+full-version/hash pins, validates the suffix syntax, and compares only the numeric
+release component with assembly versions; it does not treat different RCs as equal.
+
 The bootstrap uses the existing current-user-only named-pipe transport and manifest discovery. It registers existing classic-desktop lifetime windows or the single-view root, tracks subsequently opened windows through Avalonia's public `WindowOpenedEvent`, and unregisters closed top-levels. Single-view roots are reconciled when their main view loads/unloads. Desktop lifetime `Exit`, explicit stop and remote session close release registrations and transport resources. A process-exit fallback removes transport resources even after the UI dispatcher stops. A forced process kill cannot execute managed cleanup; existing owned-manifest recovery remains necessary for that case.
 
 The bootstrap does not enable custom/destructive application actions, inject into a process, start a TCP listener or search for other applications. Existing package integration through `AvaScopeBridge.Activate()` remains available and unchanged. The bootstrap can enable automatic lifetime registration on that same active bridge without creating a second session.

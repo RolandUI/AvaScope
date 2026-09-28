@@ -61,6 +61,49 @@ public sealed class ProviderVerifierTests : IDisposable
     }
 
     [Theory]
+    [InlineData("")]
+    [InlineData("-rc.1")]
+    [InlineData("-rc.2+build.7")]
+    [InlineData("+build-abc")]
+    public void VersionSuffixesPreserveExactPinsAndNumericAssemblyChecks(string suffix)
+    {
+        var version = typeof(AvaScopeProduct).Assembly.GetName().Version!.ToString(3) + suffix;
+        _manifest["providerVersion"] = version;
+        WriteManifest();
+
+        var result = ProviderVerifier.Verify(_directory, expectedVersion: version);
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(version, result.Value!.ProviderVersion);
+        Assert.False(result.Value.Activated);
+
+        var mismatch = ProviderVerifier.Verify(_directory, expectedVersion: version + ".other");
+        Assert.Equal("AVASCOPE_PROVIDER_PIN_MISMATCH", mismatch.Error?.Code);
+
+        _manifest["providerVersion"] = "99.0.0" + suffix;
+        WriteManifest();
+        Assert.Equal("AVASCOPE_PROVIDER_ASSEMBLY_INVALID", ProviderVerifier.Verify(_directory).Error?.Code);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("1.5.1-")]
+    [InlineData("1.5.1+")]
+    [InlineData("1.5.1-rc..1")]
+    [InlineData("1.5.1-rc.1+build..7")]
+    [InlineData("1.5.1-rc/1")]
+    [InlineData("1.5.1-rc.1\n")]
+    public void MalformedProviderVersionsAreRejectedBeforeActivation(string? version)
+    {
+        _manifest["providerVersion"] = version;
+        WriteManifest();
+
+        var result = ProviderVerifier.Verify(_directory);
+        Assert.False(result.Success);
+        Assert.Equal("AVASCOPE_PROVIDER_MANIFEST_INVALID", result.Error?.Code);
+    }
+
+    [Theory]
     [InlineData("version")]
     [InlineData("hash")]
     [InlineData("tamper")]
