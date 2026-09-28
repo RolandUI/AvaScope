@@ -1,7 +1,9 @@
 # Agent QA capability map
 
-Current checkpoint: the shared d7562ed full CI is successful; #228/#229/#230 are
-closed. Source remains unchanged through documentation commit 731af68. The #231
+Current checkpoint: #201 is closed on 0cb3252 after all six jobs of combined CI
+36386091375 pass, including earlier 926119d. Windows 1177/eight skipped,
+macOS 1174/ten and Linux 33/zero are independently verified from TRX. Earlier
+#228/#229/#230 are also closed. The #231
 fresh-intermediate Direct publish completes in 251.372s under the original 300s
 deadline, then five actual CLI/MCP calls verify Win32 startup, tree, a reviewed
 1120x800 rendered image and owned shutdown. This does not establish the original
@@ -18,7 +20,8 @@ observed failures and inconclusive timing, with phase-window selection. The loca
 moving/stopped/delayed regressions and public CLI/MCP moving pixels are recorded
 in the development plan. Native Win32 recording demonstrates both an inconclusive
 200ms interval and a declared500ms pass; independent app state confirms triggering
-and stopping. This batch awaits one combined CI, including earlier926119d. No
+and stopping. The combined gate now passes, with moving/stopped/delayed animation
+regressions successful on both Windows and macOS. No
 Retina or independent native-presentation coverage is inferred.
 
 The reused af6e2f3 standalone/provider set now verifies active-highlight input
@@ -49,14 +52,15 @@ override them.
 | Real agent environment and expanded fixtures | #162/#163/#172/#173 are closed with explicit native/state/reset/cleanup acceptance; #230 adds held work for cancellation. | Keep the reusable environment and bounded retention policy. |
 | Original control defects #158/#159/#160/#167 | Closed issue acceptance, real Direct/standalone journeys and regressions are recorded. | Preserve these cases in combined validation; the tool-count inventory alone is not evidence of execution. |
 | Native Retina rendering/capture #157/#161 | Implemented mitigations and other-platform validation exist. Real macOS 2x acceptance is still unperformed. | Accessible logged-in Retina desktop, sufficient logical geometry and authorized independent capture. |
-| Animation timing #201 | Owner accepted measured real-time playback; moving/stopped/delayed local tests and actual CLI/MCP journeys validate the replacement. | One combined CI must pass before closure; no virtual seeking or native-presentation guarantee. |
+| Animation timing #201 | CLOSED on 0cb3252: 164 focused checks, actual CLI/MCP/native recording journeys and all six jobs of combined CI 36386091375 pass. | Measured observations only; no virtual seeking, continuous stability or native-presentation guarantee. |
 | Eleven original timing/build/IPC/lock causes | Diagnostic/safety changes and scoped later passes are verified; nine stale review/ready issue states are now blocked with individual evidence triggers. | Captured recurrence/reproducing environment, using existing bounded diagnostics. Passing repetitions are not causal proof. |
-| Fresh comprehensive applicable round | Earlier scoped charters and d7562ed full CI pass; the pending animation gate and platform/observer gaps remain. | This requirement is incomplete. Do not close #174 or the overall goal from the green CI or invocation count. |
+| Fresh comprehensive applicable round | Earlier scoped charters and the combined animation gate pass; platform/observer gaps remain. | This requirement is incomplete. Do not close #174 or the overall goal from the green CI or invocation count. |
 | Independent native pixels and HTML viewer review | Earlier native observations exist; current local OS/browser routes remain unavailable. | Restore an authorized supported observation route; do not bypass the recorded restrictions. |
 
 The existing Windows/macOS TRX was read in memory to verify the named diagnostic
 groups; no new CI, runtime replay or ZIP history was created. This bookkeeping
-audit finds no new product defect and closes none of the remaining 14.
+audit found no new product defect and closed none of the then-remaining 14.
+The subsequent #201 implementation above leaves 13 open defects.
 
 At `af6e2f3`, held-work charters add 42 public calls across native Direct and
 standalone: actual cancellation after separate observations, explicit continuation

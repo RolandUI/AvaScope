@@ -1,7 +1,7 @@
 # FEAT-0008: Animation diagnostics
 
-- Status: `Measured real-time contract; combined validation pending`
-- Implementation Status: `Artifacts shipped in v0.3.0; owner revised timing acceptance in #201 on 2026-09-28`
+- Status: `Measured real-time contract implemented and validated`
+- Implementation Status: `Artifacts shipped in v0.3.0; revised #201 contract completed on 0cb3252 (2026-09-28)`
 - Priority: `P4`
 - Stored: `2026-06-09`
 - Source Order: `8`
@@ -43,3 +43,5 @@ The artifact and diagnostic workflow shipped in `v0.3.0`: bounded frames, frame 
 The 1.5 stabilization investigation disproved the original deterministic-timing claim on Avalonia 12.1.3. On 2026-09-28 the owner explicitly replaced virtual seeking with measured real-time validation in [#201](https://github.com/RolandUI/AvaScope/issues/201). Avalonia's [headless render timer](https://github.com/AvaloniaUI/Avalonia/blob/12.1.3/src/Headless/Avalonia.Headless/HeadlessRenderTimer.cs) uses a Stopwatch; the [designer](https://github.com/AvaloniaUI/Avalonia/blob/12.1.3/src/Avalonia.DesignerSupport/Remote/PreviewerWindowingPlatform.cs) also uses a real render loop. AvaScope pumps the public dispatcher while waiting for absolute deadlines, without replacing private clocks or interpreting animation XAML.
 
 The preview origin is window attachment/show or an explicit once-only class addition after warm-up. Runtime observation is armed before input; same-process monotonic spans bound the actual input dispatch, tree and rendered capture, with conservative client fallback. Neither animation-frame callbacks nor these rendered captures establish compositor/native presentation. Geometry assertions select phase windows and distinguish passed, failed and inconclusive. Cached duplicate frames do not count as independent stability samples; legacy exact-offset baselines are refused. The default 100ms time tolerance is caller-adjustable and independent of geometry tolerance.
+
+The replacement contract passed 164 focused local checks, actual CLI/MCP moving-pixel and native Win32 recording journeys, and all six jobs of [combined CI 36386091375](https://github.com/RolandUI/AvaScope/actions/runs/36386091375) on source 0cb32523c43f8f3c2e40f1165670c0e7c1333634. Independently read TRX: Windows 1177 passed/eight skipped, macOS 1174/ten, Linux 33/zero, with no failures. #201 is closed. Native Retina and independent OS-presentation acceptance remain separate open work.
