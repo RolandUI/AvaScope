@@ -67,6 +67,8 @@ Preserve full-resolution text regions even when a report preview is downsampled.
 
 ## Development and release cadence
 
+Apply the current [risk-based validation policy](VALIDATION.md#choose-validation-by-risk) to this campaign. Work directly on `master`, without task branches, worktrees or PRs. A checkpoint or batch is not a full-CI trigger; retain specific native/visual acceptance requirements and choose only the checks needed to establish them. Full CI remains required for release readiness or cross-cutting risk not covered by narrower checks.
+
 | Point | Required work |
 | --- | --- |
 | Start a defect | Reproduce the exact public journey; retain failing inputs/evidence; reduce to a focused regression before fixing. If not reproducible, retain the uncertainty. |

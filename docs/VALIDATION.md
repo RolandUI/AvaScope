@@ -2,7 +2,27 @@
 
 For documentation-only policy or prose changes, review the diff for correctness and consistency, check affected relative links, scan outgoing content for machine-specific information, and run `git diff --check`. Record that validation without rebuilding the product or dispatching a full CI gate. Executable examples, generated contracts, scripts or product behavior changes still require their relevant tests. The [GitHub information policy](../AGENTS.md#github-information-policy) applies to all published validation summaries and evidence.
 
-For product implementation changes, run these commands from the repository root before marking a development slice complete:
+## Choose Validation By Risk
+
+Development commits and pushes go directly to `master`, without task branches, worktrees or pull requests. Choose the smallest set of checks that establishes the changed behavior and protects its affected dependents. The commands later in this document are a scope-specific reference, not a checklist to run in full for every change.
+
+| Level | When required | Scope |
+| --- | --- | --- |
+| Local | Default for changes that can be adequately verified locally | Build affected components; run the relevant regression/contract tests and affected public CLI/MCP or native journey. Documentation-only edits use the checks above. |
+| Targeted CI | Required acceptance evidence depends on a platform or environment unavailable locally | Run only the relevant platform and test/job group. A Windows-only result does not establish macOS/Linux or native display coverage. |
+| Full CI | Before release, or when cross-cutting risk cannot be covered by narrower checks | Validate the required platform matrix and integration boundaries; for release, verify the exact candidate's packaged CLI/MCP/provider/installers and publication inputs. |
+
+Assess shared protocol/Core behavior, transport and process lifecycle, security boundaries, Avalonia/.NET/dependency upgrades, and build or packaging changes for wider impact. These are reasons to examine dependencies and expand coverage where needed, not automatic full-CI triggers for every edit in those areas. Account for the accumulated relevant changes since the last applicable validation, not just the latest commit. If the impact cannot be bounded confidently, broaden validation before claiming acceptance.
+
+A completed commit, issue or batch, elapsed time, or a desire for a fresh green badge does not justify a full gate. Full solution build/test, all-platform QA, installers and release packaging are not mandatory for each development slice. Specific issue acceptance criteria remain binding; keep missing evidence pending instead of calling it passed.
+
+## Local Development Loop
+
+Reproduce a defect through the affected public behavior where applicable, add a focused regression, implement the smallest correction, then build and test the affected components and dependents. Verify the actual application journey when unit tests cannot establish the behavior, especially for native or visual changes. Inspect the diff and run `git diff --check`, then commit and push the coherent, locally validated change to `master`. Resolve failures attributable to the change before push; report unrelated failures accurately.
+
+Reuse the current QA binaries and build outputs. Restore when dependencies or restore inputs change or assets are missing; rebuild before using `--no-build` after relevant source/test/configuration changes. Do not reuse an old binary merely because a filtered test passed. Reuse a successful result only while its relevant source, tests, dependencies, configuration and environment remain applicable. Keep provenance compact and local under the existing QA policy.
+
+For a required full local solution check, run from the repository root:
 
 ```powershell
 dotnet restore AvaScope.slnx
@@ -10,6 +30,18 @@ dotnet build AvaScope.slnx
 dotnet test AvaScope.slnx
 git status --short
 ```
+
+## CI And Release Decisions
+
+CI is deliberately dispatched from `master` to answer an identified validation gap. Briefly identify the selected commit, required platforms/tests and reason in the existing issue or chat context; no extra start/status comment is required. Verify the run's source revision. Independent local work can continue while it runs, but its result does not cover later commits automatically.
+
+Prefer the existing targeted native-input workflow when it covers the required case. Selective platform/job controls for the main CI remain pending; do not claim an unavailable narrow mode was run. If only the current broad workflow can supply required evidence, its use needs the same concrete risk justification. Diagnose failures and rerun the affected checks/jobs first; rerun the complete gate only when the fix invalidates broader coverage or the remaining risk requires it.
+
+Commit/push, issue closure and release publication are separate decisions. Close an issue after its specific acceptance criteria pass; full CI is not a universal closure requirement. Keep an issue in review when required validation is pending, or blocked for an external dependency. Release publication requires complete applicable validation for the exact candidate and its artifacts, plus publication authorization. A Windows Release workflow alone does not establish the full native platform matrix.
+
+The target workflow design uses explicit dispatch, selectable platform/job groups and build reuse within each compatible platform/configuration. Coordinate CI and Release validation so identical checks are not repeated without cause; verify the actual release artifacts even when source-level results can be reused. Parallelize independent jobs to reduce waiting, and omit unnecessary work to reduce cost. This policy update does not implement those YAML changes; see the [current checkpoint](DEVELOPMENT_PLAN.md).
+
+## Validation Reference
 
 For the `v1.0.0` end-to-end release-readiness ledger, keep [END_TO_END_VALIDATION.md](END_TO_END_VALIDATION.md) updated with source, packaged CLI, packaged MCP, runtime bridge, report-pack, release artifact, and blocker-audit results. Record package, ZIP, manifest, hash, publish dry-run, packaged CLI, and packaged MCP release artifact checks in [RELEASE_ARTIFACT_VERIFICATION.md](RELEASE_ARTIFACT_VERIFICATION.md). Record final non-blocking post-1.0 deferrals in [POST_1_0_BACKLOG.md](POST_1_0_BACKLOG.md).
 
@@ -409,7 +441,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\create-local-release.p
 powershell -NoProfile -ExecutionPolicy Bypass -File .\eng\publish-github-release.ps1 -Tag v1.0.0 -ExecutableRuntimeIdentifiers win-x64 -ExecutablePackageKind self-contained -DryRun
 ```
 
-The repository `CI` workflow runs for pull requests targeting `master` and by manual dispatch. Pull-request code receives read-only repository permissions; the workflow does not use `pull_request_target` or publishing credentials. Development slices must still pass the relevant local commands above before push. NuGet publishing in CI requires a repository secret named `NUGET_API_KEY`. The separate `Release` workflow publishes from `master` or `main` when a push changes `Directory.Build.props` and the `<Version>` value has no matching remote `v<Version>` tag yet.
+Current YAML has not yet been aligned with the explicit-dispatch policy: `CI` still declares a pull-request trigger alongside manual dispatch, and `Release` still reacts to `Directory.Build.props` pushes on `master`/`main`. Do not create a PR to trigger checks. Ordinary `master` source pushes do not start `CI`. A version change without an existing remote `v<Version>` tag can still start release validation and publication; make such changes only as part of authorized release work. The target removes automatic validation/publication triggers and preserves explicit publication intent. Until that change is implemented, inspect the existing triggers before touching release inputs. Hosted NuGet publication currently uses trusted publishing; manual API-key publishing is described below.
 
 The release workflow publishes library packages to nuget.org and GitHub Packages, creates the `v<Version>` tag, creates or updates the matching GitHub Release, and uploads the three `.nupkg` files, `avascope-win-x64-framework-dependent.zip`, `avascope-linux-x64-framework-dependent.zip`, `avascope-osx-arm64-framework-dependent.zip`, `avascope-osx-x64-framework-dependent.zip`, Windows/Linux installer artifacts, and `artifacts\release-manifest.json`.
 

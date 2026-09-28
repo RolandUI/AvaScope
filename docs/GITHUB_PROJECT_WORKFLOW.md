@@ -31,6 +31,8 @@ The same rules apply to commit messages, PRs, release notes, project fields and 
 
 ## Required Agent Startup
 
+All implementation commits and pushes go directly to `master`. Do not create task branches, worktrees or pull requests. Review the local diff before committing; preserve existing work and never force-push or rewrite history.
+
 Before starting issue-backed implementation work:
 
 1. Inspect the current milestone and ready issues:
@@ -41,7 +43,7 @@ Before starting issue-backed implementation work:
 
 2. Pick exactly one issue to work on.
 3. Move it from `status:ready` or `status:backlog` to `status:in-progress`.
-4. Check that intended validation is covered by the issue's scope/acceptance description; update it only if missing or changed. Do not add a routine start comment.
+4. Select local, targeted CI or full CI using the [risk-based validation rules](VALIDATION.md#choose-validation-by-risk). Check the issue's acceptance description and update it only if missing or changed. Do not add a routine start comment.
 5. Update `docs/DEVELOPMENT_PLAN.md` only if its current-work checkpoint changes, using issue/result links and a short next step.
 
 For product work outside the active milestone, create or update the relevant issue first. Do not assign a release milestone without release scope. The small documentation/policy exception above does not require an issue.
@@ -130,11 +132,11 @@ GitHub's public Projects API currently supports project fields and items, but no
 
 When a slice is complete:
 
-1. Run the issue-specific validation plus the repo validation appropriate for the changed files. For documentation-only policy/prose edits, use the focused checks in [validation](VALIDATION.md); a full product build/CI run is unnecessary.
-2. Review the staged diff, commit message and any outgoing text/attachments against the information policy, then commit and push the slice.
+1. Run the issue-specific validation at the level justified by the change and its dependents. Neither completion of a slice/batch nor issue closure requires full CI by default. Documentation-only edits use the focused checks in [validation](VALIDATION.md).
+2. Review the staged diff, commit message and any outgoing text/attachments against the information policy, then commit and push the locally validated slice directly to `master` without a branch or PR.
 3. Record one concise issue result with commit, validation outcome and any remaining limitation. Include portable validation commands only when needed for reproduction; do not duplicate an existing result comment.
-4. Replace `status:in-progress` or `status:review` with `status:done`.
-5. Close the issue with reason `completed`.
+4. If required acceptance evidence is still pending, keep `status:review` (or `status:blocked` for an external dependency) and leave the issue open. A commit may be pushed before a required hosted check completes; do not present it as fully accepted.
+5. Once the issue's acceptance criteria pass, set `status:done` and close with reason `completed`. Local validation is sufficient when it establishes all required acceptance; a full CI run is not a universal prerequisite.
 6. Update `docs/DEVELOPMENT_PLAN.md` only if the active work, release or next step changed. Keep a current checkpoint with links, not the execution history.
 
-Release issues are closed only after the GitHub Release tag and assets exist.
+Release issues are closed only after the exact release candidate has complete applicable validation and the GitHub Release tag and assets exist. Release authorization and readiness are separate from committing or closing an implementation issue.

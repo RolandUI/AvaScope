@@ -18,10 +18,14 @@ Development in this repository is expected to be performed 100% by autonomous co
 
 ## Current Working And QA Policy
 
-User instructions from 2026-09-27:
+Owner policy updated on 2026-09-28:
 
-- Work directly on `master`. Do not create a task branch or worktree unless explicitly requested. Preserve existing work; never force-push or rewrite history to switch branches.
-- Batch fixes with focused local validation, then run one complete CI gate for the batch. Continue independent local work while that gate runs; do not dispatch CI per fix or commit. Documentation-only policy/prose changes use the focused checks in `docs/VALIDATION.md`; do not dispatch a full product gate for them.
+- Commit and push directly to `master`. Do not create task branches, worktrees or pull requests. Preserve existing work; never force-push or rewrite history.
+- Develop in small changes: reproduce the defect where applicable, add a relevant regression, build affected components and run focused tests plus the affected CLI/MCP or native journey. Include dependent behavior in the scope; reuse valid builds and rebuild only affected components.
+- Select validation by risk using `docs/VALIDATION.md`: local checks by default, targeted CI for necessary coverage unavailable locally, full CI before release or when cross-cutting risk cannot be covered by narrower checks. Completing a commit, issue or batch does not itself require full CI or a full local solution test run.
+- Dispatch CI deliberately from `master` only for an identified validation gap. State the source revision, relevant platforms/tests and reason briefly in the existing work context; do not add a separate reporting ritual. Do not introduce automatic push, PR or scheduled validation. Workflow alignment is tracked in `docs/DEVELOPMENT_PLAN.md`; existing YAML triggers are not authority to create PRs or run unnecessary gates.
+- Separate commit/push, issue acceptance and release readiness. Push locally validated coherent changes; close an issue when its specific acceptance criteria pass, without a blanket full-CI requirement. Keep missing required platform evidence pending and never imply that a later commit was covered by an earlier run.
+- Reuse successful checks only while their relevant source, tests, dependencies, configuration and environment remain applicable. On failure, diagnose and rerun the affected checks first; repeat a full gate only when the remaining risk requires it. Continue independent local work during a necessary CI run.
 - Report release status in chat; do not recreate previously cancelled status automations.
 - Local testing uses one reusable binary set and one current output directory. Keep its absolute location in local context, never in tracked documentation. Do not accumulate run directories or move the same accumulation to another drive.
 - Before local QA or cleanup, read any existing machine-specific handoff at the path returned by `git rev-parse --git-path info/avascope-local.md`. This optional file stays in Git metadata and must never be committed or uploaded; preserve local ownership and cleanup restrictions there when needed.
@@ -31,7 +35,7 @@ User instructions from 2026-09-27:
 - Keep the reusable local QA area below 8 GiB. Check usage before builds/downloads, clear completed outputs first, and do not start another large run when that budget would be exceeded. Download CI artifacts individually for inspection, then delete each unpacked artifact after recording the result.
 - Before recursive cleanup, verify exact absolute targets belong to the selected AvaScope QA area and that no live process uses them. Do not clean other projects, global caches, installed AvaScope or user data.
 
-This policy supersedes older campaign instructions to preserve every attempt or create a fresh binary snapshot for each charter. Historical local artifact links may intentionally be unavailable after cleanup; do not recreate them merely for archival completeness.
+This policy supersedes older blanket requirements for CI per batch or full local tests per slice, as well as campaign instructions to preserve every attempt or create a fresh binary snapshot for each charter. Specific acceptance and release evidence requirements still apply. Historical local artifact links may intentionally be unavailable after cleanup; do not recreate them merely for archival completeness.
 
 ## GitHub Information Policy
 

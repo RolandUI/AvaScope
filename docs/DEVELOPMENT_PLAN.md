@@ -18,4 +18,8 @@ No implementation issue is currently in progress. Follow-up scope remains in the
 
 Eleven investigations still have unresolved original timing, IPC, build or file-lock causes. Later passing checks do not establish those causes or justify closure. #157/#161 were accepted by the owner after Mac RC testing; no new independent agent Retina measurement is claimed. Publication does not establish complete coverage or a bug-free product.
 
-Next implementation work should select one actionable issue from GitHub and follow its current acceptance criteria. Reuse the local QA environment, perform focused validation, and run one complete gate per coherent implementation batch; do not repeat unchanged passing suites merely to close an unexplained failure.
+Next implementation work should select one actionable issue from GitHub and follow its current acceptance criteria. Commit and push directly to `master`, without branches, worktrees or PRs. Reuse the local QA environment and select checks using the [risk-based validation rules](VALIDATION.md#choose-validation-by-risk): local by default, targeted CI for required unavailable coverage, full CI before release or when narrower checks cannot cover the risk. Do not repeat unchanged passing suites merely to close an unexplained failure.
+
+## CI workflow alignment pending
+
+The development policy is adopted; workflow implementation is still pending. Remove automatic PR/push triggers in favor of explicit validation/publication dispatch, add selectable platform/job groups, reuse compatible builds, and coordinate CI/Release checks to avoid unnecessary repetition. Preserve exact-candidate release validation and explicit publication intent. Existing YAML still contains the PR trigger, automatic release trigger and broad CI jobs; this checkpoint does not claim those have changed.

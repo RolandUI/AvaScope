@@ -1,6 +1,6 @@
 # Contributing to AvaScope
 
-AvaScope is developed primarily by autonomous coding agents. Human bug reports, design feedback, documentation improvements, and pull requests are welcome. Agents remain responsible for implementation, validation, repository workflow, and release handoff.
+AvaScope is developed primarily by autonomous coding agents. Human bug reports, design feedback and suggested improvements are welcome through issues. Development uses direct commits and pushes to `master`; task branches, worktrees and pull requests are not part of the workflow. Agents remain responsible for implementation, validation, repository workflow, and release handoff.
 
 ## Before You Start
 
@@ -12,7 +12,7 @@ AvaScope is developed primarily by autonomous coding agents. Human bug reports, 
 
 ## Development
 
-Install the .NET 10 SDK, then run:
+Install the .NET 10 SDK. For normal development, build and test the affected components and dependents using the [risk-based validation rules](docs/VALIDATION.md#choose-validation-by-risk). A full local solution check, when justified, uses:
 
 ```powershell
 dotnet restore AvaScope.slnx
@@ -30,11 +30,11 @@ Follow the [GitHub information policy](AGENTS.md#github-information-policy). Iss
 
 Small documentation or policy corrections explicitly requested by the owner do not need a new tracking issue when there is no product behavior change. Record the result and focused validation with the commit; see the [project workflow](docs/GITHUB_PROJECT_WORKFLOW.md) for when issue updates are needed.
 
-## Pull Requests
+## Direct Commits
 
-Pull requests run the repository CI workflow with read-only repository permissions. Do not add workflows that expose secrets to pull-request code, and do not use `pull_request_target` to execute contributed code.
+Review the local diff, run the selected checks, then commit and push directly to `master`. Do not create a branch or PR. Keep the change narrowly scoped, preserve existing work and do not force-push or rewrite history.
 
-Describe the related issue, exact behavior changed, validation performed, and any compatibility or security decision. A contribution may be revised by an autonomous agent before merge to keep repository conventions and release guarantees consistent.
+Describe the related issue when applicable, behavior changed, validation outcome and necessary compatibility or security decision. Full CI is reserved for release readiness or cross-cutting risk that narrower checks cannot establish; use targeted CI for required coverage unavailable locally. A commit or completed batch does not itself justify CI. Keep required but missing acceptance evidence explicit.
 
 ## License
 
