@@ -2,7 +2,7 @@
 
 GitHub is the source of truth for AvaScope project execution.
 
-Use this document for issue, milestone, label, and project-board conventions. Keep `docs/DEVELOPMENT_PLAN.md` as a compact local handoff and validation log, not as the primary backlog.
+Use this document for issue, milestone, label, and project-board conventions. Follow the [GitHub information policy](../AGENTS.md#github-information-policy) for every published surface, including tracked documentation and attachments. Keep `docs/DEVELOPMENT_PLAN.md` as a compact public checkpoint, not a local work diary or the primary backlog.
 
 ## Source Of Truth
 
@@ -10,24 +10,41 @@ Use this document for issue, milestone, label, and project-board conventions. Ke
 - Release grouping: GitHub Milestones named `v<version>`, for example `v0.7.0`.
 - Active work state: `status:*` labels and the GitHub Project board.
 - Roadmap intent and release scope: `docs/RELEASE_PLAN.md`.
-- Local handoff and validation log: `docs/DEVELOPMENT_PLAN.md`.
+- Current release, active work and next-step links: `docs/DEVELOPMENT_PLAN.md`.
+- Machine-specific configuration and transient working notes: chat or verified untracked/ignored local storage, never tracked documentation.
+
+## What To Publish
+
+An issue or completion update should explain the problem and impact, the resulting change and necessary rationale, the validation outcome, and any remaining acceptance limitation. Link the relevant commit/test/CI result; include only the reproduction steps or sanitized evidence needed to assess it.
+
+Use repository-relative source paths and portable commands. Replace machine-specific locations with neutral placeholders such as `<repo>` or `<qa-root>`. Do not publish workstation paths, usernames, hostnames, private links, local session/process identifiers, temporary directories, raw tool payloads, full logs, notification/account details or cleanup transcripts. Keep environment details only when needed to reproduce or interpret the result. Inspect screenshots and attachments for the same information before uploading; do not attach a whole local evidence bundle by default.
+
+The same rules apply to commit messages, PRs, release notes, project fields and versioned reports. A local artifact path is not durable evidence for another reader. Prefer a regression test or relevant CI link; use a minimal sanitized excerpt/image when that is needed to explain the defect. Do not hide failing checks or uncertain coverage when summarizing.
+
+## Update Frequency
+
+- Labels and project fields record ordinary work-state changes. A start or unchanged-status comment is unnecessary.
+- Add one result per completed coherent slice, with its commit and concise validation outcome. Do not report every edit, command, test attempt or commit separately.
+- Before completion, comment only when scope/acceptance materially changes or an actionable blocker needs attention. Edit the existing description for corrections and current acceptance requirements instead of appending repetitive updates.
+- Give each result one authoritative home. The development plan and release trackers should link to it, not repeat the narrative. Replace stale checkpoint content rather than append a growing history.
+- Small documentation/policy corrections explicitly requested by the owner, without product behavior changes, can be recorded by their commit and validation summary. Reuse a relevant issue if one exists; do not create a ticket, milestone or plan entry only for bookkeeping.
 
 ## Required Agent Startup
 
-Before starting meaningful implementation work:
+Before starting issue-backed implementation work:
 
 1. Inspect the current milestone and ready issues:
 
    ```powershell
-   gh issue list --repo RolandUI/AvaScope --milestone v0.7.0 --state open --json number,title,labels,milestone,url
+   gh issue list --repo RolandUI/AvaScope --state open --json number,title,labels,milestone,url
    ```
 
 2. Pick exactly one issue to work on.
 3. Move it from `status:ready` or `status:backlog` to `status:in-progress`.
-4. Add a short issue comment stating the implementation start and intended validation.
-5. Mirror only the active issue and latest validation in `docs/DEVELOPMENT_PLAN.md`.
+4. Check that intended validation is covered by the issue's scope/acceptance description; update it only if missing or changed. Do not add a routine start comment.
+5. Update `docs/DEVELOPMENT_PLAN.md` only if its current-work checkpoint changes, using issue/result links and a short next step.
 
-If the user explicitly asks for work outside the active milestone, create or update the GitHub issue first, then implement.
+For product work outside the active milestone, create or update the relevant issue first. Do not assign a release milestone without release scope. The small documentation/policy exception above does not require an issue.
 
 ## Status Labels
 
@@ -113,11 +130,11 @@ GitHub's public Projects API currently supports project fields and items, but no
 
 When a slice is complete:
 
-1. Run the issue-specific validation plus the repo validation appropriate for the changed files.
-2. Commit and push the slice.
-3. Add an issue comment with commit hash, validation commands, and outcome.
+1. Run the issue-specific validation plus the repo validation appropriate for the changed files. For documentation-only policy/prose edits, use the focused checks in [validation](VALIDATION.md); a full product build/CI run is unnecessary.
+2. Review the staged diff, commit message and any outgoing text/attachments against the information policy, then commit and push the slice.
+3. Record one concise issue result with commit, validation outcome and any remaining limitation. Include portable validation commands only when needed for reproduction; do not duplicate an existing result comment.
 4. Replace `status:in-progress` or `status:review` with `status:done`.
 5. Close the issue with reason `completed`.
-6. Update `docs/DEVELOPMENT_PLAN.md` with the latest validation and next GitHub issue.
+6. Update `docs/DEVELOPMENT_PLAN.md` only if the active work, release or next step changed. Keep a current checkpoint with links, not the execution history.
 
 Release issues are closed only after the GitHub Release tag and assets exist.

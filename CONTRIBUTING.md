@@ -24,6 +24,12 @@ Windows installer packaging additionally requires Inno Setup. Linux installer pa
 
 Every meaningful change should include relevant tests, or a clear validation note when automated testing does not apply. Update user and stable-surface documentation when behavior, commands, protocols, packages, or artifacts change.
 
+## Published Information
+
+Follow the [GitHub information policy](AGENTS.md#github-information-policy). Issues, PRs, commits, documentation and attachments should contain only the problem, relevant change/rationale, validation outcome and necessary limitations. Use repository-relative paths or neutral placeholders in reproductions; omit local usernames, workstation paths and identifiers, private links and temporary QA details. Review logs and screenshots before sharing and include only the relevant sanitized excerpt. Keep execution notes local and link to existing results instead of repeating them.
+
+Small documentation or policy corrections explicitly requested by the owner do not need a new tracking issue when there is no product behavior change. Record the result and focused validation with the commit; see the [project workflow](docs/GITHUB_PROJECT_WORKFLOW.md) for when issue updates are needed.
+
 ## Pull Requests
 
 Pull requests run the repository CI workflow with read-only repository permissions. Do not add workflows that expose secrets to pull-request code, and do not use `pull_request_target` to execute contributed code.

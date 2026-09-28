@@ -1,6 +1,8 @@
 # AvaScope Validation
 
-Run these commands from the repository root before marking a development slice complete:
+For documentation-only policy or prose changes, review the diff for correctness and consistency, check affected relative links, scan outgoing content for machine-specific information, and run `git diff --check`. Record that validation without rebuilding the product or dispatching a full CI gate. Executable examples, generated contracts, scripts or product behavior changes still require their relevant tests. The [GitHub information policy](../AGENTS.md#github-information-policy) applies to all published validation summaries and evidence.
+
+For product implementation changes, run these commands from the repository root before marking a development slice complete:
 
 ```powershell
 dotnet restore AvaScope.slnx

@@ -21,9 +21,10 @@ Development in this repository is expected to be performed 100% by autonomous co
 User instructions from 2026-09-27:
 
 - Work directly on `master`. Do not create a task branch or worktree unless explicitly requested. Preserve existing work; never force-push or rewrite history to switch branches.
-- Batch fixes with focused local validation, then run one complete CI gate for the batch. Continue independent local work while that gate runs; do not dispatch CI per fix or commit.
-- The owner deleted the scheduled Gmail status monitor on 2026-09-28. Do not recreate it; report release status in this chat.
-- Local testing uses one reusable binary set and one current output directory. On this machine use `D:/AvaScope-QA-active/current`; do not accumulate run directories on C: or move the same accumulation into an archive on D:.
+- Batch fixes with focused local validation, then run one complete CI gate for the batch. Continue independent local work while that gate runs; do not dispatch CI per fix or commit. Documentation-only policy/prose changes use the focused checks in `docs/VALIDATION.md`; do not dispatch a full product gate for them.
+- Report release status in chat; do not recreate previously cancelled status automations.
+- Local testing uses one reusable binary set and one current output directory. Keep its absolute location in local context, never in tracked documentation. Do not accumulate run directories or move the same accumulation to another drive.
+- Before local QA or cleanup, read any existing machine-specific handoff at the path returned by `git rev-parse --git-path info/avascope-local.md`. This optional file stays in Git metadata and must never be committed or uploaded; preserve local ownership and cleanup restrictions there when needed.
 - Reuse the selected CLI/MCP/client, Direct host, standalone host and provider across cases. Record their source revision once and rebuild only affected components when source changes. Do not copy or hash whole build/runtime trees for every case. Stop owned apps before replacing binaries.
 - After checking a case, discard successful raw responses, repeated screenshots and temporary render/build outputs. After a defect is fixed and validated, delete its local historical artifacts. GitHub issues, commits and regression tests are the lasting record; no local archive is required.
 - While an issue or batch is still open, keep only the minimal failing request/response, relevant log excerpt and necessary image or TRX. Do not keep runtime dependencies, PDB trees, package copies or all prior successful runs as evidence. Delete pending batch artifacts when that batch closes.
@@ -32,16 +33,29 @@ User instructions from 2026-09-27:
 
 This policy supersedes older campaign instructions to preserve every attempt or create a fresh binary snapshot for each charter. Historical local artifact links may intentionally be unavailable after cleanup; do not recreate them merely for archival completeness.
 
+## GitHub Information Policy
+
+GitHub records the development rationale and verified result, not the agent's local work diary. This policy applies to tracked files (including this file and `docs/DEVELOPMENT_PLAN.md`), commit messages, issues, comments, pull requests, project updates, release notes and uploaded evidence. It supersedes older reporting instructions that request more detail.
+
+- Publish only information needed to understand the problem, scope, solution, important decisions, validation outcome and remaining limitations. Include minimal reproduction steps when useful, with relevant commit, source or CI links.
+- Never publish workstation-specific absolute paths, local usernames, hostnames, private URLs, local session/process identifiers, temporary QA locations, unrelated machine inventory or personal notification/account details. Use repository-relative paths or neutral placeholders such as `<repo>` and `<qa-root>`; retain OS/runtime/version details only when they explain behavior or validation coverage.
+- Keep raw tool responses, full logs, repeated screenshots, command transcripts, cleanup histories and step-by-step agent activity local. If evidence is necessary, publish only the relevant sanitized excerpt or image. Inspect attachments, generated reports and staged diffs as well as prose before publishing; a file being generated or ignored locally does not make it safe to upload.
+- Keep machine-specific instructions and transient handoff state in chat or verified untracked/ignored local storage. A tracked file is published documentation even when named a plan, report or handoff. Do not create another permanent work diary.
+- Report meaningful outcomes, scope changes or actionable blockers. Use labels/project fields for ordinary state transitions; no mandatory start comments, per-commit reports, unchanged status updates or duplicated results across issues and docs.
+- Keep validation failures, uncertainty and missing coverage explicit when they affect acceptance. Concision must not turn an unverified result into a passing claim.
+- These are publication rules, not changes to AvaScope's local tool response or evidence contracts. Historical cleanup is a separately scoped task; adding this policy does not remove prior GitHub content or Git history.
+
 ## GitHub Project Workflow
 
-GitHub Issues, Milestones, and the `AvaScope Roadmap` Project board are the primary project-management and progress-tracking source for this repository. `docs/DEVELOPMENT_PLAN.md` is a compact local handoff and validation log, not the primary backlog.
+GitHub Issues, Milestones, and the `AvaScope Roadmap` Project board are the primary project-management and progress-tracking source for this repository. `docs/DEVELOPMENT_PLAN.md` is a compact, publishable checkpoint with current work and links to authoritative results, not a local log or duplicate backlog.
 
 - Every agent must inspect the relevant GitHub issue, GitHub milestone, `docs/GITHUB_PROJECT_WORKFLOW.md`, and `docs/DEVELOPMENT_PLAN.md` before starting meaningful implementation work.
 - Development must follow the selected GitHub issue's scope, acceptance criteria, milestone, labels, and validation notes unless the requested task explicitly changes that scope.
 - Keep at most one issue marked `status:in-progress` unless the user explicitly asks for parallel work.
-- Before implementation, move the selected issue to `status:in-progress` and add a short start comment with the intended validation.
-- After each meaningful change, update the issue with commit hash, validation result, and any non-obvious decision; mirror only the latest active issue and validation summary in `docs/DEVELOPMENT_PLAN.md`.
-- If GitHub issues or milestones conflict with local docs, treat GitHub as current, update the local docs, and record the reason in the issue or development-plan log.
+- Before implementation, move the selected issue to `status:in-progress`. Record intended validation in the issue's existing scope/acceptance description only if it is missing or changed; do not add a routine start comment.
+- At a completed coherent slice, record one concise issue result with commit, validation outcome and any necessary decision or limitation. Comment earlier only for a material scope change or actionable blocker. Update `docs/DEVELOPMENT_PLAN.md` only when its current-work, release or next-step checkpoint changes; link to the result instead of copying it.
+- For a small, explicitly requested documentation or policy correction with no product behavior change, a commit and validation summary are sufficient. Do not create an issue, milestone, start/completion comment or plan entry solely to log the agent's activity; use a relevant existing issue if there is one.
+- If GitHub issues or milestones conflict with tracked docs, treat GitHub as current and correct the stale summary. Record a necessary explanation once in the authoritative issue, without duplicating the work history.
 - Do not close an issue until its acceptance criteria and validation commands have passed.
 - Commit and push each completed vertical slice or coherent milestone part; do not leave commit, push, test, validation, issue updates, or release handoff for the user.
 
